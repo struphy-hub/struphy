@@ -44,6 +44,7 @@
 \newcommand{\vpar}{v_{\mr{th}\parallel}}
 \newcommand{\vperp}{v_{\mr{th}\perp}}
 
+
 %% Stylefile to load JCOMP template
 \usepackage{jcomp}
 \usepackage{framed,multirow}
@@ -56,6 +57,8 @@
 \usepackage[overload]{empheq}
 \usepackage{calc}
 \usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage[toc,page]{appendix}
 
 
 % Following three lines are needed for this document.
@@ -95,7 +98,7 @@
 
 \begin{abstract}
 %%%
-Two numerical methods, which both belong to well-known class of finite elements methods have been applied on a four-dimensional (one dimension in real space and three dimensions in velocity space) hybrid plasma model for electrons in a stationary, neutralizing background of ions. Here, the term \textit{hybrid} means that (energetic) electrons with velocities close to the phase velocities of the model's characteristic waves are treated kinetically whereas electrons that are much slower than the phase velocity are treated with fluid equations. The two developed numerical schemes, which belong on the one hand to the class of standard finite elements and on the other hand to the more modern class of \textit{finite element exterior calculus} (FEEC), have been implemented, tested successfully by using results from the analytical theory in the linear stage and compared in terms of long-term energy conservation, which is expected on the continuous level. Regarding the latter, it turned out that FEEC applied on the model leads to a large system on ordinary differential equations in time that exhibits a non-canonical Hamiltonian structure for which special time integration schemes with good conservation properties exist.
+Two numerical methods, which both belong to class of finite element particle-in-cell methods have been applied on a four-dimensional (one dimension in real space and three dimensions in velocity space) hybrid plasma model for electrons in a stationary, neutralizing background of ions. Here, the term \textit{hybrid} means that (energetic) electrons with velocities close to the phase velocities of the model's characteristic waves are treated kinetically whereas electrons that are much slower than the phase velocity are treated with fluid equations. The two developed numerical schemes, which belong on the one hand to the class of standard finite element particle-in-cell methods and on the other hand to the more modern class of structure-preserving finite element particle-in-cell methods which use methods from the \textit{finite element exterior calculus} (FEEC), have been implemented, tested successfully by using results from the analytical theory in the linear stage and compared in terms of long-term energy conservation, which is expected on the continuous level. Regarding the latter, we show that FEEC applied on the model leads to better results which is due to the fact the spatial discretization gives rise to a large system of ordinary differential equations in time that exhibits a non-canonical Hamiltonian structure for which special time integration schemes with good conservation properties exist.
 %%%%
 \end{abstract}
 
@@ -115,7 +118,7 @@ Two numerical methods, which both belong to well-known class of finite elements 
  
 \section{Introduction}
 \label{sec_intro}
-We present a comparison of two novel algorithms for the numerical solution of a hybrid plasma model in order to demonstrate similarities and differences of standard finite element particle-in-cell methods compared to structure-preserving finite element particle-in-cell methods. The latter use methods from the \textit{finite element exterior calculus} \citep{Arnoldetal2006, Arnoldetal2010} and were first introduced by Kraus et. al for the full six-dimensional Vlasov-Maxwell model (see \citep{Krausetal2017}). By taking into account the geometric structure of the system of equations in terms of differential geometry, such methods naturally preserve conservation laws like conservation of charge or energy exactly on the semi-discrete level (discrete in space and continuous in time). As shown by Arnold, Falk and Winther, this is crucial to obtain stable algorithms. In this work, we shall apply these methods as well as standard finite element particle-in-cell methods on an extended model which falls into the class of so-called \textit{hybrid} plasma models which use a combined fluid/kinetic description for different particle species in order to get a good balance between accuracy (kinetic models) and computational costs (fluid models). 
+We present a comparison of two novel algorithms for the numerical solution of a hybrid plasma model in order to demonstrate similarities and differences of standard finite element particle-in-cell methods compared to structure-preserving finite element particle-in-cell methods. The latter use methods from the \textit{finite element exterior calculus} \citep{Arnoldetal2006, Arnoldetal2010} and were first introduced by Kraus et. al for the full six-dimensional Vlasov-Maxwell model (see \citep{Krausetal2017}). By taking into account the geometric structure of the system of equations in terms of differential geometry, such methods naturally preserve conservation laws like conservation of charge or energy exactly as well as the two Gauss' laws of electrodynamics, $\nabla\cdot\mb{E}=\rho/\epsilon_0$ and $\nabla\cdot\mb{B}=0$ exactly on the semi-discrete level (discrete in space and continuous in time). As shown by Arnold et al., this is crucial to obtain stable algorithms. In this work, we shall apply these methods as well as standard finite element particle-in-cell methods on an extended model which falls into the class of so-called \textit{hybrid} plasma models which use a combined fluid/kinetic description for different particle species in order to get a good balance between accuracy (kinetic models) and computational costs (fluid models). 
  
 \section{Theoretical background}
 \label{sec_theory}
@@ -370,13 +373,13 @@ Since we want (\ref{eq_matrix_formulation_2}) to be true for all $\mathbb{V}$, w
 \end{align}
 for the time evolution of all finite element coefficients $\mb{u}\in\mathbb{R}^{6N}$.
 
-Having done the spatial discretization, the next step is to apply a time stepping scheme on above system. Here, we use a second-order Crank-Nicolson scheme which consists of applying a mid-point rule on the quantities on the right-hand side. Denoting the time step by $n$, i.e. $t_n=n\Delta t$, the fully discrete matrix formulation for advancing $\mb{u}^n\rightarrow\mb{u}^{n+1}$ then reads
+Having done the spatial discretization, the next step is to apply a time stepping scheme on above system. Here, we use a second-order Crank-Nicolson scheme \citep{Cranketal1947} which consists of applying a mid-point rule on the quantities on the right-hand side. Denoting the time step by $n$, i.e. $t_n=n\Delta t$, the fully discrete matrix formulation for advancing $\mb{u}^n\rightarrow\mb{u}^{n+1}$ then reads
 \begin{align}
 \left(\mathbb{M}_\mr{b}+\frac{1}{2}\Delta t\tilde{\mathbb{C}}+\frac{1}{2}\Delta t\tilde{\mathbb{M}}\right)\mb{u}^{n+1}=\left(\mathbb{M}_\mr{b}-\frac{1}{2}\Delta t\tilde{\mathbb{C}}-\frac{1}{2}\Delta t\tilde{\mathbb{M}}\right)\mb{u}^n+\frac{1}{2}\Delta t\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right).\label{eq_Crank_Nicolson}
 \end{align}
 We immediately see that this time stepping scheme involves the inversion of the matrix on the left-hand side. However, since this must be done only once in the very beginning of a simulation, this is not considered to be a problem.
 
-Let us now construct a basis of the finite-dimensional sub-space $\mathcal{S}_h$ with $\dim\mathcal{S}_h=N$. We do this with a family of B-splines, which are piecewise polynomials of degree $p$. The set of basis functions is fully determined by a sequence of $m+1$ points (or knots) $0=z_0\leq z_1\leq\ldots\leq z_m=L$ which defines a knot vector $T=(z_0,z_1,\ldots,z_m)$. For degree $p=0$ the basis functions $(\varphi_j^{p=0})_{j=0,\ldots,m-1}$ are defined by
+Let us now construct a basis of the finite-dimensional sub-space $\mathcal{S}_h$ with $\dim\mathcal{S}_h=N$. We do this with a family of B-splines \citep{Ratnanietal2012}, which are piecewise polynomials of degree $p$. The set of basis functions is fully determined by a sequence of $m+1$ points (or knots) $0=z_0\leq z_1\leq\ldots\leq z_m=L$ which defines a knot vector $T=(z_0,z_1,\ldots,z_m)$. For degree $p=0$ the basis functions $(\varphi_j^{p=0})_{j=0,\ldots,m-1}$ are defined by
 \begin{align}
 \varphi_{j}^0(z)=\begin{cases}
 1\quad z\in [z_j,\,z_{j+1})\\0 \quad\text{else}.
@@ -422,7 +425,7 @@ where $N_\mb{p}$ is the number of particles, $w_k$ is the weight of the $k$-th p
 &\frac{\mr{d}z_k}{\mr{d}t}=v_{kz}, &z_k(0)=z_k^0.
 \end{alignat}
 \end{subequations}
-We solve this set of ordinary differential equations in time with the classical Boris method which uses a staggered grid for positions and velocities, i.e. positions are computed at integer time steps ($z_k^n \rightarrow z_k^{n+1}$), whereas velocities are computed at interleaved time steps ($\mb{v}_k^{n-1/2}\rightarrow\mb{v}_k^{n+1/2}$). With this particle approach, the integrals over the current contribution from the energetic electrons appearing in (\ref{eq_def_righthandside}) can be estimated with the usual Monte Carlo interpretation in the following manner:
+We solve this set of ordinary differential equations in time with the classical Boris method which uses a staggered grid for positions and velocities, i.e. positions are computed at integer time steps ($z_k^n \rightarrow z_k^{n+1}$), whereas velocities are computed at interleaved time steps ($\mb{v}_k^{n-1/2}\rightarrow\mb{v}_k^{n+1/2}$) \citep{Boris1970, Birdsalletal2004, Qinetal2013}. With this particle approach, the integrals over the current contribution from the energetic electrons appearing in (\ref{eq_def_righthandside}) can be estimated with the usual Monte Carlo interpretation in the following manner:
 \begin{align}
 \int_0^Lj_{\mr{h}x/y}\varphi_j(z)\mr{d}z\approx q_\mr{e}\sum_{k=1}^{N_\mr{p}}\left[v_{kx/y}(t)\frac{1}{N_\mr{p}}\frac{f_\mr{h}^0(z_k^0,\mb{v}_k^0)}{g_\mr{h}^0(z_k^0,\mb{v}_k^0)}\varphi_j(z_k(t))\right]:=q_\mr{e}\sum_{k=1}^{N_\mr{p}}\left[v_{kx/y}(t)w_k\varphi_j(z_k(t))\right],\label{eq_hotcurrent_weak}
 \end{align} 
@@ -453,13 +456,13 @@ Now we have everything to write down an algorithm for numerically solving the mo
 \end{subequations}
 \item Compute the particle velocities $(v_{kx}^{-1/2},v_{ky}^{-1/2},v_{kz}^{-1/2})_{k=1,\ldots,N_\mr{p}}$ by applying the Boris algorithm with the time step $\tilde{\Delta t}=-\Delta t/2$.
 \item Start the time loop:
-\begin{enumerate}
-\item Update the particle positions ($z_k^n \rightarrow z_k^{n+1}$) and velocities ($\mb{v}_k^n\rightarrow\mb{v}_k^{n+1}$) by applying the Boris algorithm with the time step $\Delta t$.\label{eq_time_loop_1}
-\item Assemble the source term $\Delta t/2\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right)$ in the scheme (\ref{eq_Crank_Nicolson}) according to formula (\ref{eq_average_source_term}).
-\item Update the finite element coefficients ($\mb{u}^n\rightarrow\mb{u}^{n+1}$) according to the scheme (\ref{eq_Crank_Nicolson}) with the time step $\Delta t$.
-\item Compute the new fields at the particle positions by using formulas (\ref{eq_fields_particles}).
-\item Got to \ref{eq_time_loop_1}.
-\end{enumerate} 
+	\begin{enumerate}[label*=\arabic*]
+	\item Update the particle positions ($z_k^n \rightarrow z_k^{n+1}$) and 	velocities ($\mb{v}_k^n\rightarrow\mb{v}_k^{n+1}$) by applying the Boris algorithm 	with the time step $\Delta t$.\label{eq_time_loop_1}
+	\item Assemble the source term $\Delta t/2\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right)$ in the scheme (\ref{eq_Crank_Nicolson}) according to formula (\ref{eq_average_source_term}).
+	\item Update the finite element coefficients ($\mb{u}^n\rightarrow\mb{u}^{n+1}$) according to the scheme (\ref{eq_Crank_Nicolson}) with the time step $\Delta t$.
+	\item Compute the new fields at the particle positions according to formulas (\ref{eq_fields_particles}).
+	\item Go to 7.1
+	\end{enumerate} 
 \end{enumerate}
 \newpage
 
@@ -641,11 +644,11 @@ We again follow \citep{Krausetal2017} and choose a splitting scheme for the time
 \begin{align}
 H_h=H_E+H_B+H_Y+H_x+H_y+H_z,
 \end{align} 
-in order to obtain six subsystems which still have the form (\ref{eq_Hamiltonian_structure}), however, with a simpler Hamiltonian, respectively. We find that each of the subsystems can be solved analytically in the way listed in the appendix, which means that we get a set of six Poisson integrators denoted by $\Phi_{\Delta t}^E$, $\Phi_{\Delta t}^B$, $\Phi_{\Delta t}^Y$, $\Phi_{\Delta t}^x$, $\Phi_{\Delta t}^y$ and $\Phi_{\Delta t}^z$, which can be applied successively in some specific order to advance $\mb{u}$ by a time step $\Delta t$. The easiest composition is the first-order Lie-Trotter splitting, which consists of simply applying each integrator on after the other:
+in order to obtain six subsystems which still have the form (\ref{eq_Hamiltonian_structure}), however, with a simpler Hamiltonian, respectively. We find that each of the subsystems can be solved analytically in the way listed in the appendix, which means that we get a set of six Poisson integrators denoted by $\Phi_{\Delta t}^E$, $\Phi_{\Delta t}^B$, $\Phi_{\Delta t}^Y$, $\Phi_{\Delta t}^x$, $\Phi_{\Delta t}^y$ and $\Phi_{\Delta t}^z$, which can be applied successively in some specific order to advance $\mb{u}$ by a time step $\Delta t$. The easiest composition is the first-order Lie-Trotter splitting \citep{Trotter1959}, which consists of simply applying each integrator on after the other:
 \begin{align}
 \Phi_{\Delta t}^L:=\Phi_{\Delta t}^z\circ\Phi_{\Delta t}^y\circ\Phi_{\Delta t}^x\circ\Phi_{\Delta t}^Y\circ\Phi_{\Delta t}^B\circ\Phi_{\Delta t}^E.\label{eq_LieTrotter}
 \end{align}
-It is important to note that the input to each integrator must be the output of the previous integrator which has the consequence that if the magnetic field coefficients $\mb{b}_x$ and $\mb{b}_y$ change, for instance, the matrices $\mathbb{B}_{x/y}=\mathbb{B}_{x/y}(\mb{Z},\mb{b}_{x/y})$ need to be updated. Furthermore, we use the second order, symmetric Strang splitting
+It is important to note that the input to each integrator must be the output of the previous integrator which has the consequence that if the magnetic field coefficients $\mb{b}_x$ and $\mb{b}_y$ change, for instance, the matrices $\mathbb{B}_{x/y}=\mathbb{B}_{x/y}(\mb{Z},\mb{b}_{x/y})$ need to be updated. Furthermore, we use the second order, symmetric Strang splitting \citep{Strang1968}
 \begin{align}
 \Phi_{\Delta t}^S:=\Phi_{\Delta t/2}^z\circ\Phi_{\Delta t/2}^y\circ\Phi_{\Delta t/2}^x\circ\Phi_{\Delta t/2}^Y\circ\Phi_{\Delta t/2}^B\circ\Phi_{\Delta t/2}^E\circ\Phi_{\Delta t}^E\circ\Phi_{\Delta t}^B\circ\Phi_{\Delta t}^Y\circ\Phi_{\Delta t}^x\circ\Phi_{\Delta t}^y\circ\Phi_{\Delta t}^z.\label{eq_Strang}
 \end{align} 
@@ -659,10 +662,10 @@ Finally, like it was done in the previous section, we want to summarize the algo
 \item Sample the initial positions $(z_k^0)_{k=1,\ldots,N_\mr{p}}$ and velocities $(v_{kx}^0,v_{ky}^0,v_{kz}^0)_{k=1,\ldots,N_\mr{p}}$ according to the sampling distribution (\ref{eq_sampling_distribution}) by using a random number generator and compute the weights $w_k=n_{\mr{h}0}L/N_\mr{p}$.
 \item Assemble the matrices $\mathbb{G}$ (\ref{eq_discrete_gradient}), $\mathbb{Q}^0(\textbf{Z}^0)$ (\ref{eq_def_Q0}), $\mathbb{Q}^1(\textbf{Z}^0)$ (\ref{eq_def_Q1}), $\mathbb{B}_x(\textbf{Z}^0,\textbf{b}_x^0)$ (\ref{eq_def_Bxy}), $\mathbb{B}_y(\textbf{Z}^0,\textbf{b}_y^0)$ (\ref{eq_def_Bxy}) and $\mathbb{W}$ (\ref{eq_def_W}).
 \item Start the time loop:
-\begin{enumerate}
-\item Apply one of the time integrators (\ref{eq_LieTrotter}) (Lie-Trotter) or (\ref{eq_Strang}) (Strang) for a time step $\Delta t$ in order to update $\textbf{e}_x^n$, $\textbf{e}_y^n$, $\textbf{b}_x^n$, $\textbf{b}_y^n$, $\textbf{y}_x^n$, $\textbf{y}_y^n$, $\textbf{Z}^n$, $\textbf{V}_x^n$, $\textbf{V}_y^n$, $\textbf{V}_z^n$ $\rightarrow$ $\textbf{e}_x^{n+1}$, $\textbf{e}_y^{n+1}$, $\textbf{b}_x^{n+1}$, $\textbf{b}_y^{n+1}$, $\textbf{y}_x^{n+1}$, $\textbf{y}_y^{n+1}$, $\textbf{Z}^{n+1}$, $\textbf{V}_x^{n+1}$, $\textbf{V}_y^{n+1}$, $\textbf{V}_z^{n+1}$. The single integrators are listed in the Appendix.
-\item Go to a)
-\end{enumerate}
+	\begin{enumerate}[label*=\arabic*]
+	\item Apply one of the time integrators (\ref{eq_LieTrotter}) (Lie-Trotter) or (\ref{eq_Strang}) (Strang) for a time step $\Delta t$ in order to update $\textbf{e}_x^n$, $\textbf{e}_y^n$, $\textbf{b}_x^n$, $\textbf{b}_y^n$, $\textbf{y}_x^n$, $\textbf{y}_y^n$, $\textbf{Z}^n$, $\textbf{V}_x^n$, $\textbf{V}_y^n$, $\textbf{V}_z^n$ $\rightarrow$ $\textbf{e}_x^{n+1}$, $\textbf{e}_y^{n+1}$, $\textbf{b}_x^{n+1}$, $\textbf{b}_y^{n+1}$, $\textbf{y}_x^{n+1}$, $\textbf{y}_y^{n+1}$, $\textbf{Z}^{n+1}$, $\textbf{V}_x^{n+1}$, $\textbf{V}_y^{n+1}$, $\textbf{V}_z^{n+1}$. The single integrators are listed in \ref{sec_appendix}.
+	\item Go to 7.1
+	\end{enumerate}
 \end{enumerate} 
 \newpage
 \section{Numerical results}
@@ -697,6 +700,8 @@ Time step & $0.0125|\Omega_\mr{ce}|$ \\
 \hline
 \end{tabular}
 \end{wraptable}
+
+
 In this section, we present results for a single test run obtained with the two developed algorithms explained in the previous sections. For this test run, we initialize the codes as follows: We choose an anisotropic Maxwellian for the energetic electrons and perturb the $x$-component of the magnetic wave field by 
 \begin{align}
 \tilde{B}_x(z,t=0)=a\sin(kz),
@@ -723,15 +728,11 @@ Finally, we check the conservation of the total energy in the system and plot in
 In this work, we have presented two different finite element particle-in-cell algorithms for a four-dimensional hybrid plasma model and compared the results for a single test run. The considered hybrid plasma model is a combined kinetic/fluid description for a magnetized plasma, which consists of cold (fluid) electrons and energetic (kinetic) electrons that move in a stationary, neutralizing background of ions. The model's key physics content for wave propagation parallel to a uniform background magnetic field is that it predicts the existence of growing/damped modes due to energy exchange between the energetic electrons which propagate in the cold plasma.
 
 For this case, first, a combination of one-dimensional B-spline finite elements for Maxwell's equations and the momentum balance equation for the cold electrons and the standard particle-in-cell method with a Boris particle pusher for the Vlasov equation (one dimension in real space and three dimensions in velocity space) has been applied in an intuitive way without taking into account the geometric structure of partial differential equations. Second, geometric finite element particle-in-cell methods \citep{Krausetal2017} which use tools from the \textit{finite element exterior calculus} have been applied on the same model. By choosing finite elements spaces and projectors on these spaces satisfying a commuting diagram with the continuous spaces, a semi-discrete system (discrete in space and continuous in time) with a non-canonical Hamiltonian structure for the time evolution of all finite element coefficients and particle configurations has been derived. Consequently, this systems exhibits exact energy conservation. The subsequent construction of Poisson time integrators by splitting the Hamiltonian and analytically solving the resulting subsystems has led to a bounded error in the conservation of energy for the presented numerical experiment.  
-\section*{Acknowledgments}
-
-
-%%Vancouver style references.
-\bibliographystyle{model1-num-names}
-\bibliography{refs}
 
 \newpage
-\section*{Appendix A. Time integrators for Hamiltonian splitting}
+\appendix
+\section{Time integrators for Hamiltonian splitting}
+\label{sec_appendix}
 \noindent \textbf{Problem 1}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$ we have
 \begin{align}
 \frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_E(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{\epsilon_0}{2}(\textbf{e}_x^\top\mathbb{M}^0\textbf{e}_x+\textbf{e}_y^\top\mathbb{M}^0\textbf{e}_y)\right].
@@ -860,6 +861,10 @@ This can be solved analytically as
 \end{alignat}
 \end{subequations}
 The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^z(\textbf{u}^0)$.
+
+%%Vancouver style references.
+\bibliographystyle{model1-num-names}
+\bibliography{refs}
 \end{document}
 
 %%

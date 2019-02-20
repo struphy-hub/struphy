@@ -1,4 +1,4 @@
-\begin{thebibliography}{3}
+\begin{thebibliography}{10}
 \expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
 \providecommand{\url}[1]{\texttt{#1}}
 \providecommand{\href}[2]{#2}
@@ -35,7 +35,57 @@
   \bibinfo{author}{P.~Morrison}, \bibinfo{author}{E.~Sonnendrücker},
 \newblock \bibinfo{title}{Gempic: geometric electromagnetic particle-in-cell
   methods},
-\newblock \bibinfo{journal}{Journal of Plasma Physics} \bibinfo{volume}{83}
+\newblock \bibinfo{journal}{{Journal of Plasma Physics}} \bibinfo{volume}{83}
   (\bibinfo{year}{2017}) \bibinfo{pages}{905830401}.
+%Type = Article
+\bibitem[{Crank and Nicolson(1947)}]{Cranketal1947}
+\bibinfo{author}{J.~Crank}, \bibinfo{author}{P.~Nicolson},
+\newblock \bibinfo{title}{{A practical method for numerical evaluation of
+  solutions of partial differential equations of the heat-conduction type}},
+\newblock \bibinfo{journal}{Mathematical Proceedings of the Cambridge
+  Philosophical Society} \bibinfo{volume}{43} (\bibinfo{year}{1947})
+  \bibinfo{pages}{50–67}.
+%Type = Article
+\bibitem[{Ratnani and Sonnendrücker(2012)}]{Ratnanietal2012}
+\bibinfo{author}{A.~Ratnani}, \bibinfo{author}{E.~Sonnendrücker},
+\newblock \bibinfo{title}{An arbitrary high-order spline finite element solver
+  for the time domain maxwell equations},
+\newblock \bibinfo{journal}{J. Sci. Comput.} \bibinfo{volume}{51}
+  (\bibinfo{year}{2012}) \bibinfo{pages}{87--106}.
+%Type = Inproceedings
+\bibitem[{Boris(1970)}]{Boris1970}
+\bibinfo{author}{J.~P. Boris},
+\newblock \bibinfo{title}{{Relativistic plasma-simulation - optimization of a
+  hybrid code}},
+\newblock in: \bibinfo{booktitle}{Proceedings of the Fourth Conference on
+  Numerical Simulation of Plasmas}, \bibinfo{publisher}{Naval Research
+  Laboratory}, \bibinfo{year}{1970}, pp. \bibinfo{pages}{3--67}.
+%Type = Book
+\bibitem[{Birdsall and Langdon(2004)}]{Birdsalletal2004}
+\bibinfo{author}{C.~K. Birdsall}, \bibinfo{author}{A.~B. Langdon},
+  \bibinfo{title}{{Plasma Physics via Computer Simulation}}, {Series in Plasma
+  Physics}, \bibinfo{publisher}{Taylor and Francis Group},
+  \bibinfo{year}{2004}.
+%Type = Article
+\bibitem[{Qin et~al.(2013)Qin, Zhang, Xiao, Liu, Sun, and Tang}]{Qinetal2013}
+\bibinfo{author}{H.~Qin}, \bibinfo{author}{S.~Zhang},
+  \bibinfo{author}{J.~Xiao}, \bibinfo{author}{J.~Liu},
+  \bibinfo{author}{Y.~Sun}, \bibinfo{author}{W.~M. Tang},
+\newblock \bibinfo{title}{Why is boris algorithm so good?},
+\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{20}
+  (\bibinfo{year}{2013}) \bibinfo{pages}{084503}.
+%Type = Article
+\bibitem[{Trotter(1959)}]{Trotter1959}
+\bibinfo{author}{H.~F. Trotter},
+\newblock \bibinfo{title}{On the product of semi-groups of operators},
+\newblock \bibinfo{journal}{Proc. Am. Math. Soc.} \bibinfo{volume}{10}
+  (\bibinfo{year}{1959}) \bibinfo{pages}{545--551}.
+%Type = Article
+\bibitem[{Strang(1968)}]{Strang1968}
+\bibinfo{author}{G.~Strang},
+\newblock \bibinfo{title}{On the construction and comparison of difference
+  schemes},
+\newblock \bibinfo{journal}{SIAM J. Numer. Anal.} \bibinfo{volume}{5}
+  (\bibinfo{year}{1968}) \bibinfo{pages}{506--517}.
 
 \end{thebibliography}
