@@ -1,0 +1,402 @@
+%% This is file `jcomp-template.tex',
+%% 
+%% Copyright 2017 Elsevier Ltd
+%% 
+%% This file is part of the 'Elsarticle Bundle'.
+%% ---------------------------------------------
+%% 
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%% 
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%% 
+%% Template article for Elsevier's document class `elsarticle'
+%% with harvard style bibliographic references
+%%
+%% $Id: jcomp-template.tex 100 2017-07-14 13:15:12Z rishi $
+%%
+%% Use the option review to obtain double line spacing
+%\documentclass[times,review,preprint,authoryear]{elsarticle}
+
+%% Use the options `twocolumn,final' to obtain the final layout
+%% Use longtitle option to break abstract to multiple pages if overfull.
+%% For Review pdf (With double line spacing)
+%\documentclass[times,twocolumn,review]{elsarticle}
+%% For abstracts longer than one page.
+%\documentclass[times,twocolumn,review,longtitle]{elsarticle}
+%% For Review pdf without preprint line
+%\documentclass[times,twocolumn,review,nopreprintline]{elsarticle}
+%% Final pdf
+\documentclass[times,final]{elsarticle}
+%%
+%\documentclass[times,twocolumn,final,longtitle]{elsarticle}
+%%
+
+
+%% Stylefile to load JCOMP template
+\usepackage{jcomp}
+\usepackage{framed,multirow}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+\usepackage{latexsym}
+
+% Following three lines are needed for this document.
+% If you are not loading colors or url, then these are
+% not required.
+\usepackage{url}
+\usepackage{xcolor}
+\definecolor{newcolor}{rgb}{.8,.349,.1}
+
+\journal{Journal of Computational Physics}
+
+\begin{document}
+
+\verso{Given-name Surname \textit{etal}}
+
+\begin{frontmatter}
+
+\title{Type the title of your paper, only capitalize first
+word and proper nouns\tnoteref{tnote1}}%
+\tnotetext[tnote1]{This is an example for title footnote coding.}
+
+\author[1]{Florian \snm{Holderied}\corref{cor1}}
+\cortext[cor1]{Corresponding author: 
+  Tel.: +0-000-000-0000;  
+  fax: +0-000-000-0000;}
+\author[1]{Given-name2 \snm{Surname2}\fnref{fn1}}
+\fntext[fn1]{This is author footnote for second author.}  
+\author[2]{Given-name3 \snm{Surname3}}
+%% Third author's email
+\ead{author3@author.com}
+\author[2]{Given-name4 \snm{Surname4}}
+
+\address[1]{Affiliation 1, Address, City and Postal Code, Country}
+\address[2]{Affiliation 2, Address, City and Postal Code, Country}
+
+\received{1 May 2013}
+\finalform{10 May 2013}
+\accepted{13 May 2013}
+\availableonline{15 May 2013}
+\communicated{S. Sarkar}
+
+
+\begin{abstract}
+%%%
+A concise and factual abstract is required. The abstract should state briefly the purpose of the research, the principal results and major conclusions. An abstract is often presented separately from the article, so it must be able to stand alone. For this reason, References should be avoided, but if essential, then cite the author(s) and year(s). Also, non-standard or uncommon abbreviations should be avoided, but if essential they must be defined at their first mention in the abstract itself.
+%%%%
+\end{abstract}
+
+%\begin{keyword}
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+%\MSC 41A05\sep 41A10\sep 65D05\sep 65D17
+%% Keywords
+%\KWD Keyword1\sep Keyword2\sep Keyword3
+%\end{keyword}
+
+\end{frontmatter}
+
+%\linenumbers
+
+%% main text
+ 
+\section{The Journal of Computational Physics}
+\subsection{Scope}
+The Journal of Computational Physics focuses on the computational aspects of physical problems. The scope of the Journal is the presentation of new or significantly improved techniques for the numerical solution of problems in all areas of physics. This is typically accomplished through advanced mathematical and numerical modeling reflecting a combination of concepts, methods and principles that are often interdisciplinary in nature and span several areas of physics, mechanics, mathematics, statistics, applied geometry, computer science and other scientific disciplines as well: the Journal seeks to emphasize methods that cross disciplinary boundaries.
+
+
+ \subsection{Length}
+ 	Full text articles have a page limit of 35 pages. The Journal of Computational Physics also publishes short notes of 4 pages or less (including figures, tables, and references but excluding title pages). Letters to the Editor commenting on articles already published in this Journal will also be considered. Neither notes nor letters should have an abstract. Review articles providing a survey of particular fields are particularly encouraged. Published conference papers are welcome provided the submitted manuscript is a significant enhancement of the conference paper with substantial additions. Please use this template to estimate the page limit. 
+ 	
+\subsection{Reproducibility} 	
+ Reproducibility, that is the ability to reproduce results obtained by others, is a core principle of the scientific method. As the impact of and knowledge discovery enabled by computational science and engineering continues to increase, it is imperative that reproducibility becomes a natural part of these activities. The journal strongly encourages authors to make available all software or data that would allow published results to be reproduced and that every effort is made to include sufficient information in manuscripts to enable this. This should not only include information used for setup but also details on post-processing to recover published results.
+ 
+ 
+ 
+\section{Typesetting your paper}
+\label{sec1}
+Please use \verb+elsarticle.cls+ for typesetting your paper.
+Additionally load the package \verb+jcomp.sty+ in the preamble using the following command: 
+\begin{verbatim} 
+  \usepackage{jcomp}
+\end{verbatim}
+
+Following commands are defined for this journal which are not in
+\verb+elsarticle.cls+. 
+\begin{verbatim}
+  \received{}
+  \finalform{}
+  \accepted{}
+  \availableonline{}
+  \communicated{}
+\end{verbatim}
+
+Any instructions relevant to the \verb+elsarticle.cls+ are applicable
+here as well. See the online instruction available on:
+\makeatletter
+\if@twocolumn
+\begin{verbatim}
+ http://support.stmdocs.in/wiki/
+ index.php?title=Elsarticle.cls
+\end{verbatim}
+\else
+\begin{verbatim}
+ http://support.stmdocs.in/wiki/index.php?title=Elsarticle.cls
+\end{verbatim}
+\fi
+
+
+\section{The first page}
+Avoid using abbreviations in the title. Next, list all authors with
+their first names or initials and surnames (in that order). Indicate
+the author for correspondence (see elsarticle documentation).
+
+Present addresses can be inserted as footnotes. After having listed all
+authors' names, you should list their respective affiliations. Link
+authors and affiliations using superscript lower case letters.
+
+
+
+\section{The main text}
+
+Please divide your article into (numbered) sections (You can find the
+information about the sections at
+\url{http://www.elsevier.com/wps/find/journaldescription.cws_home/505619/authorinstructions}).
+Ensure that all tables, figures and schemes are cited in the text in
+numerical order. Trade names should have an initial capital letter, and
+trademark protection should be acknowledged in the standard fashion,
+using the superscripted characters for trademarks and registered
+trademarks respectively. All measurements and data should be given in
+SI units where possible, or other internationally accepted units.
+Abbreviations should be used consistently throughout the text, and all
+nonstandard abbreviations should be defined on first usage
+\citep{Vehlowetal2013}.
+
+\begin{table*}[!t]
+\caption{\label{tab1}Summary of different works pertaining to face and
+speech fusion}
+\centering
+\begin{tabular}{|p{2.25cm}|p{2cm}|l|p{4cm}|p{3cm}|p{2cm}|}
+\hline
+Study & Algorithm used & DB Size & Covariates of interest & 
+Top individual performance & Fusion\newline Performance\\
+\hline
+UK-BWG
+(Mansfield et al.,
+2001) &
+Face, voice:\newline
+Commercial & 200 & Time: 1--2 month\newline
+separation (indoor) & 
+TAR$^*$ at 1\% FAR$^{\#}$\newline
+Face: 96.5\%\newline
+Voice: 96\%
+& --\\
+\hline
+Brunelli
+(Brunelli and
+Falavigna, 1995) & 
+Face:\newline
+Hierarchical\newline
+correlation\newline
+Voice:\newline
+MFCC & 
+87 & 
+Time: 3 sessions, time\newline
+unknown (indoor) & 
+Face:\newline
+TAR = 92\% at\newline
+4.5\% FAR\newline
+Voice:\newline
+TAR = 63\% at\newline
+15\% FAR
+&
+TAR =98.5\%\newline
+at 0.5\% FAR\\
+\hline
+Jain
+(Jain et al., 1999)
+&
+Face:\newline
+Eigenface\newline
+Voice:\newline
+Cepstrum\newline
+Coeff. Based
+&
+50
+&
+Time: Two weeks (indoor)
+&
+TAR at 1\% FAR\newline
+Face: 43\%\newline
+Voice: 96.5\%\newline
+Fingerprint: 96\%
+& 
+Face $+$ Voice $+$\newline
+Fingerprint $=$\newline
+98.5\%\\
+\hline
+Sanderson
+(Sanderson and
+Paliwal, 2002)
+&
+Face: PCA\newline
+Voice: MFCC &
+43 
+& Time: 3 sessions (indoor)\newline
+Noise addition to voice & 
+Equal Error Rate\newline
+Face: 10\%\newline
+Voice: 12.41\%
+&
+Equal Error\newline
+Rate 2.86\% \\
+\hline
+Proposed study & 
+Face, voice:\newline
+Commercial & 116 &
+Location: Indoor and\newline
+Outdoor (same day)\newline
+Noise addition to eye\newline 
+coordinates 
+&
+TARs at 1\% FAR\newline
+Indoor-Outdoor\newline
+Face: 80\%\newline
+Voice: 67.5\%
+&
+TAR = 98\%\newline
+at 1\% FAR\\
+\hline
+\multicolumn{6}{@{}l}{$^*$TAR--True Acceptance Rate\qquad 
+$^{\#}$ FAR--False Acceptance Rate}
+\end{tabular}
+\end{table*}
+
+
+\subsection{Tables, figures and schemes}
+Graphics and tables may be positioned as they should appear in the
+final manuscript. Figures, Schemes, and Tables should be numbered.
+Structures in schemes should also be numbered consecutively, for ease
+of discussion and reference in the text. \textcolor{newcolor}{\bf
+Figures should be maximum half a page size.}
+
+Depending on the
+amount of detail, you can choose to display artwork in one column (20
+pica wide) or across the page (42 pica wide). Scale your artwork in
+your graphics program before incorporating it in your text. If the
+artwork turns out to be too large or too small, resize it again in your
+graphics program and re-import it. The text should not run along the
+sides of any figure. This is an example for citation \citep{NewmanGirvan2004}.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=.5]{jcompfig01}
+\caption{Studio setup for capturing face images indoor. Three light
+sources L1, L2, L3 were used in conjunction with normal office lights.}
+\end{figure}
+
+You might find positioning your artwork within the text difficult
+anyway. In that case you may choose to place all artwork at the end of
+the text and insert a marker in the text at the desired place. In any
+case, please keep in mind that the placement of artwork may vary
+somewhat in relation to the page lay-out \citep{HullermeierRifqi2009}.
+
+This can easily be achieved using \verb+endfloat.sty+ package. Please
+refer the following documentation to use this package.
+\makeatletter
+\if@twocolumn
+\begin{verbatim}
+  http://mirrors.ctan.org/macros/latex/contrib/
+  endfloat/endfloat.pdf
+\end{verbatim}
+\else
+\begin{verbatim}
+  http://mirrors.ctan.org/macros/latex/contrib/endfloat/endfloat.pdf
+\end{verbatim}
+\fi
+\makeatother
+
+\textcolor{newcolor}{\bf You should insert a caption for the figures
+below the figures and for the tables the caption should be above the
+tables.} 
+
+Please remember that we will always also need highresolution versions
+of your artwork for printing, submitted as separate files in standard
+format (i.e. TIFF or EPS), not included in the text document. Before
+preparing your artwork, please take a look at our Web page:
+\url{http://www.elsevier.com/locate/authorartwork}.
+
+
+\subsection{Lists}
+
+For tabular summations that do not deserve to be presented as
+a table, lists are often used. Lists may be either numbered or
+bulleted. Below you see examples of both.
+\begin{enumerate}
+\item The first entry in this list
+\item The second entry
+\begin{enumerate}
+\item A subentry
+\end{enumerate}
+\item The last entry
+\end{enumerate}
+\begin{itemize}
+\item A bulleted list item
+\item Another one
+\end{itemize}
+
+\subsection{Equations}
+Conventionally, in mathematical equations, variables and
+anything that represents a value appear in italics.
+All equations should be numbered for easy referencing. The number
+should appear at the right margin.
+\begin{equation}
+S_{\rm pg}'=\frac{S_{\rm pg}-\min(S_{\rm pG})}
+ {\max(S_{\rm pG}-\min(S_{\rm pG})}
+\end{equation}
+In mathematical expressions in running text ``/'' should be used for
+division (not a horizontal line). 
+
+\section*{Acknowledgments}
+Acknowledgments should be inserted at the end of the paper, before the
+references, not as a footnote to the title. Use the unnumbered
+Acknowledgements Head style for the Acknowledgments heading.
+
+\section*{References}
+
+Please ensure that every reference cited in the text is also present in
+the reference list (and vice versa).
+
+\section*{\itshape Reference style}
+
+Text: All citations in the text should refer to:
+\begin{enumerate}
+\item Single author: the author's name (without initials, unless there
+is ambiguity) and the year of publication;
+\item Two authors: both authors' names and the year of publication;
+\item Three or more authors: first author's name followed by `et al.'
+and the year of publication.
+\end{enumerate}
+Citations may be made directly (or parenthetically). Groups of
+references should be listed first alphabetically, then chronologically.
+
+%%Vancouver style references.
+\bibliographystyle{model1-num-names}
+\bibliography{refs}
+
+\section*{Supplementary Material}
+
+Supplementary material that may be helpful in the review process should
+be prepared and provided as a separate electronic file. That file can
+then be transformed into PDF format and submitted along with the
+manuscript and graphic files to the appropriate editorial office.
+
+\end{document}
+
+%%

@@ -1,0 +1,41 @@
+\begin{thebibliography}{3}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Article
+\bibitem[{Arnold et~al.(2006)Arnold, Falk, and Winther}]{Arnoldetal2006}
+\bibinfo{author}{D.~N. Arnold}, \bibinfo{author}{R.~S. Falk},
+  \bibinfo{author}{R.~Winther},
+\newblock \bibinfo{title}{Finite element exterior calculus, homological
+  techniques, and applications},
+\newblock \bibinfo{journal}{Acta Numerica} \bibinfo{volume}{15}
+  (\bibinfo{year}{2006}) \bibinfo{pages}{1–155}.
+%Type = Article
+\bibitem[{{Arnold} et~al.(2010){Arnold}, {Falk}, and
+  {Winther}}]{Arnoldetal2010}
+\bibinfo{author}{D.~N. {Arnold}}, \bibinfo{author}{R.~S. {Falk}},
+  \bibinfo{author}{R.~{Winther}},
+\newblock \bibinfo{title}{{Finite element exterior calculus: from Hodge theory
+  to numerical stability}},
+\newblock \bibinfo{journal}{Bull. Amer. Math. Soc.}  (\bibinfo{year}{2010})
+  \bibinfo{pages}{281--354}.
+%Type = Article
+\bibitem[{Kraus et~al.(2017)Kraus, Kormann, Morrison, and
+  Sonnendrücker}]{Krausetal2017}
+\bibinfo{author}{M.~Kraus}, \bibinfo{author}{K.~Kormann},
+  \bibinfo{author}{P.~Morrison}, \bibinfo{author}{E.~Sonnendrücker},
+\newblock \bibinfo{title}{Gempic: geometric electromagnetic particle-in-cell
+  methods},
+\newblock \bibinfo{journal}{Journal of Plasma Physics} \bibinfo{volume}{83}
+  (\bibinfo{year}{2017}) \bibinfo{pages}{905830401}.
+
+\end{thebibliography}
