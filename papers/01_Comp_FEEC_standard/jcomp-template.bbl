@@ -1,4 +1,4 @@
-\begin{thebibliography}{13}
+\begin{thebibliography}{17}
 \expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
 \providecommand{\url}[1]{\texttt{#1}}
 \providecommand{\href}[2]{#2}
@@ -20,15 +20,6 @@
 \newblock \bibinfo{journal}{Acta Numerica} \bibinfo{volume}{15}
   (\bibinfo{year}{2006}) \bibinfo{pages}{1–155}.
 %Type = Article
-\bibitem[{{Arnold} et~al.(2010){Arnold}, {Falk}, and
-  {Winther}}]{Arnoldetal2010}
-\bibinfo{author}{D.~N. {Arnold}}, \bibinfo{author}{R.~S. {Falk}},
-  \bibinfo{author}{R.~{Winther}},
-\newblock \bibinfo{title}{{Finite element exterior calculus: from Hodge theory
-  to numerical stability}},
-\newblock \bibinfo{journal}{Bull. Amer. Math. Soc.}  (\bibinfo{year}{2010})
-  \bibinfo{pages}{281--354}.
-%Type = Article
 \bibitem[{Kraus et~al.(2017)Kraus, Kormann, Morrison, and
   Sonnendrücker}]{Krausetal2017}
 \bibinfo{author}{M.~Kraus}, \bibinfo{author}{K.~Kormann},
@@ -37,6 +28,15 @@
   methods},
 \newblock \bibinfo{journal}{{Journal of Plasma Physics}} \bibinfo{volume}{83}
   (\bibinfo{year}{2017}) \bibinfo{pages}{905830401}.
+%Type = Article
+\bibitem[{{Arnold} et~al.(2010){Arnold}, {Falk}, and
+  {Winther}}]{Arnoldetal2010}
+\bibinfo{author}{D.~N. {Arnold}}, \bibinfo{author}{R.~S. {Falk}},
+  \bibinfo{author}{R.~{Winther}},
+\newblock \bibinfo{title}{{Finite element exterior calculus: from Hodge theory
+  to numerical stability}},
+\newblock \bibinfo{journal}{Bull. Amer. Math. Soc.}  (\bibinfo{year}{2010})
+  \bibinfo{pages}{281--354}.
 %Type = Article
 \bibitem[{Katoh and Omura(2007)}]{Katohetal2007}
 \bibinfo{author}{Y.~Katoh}, \bibinfo{author}{Y.~Omura},
@@ -57,6 +57,19 @@
   Waves: Homogeneous Plasmas}}, \bibinfo{publisher}{Oxford University Press},
   \bibinfo{year}{1998}.
 %Type = Article
+\bibitem[{Xiao et~al.(1998)Xiao, M.~Thorne, and Summers}]{Xiaoetal1998}
+\bibinfo{author}{F.~Xiao}, \bibinfo{author}{R.~M.~Thorne},
+  \bibinfo{author}{D.~Summers},
+\newblock \bibinfo{title}{Instability of electromagnetic r-mode waves in a
+  relativistic plasma},
+\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{5}
+  (\bibinfo{year}{1998}) \bibinfo{pages}{2489--2497}.
+%Type = Book
+\bibitem[{Donea and Huerta(2003)}]{Doneaetal2003}
+\bibinfo{author}{J.~Donea}, \bibinfo{author}{A.~Huerta},
+  \bibinfo{title}{{Finite Element Methods for Flow Problems}},
+  \bibinfo{publisher}{John Wiley \& Sons, Ltd.}, \bibinfo{year}{2003}.
+%Type = Article
 \bibitem[{Crank and Nicolson(1947)}]{Cranketal1947}
 \bibinfo{author}{J.~Crank}, \bibinfo{author}{P.~Nicolson},
 \newblock \bibinfo{title}{{A practical method for numerical evaluation of
@@ -71,6 +84,12 @@
   for the time domain maxwell equations},
 \newblock \bibinfo{journal}{J. Sci. Comput.} \bibinfo{volume}{51}
   (\bibinfo{year}{2012}) \bibinfo{pages}{87--106}.
+%Type = Book
+\bibitem[{Birdsall and Langdon(2004)}]{Birdsalletal2004}
+\bibinfo{author}{C.~K. Birdsall}, \bibinfo{author}{A.~B. Langdon},
+  \bibinfo{title}{{Plasma Physics via Computer Simulation}}, {Series in Plasma
+  Physics}, \bibinfo{publisher}{Taylor and Francis Group},
+  \bibinfo{year}{2004}.
 %Type = Inproceedings
 \bibitem[{Boris(1970)}]{Boris1970}
 \bibinfo{author}{J.~P. Boris},
@@ -79,12 +98,6 @@
 \newblock in: \bibinfo{booktitle}{Proceedings of the Fourth Conference on
   Numerical Simulation of Plasmas}, \bibinfo{publisher}{Naval Research
   Laboratory}, \bibinfo{year}{1970}, pp. \bibinfo{pages}{3--67}.
-%Type = Book
-\bibitem[{Birdsall and Langdon(2004)}]{Birdsalletal2004}
-\bibinfo{author}{C.~K. Birdsall}, \bibinfo{author}{A.~B. Langdon},
-  \bibinfo{title}{{Plasma Physics via Computer Simulation}}, {Series in Plasma
-  Physics}, \bibinfo{publisher}{Taylor and Francis Group},
-  \bibinfo{year}{2004}.
 %Type = Article
 \bibitem[{Qin et~al.(2013)Qin, Zhang, Xiao, Liu, Sun, and Tang}]{Qinetal2013}
 \bibinfo{author}{H.~Qin}, \bibinfo{author}{S.~Zhang},
@@ -93,6 +106,13 @@
 \newblock \bibinfo{title}{Why is boris algorithm so good?},
 \newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{20}
   (\bibinfo{year}{2013}) \bibinfo{pages}{084503}.
+%Type = Article
+\bibitem[{Aydemir(1994)}]{Aydemir1994}
+\bibinfo{author}{A.~Y. Aydemir},
+\newblock \bibinfo{title}{A unified monte carlo interpretation of particle
+  simulations and applications to non‐neutral plasmas},
+\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{1}
+  (\bibinfo{year}{1994}) \bibinfo{pages}{822--831}.
 %Type = Article
 \bibitem[{Trotter(1959)}]{Trotter1959}
 \bibinfo{author}{H.~F. Trotter},
@@ -106,5 +126,11 @@
   schemes},
 \newblock \bibinfo{journal}{SIAM J. Numer. Anal.} \bibinfo{volume}{5}
   (\bibinfo{year}{1968}) \bibinfo{pages}{506--517}.
+%Type = Article
+\bibitem[{McLachlan and Quispel(2002)}]{McLachlanetal2012}
+\bibinfo{author}{R.~I. McLachlan}, \bibinfo{author}{G.~R.~W. Quispel},
+\newblock \bibinfo{title}{Splitting methods},
+\newblock \bibinfo{journal}{Acta Numerica} \bibinfo{volume}{11}
+  (\bibinfo{year}{2002}) \bibinfo{pages}{341–434}.
 
 \end{thebibliography}

@@ -4,44 +4,44 @@ The top-level auxiliary file: jcomp-template.aux
 The style file: model1-num-names.bst
 Database file #1: refs.bib
 Reallocated singl_function (elt_size=4) to 100 items from 50.
-You've used 13 entries,
+You've used 17 entries,
             2910 wiz_defined-function locations,
-            735 strings with 7683 characters,
-and the built_in function-call counts, 7553 in all, are:
-= -- 554
-> -- 266
-< -- 10
-+ -- 104
-- -- 87
-* -- 880
-:= -- 1122
-add.period$ -- 13
-call.type$ -- 13
-change.case$ -- 92
-chr.to.int$ -- 13
-cite$ -- 13
-duplicate$ -- 528
-empty$ -- 556
-format.name$ -- 124
-if$ -- 1391
+            764 strings with 8318 characters,
+and the built_in function-call counts, 9798 in all, are:
+= -- 722
+> -- 341
+< -- 13
++ -- 134
+- -- 111
+* -- 1142
+:= -- 1452
+add.period$ -- 17
+call.type$ -- 17
+change.case$ -- 119
+chr.to.int$ -- 17
+cite$ -- 17
+duplicate$ -- 685
+empty$ -- 725
+format.name$ -- 162
+if$ -- 1807
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 118
-newline$ -- 76
-num.names$ -- 52
-pop$ -- 138
+missing$ -- 153
+newline$ -- 94
+num.names$ -- 68
+pop$ -- 181
 preamble$ -- 1
-purify$ -- 94
+purify$ -- 122
 quote$ -- 0
-skip$ -- 154
+skip$ -- 199
 stack$ -- 0
-substring$ -- 388
-swap$ -- 419
+substring$ -- 513
+swap$ -- 541
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 111
+type$ -- 144
 warning$ -- 0
-while$ -- 51
+while$ -- 66
 width$ -- 0
-write$ -- 182
+write$ -- 232
