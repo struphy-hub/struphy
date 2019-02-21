@@ -1,4 +1,4 @@
-\begin{thebibliography}{10}
+\begin{thebibliography}{13}
 \expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
 \providecommand{\url}[1]{\texttt{#1}}
 \providecommand{\href}[2]{#2}
@@ -37,6 +37,25 @@
   methods},
 \newblock \bibinfo{journal}{{Journal of Plasma Physics}} \bibinfo{volume}{83}
   (\bibinfo{year}{2017}) \bibinfo{pages}{905830401}.
+%Type = Article
+\bibitem[{Katoh and Omura(2007)}]{Katohetal2007}
+\bibinfo{author}{Y.~Katoh}, \bibinfo{author}{Y.~Omura},
+\newblock \bibinfo{title}{Computer simulation of chorus wave generation in the
+  earth's inner magnetosphere},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{34}
+  (\bibinfo{year}{2007}) \bibinfo{pages}{L03102}.
+%Type = Article
+\bibitem[{Tao(2014)}]{Tao2014}
+\bibinfo{author}{X.~Tao},
+\newblock \bibinfo{title}{A numerical study of chorus generation and the
+  related variation of wave intensity using the dawn code},
+\newblock \bibinfo{journal}{{Journal of Geophysical Research: Space Physics}}
+  \bibinfo{volume}{119} (\bibinfo{year}{2014}) \bibinfo{pages}{3362--3372}.
+%Type = Book
+\bibitem[{Brambilla(1998)}]{Brambilla1998}
+\bibinfo{author}{M.~Brambilla}, \bibinfo{title}{{Kinetic Theory of Plasma
+  Waves: Homogeneous Plasmas}}, \bibinfo{publisher}{Oxford University Press},
+  \bibinfo{year}{1998}.
 %Type = Article
 \bibitem[{Crank and Nicolson(1947)}]{Cranketal1947}
 \bibinfo{author}{J.~Crank}, \bibinfo{author}{P.~Nicolson},
