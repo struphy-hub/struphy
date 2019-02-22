@@ -434,7 +434,7 @@ Now we have everything to write down an algorithm for numerically solving the mo
 \begin{enumerate}
 \item Create a periodic B-spline basis of degree $p$ on a domain of length $L$ discretized by $N_\mr{el}$ elements (see (\ref{eq_def_Bsplines_0}) and (\ref{eq_def_Bsplines_higher})).
 \item Assemble the mass matrix $\mathbb{M}$ and advection matrix $\mathbb{C}$ and from this, assemble the block matrices $\tilde{\mathbb{M}}$ (\ref{eq_def_block_1}), $\tilde{\mathbb{C}}$ (\ref{eq_def_block_2}) and $\mathbb{M}_\mr{b}$ (\ref{eq_def_block_3}).
-\item Load the initial field $\mb{U}(z,t=0)$ and perform a $L^2$-projection in order to get the $6N$ initial coefficients $\mb{u}^0$.
+\item Load the initial field $\mb{U}(z,t=0)$ and perform a $L^2$-projection \citep{Brambleetal2002} in order to get the $6N$ initial coefficients $\mb{u}^0$.
 \item Sample the initial positions $(z_k^0)_{k=1,\ldots,N_\mr{p}}$ and velocities $(v_{kx}^0,v_{ky}^0,v_{kz}^0)_{k=1,\ldots,N_\mr{p}}$ according to the sampling distribution (\ref{eq_sampling_distribution}) by using a random number generator and compute the weights $w_k=n_{\mr{h}0}L/N_\mr{p}$.
 \item Compute the electric and magnetic field at the particle positions by noting that
 \begin{subequations}
@@ -459,15 +459,15 @@ Now we have everything to write down an algorithm for numerically solving the mo
 \newpage
 
 \begin{wrapfigure}{r}{8cm}
-\vspace{-1cm}
+\vspace{-0.9cm}
 \centering
 \includegraphics[scale=0.2]{01_Figures/deRham1D.pdf}
-\caption{Commuting diagram for function spaces in one spatial dimension. \label{fig_commuting_diagram}}
+\caption{Commuting diagram for function spaces in one spatial dimension with continuous spaces in the upper and discrete spaces in the lower line connected via the projectros $\Pi_0$ and $\Pi_1$.\vspace{-0.3cm} \label{fig_commuting_diagram}}
 \end{wrapfigure}
 
 \subsection{Geometric finite element particle-in-cell}
 \label{sec_geometric}
-In this section, we apply a structure-preserving finite element particle-in-cell method on the same model. The main difference compared to the previous approach is, that we look for approximate solutions of the fields in different sub-spaces which are related to the continuous spaces according to a commuting diagram. In one spatial dimension, this diagram takes the form depicted in fig. \ref{fig_commuting_diagram}, where the upper line represents the sequence of spaces involved in Maxwell's equations and the lower line the finite-dimensional counterparts which are related to the continuous spaces by the projectors $\Pi_0$ and $\Pi_1$. In analogy to the previous section, we assume the domain to be $\Omega=(0,L)$ and impose periodic boundary conditions on all quantities. In order to obtain a weak formulation, we multiply by (this time different) test functions $F_x$, $F_y$, $C_x$, $C_y$, $O_x$, $O_y$ and integrate over $\Omega$. This results in
+In this section, we apply a structure-preserving finite element particle-in-cell method on the same model. The main difference compared to the previous approach is that we look for approximate solutions of the fields in different subspaces which are related to the continuous spaces according to a commuting diagram. In one spatial dimension, this diagram takes the form depicted in fig. \ref{fig_commuting_diagram}, where the upper line represents the sequence of spaces involved in Maxwell's equations and the lower line the finite-dimensional counterparts which are related to the continuous spaces by the projectors $\Pi_0$ and $\Pi_1$. In analogy to the previous section, we assume the domain to be $\Omega=(0,L)$ and impose periodic boundary conditions on all quantities. In order to obtain a weak formulation, we multiply by (this time different) test functions $F_x$, $F_y$, $C_x$, $C_y$, $O_x$, $O_y$ and integrate over $\Omega$. This results in
 \begin{subequations}
 \begin{align}
     &\int_0^L\frac{\partial\tilde{E}_x}{\partial t}F_x\mathrm{d}z+c^2\int_0^L\frac{\partial\tilde{B}_y}{\partial z}F_x\mathrm{d}z+\mu_0c^2\int_0^L\tilde{j}_{\text{c}x}F_x\mathrm{d}z=-\mu_0c^2\int_0^Lj_{\text{h}x}F_x\mathrm{d}z, \\
@@ -478,7 +478,7 @@ In this section, we apply a structure-preserving finite element particle-in-cell
     &\int_0^L\frac{\partial\tilde{j}_{\text{c}y}}{\partial t}O_y\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_yO_y\mathrm{d}z+\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}x}O_y\mathrm{d}z=0.
 \end{align}
 \end{subequations}
-Note that this procedure is actually not necessary for the last two equations since they do not involve spatial derivatives and are thus ODEs in time. However, for reasons of clarity, we continue with the above formulation. We will see later that all matrices due to the spatial discretization cancel out. Obviously, we should look for $\tilde{\mb{E}}$ and $\tilde{\mb{j}}_\mr{c}$ in the same space, since they are never connected via spatial derivatives in the same equation. The opposite is true for the magnetic field, because in Maxwell's equations $\tilde{\mb{B}}$ is connected with the other two quantities via a spatial derivative and therefore $\tilde{\mb{B}}$ must be in different spaces if we want to satisfy the diagram in fig. \ref{fig_commuting_diagram}. This means that there are two options: Either we choose $\tilde{\mb{B}}\in L^2$ and $\tilde{\mb{E}}$, $\tilde{\mb{j}}_\mr{c}\in H^1$ or vice versa. We follow \citep{Krausetal2017} and choose the former option. This leads to the following weak formulation: 
+Note that this procedure is actually not necessary for the last two equations since they do not involve spatial derivatives and are thus ODEs in time. However, for reasons of clarity, we continue with the above formulation. We will see later that all matrices due to the spatial discretization cancel out. Obviously, we should look for $\tilde{\mb{E}}$ and $\tilde{\mb{j}}_\mr{c}$ in the same space since they are never connected via spatial derivatives in the same equation. The opposite is true for the magnetic field because in Maxwell's equations $\tilde{\mb{B}}$ is connected with the other two quantities via a spatial derivative and therefore $\tilde{\mb{B}}$ must be in different spaces if we want to satisfy the diagram in fig. \ref{fig_commuting_diagram}. This means that there are two options: Either we choose $\tilde{\mb{B}}\in L^2$ and $\tilde{\mb{E}}$, $\tilde{\mb{j}}_\mr{c}\in H^1$ or vice versa. We follow \citep{Krausetal2017} and choose the former option. This leads to the following weak formulation: 
 find $(\tilde{E}_x,\tilde{E}_y,\tilde{B}_x,\tilde{B}_y,\tilde{j}_{\text{c}x},\tilde{j}_{\text{c}y})\in H^1\times H^1\times L^2\times L^2\times H^1\times H^1$ such that
 \begin{subequations}
 \begin{alignat}{2}
@@ -490,7 +490,7 @@ find $(\tilde{E}_x,\tilde{E}_y,\tilde{B}_x,\tilde{B}_y,\tilde{j}_{\text{c}x},\ti
 	&\int_0^L\frac{\partial\tilde{j}_{\text{c}y}}{\partial t}O_y\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_yO_y\mathrm{d}z+\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}x}O_y\mathrm{d}z=0 &&\forall\,O_y\in H^1.
 \end{alignat}
 \end{subequations} 
-Due to this particular choice, we have integrated by parts the terms involving the magnetic field in the first two equations, in order to shift he derivative from $\tilde{\mb{B}}$ to the test functions $F_{x/y}$ (this changes the sign). This has the consequence this these equations will be solved in a weak sense, whereas the other equations will be solved in a strong sense. As a next step, we replace the spaces  $H^1$ and $L^2$ by their finite-dimensional counterparts $V_0\subset H^1$ and $V_1\subset L^2$ and denote the dimensions by $\dim V_0=N_0$ and $\dim V_1=N_1$ and the set of basis functions by $(\varphi^0_j)_{j=0,\ldots,N_0-1}$ and $(\varphi^1_{j+1/2})_{j=0,\ldots,N_1-1}$, respectively. The discrete version of above problem then reads: find $(\tilde{E}_{hx},\tilde{E}_{hy},\tilde{B}_{hx},\tilde{B}_{hy},\tilde{j}_{\text{c}x}^h,\tilde{j}_{\text{c}y}^h)\in V_0\times V_0\times V_1\times V_1\times V_0\times V_0$ such that
+Due to this particular choice, we have integrated by parts the terms involving the magnetic field in the first two equations in order to shift he derivative from $\tilde{\mb{B}}$ to the test functions $F_{x/y}$ (this changes the sign). This has the consequence that these equations will be solved in a weak sense, whereas the other equations will be solved in a strong sense. As a next step, we replace the spaces  $H^1$ and $L^2$ by their finite-dimensional counterparts $V_0\subset H^1$ and $V_1\subset L^2$ and denote the dimensions by $\dim V_0=N_0$ and $\dim V_1=N_1$ and the set of basis functions by $(\varphi^0_j)_{j=0,\ldots,N_0-1}$ and $(\varphi^1_{j+1/2})_{j=0,\ldots,N_1-1}$, respectively. The discrete version of above problem then reads: find $(\tilde{E}_{hx},\tilde{E}_{hy},\tilde{B}_{hx},\tilde{B}_{hy},\tilde{j}_{\text{c}x}^h,\tilde{j}_{\text{c}y}^h)\in V_0\times V_0\times V_1\times V_1\times V_0\times V_0$ such that
 \begin{subequations}
 \label{eq_weak_gem_discrete}
 \begin{alignat}{2}
@@ -503,7 +503,7 @@ Due to this particular choice, we have integrated by parts the terms involving t
 \end{alignat}
 \end{subequations}
 
-There are multiple possibilities to construct the commuting diagram shown in fig. \ref{fig_commuting_diagram}. The general procedure for this is to define a basis for the first subspace $V_0$, then to look for an appropriate basis for the next space $V_1$ in order to satisfy the sequence for differential operators in the lower line and finally to find the projectors such that the diagram is commuting. For the space $V_0$, we choose standard Lagrange finite elements of degree $p$ which are most easily defined on a reference element $I=[-1,1]$ together with a mapping $F_k:I\rightarrow\Omega_k$, $s\in I\mapsto\Omega_k$ on elements $\Omega_k=[c_k,c_{k+1}]$ on the physical domain $\Omega$, where $(c_k)_{k=0,\ldots,N_\mr{el}}$ denotes the element boundaries of $N_\mr{el}$ elements. The mapping $F_k$ and its inverse $F_k^{-1}$ are simply given by
+There are multiple possibilities to construct the commuting diagram shown in fig. \ref{fig_commuting_diagram}. The general procedure for this is to define a basis for the first subspace $V_0$, then to look for an appropriate basis for the next space $V_1$ in order to satisfy the sequence for differential operators in the lower line,  and finally to find the projectors such that the diagram is commuting. For the space $V_0$, we choose standard Lagrange finite elements of degree $p$ which are most easily defined on a reference element $I=[-1,1]$ together with a mapping $F_k:I\rightarrow\Omega_k$, $s\in I\mapsto\Omega_k$ on elements $\Omega_k=[c_k,c_{k+1}]$ on the physical domain $\Omega$, where $(c_k)_{k=0,\ldots,N_\mr{el}}$ denotes the element boundaries of $N_\mr{el}$ elements. The mapping $F_k$ and its inverse $F_k^{-1}$ are simply given by
 \begin{subequations}
 \label{eq_mapping}
 \begin{align}
@@ -521,7 +521,7 @@ and the Lagrange \textit{shape} functions $(\eta_n(s))_{n=0,\ldots,p}$ of degree
 \subfigure[]{\input{01_Figures/Lagrange_histo_p=2.pgf}}
 \caption{(a) Lagrange shape functions of degree $p=2$ in the reference element $I=[-1,1]$ and the corresponding periodic basis functions on a physical domain of length $L=1$ which has been discretized by $N_\mr{el}=3$ elements of equal length. (b) Corresponding local histopolation shape and basis functions.\label{fig_Lagrange}}
 \end{figure}
-The construction of the \textit{basis} functions on the physical domain is then done by noting that we need continuity at the shared degrees of freedom at the element boundaries, which is why such shape functions form a mutual basis function. This leads to a total number of $N_0=pN_\mr{el}$ basis functions in case of periodic boundary conditions. The corresponding projector $\Pi_0$ on this basis acting on some continuous function $E\in H^1$ is defined by
+\hspace{-2mm} The construction of the \textit{basis} functions on the physical domain is then done by noting that we need continuity at the shared degrees of freedom at the element boundaries, which is why such shape functions form a mutual basis function. This leads to a total number of $N_0=pN_\mr{el}$ basis functions in case of periodic boundary conditions. The corresponding projector $\Pi_0$ on this basis acting on some continuous function $E\in H^1$ is defined by
 \begin{align}
 \Pi_0:H^1\rightarrow V_0,\quad(\Pi_0 E)(z_i)=E(z_i),\label{eq_def_projector0}
 \end{align}
@@ -537,7 +537,7 @@ where $s_0=-1<\ldots<s_p=1$ is the same local knots sequence as for the usual La
 \begin{align}
 \chi_{n+1/2}(s)=\sum_{m=n+1}^p\frac{\mr{d}}{\mr{d}s}\eta_m(s),\label{eq_def_Lagrange_histo}
 \end{align}
-which can be verified by plugging this in the definition (\ref{eq_def_LHP}) and using the property $\eta_n(s_m)=\delta_{nm}$. In order to get a basis on the physical domain, these shape function are just put next to each other, since there are no shared degrees of freedom at the element boundaries at which continuity must be enforced. This also has the consequence that the total number of basis function is again $N_1=pN_\mr{el}$, however, in contrast to the previous case, there are now $p$ non-vanishing basis function per element (and not $p+1$). We define the corresponding projector $\Pi_1$ acting on some square integrable function $B\in L^2$ by
+which can be verified by plugging this in the definition (\ref{eq_def_LHP}) and using the property $\eta_n(s_m)=\delta_{nm}$. In order to get a basis on the physical domain, these shape function are just put next to each other since there are no shared degrees of freedom at the element boundaries at which continuity must be enforced. This also has the consequence that the total number of basis function is again $N_1=pN_\mr{el}$, however, in contrast to the previous case, there are now $p$ non-vanishing basis function per element (and not $p+1$). We define the corresponding projector $\Pi_1$ acting on some square integrable function $B\in L^2$ by
 \begin{align}
 \Pi_1:L^2\rightarrow V_1,\quad\int_{z_i}^{z_{i+1}}(\Pi_1 B)(z)\mr{d}z=\int_{z_i}^{z_{i+1}}B(z)\mr{d}z.\label{eq_def_projector1}
 \end{align}
@@ -545,7 +545,7 @@ Note that $i=0,\ldots,N_0-1$ and thus $z_{N_0}=L$ is just the right end of the d
 \begin{align}
 \int_{z_i}^{z_{i+1}}B(z)\mr{d}z=\int_{z_i}^{z_{i+1}}B_h(z)\mr{d}z=\sum_{j=0}^{N_1-1}b_{j+1/2}\int_{z_i}^{z_{i+1}}\varphi_{j+1/2}^1(z)\mr{d}z=\frac{c_{k+1}-c_k}{2}b_{i+1/2}\quad\quad\forall\,z_i\in[c_k,c_{k+1}).\label{eq_coefficients_V1}
 \end{align}
-The proof that this choice for the bases of the space $V_0$ and $V_1$ together with the projectors $\Pi_0$ (\ref{eq_def_projector0}) and $\Pi_1$ (\ref{eq_def_projector1}) is then the following: take $\psi\in H^1$ and note that
+The proof that this choice for the bases of the space $V_0$ and $V_1$ together with the projectors $\Pi_0$ (\ref{eq_def_projector0}) and $\Pi_1$ (\ref{eq_def_projector1}) is indeed valid can be shown in the following way: take $\psi\in H^1$ and note that
 \begin{align}
 &\int_{z_i}^{z_{i+1}}(\Pi_1\frac{\pa\psi}{\pa z})(z)\mr{d}z\underset{\underset{\text{(\ref{eq_def_projector1})}}{\uparrow}}{=}\int_{z_i}^{z_{i+1}}\frac{\pa\psi}{\pa z}(z)\mr{d}z=\psi(z_{i+1})-\psi(z_i)\underset{\underset{\text{(\ref{eq_def_projector0})}}{\uparrow}}{=}(\Pi_0\psi)(z_{i+1})-(\Pi_0\psi)(z_{i})=\int_{z_i}^{z_{i+1}}\frac{\pa}{\pa z}(\Pi_0\psi)(z)\mr{d}z,
 \end{align}
@@ -593,7 +593,7 @@ and simply result from writing (\ref{eq_hotcurrent_weak}) in terms of matrix-vec
 \end{align}
 where the last row is due to periodic boundary conditions and thus $f_{N_0}=f_0$, for instance.
 
-Doing the same for the other equations in (\ref{eq_weak_gem_discrete}) as well as for the equations of motion for the particles (\ref{eq_motion_particles}) leads to the following semi-discrete system for the ten variables $\mb{\mb{u}}=(\mb{e}_x,\mb{e}_y,\mb{b}_x,\mb{b}_y,\mb{y}_x,\mb{y}_y,\mb{Z},\mb{V}_x,\mb{V}_y,\mb{V}_z)\in\mathbb{R}^{4N_0+2N_1+4N_\mr{p}}$:
+Doing the same for the other equations in (\ref{eq_weak_gem_discrete}) as well as for the equations of motion for the particles, (\ref{eq_motion_particles}) leads to the following semi-discrete system for the ten variables $\mb{\mb{u}}=(\mb{e}_x,\mb{e}_y,\mb{b}_x,\mb{b}_y,\mb{y}_x,\mb{y}_y,\mb{Z},\mb{V}_x,\mb{V}_y,\mb{V}_z)\in\mathbb{R}^{4N_0+2N_1+4N_\mr{p}}$:
 \begin{subequations}
 \label{eq_semi}
 \begin{align}
@@ -624,7 +624,7 @@ H_h(\mb{u}):=&\underbrace{\frac{\epsilon_0}{2}(\mb{e}_x^\top\mathbb{M}^0\mb{e}_x
 +&\underbrace{\frac{m_\mr{e}}{2}\mb{V}_x^\top\mathbb{W}\mb{V}_x}_{H_x}+\underbrace{\frac{m_\mr{e}}{2}\mb{V}_y^\top\mathbb{W}\mb{V}_y}_{H_y}+\underbrace{\frac{m_\mr{e}}{2}\mb{V}_z^\top\mathbb{W}\mb{V}_z}_{H_z}.
 \end{split}
 \end{align} 
-Using this discrete Hamiltonian, it is straightforward to show that the semi-discrete system (\ref{eq_semi}) can be equivalently written in a compact, non-canonical Hamiltonian structure for the combined variable $\mb{u}$:
+Using this discrete Hamiltonian, it is straightforward to show that the semi-discrete system (\ref{eq_semi}) can be equivalently written in a compact, non-canonical Hamiltonian structure \citep{Morrison2017} for the combined variable $\mb{u}$:
 \begin{align}
 \frac{\mr{d}\mb{u}}{\mr{d}t}=\mathbb{J}(\mb{u})\nabla_\mb{u}H_h(\mb{u}).\label{eq_Hamiltonian_structure}
 \end{align}
@@ -663,7 +663,9 @@ Finally, like it was done in the previous section, we want to summarize the algo
 \newpage
 \section{Numerical results}
 \begin{wraptable}{r}{7.4cm}
+\vspace{-0.75cm}
 \caption{\label{tab_parameters}Parameters for test run. In case of the structure-preserving code, the polynomial degree refers to the Lagrange polynomials that span the space $V_0$.}
+\vspace{0.2cm}
 \centering
 \begin{tabular}{|l|l|}
 \hline
@@ -687,7 +689,7 @@ Number of elements $N_\mr{el}$ & 32 \\
 \hline
 Polynomial degree $p$ & 1 \\
 \hline
-Number of particles $N_\mr{p}$ & $10^5$ \\
+Number of particles $N_\mr{p}$ & $10^6$ \\
 \hline
 Time step & $0.0125|\Omega_\mr{ce}|$ \\
 \hline
@@ -702,19 +704,19 @@ In this section, we present results for a single test run obtained with the two 
 in order to seed the instability for one particular $k$-mode. The amplitude $a$ is chosen with respect to the background magnetic field such that it is small enough to start in the linear phase, but large enough to reach the nonlinear phase within a reasonable simulation time. All other field quantities are initially zero, i.e. there is to electric field and cold plasma current at $t=0$. All parameters of the run are given in tab. \ref{tab_parameters}. Note that we have chosen a polynomial degree of $p=1$ in order to get basis functions which are as similar as possible for the two codes since B-splines and Lagrange polynomials are the same for this degree (see fig. \ref{fig_Bsplines_periodic}a). This difference between the two codes then is, that the magnetic field is still expressed with piecewise linear functions in the case of standard finite elements, but with piecewise constant functions in the case of geometric structure-preserving finite elements.  
 \begin{figure}[!t]
 \centering
-\subfigure[]{\input{01_Figures/energies_standard_10e5.pgf}}
-\subfigure[]{\input{01_Figures/energies_LieTrotter_10e5.pgf}}
+\subfigure[]{\input{01_Figures/energies_standard_10e6.pgf}}
+\subfigure[]{\input{01_Figures/energies_LieTrotter_10e6.pgf}}
 \caption{(a) Time evolution of energies for parameters given in tab. \ref{tab_parameters} obtained with standard finite element particle-in-cell methods explained in section \ref{sec_standard} together with the analytical growth rate. (b) Same for structrue-preserving finite element particle-in-cell methods explained in section \ref{sec_geometric} with the Lie-Trotter splitting (\ref{eq_LieTrotter}).\label{fig_energies}}
 \end{figure}
 
-With the choice of parameters in tab. \ref{tab_parameters}, the numerical solution of the dispersion relation (\ref{eq_dispersion_relation}) yields an expected growth rate of $\gamma\approx0.0447|\Omega_\mr{ce}|$. In fig. \ref{fig_energies} we plot the resulting time evolution of the magnetic field energy $\mathcal{E}_B$, the electric field energy $\mathcal{E}_E$ and the cold plasma energy $\mathcal{E}_\mr{c}$ (see (\ref{eq_discrete_Hamiltonian})) normalized to the total energy $\mathcal{E}=\mathcal{E}_B+\mathcal{E}_E+\mathcal{E}_\mr{c}+\mathcal{E}_\mr{h}$ together with the expected growth rate (which is $2\gamma$ in the case of energies). Note that most of the energy is carried by the energetic electrons which is why $\mathcal{E}_\mr{h}$ would be orders of magnitude above the other curves in fig. \ref{fig_energies}. Qualitatively, we observe the same behavior for the two codes: First, as expected, all quantities grow linearly, i.e. energy is transfered from the fast electrons to the electromagnetic field and the cold plasma. After this, the wave fields saturate, when nonlinear terms start to play a role and the linear theory thus breaks down. In both cases, the numerical growth matches the analytical one very well. Furthermore, the same saturation level for all quantities  although the standard FEM code seems to be more sensitive to the noise induced by the random particle initialization. 
+With the choice of parameters in tab. \ref{tab_parameters}, the numerical solution of the dispersion relation (\ref{eq_dispersion_relation}) yields an expected growth rate of $\gamma\approx0.0447|\Omega_\mr{ce}|$. In fig. \ref{fig_energies}, we plot the resulting time evolution of the magnetic field energy $\mathcal{E}_B$, the electric field energy $\mathcal{E}_E$ and the cold plasma energy $\mathcal{E}_\mr{c}$ (see (\ref{eq_discrete_Hamiltonian})) normalized to the total energy $\mathcal{E}=\mathcal{E}_B+\mathcal{E}_E+\mathcal{E}_\mr{c}+\mathcal{E}_\mr{h}$ together with the expected growth rate (which is $2\gamma$ in the case of energies). Note that most of the energy is carried by the energetic electrons which is why $\mathcal{E}_\mr{h}$ would be orders of magnitude above the other curves in fig. \ref{fig_energies}. Qualitatively, we observe a similar behavior for the two codes: First, as expected, all quantities grow linearly, i.e. energy is transfered from the fast electrons to the electromagnetic field and the cold plasma. After this, the wave fields saturate, when nonlinear terms start to play a role and the linear theory thus breaks down. In both cases, the numerical growth matches the analytical one very well and the curves and up at the same saturation level. However, the standard FEM code seems to be more sensitive to the noise induced by the random particle initialization, since it takes some time in the beginning until linear growth phase is reached (obvious for the electric field energy). 
 
-Finally, we check the conservation of the total energy in the system and plot in fig. \ref{fig_comparison} its relative error with respect to time for the standard and structure-preserving code with Lie-Trotter (\ref{eq_LieTrotter}) and Strang splitting (\ref{eq_Strang}), respectively. We find that there is an increase of the error of about three orders of magnitude for the first case, whereas the error is bounded in case of the structure-preserving methods for the whole simulation time, even in the nonlinear phase. The usage of a second-order method (Strang) instead of a first-order method (Lie-Trotter) leads to an error reduction of about three orders of magnitude.
+Finally, we check the conservation of the total energy in the system and plot in fig. \ref{fig_comparison} its relative error with respect to time for the standard and structure-preserving code with Lie-Trotter (\ref{eq_LieTrotter}) and Strang splitting (\ref{eq_Strang}), respectively. We find that there is an increase of the error of about three orders of magnitude for the first case already in the liner phase at $t\approx40|\Omega_\mr{ce}|$, whereas the error is bounded in case of the Lie-Trotter splitting for the whole simulation time, even in the nonlinear phase. The usage of a second-order method (Strang) instead of a first-order method (Lie-Trotter) leads to an error reduction of about three orders of magnitude and to a similar behavior up to $t\approx120|\Omega_\mr{ce}|$, i.e. the error does not increase. Subsequently, we observe a slight increase of the error, however, it remains two orders of magnitude below the error of the standard methods.
 
 
 \begin{figure}[!t]
 \centering
-\input{01_Figures/comparison_energies_10e5.pgf}
+\input{01_Figures/comparison_energies_10e6.pgf}
 \caption{Time evoltuion of the relative error in the conservation of energy for the different numerical algorithms.\label{fig_comparison}}
 \end{figure}
 \section{Summary}

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  21 FEB 2019 20:25
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  22 FEB 2019 12:28
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1132,30 +1132,30 @@ Overfull \hbox (185.79802pt too wide) in paragraph at lines 503--503
 
 [11 <./01_Figures/deRham1D.pdf>] (./01_Figures/Lagrange_poly_p=2.pgf)
 (./01_Figures/Lagrange_histo_p=2.pgf) [12] [13] [14] [15] [16]
-(./01_Figures/energies_standard_10e5.pgf)
-(./01_Figures/energies_LieTrotter_10e5.pgf) [17]
-(./01_Figures/comparison_energies_10e5.pgf) [18]
-Underfull \hbox (badness 10000) in paragraph at lines 745--751
+(./01_Figures/energies_standard_10e6.pgf)
+(./01_Figures/energies_LieTrotter_10e6.pgf) [17]
+(./01_Figures/comparison_energies_10e6.pgf) [18]
+Underfull \hbox (badness 10000) in paragraph at lines 747--753
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 765--771
+Underfull \hbox (badness 10000) in paragraph at lines 767--773
 
  []
 
 [19]
-Underfull \hbox (badness 10000) in paragraph at lines 793--799
+Underfull \hbox (badness 10000) in paragraph at lines 795--801
 
  []
 
 [20]
-Underfull \hbox (badness 10000) in paragraph at lines 815--821
+Underfull \hbox (badness 10000) in paragraph at lines 817--823
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 835--841
+Underfull \hbox (badness 10000) in paragraph at lines 837--843
 
  []
 
@@ -1178,10 +1178,10 @@ Missing character: There is no € in font txr!
 Missing character: There is no “ in font txr!
 ) [22] (./jcomp-template.aux) ) 
 Here is how much of TeX's memory you used:
- 13432 strings out of 493029
- 239322 string characters out of 6136233
- 662041 words of memory out of 5000000
- 16582 multiletter control sequences out of 15000+600000
+ 13438 strings out of 493029
+ 239451 string characters out of 6136233
+ 513197 words of memory out of 5000000
+ 16588 multiletter control sequences out of 15000+600000
  54859 words of font info for 129 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  48i,25n,45p,2300b,452s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1198,7 +1198,7 @@ ts/txsy.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/txfonts/txsyc.pfb
 /texlive/texmf-dist/fonts/type1/urw/times/utmb8a.pfb></usr/share/texlive/texmf-
 dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/type
 1/urw/times/utmri8a.pfb>
-Output written on jcomp-template.pdf (22 pages, 482193 bytes).
+Output written on jcomp-template.pdf (22 pages, 445914 bytes).
 PDF statistics:
  150 PDF objects out of 1000 (max. 8388607)
  103 compressed objects within 2 object streams
