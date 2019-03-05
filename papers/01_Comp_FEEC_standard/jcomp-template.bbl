@@ -1,4 +1,4 @@
-\begin{thebibliography}{19}
+\begin{thebibliography}{23}
 \expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
 \providecommand{\url}[1]{\texttt{#1}}
 \providecommand{\href}[2]{#2}
@@ -21,9 +21,9 @@
   (\bibinfo{year}{2006}) \bibinfo{pages}{1–155}.
 %Type = Article
 \bibitem[{Kraus et~al.(2017)Kraus, Kormann, Morrison, and
-  Sonnendrücker}]{Krausetal2017}
+  Sonnendr\"{u}cker}]{Krausetal2017}
 \bibinfo{author}{M.~Kraus}, \bibinfo{author}{K.~Kormann},
-  \bibinfo{author}{P.~Morrison}, \bibinfo{author}{E.~Sonnendrücker},
+  \bibinfo{author}{P.~Morrison}, \bibinfo{author}{E.~Sonnendr\"{u}cker},
 \newblock \bibinfo{title}{Gempic: geometric electromagnetic particle-in-cell
   methods},
 \newblock \bibinfo{journal}{{Journal of Plasma Physics}} \bibinfo{volume}{83}
@@ -51,6 +51,36 @@
   related variation of wave intensity using the dawn code},
 \newblock \bibinfo{journal}{{Journal of Geophysical Research: Space Physics}}
   \bibinfo{volume}{119} (\bibinfo{year}{2014}) \bibinfo{pages}{3362--3372}.
+%Type = Article
+\bibitem[{Tsurutani and Smith(1974)}]{Tsurutaniatal1974}
+\bibinfo{author}{B.~T. Tsurutani}, \bibinfo{author}{E.~J. Smith},
+\newblock \bibinfo{title}{Postmidnight chorus: A substorm phenomenon},
+\newblock \bibinfo{journal}{{Journal of Geophysical Research (1896-1977)}}
+  \bibinfo{volume}{79} (\bibinfo{year}{1974}) \bibinfo{pages}{118--127}.
+%Type = Article
+\bibitem[{Burtis and Helliwell(1976)}]{Burtisetal1976}
+\bibinfo{author}{W.~Burtis}, \bibinfo{author}{R.~Helliwell},
+\newblock \bibinfo{title}{{Magnetospheric chorus: Occurrence patterns and
+  normalized frequency}},
+\newblock \bibinfo{journal}{Planetary and Space Science} \bibinfo{volume}{24}
+  (\bibinfo{year}{1976}) \bibinfo{pages}{1007 -- 1024}.
+%Type = Article
+\bibitem[{Santolík et~al.(2004)Santolík, Gurnett, Pickett, Parrot, and
+  Cornilleau-Wehrlin}]{Santoliketal2004}
+\bibinfo{author}{O.~Santolík}, \bibinfo{author}{D.~A. Gurnett},
+  \bibinfo{author}{J.~S. Pickett}, \bibinfo{author}{M.~Parrot},
+  \bibinfo{author}{N.~Cornilleau-Wehrlin},
+\newblock \bibinfo{title}{A microscopic and nanoscopic view of storm-time
+  chorus on 31 march 2001},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{31}
+  (\bibinfo{year}{2004}).
+%Type = Article
+\bibitem[{Thorne(2010)}]{Thorne2010}
+\bibinfo{author}{R.~M. Thorne},
+\newblock \bibinfo{title}{Radiation belt dynamics: The importance of
+  wave-particle interactions},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{37}
+  (\bibinfo{year}{2010}).
 %Type = Book
 \bibitem[{Brambilla(1998)}]{Brambilla1998}
 \bibinfo{author}{M.~Brambilla}, \bibinfo{title}{{Kinetic Theory of Plasma
@@ -78,8 +108,8 @@
   Philosophical Society} \bibinfo{volume}{43} (\bibinfo{year}{1947})
   \bibinfo{pages}{50–67}.
 %Type = Article
-\bibitem[{Ratnani and Sonnendrücker(2012)}]{Ratnanietal2012}
-\bibinfo{author}{A.~Ratnani}, \bibinfo{author}{E.~Sonnendrücker},
+\bibitem[{Ratnani and Sonnendr\"{u}cker(2012)}]{Ratnanietal2012}
+\bibinfo{author}{A.~Ratnani}, \bibinfo{author}{E.~Sonnendr\"{u}cker},
 \newblock \bibinfo{title}{An arbitrary high-order spline finite element solver
   for the time domain maxwell equations},
 \newblock \bibinfo{journal}{J. Sci. Comput.} \bibinfo{volume}{51}
