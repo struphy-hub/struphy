@@ -615,19 +615,11 @@ Using this discrete Hamiltonian, it is straightforward to show that the semi-dis
 \begin{lemma}
 The matrix $\mathbb{J}\in\mathbb{R}^{n\times n}$ in (\ref{eq_Hamiltonian_structure}) is skew-symmetric and satisfies the Jacobi identity,
 \begin{align}
-\sum_{l}\left(\frac{\pa \mathbb{J}_{ab}}{\pa u_l}\mathbb{J}_{lc}+\frac{\pa \mathbb{J}_{bc}}{\pa u_l}\mathbb{J}_{la}+\frac{\pa \mathbb{J}_{ca}}{\pa u_l}\mathbb{J}_{lb}\right)\,,\qquad\forall\ a,b,c\,.\label{eq_Jacobi}
+\sum_{l}\left(\frac{\pa \mathbb{J}_{ab}}{\pa u_l}\mathbb{J}_{lc}+\frac{\pa \mathbb{J}_{bc}}{\pa u_l}\mathbb{J}_{la}+\frac{\pa \mathbb{J}_{ca}}{\pa u_l}\mathbb{J}_{lb}\right)=0\,,\qquad\forall\ a,b,c\,.\label{eq_Jacobi}
 \end{align}
-\begin{proof}
-The matrix $\mathbb{J}$ is written explicitly in appendix \ref{sec_appendix1}. The skew-symmetry of $\mathbb{J}$ is obvious, $\mathbb{J}^\top=-\mathbb{J}$. To proof the Jacobi identity we recognize the $10\times10$ block structure of $\mathbb{J}$. We denote by $\hat{\mathbb{J}}_{i,j}$ with $1\leq i,j\leq 10$ the $(i,j)$-th block. Only very few block depend on the unknown $\mb{u}$, namely $\hat{\mathbb{J}}_{1,8}$, $\hat{\mathbb{J}}_{8,1}$, $\hat{\mathbb{J}}_{2,9}$, $\hat{\mathbb{J}}_{9,2}$, $\hat{\mathbb{J}}_{8,10}$, $\hat{\mathbb{J}}_{10,8}$, $\hat{\mathbb{J}}_{9,10}$ and $\hat{\mathbb{J}}_{10,9}$. The dependence on $\mb{u}$ is via $\mathbb{B}_x=\mathbb{B}_x(\mb{Z},\mb{b}_x)$, $\mathbb{B}_y=\mathbb{B}_x(\mb{Z},\mb{b}_y)$ and $\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z})$. Therefore (\ref{eq_Jacobi}) reduces to. 
-\begin{align}
-\label{eq_Jacobi_2}
----
-\end{align}
-In Tab. \ref{tab_block_indices} we identify all block indices giving a non-zero contribution for each term \uproman{1},\ldots,\uproman{9}. Summing terms corresponding to identical index triples leads to 18 different index triples listed in Tab. for which the Jacobi identity (\ref{eq_Jacobi_2}) needs to proven. 
 \begin{table}
-\label{tab_block_indices}
 \centering
-\caption{Block index combinations for which each term in (\ref{eq_Jacobi_2}) is not equal to zero.}
+\caption{Block index combinations for which each term in (\ref{eq_Jacobi_2}) is not equal to zero.\label{tab_Jacobi1}}
 \begin{tabular}{|c|c|}
 \hline
 \rule{0pt}{2ex}  Term & Block indices (i,j,k)\\
@@ -644,6 +636,33 @@ In Tab. \ref{tab_block_indices} we identify all block indices giving a non-zero 
 \hline
 \end{tabular}
 \end{table}
+\begin{proof}
+The matrix $\mathbb{J}$ is written explicitly in \ref{sec_appendix1} in a $10\times10$ block structure. From this, the skew-symmetry $\mathbb{J}^\top=-\mathbb{J}$ is obvious. To proof the Jacobi identity we again take advantage of the $10\times10$ block structure of $\mathbb{J}$ and denote the $(i,j)$-th block by $\hat{\mathbb{J}}_{i,j}$($1\leq i,j\leq 10$). Due to the fact that only very few blocks depend on the unknown $\mb{u}$, namely $\hat{\mathbb{J}}_{1,8}$, $\hat{\mathbb{J}}_{8,1}$, $\hat{\mathbb{J}}_{2,9}$, $\hat{\mathbb{J}}_{9,2}$, $\hat{\mathbb{J}}_{8,10}$, $\hat{\mathbb{J}}_{10,8}$, $\hat{\mathbb{J}}_{9,10}$ and $\hat{\mathbb{J}}_{10,9}$ via $\mathbb{B}_x=\mathbb{B}_x(\mb{Z},\mb{b}_x)$, $\mathbb{B}_y=\mathbb{B}_x(\mb{Z},\mb{b}_y)$ and $\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z})$, respectively, (\ref{eq_Jacobi}) reduces to
+\begin{align}
+\label{eq_Jacobi_2}
+\begin{split}
+0&=\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,k=2}}_{\text{\uproman{1}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,i=2}}_{\text{\uproman{2}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,j=2}}_{\text{\uproman{3}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,k=1}}_{\text{\uproman{4}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,i=1}}_{\text{\uproman{5}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,j=1}}_{\text{\uproman{6}}}\\
+&+\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,k=10}}_{\text{\uproman{7}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,i=10}}_{\text{\uproman{8}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,j=10}}_{\text{\uproman{9}}}\,,\qquad\forall\ i,j,k\,,
+\end{split}
+\end{align}
+where we could already identify the third block index for which each term is not equal to zero (e.g. $k=2$ for term \uproman{1} or $k=1$ for term \uproman{4}). The other indices can be determined from the aforementioned dependencies of the matrices $\mathbb{B}_x$, $\mathbb{B}_y$ and $\mathbb{Q}^0$ on $\mb{b}_{x/y}$ and $\mb{Z}$, respectively. In Tab. \ref{tab_Jacobi1} we list the resulting block index combinations giving a non-zero contribution for each term \uproman{1},\,\ldots\,,\uproman{9}. Summing terms corresponding to identical index triples leads to 18 different index triples listed in Tab. \ref{tab_Jacobi2} for which the Jacobi identity in the form (\ref{eq_Jacobi_2}) needs to proven. Since the Jacobi identity gives the same expression for cyclic permutations of $(i,j,k)$, there are always three index triples which are equivalent. Consequently, there are only six distinct expressions that need to be checked. Due to the skew-symmetry of $\mathbb{J}$, it is immediately clear that the last two expressions are equal to zero and that the first and second and the third and fourth expression, respectively, are the same up to the sign. The remaining two expressions only differ with respect to $\pa\mathbb{B}_x/\pa\mb{b}_x$ and $\pa\mathbb{B}_y/\pa\mb{b}_y$. Because of the definitions (\ref{eq_def_Bxy}) of $\mathbb{B}_x$ and $\mathbb{B}_y$, respectively, these terms are again equivalent which means that we only have to proof one combination explicitly:
+\begin{align}
+&\sum_l\frac{\pa(\hat{\mathbb{J}}_{8,10})_{ab}}{\pa b_{yl+1/2}}(\hat{\mathbb{J}}_{4,1})_{lc}+\sum_l\frac{\pa(\hat{\mathbb{J}}_{1,8})_{ca}}{\pa z_{l}}(\hat{\mathbb{J}}_{7,1})_{lb}=0\,,\qquad\forall\ a,b,c\,,\\
+\Leftrightarrow\quad&\sum_l\frac{\pa(\mathbb{B}_y(\mb{Z},\mb{b}_y)\mathbb{W}^{-1})_{ab}}{\pa b_{yl+1/2}}(\mathbb{G}\mathbb{M}_0^{-1})_{lc}=\sum_l\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}^0(\mb{Z}))_{ca}}{\pa z_{l}}(\mathbb{W}^{-1})_{lb}\,,\qquad\forall\ a,b,c\,.\label{eq_proof_Jacobi_1}
+\end{align} 
+Writing all matrix products explicitly yields
+\begin{align}
+\sum_{l,m,n,p}\delta_{an}(\mathbb{Q}^{1\top})_{am}\underbrace{\frac{\pa b_{ym+1/2}}{\pa b_{y_{l+1/2}}}}_{=\delta_{lm}}\delta_{nb}\frac{1}{w_n}\mathbb{G}_{lp}(\mathbb{M}_0^{-1})_{pc}=\sum_{l,m}(\mathbb{M}_0^{-1})_{cm}\underbrace{\frac{\pa\varphi^0_{m}(z_a)}{\pa z_l}}_{=\delta_{al}(\pa\varphi_n^0/\pa z)(z_a)}\delta_{lb}\frac{1}{w_l}\,.
+\end{align}
+As a next step, we eliminate all sums involving a Kronecker delta. This results in
+\begin{align}
+\delta_{ab}\frac{1}{w_a}\sum_{m,p}\varphi_{m+1/2}^1(z_a)\mathbb{G}_{mp}(\mathbb{M}_0^{-1})_{pc}=\delta_{ab}\frac{1}{w_a}\sum_m(\mathbb{M}_0^{-1})_{cm}\frac{\pa\varphi_m^0}{\pa z}(z_a)
+\end{align}
+Using $\mathbb{G}_{mp}=2/h(\delta_{mp-1}-\delta_{mp})$ and performing the sum over $m$ yields
+\begin{align}
+\delta_{ab}\frac{1}{w_a}\frac{2}{h}\sum_p(\mathbb{M}_0^{-1})_{pc}(\varphi_{p-1/2}^1(z_a)-\varphi_{p+1/2}^1(z_a))=\delta_{ab}\frac{1}{w_a}\sum_p(\mathbb{M}_0^{-1})_{pc}\frac{\pa\varphi_p^0}{\pa z}(z_a),
+\end{align}
+where we have used the symmetry of the inverse of the mass matrix $(M_0^{-1})_{pc}=(M_0^{-1})_{cp}$. Furthermore, we renamed the summation index on the right-hand-side from $m$ to $p$.
 \end{proof}
 \end{lemma}
 The matrix $\mathbb{J}\in\mathbb{R}^{n\times n}$ in (\ref{eq_Hamiltonian_structure}) is skew-symmetric, since $\mathbb{J}^\top=-\mathbb{J}$ and satisfies the Jacobi identity. The former implies that the dynamical system (\ref{eq_Hamiltonian_structure} conserves exactly the discrete Hamiltonian (\ref{eq_discrete_Hamiltonian}) which can easily be seen by noting that
@@ -707,7 +726,7 @@ Number of elements $N_\mr{el}$ & 32 \\
 \hline
 Polynomial degree $p$ & 1 \\
 \hline
-Number of particles $N_\mr{p}$ & $10^6$ \\
+Number of particles $N_\mr{p}$ & $10^5$ \\
 \hline
 Time step & $0.0125|\Omega_\mr{ce}|$ \\
 \hline
@@ -722,19 +741,25 @@ In this section, we present results for a single test run obtained with the two 
 in order to seed the instability for one particular $k$-mode. The amplitude $a$ is chosen with respect to the background magnetic field such that it is small enough to start in the linear phase, but large enough to reach the nonlinear phase within a reasonable simulation time. All other field quantities are initially zero, which means that there is no electric field and cold plasma current at $t=0$. All parameters of the run are given in Tab. \ref{tab_parameters}. Note that we have chosen a polynomial degree of $p=1$ in order to get basis functions which are as similar as possible for the two codes since B-splines and Lagrange polynomials are the same for this degree (see Fig. \ref{fig_Bsplines_periodic}a). The difference between the two codes then is, that the magnetic field is still expressed with piecewise linear functions in the case of standard finite elements, but with piecewise constant functions in the case of geometric structure-preserving finite elements.  
 \begin{figure}[!t]
 \centering
-\subfigure[]{\input{01_Figures/energies_standard_10e6.pgf}}
-\subfigure[]{\input{01_Figures/energies_LieTrotter_10e6.pgf}}
+\subfigure[]{\input{01_Figures/energies_Standard_1e5.pgf}}
+\subfigure[]{\input{01_Figures/energies_Strang_1e5.pgf}}
 \caption{(a) Time evolution of energies for parameters given in tab. \ref{tab_parameters} obtained with standard finite element particle-in-cell methods explained in section \ref{sec_standard} together with the analytical growth rate. (b) Same for structrue-preserving finite element particle-in-cell methods explained in section \ref{sec_geometric} with the Lie-Trotter splitting (\ref{eq_LieTrotter}).\label{fig_energies}}
 \end{figure}
 
 With the choice of parameters in Tab. \ref{tab_parameters}, the numerical solution of the dispersion relation (\ref{eq_dispersion_relation}) yields an expected growth rate of $\gamma\approx0.0447|\Omega_\mr{ce}|$. In Fig. \ref{fig_energies}, we plot the resulting time evolution of the magnetic field energy $\mathcal{E}_B$, the electric field energy $\mathcal{E}_E$ and the cold plasma energy $\mathcal{E}_\mr{c}$ (see (\ref{eq_discrete_Hamiltonian})) normalized to the total energy $\mathcal{E}=\mathcal{E}_B+\mathcal{E}_E+\mathcal{E}_\mr{c}+\mathcal{E}_\mr{h}$ together with the expected growth rate (which is $2\gamma$ in the case of energies). Note that most of the energy is carried by the energetic electrons which is why $\mathcal{E}_\mr{h}$ would be orders of magnitude above the other curves in Fig. \ref{fig_energies}. Qualitatively, we observe a similar behavior for the two codes: First, as expected, all quantities grow linearly, i.e. energy is transfered from the fast electrons to the electromagnetic field and the cold plasma. After this, the wave fields saturate, when nonlinear terms start to play a role and the linear theory thus breaks down. In both cases, the numerical growth matches the analytical one very well and the curves end up at the same saturation level. However, the standard FEM code seems to be more sensitive to the noise induced by the random particle initialization, since it takes some time in the beginning until linear growth phase is reached (obvious for the electric field energy). 
+
+\begin{figure}[!t]
+\centering
+\input{01_Figures/distribution_functions_1e5.pgf}
+\caption{Initial and final velocity distributions in parallel direction.\label{fig_distribution_functions}}
+\end{figure}
 
 Finally, we check the conservation of the total energy in the system and plot in fig. \ref{fig_comparison} its relative error with respect to time for the standard and structure-preserving code with Lie-Trotter (\ref{eq_LieTrotter}) and Strang splitting (\ref{eq_Strang}), respectively. We find that there is an increase of the error of about three orders of magnitude for the first case already in the liner phase at $t\approx40|\Omega_\mr{ce}|$, whereas the error is bounded in case of the Lie-Trotter splitting for the whole simulation time, even in the nonlinear phase. The usage of a second-order method (Strang) instead of a first-order method (Lie-Trotter) leads to an error reduction of about three orders of magnitude and to a similar behavior up to $t\approx120|\Omega_\mr{ce}|$, i.e. the error does not increase. Subsequently, we observe a slight increase of the error, however, it remains two orders of magnitude below the error of the standard methods.
 
 
 \begin{figure}[!t]
 \centering
-\input{01_Figures/comparison_energies_10e6.pgf}
+\input{01_Figures/comparison_energies_1e5.pgf}
 \caption{Time evoltuion of the relative error in the conservation of energy for the different numerical algorithms.\label{fig_comparison}}
 \end{figure}
 \section{Summary}
@@ -752,9 +777,9 @@ For this case, first, a combination of one-dimensional B-spline finite elements 
 \hspace{3cm}
 \rotatebox{90}{$
 \left(\begin{array}{c|c|c|c|c|c|c|c|c|c}
- & & &\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}_0  & &
+ & & &\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0  & &
 \\ 
-\hline & & -\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & & & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}_0 &
+\hline & & -\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & & & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0 &
  \\
 \hline & \frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1} & & & & & & & &
  \\
@@ -766,9 +791,9 @@ For this case, first, a combination of one-dimensional B-spline finite elements 
  \\
 \hline & & & & & & & & &\mathbb{W}^{-1}
  \\
-\hline \frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{Q}_0^\top\mathbb{M}_0^{-1} & & & & & & & &\Omega_\mathrm{ce}\mathbb{W}^{-1} &-\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y\mathbb{W}^{-1}
+\hline \frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1} & & & & & & & &\Omega_\mathrm{ce}\mathbb{W}^{-1} &-\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y\mathbb{W}^{-1}
  \\
-\hline &\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{Q}_0^\top\mathbb{M}_0^{-1}  & & & & & & -\Omega_\mathrm{ce}\mathbb{W}^{-1} & &\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x\mathbb{W}^{-1}
+\hline &\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}  & & & & & & -\Omega_\mathrm{ce}\mathbb{W}^{-1} & &\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x\mathbb{W}^{-1}
  \\
 \hline & & & & & &-\mathbb{W}^{-1} &\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y\mathbb{W}^{-1} &-\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x\mathbb{W}^{-1} &
  \end{array}\right)$
@@ -781,7 +806,7 @@ For this case, first, a combination of one-dimensional B-spline finite elements 
 \label{sec_appendix2}
 \begin{table}
 \centering
-\caption{bla}
+\caption{Block index combinations for which the Jacobi identity needs to be proven.\label{tab_Jacobi2}}
 \begin{tabular}{|c|c|c|c|}
 \hline
 (i,j,k) &terms &block matrix term & explicit expression \\[1mm]
