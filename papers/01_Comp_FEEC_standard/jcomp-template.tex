@@ -66,6 +66,7 @@
 \usepackage{enumitem}
 \usepackage[toc,page]{appendix}
 \usepackage{cite}
+\usepackage{import}
 
 
 
@@ -87,13 +88,13 @@
 
 %\title{Comparison of standard and structure-preserving finite element particle-in-cell methods for a four-dimensional electron hybrid plasma model}%
 
-\title{Comparison of structure-preserving and standard particle-in-cell methods for an electron hybrid plasma model}
+\title{Structure-preserving vs. standard particle-in-cell methods: the case of an electron hybrid model}
 
 \author[1]{Florian \snm{Holderied}\corref{cor1}}
 \cortext[cor1]{Corresponding author:}
 \ead{florian.holderied@ipp.mpg.de}
 \author[1,2]{Stefan \snm{Possanner}}
-\author[1]{Ahmed \snm{Ratnani}}
+\author[1,2]{Ahmed \snm{Ratnani}}
 \author[1]{Xin \snm{Wang}}
 
 
@@ -743,8 +744,7 @@ In this section, we present results for a single test run obtained with the two 
 in order to seed the instability for one particular $k$-mode. The amplitude $a$ is chosen with respect to the background magnetic field such that it is small enough to start in the linear phase, but large enough to reach the nonlinear phase within a reasonable simulation time. All other field quantities are initially zero, which means that there is no electric field and cold plasma current at $t=0$. All parameters of the run are given in Tab. \ref{tab_parameters}. Note that we have chosen a polynomial degree of $p=1$ in order to get basis functions which are as similar as possible for the two codes since B-splines and Lagrange polynomials are the same for this degree (see Fig. \ref{fig_Bsplines_periodic}a). The difference between the two codes then is, that the magnetic field is still expressed with piecewise linear functions in the case of standard finite elements, but with piecewise constant functions in the case of geometric structure-preserving finite elements.  
 \begin{figure}[!t]
 \centering
-\subfigure[]{\input{01_Figures/energies_Standard_1e5.pgf}}
-\subfigure[]{\input{01_Figures/energies_Strang_1e5.pgf}}
+\input{01_Figures/comparison_1e5.pgf}
 \caption{(a) Time evolution of energies for parameters given in tab. \ref{tab_parameters} obtained with standard finite element particle-in-cell methods explained in section \ref{sec_standard} together with the analytical growth rate. (b) Same for structrue-preserving finite element particle-in-cell methods explained in section \ref{sec_geometric} with the Lie-Trotter splitting (\ref{eq_LieTrotter}).\label{fig_energies}}
 \end{figure}
 
@@ -764,6 +764,14 @@ Finally, we check the conservation of the total energy in the system and plot in
 \input{01_Figures/comparison_energies_1e5.pgf}
 \caption{Time evoltuion of the relative error in the conservation of energy for the different numerical algorithms.\label{fig_comparison}}
 \end{figure}
+
+\begin{figure}[!t]
+\centering
+\input{Spectra_1e5.pgf}
+\caption{test}
+\end{figure}
+
+
 \section{Summary}
 \label{sec_summary}
 In this work, we have presented two different finite element particle-in-cell algorithms for a four-dimensional hybrid plasma model and compared the results for a single test run. The considered hybrid plasma model is a combined kinetic/fluid description for a magnetized plasma, which consists of cold (fluid) electrons and energetic (kinetic) electrons that move in a stationary, neutralizing background of ions. The model's key physics content for wave propagation parallel to a uniform background magnetic field is that it predicts the existence of growing/damped modes due to energy exchange between the energetic electrons which propagate in the cold plasma.
