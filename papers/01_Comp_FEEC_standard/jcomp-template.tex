@@ -37,27 +37,13 @@
 %\documentclass[times,twocolumn,final,longtitle]{elsarticle}
 %%
 
-\usepackage{amsthm}
-
-% Commands
-\newcommand{\pa}{\partial}
-\newcommand{\mr}[1]{\mathrm{#1}}
-\newcommand{\mb}[1]{\mathbf{#1}}
-\newcommand{\vpar}{v_{\mr{th}\parallel}}
-\newcommand{\vperp}{v_{\mr{th}\perp}}
-\newcommand{\uproman}[1]{\uppercase\expandafter{\romannumeral#1}}
-\newcommand{\blo}[9]{\frac{\pa(\mathbb{J}_{#1,#2})_{#3#4}}{\pa #5}(\mathbb{J}_{#6,#7})_{#8#9}}
-
-\newcommand{\block}[5]{\frac{\pa\hat{\mathbb{J}}_{#1,#2}}{\pa #3}\hat{\mathbb{J}}_{#4,#5}}
-\newtheorem*{theorem}{Theorem}
-\newtheorem*{lemma}{Lemma}
-
 
 %% Stylefile to load JCOMP template
 \usepackage{jcomp}
 \usepackage{framed,multirow}
 
 %% The amssymb package provides various useful mathematical symbols
+\usepackage{amsthm}
 \usepackage{amssymb}
 \usepackage{latexsym}
 \usepackage{subfigure}
@@ -70,6 +56,19 @@
 \usepackage{cite}
 \usepackage{import}
 
+
+
+% Commands
+\newcommand{\pa}{\partial}
+\newcommand{\mr}[1]{\mathrm{#1}}
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\vpar}{v_{\mr{th}\parallel}}
+\newcommand{\vperp}{v_{\mr{th}\perp}}
+\newcommand{\uproman}[1]{\uppercase\expandafter{\romannumeral#1}}
+\newcommand{\blo}[9]{\frac{\pa(\mathbb{J}_{#1,#2})_{#3#4}}{\pa #5}(\mathbb{J}_{#6,#7})_{#8#9}}
+\newcommand{\block}[5]{\frac{\pa\hat{\mathbb{J}}_{#1,#2}}{\pa #3}\hat{\mathbb{J}}_{#4,#5}}
+\newtheorem*{theorem}{Theorem}
+\newtheorem*{lemma}{Lemma}
 
 
 % Following three lines are needed for this document.
@@ -112,7 +111,7 @@
 
 \begin{abstract}
 %%%
-Two numerical methods, which both belong to the class of finite element particle-in-cell methods, have been applied on a four-dimensional (one dimension in real space and three dimensions in velocity space) hybrid plasma model for electrons in a stationary, neutralizing background of ions. Here, the term \textit{hybrid} means that (energetic) electrons with velocities close to the phase velocities of the model's characteristic waves are treated kinetically, whereas electrons that are much slower than the phase velocity are treated with fluid equations. The two developed numerical schemes based on standard finite elements on the one hand and structure-preserving geometric finite elements on the other hand, have been tested successfully in the linear stage and compared in terms of energy conservation in the nonlinear stage. Regarding the latter, we show that the structure-preserving algorithm leads to better results which is due to the fact the spatial discretization gives rise to a large system of ordinary differential equations in time that exhibits a non-canonical Hamiltonian structure for which special time integration schemes with good conservation properties exist.
+Two numerical methods, which both belong to the class of finite element particle-in-cell methods, have been applied on a four-dimensional (one dimension in real space and three dimensions in velocity space) hybrid plasma model for electrons in a stationary, neutralizing background of ions. Here, the term \textit{hybrid} means that (energetic) electrons with velocities close to the phase velocities of the model's characteristic waves are treated kinetically, whereas electrons that are much slower than the phase velocity are treated with fluid equations. The two developed numerical schemes based on standard finite elements on the one hand and structure-preserving geometric finite elements on the other hand, have been tested successfully in the linear stage and compared in terms of energy conservation in the nonlinear stage. Regarding the latter, we show that the structure-preserving algorithm leads to better results which is due to the fact that the spatial discretization gives rise to a large system of ordinary differential equations in time that exhibits a non-canonical Hamiltonian structure for which special time integration schemes with good conservation properties exist.
 %%%%
 \end{abstract}
 
@@ -137,6 +136,7 @@ We present the development and comparison of two numerical algorithms for a hybr
 There are several plasma configurations which involve the interaction of an energetic plasma species with a lower temperature bulk plasma, e.g. fusion born alpha particles interacting with the ambient plasma in nuclear fusion devices \citep{Breizmanetal2011} or the interaction of energetic electrons in the solar wind with planetary magnetoshperes. The model which is used in this work and which will be introduced in the next section corresponds to the latter case and is thus applicable to plasma dynamics in the Earth's magnetospheres, for instance. It has been used intensively for the simulation \citep{Katohetal2007, Tao2014} of a special type of electromagnetic waves called \textit{Chorus waves} \citep{Tsurutaniatal1974, Burtisetal1976}, which are electromagnetic emissions whose frequency-time-spectrograms show a series of discrete elements with rising frequencies with respect to time. This phenomenon is also known as \textit{frequency chirping} \citep{Santoliketal2004}. An important condition for the excitation of Chorus waves is the injection of energetic electrons with an anisotropic velocity distribution with respect to the Earth's magnetic field into the magnetosphere which then interact with Whistler mode waves propagating in the background plasma therein \citep{Thorne2010}.
 
 This article is structured as follows. In Sec. \ref{sec_theory}, we introduce and discuss the considered electron hybrid model by starting with the full model with nonlinear fluid equations and subsequently performing a model reduction until we arrive at the simplified model which will be treated numerically. Besides this, we review and study the dispersion relation for waves with transverse disturbances propagating parallel to the external magnetic field in order to have a test case for the developed numerical algorithms. In Sec. \ref{sec_numerical_methods}, we successively apply the two above mentioned finite element PIC methods. For the case of structure-preserving geometric finite element PIC methods, we show, after having done the spatial discretization, that we end up with a non-canonical Hamiltonian system in time by proofing the anti-symmetry and Jacobi identity of the resulting system matrix. In sec. \ref{sec_numerical_results}, we show and compare results obtained with the two developed algorithms before we summarize and conclude in Sec. \ref{sec_summary}. For completeness and clarity in the main text, the article contains three appendices. In \ref{sec_appendix1}, the system matrix of the non-canonical Hamiltonian system is displayed, while \ref{sec_appendix2} contains a table which is helpful for the understanding of the proof of the Jacobi identity. Finally, \ref{sec_appendix3} lists the time integrators for the geometric algorithm.
+
  
 \section{Theoretical background}
 \label{sec_theory}
@@ -213,7 +213,7 @@ where we assumed that there is no background electric field and no equilibrium p
 &\frac{1}{c^2}\frac{\pa \tilde{\mb{E}}}{\pa t}=\nabla\times\tilde{\mb{B}}-\mu_0\tilde{\mb{j}}_\mr{c}-\mu_0q_\mr{e}\int\mb{v}\tilde{f}_\mr{h}\,\mr{d}^3\mb{v},\label{eq_model_linearized_4}
 \end{align}
 \end{subequations}
-where we introduced the spatially dependent cold electron plasma frequency $\Omega_\mr{pe}^2(\mb{x})=e^2n_{\mr{c}0}(\mb{x})/\epsilon_0m_\mr{e}$, the oriented electron cyclotron frequency $\mb{\Omega}_\mr{ce}(\mb{x})=q_\mr{e}\mb{B}_0(\mb{x})/m_\mr{e}$ corresponding to the background magnetic field $\mb{B}_0$ and the perturbed energetic electron current density $\tilde{\mb{j}}_\mr{c}$. An important property of the linearized model (\ref{eq_model_linearized}) is that its dynamics conserves the total energy 
+where we introduced the spatially dependent cold electron plasma frequency $\Omega_\mr{pe}^2(\mb{x})=e^2n_{\mr{c}0}(\mb{x})/\epsilon_0m_\mr{e}$, the oriented electron cyclotron frequency $\mb{\Omega}_\mr{ce}(\mb{x})=q_\mr{e}\mb{B}_0(\mb{x})/m_\mr{e}$ corresponding to the background magnetic field $\mb{B}_0$. An important property of the linearized model (\ref{eq_model_linearized}) is that its dynamics conserves the total energy 
 \begin{align}
 \epsilon:=\underbrace{\frac{\epsilon_0}{2}\int_\Omega\tilde{\mb{E}}^2\,\mr{d}^3\mb{x}}_{=:\epsilon_E}+\underbrace{\frac{1}{2\mu_0}\int
 _\Omega\tilde{\mb{B}}^2\,\mr{d}^3\mb{x}}_{=:\epsilon_B}+\underbrace{\frac{1}{2\epsilon_0}\int_\Omega\frac{1}{\Omega_\mr{pe}^2}\tilde{\mb{j}}_\mr{c}^2\,\mr{d}^3\mb{x}}_{:=\epsilon_\mr{c}}+\underbrace{\frac{m_\mr{e}}{2}\int_\Omega\int |\mb{v}|^2f_\mr{h}\,\mr{d}^3\mb{v}\mr{d}^3\mb{x}}_{\epsilon_\mr{h}}\label{eq_total_energy}
@@ -237,7 +237,7 @@ where we performed a relabeling ($\tilde{\mb{B}}\rightarrow\mb{B}$, $\tilde{f}_\
 \centering
 \input{01_Figures/Real_freq.pgf}
 \input{01_Figures/Growth_rates.pgf}
-\caption{(a) Real part $\omega_\mr{r}=\mr{Re}(\omega)$ of numerical solutions of the dispersion relation (\ref{eq_dispersion_relation}) for parameters $\Omega_\mr{pe}=2|\Omega_\mr{ce}|$, $\nu_\mr{h}=0.005$, $\vpar=0.2c$ and $\vperp=0.6c$. (b) Corresponding imaginary parts $\gamma=\mr{Im}(\omega)$. Here, only the solution corresponding for the R-wave below the electron cyclotron frequency $|\Omega_\mr{ce}|$ is shown since the imaginary parts of the other two branches are close to zero.\label{fig_solutions_dispersion}}
+\caption{(a) Real part $\omega_\mr{r}=\mr{Re}(\omega)$ of numerical solutions of the dispersion relation (\ref{eq_dispersion_relation}) for parameters $\Omega_\mr{pe}=2|\Omega_\mr{ce}|$, $\nu_\mr{h}=0.005$, $\vpar=0.2c$ and $\vperp=0.6c$. (b) Corresponding imaginary parts $\gamma=\mr{Im}(\omega)$. Here, only the solution corresponding to the R-wave below the electron cyclotron frequency $|\Omega_\mr{ce}|$ is shown since the imaginary parts of the other two branches are close to zero.\label{fig_solutions_dispersion}}
 \end{figure}
 The other two solutions correspond to right-handed (R) and left-handed (L) circularly polarized waves (transversal waves with perturbations perpendicular to the background magnetic field only), respectively. The dispersion relation for these types of waves for an arbitrary hot electron equilibrium distribution function $f_\mr{h}^0$ reads \citep{Brambilla1998, Xiaoetal1998}
 \begin{align}
@@ -320,7 +320,7 @@ A_2&=
 \begin{align}
 \int_0^L\frac{\pa \mb{U}}{\pa t}V\mr{d}z+A_1\int_0^L\frac{\pa\mb{U}}{\pa z}V\mr{d}z+A_2\int_0^L\mb{U}V\mr{d}z=\int_0^L\mb{S}V\mr{d}z\quad\quad\forall\,V\in H^1.
 \end{align}
-As a next step, we replace the function space $H^1$ by a finite-dimensional subspace $\mathcal{S}_h\subset H^1$ in which we look for the approximate solution $\mb{U}_h$ of the problem (\ref{eq_compact}). In addition to that, we use the same subspace for the trial function $\mb{U}_h$ and the test function $V_h$ (Bubnov-Galerkin-method). This leads to the following discrete version of the above problem: Find Find $\textbf{U}_h\in(\mathcal{S}_h)^6$ such that such that
+As a next step, we replace the function space $H^1$ by a finite-dimensional subspace $\mathcal{S}_h\subset H^1$ in which we look for the approximate solution $\mb{U}_h$ of the problem (\ref{eq_compact}). In addition to that, we use the same subspace for the trial function $\mb{U}_h$ and the test function $V_h$ (Bubnov-Galerkin-method). This leads to the following discrete version of the above problem: Find $\textbf{U}_h\in(\mathcal{S}_h)^6$ such that
 \begin{align}
 \int_0^L\frac{\pa \mb{U}_h}{\pa t}V_h\mr{d}z+A_1\int_0^L\frac{\pa\mb{U}_h}{\pa z}V_h\mr{d}z+A_2\int_0^L\mb{U}_hV_h\mr{d}z=\int_0^L\mb{S}V_h\mr{d}z\quad\quad\forall\,V_h\in\mathcal{S}_h.\label{eq_weak_discrete}
 \end{align}
@@ -332,7 +332,7 @@ and substituting these expressions in the discrete weak formulation (\ref{eq_wea
 \begin{align}
 \sum_{i,j=0}^{N-1}v_i\frac{\mr{d}\mb{u}_j}{\mr{d}t}\underbrace{\int_0^L\varphi_i\varphi_j\mr{d}z}_{=:m_{ij}}+A_1\sum_{i,j=0}^{N-1}v_i\mb{u}_j\underbrace{\int_0^L\varphi_i\varphi_j^\prime\mr{d}z}_{=:c_{ij}}+A_2\sum_{i,j=0}^{N-1}v_i\mb{u}_j\underbrace{\int_0^L\varphi_i\varphi_j\mr{d}z}_{=:m_{ij}}=\sum_{i=0}^{N-1}v_i\int_0^L\mb{S}\varphi_i\mr{d}z,\label{eq_matrix_formulation_1}
 \end{align}
-where we have defined the entries of the mass matrix $\mathbb{M}:=(m_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{R}^{N\times N}$ and the advection matrix $\mathbb{C}:=(c_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{M}^{N\times N}$. With this, (\ref{eq_matrix_formulation_1}) can be expressed equivalently in the following semi-discrete block matrix form:
+where we have defined the entries of the mass matrix $\mathbb{M}:=(m_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{R}^{N\times N}$ and the advection matrix $\mathbb{C}:=(c_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{R}^{N\times N}$. With this, (\ref{eq_matrix_formulation_1}) can be expressed equivalently in the following semi-discrete block matrix form:
 \begin{align}
 \mathbb{V}\mathbb{M}_\mr{b}\frac{\mr{d}\mb{u}}{\mr{d}t}+\mathbb{V}\tilde{\mathbb{C}}\mb{u}+\mathbb{V}\tilde{\mathbb{M}}\mb{u}=\mathbb{V}\mathbb{S}.\label{eq_matrix_formulation_2}
 \end{align}
@@ -353,7 +353,7 @@ where $I_6$ denotes the $6\times6$ identity matrix. Furthermore, we introduced t
 \int_0^L\mathbf{S}\varphi_{N-1}(z)\text{d}z
 \end{pmatrix}\quad\in\mathbb{R}^{6N}.\label{eq_def_righthandside}
 \end{align}
-Since we want (\ref{eq_matrix_formulation_2}) to be true for all $\mathbb{V}$ of the form (\ref{eq_matrix_test}), we finally end up the with semi-discrete system
+Since we want (\ref{eq_matrix_formulation_2}) to be true for all $\mathbb{V}$ of the form (\ref{eq_matrix_test}), we finally end up with the semi-discrete system
 \begin{align}
 \mathbb{M}_\mr{b}\frac{\mr{d}\mb{u}}{\mr{d}t}=-\tilde{\mathbb{C}}\mb{u}-\tilde{\mathbb{M}}\mb{u}+\mathbb{S}\label{eq_semi_discrete_system}
 \end{align}
@@ -502,7 +502,7 @@ The Lagrange \textit{shape} functions $(\eta_n(s))_{n=0,\ldots,p}$ of degree $p$
 \input{01_Figures/Lagrange_histo_p=2.pgf}
 \caption{(a) Lagrange shape functions of degree $p=2$ in the reference element $I=[-1,1]$ and the corresponding periodic basis functions on a physical domain of length $L=1$ which has been discretized by $N_\mr{el}=3$ elements of equal length. (b) Corresponding local histopolation shape and basis functions.\label{fig_Lagrange}}
 \end{figure}
-\hspace{-2.3mm} The construction of the \textit{basis} functions on the physical domain is then done by noting that we need continuity at the shared degrees of freedom at the element boundaries. This leads to a total number of $N_0=pN_\mr{el}$ basis functions in case of periodic boundary conditions and we get the formula $j=\mr{mod}(pk+n,N_0)_{n=0,\ldots,p;k=0\ldots N_\mr{el}-1}$ to go from shape to basis functions. The corresponding projector $\Pi_0$ on this basis acting on some continuous function $E\in H^1$ is defined by
+\hspace{-2.3mm} The construction of the \textit{basis} functions on the physical domain is then done by noting that we need continuity at the shared degrees of freedom at the element boundaries in order for $V_0$ to be a subspace of $H^1$. This leads to a total number of $N_0=pN_\mr{el}$ basis functions in case of periodic boundary conditions and we get the formula $j=\mr{mod}(pk+n,N_0)_{n=0,\ldots,p;k=0\ldots N_\mr{el}-1}$ to go from shape to basis functions. The corresponding projector $\Pi_0$ on this basis acting on some continuous function $E\in H^1$ is defined by
 \begin{align}
 \Pi_0:H^1\rightarrow V_0,\quad(\Pi_0 E)(z_i)=E(z_i),\label{eq_def_projector0}
 \end{align}
@@ -556,7 +556,7 @@ Here, we defined the entries of the two mass matrices $\mathbb{M}_0:=(m_{0ij})_{
 were we introduced the vector $\mb{V}_x=(v_{1x}\ldots,v_{N_\mr{p}x})^\top\in\mathbb{R}^{N_\mr{p}}$ holding the particles' velocities in $x$-direction. The matrices $\mathbb{Q}^0\in\mathbb{R}^{N_0\times N_\mr{p}}$ and $\mathbb{W}\in\mathbb{R}^{N_\mr{p}\times N_\mr{p}}$ defined by
 \begin{subequations}
 \begin{align}
-&\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z}):=(\varphi_i^0(z_k))_{i=0,\ldots,N_0-1,k=1\ldots,N_\mr{p}},\label{eq_def_Q0}\\
+&\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z}):=(\varphi_i^0(z_k))_{i=0,\ldots,N_0-1;k=1\ldots,N_\mr{p}},\label{eq_def_Q0}\\
 &\mathbb{W}:=\mr{diag}(w_1,\ldots,w_{N_\mr{p}}),\label{eq_def_W}
 \end{align}
 \end{subequations}
@@ -591,7 +591,7 @@ Doing the same for the other equations in (\ref{eq_weak_gem_discrete}) as well a
 \end{subequations}
 where the matrices $\mathbb{Q}^1\in\mathbb{R}^{N_1\times N_\mr{p}}$ and $\mathbb{B}_{x/y}\in\mathbb{R}^{N_\mr{p}\times N_\mr{p}}$ defined by
 \begin{align}
-&\mathbb{Q}^1=\mathbb{Q}^1(\mb{Z}):=(\varphi_{i+1/2}^1(z_k))_{i=0,\ldots,N_1-1,k=1\ldots,N_\mr{p}},\label{eq_def_Q1}\\
+&\mathbb{Q}^1=\mathbb{Q}^1(\mb{Z}):=(\varphi_{i+1/2}^1(z_k))_{i=0,\ldots,N_1-1;k=1\ldots,N_\mr{p}},\label{eq_def_Q1}\\
 &\mathbb{B}_{x/y}=\mathbb{B}_{x/y}(\mb{Z},\mb{b}_{x/y}):=\mr{diag}\left[(\mathbb{Q}^1)^\top(\mb{Z})\mb{b}_{x/y}\right],\label{eq_def_Bxy}
 \end{align}
 arise naturally after writing the particles' equations of motion (\ref{eq_motion_particles}) in matrix-vector form and noting that the discrete electric and magnetic fields can be expressed in their respective bases (see (\ref{eq_fields_particles})).
@@ -720,7 +720,7 @@ Higher order splitting schemes can e.g. be found in \citep{McLachlanetal2012}.
 
 \section{Numerical experiments}
 \label{sec_numerical_results}
-In this section, we present results of two runs performed with each algorithms developed in the previous sections. In the first run, we excite the instability stated in section \ref{sec_dispersion} for a single wavenumber $k$, while we excite multiple modes without an expected instability in the second run. 
+In this section, we present results of two runs performed with each algorithm developed in the previous sections. In the first run, we excite the instability stated in section \ref{sec_dispersion} for a single wavenumber $k$, while we excite multiple modes without an expected instability in the second run. 
 
 \subsection{Run 1: Single $k$-mode}
 For the first run, we initialize the codes as follows: We choose an anisotropic Maxwellian for the energetic electrons and perturb the $x$-component of the magnetic wave field by $\tilde{B}_x(z,t=0)=a\sin(kz)$ in order to seed the instability for one particular $k$-mode. The amplitude $a$ is chosen with respect to the background magnetic field such that it is small enough to start in the linear phase, but large enough to reach the nonlinear phase within a reasonable simulation time. All other field quantities are initially zero, which means that there is no electric field and cold plasma current at $t=0$. All physical and numerical parameters of the run are listed in Tab. \ref{tab_parameters}. Note that we have chosen a polynomial degree of $p=1$ in order to get basis functions which are as similar as possible for the two codes since B-splines and Lagrange polynomials are the same only for this degree (see Fig. \ref{fig_Bsplines_periodic}a). The main difference between the two codes then is that the magnetic field is still expressed with piecewise linear functions in the case of standard finite elements, but with piecewise constant functions in the case of structure-preserving geometric finite elements. 
