@@ -131,7 +131,7 @@ Two numerical methods, which both belong to the class of finite element particle
  
 \section{Introduction}
 \label{sec_intro}
-We present the development and comparison of two numerical algorithms for a hybrid plasma model in order to demonstrate similarities and differences of standard finite element particle-in-cell (PIC) methods compared to structure-preserving finite element PIC methods. The latter use techniques from  \textit{finite element exterior calculus} (FEEC) \citep{Arnoldetal2006} and were applied by Kraus et al. \citep{Krausetal2017} on the full six-dimensional Vlasov-Maxwell model. By taking into account the geometric structure of the system of equations, FEEC methods naturally preserve conservation laws like energy, for instance, or the two divergence constraints arising in electrodynamics, $\nabla\cdot\mb{E}=\rho/\epsilon_0$ and $\nabla\cdot\mb{B}=0$, exactly on the semi-discrete level (discrete in space and continuous in time). Here, $\mb{E}=\mb{E}(\mb{x},t)$ and $\mb{B}=\mb{B}(\mb{x},t)$ denote the electric field and the magnetic flux density (or induction), which we will simply refer to as magnetic field. Furthermore,  $\rho=\rho(\mb{x},t)$ and $\epsilon_0$ are the charge density and the vacuum permittivity, respectively. As shown by Arnold, Falk \& Winther \citep{Arnoldetal2006, Arnoldetal2010}, the preservation of such invariants goes hand in hand with numerical stability. In this work, we shall apply these methods as well as classical finite element PIC methods on a hybrid plasma model, which uses a combined fluid/kinetic description for different particle species to get a good balance between accuracy (kinetic models) and computational costs (fluid models). By comparing numerical results to the analytical theory in the linear and the conservation of energy in the nonlinear stage, we want to investigate whether there is a visible difference in the performances of the two algorithms.  
+We present the development and comparison of two numerical algorithms for a hybrid plasma model in order to demonstrate similarities and differences of standard finite element particle-in-cell (PIC) methods compared to structure-preserving finite element PIC methods. The latter use techniques from  \textit{finite element exterior calculus} (FEEC) \citep{Arnoldetal2006} and were applied by Kraus et al. \citep{Krausetal2017} on the full six-dimensional Vlasov-Maxwell model. By taking into account the geometric structure of the system of equations, FEEC methods naturally preserve conservation laws like energy, for instance, or the two divergence constraints arising in electrodynamics, $\nabla\cdot\mb{E}=\rho/\epsilon_0$ and $\nabla\cdot\mb{B}=0$, exactly on the semi-discrete level (discrete in space and continuous in time). Here, $\mb{E}=\mb{E}(\mb{x},t)$ and $\mb{B}=\mb{B}(\mb{x},t)$ denote the electric field and the magnetic flux density (or induction), which we will simply refer to as magnetic field. Furthermore,  $\rho=\rho(\mb{x},t)$ and $\epsilon_0$ are the charge density and the vacuum permittivity, respectively. As shown by Arnold, Falk \& Winther \citep{Arnoldetal2006, Arnoldetal2010}, the preservation of such invariants goes hand in hand with numerical stability. In this work, we shall apply these methods as well as classical finite element PIC methods on a hybrid plasma model, which uses a combined fluid/kinetic description for different particle species to get a good balance between accuracy (kinetic models) and computational costs (fluid models). By comparing numerical results to the analytical theory in the linear and the conservation of energy in the nonlinear stage, our aim is to investigate whether there is a visible difference in the performances of the two algorithms.  
 
 There are several plasma configurations which involve the interaction of an energetic plasma species with a lower temperature bulk plasma, e.g. fusion born alpha particles interacting with the ambient plasma in nuclear fusion devices \citep{Breizmanetal2011} or the interaction of energetic electrons in the solar wind with planetary magnetoshperes. The model which is used in this work and which will be introduced in the next section corresponds to the latter case and is thus applicable to plasma dynamics in the Earth's magnetospheres, for instance. It has been used intensively for the simulation \citep{Katohetal2007, Tao2014} of a special type of electromagnetic waves called \textit{Chorus waves} \citep{Tsurutaniatal1974, Burtisetal1976}, which are electromagnetic emissions whose frequency-time-spectrograms show a series of discrete elements with rising frequencies with respect to time. This phenomenon is also known as \textit{frequency chirping} \citep{Santoliketal2004}. An important condition for the excitation of Chorus waves is the injection of energetic electrons with an anisotropic velocity distribution with respect to the Earth's magnetic field into the magnetosphere which then interact with Whistler mode waves propagating in the background plasma therein \citep{Thorne2010}.
 
@@ -885,40 +885,40 @@ For this case, first, a combination of one-dimensional B-spline finite elements 
 \label{sec_appendix3}
 \noindent \textbf{Problem 1}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$ we have
 \begin{align}
-\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_E(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{\epsilon_0}{2}(\textbf{e}_x^\top\mathbb{M}^0\textbf{e}_x+\textbf{e}_y^\top\mathbb{M}^0\textbf{e}_y)\right].
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_E(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{\epsilon_0}{2}(\textbf{e}_x^\top\mathbb{M}_0\textbf{e}_x+\textbf{e}_y^\top\mathbb{M}_0\textbf{e}_y)\right].
 \end{align}
 This can be solved analytically as
 \begin{subequations}
 \begin{alignat}{3}
     &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0,\\
     &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0,\\
-    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}\mathbb{G}(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_y &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0 + \Delta t\mathbb{G}\textbf{e}_y^0,\\
-    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}\mathbb{G}(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_x &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0 - \Delta t\mathbb{G}\textbf{e}_x^0,\\
-     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\Omega_\mathrm{pe}^2(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_x &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_x^0,\\
-     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=\Omega_\mathrm{pe}^2(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_y &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0 + \Delta t\mathbb{G}\textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0 - \Delta t\mathbb{G}\textbf{e}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_y^0,\\
      &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
-     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_x\quad &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_x^0,\\ 
-     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top(\mathbb{M}^0)^{-1}\epsilon_0\mathbb{M}^0\textbf{e}_y &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_y^0,\\ 
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x\quad &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_x^0,\\ 
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_y^0,\\ 
      &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0.
 \end{alignat}
 \end{subequations}
 The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^E(\textbf{u}^0)$.\\ \\
 \textbf{Problem 2}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$ we have
 \begin{align}
-\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_B(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\mu_0}(\textbf{b}_x^\top\mathbb{M}^1\textbf{b}_x+\textbf{b}_y^\top\mathbb{M}^1\textbf{b}_y)\right].
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_B(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\mu_0}(\textbf{b}_x^\top\mathbb{M}_1\textbf{b}_x+\textbf{b}_y^\top\mathbb{M}_1\textbf{b}_y)\right].
 \end{align}
 This can be solved analytically as
 \begin{subequations}
 \begin{alignat}{3}
-    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}(\mathbb{M}^0)^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}^1\textbf{b}_y &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0 + \Delta tc^2(\mathbb{M}^0)^{-1}\mathbb{G}^\top\mathbb{M}^1\textbf{b}_y^0,\\
-    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}(\mathbb{M}^0)^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}^1\textbf{b}_x \quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta tc^2(\mathbb{M}^0)^{-1}\mathbb{G}^\top\mathbb{M}^1\textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}_1\textbf{b}_y &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0 + \Delta tc^2\mathbb{M}_0^{-1}\mathbb{G}^\top\mathbb{M}_1\textbf{b}_y^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}_1\textbf{b}_x \quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta tc^2\mathbb{M}_0^{-1}\mathbb{G}^\top\mathbb{M}_1\textbf{b}_x^0,\\
     &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
     &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
      &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
      &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0,
 \end{alignat}
 \begin{alignat}{3}
-     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0\hspace{3.3cm} &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0\hspace{3cm} &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
      &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0,\\
      &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0,\\
      &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0.
@@ -927,25 +927,25 @@ This can be solved analytically as
 The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^B(\textbf{u}^0)$.\\ \\
 \textbf{Problem 3}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$, we have
 \begin{align}
-\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_Y(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\epsilon_0\Omega_\mr{pe}^2}(\textbf{y}_x^\top\mathbb{M}^0\textbf{y}_x+\textbf{y}_y^\top\mathbb{M}^0\textbf{y}_y)\right].
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_Y(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\epsilon_0\Omega_\mr{pe}^2}(\textbf{y}_x^\top\mathbb{M}_0\textbf{y}_x+\textbf{y}_y^\top\mathbb{M}_0\textbf{y}_y)\right].
 \end{align}
 This can be solved analytically as
 \begin{subequations}
 \begin{alignat}{3}
 \begin{split}
-    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2(\mathbb{M}^0)^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}^0\textbf{y}_x \\
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_x \\
     &\Longrightarrow \textbf{e}_x(\Delta t)=\textbf{e}_x^0 - \frac{1}{\epsilon_0}\int_{0}^{\Delta t} y_x(t^\prime)\mathrm{d}t^\prime =\textbf{e}_x^0 - \frac{1}{\epsilon_0\Omega_\mathrm{ce}}[\textbf{y}_x^0\sin(\Omega_\textbf{ce}t)-\textbf{y}_y^0\cos(\Omega_\textbf{ce}t)+\textbf{y}_y^0],
 \end{split}\\
 \begin{split}
-    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2(\mathbb{M}^0)^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}^0\textbf{y}_y \\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_y \\
     &\Longrightarrow \textbf{e}_y(\Delta t)= \textbf{e}_y^0 - \frac{1}{\epsilon_0}\int_{0}^{\Delta t} y_y(t^\prime)\mathrm{d}t^\prime =\textbf{e}_y^0 - \frac{1}{\epsilon_0\Omega_\mathrm{ce}}[\textbf{y}_y^0\sin(\Omega_\textbf{ce}t)+\textbf{y}_x^0\cos(\Omega_\textbf{ce}t)-\textbf{y}_x^0],
 \end{split}
 \end{alignat}
 \begin{alignat}{3}
     &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
     &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
-     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}(\mathbb{M}^0)^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}^0\textbf{y}_y &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0\cos(\Omega_\textbf{ce}\Delta t)+\textbf{y}_y^0\sin(\Omega_\textbf{ce}\Delta t),\\
-     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=-\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}(\mathbb{M}^0)^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}^0\textbf{y}_x \quad &&\Longrightarrow\quad\textbf{y}_y(\Delta t) = \textbf{y}_y^0\cos(\Omega_\textbf{ce}\Delta t)-\textbf{y}_x^0\sin(\Omega_\textbf{ce}\Delta t),\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_y &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0\cos(\Omega_\textbf{ce}\Delta t)+\textbf{y}_y^0\sin(\Omega_\textbf{ce}\Delta t),\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=-\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_x \quad &&\Longrightarrow\quad\textbf{y}_y(\Delta t) = \textbf{y}_y^0\cos(\Omega_\textbf{ce}\Delta t)-\textbf{y}_x^0\sin(\Omega_\textbf{ce}\Delta t),\\
      &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
      &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad\textbf{V}_x(\Delta t) = \textbf{V}_x^0,\\
      &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0,\\
@@ -960,7 +960,7 @@ The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}
 This can be solved analytically as
 \begin{subequations}
 \begin{alignat}{3}
-    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{M}^0)^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_x\quad &&\Longrightarrow\quad\textbf{e}_x(\Delta t) =\textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}(\mathbb{M}^0)^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_x\quad &&\Longrightarrow\quad\textbf{e}_x(\Delta t) =\textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_x^0,\\
     &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0,\\
     &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
     &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
@@ -981,7 +981,7 @@ This can be solved analytically as
 \begin{subequations}
 \begin{alignat}{3}
     &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0,\\
-    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{M}^0)^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_y\quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}(\mathbb{M}^0)^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_y^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_y\quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_y^0,\\
     &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
     &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
      &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
@@ -1013,6 +1013,9 @@ This can be solved analytically as
 \end{alignat}
 \end{subequations}
 The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^z(\textbf{u}^0)$. Note that the integrals can be computed exactly along each particle trajectories as the basis functions are piecewise polynomials.
+
+\section*{Acknowledgments}
+To end this article, we would like to thank C. Tronci for stimulating discussions and collaborations.
 
 %%Vancouver style references.
 \bibliographystyle{model1-num-names}
