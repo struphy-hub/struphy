@@ -1,340 +1,692 @@
 import numpy as np
-import psydac.core.bsplines as bsp
+import psydac.core.interface as inter
 import scipy.sparse as sparse
 
 
-def evaluate_field_V0(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
+def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc):
+    """Evaluates the 1d FEM field of the space V0 at the points x.
+    
+    vec: np.array
+        coefficient vector
+        
+    x: np.array
+        evaluation points
+        
+    p: int
+        spline degree
+        
+    Nbase: int
+        number of spline functions
+        
+    T: np.array
+        knot vector
+        
+    bc: boolean
+        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    """
     
     if bc == True:
-        bcon = 0
+        N = inter.collocation_matrix(p, Nbase, T, x)
+        N[:, :p] += N[:, -p:]
+        N = sparse.csr_matrix(N[:, :N.shape[1] - p])
         
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
     else:
-        bcon = 1
+        N = sparse.csr_matrix(inter.collocation_matrix(p, Nbase, T, x)[:, 1:-1])
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    Ty = bsp.make_knots(el_b_y, py, bc)
-    Tz = bsp.make_knots(el_b_z, pz, bc)
-    
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, x, bc)[:, bcon:Nbase_x_0 + bcon]) 
-    N_y = sparse.csr_matrix(bsp.collocation_matrix(Ty, py, y, bc)[:, bcon:Nbase_y_0 + bcon]) 
-    N_z = sparse.csr_matrix(bsp.collocation_matrix(Tz, pz, z, bc)[:, bcon:Nbase_z_0 + bcon]) 
-    
-    EVAL = sparse.kron(sparse.kron(N_x, N_y), N_z)
-    
-    return EVAL.dot(vec)
+    return N.dot(vec)
 
 
-def evaluate_field_V1_x(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
+def evaluate_field_V1_1d(vec, x, p, Nbase, T, bc):
+    """Evaluates the 1d FEM field of the space V1 at the points x.
+    
+    vec: np.array
+        coefficient vector
+        
+    x: np.array
+        evaluation points
+        
+    p: int
+        spline degree
+        
+    Nbase: int
+        number of spline functions
+        
+    T: np.array
+        knot vector
+        
+    bc: boolean
+        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    t = T[1:-1]
     
     if bc == True:
-        bcon = 0
+        D = inter.collocation_matrix(p - 1, Nbase - 1, t, x)
         
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
+        D[:, :(p - 1)] += D[:, -(p - 1):]
+        D = D[:, :D.shape[1] - (p - 1)]
+        
+        for j in range(Nbase - p):
+            D[:, j] = p*D[:, j]/(t[j + p] - t[j])
+            
+        D = sparse.csr_matrix(D)
+        
     else:
-        bcon = 1
+        D = inter.collocation_matrix(p - 1, Nbase - 1, t, x)
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    tx = bsp.make_knots(el_b_x, px - 1, bc)
-    Ty = bsp.make_knots(el_b_y, py, bc)
-    Tz = bsp.make_knots(el_b_z, pz, bc)
-    
-    
-    D_x = bsp.collocation_matrix(tx, px - 1, x, bc)
-    
-    for j in range(Nbase_x_0 + bcon):
-        D_x[:, j] = px*D_x[:, j]/(tx[j + px] - tx[j])
+        for j in range(Nbase - 1):
+            D[:, j] = p*D[:, j]/(t[j + p] - t[j])
+            
+        D = sparse.csr_matrix(D)
         
-    D_x = sparse.csr_matrix(D_x)
-    
-    N_y = sparse.csr_matrix(bsp.collocation_matrix(Ty, py, y, bc)[:, bcon:Nbase_y_0 + bcon])
-    N_z = sparse.csr_matrix(bsp.collocation_matrix(Tz, pz, z, bc)[:, bcon:Nbase_z_0 + bcon])
-    
-    
-    EVAL = sparse.kron(sparse.kron(D_x, N_y), N_z)
-    
-    return EVAL.dot(vec)
+    return D.dot(vec)
 
 
-def evaluate_field_V1_y(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
+
+
+def evaluate_field_V0(vec, x, p, Nbase, T, bc):
+    """Evaluates the 3d FEM field of the space V0 at the tensor grid given by x=(x, y, z).
     
-    if bc == True:
-        bcon = 0
+    vec: np.array
+        coefficient vector
         
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    if bc_x == True:
+        Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
+        Nx[:, :px] += Nx[:, -px:]
+        Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
+        
     else:
-        bcon = 1
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    ty = bsp.make_knots(el_b_y, py - 1, bc)
-    Tz = bsp.make_knots(el_b_z, pz, bc)
-    
-    
-    D_y = bsp.collocation_matrix(ty, py - 1, y, bc)
-    
-    for j in range(Nbase_y_0 + bcon):
-        D_y[:, j] = py*D_y[:, j]/(ty[j + px] - ty[j])
+    if bc_y == True:
+        Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
+        Ny[:, :py] += Ny[:, -py:]
+        Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
         
-    D_y = sparse.csr_matrix(D_y)
-    
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, x, bc)[:, bcon:Nbase_x_0 + bcon])
-    N_z = sparse.csr_matrix(bsp.collocation_matrix(Tz, pz, z, bc)[:, bcon:Nbase_z_0 + bcon])
-    
-    
-    EVAL = sparse.kron(sparse.kron(N_x, D_y), N_z)
-    
-    return EVAL.dot(vec)
-
-
-def evaluate_field_V1_z(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
-    
-    if bc == True:
-        bcon = 0
-        
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
     else:
-        bcon = 1
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    Ty = bsp.make_knots(el_b_y, py, bc)
-    tz = bsp.make_knots(el_b_z, pz - 1, bc)
-    
-    
-    D_z = bsp.collocation_matrix(tz, pz - 1, z, bc)
-    
-    for j in range(Nbase_z_0 + bcon):
-        D_z[:, j] = pz*D_z[:, j]/(tz[j + px] - tz[j])
+    if bc_z == True:
+        Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
+        Nz[:, :pz] += Nz[:, -pz:]
+        Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
         
-    D_z = sparse.csr_matrix(D_z)
-    
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, x, bc)[:, bcon:Nbase_x_0 + bcon])
-    N_y = sparse.csr_matrix(bsp.collocation_matrix(Ty, py, y, bc)[:, bcon:Nbase_y_0 + bcon])
-    
-    
-    EVAL = sparse.kron(sparse.kron(N_x, N_y), D_z)
-    
-    return EVAL.dot(vec)
-
-
-def evaluate_field_V2_x(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
-    
-    if bc == True:
-        bcon = 0
-        
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
     else:
-        bcon = 1
-        
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
     
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    ty = bsp.make_knots(el_b_y, py - 1, bc)
-    tz = bsp.make_knots(el_b_z, pz - 1, bc)
-    
-    
-    D_y = bsp.collocation_matrix(ty, py - 1, y, bc)
-    D_z = bsp.collocation_matrix(tz, pz - 1, z, bc)
-    
-    for j in range(Nbase_y_0 + bcon):
-        D_y[:, j] = py*D_y[:, j]/(ty[j + py] - ty[j])
-        
-    for j in range(Nbase_z_0 + bcon):
-        D_z[:, j] = pz*D_z[:, j]/(tz[j + pz] - tz[j])
-        
-    D_y = sparse.csr_matrix(D_y)
-    D_z = sparse.csr_matrix(D_z)
-    
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, x, bc)[:, bcon:Nbase_x_0 + bcon])
-    
-    EVAL = sparse.kron(sparse.kron(N_x, D_y), D_z)
-    
-    return EVAL.dot(vec)
-
-
-def evaluate_field_V2_y(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
-    
-    if bc == True:
-        bcon = 0
-        
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
-    else:
-        bcon = 1
-        
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    tx = bsp.make_knots(el_b_x, px - 1, bc)
-    Ty = bsp.make_knots(el_b_y, py, bc)
-    tz = bsp.make_knots(el_b_z, pz - 1, bc)
-    
-    
-    D_x = bsp.collocation_matrix(tx, px - 1, x, bc)
-    D_z = bsp.collocation_matrix(tz, pz - 1, z, bc)
-    
-    for j in range(Nbase_x_0 + bcon):
-        D_x[:, j] = px*D_x[:, j]/(tx[j + px] - tx[j])
-        
-    for j in range(Nbase_z_0 + bcon):
-        D_z[:, j] = pz*D_z[:, j]/(tz[j + pz] - tz[j])
-        
-    D_x = sparse.csr_matrix(D_x)
-    D_z = sparse.csr_matrix(D_z)
-    
-    N_y = sparse.csr_matrix(bsp.collocation_matrix(Ty, py, y, bc)[:, bcon:Nbase_y_0 + bcon])
-    
-    EVAL = sparse.kron(sparse.kron(D_x, N_y), D_z)
+    EVAL = sparse.kron(sparse.kron(Nx, Ny), Nz)
     
     return EVAL.dot(vec)
 
 
 
-def evaluate_field_V2_z(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
+
+def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
+    """Evaluates the x- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
     
-    if bc == True:
-        bcon = 0
+    vec: np.array
+        coefficient vector
         
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+
+    tx = Tx[1:-1]
+    
+    if bc_x == True:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        Dx[:, :(px - 1)] += Dx[:, -(px - 1):]
+        Dx = Dx[:, :Dx.shape[1] - (px - 1)]
+        
+        for j in range(Nbase_x - px):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
     else:
-        bcon = 1
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
+        for j in range(Nbase_x - 1):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
     
-    tx = bsp.make_knots(el_b_x, px - 1, bc)
-    ty = bsp.make_knots(el_b_y, py - 1, bc)
-    Tz = bsp.make_knots(el_b_z, pz, bc)
-    
-    
-    D_x = bsp.collocation_matrix(tx, px - 1, x, bc)
-    D_y = bsp.collocation_matrix(ty, py - 1, y, bc)
-    
-    for j in range(Nbase_x_0 + bcon):
-        D_x[:, j] = px*D_x[:, j]/(tx[j + px] - tx[j])
+    if bc_y == True:
+        Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
+        Ny[:, :py] += Ny[:, -py:]
+        Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
         
-    for j in range(Nbase_y_0 + bcon):
-        D_y[:, j] = py*D_y[:, j]/(ty[j + py] - ty[j])
+    else:
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
         
-    D_x = sparse.csr_matrix(D_x)
-    D_y = sparse.csr_matrix(D_y)
+    if bc_z == True:
+        Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
+        Nz[:, :pz] += Nz[:, -pz:]
+        Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
+        
+    else:
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
     
-    N_z = sparse.csr_matrix(bsp.collocation_matrix(Tz, pz, z, bc)[:, bcon:Nbase_z_0 + bcon])
-    
-    EVAL = sparse.kron(sparse.kron(D_x, D_y), N_z)
+    EVAL = sparse.kron(sparse.kron(Dx, Ny), Nz)
     
     return EVAL.dot(vec)
 
 
 
-def evaluate_field_V3(vec, x, y, z, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
+def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
+    """Evaluates the y- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
     
-    if bc == True:
-        bcon = 0
+    vec: np.array
+        coefficient vector
         
-        Nbase_x_0 = Nbase_x
-        Nbase_y_0 = Nbase_y
-        Nbase_z_0 = Nbase_z
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    ty = Ty[1:-1]
+    
+    if bc_x == True:
+        Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
+        Nx[:, :px] += Nx[:, -px:]
+        Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
+        
     else:
-        bcon = 1
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
         
-        Nbase_x_0 = Nbase_x - 2
-        Nbase_y_0 = Nbase_y - 2
-        Nbase_z_0 = Nbase_z - 2
-    
-    tx = bsp.make_knots(el_b_x, px - 1, bc)
-    ty = bsp.make_knots(el_b_y, py - 1, bc)
-    tz = bsp.make_knots(el_b_z, pz - 1, bc)
-    
-    
-    D_x = bsp.collocation_matrix(tx, px - 1, x, bc)
-    D_y = bsp.collocation_matrix(ty, py - 1, y, bc)
-    D_z = bsp.collocation_matrix(tz, pz - 1, z, bc)
-    
-    for j in range(Nbase_x_0 + bcon):
-        D_x[:, j] = px*D_x[:, j]/(tx[j + px] - tx[j])
+    if bc_y == True:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
         
-    for j in range(Nbase_y_0 + bcon):
-        D_y[:, j] = py*D_y[:, j]/(ty[j + py] - ty[j])
+        Dy[:, :(py - 1)] += Dy[:, -(py - 1):]
+        Dy = Dy[:, :Dy.shape[1] - (py - 1)]
         
-    for j in range(Nbase_z_0 + bcon):
-        D_z[:, j] = pz*D_z[:, j]/(tz[j + pz] - tz[j])
+        for j in range(Nbase_y - py):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
         
-    D_x = sparse.csr_matrix(D_x)
-    D_y = sparse.csr_matrix(D_y)
-    D_z = sparse.csr_matrix(D_z)
-    
-    EVAL = sparse.kron(sparse.kron(D_x, D_y), D_z)
+    else:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        for j in range(Nbase_y - 1):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    if bc_z == True:
+        Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
+        Nz[:, :pz] += Nz[:, -pz:]
+        Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
+        
+    else:
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
+        
+    EVAL = sparse.kron(sparse.kron(Nx, Dy), Nz)
     
     return EVAL.dot(vec)
 
 
 
-def evaluate_field_V0_1d(vec, x, Nbase_x, px, el_b_x, bc):
+
+def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
+    """Evaluates the z- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
     
-    if bc == True:
-        bcon = 0
-        Nbase_x_0 = Nbase_x
+    vec: np.array
+        coefficient vector
+        
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    tz = Tz[1:-1]
+    
+    if bc_x == True:
+        Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
+        Nx[:, :px] += Nx[:, -px:]
+        Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
         
     else:
-        bcon = 1 
-        Nbase_x_0 = Nbase_x - 2
-    
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, x, bc)[:, bcon:Nbase_x_0 + bcon]) 
-    
-    return N_x.dot(vec)
-
-
-def evaluate_field_V1_1d(vec, x, Nbase_x, px, el_b_x, bc):
-    
-    if bc == True:
-        bcon = 0
-        Nbase_x_0 = Nbase_x
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
+        
+    if bc_y == True:
+        Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
+        Ny[:, :py] += Ny[:, -py:]
+        Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
         
     else:
-        bcon = 1
-        Nbase_x_0 = Nbase_x - 2
-    
-    tx = bsp.make_knots(el_b_x, px - 1, bc)
-    
-    D_x = bsp.collocation_matrix(tx, px - 1, x, bc)
-    
-    for j in range(Nbase_x_0 + bcon):
-        D_x[:, j] = px*D_x[:, j]/(tx[j + px] - tx[j])
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
         
-    D_x = sparse.csr_matrix(D_x)
+    if bc_z == True:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        Dz[:, :(pz - 1)] += Dz[:, -(pz - 1):]
+        Dz = Dz[:, :Dz.shape[1] - (pz - 1)]
+        
+        for j in range(Nbase_z - pz):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+        
+    else:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        for j in range(Nbase_z - 1):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
     
-    return D_x.dot(vec)
+    EVAL = sparse.kron(sparse.kron(Nx, Ny), Dz)
+    
+    return EVAL.dot(vec)
+
+
+
+
+def evaluate_field_V2_x(vec, x, p, Nbase, T, bc):
+    """Evaluates the x- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    
+    vec: np.array
+        coefficient vector
+        
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    ty = Ty[1:-1]
+    tz = Tz[1:-1]
+    
+    if bc_x == True:
+        Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
+        Nx[:, :px] += Nx[:, -px:]
+        Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
+        
+    else:
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
+        
+    if bc_y == True:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        Dy[:, :(py - 1)] += Dy[:, -(py - 1):]
+        Dy = Dy[:, :Dy.shape[1] - (py - 1)]
+        
+        for j in range(Nbase_y - py):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    else:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        for j in range(Nbase_y - 1):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    if bc_z == True:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        Dz[:, :(pz - 1)] += Dz[:, -(pz - 1):]
+        Dz = Dz[:, :Dz.shape[1] - (pz - 1)]
+        
+        for j in range(Nbase_z - pz):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+        
+    else:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        for j in range(Nbase_z - 1):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+        
+    EVAL = sparse.kron(sparse.kron(Nx, Dy), Dz)
+    
+    return EVAL.dot(vec)
+
+
+
+
+def evaluate_field_V2_y(vec, x, p, Nbase, T, bc):
+    """Evaluates the y- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    
+    vec: np.array
+        coefficient vector
+        
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    tx = Tx[1:-1]
+    tz = Tz[1:-1]
+    
+    if bc_x == True:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        Dx[:, :(px - 1)] += Dx[:, -(px - 1):]
+        Dx = Dx[:, :Dx.shape[1] - (px - 1)]
+        
+        for j in range(Nbase_x - px):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    else:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        for j in range(Nbase_x - 1):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    if bc_y == True:
+        Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
+        Ny[:, :py] += Ny[:, -py:]
+        Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
+        
+    else:
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
+        
+    if bc_z == True:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        Dz[:, :(pz - 1)] += Dz[:, -(pz - 1):]
+        Dz = Dz[:, :Dz.shape[1] - (pz - 1)]
+        
+        for j in range(Nbase_z - pz):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+        
+    else:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        for j in range(Nbase_z - 1):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+    
+    EVAL = sparse.kron(sparse.kron(Dx, Ny), Dz)
+    
+    return EVAL.dot(vec)
+
+
+
+def evaluate_field_V2_z(vec, x, p, Nbase, T, bc):
+    """Evaluates the z- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    
+    vec: np.array
+        coefficient vector
+        
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    tx = Tx[1:-1]
+    ty = Ty[1:-1]
+    
+    if bc_x == True:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        Dx[:, :(px - 1)] += Dx[:, -(px - 1):]
+        Dx = Dx[:, :Dx.shape[1] - (px - 1)]
+        
+        for j in range(Nbase_x - px):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    else:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        for j in range(Nbase_x - 1):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    if bc_y == True:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        Dy[:, :(py - 1)] += Dy[:, -(py - 1):]
+        Dy = Dy[:, :Dy.shape[1] - (py - 1)]
+        
+        for j in range(Nbase_y - py):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    else:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        for j in range(Nbase_y - 1):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    if bc_z == True:
+        Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
+        Nz[:, :pz] += Nz[:, -pz:]
+        Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
+        
+    else:
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
+    
+    EVAL = sparse.kron(sparse.kron(Dx, Dy), Nz)
+    
+    return EVAL.dot(vec)
+
+
+
+def evaluate_field_V3(vec, x, p, Nbase, T, bc):
+    """Evaluates the 3d FEM field of the space V3 at the tensor grid given by x=(x, y, z).
+    
+    vec: np.array
+        coefficient vector
+        
+    x: list of np.arrays
+        evaluation points in each direction
+        
+    p: list of ints
+        spline degrees in each direction
+        
+    Nbase: list of ints
+        number of spline functions in each direction
+        
+    T: list of np.arrays
+        knot vectors
+        
+    bc: list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+    """
+    
+    if bc_x == True:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        Dx[:, :(px - 1)] += Dx[:, -(px - 1):]
+        Dx = Dx[:, :Dx.shape[1] - (px - 1)]
+        
+        for j in range(Nbase_x - px):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    else:
+        Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
+        
+        for j in range(Nbase_x - 1):
+            Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
+            
+        Dx = sparse.csr_matrix(Dx)
+        
+    if bc_y == True:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        Dy[:, :(py - 1)] += Dy[:, -(py - 1):]
+        Dy = Dy[:, :Dy.shape[1] - (py - 1)]
+        
+        for j in range(Nbase_y - py):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    else:
+        Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
+        
+        for j in range(Nbase_y - 1):
+            Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
+            
+        Dy = sparse.csr_matrix(Dy)
+        
+    if bc_z == True:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        Dz[:, :(pz - 1)] += Dz[:, -(pz - 1):]
+        Dz = Dz[:, :Dz.shape[1] - (pz - 1)]
+        
+        for j in range(Nbase_z - pz):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+        
+    else:
+        Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
+        
+        for j in range(Nbase_z - 1):
+            Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
+            
+        Dz = sparse.csr_matrix(Dz)
+    
+    EVAL = sparse.kron(sparse.kron(Dx, Dy), Dz)
+    
+    return EVAL.dot(vec)

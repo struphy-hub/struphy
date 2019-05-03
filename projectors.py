@@ -5,6 +5,97 @@ import psydac.core.bsplines as bsp
 import integrate as intgr
 
 
+
+def PI_0_1d(fun, p, Nbase, T, bc):
+    """Returns the coefficient of the function fun projected on the space V0.
+    
+    fun: callable
+        the function to be projected
+        
+    p: int
+        spline degree
+        
+    Nbase: int
+        number of spline functions
+        
+    T: np.array
+        knot vector
+    """
+    
+    # compute greville points
+    grev = inter.compute_greville(p, Nbase, T)
+    
+    # assemble vector of interpolation problem at greville points
+    rhs = np.zeros(Nbase)
+
+    for i in range(Nbase):
+        rhs[i] = fun(grev[i])
+            
+    
+    # assemble interpolation matrix
+    N = inter.collocation_matrix(p, Nbase, T, grev)       
+    
+    # apply boundary conditions
+    if bc == True:
+        lower = int(np.floor(p/2))
+        upper = -int(np.ceil(p/2))
+            
+        N[:, :p] += N[:, -p:]
+        N = N[:, :N.shape[1] - p]
+        
+    else: 
+        lower = 1
+        upper = -1
+        
+        N = N[:, lower:upper]
+    
+    # solve interpolation problem
+    return sparse.linalg.spsolve(sparse.csr_matrix(N[lower:upper]), rhs[lower:upper])
+
+
+
+def PI_1_1d(fun, p, Nbase, T, bc):
+    """Returns the coefficient of the function fun projected on the space V1.
+    
+    fun: callable
+        the function to be projected
+        
+    p: int
+        spline degree
+        
+    Nbase: int
+        number of spline functions
+        
+    T: np.array
+        knot vector
+    """
+    
+    # compute greville points
+    grev = inter.compute_greville(p, Nbase, T)
+    
+    # compute quadrature grid
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
+    pts, wts = inter.construct_quadrature_grid(Nbase - 1, p, pts_loc, wts_loc, grev)
+    
+    # assemble vector of histopolation problem at greville points
+    if bc == True:
+        lower = int(np.ceil(p/2) - 1)
+        upper = -int(np.floor(p/2))
+        
+        rhs = intgr.integrate_1d(pts%1, wts, fun)[lower:upper]
+        
+    else:
+        rhs = intgr.integrate_1d(pts, wts, fun)
+                          
+    # assemble histopolation matrix
+    D = sparse.csr_matrix(intgr.histopolation_matrix(p, Nbase, T, grev, bc))
+    
+    # solve histopolation problem
+    return sparse.linalg.spsolve(D, rhs)
+
+
+
+
 def PI_0(fun, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc):
     
     if bc == True:
@@ -562,64 +653,3 @@ def PI_3(fun, Nbase_x, Nbase_y, Nbase_z, px, py, pz, el_b_x, el_b_y, el_b_z, bc)
 
 
 
-def PI_0_1d(fun, Nbase_x, px, el_b_x, bc):
-    
-    if bc == True:
-        bcon = 0
-        Nbase_x_0 = Nbase_x
-        
-    else:
-        bcon = 1
-        Nbase_x_0 = Nbase_x - 2
-        
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    
-    greville_x = bsp.greville(Tx, px, bc)
-    
-    
-    # assemble vector of interpolation problem at greville points
-    rhs = np.zeros(Nbase_x_0)
-
-    for i in range(Nbase_x_0):
-        rhs[i] = fun(greville_x[i + bcon])
-                 
-    # assemble interpolation matrix
-    N_x = sparse.csr_matrix(bsp.collocation_matrix(Tx, px, greville_x, bc)[bcon:Nbase_x_0 + bcon, bcon:Nbase_x_0 + bcon])
-    
-    # solve interpolation problem
-    return sparse.linalg.spsolve(N_x, rhs)
-
-
-
-def PI_1_1d(fun, Nbase_x, px, el_b_x, bc):
-    
-    if bc == True:
-        bcon = 0
-        Nbase_x_0 = Nbase_x
-        
-    else:
-        bcon = 1
-        Nbase_x_0 = Nbase_x - 2
-    
-    Tx = bsp.make_knots(el_b_x, px, bc)
-    
-    greville_x = bsp.greville(Tx, px, bc)
-    
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    
-    
-    # assemble vector of histopolation problem at greville points
-    if bc == True:
-        dx = el_b_x[-1]/(len(el_b_x) - 1)
-        pts_x, wts_x = bsp.quadrature_grid(np.append(greville_x, el_b_x[-1] + (1 - px%2)*dx/2), pts_x_loc, wts_x_loc)
-        rhs = intgr.integrate_1d(pts_x%el_b_x[-1], wts_x, fun)
-        
-    else:
-        pts_x, wts_x = bsp.quadrature_grid(greville_x, pts_x_loc, wts_x_loc)
-        rhs = intgr.integrate_1d(pts_x, wts_x, fun)
-                         
-    # assemble histopolation matrix
-    D_x = sparse.csr_matrix(intgr.histopolation_matrix(Tx, px, greville_x, bc))
-    
-    # solve histopolation problem
-    return sparse.linalg.spsolve(D_x, rhs)
