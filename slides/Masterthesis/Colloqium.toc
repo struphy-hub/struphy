@@ -1,0 +1,7 @@
+\beamer@endinputifotherversion {3.36pt}
+\beamer@sectionintoc {1}{Motivation}{2}{0}{1}
+\beamer@sectionintoc {2}{Current coupling electron hybrid model}{5}{0}{2}
+\beamer@sectionintoc {3}{Numerical treatment and results}{14}{0}{3}
+\beamer@subsectionintoc {3}{1}{Standard finite elements/PIC}{14}{0}{3}
+\beamer@subsectionintoc {3}{2}{Finite element exterior calculus/GEMPIC}{25}{0}{3}
+\beamer@sectionintoc {4}{Summary}{38}{0}{4}

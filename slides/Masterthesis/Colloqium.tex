@@ -1,0 +1,941 @@
+\documentclass[t]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{fancyhdr}
+\usetheme{Madrid}  %% Themenwahl
+\setbeamertemplate{itemize item}[square]
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage[export]{adjustbox}
+\usepackage[usestackEOL]{stackengine}
+%\usepackage{appendixnumberbeamer}
+%\usepackage{lipsum}
+
+\usepackage{scalerel,stackengine}
+\def\buthickness{1pt}
+\def\budefaultcolor{black}
+\makeatletter
+\newcommand\bunderline[1][\budefaultcolor]{\def\bucolor{#1}\bunderlineaux}
+\newcommand\bunderlineaux[2][\buthickness]{%
+  \ThisStyle{%
+  \ifmmode%
+    \setbox0=\hbox{\m@th$\SavedStyle#2$}
+    \stackunder[2pt]{\copy0}{\textcolor{\bucolor}{\rule{\wd0}{#1}}}%
+  \else%
+    \xdef\butmpthickness{#1}%
+    \prebunderlinewords#2 \endarg%
+  \fi%
+}}
+\def\prebunderlinewords#1 #2\endarg{%
+  \ifx\endarg#2\endarg\def\wdaugment{0pt}\else\def\wdaugment{.8ex}\fi%
+  \bunderlinewords#1 #2\endarg%
+}
+\def\bunderlinewords#1 #2\endarg{%
+    \setbox0=\hbox{#1\strut}%
+    \stackengine{0pt}{\copy0}{\textcolor{\bucolor}{%
+      \smash{\rule{\dimexpr\wd0+\wdaugment\relax}{\butmpthickness}}}}{U}{c}{F}{T}{S}% 
+    \ifx\endarg#2\endarg\def\next{}\else\ \def\next{\bunderlinewords#2\endarg}\fi\next%
+}
+\newcommand\buonslide[1][black]{\def\butmpcolor{#1}\buonslideauxA}
+\newcommand\buonslideauxA[1][\buthickness]{\def\butmpthickness{#1}\buonslideauxB}
+\def\buonslideauxB<#1>#2{\onslide<#1>{%
+  \rlap{\bunderline[\butmpcolor][\butmpthickness]{\phantom{#2}}}}#2}
+\makeatother
+\useinnertheme{default}
+\beamertemplatenavigationsymbolsempty
+
+\title[FEM for a 4d hybrid plasma model]{Investigation of Finite Element Methods for a 4D Hybrid Plasma Model}
+\author[F. Holderied]{Florian Holderied}
+\date[15.03.2019]{Master's Colloquium, 15.03.2019}
+%\date{21.11.2018}
+
+\begin{document}
+\maketitle
+
+
+\section{Motivation}
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection}
+\small
+\noindent\fbox{%
+    \parbox{\textwidth}{%
+        \textbf{Self-consistent description of energetic particle (EP) interaction with a} \\ \textbf{thermal bulk plasma for long times}
+    }%
+}\vspace{3mm}
+\textbf{In Tokamaks\footnote{Chen et al., Rev. Mod. Phys. \textbf{88}, 015008 (2016)}:}
+\begin{itemize}
+\item 3.5\,MeV $\alpha$-particles in a burning plasma
+\begin{align*}
+	&\prescript{3}{1}{\text{T}}+\prescript{2}{1}{\text{D}}\,\,\,\textcolor{blue}{\rightarrow}\,\,\,\prescript{4}{2}{\alpha}\,(3.5\,\text{MeV})+\prescript{0}{1}{\text{n}}\,(14.1\,\text{MeV}),\\
+	&v_\alpha\approx v_\text{Alfv\'{e}n}\sim10^7\,\text{m}/\text{s}
+\end{align*}
+\item Additional fast particles coming from heating devices such as 
+\begin{itemize}
+\item neutral beam injection (NBI)
+\item ion/electron resonance heating (ICRH/ECRH)
+\end{itemize}
+\end{itemize}
+\vspace{0.1cm}
+\textbf{In space\footnote{Tao, J. Geophys. Res. \textbf{119}, 3362-3372 (2014)}:}
+\begin{itemize}
+\item Energetic electrons in planetary magnetospheres (\textit{Chorus waves})
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection}
+\small
+\noindent\fbox{%
+    \parbox{\textwidth}{%
+        \textbf{\bunderline[green]{Self-consistent description of energetic particle (EP) interaction with a}} \\ \textbf{\bunderline[green]{thermal bulk plasma} for \bunderline[red]{long times}}
+    }%
+}\vspace{3mm}\\
+\begin{itemize}
+\item \textbf{\bunderline[green]{Hybrid models}}: Fluid models for bulk plasma and kinetic description for energetic particles (accuracy vs. computational costs)\vspace{0.5cm}
+\item \textbf{\bunderline[red]{FEEC\footnote{Arnold et al., Acta Numerica \textbf{15}, 1-155 (2006)}/\textbf{GEMPIC}\footnote{Kraus et al., J. Plasma Phys. \textbf{83}, 905830401 (2017)}}}: Finite element exterior calculus/Geometric electromagnetic particle-in-cell methods \\[1mm]
+$\textcolor{blue}{\rightarrow}$ algorithms with good stability and conservation properties
+\end{itemize}
+\vspace{0.2cm}
+\textbf{Aim of this work}: Application of standard FEM/PIC and FEEC/GEMPIC on a 4d hybrid plasma model, implementation in Python, verification of codes and comparison of results
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents
+\end{frame}
+
+
+
+\section{Current coupling electron hybrid model}
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents[currentsection]
+\end{frame}
+
+%\frame{\tableofcontents[currentsection]}
+\begin{frame} %%Eine Folie
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Assumptions}:\\
+\begin{itemize}
+\item High-frequency plasma model $\textcolor{blue}{\longrightarrow}$ wave frequencies $\omega\approx\Omega_\text{ce}$
+\item{\makebox[3.5cm][l]{Two electron species:} \makebox[5.7cm][l]{1. Cold fluid electrons (c)}$v_\text{th,c}\ll v_\text{ph}$}
+\item[]{\makebox[3.5cm][l]{} \makebox[5.7cm][l]{2. \textcolor{magenta}{Energetic kinetic electrons (h)}}$\textcolor{magenta}{v_\text{th,h}}\approx v_\text{ph}$}
+\item Linearized fluid and field equations \\[2mm] $n_\text{c}=n_\text{c0}+\tilde{n}_\text{c}$, $\mathbf{B}=\mathbf{B}_0+\tilde{\mathbf{B}}$, $\mathbf{E}=\tilde{\mathbf{E}}$, $\mathbf{u}_\mathrm{c}=\tilde{\mathbf{u}}_\mathrm{c}$\quad$\textcolor{blue}{\Rightarrow}$\quad$\tilde{\mathbf{j}}_\text{c}\approx q_\mathrm{e}n_\text{c0}\tilde{\mathbf{u}}_\mathrm{c}$
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering] %%Eine Folie
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Assumptions}:\\
+\begin{itemize}
+\item High-frequency plasma model $\textcolor{blue}{\longrightarrow}$ wave frequencies $\omega\approx\Omega_\text{ce}$
+\item{\makebox[3.5cm][l]{Two electron species:} \makebox[5.7cm][l]{1. Cold fluid electrons (c)}$v_\text{th,c}\ll v_\text{ph}$}
+\item[]{\makebox[3.5cm][l]{} \makebox[5.7cm][l]{2. \textcolor{magenta}{Energetic kinetic electrons (h)}}$\textcolor{magenta}{v_\text{th,h}}\approx v_\text{ph}$}
+\item Linearized fluid and field equations \\[2mm] $n_\text{c}=n_\text{c0}+\tilde{n}_\text{c}$, $\mathbf{B}=\mathbf{B}_0+\tilde{\mathbf{B}}$, $\mathbf{E}=\tilde{\mathbf{E}}$, $\mathbf{u}_\mathrm{c}=\tilde{\mathbf{u}}_\mathrm{c}$\quad$\textcolor{blue}{\Rightarrow}$\quad$\tilde{\mathbf{j}}_\text{c}\approx q_\mathrm{e}n_\text{c0}\tilde{\mathbf{u}}_\mathrm{c}$
+\end{itemize}
+\begin{flalign*}
+	&\frac{\partial \tilde{\mathbf{j}}_\text{c}}{\partial t}=\epsilon_0\Omega_\text{pe}^2(\mathbf{x})\tilde{\mathbf{E}}+\tilde{\mathbf{j}}_\text{c}\times\boldsymbol{\Omega}_\text{ce}(\mathbf{x})& (\text{Lin. momentum balance})\\
+	&\frac{\partial \tilde{\mathbf{B}}}{\partial t}=-\nabla\times\tilde{\mathbf{E}}& (\text{Faraday})\\
+	&\frac{1}{c^2}\frac{\partial \tilde{\mathbf{E}}}{\partial t}=\nabla\times\tilde{\mathbf{B}}-\mu_0(\tilde{\mathbf{j}}_\text{c}+\textcolor{magenta}{\tilde{\mathbf{j}}_\text{h}})& (\text{Amp\`{e}re})\\
+	&\textcolor{magenta}{\frac{\partial f_\text{h}}{\partial t} +\mathbf{v}\cdot\nabla f_\text{h}+\frac{q_\text{e}}{m_\text{e}}(\mathbf{E}+\mathbf{v}\times\mathbf{B})\cdot\nabla_\mathbf{v} f_\text{h} = 0}& (\text{Vlasov})
+\end{flalign*}
+\end{frame}
+
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Dispersion relation for $\ldots$} 
+\begin{itemize}
+\item{\makebox[7cm][l]{$\ldots$ a homogeneous plasma $n_\text{c0}=const.$}$\quad\textcolor{blue}{\Rightarrow}\quad\Omega_\text{pe}=const.$}\vspace{1.5mm}
+\item{\makebox[7cm][l]{$\ldots$ a uniform background field $\mathbf{B}_0=B_0\mathbf{e}_z$}$\quad\textcolor{blue}{\Rightarrow}\quad|\boldsymbol{\Omega}_\text{ce}|=const.$}\vspace{1.5mm}
+\item{\makebox[7cm][l]{$\ldots$ parallel wave propagation $\mathbf{k}\parallel\mathbf{B}_0$}$\quad\textcolor{blue}{\Rightarrow}\quad\nabla=\mathbf{e}_z\partial_z$}\vspace{1.5mm}
+\item $\ldots$ a uniform equilibrium energetic electron distribution
+\end{itemize}
+\begin{flalign*}
+\textcolor{magenta}{f_\text{h}(z,\mathbf{v},t)=f^0_\text{h}(\mathbf{v})+\tilde{f}_\text{h}(z,\mathbf{v},t),}\quad \textcolor{magenta}{\tilde{f}_\text{h}\ll f^0_\text{h}}
+\end{flalign*}
+\vspace{0.2cm}
+\textbf{Solution}: Plane wave ansatz for all perturbed quantities, e.g. 
+\begin{align*}
+\textcolor{magenta}{\tilde{f}_\text{h}(z,\mathbf{v},t)}&\textcolor{magenta}{=\hat{f}_\text{h}(\mathbf{v})\exp\left[i(kz-\omega t)\right]}\footnotemark \\
+\tilde{B}(z,t)&=\hat{B}\exp\left[i(kz-\omega t)\right]
+\end{align*}
+\footnotetext{Brambilla, Kinetic Theory of Plasma Waves, \\ Oxford University Press, 1998}
+\end{frame}
+
+
+
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{3 linear independent solutions:}\vspace{0.2cm}
+\begin{itemize}
+\item{\makebox[2.8cm][l]{1 electrostatic}\makebox[2cm][l]{$\tilde{\mathbf{E}}\parallel\mathbf{k}$, $\tilde{\mathbf{B}}=0$} $\textcolor{blue}{\rightarrow}$\quad Plasma oscillations (Landau damping)}\vspace{0.2cm}
+\item{\makebox[2.8cm][l]{2 electromagnetic}\makebox[2cm][l]{$\tilde{\mathbf{E}},\tilde{\mathbf{B}}\perp\mathbf{k}$} $\textcolor{blue}{\rightarrow}$\quad Circularly polarized waves (R/L)}\vspace{0.4cm}
+\end{itemize}
+\textbf{Dispersion relation for electromagnetic perturbations:} \vspace{0.2cm}
+\begin{align*}
+	&D_{\text{R/L}}(k,\omega)=D^\text{cold}_{\text{R/L}}(k,\omega)+\textcolor{magenta}{\nu_\text{h}\frac{\Omega_{\text{pe}}^2}{\omega}\int\text{d}^3\mathbf{v}\frac{v_\bot}{2}\frac{\hat{G}F_\text{h}^0(v_\parallel,v_\bot)}{\omega\pm\Omega_{\text{ce}}-kv_\parallel}}\overset{!}{=}0\\[2mm]
+	&D^\text{cold}_{\text{R/L}}(k,\omega)=1-\frac{c^2k^2}{\omega^2}-\frac{\Omega_{\text{pe}}^2}{\omega(\omega\pm\Omega_{\text{ce}})},\quad \textcolor{magenta}{\nu_\text{h}=n_\text{h0}/n_\text{c0}\ll 1}
+\end{align*}
+\\ \vspace{0.3cm}
+$\textcolor{blue}{\Rightarrow}$ Wave-particle interaction due to energetic electrons with $kv_\parallel\mp\Omega_\text{ce}=\omega$
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Example: anisotropic Maxwellian with respect to} $\mathbf{B}_0=B_0\mathbf{e}_z$ 
+\begin{flalign*}
+	&F_\text{h}^0(v_\parallel,v_\bot)=\frac{1}{(2\pi)^{3/2}v_{\text{th}\parallel} v_{\text{th}\bot}^2}\exp\left(-\frac{v_\parallel^2}{2v_{\text{th}\parallel}^2}-\frac{v_\bot^2}{2v_{\text{th}\bot}^2}\right)&
+\end{flalign*}
+\begin{figure}
+\includegraphics[scale=0.4]{01_Figures/Real_freq.pdf}
+%\hspace{0.3cm}
+\includegraphics[scale=0.4]{01_Figures/Velocity_scan_0.pdf}
+\caption{Solutions of the hybrid dispersion relation for $\nu_\text{h}=0.5\,\%$, $\Omega_\text{pe}=2|\Omega_\text{ce}|$.}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Example: anisotropic Maxwellian with respect to} $\mathbf{B}_0=B_0\mathbf{e}_z$ 
+\begin{flalign*}
+	&F_\text{h}^0(v_\parallel,v_\bot)=\frac{1}{(2\pi)^{3/2}v_{\text{th}\parallel} v_{\text{th}\bot}^2}\exp\left(-\frac{v_\parallel^2}{2v_{\text{th}\parallel}^2}-\frac{v_\bot^2}{2v_{\text{th}\bot}^2}\right)&
+\end{flalign*}
+\begin{figure}
+\includegraphics[scale=0.4]{01_Figures/Real_freq.pdf}
+%\hspace{0.3cm}
+\includegraphics[scale=0.4]{01_Figures/Velocity_scan_1.pdf}
+\caption{Solutions of the hybrid dispersion relation for $\nu_\text{h}=0.5\,\%$, $\Omega_\text{pe}=2|\Omega_\text{ce}|$.}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Example: anisotropic Maxwellian with respect to} $\mathbf{B}_0=B_0\mathbf{e}_z$ 
+\begin{flalign*}
+	&F_\text{h}^0(v_\parallel,v_\bot)=\frac{1}{(2\pi)^{3/2}v_{\text{th}\parallel} v_{\text{th}\bot}^2}\exp\left(-\frac{v_\parallel^2}{2v_{\text{th}\parallel}^2}-\frac{v_\bot^2}{2v_{\text{th}\bot}^2}\right)&
+\end{flalign*}
+\begin{figure}
+\includegraphics[scale=0.4]{01_Figures/Real_freq.pdf}
+%\hspace{0.3cm}
+\includegraphics[scale=0.4]{01_Figures/Velocity_scan_2.pdf}
+\caption{Solutions of the hybrid dispersion relation for $\nu_\text{h}=0.5\,\%$, $\Omega_\text{pe}=2|\Omega_\text{ce}|$.}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\small
+\textbf{Example: anisotropic Maxwellian with respect to} $\mathbf{B}_0=B_0\mathbf{e}_z$ 
+\begin{flalign*}
+	&F_\text{h}^0(v_\parallel,v_\bot)=\frac{1}{(2\pi)^{3/2}v_{\text{th}\parallel} v_{\text{th}\bot}^2}\exp\left(-\frac{v_\parallel^2}{2v_{\text{th}\parallel}^2}-\frac{v_\bot^2}{2v_{\text{th}\bot}^2}\right)&
+\end{flalign*}
+\begin{figure}
+\includegraphics[scale=0.4]{01_Figures/Real_freq.pdf}
+%\hspace{0.3cm}
+\includegraphics[scale=0.4]{01_Figures/Velocity_scan_3.pdf}
+\caption{Solutions of the hybrid dispersion relation for $\nu_\text{h}=0.5\,\%$, $\Omega_\text{pe}=2|\Omega_\text{ce}|$.}
+\end{figure}
+\end{frame}
+
+\section{Numerical treatment and results}
+\subsection{Standard finite elements/PIC}
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents[currentsubsection]
+\end{frame}
+
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\mathrm{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=1.pdf} 
+\small
+\begin{align*}
+\hspace{-0.2cm}
+\text{e.g.}\,\,\tilde{B}_{xh}(z,t)=\sum_{j=1}^Nb_{xj}(t)\varphi_j(z)
+\end{align*}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\text{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=2.pdf} 
+\small
+\begin{align*}
+\hspace{-0.2cm}
+\text{e.g.}\,\,\tilde{B}_{xh}(z,t)=\sum_{j=1}^Nb_{xj}(t)\varphi_j(z)
+\end{align*}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\text{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=3.pdf} 
+\small
+\begin{align*}
+\hspace{-0.2cm}
+\text{e.g.}\,\,\tilde{B}_{xh}(z,t)=\sum_{j=1}^Nb_{xj}(t)\varphi_j(z)
+\end{align*}
+\end{column}
+\end{columns}
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\text{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=3.pdf} 
+\end{column}
+\end{columns}
+\small
+\begin{itemize}
+\item 1d3v particle-in-cell for $\textcolor{magenta}{\mathbf{s}}$ with Boris particle pusher
+\begin{align*}
+\textcolor{magenta}{f_\text{h}(z,\mathbf{v},t)}\approx \sum_{k=1}^{N_\text{p}}w_k\delta(z-z_k(t))\delta(\mathbf{v}-\mathbf{v}_k(t))
+\end{align*}
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\text{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=3.pdf} 
+\end{column}
+\end{columns}
+\small
+\begin{itemize}
+\item 1d3v particle-in-cell for $\textcolor{magenta}{\mathbf{s}}$ with Boris particle pusher
+\begin{itemize}
+\item{\makebox[7cm][l]{without control variate: simulation of full $\textcolor{magenta}{f_\text{h}}$}$\textcolor{blue}{\Rightarrow}$\quad$w_k=const.$}
+\item{\makebox[7cm][l]{with control variate: simulation of $\textcolor{magenta}{f_\text{h}-f_\text{h}^0}$}$\textcolor{blue}{\Rightarrow}$\quad$w_k=w_k(t)$} 
+\end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\vspace{-0.2cm}
+\begin{itemize}
+\item 1d B-spline finite elements for \hspace{-0.5cm}
+\begin{itemize}
+\item cold plasma current $\tilde{\mathbf{j}}_\mathrm{c}$
+\item electromagnetic fields $\tilde{\mathbf{E}}$, $\tilde{\mathbf{B}}$
+\end{itemize}
+\end{itemize}
+\begin{align*}
+\textcolor{blue}{\Rightarrow}\quad M_\text{b}\frac{\text{d} \mathbf{u}}{\text{d} t}+\tilde{C}\mathbf{u}+\tilde{M}\mathbf{u}&=\textcolor{magenta}{\mathbf{s}},\,\,&&\mathbf{u}\in\mathbb{R}^{6N} 
+\end{align*}
+\end{column}
+\begin{column}{0.5\textwidth}
+\hspace{-0.2cm}
+\includegraphics[scale=0.32,center]{01_Figures/Bsplines_p=3.pdf} 
+\end{column}
+\end{columns}
+\small
+\begin{itemize}
+\item 1d3v particle-in-cell for $\textcolor{magenta}{\mathbf{s}}$ with Boris particle pusher
+\begin{itemize}
+\item{\makebox[7cm][l]{without control variate: simulation of full $\textcolor{magenta}{f_\text{h}}$}$\textcolor{blue}{\Rightarrow}$\quad$w_k=const.$}
+\item{\makebox[7cm][l]{with control variate: simulation of $\textcolor{magenta}{f_\text{h}-f_\text{h}^0}$}$\textcolor{blue}{\Rightarrow}$\quad$w_k=w_k(t)$} 
+\end{itemize}
+\item $2^\text{nd}$ order Crank-Nicolson time stepping scheme for semi-discrete system
+\end{itemize}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}:  Anisotropic Maxwellian ($\nu_\text{h}=6\,\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for energetic electrons and initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$, \textbf{with} control variate 
+\vspace{0.3cm}
+\end{itemize}
+\begin{figure}
+\includegraphics[scale=0.35,center]{01_Figures/Test1_Energies.pdf}
+\caption{Time evolution of all energies in the system}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}:  Anisotropic Maxwellian ($\nu_\text{h}=6\,\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for energetic electrons and initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$, \textbf{with} control variate
+\end{itemize}
+\begin{figure}
+\includegraphics[scale=0.35]{01_Figures/Comparison_real.pdf}
+\hspace{0.1cm}
+\includegraphics[scale=0.35]{01_Figures/Comparison_imag.pdf}
+\caption{Comparison of real frequencies/growth rates obtained by numerics and analytical theory}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}:  Anisotropic Maxwellian ($\nu_\text{h}=6\,\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for energetic electrons and initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$, \textbf{with} control variate
+\end{itemize}
+\begin{figure}
+\includegraphics[scale=0.35]{01_Figures/Distribution_parallel_delta.pdf}
+\hspace{0.1cm}
+\includegraphics[scale=0.35]{01_Figures/Distribution_perpendicular_delta.pdf}
+\caption{Difference between initial and final fast electron velocity distributions}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Standard finite elements/PIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}:  Anisotropic Maxwellian ($\nu_\text{h}=6\,\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for energetic electrons and initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$, \textbf{with} control variate
+\end{itemize}
+\begin{figure}
+\includegraphics[scale=0.35]{01_Figures/Test1_Conservation.pdf}
+\caption{Time evolution of the error in the conservation of energy}
+\end{figure}
+\end{frame}
+
+
+
+
+
+\subsection{Finite element exterior calculus/GEMPIC}
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents[currentsubsection]
+\end{frame}
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{Finite element exterior calculus (FEEC) in a nutshell}
+\begin{figure}
+\includegraphics[scale=0.45]{01_Figures/deRham3d.pdf}
+\end{figure}
+\textbf{Diagram is commuting}: e.g. for $\Phi\in H^1(\Omega)$ we have 
+\begin{align*}
+\text{grad}(\Pi_0\Phi)=\Pi_1(\text{grad}\Phi)
+\end{align*}
+\textbf{Idea}: Not discretizing only points values ($\Pi_0$), but also edge integrals ($\Pi_1$), face integrals ($\Pi_2$) and volume integrals ($\Pi_3$) 
+\end{frame}
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC: Simplifications in 1d}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\begin{itemize}
+\item 1d Lagrange interpolation for $\Pi_0:H^1\rightarrow V_0$, $(\Pi_0\Phi)(z_i)=\Phi(z_i)$
+\item 1d Lagrange histopolation for $\Pi_1:L^2\rightarrow V_1$, $\int_{z_i}^{z_{i+1}}(\Pi_1\Phi)(z)\text{d}z=\int_{z_i}^{z_{i+1}}\Phi(z)\text{d}z$
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\includegraphics[scale=0.15,center]{01_Figures/deRham1d.pdf}
+\end{column}
+\end{columns}
+\begin{figure}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V0_p=1.pdf}
+\hspace{0.5cm}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V1_p=1.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC: Simplifications in 1d}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\begin{itemize}
+\item 1d Lagrange interpolation for $\Pi_0:H^1\rightarrow V_0$, $(\Pi_0\Phi)(z_i)=\Phi(z_i)$
+\item 1d Lagrange histopolation for $\Pi_1:L^2\rightarrow V_1$, $\int_{z_i}^{z_{i+1}}(\Pi_1\Phi)(z)\text{d}z=\int_{z_i}^{z_{i+1}}\Phi(z)\text{d}z$
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\includegraphics[scale=0.15,center]{01_Figures/deRham1d.pdf}
+\end{column}
+\end{columns}
+\begin{figure}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V0_p=2.pdf}
+\hspace{0.5cm}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V1_p=2.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC: Simplifications in 1d}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.5\textwidth}
+\small
+\begin{itemize}
+\item 1d Lagrange interpolation for $\Pi_0:H^1\rightarrow V_0$, $(\Pi_0\Phi)(z_i)=\Phi(z_i)$
+\item 1d Lagrange histopolation for $\Pi_1:L^2\rightarrow V_1$, $\int_{z_i}^{z_{i+1}}(\Pi_1\Phi)(z)\text{d}z=\int_{z_i}^{z_{i+1}}\Phi(z)\text{d}z$
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\includegraphics[scale=0.15,center]{01_Figures/deRham1d.pdf}
+\end{column}
+\end{columns}
+\begin{figure}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V0_p=3.pdf}
+\hspace{0.5cm}
+\includegraphics[scale=0.32]{01_Figures/Lagrange_V1_p=3.pdf}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Application on hybrid model}
+\small
+\begin{itemize}
+\item Choose $\tilde{E}_x$, $\tilde{E}_y$, $\tilde{j}_{\text{c}x}$, $\tilde{j}_{\text{c}y}\in H^1$ (discrete counterparts $\in V_0$)
+\end{itemize}
+\begin{align*}
+&\frac{\partial\tilde{\mathbf{j}}_\mathrm{c}}{\partial t}=\epsilon_0\Omega_\mathrm{pe}^2\tilde{\mathbf{E}}+\Omega_\mathrm{ce}\tilde{\mathbf{j}}_\mathrm{c}\times\mathbf{e}_z \\
+&\frac{1}{c^2}\frac{\partial\tilde{\mathbf{E}}}{\partial t}=\mathbf{e}_z\frac{\partial}{\partial z}\times\tilde{\mathbf{B}}-\mu_0(\tilde{\mathbf{j}}_\text{c}+\textcolor{magenta}{\tilde{\mathbf{j}}_\text{h}})
+\end{align*}
+\end{frame}
+
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Application on hybrid model}
+\small
+\begin{itemize}
+\item Choose $\tilde{E}_x$, $\tilde{E}_y$, $\tilde{j}_{\text{c}x}$, $\tilde{j}_{\text{c}y}\in H^1$ (discrete counterparts $\in V_0$)
+\item Choose $\tilde{B}_x$, $\tilde{B}_y\in L^2$ (discrete counterparts $\in V_1$) \\ $\textcolor{blue}{\Rightarrow}$ integration by parts in weak formulation
+\end{itemize}
+\begin{align*}
+&\frac{\partial\tilde{\mathbf{B}}}{\partial t}=-\mathbf{e}_z\frac{\partial}{\partial z}\times\tilde{\mathbf{E}} \\
+&\frac{1}{c^2}\frac{\partial\tilde{\mathbf{E}}}{\partial t}=\mathbf{e}_z\frac{\partial}{\partial z}\times\tilde{\mathbf{B}}-\mu_0(\tilde{\mathbf{j}}_\text{c}+\textcolor{magenta}{\tilde{\mathbf{j}}_\text{h}})
+\end{align*}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Application on hybrid model}
+\small
+\begin{itemize}
+\item Choose $\tilde{E}_x$, $\tilde{E}_y$, $\tilde{j}_{\text{c}x}$, $\tilde{j}_{\text{c}y}\in H^1$ (discrete counterparts $\in V_0$)
+\item Choose $\tilde{B}_x$, $\tilde{B}_y\in L^2$ (discrete counterparts $\in V_1$) \\ $\textcolor{blue}{\Rightarrow}$ integration by parts in weak formulation
+\item PIC for Vlasov equation 
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Application on hybrid model}
+\small
+\begin{itemize}
+\item Choose $\tilde{E}_x$, $\tilde{E}_y$, $\tilde{j}_{\text{c}x}$, $\tilde{j}_{\text{c}y}\in H^1$ (discrete counterparts $\in V_0$)
+\item Choose $\tilde{B}_x$, $\tilde{B}_y\in L^2$ (discrete counterparts $\in V_1$) \\ $\textcolor{blue}{\Rightarrow}$ integration by parts in weak formulation 
+\item PIC for Vlasov equation 
+\item Semi-discrete system exhibits a non-canonical Hamiltonian structure\footnote{Holderied, Possanner, Ratnani \& Wang \textcolor{blue}{in preparation}}
+\end{itemize}
+\begin{align*}
+&\frac{\text{d}\textbf{u}}{\text{d}t}=\mathbb{J}(\textbf{u})\nabla_\mathbf{u} H(\mathbf{u}),\quad\mathbf{u}\in\mathbb{R}^{2N_0+2N_1+4N_\text{p}}\\
+&H(\textbf{u})=H_E+H_B+H_\text{c}+H_\text{h} \\
+&\textcolor{blue}{\Rightarrow}\quad\textbf{exact energy conservation!}
+\end{align*}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\setcounter{footnote}{5}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Application on hybrid model}
+\small
+\begin{itemize}
+\item Choose $\tilde{E}_x$, $\tilde{E}_y$, $\tilde{j}_{\text{c}x}$, $\tilde{j}_{\text{c}y}\in H^1$ (discrete counterparts $\in V_0$)
+\item Choose $\tilde{B}_x$, $\tilde{B}_y\in L^2$ (discrete counterparts $\in V_1$) \\ $\textcolor{blue}{\Rightarrow}$ integration by parts in weak formulation 
+\item PIC for Vlasov equation 
+\item Semi-discrete system exhibits a non-canonical Hamiltonian structure\footnote{Holderied, Possanner, Ratnani \& Wang \textcolor{blue}{in preparation}}
+\end{itemize}
+\begin{align*}
+&\frac{\text{d}\textbf{u}}{\text{d}t}=\mathbb{J}(\textbf{u})\nabla_\mathbf{u} H(\mathbf{u}),\quad\mathbf{u}\in\mathbb{R}^{2N_0+2N_1+4N_\text{p}}\\
+&H(\textbf{u})=H_E+H_B+H_\text{c}+H_\text{h} \\
+&\textcolor{blue}{\Rightarrow}\quad\textbf{exact energy conservation!}
+\end{align*}
+\begin{itemize}
+\vspace{-0.5cm}
+\item Poisson integrators for time integration obtained by Hamiltonian splitting
+\end{itemize}
+\vspace{-0.2cm}
+\begin{align*}
+\text{e.g. solve}\quad\frac{\text{d}\mathbf{u}}{\text{d}t}=\mathbb{J}(\textbf{u})\nabla_\mathbf{u} H_E(\mathbf{u})\quad\textcolor{blue}{\rightarrow}\quad\frac{\text{d}\mathbf{u}}{\text{d}t}=\mathbb{J}(\textbf{u})\nabla_\mathbf{u} H_B(\mathbf{u})\quad\textcolor{blue}{\rightarrow}\quad\ldots
+\end{align*}
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}: Anisotropic Maxwellian ($\nu_\text{h}=6\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for fast electrons and an initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$,\\ \textbf{without} control variate 
+\end{itemize}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_energies_LieTrotter.pdf}
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_error_LieTrotter.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}: Anisotropic Maxwellian ($\nu_\text{h}=6\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for fast electrons and an initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$,\\ \textbf{without} control variate 
+\end{itemize}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_energies_Strang.pdf}
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_error_Strang.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{\thesection. \insertsection} %%Folientitel
+\textbf{FEEC/GEMPIC: Results}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}: Anisotropic Maxwellian ($\nu_\text{h}=6\%$, $v_{\text{th}\parallel}<v_{\text{th}\bot}$) for fast electrons and an initial magnetic field perturbation $\tilde{B}_x(z, t=0)=a\sin(kz)$,\\ \textbf{without} control variate  
+\end{itemize}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_energies_Strang.pdf}
+\includegraphics[scale=0.35]{01_Figures/GEMPIC_error_Standard.pdf}
+\end{figure}
+\end{frame}
+
+
+
+
+
+\section{Summary}
+\begin{frame}
+\frametitle{Outline}
+\tableofcontents[currentsection]
+\end{frame}
+\begin{frame}
+\frametitle{\thesection. \insertsection} %%Folientitel
+\begin{itemize}
+\item Study of a high-frequency hybrid plasma model 
+\begin{itemize}
+\item cold fluid electrons
+\item \textcolor{magenta}{kinetic energetic electrons}
+\end{itemize}
+\vspace{0.1cm}
+\item Anisotropic \textcolor{magenta}{energetic electron distribution} can drive instabilities
+\vspace{0.1cm}
+\item Discretization of the model in two different ways:
+\begin{itemize}
+\item Standard methods (B-spline finite elements + Boris particle pusher)
+\item Geometric methods (Commuting diagram for function spaces, non-canonical Hamiltonian system, Hamiltonian splitting)
+\end{itemize}
+\vspace{0.1cm}
+\item Verification of codes by comparison with analytical dispersion relation
+\vspace{0.1cm}
+\item Comparison of numerical schemes in terms of long-term energy conservation \\ $\textcolor{blue}{\longrightarrow}$\textbf{Similar in linear phase, geometric code better in nonlinear phase even for 1d in space model}
+\end{itemize}
+\end{frame}
+
+
+
+\appendix
+
+\begin{frame}[noframenumbering]
+\frametitle{References}
+\small
+\begin{thebibliography}{999}
+\bibitem[1]{Chen} L. Chen, F. Zonca: \textit{Physics of Alfv\'{e}n waves and energetic particles in burning plasmas}, Rev. Mod. Phys. \textbf{88}, 015008 (2016).  
+\bibitem[2]{Tao} X. Tao: \textit{A numerical study of chorus generation and the related variation of wave intensity using the DAWN code}, J. Geophys. Res. Space Physics \textbf{119}, 3362-3372 (2014).
+\bibitem[3]{Arnold} D. N. Arnold, R. S. Falk, R. Winther: \textit{Finite Element exterior calculus, homological techniques, and applications}, Acta Numerica \textbf{15}, 1-155 (2006).
+\bibitem[4]{Kraus} M. Kraus, K. Kormann, P. J. Morrison, E. Sonnendrücker: \textit{GEMPIC: geometric electromagnetic particle-in-cell methods}, J. Plasma Phys. \textbf{83}, 905830401 (2015).
+\bibitem[5]{Bram} M. Brambilla: \textit{Kinetic Theory of Plasma Waves: Homogeneous Plasmas}, Oxford University Press, Oxford, 1998.
+\end{thebibliography}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_1e5.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_1e5.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_5e5.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_5e5.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_1e6.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_1e6.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_5e6.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_5e6.pdf}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_1e7.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_1e7.pdf}
+\end{figure}
+\end{frame}
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{A. Standard FEM/PIC: Convergence without control variate $\rightarrow$ with control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Convergence_energy_1e5CV.pdf}
+\includegraphics[scale=0.35]{01_Figures/Convergence_error_1e5CV.pdf}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material} %%Folientitel
+\textbf{B. Standard finite elements/PIC: Excitation of multiple mode}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}: Low density ($\nu_\text{h}=0.2\%$), isotropic Maxwellian ($v_{\text{th}\parallel}=v_{\text{th}\bot}$) for fast electrons and no initial field perturbations, \textbf{with} control variate 
+\end{itemize}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Spectrum_kw_0.png}
+\caption{Spectrogram in $k$-$\omega_\text{r}$-plane and comparison with dispersion relation}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material} %%Folientitel
+\textbf{B. Standard finite elements/PIC: Excitation of multiple modes}
+\small
+\begin{itemize}
+\item[] \textbf{Test run}: Low density ($\nu_\text{h}=0.2\%$), isotropic Maxwellian ($v_{\text{th}\parallel}=v_{\text{th}\bot}$) for fast electrons and no initial field perturbations, \textbf{with} control variate 
+\end{itemize}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Spectrum_kw.png}
+\caption{Spectrogram in $k$-$\omega_\text{r}$-plane and comparison with dispersion relation}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{C. FEEC/GEMPIC: Impact of control variate} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.35]{01_Figures/Comparison_GEMPIC_energies_CV.pdf}
+\includegraphics[scale=0.35]{01_Figures/Comparison_GEMPIC_error_CV.pdf}
+\end{figure}
+\end{frame}
+
+\begin{frame}[noframenumbering]
+\frametitle{Supplementary material}
+\textbf{D. Standard FEM/PIC: Chorus waves} \\
+\vspace{0.5cm}
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{01_Figures/Chorus_Spectrum.pdf}
+\caption{Power spectral density for a dipole-like background field}
+\end{figure}
+\end{frame}
+
+\end{document}
