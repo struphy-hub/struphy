@@ -164,9 +164,9 @@ def evaluate_field_V0(vec, x, p, Nbase, T, bc):
     else:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
     
-    EVAL = sparse.kron(sparse.kron(Nx, Ny), Nz)
+    EVAL = (sparse.kron(sparse.kron(Nx, Ny), Nz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -243,9 +243,9 @@ def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
     else:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
     
-    EVAL = sparse.kron(sparse.kron(Dx, Ny), Nz)
+    EVAL = (sparse.kron(sparse.kron(Dx, Ny), Nz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -322,9 +322,9 @@ def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
     else:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
         
-    EVAL = sparse.kron(sparse.kron(Nx, Dy), Nz)
+    EVAL = (sparse.kron(sparse.kron(Nx, Dy), Nz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -401,9 +401,9 @@ def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
             
         Dz = sparse.csr_matrix(Dz)
     
-    EVAL = sparse.kron(sparse.kron(Nx, Ny), Dz)
+    EVAL = (sparse.kron(sparse.kron(Nx, Ny), Dz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -492,9 +492,9 @@ def evaluate_field_V2_x(vec, x, p, Nbase, T, bc):
             
         Dz = sparse.csr_matrix(Dz)
         
-    EVAL = sparse.kron(sparse.kron(Nx, Dy), Dz)
+    EVAL = (sparse.kron(sparse.kron(Nx, Dy), Dz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -583,9 +583,9 @@ def evaluate_field_V2_y(vec, x, p, Nbase, T, bc):
             
         Dz = sparse.csr_matrix(Dz)
     
-    EVAL = sparse.kron(sparse.kron(Dx, Ny), Dz)
+    EVAL = (sparse.kron(sparse.kron(Dx, Ny), Dz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -674,9 +674,9 @@ def evaluate_field_V2_z(vec, x, p, Nbase, T, bc):
     else:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
     
-    EVAL = sparse.kron(sparse.kron(Dx, Dy), Nz)
+    EVAL = (sparse.kron(sparse.kron(Dx, Dy), Nz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
 
 
 
@@ -709,6 +709,16 @@ def evaluate_field_V3(vec, x, p, Nbase, T, bc):
     EVAL : np.array
         the function values at the points x.
     """
+    
+    x, y, z = x
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    tx = Tx[1:-1]
+    ty = Ty[1:-1]
+    tz = Tz[1:-1]
     
     if bc_x == True:
         Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
@@ -767,6 +777,6 @@ def evaluate_field_V3(vec, x, p, Nbase, T, bc):
             
         Dz = sparse.csr_matrix(Dz)
     
-    EVAL = sparse.kron(sparse.kron(Dx, Dy), Dz)
+    EVAL = (sparse.kron(sparse.kron(Dx, Dy), Dz)).dot(vec)
     
-    return EVAL.dot(vec)
+    return EVAL
