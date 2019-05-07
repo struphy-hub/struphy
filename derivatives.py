@@ -3,56 +3,73 @@ from scipy import sparse
 
 
 def GRAD_1d(p, Nbase, bc):
-    """Returns the 1d discrete gradient matrix.
+    """
+    Returns the 1d discrete gradient matrix.
     
-    p: int
+    Parameters
+    ----------
+    p : int
         spline degree
         
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    bc: boolean
+    bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    G: 2d np.array
+        discrete gradient matrix
     """
     
     if bc == True:
         Nbase_0 = Nbase - p
         
-        M = np.zeros((Nbase_0, Nbase_0))
+        G = np.zeros((Nbase_0, Nbase_0))
         
         for i in range(Nbase_0):
-            M[i, i] = -1.
+            G[i, i] = -1.
             if i < Nbase_0 - 1:
-                M[i, i + 1] = 1.
+                G[i, i + 1] = 1.
                 
-        M[-1, 0] = 1.
+        G[-1, 0] = 1.
         
-        return M
+        return G
     
     else:
         Nbase_0 = Nbase - 2
         
-        M = np.zeros((Nbase_0 + 1, Nbase_0 + 1))
+        G = np.zeros((Nbase_0 + 1, Nbase_0 + 1))
     
         for i in range(Nbase_0 + 1):
-            M[i, i] = 1.
+            G[i, i] = 1.
             if i < Nbase_0:
-                M[i + 1, i] = -1.
+                G[i + 1, i] = -1.
 
-        return M[:, 0:-1]  
+        return G[:, 0:-1] 
     
+
     
 def GRAD_3d(p, Nbase, bc):
-    """Returns the 3d discrete gradient matrix.
+    """
+    Returns the 3d discrete gradient matrix.
     
-    p: list of ints
+    Parameters
+    ----------
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    G : sparse matrix
+        3d discrete gradient matrix
     """
     
     px, py, pz = p
@@ -71,20 +88,31 @@ def GRAD_3d(p, Nbase, bc):
     grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), grad_y_1d), sparse.identity(Nbase_z_0))
     grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), sparse.identity(Nbase_y_0)), grad_z_1d)
     
-    return sparse.bmat([[grad_x], [grad_y], [grad_z]], format='csr')
+    G = sparse.bmat([[grad_x], [grad_y], [grad_z]], format='csr')
+    
+    return G
+
 
 
 def CURL_3d(p, Nbase, bc):
-    """Returns the 3d discrete curl matrix.
+    """
+    Returns the 3d discrete curl matrix.
     
-    p: list of ints
+    Parameters
+    ----------
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    C : sparse matrix
+        discrete curl matrix    
     """
     
     px, py, pz = p
@@ -111,22 +139,32 @@ def CURL_3d(p, Nbase, bc):
     ZERO_xx = sparse.csr_matrix((Nbase_x_0*(Nbase_y_0 + (1 - bc_y))*(Nbase_z_0 + (1 - bc_z)), (Nbase_x_0 + (1 - bc_x))*Nbase_y_0*Nbase_z_0))
     ZERO_yy = sparse.csr_matrix(((Nbase_x_0 + (1 - bc_x))*Nbase_y_0*(Nbase_z_0 + (1 - bc_z)), Nbase_x_0*(Nbase_y_0 + (1 - bc_y))*Nbase_z_0))
     ZERO_zz = sparse.csr_matrix(((Nbase_x_0 + (1 - bc_x))*(Nbase_y_0 + (1 - bc_y))*Nbase_z_0, Nbase_x_0*Nbase_y_0*(Nbase_z_0 + (1 - bc_z))))
+    
+    C = sparse.bmat([[ZERO_xx, -grad_xy, grad_xz], [grad_yx, ZERO_yy, -grad_yz], [-grad_zx, grad_zy, ZERO_zz]], format='csr')
 
-    return sparse.bmat([[ZERO_xx, -grad_xy, grad_xz], [grad_yx, ZERO_yy, -grad_yz], [-grad_zx, grad_zy, ZERO_zz]], format='csr')
+    return C
     
     
     
 def DIV_3d(p, Nbase, bc):
-    """Returns the 3d discrete divergence matrix.
+    """
+    Returns the 3d discrete divergence matrix.
     
-    p: list of ints
+    Parameters
+    ----------
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    D : sparse matrix
+        discrete divergence matrix    
     """
     
     px, py, pz = p
@@ -144,5 +182,7 @@ def DIV_3d(p, Nbase, bc):
     grad_x = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0 + (1 - bc_y))), sparse.identity(Nbase_z_0 + (1 - bc_z)))
     grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x)), grad_y_1d), sparse.identity(Nbase_z_0 + (1 - bc_z)))
     grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x)), sparse.identity(Nbase_y_0 + (1 - bc_y))), grad_z_1d)
+    
+    D = sparse.bmat([[grad_x, grad_y, grad_z]], format='csr')
 
-    return sparse.bmat([[grad_x, grad_y, grad_z]], format='csr')
+    return D
