@@ -5,16 +5,24 @@ import scipy.sparse as sparse
 
 
 def integrate_1d(points, weights, fun):
-    """Integrates the function fun over the quadrature grid defined by (points, weights) in 1d.
+    """
+    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 1d.
     
+    Parameters
+    ----------
     points : 2d np.array
         quadrature points in format (local point, element)
         
     weights : 2d np.array
         quadrature weights in format (local point, element)
-        
+    
     fun : callable
         1d function to be integrated
+        
+    Returns
+    -------
+    f_int : np.array
+        the value of the integration in each element
     """
     
     k = points.shape[0]
@@ -31,16 +39,24 @@ def integrate_1d(points, weights, fun):
 
 
 def integrate_2d(points, weights, fun):
-    """Integrates the function fun over the quadrature grid defined by (points, weights) in 2d.
+    """
+    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 2d.
     
+    Parameters
+    ----------
     points : list of 2d np.arrays
-        quadrature points in x and y diretion in format (element, local point)
+        quadrature points in format (local point, element)
         
     weights : list of 2d np.arrays
-        quadrature weights in x and y direction in format (element, local weight)
-        
+        quadrature weights in format (local point, element)
+    
     fun : callable
         2d function to be integrated
+        
+    Returns
+    -------
+    f_int : np.array
+        the value of the integration in each element
     """
     
     pts_0, pts_1 = points
@@ -64,16 +80,24 @@ def integrate_2d(points, weights, fun):
 
 
 def integrate_3d(points, weights, fun):
-    """Integrates the function fun over the quadrature grid defined by (points, weights) in 3d.
+    """
+    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 3d.
     
+    Parameters
+    ----------
     points : list of 2d np.arrays
-        quadrature points in x, y and z diretion in format (element, local point)
+        quadrature points in format (local point, element)
         
     weights : list of 2d np.arrays
-        quadrature weights in x, y and z direction in format (element, local weight)
-        
+        quadrature weights in format (local point, element)
+    
     fun : callable
         3d function to be integrated
+        
+    Returns
+    -------
+    f_int : np.array
+        the value of the integration in each element
     """
     
     pts_0, pts_1, pts_2 = points
@@ -100,22 +124,133 @@ def integrate_3d(points, weights, fun):
 
 
 
-
-def L2_prod_V0(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V0
-    using a quadrature rule of order p = (px, py, pz).
+def L2_prod_V0_1d(fun, p, Nbase, T):
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V0
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : int
+        spline degree
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : int
+        number of spline functions
         
-    T: list of 1d np.arrays
+    T : np.array
+        knot vector
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
+    """
+    
+    
+    el_b = inter.construct_grid_from_knots(p, Nbase, T)
+    ne = len(el_b) - 1 
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
+    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
+    
+    d = 0
+    basis = inter.eval_on_grid_splines_ders(p, Nbase, p, d, T, pts)
+    
+    f_int = np.zeros(Nbase)
+    
+    for ie in range(ne):
+        for il in range(p + 1):
+            i = ie + il
+            
+            value = 0.
+            for g in range(p):
+                value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
+                
+            f_int[i] += value
+            
+    return f_int
+    
+    
+    
+    
+def L2_prod_V1_1d(fun, p, Nbase, T):
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1
+    using a quadrature rule of order p.
+    
+    Parameters
+    ----------
+    fun : callable
+        function for scalar product
+    
+    p : int
+        spline degree
+    
+    Nbase : int
+        number of spline functions
+        
+    T : np.array
+        knot vector
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
+    """
+    
+    el_b = inter.construct_grid_from_knots(p, Nbase, T)
+    ne = len(el_b) - 1 
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
+    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
+    
+    t = T[1:-1]
+    
+    d = 0
+    basis = inter.eval_on_grid_splines_ders(p - 1, Nbase - 1, p, d, t, pts)
+    
+    f_int = np.zeros(Nbase - 1)
+    
+    for ie in range(ne):
+        for il in range(p):
+            i = ie + il
+            
+            value = 0.
+            for g in range(p):
+                value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
+                
+            f_int[i] += value*p/(t[i + p] - t[i])
+            
+    return f_int
+
+
+
+def L2_prod_V0(fun, p, Nbase, T):
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V0
+    using a quadrature rule of order p.
+    
+    Parameters
+    ----------
+    fun : callable
+        function for scalar product
+    
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
         
     px, py, pz = p
@@ -171,23 +306,30 @@ def L2_prod_V0(fun, p, Nbase, T):
     return f_int
     
     
-    
-    
+        
 def L2_prod_V1_x(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V1 (x-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (y-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -245,23 +387,30 @@ def L2_prod_V1_x(fun, p, Nbase, T):
     return f_int
 
     
-    
-    
+        
 def L2_prod_V1_y(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V1 (y-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (y-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -321,20 +470,28 @@ def L2_prod_V1_y(fun, p, Nbase, T):
     
     
 def L2_prod_V1_z(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V1 (z-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (z-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -392,25 +549,30 @@ def L2_prod_V1_z(fun, p, Nbase, T):
     return f_int
     
     
-    
-    
-    
-    
+        
 def L2_prod_V2_x(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V2 (x-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V2 (x-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -471,20 +633,28 @@ def L2_prod_V2_x(fun, p, Nbase, T):
 
     
 def L2_prod_V2_y(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V2 (y-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V2 (y-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -545,20 +715,28 @@ def L2_prod_V2_y(fun, p, Nbase, T):
  
  
 def L2_prod_V2_z(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V2 (z-component)
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V2 (z-component)
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -618,20 +796,28 @@ def L2_prod_V2_z(fun, p, Nbase, T):
 
 
 def L2_prod_V3(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V3
-    using a quadrature rule of order p = (px, py, pz).
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V3
+    using a quadrature rule of order p.
     
-    fun: callable
+    Parameters
+    ----------
+    fun : callable
         function for scalar product
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of 1d np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
     """
     
     px, py, pz = p
@@ -689,206 +875,51 @@ def L2_prod_V3(fun, p, Nbase, T):
                             f_int[ix, iy, iz] += px/(tx[ix + px] - tx[ix])*py/(ty[iy + py] - ty[iy])*pz/(tz[iz + pz] - tz[iz])*value
                             
     return f_int
-                            
 
-    
-    
-    
-    
 
-def L2_prod_V0_1d(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V0
-    using a quadrature rule of order p.
-    
-    fun: callable
-        function for scalar product
-    
-    p: int
-        spline degree
-    
-    Nbase: int
-        number of spline functions
-        
-    T: np.array
-        knot vector
+
+def histopolation_matrix_1d(p, Nbase, T, grev, bc):
     """
+    Computest the 1d histopolation matrix.
     
-    
-    el_b = inter.construct_grid_from_knots(p, Nbase, T)
-    ne = len(el_b) - 1 
-    
-    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
-    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
-    
-    d = 0
-    basis = inter.eval_on_grid_splines_ders(p, Nbase, p, d, T, pts)
-    
-    f_int = np.zeros(Nbase)
-    
-    for ie in range(ne):
-        for il in range(p + 1):
-            i = ie + il
-            
-            value = 0.
-            for g in range(p):
-                value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
-                
-            f_int[i] += value
-            
-    return f_int
-    
-    
-    
-    
-def L2_prod_V1_1d(fun, p, Nbase, T):
-    """Returns the L2 scalar product of the function fun with the B-splines of the space V1
-    using a quadrature rule of order p.
-    
-    fun: callable
-        function for scalar product
-    
-    p: int
+    Parameters
+    ----------
+    p : int
         spline degree
-    
-    Nbase: int
-        number of spline functions
         
-    T: np.array
+    Nbase : int
+        number of spline functions
+    
+    T : np.array 
         knot vector
+    
+    grev : np.array
+        greville points
+        
+    bc : boolean
+        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    D : 2d np.array
+        histopolation matrix
     """
     
     el_b = inter.construct_grid_from_knots(p, Nbase, T)
-    ne = len(el_b) - 1 
-    
-    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
-    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
-    
-    t = T[1:-1]
-    
-    d = 0
-    basis = inter.eval_on_grid_splines_ders(p - 1, Nbase - 1, p, d, t, pts)
-    
-    f_int = np.zeros(Nbase - 1)
-    
-    for ie in range(ne):
-        for il in range(p):
-            i = ie + il
-            
-            value = 0.
-            for g in range(p):
-                value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
-                
-            f_int[i] += value*p/(t[i + p] - t[i])
-            
-    return f_int
-    
-    
-    
-
-def histopolation_matrix_old(T, p, grev, bc):
-    """Returns the 1d histopolation matrix.
-    
-    T: np.array 
-        knot vector
-    
-    p: int
-        spline degree
-    
-    grev: np.array
-        greville points
-        
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
-    """
-    
-    if bc == False:
-        Nbase = len(T) - p - 1
-        return inter.histopolation_matrix(p, Nbase, T, grev)
-    
-    else:
-        if p%2 != 0:
-            dx = 1./(len(T) - 2*p - 1)
-            
-            pts_loc, wts_loc = np.polynomial.legendre.leggauss(p - 1)
-            pts, wts = bsp.quadrature_grid(np.append(grev, 1.), pts_loc, wts_loc)
-
-            col_quad = bsp.collocation_matrix(T[1:-1], p - 1, pts.flatten(), bc)/dx
-
-            ng = len(grev)
-            
-            D = np.zeros((ng, ng))
-
-            for i in range(ng):
-                for j in range(ng):
-                    for k in range(len(pts[0])):
-                        D[i, j] += wts[i, k]*col_quad[i*(p - 1) + k, j]
-                        
-            return D
-        
-        else:
-            dx = 1./(len(T) - 2*p - 1)
-            
-            pts_loc, wts_loc = np.polynomial.legendre.leggauss(p - 1)
-            
-            a = grev - dx/2
-            b = grev
-            c = np.vstack((a, b)).reshape((-1,), order = 'F')
-            
-            pts, wts = bsp.quadrature_grid(np.append(c, 1.), pts_loc, wts_loc)
-            
-            col_quad = bsp.collocation_matrix(T[1:-1], p - 1, pts.flatten(), bc)/dx
-            
-            ng = len(grev)
-
-            D = np.zeros((ng, ng))
-
-            for il in range(2*ng):
-                i = int(np.floor((il - 1)/2))%ng
-
-                for jl in range(p):
-                    j = int(np.floor(il/2) + jl)%ng
-
-                    for k in range(len(pts[0])):
-                        D[i, j] += wts[il, k]*col_quad[il*(p - 1) + k, j] 
-                        
-            return D
-        
-
-        
-        
-        
-        
-def histopolation_matrix(p, Nbase, T, grev, bc):
-    """Returns the 1d histopolation matrix.
-    
-    p: int
-        spline degree
-        
-    Nbase: int
-        number of spline functions
-    
-    T: np.array 
-        knot vector
-    
-    grev: np.array
-        greville points
-        
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
-    """
+    Nel = len(el_b) - 1
     
     if bc == False:
         return inter.histopolation_matrix(p, Nbase, T, grev)
     
     else:
         if p%2 != 0:
-            dx = 1/(len(T) - 2*p - 1)
+            dx = el_b[-1]/Nel
             ne = Nbase - 1
             
             pts_loc, wts_loc = np.polynomial.legendre.leggauss(p - 1)
             pts, wts = inter.construct_quadrature_grid(ne, p - 1, pts_loc, wts_loc, grev)
 
-            col_quad = inter.collocation_matrix(p - 1, ne, T[1:-1], (pts%1).flatten())/dx
+            col_quad = inter.collocation_matrix(p - 1, ne, T[1:-1], (pts%el_b[-1]).flatten())/dx
 
             D = np.zeros((ne, ne))
 
@@ -906,7 +937,7 @@ def histopolation_matrix(p, Nbase, T, grev, bc):
             return D
         
         else:
-            dx = 1/(len(T) - 2*p - 1)
+            dx = el_b[-1]/Nel
             ne = Nbase - 1
             
             a = grev
@@ -916,7 +947,7 @@ def histopolation_matrix(p, Nbase, T, grev, bc):
             pts_loc, wts_loc = np.polynomial.legendre.leggauss(p - 1) 
             pts, wts = inter.construct_quadrature_grid(2*ne, p - 1, pts_loc, wts_loc, c)
             
-            col_quad = inter.collocation_matrix(p - 1, ne, T[1:-1], (pts%1).flatten())/dx
+            col_quad = inter.collocation_matrix(p - 1, ne, T[1:-1], (pts%el_b[-1]).flatten())/dx
             
             D = np.zeros((ne, ne))
             
@@ -937,19 +968,27 @@ def histopolation_matrix(p, Nbase, T, grev, bc):
 
         
 def mass_matrix_V0_1d(p, Nbase, T, bc):
-    """Returns the 1d mass matrix of the space V0.
+    """
+    Computes the 1d mass matrix of the space V0.
     
-    p: int
+    Parameters
+    ----------
+    p : int
         spline degree
     
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
-    bc: boolean
+    bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    mass : 2d np.array
+        mass matrix in V0
     """
     
     if bc == True: 
@@ -989,19 +1028,27 @@ def mass_matrix_V0_1d(p, Nbase, T, bc):
 
 
 def mass_matrix_V1_1d(p, Nbase, T, bc):
-    """Returns the 1d mass matrix of the space V1.
+    """
+    Computes the 1d mass matrix of the space V1.
     
-    p: int
+    Parameters
+    ----------
+    p : int
         spline degree
     
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
-    bc: boolean
+    bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    mass : 2d np.array
+        mass matrix in V1
     """
     
     if bc == True: 
@@ -1042,25 +1089,19 @@ def mass_matrix_V1_1d(p, Nbase, T, bc):
 
 
 
-
-
-
-
-
 def normalization_V0_1d(p, Nbase, T):
     """
     Computes the normalization of all basis functions of the space V0.
     
     Parameters
-    ----------
+    ---------- 
+    p : int
+        spline degree
     
-    p: int
-        spline degrees
-    
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
     Returns
@@ -1101,15 +1142,14 @@ def normalization_V1_1d(p, Nbase, T):
     Computes the normalization of all basis functions of the space V1.
     
     Parameters
-    ----------
+    ---------- 
+    p : int
+        spline degree
     
-    p: int
-        spline degrees
-    
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
     Returns
@@ -1146,151 +1186,198 @@ def normalization_V1_1d(p, Nbase, T):
 
 
 
-
-
-
-
 def mass_matrix_V0(p, Nbase, T, bc):
-    """Returns the 3d mass matrix of the space V0 in sparse.csr format.
+    """
+    Computes the mass matrix of the space V0.
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    M0 : sparse matrix
+        mass matrix in V0
     """
     
     px, py, pz = p
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
     
-    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc))
-    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc))
-    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc))
+    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
-    return sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    M0 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    
+    return M0
 
 
 
 def mass_matrix_V1(p, Nbase, T, bc):
-    """Returns the 3d mass matrix of the space V1 in sparse.csr format.
+    """
+    Computes the mass matrix of the space V1.
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    M1 : sparse matrix
+        mass matrix in V1
     """
     
     px, py, pz = p
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
     
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc))
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
-    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc))
-    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc))
-    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc))
-    
+    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
     
     Maa = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_NN_z)
     Mbb = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_NN_z)
     Mcc = sparse.kron(sparse.kron(M_NN_x, M_NN_y), M_DD_z)
     
-    return sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    M1 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    
+    return M1
 
 
 
 def mass_matrix_V2(p, Nbase, T, bc):
-    """Returns the 3d mass matrix of the space V2 in sparse.csr format.
+    """
+    Computes the mass matrix of the space V2.
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    M2 : sparse matrix
+        mass matrix in V2
     """
     
     px, py, pz = p
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
     
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc))
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
-    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc))
-    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc))
-    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc))
-    
+    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
     
     Maa = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_DD_z)
     Mbb = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_DD_z)
     Mcc = sparse.kron(sparse.kron(M_DD_x, M_DD_y), M_NN_z)
     
-    return sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    M2 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    
+    return M2
 
 
 
 def mass_matrix_V3(p, Nbase, T, bc):
-    """Returns the 3d mass matrix of the space V3 in sparse.csr format.
+    """
+    Computes the mass matrix of the space V3.
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    M3 : sparse matrix
+        mass matrix in V3
     """
     
     px, py, pz = p
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
     
-    Mx = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc))
-    My = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc))
-    Mz = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc))
+    Mx = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    My = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    Mz = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
     
-    return sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    M3 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    
+    return M3
 
 
 
 def normalization_V0(p, Nbase, T):
-    """Returns the normalization of all basis functions of the space V0.
+    """
+    Computes the normalization of all basis functions of the space V0.
     
-    p: list of ints
-        spline degrees in x, y and z direction
+    Parameters
+    ---------- 
+    p : list of ints
+        spline degrees in each direction
     
-    Nbase: list of ints
-        number of spline functions in x, y and z direction
+    Nbase : list of ints
+        number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
+        
+    Returns
+    ----------
+    norm: np.array
+        the integral of each basis function N_i*N_j*N_k over the entire computational domain
+    
     """
     
     px, py, pz = p

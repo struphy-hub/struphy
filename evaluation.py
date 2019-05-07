@@ -4,25 +4,33 @@ import scipy.sparse as sparse
 
 
 def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc):
-    """Evaluates the 1d FEM field of the space V0 at the points x.
+    """
+    Evaluates the 1d FEM field of the space V0 at the points x.
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: np.array
+    x : np.array
         evaluation points
         
-    p: int
+    p : int
         spline degree
         
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
-    bc: boolean
+    bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    eva: np.arrray
+        the function values at the points x
     """
     
     if bc == True:
@@ -33,29 +41,40 @@ def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc):
     else:
         N = sparse.csr_matrix(inter.collocation_matrix(p, Nbase, T, x)[:, 1:-1])
         
-    return N.dot(vec)
+    eva = N.dot(vec) 
+        
+    return eva
+
 
 
 def evaluate_field_V1_1d(vec, x, p, Nbase, T, bc):
-    """Evaluates the 1d FEM field of the space V1 at the points x.
+    """
+    Evaluates the 1d FEM field of the space V1 at the points x.
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: np.array
+    x : np.array
         evaluation points
         
-    p: int
+    p : int
         spline degree
         
-    Nbase: int
+    Nbase : int
         number of spline functions
         
-    T: np.array
+    T : np.array
         knot vector
         
-    bc: boolean
+    bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    eval: np.arrray
+        the function values at the points x
     """
     
     t = T[1:-1]
@@ -78,32 +97,41 @@ def evaluate_field_V1_1d(vec, x, p, Nbase, T, bc):
             D[:, j] = p*D[:, j]/(t[j + p] - t[j])
             
         D = sparse.csr_matrix(D)
-        
-    return D.dot(vec)
-
+    
+    eva = D.dot(vec)
+    
+    return eva
 
 
 
 def evaluate_field_V0(vec, x, p, Nbase, T, bc):
-    """Evaluates the 3d FEM field of the space V0 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the 3d FEM field of the space V0 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -142,27 +170,34 @@ def evaluate_field_V0(vec, x, p, Nbase, T, bc):
 
 
 
-
 def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
-    """Evaluates the x- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the x-component of the 3d FEM field of the space V1 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -215,25 +250,33 @@ def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
 
 
 def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
-    """Evaluates the y- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the y-component of the 3d FEM field of the space V1 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -285,27 +328,34 @@ def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
 
 
 
-
 def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
-    """Evaluates the z- component of the 3d FEM field of the space V1 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the z-component of the 3d FEM field of the space V1 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -357,27 +407,34 @@ def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
 
 
 
-
 def evaluate_field_V2_x(vec, x, p, Nbase, T, bc):
-    """Evaluates the x- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the x-component of the 3d FEM field of the space V2 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -441,27 +498,34 @@ def evaluate_field_V2_x(vec, x, p, Nbase, T, bc):
 
 
 
-
 def evaluate_field_V2_y(vec, x, p, Nbase, T, bc):
-    """Evaluates the y- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the y-component of the 3d FEM field of the space V2 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -526,25 +590,33 @@ def evaluate_field_V2_y(vec, x, p, Nbase, T, bc):
 
 
 def evaluate_field_V2_z(vec, x, p, Nbase, T, bc):
-    """Evaluates the z- component of the 3d FEM field of the space V2 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the z-component of the 3d FEM field of the space V2 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     x, y, z = x
@@ -609,25 +681,33 @@ def evaluate_field_V2_z(vec, x, p, Nbase, T, bc):
 
 
 def evaluate_field_V3(vec, x, p, Nbase, T, bc):
-    """Evaluates the 3d FEM field of the space V3 at the tensor grid given by x=(x, y, z).
+    """
+    Evaluates the 3d FEM field of the space V3 at the tensor grid given by x = (x, y, z).
     
-    vec: np.array
+    Parameters
+    ----------
+    vec : np.array
         coefficient vector
         
-    x: list of np.arrays
+    x : list of np.arrays
         evaluation points in each direction
         
-    p: list of ints
+    p : list of ints
         spline degrees in each direction
         
-    Nbase: list of ints
+    Nbase : list of ints
         number of spline functions in each direction
         
-    T: list of np.arrays
+    T : list of np.arrays
         knot vectors
         
-    bc: list of booleans
+    bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    EVAL : np.array
+        the function values at the points x.
     """
     
     if bc_x == True:
