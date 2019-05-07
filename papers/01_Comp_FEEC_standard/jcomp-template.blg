@@ -3,45 +3,49 @@ Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
 The top-level auxiliary file: jcomp-template.aux
 The style file: model1-num-names.bst
 Database file #1: refs.bib
+Warning--I didn't find a database entry for "Tronci2010"
+Warning--I didn't find a database entry for "Friedetal1961"
+Warning--I didn't find a database entry for "Haireretal2006"
 Reallocated singl_function (elt_size=4) to 100 items from 50.
-You've used 23 entries,
+You've used 22 entries,
             2910 wiz_defined-function locations,
-            816 strings with 9881 characters,
-and the built_in function-call counts, 13180 in all, are:
-= -- 982
-> -- 469
+            820 strings with 9898 characters,
+and the built_in function-call counts, 12631 in all, are:
+= -- 941
+> -- 451
 < -- 17
-+ -- 184
-- -- 153
-* -- 1551
-:= -- 1967
-add.period$ -- 23
-call.type$ -- 23
-change.case$ -- 163
-chr.to.int$ -- 23
-cite$ -- 23
-duplicate$ -- 913
-empty$ -- 950
-format.name$ -- 222
-if$ -- 2421
++ -- 175
+- -- 147
+* -- 1487
+:= -- 1882
+add.period$ -- 22
+call.type$ -- 22
+change.case$ -- 156
+chr.to.int$ -- 22
+cite$ -- 22
+duplicate$ -- 876
+empty$ -- 910
+format.name$ -- 217
+if$ -- 2321
 int.to.chr$ -- 1
 int.to.str$ -- 1
-missing$ -- 207
-newline$ -- 124
-num.names$ -- 92
-pop$ -- 229
+missing$ -- 198
+newline$ -- 119
+num.names$ -- 88
+pop$ -- 223
 preamble$ -- 1
-purify$ -- 166
+purify$ -- 159
 quote$ -- 0
-skip$ -- 263
+skip$ -- 253
 stack$ -- 0
-substring$ -- 680
-swap$ -- 735
+substring$ -- 645
+swap$ -- 704
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 198
+type$ -- 189
 warning$ -- 0
-while$ -- 88
+while$ -- 84
 width$ -- 0
-write$ -- 310
+write$ -- 297
+(There were 3 warnings)

@@ -1,4 +1,4 @@
-\begin{thebibliography}{23}
+\begin{thebibliography}{22}
 \expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
 \providecommand{\url}[1]{\texttt{#1}}
 \providecommand{\href}[2]{#2}
@@ -37,6 +37,13 @@
   to numerical stability}},
 \newblock \bibinfo{journal}{Bull. Amer. Math. Soc.}  (\bibinfo{year}{2010})
   \bibinfo{pages}{281--354}.
+%Type = Article
+\bibitem[{Chen and Zonca(2016)}]{Chenetal2016}
+\bibinfo{author}{L.~Chen}, \bibinfo{author}{F.~Zonca},
+\newblock \bibinfo{title}{Physics of alfvén waves and energetic particles in
+  burning plasmas},
+\newblock \bibinfo{journal}{Rev. Mod. Phys.} \bibinfo{volume}{88}
+  (\bibinfo{year}{2016}) \bibinfo{pages}{015008}.
 %Type = Article
 \bibitem[{Katoh and Omura(2007)}]{Katohetal2007}
 \bibinfo{author}{Y.~Katoh}, \bibinfo{author}{Y.~Omura},
@@ -139,26 +146,10 @@
 %Type = Article
 \bibitem[{Aydemir(1994)}]{Aydemir1994}
 \bibinfo{author}{A.~Y. Aydemir},
-\newblock \bibinfo{title}{A unified monte carlo interpretation of particle
-  simulations and applications to non‐neutral plasmas},
+\newblock \bibinfo{title}{{A unified Monte Carlo interpretation of particle
+  simulations and applications to non-neutral plasmas}},
 \newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{1}
   (\bibinfo{year}{1994}) \bibinfo{pages}{822--831}.
-%Type = Article
-\bibitem[{Bramble et~al.(2002)Bramble, Pasciak, and
-  Steinbach}]{Brambleetal2002}
-\bibinfo{author}{J.~H. Bramble}, \bibinfo{author}{J.~E. Pasciak},
-  \bibinfo{author}{O.~Steinbach},
-\newblock \bibinfo{title}{On the stability of the {$L^2$} projection in
-  {$H^1(\Omega)$}},
-\newblock \bibinfo{journal}{{Math. Comp.}} \bibinfo{volume}{71}
-  (\bibinfo{year}{2002}) \bibinfo{pages}{147--156}.
-%Type = Article
-\bibitem[{Morrison(2017)}]{Morrison2017}
-\bibinfo{author}{P.~J. Morrison},
-\newblock \bibinfo{title}{{Structure and structure-preserving algorithms for
-  plasma physics}},
-\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{24}
-  (\bibinfo{year}{2017}) \bibinfo{pages}{055502}.
 %Type = Article
 \bibitem[{Trotter(1959)}]{Trotter1959}
 \bibinfo{author}{H.~F. Trotter},
