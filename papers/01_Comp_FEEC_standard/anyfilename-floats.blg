@@ -1,0 +1,47 @@
+This is BibTeX, Version 0.99d (TeX Live 2015/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: anyfilename-floats.aux
+The style file: model1-num-names.bst
+Database file #1: refs.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+You've used 24 entries,
+            2910 wiz_defined-function locations,
+            826 strings with 10098 characters,
+and the built_in function-call counts, 13667 in all, are:
+= -- 1000
+> -- 497
+< -- 18
++ -- 192
+- -- 162
+* -- 1600
+:= -- 2032
+add.period$ -- 24
+call.type$ -- 24
+change.case$ -- 169
+chr.to.int$ -- 24
+cite$ -- 24
+duplicate$ -- 962
+empty$ -- 1000
+format.name$ -- 240
+if$ -- 2512
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 215
+newline$ -- 125
+num.names$ -- 96
+pop$ -- 266
+preamble$ -- 1
+purify$ -- 174
+quote$ -- 0
+skip$ -- 278
+stack$ -- 0
+substring$ -- 666
+swap$ -- 753
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 201
+warning$ -- 0
+while$ -- 90
+width$ -- 0
+write$ -- 319
