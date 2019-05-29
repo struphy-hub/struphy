@@ -3,7 +3,7 @@ import psydac.core.interface as inter
 import scipy.sparse as sparse
 
 
-def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc):
+def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc, full=False):
     """
     Evaluates the 1d FEM field of the space V0 at the points x.
     
@@ -39,7 +39,12 @@ def evaluate_field_V0_1d(vec, x, p, Nbase, T, bc):
         N = sparse.csr_matrix(N[:, :N.shape[1] - p])
         
     else:
-        N = sparse.csr_matrix(inter.collocation_matrix(p, Nbase, T, x)[:, 1:-1])
+        
+        if full == False:
+            N = sparse.csr_matrix(inter.collocation_matrix(p, Nbase, T, x)[:, 1:-1])
+            
+        else:
+            N = sparse.csr_matrix(inter.collocation_matrix(p, Nbase, T, x))
         
     eva = N.dot(vec) 
         

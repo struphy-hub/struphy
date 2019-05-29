@@ -4,6 +4,7 @@ import psydac.core.bsplines as bsp
 import scipy.sparse as sparse
 
 
+
 def integrate_1d(points, weights, fun):
     """
     Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 1d.
@@ -79,7 +80,6 @@ def integrate_2d(points, weights, fun):
     return f_int
 
 
-
 def integrate_3d(points, weights, fun):
     """
     Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 3d.
@@ -112,7 +112,6 @@ def integrate_3d(points, weights, fun):
     n1 = pts_1.shape[1]
     n2 = pts_2.shape[1]
     
-    
     f_int = np.zeros((n0, n1, n2))
     
     for ie_0 in range(n0):
@@ -130,7 +129,7 @@ def integrate_3d(points, weights, fun):
 def L2_prod_V0_1d(fun, p, Nbase, T):
     """
     Computes the L2 scalar product of the function 'fun' with the B-splines of the space V0
-    using a quadrature rule of order p.
+    using a quadrature rule of order p + 1.
     
     Parameters
     ----------
@@ -156,11 +155,11 @@ def L2_prod_V0_1d(fun, p, Nbase, T):
     el_b = inter.construct_grid_from_knots(p, Nbase, T)
     ne = len(el_b) - 1 
     
-    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
-    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts, wts = inter.construct_quadrature_grid(ne, p + 1, pts_loc, wts_loc, el_b)
     
     d = 0
-    basis = inter.eval_on_grid_splines_ders(p, Nbase, p, d, T, pts)
+    basis = inter.eval_on_grid_splines_ders(p, Nbase, p + 1, d, T, pts)
     
     f_int = np.zeros(Nbase)
     
@@ -169,7 +168,7 @@ def L2_prod_V0_1d(fun, p, Nbase, T):
             i = ie + il
             
             value = 0.
-            for g in range(p):
+            for g in range(p + 1):
                 value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
                 
             f_int[i] += value
@@ -182,7 +181,7 @@ def L2_prod_V0_1d(fun, p, Nbase, T):
 def L2_prod_V1_1d(fun, p, Nbase, T):
     """
     Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1
-    using a quadrature rule of order p.
+    using a quadrature rule of order p + 1.
     
     Parameters
     ----------
@@ -207,13 +206,13 @@ def L2_prod_V1_1d(fun, p, Nbase, T):
     el_b = inter.construct_grid_from_knots(p, Nbase, T)
     ne = len(el_b) - 1 
     
-    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p)
-    pts, wts = inter.construct_quadrature_grid(ne, p, pts_loc, wts_loc, el_b)
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts, wts = inter.construct_quadrature_grid(ne, p + 1, pts_loc, wts_loc, el_b)
     
     t = T[1:-1]
     
     d = 0
-    basis = inter.eval_on_grid_splines_ders(p - 1, Nbase - 1, p, d, t, pts)
+    basis = inter.eval_on_grid_splines_ders(p - 1, Nbase - 1, p + 1, d, t, pts)
     
     f_int = np.zeros(Nbase - 1)
     
@@ -222,7 +221,7 @@ def L2_prod_V1_1d(fun, p, Nbase, T):
             i = ie + il
             
             value = 0.
-            for g in range(p):
+            for g in range(p + 1):
                 value += wts[g, ie]*fun(pts[g, ie])*basis[il, 0, g, ie]
                 
             f_int[i] += value*p/(t[i + p] - t[i])
@@ -234,7 +233,7 @@ def L2_prod_V1_1d(fun, p, Nbase, T):
 def L2_prod_V0(fun, p, Nbase, T):
     """
     Computes the L2 scalar product of the function 'fun' with the B-splines of the space V0
-    using a quadrature rule of order p.
+    using a quadrature rule of order p + 1.
     
     Parameters
     ----------
@@ -268,18 +267,18 @@ def L2_prod_V0(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px, d, Tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py, d, Ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz, d, Tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px + 1, d, Tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py + 1, d, Ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz + 1, d, Tz, pts_z)
     
     f_int = np.zeros((Nbase_x, Nbase_y, Nbase_z))
     
@@ -295,9 +294,9 @@ def L2_prod_V0(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -313,7 +312,7 @@ def L2_prod_V0(fun, p, Nbase, T):
 def L2_prod_V1_x(fun, p, Nbase, T):
     """
     Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (y-component)
-    using a quadrature rule of order p.
+    using a quadrature rule of order p + 1.
     
     Parameters
     ----------
@@ -347,13 +346,13 @@ def L2_prod_V1_x(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     tx = Tx[1:-1]
     
@@ -428,20 +427,20 @@ def L2_prod_V1_y(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     ty = Ty[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px, d, Tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py, d, ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz, d, Tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px + 1, d, Tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py + 1, d, ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz + 1, d, Tz, pts_z)
     
     f_int = np.zeros((Nbase_x, Nbase_y - 1, Nbase_z))
     
@@ -457,9 +456,9 @@ def L2_prod_V1_y(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -509,20 +508,20 @@ def L2_prod_V1_z(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     tz = Tz[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px, d, Tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py, d, Ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz, d, tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px + 1, d, Tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py + 1, d, Ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz + 1, d, tz, pts_z)
     
     f_int = np.zeros((Nbase_x, Nbase_y, Nbase_z - 1))
     
@@ -538,9 +537,9 @@ def L2_prod_V1_z(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -590,21 +589,21 @@ def L2_prod_V2_x(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     ty = Ty[1:-1]
     tz = Tz[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px, d, Tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py, d, ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz, d, tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px + 1, d, Tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py + 1, d, ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz + 1, d, tz, pts_z)
     
     f_int = np.zeros((Nbase_x, Nbase_y - 1, Nbase_z - 1))
     
@@ -620,9 +619,9 @@ def L2_prod_V2_x(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -672,21 +671,21 @@ def L2_prod_V2_y(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     tx = Tx[1:-1]
     tz = Tz[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px, d, tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py, d, Ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz, d, tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px + 1, d, tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py + 1, d, Ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz + 1, d, tz, pts_z)
     
     f_int = np.zeros((Nbase_x - 1, Nbase_y, Nbase_z - 1))
     
@@ -702,9 +701,9 @@ def L2_prod_V2_y(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -754,21 +753,21 @@ def L2_prod_V2_z(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     tx = Tx[1:-1]
     ty = Ty[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px, d, tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py, d, ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz, d, Tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px + 1, d, tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py + 1, d, ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz + 1, d, Tz, pts_z)
     
     f_int = np.zeros((Nbase_x - 1, Nbase_y - 1, Nbase_z))
     
@@ -784,9 +783,9 @@ def L2_prod_V2_z(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -835,22 +834,22 @@ def L2_prod_V3(fun, p, Nbase, T):
     ne_y = len(el_b_y) - 1
     ne_z = len(el_b_z) - 1
 
-    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px)
-    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py)
-    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz)
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
     
-    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px, pts_x_loc, wts_x_loc, el_b_x)
-    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, px, pts_y_loc, wts_y_loc, el_b_y)
-    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, px, pts_z_loc, wts_z_loc, el_b_z)
+    pts_x, wts_x = inter.construct_quadrature_grid(ne_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(ne_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(ne_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
     
     tx = Tx[1:-1]
     ty = Ty[1:-1]
     tz = Tz[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px, d, tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py, d, ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz, d, tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px + 1, d, tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py - 1, Nbase_y - 1, py + 1, d, ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz - 1, Nbase_z - 1, pz + 1, d, tz, pts_z)
     
     f_int = np.zeros((Nbase_x - 1, Nbase_y - 1, Nbase_z - 1))
     
@@ -866,9 +865,9 @@ def L2_prod_V3(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
@@ -970,7 +969,7 @@ def histopolation_matrix_1d(p, Nbase, T, grev, bc):
 
 
         
-def mass_matrix_V0_1d(p, Nbase, T, bc):
+def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
     """
     Computes the 1d mass matrix of the space V0.
     
@@ -987,6 +986,9 @@ def mass_matrix_V0_1d(p, Nbase, T, bc):
         
     bc : boolean
         boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        
+    full : boolean
+        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
         
     Returns
     -------
@@ -1024,9 +1026,12 @@ def mass_matrix_V0_1d(p, Nbase, T, bc):
                     value += wts[g, ie]*basis[il, 0, g, ie]*basis[jl, 0, g, ie]
 
                 mass[i%Nbase_0, j%Nbase_0] += value
+    
+    
+    if full == False:
+        mass = mass[(1 - bcon):Nbase_0 - (1 - bcon), (1 - bcon):Nbase_0 - (1 - bcon)]
                     
-                    
-    return mass[(1 - bcon):Nbase_0 - (1 - bcon), (1 - bcon):Nbase_0 - (1 - bcon)]
+    return mass
 
 
 
@@ -1089,6 +1094,190 @@ def mass_matrix_V1_1d(p, Nbase, T, bc):
                     
                     
     return mass
+
+
+
+def mass_matrix_V0(p, Nbase, T, bc, full=[False, False, False]):
+    """
+    Computes the mass matrix of the space V0.
+    
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    full : boolean
+        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
+        
+    Returns
+    -------
+    M0 : sparse matrix
+        mass matrix in V0
+    """
+    
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    full_x, full_y, full_z = full
+    
+    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full=full_x))
+    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full=full_y))
+    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full=full_z))
+    
+    M0 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    
+    return M0
+
+
+
+def mass_matrix_V1(p, Nbase, T, bc, full=[False, False, False]):
+    """
+    Computes the mass matrix of the space V1.
+    
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    full : boolean
+        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
+        
+    Returns
+    -------
+    M1 : sparse matrix
+        mass matrix in V1
+    """
+    
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    full_x, full_y, full_z = full
+    
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full=full_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full=full_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full=full_z))
+    
+    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
+    
+    Maa = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_NN_z)
+    Mbb = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_NN_z)
+    Mcc = sparse.kron(sparse.kron(M_NN_x, M_NN_y), M_DD_z)
+    
+    M1 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    
+    return M1
+
+
+
+def mass_matrix_V2(p, Nbase, T, bc, full=[False, False, False]):
+    """
+    Computes the mass matrix of the space V2.
+    
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    full : boolean
+        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
+        
+    Returns
+    -------
+    M2 : sparse matrix
+        mass matrix in V2
+    """
+    
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    full_x, full_y, full_z = full
+    
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full_z))
+    
+    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
+    
+    Maa = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_DD_z)
+    Mbb = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_DD_z)
+    Mcc = sparse.kron(sparse.kron(M_DD_x, M_DD_y), M_NN_z)
+    
+    M2 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
+    
+    return M2
+
+
+
+def mass_matrix_V3(p, Nbase, T, bc):
+    """
+    Computes the mass matrix of the space V3.
+    
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        
+    Returns
+    -------
+    M3 : sparse matrix
+        mass matrix in V3
+    """
+    
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    bc_x, bc_y, bc_z = bc
+    
+    Mx = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
+    My = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
+    Mz = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
+    
+    M3 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
+    
+    return M3
 
 
 
@@ -1186,178 +1375,6 @@ def normalization_V1_1d(p, Nbase, T):
             norm[i] += value*p/(t[i + p] - t[i])
                             
     return norm
-
-
-
-def mass_matrix_V0(p, Nbase, T, bc):
-    """
-    Computes the mass matrix of the space V0.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-    
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    T : list of np.arrays
-        knot vectors
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    Returns
-    -------
-    M0 : sparse matrix
-        mass matrix in V0
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    Tx, Ty, Tz = T
-    bc_x, bc_y, bc_z = bc
-    
-    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
-    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
-    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
-    
-    M0 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
-    
-    return M0
-
-
-
-def mass_matrix_V1(p, Nbase, T, bc):
-    """
-    Computes the mass matrix of the space V1.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-    
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    T : list of np.arrays
-        knot vectors
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    Returns
-    -------
-    M1 : sparse matrix
-        mass matrix in V1
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    Tx, Ty, Tz = T
-    bc_x, bc_y, bc_z = bc
-    
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
-    
-    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
-    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
-    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
-    
-    Maa = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_NN_z)
-    Mbb = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_NN_z)
-    Mcc = sparse.kron(sparse.kron(M_NN_x, M_NN_y), M_DD_z)
-    
-    M1 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
-    
-    return M1
-
-
-
-def mass_matrix_V2(p, Nbase, T, bc):
-    """
-    Computes the mass matrix of the space V2.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-    
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    T : list of np.arrays
-        knot vectors
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    Returns
-    -------
-    M2 : sparse matrix
-        mass matrix in V2
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    Tx, Ty, Tz = T
-    bc_x, bc_y, bc_z = bc
-    
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
-    
-    M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
-    M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
-    M_DD_z = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
-    
-    Maa = sparse.kron(sparse.kron(M_NN_x, M_DD_y), M_DD_z)
-    Mbb = sparse.kron(sparse.kron(M_DD_x, M_NN_y), M_DD_z)
-    Mcc = sparse.kron(sparse.kron(M_DD_x, M_DD_y), M_NN_z)
-    
-    M2 = sparse.block_diag((Maa, Mbb, Mcc), format='csr')
-    
-    return M2
-
-
-
-def mass_matrix_V3(p, Nbase, T, bc):
-    """
-    Computes the mass matrix of the space V3.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-    
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    T : list of np.arrays
-        knot vectors
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    Returns
-    -------
-    M3 : sparse matrix
-        mass matrix in V3
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    Tx, Ty, Tz = T
-    bc_x, bc_y, bc_z = bc
-    
-    Mx = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
-    My = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
-    Mz = sparse.csr_matrix(mass_matrix_V1_1d(pz, Nbase_z, Tz, bc_z))
-    
-    M3 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
-    
-    return M3
 
 
 
