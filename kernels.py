@@ -3,7 +3,7 @@ from pyccel.decorators import external_call, pure
 
 
 @external_call
-@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int','int','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:](order=F)')
+@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int','int','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
 def kernel1(nx, ny, nz, px, py, pz, nix, niy, niz, njx, njy, njz, bix, biy, biz, bjx, bjy, bjz, p1, p2, t1, t2, wx, wy, wz, ggs, ginvs, mat):
     mat[:, :, :, :, :, :] = 0.
     
@@ -35,3 +35,26 @@ def kernel1(nx, ny, nz, px, py, pz, nix, niy, niz, njx, njy, njz, bix, biy, biz,
                                         value += wvol*bi*bj*gvol
                                         
                             mat[ilx, ily, ilz, jlx, jly, jlz] = value*p1/(t1[ix + iy + iz + p1] - t1[ix + iy + iz])*p2/(t2[jx + jy + jz + p2] - t2[jx + jy + jz])
+                            
+                            
+
+@external_call
+@types('int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:]','double[:]','double[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
+def kernelL0(px, py, pz, bix, biy, biz, wx, wy, wz, ggs, ffs, mat):
+    mat[:, :, :] = 0.
+    
+    for ilx in range(px + 1):
+        for ily in range(py + 1):
+            for ilz in range(pz + 1):       
+                            
+                value = 0.
+
+                for gx in range(px + 1):
+                    for gy in range(py + 1):
+                        for gz in range(pz + 1):
+
+                            wvol = wx[gx]*wy[gy]*wz[gz]
+                            bi = bix[ilx, gx]*biy[ily, gy]*biz[ilz, gz]
+                            value += wvol*bi*ggs[gx, gy, gz]*ffs[gx, gy, gz]
+
+                mat[ilx, ily, ilz] = value

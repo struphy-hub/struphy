@@ -76,8 +76,8 @@ def mass_matrix_V1_xx(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -255,8 +255,8 @@ def mass_matrix_V1_xy(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -436,8 +436,8 @@ def mass_matrix_V1_xz(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -617,8 +617,8 @@ def mass_matrix_V1_yx(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -797,8 +797,8 @@ def mass_matrix_V1_yy(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -976,8 +976,8 @@ def mass_matrix_V1_yz(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -1157,8 +1157,8 @@ def mass_matrix_V1_zx(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -1214,7 +1214,7 @@ def mass_matrix_V1_zx(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
         Nbase_x_0_j = Nbase_x - px
         
     elif bc_x == False:
-        M1_yz = M1_yz[1:-1, :, :, :, :, :]
+        M1_zx = M1_zx[1:-1, :, :, :, :, :]
         
         Nbase_x_0_i = Nbase_x - 2
         Nbase_x_0_j = Nbase_x - 1
@@ -1338,8 +1338,8 @@ def mass_matrix_V1_zy(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -1519,8 +1519,8 @@ def mass_matrix_V1_zz(p, Nbase, T, Ginv, g, bc, pts, wts, basis0, basis1):
     
     
     # ... evaluation of the mapping functions at the quadrature points
-    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
-    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
+    GG = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z), order='F')
     
     for nx in range(Nel_x):
         for ny in range(Nel_y):
@@ -1716,3 +1716,101 @@ def mass_matrix_V1(p, Nbase, T, Ginv, g, bc):
         
                     
     return sparse.bmat([[M1_xx, M1_xy, M1_xz], [M1_yx, M1_yy, M1_yz], [M1_zx, M1_zy, M1_zz]], format='csr'), M1_xx, M1_xy, M1_xz, M1_yx, M1_yy, M1_yz, M1_zx, M1_zy, M1_zz 
+
+
+
+
+def L2_prod_V0_curved(fun, p, Nbase, T, g):
+    """
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V0 in general curvilinear coordinates
+    q = (q1, q2, q3) with metric tensor G using a quadrature rule of order p + 1.
+    
+    Parameters
+    ----------
+    fun : callable
+        function for scalar product
+    
+    p : list of ints
+        spline degrees in each direction
+    
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    g : callable
+        square root of the Jacobi determinant
+        
+    Returns
+    -------
+    f_int : np.array
+        the result of the integration with each basis function
+    """
+        
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    Tx, Ty, Tz = T
+    
+    el_b_x = inter.construct_grid_from_knots(px, Nbase_x, Tx)
+    el_b_y = inter.construct_grid_from_knots(py, Nbase_y, Ty)
+    el_b_z = inter.construct_grid_from_knots(pz, Nbase_z, Tz)
+    
+    Nel_x = len(el_b_x) - 1
+    Nel_y = len(el_b_y) - 1
+    Nel_z = len(el_b_z) - 1
+    
+    pts_x_loc, wts_x_loc = np.polynomial.legendre.leggauss(px + 1)
+    pts_y_loc, wts_y_loc = np.polynomial.legendre.leggauss(py + 1)
+    pts_z_loc, wts_z_loc = np.polynomial.legendre.leggauss(pz + 1)
+    
+    pts_x, wts_x = inter.construct_quadrature_grid(Nel_x, px + 1, pts_x_loc, wts_x_loc, el_b_x)
+    pts_y, wts_y = inter.construct_quadrature_grid(Nel_y, py + 1, pts_y_loc, wts_y_loc, el_b_y)
+    pts_z, wts_z = inter.construct_quadrature_grid(Nel_z, pz + 1, pts_z_loc, wts_z_loc, el_b_z)
+    
+    # ... evaluation of the mapping functions at the quadrature points
+    gg = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    ff = np.zeros((px + 1, py + 1, pz + 1, Nel_x, Nel_y, Nel_z))
+    
+    for nx in range(Nel_x):
+        for ny in range(Nel_y):
+            for nz in range(Nel_z):
+                for gx in range(px + 1):
+                    for gy in range(py + 1):
+                        for gz in range(pz + 1):
+                            gg[gx, gy, gz, nx, ny, nz] = g(pts_x[gx, nx], pts_y[gy, ny], pts_z[gz, nz])
+                            ff[gx, gy, gz, nx, ny, nz] = fun(pts_x[gx, nx], pts_y[gy, ny], pts_z[gz, nz])
+    # ...
+    
+    d = 0
+    basis0_x = inter.eval_on_grid_splines_ders(px, Nbase_x, px + 1, d, Tx, pts_x)
+    basis0_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py + 1, d, Ty, pts_y)
+    basis0_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz + 1, d, Tz, pts_z)
+    
+    # ... global vector and local element vector
+    f_int = np.zeros((Nbase_x, Nbase_y, Nbase_z))
+    mat = np.zeros((px + 1, py + 1, pz + 1), order='F')
+    # ...
+    
+    
+    for nx in range(Nel_x):
+        for ny in range(Nel_y):
+            for nz in range(Nel_z):
+                
+                
+                wx = wts_x[:, nx]
+                wy = wts_y[:, ny]
+                wz = wts_z[:, nz]
+                
+                bs0_x = basis0_x[:, 0, :, nx]
+                bs0_y = basis0_y[:, 0, :, ny]
+                bs0_z = basis0_z[:, 0, :, nz]
+                
+                ggs = gg[:, :, :, nx, ny, nz]
+                ffs = ff[:, :, :, nx, ny, nz]
+                
+                kernels.kernelL0(px, py, pz, bs0_x, bs0_y, bs0_z, wx, wy, wz, ggs, ffs, mat)
+                
+                f_int[nx:nx + px + 1, ny:ny + py + 1, nz:nz + pz + 1] += mat[:, :, :]
+    
+    return f_int
