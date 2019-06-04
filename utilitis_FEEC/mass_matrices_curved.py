@@ -3,7 +3,7 @@ import scipy.sparse as sparse
 import psydac.core.interface as inter
 from pyccel import epyccel
 
-import kernels
+import utilitis_FEEC.kernels as kernels
 
 
 kernels = epyccel(kernels)

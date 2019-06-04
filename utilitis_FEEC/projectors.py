@@ -1,6 +1,6 @@
 import numpy as np
 import psydac.core.interface as inter
-import integrate as intgr
+import utilitis_FEEC.integrate as intgr
 import scipy.sparse as sparse
 
 
