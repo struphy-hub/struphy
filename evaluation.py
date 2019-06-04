@@ -197,7 +197,7 @@ def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
     Returns
     -------
@@ -213,6 +213,7 @@ def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
 
     tx = Tx[1:-1]
     
+    # ... boundary conditions in x-direction
     if bc_x == True:
         Dx = inter.collocation_matrix(px - 1, Nbase_x - 1, tx, x)
         
@@ -231,22 +232,34 @@ def evaluate_field_V1_x(vec, x, p, Nbase, T, bc):
             Dx[:, j] = px*Dx[:, j]/(tx[j + px] - tx[j])
             
         Dx = sparse.csr_matrix(Dx)
+    # ...
     
+    
+    # ... boundary conditions in y-direction
     if bc_y == True:
         Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
         Ny[:, :py] += Ny[:, -py:]
         Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
         
-    else:
+    elif bc_y == False:
         Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
         
+    else:
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y))
+    # ...
+        
+        
+    # ... boundary conditions in z-direction
     if bc_z == True:
         Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
         Nz[:, :pz] += Nz[:, -pz:]
         Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
         
-    else:
+    elif bc_z == False:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
+        
+    else:
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z))
     
     EVAL = (sparse.kron(sparse.kron(Dx, Ny), Nz)).dot(vec)
     
@@ -276,7 +289,7 @@ def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
     Returns
     -------
@@ -292,14 +305,21 @@ def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
     
     ty = Ty[1:-1]
     
+    # ... boundary conditions in x-direction
     if bc_x == True:
         Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
         Nx[:, :px] += Nx[:, -px:]
         Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
         
-    else:
+    elif bc_x == False:
         Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
         
+    else:
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x))
+    # ...
+    
+    
+    # ... boundary conditions in y-direction    
     if bc_y == True:
         Dy = inter.collocation_matrix(py - 1, Nbase_y - 1, ty, y)
         
@@ -318,14 +338,21 @@ def evaluate_field_V1_y(vec, x, p, Nbase, T, bc):
             Dy[:, j] = py*Dy[:, j]/(ty[j + py] - ty[j])
             
         Dy = sparse.csr_matrix(Dy)
-        
+    # ...
+    
+    
+    # ... boundary conditions in z-direction
     if bc_z == True:
         Nz = inter.collocation_matrix(pz, Nbase_z, Tz, z)
         Nz[:, :pz] += Nz[:, -pz:]
         Nz = sparse.csr_matrix(Nz[:, :Nz.shape[1] - pz])
         
-    else:
+    elif bc_z == False:
         Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z)[:, 1:-1])
+    
+    else:
+        Nz = sparse.csr_matrix(inter.collocation_matrix(pz, Nbase_z, Tz, z))
+    # ...
         
     EVAL = (sparse.kron(sparse.kron(Nx, Dy), Nz)).dot(vec)
     
@@ -355,7 +382,7 @@ def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
     Returns
     -------
@@ -371,22 +398,35 @@ def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
     
     tz = Tz[1:-1]
     
+    # ... boundary conditions in x-direction
     if bc_x == True:
         Nx = inter.collocation_matrix(px, Nbase_x, Tx, x)
         Nx[:, :px] += Nx[:, -px:]
         Nx = sparse.csr_matrix(Nx[:, :Nx.shape[1] - px])
         
-    else:
+    elif bc_x == False:
         Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x)[:, 1:-1])
         
+    else:
+        Nx = sparse.csr_matrix(inter.collocation_matrix(px, Nbase_x, Tx, x))
+    # ...
+        
+    
+    # ... boundary conditions in y-direction
     if bc_y == True:
         Ny = inter.collocation_matrix(py, Nbase_y, Ty, y)
         Ny[:, :py] += Ny[:, -py:]
         Ny = sparse.csr_matrix(Ny[:, :Ny.shape[1] - py])
         
-    else:
+    elif bc_y == False:
         Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y)[:, 1:-1])
+    
+    else:
+        Ny = sparse.csr_matrix(inter.collocation_matrix(py, Nbase_y, Ty, y))
+    # ...
         
+    
+    # ... boundary conditions in z-direction
     if bc_z == True:
         Dz = inter.collocation_matrix(pz - 1, Nbase_z - 1, tz, z)
         
@@ -405,6 +445,7 @@ def evaluate_field_V1_z(vec, x, p, Nbase, T, bc):
             Dz[:, j] = pz*Dz[:, j]/(tz[j + pz] - tz[j])
             
         Dz = sparse.csr_matrix(Dz)
+    # ...
     
     EVAL = (sparse.kron(sparse.kron(Nx, Ny), Dz)).dot(vec)
     

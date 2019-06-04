@@ -311,7 +311,7 @@ def L2_prod_V0(fun, p, Nbase, T):
         
 def L2_prod_V1_x(fun, p, Nbase, T):
     """
-    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (y-component)
+    Computes the L2 scalar product of the function 'fun' with the B-splines of the space V1 (x-component)
     using a quadrature rule of order p + 1.
     
     Parameters
@@ -357,9 +357,9 @@ def L2_prod_V1_x(fun, p, Nbase, T):
     tx = Tx[1:-1]
     
     d = 0
-    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px, d, tx, pts_x)
-    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py, d, Ty, pts_y)
-    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz, d, Tz, pts_z)
+    basis_x = inter.eval_on_grid_splines_ders(px - 1, Nbase_x - 1, px + 1, d, tx, pts_x)
+    basis_y = inter.eval_on_grid_splines_ders(py, Nbase_y, py + 1, d, Ty, pts_y)
+    basis_z = inter.eval_on_grid_splines_ders(pz, Nbase_z, pz + 1, d, Tz, pts_z)
     
     f_int = np.zeros((Nbase_x - 1, Nbase_y, Nbase_z))
     
@@ -375,9 +375,9 @@ def L2_prod_V1_x(fun, p, Nbase, T):
                             iz = ie_z + il_z
                             
                             value = 0.
-                            for g_x in range(px):
-                                for g_y in range(py):
-                                    for g_z in range(pz):
+                            for g_x in range(px + 1):
+                                for g_y in range(py + 1):
+                                    for g_z in range(pz + 1):
                                         
                                         wvol = wts_x[g_x, ie_x]*wts_y[g_y, ie_y]*wts_z[g_z, ie_z]
                                         basi = basis_x[il_x, 0, g_x, ie_x]*basis_y[il_y, 0, g_y, ie_y]*basis_z[il_z, 0, g_z, ie_z]
