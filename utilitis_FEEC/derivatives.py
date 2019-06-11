@@ -123,7 +123,7 @@ def CURL_3d(p, Nbase, bc):
         number of spline functions in each direction
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
     Returns
     -------
@@ -190,7 +190,7 @@ def DIV_3d(p, Nbase, bc):
         number of spline functions in each direction
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
     Returns
     -------

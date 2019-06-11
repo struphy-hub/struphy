@@ -2,7 +2,12 @@ import numpy as np
 import psydac.core.interface as inter
 import psydac.core.bsplines as bsp
 import scipy.sparse as sparse
+from pyccel import epyccel
 
+import utilitis_FEEC.kernels as kernels
+
+
+kernels = epyccel(kernels)
 
 
 def integrate_1d(points, weights, fun):
@@ -121,6 +126,47 @@ def integrate_3d(points, weights, fun):
                     for g_1 in range(k1):
                         for g_2 in range(k2):
                             f_int[ie_0, ie_1, ie_2] += wts_0[g_0, ie_0]*wts_1[g_1, ie_1]*wts_2[g_2, ie_2]*fun(pts_0[g_0, ie_0], pts_1[g_1, ie_1], pts_2[g_2, ie_2])
+                     
+    return f_int
+
+
+
+
+def integrate_3d_fast(points, weights, fun):
+    """
+    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 3d.
+    
+    Parameters
+    ----------
+    points : list of 2d np.arrays
+        quadrature points in format (local point, element)
+        
+    weights : list of 2d np.arrays
+        quadrature weights in format (local point, element)
+    
+    fun : callable
+        3d function to be integrated
+        
+    Returns
+    -------
+    f_int : np.array
+        the value of the integration in each element
+    """
+    
+    pts_0, pts_1, pts_2 = points
+    wts_0, wts_1, wts_2 = weights
+    
+    
+    k0 = pts_0.shape[0]
+    k1 = pts_1.shape[0]
+    k2 = pts_2.shape[0]
+    n0 = pts_0.shape[1]
+    n1 = pts_1.shape[1]
+    n2 = pts_2.shape[1]
+    
+    f_int = np.zeros((n0, n1, n2), order='F')
+    
+    kernels.kernel_integrate3d(n0, n1, n2, k0, k1, k2, wts_0, wts_1, wts_2, fun, f_int)
                      
     return f_int
 
@@ -969,9 +1015,9 @@ def histopolation_matrix_1d(p, Nbase, T, grev, bc):
 
 
         
-def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
+def mass_matrix_V0_1d(p, Nbase, T, bc):
     """
-    Computes the 1d mass matrix of the space V0.
+    Computes the 1d mass matrix in the space V0.
     
     Parameters
     ----------
@@ -985,10 +1031,8 @@ def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
         knot vector
         
     bc : boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
-    full : boolean
-        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
         
     Returns
     -------
@@ -996,12 +1040,6 @@ def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
         mass matrix in V0
     """
     
-    if bc == True: 
-        bcon = 1
-        Nbase_0 = Nbase - p
-    else:
-        bcon = 0
-        Nbase_0 = Nbase
     
     el_b = inter.construct_grid_from_knots(p, Nbase, T)
     ne = len(el_b) - 1
@@ -1012,7 +1050,7 @@ def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
     d = 0
     basis = inter.eval_on_grid_splines_ders(p, Nbase, p + 1, d, T, pts)
 
-    mass = np.zeros((Nbase_0, Nbase_0))
+    mass = np.zeros((Nbase, Nbase))
 
     for ie in range(ne):
         for il in range(p + 1):
@@ -1025,11 +1063,15 @@ def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
                 for g in range(p + 1):
                     value += wts[g, ie]*basis[il, 0, g, ie]*basis[jl, 0, g, ie]
 
-                mass[i%Nbase_0, j%Nbase_0] += value
+                mass[i, j] += value
     
-    
-    if full == False:
-        mass = mass[(1 - bcon):Nbase_0 - (1 - bcon), (1 - bcon):Nbase_0 - (1 - bcon)]
+    if bc == True:
+        mass[:p, :] += mass[-p:, :]
+        mass[:, :p] += mass[:, -p:]
+        mass = mass[:mass.shape[0] - p, :mass.shape[1] - p]
+        
+    elif bc == False:
+        mass = mass[1:-1, 1:-1]
                     
     return mass
 
@@ -1037,7 +1079,7 @@ def mass_matrix_V0_1d(p, Nbase, T, bc, full=False):
 
 def mass_matrix_V1_1d(p, Nbase, T, bc):
     """
-    Computes the 1d mass matrix of the space V1.
+    Computes the 1d mass matrix in the space V1.
     
     Parameters
     ----------
@@ -1051,20 +1093,15 @@ def mass_matrix_V1_1d(p, Nbase, T, bc):
         knot vector
         
     bc : boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet)
-        
+        boundary conditions (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+    
+    
     Returns
     -------
     mass : 2d np.array
         mass matrix in V1
     """
     
-    if bc == True: 
-        bcon = 1
-        Nbase_0 = Nbase - p
-    else:
-        bcon = 0
-        Nbase_0 = Nbase
     
     el_b = inter.construct_grid_from_knots(p, Nbase, T)
     ne = len(el_b) - 1
@@ -1077,7 +1114,7 @@ def mass_matrix_V1_1d(p, Nbase, T, bc):
     d = 0
     basis = inter.eval_on_grid_splines_ders(p - 1, Nbase - 1, p, d, t, pts)
 
-    mass = np.zeros((Nbase_0 - (1 - bcon), Nbase_0 - (1 - bcon)))
+    mass = np.zeros((Nbase - 1, Nbase - 1))
 
     for ie in range(ne):
         for il in range(p):
@@ -1090,16 +1127,20 @@ def mass_matrix_V1_1d(p, Nbase, T, bc):
                 for g in range(p):
                     value += wts[g, ie]*basis[il, 0, g, ie]*basis[jl, 0, g, ie]
 
-                mass[i%Nbase_0, j%Nbase_0] += p/(t[i + p] - t[i])*p/(t[j + p] - t[j])*value
-                    
-                    
+                mass[i, j] += p/(t[i + p] - t[i])*p/(t[j + p] - t[j])*value
+                
+    if bc == True:
+        mass[:p - 1, :] += mass[-p + 1:, :]
+        mass[:, :p - 1] += mass[:, -p + 1:]
+        mass = mass[:mass.shape[0] - p + 1, :mass.shape[1] - p + 1]
+                               
     return mass
 
 
 
-def mass_matrix_V0(p, Nbase, T, bc, full=[False, False, False]):
+def mass_matrix_V0(p, Nbase, T, bc):
     """
-    Computes the mass matrix of the space V0.
+    Computes the mass matrix in the space V0.
     
     Parameters
     ----------
@@ -1113,11 +1154,9 @@ def mass_matrix_V0(p, Nbase, T, bc, full=[False, False, False]):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
         
-    full : boolean
-        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
-        
+    
     Returns
     -------
     M0 : sparse matrix
@@ -1128,11 +1167,10 @@ def mass_matrix_V0(p, Nbase, T, bc, full=[False, False, False]):
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
     bc_x, bc_y, bc_z = bc
-    full_x, full_y, full_z = full
     
-    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full=full_x))
-    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full=full_y))
-    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full=full_z))
+    Mx = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    My = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    Mz = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
     M0 = sparse.kron(sparse.kron(Mx, My), Mz, format='csr')
     
@@ -1140,9 +1178,9 @@ def mass_matrix_V0(p, Nbase, T, bc, full=[False, False, False]):
 
 
 
-def mass_matrix_V1(p, Nbase, T, bc, full=[False, False, False]):
+def mass_matrix_V1(p, Nbase, T, bc):
     """
-    Computes the mass matrix of the space V1.
+    Computes the mass matrix in the space V1.
     
     Parameters
     ----------
@@ -1156,10 +1194,8 @@ def mass_matrix_V1(p, Nbase, T, bc, full=[False, False, False]):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    full : boolean
-        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+
         
     Returns
     -------
@@ -1171,11 +1207,10 @@ def mass_matrix_V1(p, Nbase, T, bc, full=[False, False, False]):
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
     bc_x, bc_y, bc_z = bc
-    full_x, full_y, full_z = full
     
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full=full_x))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full=full_y))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full=full_z))
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
     M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
     M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
@@ -1191,9 +1226,9 @@ def mass_matrix_V1(p, Nbase, T, bc, full=[False, False, False]):
 
 
 
-def mass_matrix_V2(p, Nbase, T, bc, full=[False, False, False]):
+def mass_matrix_V2(p, Nbase, T, bc):
     """
-    Computes the mass matrix of the space V2.
+    Computes the mass matrix in the space V2.
     
     Parameters
     ----------
@@ -1207,10 +1242,8 @@ def mass_matrix_V2(p, Nbase, T, bc, full=[False, False, False]):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
-        
-    full : boolean
-        if 'True' return full matrix without applying boundary conditions (in case of Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+    
         
     Returns
     -------
@@ -1222,11 +1255,10 @@ def mass_matrix_V2(p, Nbase, T, bc, full=[False, False, False]):
     Nbase_x, Nbase_y, Nbase_z = Nbase
     Tx, Ty, Tz = T
     bc_x, bc_y, bc_z = bc
-    full_x, full_y, full_z = full
     
-    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x, full_x))
-    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y, full_y))
-    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z, full_z))
+    M_NN_x = sparse.csr_matrix(mass_matrix_V0_1d(px, Nbase_x, Tx, bc_x))
+    M_NN_y = sparse.csr_matrix(mass_matrix_V0_1d(py, Nbase_y, Ty, bc_y))
+    M_NN_z = sparse.csr_matrix(mass_matrix_V0_1d(pz, Nbase_z, Tz, bc_z))
     
     M_DD_x = sparse.csr_matrix(mass_matrix_V1_1d(px, Nbase_x, Tx, bc_x))
     M_DD_y = sparse.csr_matrix(mass_matrix_V1_1d(py, Nbase_y, Ty, bc_y))
@@ -1244,7 +1276,7 @@ def mass_matrix_V2(p, Nbase, T, bc, full=[False, False, False]):
 
 def mass_matrix_V3(p, Nbase, T, bc):
     """
-    Computes the mass matrix of the space V3.
+    Computes the mass matrix in the space V3.
     
     Parameters
     ----------
@@ -1258,7 +1290,8 @@ def mass_matrix_V3(p, Nbase, T, bc):
         knot vectors
         
     bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet)
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+    
         
     Returns
     -------
