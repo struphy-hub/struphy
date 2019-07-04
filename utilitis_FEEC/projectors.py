@@ -164,10 +164,9 @@ def PI_0(fun, p, Nbase, T, bc):
     # assemble vector of interpolation problem at greville points
     rhs = np.zeros((Nbase_x, Nbase_y, Nbase_z))
 
-    for i in range(Nbase_x):
-        for j in range(Nbase_y):
-            for k in range(Nbase_z):
-                rhs[i, j, k] = fun(grev_x[i], grev_y[j], grev_z[k])
+    
+    
+    
                 
     # assemble interpolation matrices
     N_x = inter.collocation_matrix(px, Nbase_x, Tx, grev_x)   

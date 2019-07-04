@@ -25,7 +25,7 @@ def mass_matrix_V0(p, Nbase, T, g, bc):
         knot vectors
         
     g : callable
-        square root of the Jacobi determinant of the metric tensor g
+        square root of the Jacobi determinant of the metric tensor G
         
     bc : list of booleans
         boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
