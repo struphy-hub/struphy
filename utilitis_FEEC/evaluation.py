@@ -4,7 +4,7 @@ import utilitis_FEEC.bsplines as bsp
 
 
 #==============================================================================================================================
-def evaluate_field_V0(vec, q, p, Nbase, T, bc):
+def evaluate_field_V0_1d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the 1d FEM field in the space V0 at the points q.
     
@@ -44,7 +44,7 @@ def evaluate_field_V0(vec, q, p, Nbase, T, bc):
 
 
 #==============================================================================================================================
-def evaluate_field_V1(vec, q, p, Nbase, T, bc):
+def evaluate_field_V1_1d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the 1d FEM field in the space V1 at the points q.
     
@@ -86,7 +86,162 @@ def evaluate_field_V1(vec, q, p, Nbase, T, bc):
 
 
 #==============================================================================================================================
-def evaluate_field_V0(vec, q, p, Nbase, T, bc):
+def evaluate_field_V0_2d(vec, q, p, Nbase, T, bc):
+    """
+    Evaluates the 2d FEM field of the space V0 at the tensor grid given by q = (q1, q2).
+    
+    Parameters
+    ----------
+    vec : np.array
+        coefficient vector
+        
+    q : list of np.arrays
+        evaluation points in each direction
+        
+    p : list of ints
+        spline degrees in each direction
+        
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = else)
+        
+    Returns
+    -------
+    eva : np.array
+        the function values at the points q.
+    """
+    
+    q1, q2 = q
+    p1, p2 = p
+    Nbase_1, Nbase_2 = Nbase
+    T1, T2 = T
+    bc_1, bc_2 = bc
+    
+
+    N1 = sparse.csr_matrix(bsp.collocation_matrix(T1, p1, q1, bc_1))
+    N2 = sparse.csr_matrix(bsp.collocation_matrix(T2, p2, q2, bc_2))
+    
+    eva = sparse.kron(N1, N2).dot(vec)
+    
+    return eva
+#==============================================================================================================================
+
+
+
+
+#==============================================================================================================================
+def evaluate_field_V1_2d(vec, q, p, Nbase, T, bc):
+    """
+    Evaluates the components of the 2d FEM field of the space V1 at the tensor grid given by q = (q1, q2).
+    
+    Parameters
+    ----------
+    vec : list of np.arrays
+        coefficient vectors in each direction
+        
+    q : list of np.arrays
+        evaluation points in each direction
+        
+    p : list of ints
+        spline degrees in each direction
+        
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = else)
+        
+    Returns
+    -------
+    eva : np.array
+        the function values at the points q.
+    """
+    
+    q1, q2 = q
+    p1, p2 = p
+    Nbase_1, Nbase_2 = Nbase
+    T1, T2 = T
+    bc_1, bc_2 = bc
+
+    t1 = T1[1:-1]
+    t2 = T2[1:-1]
+    
+    N1 = sparse.csr_matrix(bsp.collocation_matrix(T1, p1, q1, bc_1))
+    N2 = sparse.csr_matrix(bsp.collocation_matrix(T2, p2, q2, bc_2))
+    
+    D1 = sparse.csr_matrix(bsp.collocation_matrix(t1, p1 - 1, q1, bc_1, normalize=True))
+    D2 = sparse.csr_matrix(bsp.collocation_matrix(t2, p2 - 1, q2, bc_2, normalize=True))
+    
+    eva1 = sparse.kron(D1, N2).dot(vec[0])
+    eva2 = sparse.kron(N1, D2).dot(vec[1])
+    
+    return [eva1, eva2]
+#==============================================================================================================================
+
+
+
+
+#==============================================================================================================================
+def evaluate_field_V2_2d(vec, q, p, Nbase, T, bc):
+    """
+    Evaluates the 2d FEM field of the space V2 at the tensor grid given by q = (q1, q2).
+    
+    Parameters
+    ----------
+    vec : np.array
+        coefficient vector
+        
+    q : list of np.arrays
+        evaluation points in each direction
+        
+    p : list of ints
+        spline degrees in each direction
+        
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    T : list of np.arrays
+        knot vectors
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = else)
+        
+    Returns
+    -------
+    eva : np.array
+        the function values at the points q.
+    """
+    
+    q1, q2 = q
+    p1, p2 = p
+    Nbase_1, Nbase_2 = Nbase
+    T1, T2 = T
+    bc_1, bc_2 = bc
+    
+    t1 = T1[1:-1]
+    t2 = T2[1:-1]
+    
+    D1 = sparse.csr_matrix(bsp.collocation_matrix(t1, p1 - 1, q1, bc_1, normalize=True))
+    D2 = sparse.csr_matrix(bsp.collocation_matrix(t2, p2 - 1, q2, bc_2, normalize=True))
+    
+    eva = sparse.kron(D1, D2).dot(vec)
+    
+    return eva
+#==============================================================================================================================
+
+
+
+
+#==============================================================================================================================
+def evaluate_field_V0_3d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the 3d FEM field of the space V0 at the tensor grid given by q = (q1, q2, q2).
     
@@ -135,7 +290,7 @@ def evaluate_field_V0(vec, q, p, Nbase, T, bc):
 
 
 #==============================================================================================================================
-def evaluate_field_V1(vec, q, p, Nbase, T, bc):
+def evaluate_field_V1_3d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the components of the 3d FEM field of the space V1 at the tensor grid given by q = (q1, q2, q3).
     
@@ -193,7 +348,7 @@ def evaluate_field_V1(vec, q, p, Nbase, T, bc):
 
 
 #==============================================================================================================================
-def evaluate_field_V2(vec, q, p, Nbase, T, bc):
+def evaluate_field_V2_3d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the components of the 3d FEM field of the space V2 at the tensor grid given by q = (q1, q2, q3).
     
@@ -251,7 +406,7 @@ def evaluate_field_V2(vec, q, p, Nbase, T, bc):
 
 
 #==============================================================================================================================
-def evaluate_field_V3(vec, q, p, Nbase, T, bc):
+def evaluate_field_V3_3d(vec, q, p, Nbase, T, bc):
     """
     Evaluates the 3d FEM field of the space V3 at the tensor grid given by q = (q1, q2, q2).
     

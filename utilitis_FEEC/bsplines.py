@@ -605,20 +605,23 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
     """
     # TODO: add example to docstring
     # TODO: check if it is safe to compute span only once for each element
-
-    ne,nq = quad_grid.shape
-    basis = np.zeros( (ne,degree+1,nders+1,nq) )
+    
+    el_b = breakpoints(knots, degree)
+    ne = len(el_b) - 1 
     
     if normalize == True:
-        x = np.zeros((ne, degree + 1))
+        x_norm = np.zeros((ne, degree + 1))
         
         for ie in range(ne):
             
             loc = ie + np.arange(degree + 1)
-            x[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
+            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
             
     else:
-        x = np.ones((ne, degree + 1))
+        x_norm = np.ones((ne, degree + 1))
+
+    ne,nq = quad_grid.shape
+    basis = np.zeros( (ne,degree+1,nders+1,nq) )
 
     for ie in range(ne):
         xx = quad_grid[ie,:]
@@ -626,7 +629,7 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
         
         for iq,xq in enumerate(xx):
             span = find_span( knots, degree, xq )
-            ders = basis_funs_all_ders( knots, degree, xq, span, nders )*x[ie]
+            ders = basis_funs_all_ders( knots, degree, xq, span, nders )*x_norm[span - degree]
             basis[ie,:,:,iq] = ders.transpose()
 
     return basis

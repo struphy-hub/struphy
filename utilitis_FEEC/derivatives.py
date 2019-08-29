@@ -52,6 +52,74 @@ def GRAD_1d(p, Nbase, bc):
     
 
     
+    
+def GRAD_2d(p, Nbase, bc):
+    """
+    Returns the 2d discrete gradient matrix.
+    
+    Parameters
+    ----------
+    p : list of ints
+        spline degrees in each direction
+        
+    Nbase : list of ints
+        number of spline functions in each direction
+        
+    bc : list of booleans
+        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+        
+    Returns
+    -------
+    G : sparse matrix
+        3d discrete gradient matrix
+    """
+    
+    px, py, pz = p
+    Nbase_x, Nbase_y, Nbase_z = Nbase
+    bc_x, bc_y, bc_z = bc
+    
+    grad_x_1d = sparse.csr_matrix(GRAD_1d(px, Nbase_x, bc_x))
+    grad_y_1d = sparse.csr_matrix(GRAD_1d(py, Nbase_y, bc_y))
+    grad_z_1d = sparse.csr_matrix(GRAD_1d(pz, Nbase_z, bc_z))
+    
+    if bc_x == None:
+        full_x = 2
+    else:
+        full_x = 0
+        
+    if bc_y == None:
+        full_y = 2
+    else:
+        full_y = 0
+        
+    if bc_z == None:
+        full_z = 2
+    else:
+        full_z = 0
+    
+    Nbase_x_0 = Nbase_x - bc_x*px - (1 - bc_x)*2 + full_x
+    Nbase_y_0 = Nbase_y - bc_y*py - (1 - bc_y)*2 + full_y
+    Nbase_z_0 = Nbase_z - bc_z*pz - (1 - bc_z)*2 + full_z
+    
+    grad_x = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0)), sparse.identity(Nbase_z_0))
+    grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), grad_y_1d), sparse.identity(Nbase_z_0))
+    grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), sparse.identity(Nbase_y_0)), grad_z_1d)
+    
+    G = sparse.bmat([[grad_x], [grad_y], [grad_z]], format='csr')
+    
+    return G
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
 def GRAD_3d(p, Nbase, bc):
     """
     Returns the 3d discrete gradient matrix.
