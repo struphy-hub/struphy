@@ -1,0 +1,413 @@
+\documentclass[11pt,oneside,a4paper,fleqn]{article}
+
+
+% Usepackages
+\usepackage[left=1.5cm,right=1.5cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[intoc]{nomencl}
+\usepackage{float}
+\usepackage{floatflt}
+\restylefloat{figure}
+\usepackage{color}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage[utf8]{inputenc}
+\sisetup{separate-uncertainty}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{ae}
+\usepackage{chngcntr}
+\usepackage[round]{natbib}
+\usepackage[overload]{empheq}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{latexsym}
+\usepackage[title]{appendix}
+\usepackage{multicol}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage[multiple]{footmisc}
+\usepackage{color}
+\definecolor{grau}{rgb}{0.95,0.95,0.95}
+\definecolor{dunkelgrau}{rgb}{0.8,0.8,0.8}
+\usepackage{colortbl}
+\usepackage{authblk}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{pgf}
+\usepackage{wrapfig}
+\usepackage[printwatermark]{xwatermark}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{lipsum}
+\usepackage{tikz}
+\usepackage{abstract}
+
+
+
+
+
+
+
+
+% Commands
+\newcommand{\pa}{\partial}
+\newcommand{\mr}[1]{\mathrm{#1}}
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\bo}[1]{\boldsymbol{#1}}
+
+
+
+
+% Title
+\title{Linear MHD using discrete differential forms}
+
+% Date
+\date{}
+
+% Authors and affiliations
+\author[1]{Florian Holderied}
+
+
+\affil[1]{\textit{Max Planck Institute for Plasma Physics, Boltzmannstrasse 2, 85748 Garching, Germany}}
+
+
+
+
+
+\begin{document} 
+
+\maketitle
+
+
+\section{The model}
+Let us recall the standard form of the ideal magnetohydrodynamic (MHD) equations, which is a system of nonlinear partial differential equations for the mass density $\rho$, the fluid velocity $\mb{U}$, the magnetic induction $\mb{B}$ and the pressure $p$:
+\begin{align}
+&\frac{\pa\rho}{\pa t}+\nabla\cdot(\rho\mb{U})=0,\\
+&\frac{\pa\mb{U}}{\pa t}+(\mb{U}\cdot\nabla)\mb{U}=\frac{1}{\mu_0}\frac{\nabla\times\mb{B}}{\rho}\times\mb{B}-\frac{\nabla p}{\rho},\\
+&\frac{\pa\mb{B}}{\pa t}=\nabla\times(\mb{U}\times\mb{B}),\\
+&\frac{\pa p}{\pa t}+\nabla\cdot(p\mb{U})+(\gamma-1)p\nabla\cdot\mb{U}=0,
+\end{align}
+where $\gamma=5/3$ is the adiabatic exponent. The model can equivalently be written in terms of coordinate independent differential forms and for physical reasons we assume the mass density to be a 3-form ($\rho\rightarrow\rho^3$), the pressure to be a 0-form ($p\rightarrow p^0$), the magnetic field to be a 2-form ($\mb{B}\rightarrow B^2$) and the velocity to be a 1-form ($\mb{U}\rightarrow U^1$). The model then takes the form
+\begin{align}
+&\frac{\pa\rho^3}{\pa t}+\mr{d}(i_{\#U^1}\rho^3)=0,\\
+&\ast\rho^3\left[\frac{\pa U^1}{\pa t}+\frac{1}{2}\mr{d}(i_{\#U^1}U^1)+i_{\#U^1}\mr{d}U^1\right]+\mr{d}p^0=\frac{1}{\mu_0}i_{\#\ast B^2}\mr{d}\ast B^2,\\
+&\frac{\pa B^2}{\pa t}+\mr{d}(i_{\#U^1}B^2)=0,\\
+&\frac{\pa p^0}{\pa t}+\ast\mr{d}\ast(p^0U^1)+(\gamma-1)p^0\ast\mr{d}\ast U^1=0.
+\end{align} 
+We linearize this system about a known equilibrium ($\rho^3=\rho^3_0+\rho^3_1$, $p^0=p_0^0+p^0_1$, $B^2=B^2_0+B^2_1$, $U^1=U^1_1$) where we assume that there is no equilibrium flow. After relabeling (e.g. $\rho_1^3\rightarrow \rho^3$ and $\rho_0^3\rightarrow\rho_0$) this results in
+\begin{align}
+&\frac{\pa\rho^3}{\pa t}+\mr{d}(i_{\#U^1}\rho_0)=0,\\
+&(\ast\rho_0)\frac{\pa U^1}{\pa t}+\mr{d}p^0=\frac{1}{\mu_0}i_{\#\ast B_0}\mr{d}\ast B^2+\frac{1}{\mu_0}i_{\#\ast B^2}\mr{d}\ast B_0,\\
+&\frac{\pa B^2}{\pa t}+\mr{d}(i_{\#U^1}B_0)=0,\\
+&\frac{\pa p^0}{\pa t}+\ast\mr{d}\ast(p_0U^1)+(\gamma-1)p_0\ast\mr{d}\ast U^1=0.
+\end{align} 
+Note that the wedge product with a 0-form is just multiplying with a scalar. 
+
+\section{Discretization}
+As a next step, we introduce finite element basis functions satisfying a discrete deRham complex. Thus, we write
+\begin{alignat}{2}
+&p^0(\mb{q})\approx p^0_h(\mb{q})=\sum_{\mathbf{i}}p_\mathbf{i}\Lambda_\mathbf{i}^0(\mb{q}),  &&\mb{p}^\top:=(p_0,\ldots,p_{N-1})\in\mathbb{R}^N,\\
+&U^1(\mb{q})\approx U_h^1(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}\Lambda^1_{\mu,\mathbf{i}}(\mb{q})\mathrm{d}q^\mu, \qquad &&\mb{u}^\top:=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\in\mathbb{R}^{3N},\\
+&B^2(\mb{q})\approx B_h^2(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3b_{\mu,\mathbf{i}}\Lambda^2_{\mu,\mathbf{i}}(\mb{q})(\mathrm{d}q^\alpha\wedge\mr{d}q^\beta)_\mu, \qquad &&\mb{b}^\top:=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\in\mathbb{R}^{3N},\\
+&\rho^3(\mb{q})\approx \rho^3_h(\mb{q})=\sum_{\mathbf{i}}\rho_{123,\mathbf{i}}\Lambda_\mathbf{i}^3(\mb{q})\mr{d}q^1\wedge\mr{d}q^2\wedge\mr{d}q^3,  &&\bo{\rho}^\top:=(\rho_{123,0},\ldots,\rho_{123,N-1})\in\mathbb{R}^N,
+\end{alignat}
+where $\mb{i}=(i_1,i_2,i_3)$ is a multi-index and $N$ the total number of basis functions. To simplify the notation, we write for the components of the differential forms
+\begin{alignat}{2}
+&p^0_h\leftrightarrow p_h=(p_0,\ldots,p_{N-1})\begin{pmatrix}
+\Lambda^0_0 \\ \vdots \\ \Lambda^0_{N-1}
+\end{pmatrix}=\mb{p}^\top\bo{\Lambda}^0,&&\bo{\Lambda}^0\in\mathbb{R}^N, \\
+&U^1_h\leftrightarrow \mb{U}_h^\top=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\begin{pmatrix}
+\bo{\Lambda}^1_1 &0 &0 \\ 0 &\bo{\Lambda}^1_2 &0 \\ 0 &0 &\bo{\Lambda}^1_3
+\end{pmatrix}=\mb{u}^\top\bo{\Lambda}^1,\qquad&&\bo{\Lambda}^1\in\mathbb{R}^{3N\times 3},\\
+&B^2_h\leftrightarrow \hat{\mb{B}}_h^\top=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\begin{pmatrix}
+\bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
+\end{pmatrix}=\mb{b}^\top\bo{\Lambda}^2,\qquad&&\bo{\Lambda}^2\in\mathbb{R}^{3N\times 3},\\
+&\rho^3_h\leftrightarrow \rho_{123,h}=(\rho_{123,0},\ldots,\rho_{123,N-1})\begin{pmatrix}
+\Lambda^3_0 \\ \vdots \\ \Lambda^3_{N-1}
+\end{pmatrix}=\bo{\rho}^\top\bo{\Lambda}^3,&&\bo{\Lambda}^3\in\mathbb{R}^N,
+\end{alignat}
+
+\subsection{Continuity equation}
+We start with the discretization of the mass continuity equation which we shall keep in strong form. In order to stay in the correct polynomial space, we need to project the second term back into the subspace of 3-forms by applying the projector $\Pi_3$. We use the same symbol for actions on forms and the components of a form. In the latter case the projector thus returns a vector of coefficients in the new basis.
+\begin{align}
+&\frac{\pa\rho_{123,h}}{\pa t}+\Pi_3\left[\nabla\cdot(\rho_0G^{-1}\mb{U}_h)\right]=0\\
+\Leftrightarrow\quad&\frac{\pa\bo{\rho}}{\pa t}+\mathbb{D}\Pi_2\left[\rho_0G^{-1}(\bo{\Lambda}^1)^\top\right]\mb{u}=0\\
+\Leftrightarrow\quad&\frac{\pa\bo{\rho}}{\pa t}+\mathbb{D}\mathbb{P}_2^1\mb{u}=0
+\end{align}
+Note that we have used the commuting diagram property for exchanging projectors and differential operators. Furthermore, we have introduced the discrete divergence matrix $\mathbb{D}\in\mathbb{R}^{N\times 3N}$ and the projection matrix $\mathbb{P}_2^1\in\mathbb{R}^{3N\times3N}$, where the notation of the latter is supposed to indicate that the projection is performed on the space $V_2$ and the upper index is just a numbering. Explicitly, we have
+\begin{align}
+\mathbb{P}_2^1:=\begin{pmatrix}
+\Pi_{2,1}\left[\rho_0G^{11}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,1}\left[\rho_0G^{12}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,1}\left[\rho_0G^{13}(\bo{\Lambda}_3^1)^\top\right] \\
+\Pi_{2,2}\left[\rho_0G^{21}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,2}\left[\rho_0G^{22}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,2}\left[\rho_0G^{23}(\bo{\Lambda}_3^1)^\top\right] \\
+\Pi_{2,3}\left[\rho_0G^{31}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,3}\left[\rho_0G^{32}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,3}\left[\rho_0G^{33}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}.\label{proj_matrix_p12}
+\end{align}
+As already indicated, each of the projections returns a vector of coefficients in the new basis. This means that the above expression amounts to
+\begin{align}
+\mathbb{P}_2^1=\begin{pmatrix}
+\mb{c}_{11,0} &\mb{c}_{11,1} &\cdots &\mb{c}_{12,0} &\mb{c}_{12,1} &\cdots &\mb{c}_{13,0} &\mb{c}_{13,1} &\cdots \\
+\mb{c}_{21,0} &\mb{c}_{21,1} &\cdots &\mb{c}_{22,0} &\mb{c}_{22,1} &\cdots &\mb{c}_{23,0} &\mb{c}_{23,1} &\cdots \\
+\mb{c}_{31,0} &\mb{c}^1_{31,1} &\cdots &\mb{c}_{32,0} &\mb{c}_{32,1} &\cdots &\mb{c}_{33,0} &\mb{c}_{33,1} &\cdots
+\end{pmatrix}.
+\end{align}
+Here, e.g. $\mb{c}_{23,1}$ are the coefficients resulting from the projection of the basis function with the index 1 in the block 23 in the matrix (\ref{proj_matrix_p12}). Unfortunatley, this is a dense matrix, which is problematic from a memory consumption point of view. Therefore, we just save the right-hand sides, which defines a sparse matrix, and perform the final projection in every time step again. Denoting by $(\mathcal{I}_{2,1},\mathcal{I}_{2,2},\mathcal{I}_{2,3})$ the mixed interpolation-histopolation matrices and by $(\mr{vec}_{2,1}(f),\mr{vec}_{2,2}(f),\mr{vec}_{2,3}(f))$ the right-hand side vectors for some vector valued function with components $(f_1,f_2,f_3)$, we can write
+\begin{align}
+\mathbb{P}_2^1&=\begin{pmatrix}
+\mathcal{I}_{2,1}^{-1} &0 &0 \\ 0 &\mathcal{I}_{2,2}^{-1} &0 \\ 0 &0 &\mathcal{I}_{2,3}^{-1} 
+\end{pmatrix}
+\begin{pmatrix}
+\mr{vec}_{2,1}\left[\rho_0G^{11}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,1}\left[\rho_0G^{12}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,1}\left[\rho_0G^{13}(\bo{\Lambda}_3^1)^\top\right] \\
+\mr{vec}_{2,2}\left[\rho_0G^{21}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,2}\left[\rho_0G^{22}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,2}\left[\rho_0G^{23}(\bo{\Lambda}_3^1)^\top\right] \\
+\mr{vec}_{2,3}\left[\rho_0G^{31}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,3}\left[\rho_0G^{32}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,3}\left[\rho_0G^{33}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}\\ &=:\mathcal{I}_2^{-1}\tilde{\mathbb{P}}_2^1.
+\end{align}
+Thus, we only precompute the sparse matrix $\mathbb{R}_2^1$ with entries defined by the mixed interpolation-histopolation problem
+\begin{align}
+\mr{vec}_{2,1}(f)=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_1(\xi_{i_2},q_2,q_3)\mr{d}q^2\mr{d}q^3, \\
+\mr{vec}_{2,2}(f)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_2(q_1,\xi_{i_2},q_3)\mr{d}q^1\mr{d}q^3, \\
+\mr{vec}_{2,3}(f)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_3(q_1, q_2, \xi_{i_3})\mr{d}q^1\mr{d}q^2.
+\end{align}
+The sparsity of $\mathrm{R}_2^1$ follows immediately from the local support of the basis functions.
+
+\subsection{Induction equation}
+Like the continuity equation we keep the induction equation in strong form. This time we have to use the projector $\Pi_2$ which commutes with the curl operator.
+\begin{align}
+&\frac{\pa \hat{\mb{B}}_h}{\pa t}+\Pi_2\left[\nabla\times(\hat{\mb{B}}_0\times G^{-1}\mb{U}_h)\right]=0\\
+\Leftrightarrow\quad &\frac{\pa\mb{b}}{\pa t}+\mathbb{C}\Pi_1\left[\mathbb{B}_0G^{-1}(\bo{\Lambda}^1)^\top\right]\mb{u}=0 \\
+\Leftrightarrow\quad &\frac{\pa\mb{b}}{\pa t}+\mathbb{C}\mathbb{P}_{1}^1\mb{u}=0.
+\end{align}
+Here, we have introduced the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 3N}$ and we have written the vector product of the background magnetic field with the velocity field in terms of a matrix-vector product by using the matrix
+\begin{align}
+\mathbb{B}_0:=\begin{pmatrix}
+0 &-B_{0,12} &B_{0,31} \\ B_{0,12} &0 &-B_{0,23} \\ -B_{0,31} &B_{0,23} &0
+\end{pmatrix}\in\mathbb{R}^{3\times 3}.
+\end{align}
+Following the same steps as for the continuity equation, we obtain for the projection matrix
+\begin{align}
+\mathbb{P}_1^1=:\bo{\mathcal{I}}_1^{-1}\mathbb{R}_1^1\in\mathbb{R}^{3N\times3N},
+\end{align}
+where
+\begin{align}
+\small
+\mathbb{R}_1^1:=\begin{pmatrix}
+\mr{vec}_{1,1}\left[(B_{0,31}G^{31}-B_{0,12}G^{21})(\bo{\Lambda}^1_1)^\top, (B_{0,31}G^{32}-B_{0,12}G^{22})(\bo{\Lambda}^1_2)^\top, (B_{0,31}G^{33}-B_{0,12}G^{23})(\bo{\Lambda}^1_3)^\top\right] \\
+\mr{vec}_{1,2}\left[(B_{0,12}G^{11}-B_{0,23}G^{31})(\bo{\Lambda}^1_1)^\top, (B_{0,12}G^{12}-B_{0,23}G^{32})(\bo{\Lambda}^1_2)^\top, (B_{0,12}G^{13}-B_{0,23}G^{33})(\bo{\Lambda}^1_3)^\top\right] \\
+\mr{vec}_{1,3}\left[(B_{0,23}G^{21}-B_{0,31}G^{11})(\bo{\Lambda}^1_1)^\top, (B_{0,23}G^{22}-B_{0,31}G^{12})(\bo{\Lambda}^1_2)^\top, (B_{0,23}G^{23}-B_{0,31}G^{13})(\bo{\Lambda}^1_3)^\top\right]
+\end{pmatrix}
+\end{align}
+and the the right-hand sides of the mixed interpolation-histopolation problem are defined by
+\begin{align}
+\mr{vec}_{1,1}(f)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}f_1(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1, \\
+\mr{vec}_{1,2}(f)=\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_2(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2, \\
+\mr{vec}_{1,3}(f)=\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_3(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3.
+\end{align}
+\subsection{Momentum equation}
+Unlike the previous equations we choose a weak formulation for the momentum equation and consequently take the inner product with a test function $V^1\in H\Lambda^1(\Omega)$ to obtain
+\begin{align}
+\left(\ast\rho_0\frac{\pa U^1}{\pa t},V^1\right)+\left(\mr{d}p^0,V^1\right)=\frac{1}{\mu_0}\left(i_{\#\ast B_0}\mr{d}\ast B^2,V^1\right)+\frac{1}{\mu_0}\left(i_{\#\ast B^2}\mr{d}\ast B_0,V^1\right) \quad\forall V^1\in H\Lambda^1(\Omega).
+\end{align}
+We use the Galerkin approximation and compute each term separately:
+\begin{align}
+\left(\ast\rho_0\frac{\pa U^1}{\pa t},V^1\right)&=\int_{\hat{\Omega}}\ast\rho_0\dot{\mb{U}}^\top G^{-1}\mb{V}\sqrt{g}\mr{d}^3q\approx \int_{\hat{\Omega}}\Pi_1\left(\ast\rho_0\dot{\mb{U}}_h^\top\right)G^{-1}\mb{V}_h\sqrt{g}\mr{d}^3q\\&=\dot{\mb{u}}^\top(\mathbb{P}_1^2)^\top\int_{\hat{\Omega}}\bo{\Lambda}^1G^{-1}(\bo{\Lambda}^1)^\top\sqrt{g}\mr{d}^3q\mb{v}=\dot{\mb{u}}^\top(\mathbb{P}_1^2)^\top\mathbb{M}^1\mb{v}\quad\forall \mb{v}\in\mathbb{R}^{3N},
+\end{align}
+where $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space $V_1$. The projection matrix is
+\begin{align}
+\mathbb{P}_1^2=\bo{\mathcal{I}}_1^{-1}\mathbb{R}_1^2\in\mathbb{R}^{3N\times 3N},
+\end{align}
+where
+\begin{align}
+\mathbb{R}_1^2:=\begin{pmatrix}
+\mr{vec}_{1,1}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_1^1)^\top\right] &0 &0 \\
+0 &\mr{vec}_{1,2}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_2^1)^\top\right] &0 \\
+0 &0 &\mr{vec}_{1,3}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}.
+\end{align}
+For the second term including the pressure, we get
+\begin{align}
+\left(\mr{d}p^0,V^1\right)=\int_{\hat{\Omega}}(\nabla p)^\top G^{-1}\mb{V}\sqrt{g}\mr{d}^3q\approx(\mathbb{G}\mb{p})^\top\int_{\hat{\Omega}}\bo{\Lambda}^1G^{-1}(\bo{\Lambda}^1)^\top\sqrt{g}\mr{d}^3q\mb{v}=\mb{p}^\top\mathbb{G}^\top\mathbb{M}^1\mb{v}\quad\forall \mb{v}\in\mathbb{R}^{3N},
+\end{align}
+with $\mathbb{G}\in\mathbb{R}^{3N\times N}$ being the discrete gradient matrix. Using the identites $\langle i_{\#\gamma^1}\alpha^2,\beta^1\rangle=\langle\alpha^2,\gamma^1\wedge\beta^1\rangle$ and $\ast(\ast B_0\wedge V^1)=i_{\#V^1}B_0$ the third term yields (omitting the $1/\mu_0$)
+\begin{align}
+\left(i_{\#\ast B_0}\mr{d}\ast B^2,V^1\right)=\left(d\ast B^2,\ast B_0\wedge V^1\right)=\left(\ast\mr{d}\ast B^2,\ast(\ast B_0\wedge V^1)\right)=\left(d^\ast B^2,i_{\#V^1}B_0\right),
+\end{align}
+where we have introduced the co-differential operator $\mr{d}^\ast\alpha^p=(-1)^p\ast\mr{d}\ast\alpha^p$. Applying the Green formula for differential forms and assuming that the boundary term vanishes yields
+\begin{align}
+\left(i_{\#\ast B_0}\mr{d}\ast B^2,V^1\right)&=\left(B^2,\mr{d}i_{\#V^1}B_0\right)=\int_{\hat{\Omega}}\frac{1}{g}\hat{\mb{B}}^\top G\left(\nabla\times(B_0\times G^{-1}\mb{V})\right)\sqrt{g}\mr{d}^3q\\
+&\approx\mb{b}^\top\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\bo{\Lambda}^2G(\bo{\Lambda}^2)^\top\mr{d}^3q\mathbb{C}\Pi_1\left(\mathbb{B}_0G^{-1}(\bo{\Lambda}^1)^\top\right)\mb{v}=\mb{b}^\top\mathbb{M}^2\mathbb{C}\mathbb{P}_1^1\mb{v}\quad\forall\mb{v}\in\mathbb{R}^{3N}.
+\end{align}
+We recognize that we end up with the same projection matrix as in the induction equation. Furthermore, we have introduced the mass matrix $\mathbb{M}^2\in\mathrm{R}^{3N\times 3N}$ in the space $V_2$.
+\subsection{Energy equation}
+The appearance of the co-differential operator all terms of the energy equation already indicates that it is convenient to solve this equation once more weakly. Taking the inner product with a test function $r^0\in H\Lambda^0(\Omega)$ yields
+\begin{align}
+&\left(\frac{\pa p^0}{\pa t},r^0\right)-\left(\mr{d}^\ast(p_0U^1),r^0\right)-(\gamma-1)\left(\mr{d}^\ast U^1,p_0r^0\right)=0\quad\forall r^0\in H\Lambda^0(\Omega)\\
+\Leftrightarrow\quad&\left(\frac{\pa p^0}{\pa t},r^0\right)-\left(p_0U^1,\mr{d}r^0\right)-(\gamma-1)\left(U^1,\mr{d}(p_0r^0)\right)=0\quad\forall r^0\in H\Lambda^0(\Omega),
+\end{align}
+if we again assume all boundary terms to vanish. For the first term we simply get
+\begin{align}
+\left(\frac{\pa p^0}{\pa t},r^0\right)=\int_{\hat{\Omega}}\dot{p}r\sqrt{g}\mr{d}^3q\approx\dot{\mb{p}}^\top\int_{\hat{\Omega}}\bo{\Lambda}^0(\bo{\Lambda}^0)^\top\sqrt{g}\mr{d}^3q\mb{r}=\dot{\mb{p}}^\top\mathbb{M}^0\mb{r},
+\end{align}
+where $\mathbb{M}^0$ is the mass matrix in the space $V_0$. The second term amounts to
+\begin{align}
+\left(p_0U^1,\mr{d}r^0\right)&=\int_{\hat{\Omega}}p_0\mb{U}^\top G^{-1}\nabla r\sqrt{g}\mr{d}^3q\approx\int_{\hat{\Omega}}\Pi_1(p_0\mb{U}_h^\top)G^{-1}\nabla r_h\sqrt{g}\mr{d}^3q\\
+&=\mb{u}^\top(\mathbb{P}_1^3)^\top\int_{\hat{\Omega}}\bo{\Lambda}^1G^{-1}(\bo{\Lambda}^1)^\top\sqrt{g}\mr{d}^3q\mathbb{G}\mb{r}=\mb{u}^\top(\mathbb{P}_1^3)^\top\mathbb{M}^1\mathbb{G}\mb{r},
+\end{align}
+with $\mathbb{P}_1^3\in\mathbb{R}^{3N\times3N}$ being the projection matrix
+\begin{align}
+\mathbb{P}_1^3:=\mathcal{I}_1^{-1}\mathbb{R}_1^3=\mathcal{I}_1^{-1}\begin{pmatrix}
+\mr{vec}_{1,1}\left[p_0(\bo{\Lambda}_1^1)^\top\right] &0 &0 \\
+0 &\mr{vec}_{1,2}\left[p_0(\bo{\Lambda}_2^1)^\top\right] &0 \\
+0 &0 &\mr{vec}_{1,3}\left[p_0(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}.
+\end{align} 
+Finally, the last term is given by
+\begin{align}
+\left(U^1,\mr{d}(p_0r^0)\right)&=\int_{\hat{\Omega}}\mb{U}^\top G^{-1}\nabla(p_0r)\sqrt{g}\mr{d}^3q\approx \mb{u}^\top\int_{\hat{\Omega}}\bo{\Lambda}^1G^{-1}(\bo{\Lambda}^1)^\top\mr{d}^3q\mathbb{G}\Pi_0\left(p_0(\bo{\Lambda}^0)^\top\right)\mb{r}\\
+&=\mb{u}^\top\mathbb{M}^1\mathbb{G}\mathbb{P}_0^1\mb{r},
+\end{align}
+where $\mathbb{P}_0^1\in\mathbb{R}^{N\times N}$ is the projection matrix
+\begin{align}
+\mathbb{P}_0^1=\mathcal{I}_0^{-1}\mathbb{R}_0^1=\mathcal{I}_0^{-1}\mr{vec}_0\left[p_0(\bo{\Lambda}^0)^\top\right],
+\end{align}
+whose right-hand side follow from a pure interpolation problem defined by
+\begin{align}
+\mr{vec}_0(f)=f(\xi_{i_1},\xi_{i_2},\xi_{i_3}).
+\end{align}
+In summary, we obtain
+\begin{align}
+&\mb{r}^\top\mathbb{M}^0\dot{\mb{p}}-\mb{r}^\top\mathbb{G}^\top\mathbb{M}^1\mathbb{P}_1^3\mb{u}-(\gamma-1)\mb{r}^\top(\mathbb{P}_0^1)^\top\mathbb{G}^\top\mathbb{M}^1\mb{u}=0\quad\forall\mb{r}\in\mathbb{R}^N\\
+\Leftrightarrow\quad&\mathbb{M}^0\dot{\mb{p}}-\mathbb{G}^\top\mathbb{M}^1\mathbb{P}_1^3\mb{u}-(\gamma-1)(\mathbb{P}_0^1)^\top\mathbb{G}^\top\mathbb{M}^1\mb{u}=0.
+\end{align}
+\section{Implementation}
+For simplicity we shall restrict ourselves on the moment on periodic boundary conditions in all directions as well as a smooth analytical mapping $F:\hat{\Omega}\rightarrow\Omega$.
+\subsection{Discrete differential operators}
+We use uniform tensor product B-splines of degree $p=(p_1,p_2,p_3)$ as a basis for the space $V_0$ which are created from knot vectors $\hat{T}^{p_\mu}=\{-p_\mu\Delta q_\mu, -(p_\mu-1)\Delta q_\mu,\ldots,0,\Delta q_\mu,2\Delta q_\mu,\ldots,1,1 +\Delta q_\mu,\ldots,1 + p_\mu\Delta q_\mu\}$, one for each of the coordinates on the logical domain $\hat{\Omega}$, i.e. $\mu=\{1,2,3\}$. $ \Delta q_\mu$ is just the element size of the discretized logical domain in $\mu$-direction. A family of B-splines is then recursively defined by
+\begin{align}
+&\hat{N}_{i_\mu}^{p_\mu}(q_\mu)=\frac{q_\mu-\hat{T}^\mu_{i_\mu}}{\hat{T}^\mu_{i_\mu+p_\mu}-\hat{T}^\mu_{i_\mu}}\hat{N}_{i_\mu}^{p_\mu-1}(q_\mu)+\frac{\hat{T}^\mu_{i_\mu+p_\mu+1}-q_\mu}{\hat{T}^\mu_{i_\mu+p_\mu+1}-\hat{T}^\mu_{i_\mu+1}}\hat{N}_{i_\mu+1}^{p_\mu-1}(q_\mu),\\
+&\hat{N}^0_{i_\mu}(q_\mu)=\begin{cases}1\quad q_\mu\in[\hat{T}^{p_\mu}_{i_\mu},\hat{T}^{p_\mu}_{i_\mu+1}], \\ 0\quad \text{else}\end{cases}.
+\end{align}
+This defines a spline space with $N_\mu=\text{len}(T^\mu)-2p_\mu-1$ distinct B-splines. We will also need a compatible spline space of one degree less which is created from a reduced knot vector $\hat{t}^{p_\mu-1}=\hat{T}^{p_\mu}(1:-1)$, i.e. from deleting the first and last entry of the original knot vector. We denote the resulting spline family weighted with the element size $\Delta q_\mu$ by $\hat{D}_{i_\mu}^{p_\mu-1}=\hat{N}_{i_\mu}^{p_\mu-1}/\Delta q_\mu$. Note that the reduced space has the same number of basis functions which is specific to periodic boundary conditions. With this choice for the reduced space, the derivative of a spline in the original space can simply be written as
+\begin{align}
+(N_{i_\mu}^{p_\mu})^\prime(q_\mu)=D_{i_\mu-1}^{p_\mu-1}-D_{i_\mu}^{p_\mu-1}.
+\end{align}
+This has the consequence that the derivative of a finite element field of the form
+\begin{align}
+f_\mu(q_\mu)=\sum_{i_\mu}f_{i_\mu}N_{i_\mu}^{p_\mu}(q_\mu)
+\end{align}
+is just an operation on the vector of coefficients $\mb{f}_\mu$ with a matrix that contains 1,-1 and 0 only, i.e.
+\begin{align}
+(f_\mu)^\prime(q_\mu)=&\sum_{i_\mu}f_{i_\mu}(D_{i_\mu-1}^{p_\mu-1}-D_{i_\mu}^{p_\mu-1})=\sum_{i_\mu}(f_{i_\mu+1}-f_{i_\mu})D_{i_\mu}^{p_\mu-1}:=\sum_{i_\mu}\hat{f}_{i_\mu}D_{i_\mu}^{p_\mu-1} \\
+\Rightarrow&\quad\mb{\hat{f}}_\mu=\begin{pmatrix}
+-1 &1 & & & \\  &-1 &1 & & \\  & & \ddots &\ddots & \\ & & &-1 &1 \\ 1 & & & &-1
+\end{pmatrix}\mb{f}_\mu=\mathbb{G}_\mu\mb{f}_\mu,\quad\mathbb{G}_\mu\in\mathbb{R}^{N_\mu\times N_\mu}
+\end{align}
+If we use a tensor-product basis for functions in the space $V_0$, i.e. we write 
+\begin{align}
+f^0(q_1,q_2,q_3)=\sum_{i_1,i_2,i_3}f_{i_1i_2i_3}N_{i_1}^{p_1}(q_1)N_{i_2}^{p_2}(q_2)N_{i_3}^{p_3}(q_3),
+\end{align}
+we can construct the sequence:
+\begin{align}
+N_{i_1}^{p_1}N_{i_2}^{p_2}N_{i_3}^{p_3}\,\overset{\mathbb{G}\,(\nabla)}{\longrightarrow}\,\begin{pmatrix}
+D_{i_1}^{p_1-1}N_{i_2}^{p_2}N_{i_3}^{p_3} \\ N_{i_1}^{p_1}D_{i_2}^{p_2-1}N_{i_3}^{p_3} \\ N_{i_1}^{p_1}N_{i_2}^{p_2}D_{i_3}^{p_3-1}
+\end{pmatrix}\,\overset{\mathbb{C}\,(\nabla\times)}{\longrightarrow}\,\begin{pmatrix}
+N_{i_1}^{p_1}D_{i_2}^{p_2-1}D_{i_3}^{p_3-1} \\ D_{i_1}^{p_1-1}N_{i_2}^{p_2}D_{i_3}^{p_3-1} \\ D_{i_1}^{p_1-1}D_{i_2}^{p_2-1}N_{i_3}^{p_3}
+\end{pmatrix}\,\overset{\mathbb{D}\,(\nabla\cdot)}{\longrightarrow}\,
+D_{i_1}^{p_1-1}D_{i_2}^{p_2-1}D_{i_3}^{p_3-1},
+\end{align}
+where the discrete derivatives are given by
+\begin{align}
+&\mathbb{G}=\begin{pmatrix}
+\mathbb{G}_1\otimes\mathbb{I}_{N_2}\otimes\mathbb{I}_{N_3} \\ \mathbb{I}_{N_1}\otimes\mathbb{G}_2\otimes\mathbb{I}_{N_3} \\ \mathbb{I}_{N_1}\otimes\mathbb{I}_{N_2}\otimes\mathbb{G}_3
+\end{pmatrix}\in\mathbb{R}^{3N\times N},\\
+&\mathbb{C}=\begin{pmatrix}
+0 &-\mathbb{I}_{N_1}\otimes\mathbb{I}_{N_2}\otimes\mathbb{G}_3 &\mathbb{I}_{N_1}\otimes\mathbb{G}_2\otimes\mathbb{I}_{N_3} \\ \mathbb{I}_{N_1}\otimes\mathbb{I}_{N_2}\otimes\mathbb{G}_3 &0 & -\mathbb{G}_1\otimes\mathbb{I}_{N_2}\otimes\mathbb{I}_{N_3}\\ -\mathbb{I}_{N_1}\otimes\mathbb{G}_2\otimes\mathbb{I}_{N_3} &\mathbb{G}_1\otimes\mathbb{I}_{N_2}\otimes\mathbb{I}_{N_3} &0
+\end{pmatrix}\in\mathbb{R}^{3N\times 3N},\\
+&\mathbb{D}=\begin{pmatrix}
+\mathbb{G}_1\otimes\mathbb{I}_{N_2}\otimes\mathbb{I}_{N_3} &\mathbb{I}_{N_1}\otimes\mathbb{G}_2\otimes\mathbb{I}_{N_3} &\mathbb{I}_{N_1}\otimes\mathbb{I}_{N_2}\otimes\mathbb{G}_3
+\end{pmatrix}\in\mathbb{R}^{N\times 3N}.
+\end{align}
+Here $N=N_1N_2N_3$ is the total number of basis functions in the space $V_0$. Note that we have $\mathbb{C}\mathbb{G}=0$ and $\mathbb{D}\mathbb{C}=0$ which are just the discrete counterparts of the well-known identities $\nabla\times(\nabla)=0$ and $\nabla\cdot(\nabla\times)=0$. 
+\subsection{Projections}
+In order to perform projections on the right finite element spaces, we have to deal with interpolation and histopolation problems. For the latter, we need to perform integration between the so-called Greville points, one associated to every basis function. In the case of periodic boundary conditions, these points are just the element vertices for odd polynomial degrees and the element centers for even degrees. We use a Gauss-Legendre quadrature rule, which means that we first define a suitable set of quadrature points. If not specified differently, we use a quadrature rule of degree $\mr{nq}=\{p_1+1,p_2+1,p_3+1\}$. We denote the set of global quadrature points and weights by $\text{pts}=\{\text{pts}_1,\text{pts}_2,\text{pts}_3\}$ and $\text{wts}=\{\text{wts}_1,\text{wts}_2,\text{wts}_3\}$, respectively.
+\begin{figure}
+\includegraphics[scale=0.5]{N_odd.pdf}
+\includegraphics[scale=0.5]{D_odd.pdf}\\
+\includegraphics[scale=0.5]{N_even.pdf}
+\includegraphics[scale=0.5]{D_even.pdf}
+\end{figure} 
+\section{Test case 1: Shear Alfv\'{e}n waves}
+The most simple first test case is the simulation of shear Alfv\'{e}n waves in a homogeneous equilibrium and slab geometry (i.e. $(q_1,q_2,q_3)=(x,y,z)$ and $\Omega=\hat{\Omega}$). Due to the fact that these waves are pure transverse waves with perturbations in the magnetic field and the velocity, only the momentum and induction equation are needed. The model then takes the reduced form
+\begin{align}
+\frac{\pa}{\pa t}\begin{pmatrix}
+\mb{u} \\ \mb{b}
+\end{pmatrix}=\begin{pmatrix}
+0 &(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0) \\
+-\mathbb{C}\mathbb{P}_1^1 &0
+\end{pmatrix}\begin{pmatrix}
+\mb{u}\\ \mb{b}
+\end{pmatrix}=\mathbb{A}\mb{S},
+\end{align} 
+which the state vector $\mb{S}=(\mb{u},\mb{b})$. If we additionally introduce the total energy
+\begin{align}
+H=\frac{1}{2}\int_\Omega\rho_0U^2\mr{d}^3x+\frac{1}{2\mu_0}\int_\Omega B^2\mr{d}^3x\approx\frac{1}{2}\rho_0\mb{u}^\top\mathbb{M}^1\mb{u}+\frac{1}{2\mu_0}\mb{b}^\top\mathbb{M}^2\mb{b},
+\end{align}
+we can write the system in the canonical Hamiltonian form
+\begin{align}
+\frac{\pa \mb{S}}{\pa t}=\mathbb{J}\nabla_\mb{S}H\quad\Leftrightarrow\quad
+\frac{\pa}{\pa t}\begin{pmatrix}
+\mb{u} \\ \mb{b}
+\end{pmatrix}=\begin{pmatrix}
+0 &(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top/\rho_0 \\
+-\mathbb{C}\mathbb{P}_1^1(\mathbb{M}^1)^{-1}/\rho_0 &0
+\end{pmatrix}\begin{pmatrix}
+\rho_0\mathbb{M}^1\mb{u}\\ \mathbb{M}^2\mb{b}/\mu_0
+\end{pmatrix}.
+\end{align} 
+We observe that the resulting Poisson matrix is skew-symmetric $\mathbb{J}^\top=-\mathbb{J}$ which means that the Hamiltonian is conserved by the dynamics:
+\begin{align}
+\frac{\mr{d} H}{\mr{d}t}=\nabla_\mb{S}H^\top\frac{\pa\mb{S}}{\pa t}=\nabla_\mb{S}H^\top\mathbb{J}\nabla_\mb{S}H=-\nabla_\mb{S}H^\top\mathbb{J}\nabla_\mb{S}H=0.
+\end{align}
+\subsection{Time discretization}
+Since we are dealing with a Hamiltonian system, there are some naturals choices for integrating the dynamical system in time: First, we shall look at the Hamiltonian splitting which consists of splitting the Hamiltonian in $H=H_U+H_B$ while keeping the full Poisson matrix. Second, we shall use a discrete gradient method which should yield exact energy conservation.
+\subsubsection{Hamiltonian splitting}
+Splitting the Hamiltonian in the aforementioned way leads to the two sub-systems
+\begin{alignat}{2}
+&H_U:\quad\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
+0 \\ -\mathbb{C}\mathbb{P}_1^1\mb{u}
+\end{pmatrix}\quad&&\Rightarrow \quad\mb{b}(t)=\mb{b}(t_0)-t\mathbb{C}\mathbb{P}_1^1\mb{u},\\
+&H_B:\quad\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
+(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0) \\ 0
+\end{pmatrix}\quad&&\Rightarrow \quad\mb{u}(t)=\mb{u}(t_0)+t(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0)\mb{b},
+\end{alignat}
+which can easily be solved analytically.
+\subsubsection{Discrete gradient method}
+Denoting the $n$- th time step by $t_n=n\Delta t$ and using an implicit midpoint rule gives the energy conserving method
+\begin{align}
+\frac{\mb{S}^{n+1}-\mb{S}^n}{\Delta t}=\frac{1}{2}\mathbb{A}(\mb{S}^{n+1}+\mb{S}^n)\quad\Leftrightarrow\quad (\mathbb{I}-\frac{\Delta t}{2}\mathbb{A})\mb{S}^{n+1}=(\mathbb{I}+\frac{\Delta t}{2}\mathbb{A})\mb{S}^n,
+\end{align}
+which allows larger time steps but has the drawback of solving a linear system in each time step.
+\section{Test case 2: Full system}
+As a next step, we can simulate the full system, however still in slab geometry with periodic boundary conditions and a homogeneous equilibrium. Without loss of generality we can align the $z$-axis of our coordinate system to the direction of wave propagation ($\mb{k}=k\mb{e}_z$). In this case one can derive the dispersion relations
+\begin{align}
+&\omega_{\mr{M}}^\pm(k)^2=\frac{1}{2}k^2(c_\mr{S}^2+v_\mr{A}^2)(1\pm\sqrt{1-\delta}),\quad\delta=\frac{4B_{0z}^2c_\mr{S}^2v_\mr{A}^2}{(c_\mr{S}^2+v_\mr{A}^2)^2B_0^2},\quad c_\mr{S}^2=\frac{\gamma p_0}{2\rho_0},\quad v_\mr{A}^2=\frac{B_0^2}{\mu_0\rho_0}, \\
+&\omega_\mr{S}^2(k)=v_\mr{A}^2k^2\cos^2\vartheta=v_\mr{A}^2k^2\frac{B_{0z}}{B_0},
+\end{align}
+where we have defined the two characteristic veclocities in the system, that is the sound speed $c_\mr{S}$ and the Alfv\'{e}n velocity $\mr{v}_\mr{A}$, respectively. Hence there can be three types of waves depending on the orientation of the background magnetic field $\mb{B}_0$. The two waves corresponding to $\omega_\mr{M}^\pm$ are referred to as the fast (+) and slow (-) magnetosonic wave, whereas the wave corresponding to $\omega_\mr{S}$ is the already known shear Alfv\'{e}n wave. In the special case of $\mb{B}_0=B_0\mb{e}_z$, the slow magnetosonic wave is just a "normal" sound wave with perturbations parallel to the direction of propagation (longitudinal wave) and the fast magnetosonic wave is identical to the shear Alfv\'{e}n wave which is a transverse wave. If the background magnetic field is perpendicular to the direction of propagation, i.e. lies in the $xy$-plane, there is only the fast magnetosonic wave (or compressional Alfv\'{e}n wave.
+
+The semi-discrete system which shouls be able to describe these waves reads
+\begin{align}
+\frac{\pa}{\pa t}\begin{pmatrix}
+\bo{\rho} \\ \mb{u} \\ \mb{b} \\ \mb{p}
+\end{pmatrix}=
+\begin{pmatrix}
+0 & \mathbb{D}\mathbb{P}_2^1 & 0 & 0 \\
+0 & 0 &(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0) &-\mathbb{G}/\rho_0 \\
+0 &-\mathbb{C}\mathbb{P}_1^1 &0 &0 \\
+0 &p_0\gamma(\mathbb{M}^0)^{-1}\mathbb{G}^\top\mathbb{M}^1 &0 &0
+\end{pmatrix}\begin{pmatrix}
+\bo{\rho} \\ \mb{u} \\ \mb{b} \\ \mb{p}
+\end{pmatrix}.
+\end{align}
+We shall test different time integration schemes for this system.
+\end{document}
