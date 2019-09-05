@@ -43,7 +43,7 @@
 \usepackage{lipsum}
 \usepackage{tikz}
 \usepackage{abstract}
-
+\numberwithin{equation}{section}
 
 
 
@@ -56,6 +56,10 @@
 \newcommand{\mr}[1]{\mathrm{#1}}
 \newcommand{\mb}[1]{\mathbf{#1}}
 \newcommand{\bo}[1]{\boldsymbol{#1}}
+\newcommand{\fh}{f_\mr{h}^\mr{D}}
+\newcommand{\fho}{f_\mr{h0}^\mr{D}}
+\newcommand{\fhi}{f_\mr{h1}^\mr{D}}
+\newcommand{\Bpa}{B_\parallel^\ast}
 
 
 
@@ -373,12 +377,12 @@ Since we are dealing with a Hamiltonian system, there are some naturals choices 
 \subsubsection{Hamiltonian splitting}
 Splitting the Hamiltonian in the aforementioned way leads to the two sub-systems
 \begin{alignat}{2}
-&H_U:\quad\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
+&H_U:\enspace\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
 0 \\ -\mathbb{C}\mathbb{P}_1^1\mb{u}
-\end{pmatrix}\quad&&\Rightarrow \quad\mb{b}(t)=\mb{b}(t_0)-t\mathbb{C}\mathbb{P}_1^1\mb{u},\\
-&H_B:\quad\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
+\end{pmatrix}\enspace&&\Rightarrow \enspace\mb{b}(t)=\mb{b}(t_0)-t\mathbb{C}\mathbb{P}_1^1\mb{u},\\
+&H_B:\enspace\mathbb{J}\nabla_\mb{S}H_U=\begin{pmatrix}
 (\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0) \\ 0
-\end{pmatrix}\quad&&\Rightarrow \quad\mb{u}(t)=\mb{u}(t_0)+t(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0)\mb{b},
+\end{pmatrix}\enspace&&\Rightarrow \enspace\mb{u}(t)=\mb{u}(t_0)+t(\mathbb{M}^1)^{-1}(\mathbb{P}_1^1)^\top\mathbb{C}^\top\mathbb{M}^2/(\rho_0\mu_0)\mb{b},
 \end{alignat}
 which can easily be solved analytically.
 \subsubsection{Discrete gradient method}
@@ -390,12 +394,12 @@ which allows larger time steps but has the drawback of solving a linear system i
 \section{Test case 2: Full system}
 As a next step, we can simulate the full system, however still in slab geometry with periodic boundary conditions and a homogeneous equilibrium. Without loss of generality we can align the $z$-axis of our coordinate system to the direction of wave propagation ($\mb{k}=k\mb{e}_z$). In this case one can derive the dispersion relations
 \begin{align}
-&\omega_{\mr{M}}^\pm(k)^2=\frac{1}{2}k^2(c_\mr{S}^2+v_\mr{A}^2)(1\pm\sqrt{1-\delta}),\quad\delta=\frac{4B_{0z}^2c_\mr{S}^2v_\mr{A}^2}{(c_\mr{S}^2+v_\mr{A}^2)^2B_0^2},\quad c_\mr{S}^2=\frac{\gamma p_0}{2\rho_0},\quad v_\mr{A}^2=\frac{B_0^2}{\mu_0\rho_0}, \\
+&\omega_{\mr{M}}^\pm(k)^2=\frac{1}{2}k^2(c_\mr{S}^2+v_\mr{A}^2)(1\pm\sqrt{1-\delta}),\quad\delta=\frac{4B_{0z}^2c_\mr{S}^2v_\mr{A}^2}{(c_\mr{S}^2+v_\mr{A}^2)^2B_0^2},\quad c_\mr{S}^2=\frac{\gamma p_0}{\rho_0},\quad v_\mr{A}^2=\frac{B_0^2}{\mu_0\rho_0}, \\
 &\omega_\mr{S}^2(k)=v_\mr{A}^2k^2\cos^2\vartheta=v_\mr{A}^2k^2\frac{B_{0z}}{B_0},
 \end{align}
 where we have defined the two characteristic veclocities in the system, that is the sound speed $c_\mr{S}$ and the Alfv\'{e}n velocity $\mr{v}_\mr{A}$, respectively. Hence there can be three types of waves depending on the orientation of the background magnetic field $\mb{B}_0$. The two waves corresponding to $\omega_\mr{M}^\pm$ are referred to as the fast (+) and slow (-) magnetosonic wave, whereas the wave corresponding to $\omega_\mr{S}$ is the already known shear Alfv\'{e}n wave. In the special case of $\mb{B}_0=B_0\mb{e}_z$, the slow magnetosonic wave is just a "normal" sound wave with perturbations parallel to the direction of propagation (longitudinal wave) and the fast magnetosonic wave is identical to the shear Alfv\'{e}n wave which is a transverse wave. If the background magnetic field is perpendicular to the direction of propagation, i.e. lies in the $xy$-plane, there is only the fast magnetosonic wave (or compressional Alfv\'{e}n wave.
 
-The semi-discrete system which shouls be able to describe these waves reads
+The semi-discrete system which should be able to describe these waves reads
 \begin{align}
 \frac{\pa}{\pa t}\begin{pmatrix}
 \bo{\rho} \\ \mb{u} \\ \mb{b} \\ \mb{p}
@@ -410,4 +414,176 @@ The semi-discrete system which shouls be able to describe these waves reads
 \end{pmatrix}.
 \end{align}
 We shall test different time integration schemes for this system.
+\section{Adding a kinetic species}
+In this section we add a species of fast particles described by a drift-kinetic equation (in the following DK equation) to the ideal MHD equations and derive the corresponding dispersion relation for parallel wave propagation to look for possible instabilities. The DK equation can be obtained by a guiding center approach where the fast gyromotion around the magnetic field lines is systematically eliminated such that one only works on time scales governed by the slower drift motion of the guiding center. The DK equation for the drift-kinetic distribution function $f^\mr{D}_\mr{h}=\fh(\mb{x},v_\parallel,\hat{\mu},t)$ (the "h" stands for "hot") reads
+\begin{align}
+\frac{\pa\fh}{\pa t}+\mb{u}_\mr{g}\cdot\nabla\fh+E_\mr{g}\frac{\pa\fh}{\pa v_\parallel}=0,
+\end{align} 
+where
+\begin{align}
+\mb{u}_\mr{g}=v_\parallel\frac{\mb{B}^\ast}{B_\parallel^\ast}+\frac{\mb{E}^\ast\times\mb{b}}{B_\parallel^\ast},\quad E_\mr{g}=\frac{q_\mr{h}}{m_\mr{h}}\frac{\mb{E}^\ast\cdot \mb{B}^\ast}{B_\parallel^\ast}.
+\end{align}
+$q_\mr{h}$ and $m_\mr{h}$ stand for the hot particle's charge and mass, respectively, and
+\begin{subequations}
+\begin{align}
+&\mb{B}^\ast=\mb{B}+\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\nabla\times\mb{b},\quad\mb{b}=\mb{B}/B,\quad\Bpa=\mb{B}^\ast\cdot\mb{b},\\
+&\mb{E}^\ast=-\mb{U}\times\mb{B}-\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla B-\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\frac{\pa\mb{b}}{\pa t},\\
+&n_\mr{h}^\mr{D}=\int_{\hat{\mu}}\fh B_\parallel^\ast\mr{d}v_\parallel, \\
+&\mb{j}_\mr{h}^\mr{D}=q_\mr{h}\int_{\hat{\mu}}\mb{u}_\mr{g}\fh\Bpa\mr{d}v_\parallel+\nabla\times\mb{M},\\
+&\mb{M}=-m_\mr{h}\int_{\hat{\mu}}\left[\hat{\mu}\mb{b}-\frac{v_\parallel}{B}\mb{u}_{\mr{g}\perp}\right]\fh\Bpa\mr{d}v_\parallel,\\
+&\mb{u}_\mr{g\perp}=v_\parallel\frac{\mb{B}_\perp^\ast}{B_\parallel^\ast}+\frac{\mb{E}^\ast\times\mb{b}}{B_\parallel^\ast}=-\frac{m_\mr{h}v_\parallel^2}{q_\mr{h}B_\parallel^\ast}\mb{b}\times\mb{b}\times\nabla\times\mb{b}+\frac{\mb{E}^\ast\times\mb{b}}{B_\parallel^\ast}.
+\end{align}
+\end{subequations}
+For integrations over velocity space we introduced the abbreveation
+\begin{align}
+\int_{\hat{\mu}}\ldots\mr{d}v_\parallel=2\pi\int_{-\infty}^\infty\int_0^\infty\ldots\mr{d}v_\parallel\mr{d}\hat{\mu}.
+\end{align}
+The coupling to the fluid bulk plasma is done via a current-coupling scheme (CCS) which leads to a modfied momentum balance equation of the form
+\begin{align}
+\frac{\pa\mb{U}}{\pa t}+(\mb{U}\cdot\nabla)\mb{U}=\frac{1}{\mu_0}\frac{\nabla\times\mb{B}}{\rho}\times\mb{B}-\frac{\nabla p}{\rho}+\frac{q_\mr{h}n_\mr{h}^\mr{D}\mb{U}-\mb{j}_\mr{h}^\mr{D}}{\rho}\times\mb{B}.
+\end{align}
+We linearize the extended model about a known homogeneous (in space) equilibrium, i.e. we write $\fh=\fho+\fhi$ and use a shifted Maxwellian for the DK equilibrium distribution function:
+\begin{align}
+&\fho=n_{\mr{h}0}\left(\frac{m_\mr{h}}{2\pi T_\parallel}\right)^{3/2}\exp\left(-\frac{m_\mr{h}(v_\parallel-v_0)^2+2m_\mr{h}\hat{\mu}B_0}{2T_\parallel}\right)\\
+&\Rightarrow \int_{\hat{\mu}}\begin{pmatrix}
+1\\v_\parallel \\v_\parallel^2 \\v_\parallel^3
+\end{pmatrix}\fho B_0\mr{d}v_\parallel=\begin{pmatrix}
+n_\mr{h0}\\ n_\mr{h0}v_0\\n_\mr{h0}T_\parallel/m_\mr{h}+n_\mr{h0}v_0^2\\ 3v_0n_\mr{h0}T_\parallel/m_\mr{h}+n_\mr{h0}v_0^3 
+\end{pmatrix}=:\begin{pmatrix}
+n_\mr{h0}\\ n_\mr{h0}v_0\\ p_\parallel/m_\mr{h}  \\ \tilde{p}_\parallel/m_\mr{h}
+\end{pmatrix}\\
+&\Rightarrow  \int_{\hat{\mu}}\hat{\mu}\fho B_0\mr{d}v_\parallel=\frac{n_\mr{h0}T_\parallel}{m_\mr{h}B_0}=:\frac{p_\perp}{m_\mr{h}B_0}.
+\end{align}
+Furthermore, we assume the magnetic field to point in $z$-direction, i.e. we have $\mb{B}=B_0\mb{e}_z+\mb{B}_1$.
+\subsection{Linearized drift-kinetic equation}
+Let us start with the calculation of the linearized DK equation. After seperating the distribution function into an equilibrium part and a small fluctuation and upon neglecting nonlinear terms in the latter, we obtain
+\begin{align}
+\frac{\pa \fhi}{\pa t}+\mb{u}_\mr{g0}\cdot\nabla\fhi=-E_\mr{g1}\frac{\pa\fho}{\pa v_\parallel}.
+\end{align}
+To find $\mb{u}_\mr{g0}$ and $E_\mr{g1}$ we have to systematically linerize all quantities related to the magnetic field. To identify orders in a Taylor expansion more easily, we use the small dimensionless parameter $\epsilon\ll 1$ to write
+\begin{align}
+&B=\sqrt{(\mb{B}_0+\epsilon\mb{B}_1)^2}=\sqrt{B_0^2+2\epsilon\mb{B}_0\cdot\mb{B}_1+\epsilon^2 B_1^2}\\
+\Rightarrow\quad &\frac{1}{B}=\frac{1}{B_0}\frac{1}{\sqrt{1+2\epsilon\mb{B}_0\cdot\mb{B}_1/B_0^2+\epsilon^2 B_1^2/B_0^2}}=\frac{1}{B_0}(1-\epsilon\mb{B}_0\cdot\mb{B}_1/B_0^2+O(\epsilon^2)) \\
+\Rightarrow \quad &\mb{b}=(\mb{B}_0+\epsilon\mb{B}_1)\frac{1}{B_0}(1-\epsilon\mb{B}_0\cdot\mb{B}_1/B_0^2+O(\epsilon^2))=\frac{\mb{B}_0}{B_0}+\epsilon\left(\frac{\mb{B}_1}{B_0}-\frac{\mb{B}_0}{B_0}\frac{\mb{B}_0\cdot\mb{B}_1}{B_0^2}\right)+O(\epsilon^2)\\
+\Rightarrow\quad &\mb{b}_0=\frac{\mb{B}_0}{B_0},\quad\mb{b}_1=\frac{\mb{B}_1}{B_0}-\mb{b}_0\frac{\mb{B}_0\cdot\mb{B}_1}{B_0}.
+\end{align}
+This result we can use to linearize the expressions for $\mb{B}^\ast$ and $\mb{E}^\ast$:
+\begin{align}
+&\mb{B}^\ast=\mb{B}_0+\epsilon\mb{B}_1+\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\nabla\times\mb{b}_0+\epsilon\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\nabla\times\mb{b}_1+O(\epsilon^2)\\
+\Rightarrow\quad&\mb{B}^\ast_0=\mb{B}_0+\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\nabla\times\mb{b}_0,\quad\mb{B}_1^\ast=\mb{B}_1+\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\nabla\times\mb{b}_1.
+\end{align}
+For the calculation of $\mb{E}^\ast$ we need to linearize the modulus of $\mb{B}$:
+\begin{align}
+B=B_0\sqrt{1+2\epsilon\mb{B}_0\cdot\mb{B}_1/B_0^2+\epsilon^2 B_1^2/B_0^2}=B_0+\epsilon\mb{b}_0\cdot\mb{B}_1+O(\epsilon^2).
+\end{align}
+Plugging this into the expression for $\mb{E}^\ast$ yields
+\begin{alignat}{2}
+&\mb{E}^\ast&&=-\epsilon\mb{U}_1\times(\mb{B}_0+\epsilon\mb{B}_1)-\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla(B_0+\epsilon\mb{b}_0\cdot\mb{B}_1)-\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\frac{\pa}{\pa t}(\mb{b}_0+\epsilon\mb{b}_1)+O(\epsilon^2)\\
+& &&=-\epsilon\mb{U}_1\times\mb{B}_0-\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla(B_0+\epsilon\mb{b}_0\cdot\mb{B}_1)-\epsilon\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\frac{\pa\mb{b}_1}{\pa t}+O(\epsilon^2)\\
+\Rightarrow\quad&\mb{E}^\ast_0&&=-\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla B_0,\quad\mb{E}^\ast_1=-\mb{U}_1\times\mb{B}_0-\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla(\mb{b}_0\cdot\mb{B}_1)-\frac{m_\mr{h}}{q_\mr{h}}v_\parallel\frac{\pa\mb{b}_1}{\pa t}.
+\end{alignat}
+For the inverse of the parallel projection of $\mb{B}^\ast$ we find
+\begin{align}
+\frac{1}{B_\parallel^\ast}=\frac{1}{\mb{B}_0^\ast\cdot\mb{b}_0}\left[1-\epsilon\left(\frac{\mb{B}_0^\ast\cdot\mb{b}_1}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{\mb{B}_1^\ast\cdot\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}\right)\right]+O(\epsilon^2).
+\end{align}
+This finally yields
+\begin{align}
+\mb{u}_\mr{g0}&=v_\parallel\frac{\mb{B}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{1}{\mb{B}_0^\ast\cdot\mb{b}_0}\frac{m_\mr{h}}{q_\mr{h}}v_\parallel^2\nabla\times\mb{b}_0-\frac{1}{\mb{B}_0^\ast\cdot\mb{b}_0}\frac{m_\mr{h}}{q_\mr{h}}\hat{\mu}\nabla B_0\times \mb{b}_0,\\
+\mb{u}_\mr{g1}&=-v_\parallel\frac{\mb{B}_0^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0}\left(\frac{\mb{B}_0^\ast\cdot\mb{b}_1}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{\mb{B}_1^\ast\cdot\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}\right)+v_\parallel\frac{\mb{B}_1^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0}-\frac{\mb{E}_0^\ast\times\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}\left(\frac{\mb{B}_0^\ast\cdot\mb{b}_1}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{\mb{B}_1^\ast\cdot\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}\right)\\
+&\phantom{=}+\frac{\mb{E}_0^\ast\times\mb{b}_1}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{\mb{E}_1^\ast\times\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}
+\end{align}
+for the guiding center velocity and for the acceleration we obtain
+\begin{align}
+&E_\mr{g0}=\frac{q_\mr{h}}{m_\mr{h}}\frac{\mb{E}_0^\ast\cdot\mb{B}_0^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0},\\
+&E_\mr{g1}=-\frac{q_\mr{h}}{m_\mr{h}}\frac{\mb{E}_0^\ast\cdot\mb{B}_0^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0}\left(\frac{\mb{B}_0^\ast\cdot\mb{b}_1}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{\mb{B}_1^\ast\cdot\mb{b}_0}{\mb{B}_0^\ast\cdot\mb{b}_0}\right)+\frac{q_\mr{h}}{m_\mr{h}}\frac{\mb{E}_0^\ast\cdot\mb{B}_1^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0}+\frac{q_\mr{h}}{m_\mr{h}}\frac{\mb{E}_1^\ast\cdot\mb{B}_0^\ast}{\mb{B}_0^\ast\cdot\mb{b}_0}.
+\end{align}
+As a next step, we make use of our specific choice for the background magnetic field to be uniform and to point in $z$-direction, i.e, we have $\mb{b}_0=\mb{e}_z$. This implies
+\begin{align}
+&\mb{E}_0^\ast=0, \\
+&\mb{B}_0^\ast=\mb{B}_0.
+\end{align}
+Moreover, we assume parallel wave propagation which is equivalent to allow for variations in $z$-direction only. Hence we have $\nabla=\mb{e}_z\pa_z$. From Faraday's law one can deduce that this results in $\pa_t B_{1z}=0$, i.e. if we choose $B_{1z}(t=0)=0$ as an initial condition, this will remain true for all later times. Thus, we only have to deal with perpendicular disturbances with respect to the background magnetic field ($\mb{B}_1\perp\mb{B}_0,\mb{b}_0$) and we find the following simpler expressions:
+\begin{align}
+&\mb{b}_0=\mb{e}_z,\quad\mb{b}_1=\mb{B}_1/B_0,\\
+&B=B_0+O(\epsilon^2),\quad 1/B=1/B_0+O(\epsilon^2)\\
+&\mb{E}_1^\ast=-\mb{U}_1\times\mb{B}_0-\frac{m_\mr{h}}{q_\mr{h}B_0}v_\parallel\frac{\pa\mb{B}_1}{\pa t},\\
+&B_\parallel^\ast=B_0+O(\epsilon^2),\quad 1/B_\parallel^\ast= 1/B_0+O(\epsilon^2),\\
+&\mb{u}_\mr{g0}=v_\parallel\mb{e}_z,\\
+&\mb{u}_\mr{g1}=v_\parallel\frac{\mb{B}_1}{B_0}+\frac{m_\mr{h}}{q_\mr{h}B_0^2}v_\parallel^2\nabla\times\mb{B}_1+\mb{U}_{1\perp}-\frac{m_\mr{h}}{q_\mr{h}B_0^2}v_\parallel\frac{\pa\mb{B}_1}{\pa t}\times\mb{e}_z,\\
+&E_\mr{g0}=E_\mr{g1}=0.
+\end{align}
+Consequently, we obtain for the DK equation
+\begin{align}
+\frac{\pa \fhi}{\pa t}+v_\parallel\pa_z\fhi=0\quad\Rightarrow\quad\fhi=f_\mr{h1}^\mr{D0}(x,y,z-v_\parallel t,v_\parallel,\hat{\mu}),
+\end{align}
+where $f_\mr{h1}^\mr{D0}$ is the initial condition for the perturbation of the DK distribution function.
+\subsection{Linearized drift-kinetic density}
+For the coupling to the fluid momentum equation via the current-coupling approach, we need to take velocity moments of the DK distribution function. For the zeroth moment, which is the number density $n_\mr{h}^\mr{D}$, we simply get
+\begin{align}
+n_\mr{h}^\mr{D}=\int_{\hat{\mu}}(\fho+\epsilon \fhi)B_0\mr{d}v_\parallel+O(\epsilon^2)=n_\mr{h0}+\epsilon\int_{\hat{\mu}}\fhi B_0\mr{d}v_\parallel+O(\epsilon^2).
+\end{align}
+\subsection{Linearized magnetization}
+For the calculation of the linearized magnetization, we first need to linearize the perpendicular component of the guiding-center velocity
+\begin{align}
+\mb{u}_\mr{g\perp}=\epsilon\frac{m_\mr{h}}{q_\mr{h}B_0^2}v_\parallel^2\nabla\times\mb{B}_1+\epsilon\mb{U}_{1\perp}-\epsilon\frac{m_\mr{h}}{q_\mr{h}B_0}v_\parallel\pa_z\mb{U}_{1\perp}\times\mb{e}_z+O(\epsilon^2),
+\end{align}
+where we used $\pa_t\mb{B}_1=B_0\nabla\times(\mb{U}_1\times\mb{e}_z)=B_0\pa_z\mb{U}_{1\perp}$, which follows from Faraday's law. I.e. $\mb{u}_\mr{g\perp0}=0$. Using this for the magnetization yields
+\begin{align}
+\mb{M}&=-m_\mr{h}\int_{\hat{\mu}}\hat{\mu}\mb{b}_0\fho B_0\mr{d}v_\parallel-\epsilon m_\mr{h}\int_{\hat{\mu}}\hat{\mu}\mb{b}_1\fho B_0\mr{d}v_\parallel-\epsilon m_\mr{h}\int_{\hat{\mu}}\hat{\mu}\mb{b}_0\fhi B_0\mr{d}v_\parallel\\
+&\phantom{=}+\epsilon m_\mr{h}\int_{\hat{\mu}}v_\parallel\mb{u}_\mr{g\perp 1}\fho\mr{d}v_\parallel+O(\epsilon^2)\\
+&=-\frac{p_\perp}{B_0}\mb{e}_z-\epsilon\frac{p_\perp}{B_0^2}\mb{B}_1-\epsilon m_\mr{h}\int_{\hat{\mu}}\hat{\mu}\fhi B_0\mr{d}v_\parallel\mb{e}_z+\epsilon\frac{m_\mr{h}\tilde{p}_\parallel}{q_\mr{h}B_0^3}\nabla\times\mb{B}_1+\epsilon\frac{m_\mr{h}n_\mr{h0}v_0}{B_0}\mb{U}_{1\perp}\\
+&\phantom{=}-\epsilon\frac{m_\mr{h}p_\parallel}{q_\mr{h}B_0^2}\pa_z\mb{U}_{1\perp}\times\mb{e}_z+O(\epsilon^2),
+\end{align}
+which, after taking the curl, amounts to
+\begin{align}
+\nabla\times\mb{M}_0&=0\\
+\nabla\times\mb{M}_1&=-\frac{p_\perp}{B_0^2}\nabla\times\mb{B}_1+\frac{m_\mr{h}\tilde{p}_\parallel}{q_\mr{h}B_0^3}\nabla\times(\nabla\times\mb{B}_1)+\frac{m_\mr{h}n_\mr{h0}v_0}{B_0}\nabla\times\mb{U}_{1\perp}-\frac{m_\mr{h}p_\parallel}{q_\mr{h}B_0^2}\nabla\times\left(\pa_z\mb{U}_{1\perp}\times\mb{e}_z\right).
+\end{align}
+\subsection{Linearized drift-kinetic current and forces}
+Performing the same steps as before, we get for the first term in the definition of the DK current involving the guiding-center velocity
+\begin{align}
+q_\mr{h}\int_{\hat{\mu}}\mb{u}_\mr{g}\fh\Bpa\mr{d}v_\parallel&=q_\mr{h}\int_{\hat{\mu}}\mb{u}_\mr{g0}\fho B_0\mr{d}v_\parallel+\epsilon q_\mr{h}\int_{\hat{\mu}}\mb{u}_\mr{g0}\fhi B_0\mr{d}v_\parallel+\epsilon q_\mr{h}\int_{\hat{\mu}}\mb{u}_\mr{g1}\fho B_0\mr{d}v_\parallel+O(\epsilon^2)\\
+&=q_\mr{h}n_\mr{h0}v_0\mb{e}_z+\epsilon q_\mr{h}\mb{e}_z\int_{\hat{\mu}}v_\parallel\fhi B_0\mr{d}v_\parallel+\epsilon\frac{q_\mr{h}n_\mr{h0}v_0}{B_0}\mb{B}_1+\epsilon\frac{p_\parallel}{B_0^2}\nabla\times\mb{B}_1\\
+&+\epsilon q_\mr{h}n_\mr{h0}\mb{U}_{1\perp}-\epsilon\frac{m_\mr{h}n_\mr{h0}v_0}{B_0}\pa_z\mb{U}_{1\perp}\times\mb{e}_z+O(\epsilon^2).
+\end{align}
+Hence we get for the current-coupling term in the momentum balance equation
+\begin{align}
+&-\frac{1}{\rho_0}(\mb{j}_\mr{h0}^\mr{D}\times\mb{B}_1+\mb{j}_\mr{h1}^\mr{D}\times\mb{B}_0)=\frac{p_\parallel-p_\perp}{\rho_0B_0}\mb{e}_z\times(\nabla\times\mb{B}_1)+\frac{q_\mr{h}n_\mr{h0}B_0}{\rho_0}\mb{e}_z\times\mb{U}_{1\perp}-\frac{m_\mr{h}n_\mr{h0}v_0}{\rho_0}\pa_z\mb{U}_\perp\\
+&-\frac{m_\mr{h}\tilde{p}_\parallel}{q_\mr{h}B_0^2\rho_0}\mb{e}_z\times\Delta\mb{B}_1-\frac{m_\mr{h}n_\mr{h0}v_0}{\rho_0}\pa_z\mb{U}_\perp-\frac{m_\mr{h}p_\parallel}{q_\mr{h}B_0\rho_0}\mb{e}_z\times\pa_z^2\mb{U}_{1\perp}\\
+\Leftrightarrow\quad&-\frac{1}{\rho_0}(\mb{j}_\mr{h0}^\mr{D}\times\mb{B}_1+\mb{j}_\mr{h1}^\mr{D}\times\mb{B}_0)=-\frac{\nu_\mr{h}v_0^2}{B_0}\pa_z\mb{B}_1+\nu_\mr{h}\Omega_\mr{ci}\mb{e}_z\times\mb{U}_{1\perp}-\frac{m_\mr{h}\tilde{p}_\parallel}{q_\mr{h}B_0^2\rho_0}\mb{e}_z\times\Delta\mb{B}_1\\
+&-\frac{\nu_\mr{h}}{2\Omega_\mr{ci}}(v_\mr{th}^2+2v_0^2)\mb{e}_z\times\pa_z^2\mb{U}_{1\perp}-2\nu_\mr{h}v_0\pa_z\mb{U}_\perp,
+\end{align}
+where we introduced the ratio between the number densities of the hot and bulk species $\nu_\mr{h}=n_\mr{h0}/n_0$, the ion cyclotron frequency $\Omega_\mr{ci}=q_\mr{i}B_0/m_\mr{i}$ and the hot particle's thermal velocity $v_\mr{th}^2=2T_\parallel/m_\mr{h}$. Moreover, we assumed hot ions, i.e. $m_\mr{h}=m_\mr{i}$.
+\subsection{Dispersion relation}
+We solve the obtained linearized set of equation with a plane wave ansatz ($\sim\exp(ikz-i\omega t)$) for all perturbed quantities. This has the consequence that we can make the substitutions $\nabla\rightarrow ik\mb{e}_z$ and $\pa_t\rightarrow i\omega$. From the mass continuity equation, induction equation and the energy equation we can then deduce the following relations for the Fourier coefficients:
+\begin{align}
+&\hat{\rho}=\frac{k\rho_0}{\omega}\hat{U}_\parallel,\quad\hat{\mb{B}}=-\frac{kB_0}{\omega}\hat{\mb{U}}_\perp,\quad\hat{p}=\frac{\gamma p_0k}{\omega}\hat{U}_\parallel.
+\end{align}
+The momentumm balance equation then amounts to
+\begin{align}
+&-i\omega\hat{\mb{U}}+i\frac{v_\mr{A}^2k^2}{\omega}\hat{\mb{U}}_\perp+i\frac{c_\mr{S}^2k^2}{\omega}\mb{e}_z\hat{U}_\parallel=i\frac{\nu_\mr{h}v_0^2k^2}{\omega}\hat{\mb{U}}_\perp-\frac{\nu_\mr{h}k^3}{2\omega\Omega_\mr{ci}}(3v_0v_\mr{th}^2+v_0^3)\mb{e}_z\times\hat{\mb{U}}_\perp\\
+&+\frac{\nu_\mr{h}k^2}{2\Omega_\mr{ci}}(v_\mr{th}^2+2v_0^2)\mb{e}_z\times\hat{\mb{U}}_\perp-i2\nu_\mr{h}v_0k\hat{\mb{U}}_\perp.
+\end{align}
+We observe that the sound waves with $\omega=\pm c_\mr{S}k$ are unaffacted by the presence of energetic particles. However, for perpendicular components we obtain the linearized equation of motion
+\begin{align}
+\left[(\omega^2-v_\mr{A}^2k^2+\nu_\mr{h}v_0^2k^2-2\omega\nu_\mr{h}v_0k)\mathbb{I}_2+i\left(\frac{\omega\nu_\mr{h}v_\mr{th}^2}{2\Omega_\mr{ci}}k^2+\frac{\omega\nu_\mr{h}v_0^2}{\Omega_\mr{ci}}k^2-\frac{3\nu_\mr{h}v_0v_\mr{th}^2}{2\Omega_\mr{ci}}k^3-\frac{\nu_\mr{h}v_0^3}{\Omega_\mr{ci}}k^3\right)\mathbb{J}_2\right]\hat{\mb{U}}_\perp=0,
+\end{align} 
+where $\mathbb{J}_2$ is the canonical symplectic form such that $\mb{e}_z\times\hat{\mb{U}}_\perp=-\mathbb{J}_2\hat{\mb{U}}_\perp$. Finally, the dispersion relation can be obtained by requiring the determinant to vanish:
+\begin{align}
+(\omega^2-v_\mr{A}^2k^2+\nu_\mr{h}v_0^2k^2-2\omega\nu_\mr{h}v_0k)^2-\left[\frac{\omega\nu_\mr{h}v_\mr{th}^2}{2\Omega_\mr{ci}}k^2+\frac{\omega\nu_\mr{h}v_0^2}{\Omega_\mr{ci}}k^2-\frac{3\nu_\mr{h}v_0v_\mr{th}^2}{2\Omega_\mr{ci}}k^3-\frac{\nu_\mr{h}v_0^3}{\Omega_\mr{ci}}k^3\right]^2=0.
+\end{align}
+We consider the two roots
+\begin{align}
+D_\mr{R/L}(k,\omega)=\omega^2-v_\mr{A}^2k^2+\nu_\mr{h}v_0^2k^2-2\omega\nu_\mr{h}v_0k+p_\mr{R/L}\left[\frac{\omega\nu_\mr{h}k^2}{2\Omega_\mr{ci}}(v_\mr{th}^2+2v_0^2)-\frac{\nu_hk^3}{2\Omega_\mr{ci}}(3v_0v_\mr{th}^2+2v_0^3)\right]=0,
+\end{align}
+where $p_\mr{R/L}=\pm1$ means right- and left-handed polarization, respectively. We can see that we recover shear Alfv\'{e}n waves in the absence of the energetic component ($\nu_\mr{h}\rightarrow 0$). Solving for the frequency yields the four solutions
+\begin{align}
+&\omega_{\mr{R/L},\pm}(k)=\nu_\mr{h}v_0k-p_\mr{R/L}\frac{\nu_\mr{h}k^2}{4\Omega_\mr{ci}}(v_\mr{th}^2+2v_0^2)\\
+&\pm k\sqrt{v_\mr{A}^2-v_0^2\nu_\mr{h}(1-\nu_\mr{h})+p_\mr{R/L}\frac{\nu_\mr{h}k}{2\Omega_\mr{ci}}(3v_0v_\mr{th}^2+2v_0^3-\nu_\mr{h}v_0v_\mr{th}^2-2\nu_\mr{h}v_0^3)+\frac{\nu_\mr{h}^2k^2}{16\Omega_\mr{ci}^2}(v_\mr{th}^2+2v_0^2)^2}.
+\end{align}
+In order to have wave growth or damping we need the argument of the square root to be negative. We immediately see that this is not possible in the limit $v_0\rightarrow0$. Let us use the normlaizations $\omega^\prime=\omega/\Omega_\mr{ci}$, $v_\mr{th}^\prime=v_\mr{th}/v_\mr{A}$, $v_0^\prime v_0/v_\mr{A}$ and $k^\prime=kv_\mr{A}/\Omega_\mr{ci}$ to get the scaled dispersion relation
+\begin{align}
+&\omega^\prime(k^\prime)=\nu_\mr{h}v_0^\prime k^\prime-p_\mr{R/L}\frac{1}{4}\nu_\mr{h}k^{\prime 2}(v_\mr{th}^{\prime 2}+2v_0^{\prime 2})\\
+&\pm k^\prime\sqrt{1-v_0^{\prime 2}\nu_\mr{h}(1-\nu_\mr{h})+p_\mr{R/L}\frac{1}{2}\nu_\mr{h}k^\prime(3v_0^\prime v_\mr{th}^2+2v_0^3-\nu_\mr{h}v_0v_\mr{th}^2-2\nu_\mr{h}v_0^3)+\frac{\nu_\mr{h}^2k^2}{16\Omega_\mr{ci}^2}(v_\mr{th}^2+2v_0^2)^2}.
+\end{align}
 \end{document}

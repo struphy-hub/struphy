@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  29 AUG 2019 16:52
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  5 SEP 2019 10:55
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1594,22 +1594,22 @@ Package: abstract 2009/06/08 v1.2a configurable abstracts
 ) (./MHD_FEEC.aux)
 \openout1 = `MHD_FEEC.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 79.
-LaTeX Font Info:    ... okay on input line 79.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 83.
+LaTeX Font Info:    ... okay on input line 83.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1666,7 +1666,7 @@ Dictionary: translator-basic-dictionary, Language: English
 (/usr/share/texlive/texmf-dist/tex/latex/siunitx/siunitx-abbreviations.cfg
 File: siunitx-abbreviations.cfg 2016/03/01 v2.6q siunitx: Abbreviated units
 )
-Package hyperref Info: Link coloring OFF on input line 79.
+Package hyperref Info: Link coloring OFF on input line 83.
 
 (/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2012/10/27 v2.43 Cross-referencing by name of section
@@ -1676,16 +1676,16 @@ Package: gettitlestring 2010/12/03 v1.4 Cleanup title references (HO)
 )
 \c@section@level=\count297
 )
-LaTeX Info: Redefining \ref on input line 79.
-LaTeX Info: Redefining \pageref on input line 79.
-LaTeX Info: Redefining \nameref on input line 79.
+LaTeX Info: Redefining \ref on input line 83.
+LaTeX Info: Redefining \pageref on input line 83.
+LaTeX Info: Redefining \nameref on input line 83.
 
 (./MHD_FEEC.out) (./MHD_FEEC.out)
 \@outlinefile=\write5
 \openout5 = `MHD_FEEC.out'.
 
-LaTeX Info: Redefining \[ on input line 79.
-LaTeX Info: Redefining \] on input line 79.
+LaTeX Info: Redefining \[ on input line 83.
+LaTeX Info: Redefining \] on input line 83.
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: wrapfig package is loaded.
 Package caption Info: End \AtBeginDocument code.
@@ -1706,62 +1706,62 @@ File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
 \c__siunitx_mathsf_int=\count298
-LaTeX Font Info:    Try loading font information for U+msa on input line 79.
+LaTeX Font Info:    Try loading font information for U+msa on input line 83.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 79.
+LaTeX Font Info:    Try loading font information for U+msb on input line 83.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 \c__siunitx_mathtt_int=\count299
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <8> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 115.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 119.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <6> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 115.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 119.
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2]
 
-LaTeX Font Warning: Command \small invalid in math mode on input line 199.
+LaTeX Font Warning: Command \small invalid in math mode on input line 203.
 
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <7> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 199.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 203.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <5> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 199.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 203.
 
-LaTeX Font Warning: Command \small invalid in math mode on input line 199.
-
-
-LaTeX Font Warning: Command \small invalid in math mode on input line 199.
+LaTeX Font Warning: Command \small invalid in math mode on input line 203.
 
 
-LaTeX Font Warning: Command \small invalid in math mode on input line 199.
+LaTeX Font Warning: Command \small invalid in math mode on input line 203.
 
-[3] [4] [5] <N_odd.pdf, id=167, 489.03326pt x 265.50378pt>
+
+LaTeX Font Warning: Command \small invalid in math mode on input line 203.
+
+[3] [4] [5] <N_odd.pdf, id=191, 489.03326pt x 265.50378pt>
 File: N_odd.pdf Graphic file (type pdf)
  <use N_odd.pdf>
-Package pdftex.def Info: N_odd.pdf used on input line 334.
+Package pdftex.def Info: N_odd.pdf used on input line 338.
 (pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
 
-<D_odd.pdf, id=168, 489.03326pt x 265.50378pt>
+<D_odd.pdf, id=192, 489.03326pt x 265.50378pt>
 File: D_odd.pdf Graphic file (type pdf)
  <use D_odd.pdf>
-Package pdftex.def Info: D_odd.pdf used on input line 335.
+Package pdftex.def Info: D_odd.pdf used on input line 339.
 (pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
 
-<N_even.pdf, id=169, 489.03326pt x 265.50378pt>
+<N_even.pdf, id=193, 489.03326pt x 265.50378pt>
 File: N_even.pdf Graphic file (type pdf)
  <use N_even.pdf>
-Package pdftex.def Info: N_even.pdf used on input line 336.
+Package pdftex.def Info: N_even.pdf used on input line 340.
 (pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
 
-<D_even.pdf, id=170, 489.03326pt x 265.50378pt>
+<D_even.pdf, id=194, 489.03326pt x 265.50378pt>
 File: D_even.pdf Graphic file (type pdf)
  <use D_even.pdf>
-Package pdftex.def Info: D_even.pdf used on input line 337.
+Package pdftex.def Info: D_even.pdf used on input line 341.
 (pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
  [6] [7 <./N_odd.pdf> <./D_odd.pdf
 
@@ -1775,21 +1775,57 @@ pdfTeX warning: pdflatex (file ./N_even.pdf): PDF inclusion: multiple pdfs with
 
 pdfTeX warning: pdflatex (file ./D_even.pdf): PDF inclusion: multiple pdfs with
  page group included in a single page
->] [8]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 413.
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 413.
+>] [8] [9pdfTeX warning (ext4): destination with the same identifier (name{equa
+tion.6.1}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 pdfTeX warning (ext4): destination with the same identifier (n
+ame{equation.6.2}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 pdfTeX warning (ext4): destination with the same identifier (n
+ame{equation.6.3}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 pdfTeX warning (ext4): destination with the same identifier (n
+ame{equation.6.4}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 pdfTeX warning (ext4): destination with the same identifier (n
+ame{equation.6.5}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 pdfTeX warning (ext4): destination with the same identifier (n
+ame{equation.6.6}) has been already used, duplicate ignored
+
+\AtBegShi@Output ...ipout \box \AtBeginShipoutBox 
+                                                  \fi \fi 
+l.462 \end{align}
+                 ] [10] [11] [12] [13]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 589.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 589.
  (./MHD_FEEC.xwm) (./MHD_FEEC.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 413.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 413.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 589.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 589.
 Package rerunfilecheck Info: File `MHD_FEEC.out' has not changed.
-(rerunfilecheck)             Checksum: A1ADB79EE907D74BFFAEC1BF8B35AE20;911.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 413.
+(rerunfilecheck)             Checksum: E6C6C738E35B8CD4B565E7D2317DBAFB;1372.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 589.
  ) 
 Here is how much of TeX's memory you used:
- 34010 strings out of 493029
- 653652 string characters out of 6136233
- 844373 words of memory out of 5000000
- 36906 multiletter control sequences out of 15000+600000
+ 34093 strings out of 493029
+ 654648 string characters out of 6136233
+ 846371 words of memory out of 5000000
+ 36918 multiletter control sequences out of 15000+600000
  47375 words of font info for 125 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  53i,23n,58p,10380b,841s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1813,10 +1849,10 @@ onts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/ty
 pe1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
 lic/amsfonts/cm/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
 sfonts/symbols/msbm10.pfb>
-Output written on MHD_FEEC.pdf (8 pages, 313772 bytes).
+Output written on MHD_FEEC.pdf (13 pages, 345725 bytes).
 PDF statistics:
- 475 PDF objects out of 1000 (max. 8388607)
- 295 compressed objects within 3 object streams
- 104 named destinations out of 1000 (max. 500000)
- 145 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 596 PDF objects out of 1000 (max. 8388607)
+ 409 compressed objects within 5 object streams
+ 175 named destinations out of 1000 (max. 500000)
+ 193 words of extra memory for PDF output out of 10000 (max. 10000000)
 
