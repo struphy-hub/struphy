@@ -1,0 +1,20 @@
+\BOOKMARK [1][-]{section.1}{The model}{}% 1
+\BOOKMARK [1][-]{section.2}{Discretization}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Continuity equation}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Induction equation}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Momentum equation}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.4}{Energy equation}{section.2}% 6
+\BOOKMARK [1][-]{section.3}{Implementation}{}% 7
+\BOOKMARK [2][-]{subsection.3.1}{Discrete differential operators}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.2}{Projections}{section.3}% 9
+\BOOKMARK [1][-]{section.4}{Test case 1: Shear Alfv\351n waves}{}% 10
+\BOOKMARK [2][-]{subsection.4.1}{Time discretization}{section.4}% 11
+\BOOKMARK [3][-]{subsubsection.4.1.1}{Hamiltonian splitting}{subsection.4.1}% 12
+\BOOKMARK [3][-]{subsubsection.4.1.2}{Discrete gradient method}{subsection.4.1}% 13
+\BOOKMARK [1][-]{section.5}{Test case 2: Full system}{}% 14
+\BOOKMARK [1][-]{section.6}{Adding a kinetic species}{}% 15
+\BOOKMARK [2][-]{subsection.6.1}{Linearized drift-kinetic equation}{section.6}% 16
+\BOOKMARK [2][-]{subsection.6.2}{Linearized drift-kinetic density}{section.6}% 17
+\BOOKMARK [2][-]{subsection.6.3}{Linearized magnetization}{section.6}% 18
+\BOOKMARK [2][-]{subsection.6.4}{Linearized drift-kinetic current and forces}{section.6}% 19
+\BOOKMARK [2][-]{subsection.6.5}{Dispersion relation}{section.6}% 20
