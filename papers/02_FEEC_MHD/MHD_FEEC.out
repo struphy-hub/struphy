@@ -1,8 +1,8 @@
 \BOOKMARK [1][-]{section.1}{The model}{}% 1
 \BOOKMARK [1][-]{section.2}{Discretization}{}% 2
 \BOOKMARK [2][-]{subsection.2.1}{Continuity equation}{section.2}% 3
-\BOOKMARK [2][-]{subsection.2.2}{Induction equation}{section.2}% 4
-\BOOKMARK [2][-]{subsection.2.3}{Momentum equation}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.2}{Momentum equation}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Induction equation}{section.2}% 5
 \BOOKMARK [2][-]{subsection.2.4}{Energy equation}{section.2}% 6
 \BOOKMARK [1][-]{section.3}{Implementation}{}% 7
 \BOOKMARK [2][-]{subsection.3.1}{Discrete differential operators}{section.3}% 8
@@ -18,3 +18,4 @@
 \BOOKMARK [2][-]{subsection.6.3}{Linearized magnetization}{section.6}% 18
 \BOOKMARK [2][-]{subsection.6.4}{Linearized drift-kinetic current and forces}{section.6}% 19
 \BOOKMARK [2][-]{subsection.6.5}{Dispersion relation}{section.6}% 20
+\BOOKMARK [2][-]{subsection.6.6}{Discretization}{section.6}% 21

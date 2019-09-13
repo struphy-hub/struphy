@@ -388,7 +388,7 @@ class projections_mhd:
         # Assembly of the third line
         kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1, p2 + 1, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, D_his[0], N_his[1], N_int[2], EQ3[0], RHS3[0])
                                      
-        kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], D_his[1], N_int[2], EQ3[1], RHS3[2])
+        kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], D_his[1], N_int[2], EQ3[1], RHS3[1])
                                      
         kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1 + 1, p2 + 1, p3, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], N_his[1], D_int[2], EQ3[2], RHS3[2])
         
