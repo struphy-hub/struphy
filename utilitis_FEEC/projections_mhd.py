@@ -292,7 +292,7 @@ class projections_mhd:
         
     
     
-    def assembly_P21(self, rho0, Ginv):
+    def projection_Q(self, rho0, Ginv):
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -482,9 +482,166 @@ class projections_mhd:
     
     
     
+    def projection_W(self, rho0, g_sqrt):
+        
+        p1,    p2,   p3 = self.p         # spline degrees
+        bc1,  bc2,  bc3 = self.bc        # boundary conditions
+        nq1,  nq2,  nq3 = self.nq        # number of quadrature points per element
+        w1,    w2,   w3 = self.weights   # quadrature weights
+        
+        
+        
+        # number of intervals for three components of the projector Pi1 (cyclic permutation of integration in i and interpolation in j and k)
+        n1 = [self.n_grev[0] - 1 + bc1, self.n_grev[1], self.n_grev[2]]
+        n2 = [self.n_grev[0], self.n_grev[1] - 1 + bc2, self.n_grev[2]]
+        n3 = [self.n_grev[0], self.n_grev[1], self.n_grev[2] - 1 + bc3]
+        
+        
+        # number of non-vanishing splines per interval (for even degree one additional spline per integration interval!)
+        nv1 = [p1 + 1 - p1%2, p2 + 1, p3 + 1]
+        nv2 = [p1 + 1, p2 + 1 - p2%2, p3 + 1]
+        nv3 = [p1 + 1, p2 + 1, p3 + 1 - p3%2]
+        
+        
+        # reshape greville points (n x 1)
+        PP = [np.reshape(greville, (n_greville, 1)) for greville, n_greville in zip(self.greville, self.n_grev)]
+        
+        
+        # Evaluate N - functions on interpolation points
+        N_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, PP, 0, normalize=False)) for T, p, PP in zip(self.T, self.p, PP)]
+        
+        
+        # Evaluate D - functions on quadrature points
+        D_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, quad, 0, normalize=True)) for t, p, quad in zip(self.t, self.pr, self.quad_grid)]
+        
+        
+        # Evaluate equilibrium quantities on interpolation and quadrature points
+        P11, P12, P13 = np.meshgrid(self.quad_grid[0].flatten(), self.greville[1], self.greville[2], indexing='ij')
+        P21, P22, P23 = np.meshgrid(self.greville[0], self.quad_grid[1].flatten(), self.greville[2], indexing='ij')
+        P31, P32, P33 = np.meshgrid(self.greville[0], self.greville[1], self.quad_grid[2].flatten(), indexing='ij')
+        
+        EQ1 = np.asfortranarray(rho0(P11, P12, P13) / g_sqrt(P11, P12, P13))
+        EQ2 = np.asfortranarray(rho0(P21, P22, P23) / g_sqrt(P21, P22, P23))
+        EQ3 = np.asfortranarray(rho0(P31, P32, P33) / g_sqrt(P31, P32, P33))
+        
+        
+        # Local storage of right-hand-sides (for even degree one additional spline per integration interval!)
+        RHS1 = np.zeros((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]), order='F')
+        RHS2 = np.zeros((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]), order='F')
+        RHS3 = np.zeros((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]), order='F') 
+        
+        
+        #==================shift in local indices for integrations============================================================
+        il_add = []
+               
+        for mu in range(3):
+               
+            if self.bc[mu] == True:
+                   
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+               
+                else:
+                    il_add.append(np.array([0, 1] * self.Nel[mu]))
+                                     
+            else:
+                                     
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+                                     
+                else:
+                    boundaries = int(self.p[mu]/2)
+                    il_add.append(np.array([0] * boundaries + [0, 1] * int((self.ne[0] - self.p[mu])/2) + [1] * boundaries))
+        #=====================================================================================================================
+        
+        
+        
+        # Assembly of the first line
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
+        
+        
+        # Assembly of the second line
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
+        
+        
+        # Assembly of the third line
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
+        
+        
+         
+        # Grid indices               
+        indices1 = np.indices((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]))
+        indices2 = np.indices((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]))
+        indices3 = np.indices((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]))   
+        
+        
+        # Row indices of global matrix
+        row1 = (n1[1]*n1[2]*indices1[0] + n1[2]*indices1[1] + indices1[2]).flatten()
+        row2 = (n2[1]*n2[2]*indices2[0] + n2[2]*indices2[1] + indices2[2]).flatten()
+        row3 = (n3[1]*n3[2]*indices3[0] + n3[2]*indices3[1] + indices3[2]).flatten()
+        
+        
+        # Column indices of global matrix in 1-direction
+        if bc1 == True:
+            
+            col1_1 = (indices1[3] + np.arange(n1[0])[:, None, None, None, None, None])%n1[0]
+            col1_2 = (indices2[3] + np.arange(n2[0])[:, None, None, None, None, None])%n2[0] 
+            col1_3 = (indices3[3] + np.arange(n3[0])[:, None, None, None, None, None])%n3[0]
+                                        
+        else:
+            
+            print('not yet implemented!')
+            
+        
+        # Column indices of global matrix in 2-direction
+        if bc2 == True:
+                                     
+            col2_1 = (indices1[4] + np.arange(n1[1])[None, :, None, None, None, None])%n1[1]
+            col2_2 = (indices2[4] + np.arange(n2[1])[None, :, None, None, None, None])%n2[1]
+            col2_3 = (indices3[4] + np.arange(n3[1])[None, :, None, None, None, None])%n3[1]
+               
+        else:
+            
+            print('not yet implemented!')
+            
+            
+        # Column indices of global matrix in 3-direction
+        if bc3 == True:
+                                     
+            col3_1 = (indices1[5] + np.arange(n1[2])[None, None, :, None, None, None])%n1[2]
+            col3_2 = (indices2[5] + np.arange(n2[2])[None, None, :, None, None, None])%n2[2]
+            col3_3 = (indices3[5] + np.arange(n3[2])[None, None, :, None, None, None])%n3[2]
+               
+        else:
+            
+            print('not yet implemented!')
+        
+        col1 = (n1[1]*n1[2]*col1_1 + n1[2]*col2_1 + col3_1).flatten()
+        col2 = (n2[1]*n2[2]*col1_2 + n2[2]*col2_2 + col3_2).flatten()
+        col3 = (n3[1]*n3[2]*col1_3 + n3[2]*col2_3 + col3_3).flatten()
+        
+        
+        # Create sparse matrix (1 - component)
+        R1 = sparse.csc_matrix((RHS1.flatten(), (row1, col1)), shape=(n1[0]*n1[1]*n1[2], n1[0]*n1[1]*n1[2]))         
+        R1.eliminate_zeros()
+        
+        # Create sparse matrix (2 - component)
+        R2 = sparse.csc_matrix((RHS2.flatten(), (row2, col2)), shape=(n2[0]*n2[1]*n2[2], n2[0]*n2[1]*n2[2]))
+        R2.eliminate_zeros()
+        
+        # Create sparse matrix (3 - component)
+        R3 = sparse.csc_matrix((RHS3.flatten(), (row3, col3)), shape=(n3[0]*n3[1]*n3[2], n3[0]*n3[1]*n3[2]))
+        R3.eliminate_zeros()
+        
+        
+        return R1, R2, R3 
     
     
-    def assembly_P11(self, B0, Ginv):
+    
+    
+    
+    
+    def projection_T(self, B0, Ginv):
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -687,167 +844,9 @@ class projections_mhd:
         return R1, R2, R3
       
     
-                  
     
     
-    
-    def assembly_P12(self, rho0, g_sqrt):
-        
-        p1,    p2,   p3 = self.p         # spline degrees
-        bc1,  bc2,  bc3 = self.bc        # boundary conditions
-        nq1,  nq2,  nq3 = self.nq        # number of quadrature points per element
-        w1,    w2,   w3 = self.weights   # quadrature weights
-        
-        
-        
-        # number of intervals for three components of the projector Pi1 (cyclic permutation of integration in i and interpolation in j and k)
-        n1 = [self.n_grev[0] - 1 + bc1, self.n_grev[1], self.n_grev[2]]
-        n2 = [self.n_grev[0], self.n_grev[1] - 1 + bc2, self.n_grev[2]]
-        n3 = [self.n_grev[0], self.n_grev[1], self.n_grev[2] - 1 + bc3]
-        
-        
-        # number of non-vanishing splines per interval (for even degree one additional spline per integration interval!)
-        nv1 = [p1 + 1 - p1%2, p2 + 1, p3 + 1]
-        nv2 = [p1 + 1, p2 + 1 - p2%2, p3 + 1]
-        nv3 = [p1 + 1, p2 + 1, p3 + 1 - p3%2]
-        
-        
-        # reshape greville points (n x 1)
-        PP = [np.reshape(greville, (n_greville, 1)) for greville, n_greville in zip(self.greville, self.n_grev)]
-        
-        
-        # Evaluate N - functions on interpolation points
-        N_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, PP, 0, normalize=False)) for T, p, PP in zip(self.T, self.p, PP)]
-        
-        
-        # Evaluate D - functions on quadrature points
-        D_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, quad, 0, normalize=True)) for t, p, quad in zip(self.t, self.pr, self.quad_grid)]
-        
-        
-        # Evaluate equilibrium quantities on interpolation and quadrature points
-        P11, P12, P13 = np.meshgrid(self.quad_grid[0].flatten(), self.greville[1], self.greville[2], indexing='ij')
-        P21, P22, P23 = np.meshgrid(self.greville[0], self.quad_grid[1].flatten(), self.greville[2], indexing='ij')
-        P31, P32, P33 = np.meshgrid(self.greville[0], self.greville[1], self.quad_grid[2].flatten(), indexing='ij')
-        
-        EQ1 = np.asfortranarray(rho0(P11, P12, P13) / g_sqrt(P11, P12, P13))
-        EQ2 = np.asfortranarray(rho0(P21, P22, P23) / g_sqrt(P21, P22, P23))
-        EQ3 = np.asfortranarray(rho0(P31, P32, P33) / g_sqrt(P31, P32, P33))
-        
-        
-        # Local storage of right-hand-sides (for even degree one additional spline per integration interval!)
-        RHS1 = np.zeros((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]), order='F')
-        RHS2 = np.zeros((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]), order='F')
-        RHS3 = np.zeros((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]), order='F') 
-        
-        
-        #==================shift in local indices for integrations============================================================
-        il_add = []
-               
-        for mu in range(3):
-               
-            if self.bc[mu] == True:
-                   
-                if self.p[mu]%2 != 0:
-                    il_add.append(np.array([0] * self.ne[mu]))
-               
-                else:
-                    il_add.append(np.array([0, 1] * self.Nel[mu]))
-                                     
-            else:
-                                     
-                if self.p[mu]%2 != 0:
-                    il_add.append(np.array([0] * self.ne[mu]))
-                                     
-                else:
-                    boundaries = int(self.p[mu]/2)
-                    il_add.append(np.array([0] * boundaries + [0, 1] * int((self.ne[0] - self.p[mu])/2) + [1] * boundaries))
-        #=====================================================================================================================
-        
-        
-        
-        # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
-        
-        
-        # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
-        
-        
-        # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
-        
-        
-         
-        # Grid indices               
-        indices1 = np.indices((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]))
-        indices2 = np.indices((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]))
-        indices3 = np.indices((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]))   
-        
-        
-        # Row indices of global matrix
-        row1 = (n1[1]*n1[2]*indices1[0] + n1[2]*indices1[1] + indices1[2]).flatten()
-        row2 = (n2[1]*n2[2]*indices2[0] + n2[2]*indices2[1] + indices2[2]).flatten()
-        row3 = (n3[1]*n3[2]*indices3[0] + n3[2]*indices3[1] + indices3[2]).flatten()
-        
-        
-        # Column indices of global matrix in 1-direction
-        if bc1 == True:
-            
-            col1_1 = (indices1[3] + np.arange(n1[0])[:, None, None, None, None, None])%n1[0]
-            col1_2 = (indices2[3] + np.arange(n2[0])[:, None, None, None, None, None])%n2[0] 
-            col1_3 = (indices3[3] + np.arange(n3[0])[:, None, None, None, None, None])%n3[0]
-                                        
-        else:
-            
-            print('not yet implemented!')
-            
-        
-        # Column indices of global matrix in 2-direction
-        if bc2 == True:
-                                     
-            col2_1 = (indices1[4] + np.arange(n1[1])[None, :, None, None, None, None])%n1[1]
-            col2_2 = (indices2[4] + np.arange(n2[1])[None, :, None, None, None, None])%n2[1]
-            col2_3 = (indices3[4] + np.arange(n3[1])[None, :, None, None, None, None])%n3[1]
-               
-        else:
-            
-            print('not yet implemented!')
-            
-            
-        # Column indices of global matrix in 3-direction
-        if bc3 == True:
-                                     
-            col3_1 = (indices1[5] + np.arange(n1[2])[None, None, :, None, None, None])%n1[2]
-            col3_2 = (indices2[5] + np.arange(n2[2])[None, None, :, None, None, None])%n2[2]
-            col3_3 = (indices3[5] + np.arange(n3[2])[None, None, :, None, None, None])%n3[2]
-               
-        else:
-            
-            print('not yet implemented!')
-        
-        col1 = (n1[1]*n1[2]*col1_1 + n1[2]*col2_1 + col3_1).flatten()
-        col2 = (n2[1]*n2[2]*col1_2 + n2[2]*col2_2 + col3_2).flatten()
-        col3 = (n3[1]*n3[2]*col1_3 + n3[2]*col2_3 + col3_3).flatten()
-        
-        
-        # Create sparse matrix (1 - component)
-        R1 = sparse.csc_matrix((RHS1.flatten(), (row1, col1)), shape=(n1[0]*n1[1]*n1[2], n1[0]*n1[1]*n1[2]))         
-        R1.eliminate_zeros()
-        
-        # Create sparse matrix (2 - component)
-        R2 = sparse.csc_matrix((RHS2.flatten(), (row2, col2)), shape=(n2[0]*n2[1]*n2[2], n2[0]*n2[1]*n2[2]))
-        R2.eliminate_zeros()
-        
-        # Create sparse matrix (3 - component)
-        R3 = sparse.csc_matrix((RHS3.flatten(), (row3, col3)), shape=(n3[0]*n3[1]*n3[2], n3[0]*n3[1]*n3[2]))
-        R3.eliminate_zeros()
-        
-        
-        return R1, R2, R3
-    
-    
-    
-    def assembly_P13(self, p0):
+    def projection_A(self, p0):
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -1002,7 +1001,11 @@ class projections_mhd:
         return R1, R2, R3
     
     
-    def assembly_P01(self, p0):
+    
+    
+    
+
+    def projection_S(self, p0):
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -1083,7 +1086,416 @@ class projections_mhd:
     
     
     
-    def assembly_P11_old(self, B0, Ginv):
+    
+    
+    def projection_L(self, g_sqrt, G):
+        
+        p1,    p2,   p3 = self.p         # spline degrees
+        bc1,  bc2,  bc3 = self.bc        # boundary conditions
+        nq1,  nq2,  nq3 = self.nq        # number of quadrature points per element
+        w1,    w2,   w3 = self.weights   # quadrature weights
+        
+        
+        
+        # number of intervals for three components of the projector Pi1 (cyclic permutation of integration in i and interpolation in j and k)
+        n1 = [self.n_grev[0] - 1 + bc1, self.n_grev[1], self.n_grev[2]]
+        n2 = [self.n_grev[0], self.n_grev[1] - 1 + bc2, self.n_grev[2]]
+        n3 = [self.n_grev[0], self.n_grev[1], self.n_grev[2] - 1 + bc3]
+        
+         
+        
+        # number of non-vanishing splines per interval (for even degree one additional spline per integration interval!)
+        nv1 = [[p1 + 2 - p1%2, p2, p3], [p1 + 1 - p1%2, p2 + 1, p3], [p1 + 1 - p1%2, p2, p3 + 1]]
+        nv2 = [[p1 + 1, p2 + 1 - p2%2, p3], [p1, p2 + 2 - p2%2, p3], [p1, p2 + 1 - p2%2, p3 + 1]]
+        nv3 = [[p1 + 1, p2, p3 + 1 - p3%2], [p1, p2 + 1, p3 + 1 - p3%2], [p1, p2, p3 + 2 - p3%2]]
+        
+        
+        # reshape greville points (n x 1)
+        PP = [np.reshape(greville, (n_greville, 1)) for greville, n_greville in zip(self.greville, self.n_grev)]
+        
+        
+        # Evaluate N - functions on interpolation and quadrature points
+        N_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, PP, 0, normalize=False)) for T, p, PP in zip(self.T, self.p, PP)]
+        
+        N_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, quad, 0, normalize=False)) for T, p, quad in zip(self.T, self.p, self.quad_grid)]
+        
+        
+        # Evaluate D - functions on interpolation and quadrature points
+        D_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, PP, 0, normalize=True)) for t, p, PP in zip(self.t, self.pr, PP)] 
+        
+        D_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, quad, 0, normalize=True)) for t, p, quad in zip(self.t, self.pr, self.quad_grid)]
+        
+        
+        # Evaluate equilibrium quantities on interpolation and quadrature points
+        P11, P12, P13 = np.meshgrid(self.quad_grid[0].flatten(), self.greville[1], self.greville[2], indexing='ij')
+        P21, P22, P23 = np.meshgrid(self.greville[0], self.quad_grid[1].flatten(), self.greville[2], indexing='ij')
+        P31, P32, P33 = np.meshgrid(self.greville[0], self.greville[1], self.quad_grid[2].flatten(), indexing='ij')
+        
+        EQ11 = np.asfortranarray(G[0][0](P11, P12, P13) / g_sqrt(P11, P12, P13))
+        EQ12 = np.asfortranarray(G[0][1](P11, P12, P13) / g_sqrt(P11, P12, P13))
+        EQ13 = np.asfortranarray(G[0][2](P11, P12, P13) / g_sqrt(P11, P12, P13))
+        EQ1 = [EQ11, EQ12, EQ13]
+        
+        EQ21 = np.asfortranarray(G[1][0](P21, P22, P23) / g_sqrt(P21, P22, P23))
+        EQ22 = np.asfortranarray(G[1][1](P21, P22, P23) / g_sqrt(P21, P22, P23))
+        EQ23 = np.asfortranarray(G[1][2](P21, P22, P23) / g_sqrt(P21, P22, P23))
+        EQ2 = [EQ21, EQ22, EQ23]
+                                 
+        
+        EQ31 = np.asfortranarray(G[2][0](P31, P32, P33) / g_sqrt(P31, P32, P33))
+        EQ32 = np.asfortranarray(G[2][1](P31, P32, P33) / g_sqrt(P31, P32, P33))
+        EQ33 = np.asfortranarray(G[2][2](P31, P32, P33) / g_sqrt(P31, P32, P33))
+        EQ3 = [EQ31, EQ32, EQ33]
+        
+        
+        # Local storage of right-hand-sides (for even degree one additional spline per integration interval!)
+        RHS1 = [np.zeros((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]), order='F') for nv1 in nv1]
+        RHS2 = [np.zeros((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]), order='F') for nv2 in nv2]
+        RHS3 = [np.zeros((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]), order='F') for nv3 in nv3]
+        
+        
+        
+        #==================shift in local indices for integrations============================================================
+        il_add = []
+               
+        for mu in range(3):
+               
+            if self.bc[mu] == True:
+                   
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+               
+                else:
+                    il_add.append(np.array([0, 1] * self.Nel[mu]))
+                                     
+            else:
+                                     
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+                                     
+                else:
+                    boundaries = int(self.p[mu]/2)
+                    il_add.append(np.array([0] * boundaries + [0, 1] * int((self.ne[0] - self.p[mu])/2) + [1] * boundaries))
+        #=====================================================================================================================
+                       
+        
+        
+        # Assembly of the first line
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], D_int[2], EQ1[0], RHS1[0])
+                                     
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], D_int[2], EQ1[1], RHS1[1])
+                                     
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], D_int[1], N_int[2], EQ1[2], RHS1[2])
+        
+        
+        # Assembly of the second line
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], D_int[2], EQ2[0], RHS2[0])
+                                     
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], D_int[2], EQ2[1], RHS2[1])
+                                     
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], D_his[1], N_int[2], EQ2[2], RHS2[2])
+        
+        
+        # Assembly of the third line
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], D_his[2], EQ3[0], RHS3[0])
+                                     
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], D_his[2], EQ3[1], RHS3[1])
+                                     
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], D_int[1], N_his[2], EQ3[2], RHS3[2])
+        
+        
+        # Grid indices               
+        indices1 = [np.indices((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2])) for nv1 in nv1]
+        indices2 = [np.indices((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2])) for nv2 in nv2]
+        indices3 = [np.indices((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2])) for nv3 in nv3]                             
+        
+        
+        
+        # Row indices of global matrix
+        row1 = [(n1[1]*n1[2]*indices1[0] + n1[2]*indices1[1] + indices1[2]).flatten() for indices1 in indices1]
+        row2 = [(n2[1]*n2[2]*indices2[0] + n2[2]*indices2[1] + indices2[2]).flatten() for indices2 in indices2]
+        row3 = [(n3[1]*n3[2]*indices3[0] + n3[2]*indices3[1] + indices3[2]).flatten() for indices3 in indices3]
+        
+        
+        # Column indices of global matrix in 1-direction
+        if bc1 == True:
+            
+            col1_1 = [(indices1[3] + np.arange(n1[0])[:, None, None, None, None, None])%n1[0] for indices1 in indices1]
+            col1_2 = [(indices2[3] + np.arange(n2[0])[:, None, None, None, None, None])%n2[0] for indices2 in indices2]
+            col1_3 = [(indices3[3] + np.arange(n3[0])[:, None, None, None, None, None])%n3[0] for indices3 in indices3]
+                                        
+        else:
+            
+            print('not yet implemented!')
+            
+        
+        # Column indices of global matrix in 2-direction
+        if bc2 == True:
+                                     
+            col2_1 = [(indices1[4] + np.arange(n1[1])[None, :, None, None, None, None])%n1[1] for indices1 in indices1]
+            col2_2 = [(indices2[4] + np.arange(n2[1])[None, :, None, None, None, None])%n2[1] for indices2 in indices2]
+            col2_3 = [(indices3[4] + np.arange(n3[1])[None, :, None, None, None, None])%n3[1] for indices3 in indices3]
+               
+        else:
+            
+            print('not yet implemented!')
+            
+            
+        # Column indices of global matrix in 3-direction
+        if bc3 == True:
+                                     
+            col3_1 = [(indices1[5] + np.arange(n1[2])[None, None, :, None, None, None])%n1[2] for indices1 in indices1]
+            col3_2 = [(indices2[5] + np.arange(n2[2])[None, None, :, None, None, None])%n2[2] for indices2 in indices2]
+            col3_3 = [(indices3[5] + np.arange(n3[2])[None, None, :, None, None, None])%n3[2] for indices3 in indices3]
+               
+        else:
+            
+            print('not yet implemented!')
+        
+        col1 = [(n1[1]*n1[2]*col1_1 + n1[2]*col2_1 + col3_1).flatten() for col1_1, col2_1, col3_1 in zip(col1_1, col2_1, col3_1)]
+        col2 = [(n2[1]*n2[2]*col1_2 + n2[2]*col2_2 + col3_2).flatten() for col1_2, col2_2, col3_2 in zip(col1_2, col2_2, col3_2)]
+        col3 = [(n3[1]*n3[2]*col1_3 + n3[2]*col2_3 + col3_3).flatten() for col1_3, col2_3, col3_3 in zip(col1_3, col2_3, col3_3)]
+        
+
+        # Create sparse matrices (1 - component)
+        R1 = [sparse.csc_matrix((RHS1.flatten(), (row1, col1)), shape=(n1[0]*n1[1]*n1[2], n1[0]*n1[1]*n1[2])) for RHS1, row1, col1 in zip(RHS1, row1, col1)]
+                  
+        R1[0].eliminate_zeros()
+        R1[1].eliminate_zeros()
+        R1[2].eliminate_zeros()
+        
+        R1 = sparse.bmat([R1], format='csc')
+        
+        
+        # Create sparse matrices (2 - component)
+        R2 = [sparse.csc_matrix((RHS2.flatten(), (row2, col2)), shape=(n2[0]*n2[1]*n2[2], n2[0]*n2[1]*n2[2])) for RHS2, row2, col2 in zip(RHS2, row2, col2)]
+                  
+        R2[0].eliminate_zeros()
+        R2[1].eliminate_zeros()
+        R2[2].eliminate_zeros()
+        
+        R2 = sparse.bmat([R2], format='csc')
+        
+        
+        # Create sparse matrices (3 - component)
+        R3 = [sparse.csc_matrix((RHS3.flatten(), (row3, col3)), shape=(n3[0]*n3[1]*n3[2], n3[0]*n3[1]*n3[2])) for RHS3, row3, col3 in zip(RHS3, row3, col3)]
+                  
+        R3[0].eliminate_zeros()
+        R3[1].eliminate_zeros()
+        R3[2].eliminate_zeros()
+        
+        R3 = sparse.bmat([R3], format='csc')
+        
+        return R1, R2, R3
+    
+    
+    
+    def projection_Y(self, g_sqrt, Ginv):
+        
+        p1,    p2,   p3 = self.p         # spline degrees
+        bc1,  bc2,  bc3 = self.bc        # boundary conditions
+        nq1,  nq2,  nq3 = self.nq        # number of quadrature points per element
+        w1,    w2,   w3 = self.weights   # quadrature weights
+        
+        
+        
+        # number of intervals for three components of the projector Pi1 (cyclic permutation of integration in i and interpolation in j and k)
+        n1 = [self.n_grev[0] - 1 + bc1, self.n_grev[1], self.n_grev[2]]
+        n2 = [self.n_grev[0], self.n_grev[1] - 1 + bc2, self.n_grev[2]]
+        n3 = [self.n_grev[0], self.n_grev[1], self.n_grev[2] - 1 + bc3]
+        
+        
+        
+        
+        
+        # number of non-vanishing splines per interval (for even degree one additional spline per integration interval!)
+        nv1 = [[p1 + 1 - p1%2, p2 + 1, p3 + 1], [p1 + 2 - p1%2, p2, p3 + 1], [p1 + 2 - p1%2, p2 + 1, p3]]
+        nv2 = [[p1, p2 + 2 - p2%2, p3 + 1], [p1 + 1, p2 + 1 - p2%2, p3 + 1], [p1 + 1, p2 + 2 - p2%2, p3]]
+        nv3 = [[p1, p2 + 1, p3 + 2 - p3%2], [p1 + 1, p2, p3 + 2 - p3%2], [p1 + 1, p2 + 1, p3 + 1 - p3%2]]
+        
+        
+        # reshape greville points (n x 1)
+        PP = [np.reshape(greville, (n_greville, 1)) for greville, n_greville in zip(self.greville, self.n_grev)]
+        
+        
+        # Evaluate N - functions on interpolation and quadrature points
+        N_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, PP, 0, normalize=False)) for T, p, PP in zip(self.T, self.p, PP)]
+        
+        N_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, quad, 0, normalize=False)) for T, p, quad in zip(self.T, self.p, self.quad_grid)]
+        
+        
+        # Evaluate D - functions on interpolation and quadrature points
+        D_int = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, PP, 0, normalize=True)) for t, p, PP in zip(self.t, self.pr, PP)] 
+        
+        D_his = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p, quad, 0, normalize=True)) for t, p, quad in zip(self.t, self.pr, self.quad_grid)]
+        
+        
+        # Evaluate equilibrium quantities on interpolation and quadrature points
+        P11, P12, P13 = np.meshgrid(self.quad_grid[0].flatten(), self.greville[1], self.greville[2], indexing='ij')
+        P21, P22, P23 = np.meshgrid(self.greville[0], self.quad_grid[1].flatten(), self.greville[2], indexing='ij')
+        P31, P32, P33 = np.meshgrid(self.greville[0], self.greville[1], self.quad_grid[2].flatten(), indexing='ij')
+        
+        EQ11 = np.asfortranarray(Ginv[0][0](P11, P12, P13)*g_sqrt(P11, P12, P13))
+        EQ12 = np.asfortranarray(Ginv[0][1](P11, P12, P13)*g_sqrt(P11, P12, P13))
+        EQ13 = np.asfortranarray(Ginv[0][2](P11, P12, P13)*g_sqrt(P11, P12, P13))
+        EQ1 = [EQ11, EQ12, EQ13]
+        
+        EQ21 = np.asfortranarray(Ginv[1][0](P21, P22, P23)*g_sqrt(P11, P12, P13))
+        EQ22 = np.asfortranarray(Ginv[1][1](P21, P22, P23)*g_sqrt(P11, P12, P13))
+        EQ23 = np.asfortranarray(Ginv[1][2](P21, P22, P23)*g_sqrt(P11, P12, P13))
+        EQ2 = [EQ21, EQ22, EQ23]
+                                 
+        
+        EQ31 = np.asfortranarray(Ginv[2][0](P31, P32, P33))
+        EQ32 = np.asfortranarray(Ginv[2][1](P31, P32, P33))
+        EQ33 = np.asfortranarray(Ginv[2][2](P31, P32, P33))
+        EQ3 = [EQ31, EQ32, EQ33]
+        
+        
+        # Local storage of right-hand-sides (for even degree one additional spline per integration interval!)
+        RHS1 = [np.zeros((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2]), order='F') for nv1 in nv1]
+        RHS2 = [np.zeros((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2]), order='F') for nv2 in nv2]
+        RHS3 = [np.zeros((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2]), order='F') for nv3 in nv3]
+        
+        
+        
+        #==================shift in local indices for integrations============================================================
+        il_add = []
+               
+        for mu in range(3):
+               
+            if self.bc[mu] == True:
+                   
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+               
+                else:
+                    il_add.append(np.array([0, 1] * self.Nel[mu]))
+                                     
+            else:
+                                     
+                if self.p[mu]%2 != 0:
+                    il_add.append(np.array([0] * self.ne[mu]))
+                                     
+                else:
+                    boundaries = int(self.p[mu]/2)
+                    il_add.append(np.array([0] * boundaries + [0, 1] * int((self.ne[0] - self.p[mu])/2) + [1] * boundaries))
+        #=====================================================================================================================
+                       
+        
+        
+        # Assembly of the first line
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1[0], RHS1[0])
+                                     
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], N_int[2], EQ1[1], RHS1[1])
+                                     
+        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], N_int[1], D_int[2], EQ1[2], RHS1[2])
+        
+        
+        # Assembly of the second line
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], N_int[2], EQ2[0], RHS2[0])
+                                     
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2[1], RHS2[1])
+                                     
+        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], N_his[1], D_int[2], EQ2[2], RHS2[2])
+        
+        
+        # Assembly of the third line
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], N_his[2], EQ3[0], RHS3[0])
+                                     
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], N_his[2], EQ3[1], RHS3[1])
+                                     
+        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3[2], RHS3[2])
+        
+        
+        # Grid indices               
+        indices1 = [np.indices((n1[0], n1[1], n1[2], nv1[0], nv1[1], nv1[2])) for nv1 in nv1]
+        indices2 = [np.indices((n2[0], n2[1], n2[2], nv2[0], nv2[1], nv2[2])) for nv2 in nv2]
+        indices3 = [np.indices((n3[0], n3[1], n3[2], nv3[0], nv3[1], nv3[2])) for nv3 in nv3]                             
+        
+        
+        
+        # Row indices of global matrix
+        row1 = [(n1[1]*n1[2]*indices1[0] + n1[2]*indices1[1] + indices1[2]).flatten() for indices1 in indices1]
+        row2 = [(n2[1]*n2[2]*indices2[0] + n2[2]*indices2[1] + indices2[2]).flatten() for indices2 in indices2]
+        row3 = [(n3[1]*n3[2]*indices3[0] + n3[2]*indices3[1] + indices3[2]).flatten() for indices3 in indices3]
+        
+        
+        # Column indices of global matrix in 1-direction
+        if bc1 == True:
+            
+            col1_1 = [(indices1[3] + np.arange(n1[0])[:, None, None, None, None, None])%n1[0] for indices1 in indices1]
+            col1_2 = [(indices2[3] + np.arange(n2[0])[:, None, None, None, None, None])%n2[0] for indices2 in indices2]
+            col1_3 = [(indices3[3] + np.arange(n3[0])[:, None, None, None, None, None])%n3[0] for indices3 in indices3]
+                                        
+        else:
+            
+            print('not yet implemented!')
+            
+        
+        # Column indices of global matrix in 2-direction
+        if bc2 == True:
+                                     
+            col2_1 = [(indices1[4] + np.arange(n1[1])[None, :, None, None, None, None])%n1[1] for indices1 in indices1]
+            col2_2 = [(indices2[4] + np.arange(n2[1])[None, :, None, None, None, None])%n2[1] for indices2 in indices2]
+            col2_3 = [(indices3[4] + np.arange(n3[1])[None, :, None, None, None, None])%n3[1] for indices3 in indices3]
+               
+        else:
+            
+            print('not yet implemented!')
+            
+            
+        # Column indices of global matrix in 3-direction
+        if bc3 == True:
+                                     
+            col3_1 = [(indices1[5] + np.arange(n1[2])[None, None, :, None, None, None])%n1[2] for indices1 in indices1]
+            col3_2 = [(indices2[5] + np.arange(n2[2])[None, None, :, None, None, None])%n2[2] for indices2 in indices2]
+            col3_3 = [(indices3[5] + np.arange(n3[2])[None, None, :, None, None, None])%n3[2] for indices3 in indices3]
+               
+        else:
+            
+            print('not yet implemented!')
+        
+        col1 = [(n1[1]*n1[2]*col1_1 + n1[2]*col2_1 + col3_1).flatten() for col1_1, col2_1, col3_1 in zip(col1_1, col2_1, col3_1)]
+        col2 = [(n2[1]*n2[2]*col1_2 + n2[2]*col2_2 + col3_2).flatten() for col1_2, col2_2, col3_2 in zip(col1_2, col2_2, col3_2)]
+        col3 = [(n3[1]*n3[2]*col1_3 + n3[2]*col2_3 + col3_3).flatten() for col1_3, col2_3, col3_3 in zip(col1_3, col2_3, col3_3)]
+        
+
+        # Create sparse matrices (1 - component)
+        R1 = [sparse.csc_matrix((RHS1.flatten(), (row1, col1)), shape=(n1[0]*n1[1]*n1[2], n1[0]*n1[1]*n1[2])) for RHS1, row1, col1 in zip(RHS1, row1, col1)]
+                  
+        R1[0].eliminate_zeros()
+        R1[1].eliminate_zeros()
+        R1[2].eliminate_zeros()
+        
+        R1 = sparse.bmat([R1], format='csc')
+        
+        
+        # Create sparse matrices (2 - component)
+        R2 = [sparse.csc_matrix((RHS2.flatten(), (row2, col2)), shape=(n2[0]*n2[1]*n2[2], n2[0]*n2[1]*n2[2])) for RHS2, row2, col2 in zip(RHS2, row2, col2)]
+                  
+        R2[0].eliminate_zeros()
+        R2[1].eliminate_zeros()
+        R2[2].eliminate_zeros()
+        
+        R2 = sparse.bmat([R2], format='csc')
+        
+        
+        # Create sparse matrices (3 - component)
+        R3 = [sparse.csc_matrix((RHS3.flatten(), (row3, col3)), shape=(n3[0]*n3[1]*n3[2], n3[0]*n3[1]*n3[2])) for RHS3, row3, col3 in zip(RHS3, row3, col3)]
+                  
+        R3[0].eliminate_zeros()
+        R3[1].eliminate_zeros()
+        R3[2].eliminate_zeros()
+        
+        R3 = sparse.bmat([R3], format='csc')
+        
+        return R1, R2, R3 
+    
+    
+    
+    
+    def projection_T_old(self, B0, Ginv):
         
         p1, p2, p3 = self.p
         bc_1, bc_2, bc_3 = self.bc
