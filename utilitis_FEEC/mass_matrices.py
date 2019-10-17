@@ -14,6 +14,186 @@ ker = epyccel(ker)
 
 
 
+#==================================================mass matrix in V0 (1d)======================================================
+def mass_1d_NN(T, p, bc):
+    
+    
+    el_b             = bsp.breakpoints(T, p)
+    Nel              = len(el_b - 1)
+    NbaseN           = Nel + p - bc*p
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts,     wts     = bsp.quadrature_grid(el_b, pts_loc, wts_loc)
+
+    basisN           = bsp.basis_ders_on_quad_grid(T, p, pts, 0)
+
+    M                = np.zeros((NbaseN, 2*p + 1))
+
+    for ie in range(Nel):
+
+        for il in range(p + 1):
+            for jl in range(p + 1):
+
+                value = 0.
+
+                for q in range(p + 1):
+                    value += wts[ie, q] * basisN[ie, il, 0, q] * basisN[ie, jl, 0, q]
+
+                M[(ie + il)%NbaseN, p + jl - il] += value
+                
+    indices = np.indices((NbaseN, 2*p + 1))
+    shift   = np.arange(NbaseN) - p
+    
+    row     = indices[0].flatten()
+    col     = (indices[1] + shift[:, None])%NbaseN
+    
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN, NbaseN))
+    M.eliminate_zeros()
+                
+    return M    
+#==============================================================================================================================
+
+
+
+
+#==================================================mass matrix in V0/V1 (1d DN) (1d)===========================================
+def mass_1d_DN(T, p, bc):
+    
+    t                = T[1:-1]
+    
+    el_b             = bsp.breakpoints(T, p)
+    Nel              = len(el_b - 1)
+    NbaseN           = Nel + p - bc*p
+    NbaseD           = NbaseN - (1 - bc)
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts,     wts     = bsp.quadrature_grid(el_b, pts_loc, wts_loc)
+
+    basisN           = bsp.basis_ders_on_quad_grid(T, p, pts, 0)
+    basisD           = bsp.basis_ders_on_quad_grid(t, p - 1, pts, 0, normalize=True)
+    
+    M                = np.zeros((NbaseD, 2*p + 1))
+
+    for ie in range(Nel):
+
+        for il in range(p):
+            for jl in range(p + 1):
+
+                value = 0.
+
+                for q in range(p + 1):
+                    value += wts[ie, q] * basisD[ie, il, 0, q] * basisN[ie, jl, 0, q]
+
+                M[(ie + il)%NbaseD, p + jl - il] += value
+                
+    indices = np.indices((NbaseD, 2*p + 1))
+    shift   = np.arange(NbaseD) - p
+
+    row     = indices[0].flatten()
+    col     = (indices[1] + shift[:, None])%NbaseN
+    
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD, NbaseN))
+    M.eliminate_zeros()
+                
+    return M
+#==============================================================================================================================
+
+
+
+
+#==================================================mass matrix in V0/V1 (1d ND) (1d)===========================================
+def mass_1d_ND(T, p, bc):
+    
+    t                = T[1:-1]
+    
+    el_b             = bsp.breakpoints(T, p)
+    Nel              = len(el_b - 1)
+    NbaseN           = Nel + p - bc*p
+    NbaseD           = NbaseN - (1 - bc)
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts,     wts     = bsp.quadrature_grid(el_b, pts_loc, wts_loc)
+
+    basisN           = bsp.basis_ders_on_quad_grid(T, p, pts, 0)
+    basisD           = bsp.basis_ders_on_quad_grid(t, p - 1, pts, 0, normalize=True)
+    
+    M                = np.zeros((NbaseN, 2*p + 1))
+
+    for ie in range(Nel):
+
+        for il in range(p + 1):
+            for jl in range(p):
+
+                value = 0.
+
+                for q in range(p + 1):
+                    value += wts[ie, q] * basisN[ie, il, 0, q] * basisD[ie, jl, 0, q]
+
+                M[(ie + il)%NbaseN, p + jl - il] += value
+                
+    
+    indices = np.indices((NbaseN, 2*p + 1))
+    shift   = np.arange(NbaseN) - p
+
+    row     = indices[0].flatten()
+    col     = (indices[1] + shift[:, None])%NbaseD
+    
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN, NbaseD))
+    M.eliminate_zeros()
+                
+    return M
+#==============================================================================================================================
+
+
+
+
+#==================================================mass matrix in V1 (1d)======================================================
+def mass_1d_DD(T, p, bc):
+    
+    t                = T[1:-1]
+    
+    el_b             = bsp.breakpoints(T, p)
+    Nel              = len(el_b - 1)
+    NbaseN           = Nel + p - bc*p
+    NbaseD           = NbaseN - (1 - bc)
+    
+    pts_loc, wts_loc = np.polynomial.legendre.leggauss(p + 1)
+    pts,     wts     = bsp.quadrature_grid(el_b, pts_loc, wts_loc)
+
+    basisD           = bsp.basis_ders_on_quad_grid(t, p - 1, pts, 0, normalize=True)
+    
+    M                = np.zeros((NbaseD, 2*p + 1))
+
+    for ie in range(Nel):
+
+        for il in range(p):
+            for jl in range(p):
+
+                value = 0.
+
+                for q in range(p + 1):
+                    value += wts[ie, q] * basisD[ie, il, 0, q] * basisD[ie, jl, 0, q]
+
+                M[(ie + il)%NbaseD, p + jl - il] += value
+                
+    
+    indices = np.indices((NbaseD, 2*p + 1))
+    shift   = np.arange(NbaseD) - p
+
+    row     = indices[0].flatten()
+    col     = (indices[1] + shift[:, None])%NbaseD
+    
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD, NbaseD))
+    M.eliminate_zeros()
+                
+    return M
+#==============================================================================================================================
+
+
+
+
+
+
 #==================================================mass matrix in V0 (3d)======================================================
 def mass_V0(T, p, bc, g_sqrt):
     

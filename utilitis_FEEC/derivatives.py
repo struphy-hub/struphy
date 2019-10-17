@@ -1,8 +1,12 @@
-import numpy as np
+import numpy                  as np
+import utilitis_FEEC.bsplines as bsp
+
 from scipy import sparse
 
 
-def GRAD_1d(p, Nbase, bc):
+
+#================================================discrete gradient matrix (1d)=================================================
+def GRAD_1d(T, p, bc):
     """
     Returns the 1d discrete gradient matrix.
     
@@ -15,7 +19,7 @@ def GRAD_1d(p, Nbase, bc):
         number of spline functions
         
     bc : boolean
-        boundary conditions (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
+        boundary conditions (True = periodic, False = else)
         
     Returns
     -------
@@ -23,280 +27,92 @@ def GRAD_1d(p, Nbase, bc):
         discrete gradient matrix
     """
     
+    el_b      = bsp.breakpoints(T, p)
+    Nel       = len(el_b) - 1
+    NbaseN    = Nel + p - bc*p
+    
+    
     if bc == True:
-        Nbase_0 = Nbase - p
         
-        G = np.zeros((Nbase_0, Nbase_0))
+        G = np.zeros((NbaseN, NbaseN))
         
-        for i in range(Nbase_0):
+        for i in range(NbaseN):
+            
             G[i, i] = -1.
-            if i < Nbase_0 - 1:
+            
+            if i < NbaseN - 1:
                 G[i, i + 1] = 1.
                 
         G[-1, 0] = 1.
         
         return G
     
+    
     else:
         
-        G = np.zeros((Nbase - 1, Nbase))
+        G = np.zeros((NbaseN - 1, NbaseN))
     
-        for i in range(Nbase - 1):
+        for i in range(NbaseN - 1):
+            
             G[i, i] = -1.
             G[i, i  + 1] = 1.
             
-        if bc == False:
-            G = G[:, 1:-1]
+        return G
+#==============================================================================================================================
+
+
+    
+    
+    
+
+#================================================discrete derivatives in higher dimensions=====================================
+class discrete_derivatives:
+    
+    def __init__(self, p, T, bc):
+        
+        self.el_b    = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
+        self.Nel     = [len(el_b) - 1 for el_b in self.el_b]
+        
+        self.NbaseN  = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, p, bc)]
+        self.NbaseD  = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, bc)]
+        
+        self.grad_1d = [sparse.csr_matrix(GRAD_1d(T, p, bc)) for T, p, bc in zip(T, p, bc)]
+
+    
+    
+    def GRAD_3d(self, T, p, bc):
+        
+        G1 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1])), sparse.identity(self.NbaseN[2]))
+        G2 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1]), sparse.identity(self.NbaseN[2]))
+        G3 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), sparse.identity(self.NbaseN[1])), self.grad_1d[2])
+
+        G  = sparse.bmat([[G1], [G2], [G3]], format='csr')
 
         return G
     
+    
+    
+    def CURL_3d(self, T, p, bc):
+        
+        C12 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), sparse.identity(self.NbaseD[1])), self.grad_1d[2])
+        C13 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1]), sparse.identity(self.NbaseD[2]))
+        
+        C21 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), sparse.identity(self.NbaseN[1])), self.grad_1d[2])
+        C23 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1])), sparse.identity(self.NbaseD[2]))
+        
+        C31 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1]), sparse.identity(self.NbaseN[2]))
+        C32 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1])), sparse.identity(self.NbaseN[2]))
+        
+        C   = sparse.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csr')
+        
+    
+    def DIV_3d(self, T, p, bc):
+        
+        D1 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1])), sparse.identity(self.NbaseD[2]))
+        D2 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1]), sparse.identity(self.NbaseD[2]))
+        D3 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), sparse.identity(self.NbaseD[1])), self.grad_1d[2])
 
-    
-    
-def GRAD_2d(p, Nbase, bc):
-    """
-    Returns the 2d discrete gradient matrix.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-        
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
-        
-    Returns
-    -------
-    G : sparse matrix
-        3d discrete gradient matrix
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    bc_x, bc_y, bc_z = bc
-    
-    grad_x_1d = sparse.csr_matrix(GRAD_1d(px, Nbase_x, bc_x))
-    grad_y_1d = sparse.csr_matrix(GRAD_1d(py, Nbase_y, bc_y))
-    grad_z_1d = sparse.csr_matrix(GRAD_1d(pz, Nbase_z, bc_z))
-    
-    if bc_x == None:
-        full_x = 2
-    else:
-        full_x = 0
-        
-    if bc_y == None:
-        full_y = 2
-    else:
-        full_y = 0
-        
-    if bc_z == None:
-        full_z = 2
-    else:
-        full_z = 0
-    
-    Nbase_x_0 = Nbase_x - bc_x*px - (1 - bc_x)*2 + full_x
-    Nbase_y_0 = Nbase_y - bc_y*py - (1 - bc_y)*2 + full_y
-    Nbase_z_0 = Nbase_z - bc_z*pz - (1 - bc_z)*2 + full_z
-    
-    grad_x = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0)), sparse.identity(Nbase_z_0))
-    grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), grad_y_1d), sparse.identity(Nbase_z_0))
-    grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), sparse.identity(Nbase_y_0)), grad_z_1d)
-    
-    G = sparse.bmat([[grad_x], [grad_y], [grad_z]], format='csr')
-    
-    return G
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+        D  = sparse.bmat([[D1, D2, D3]], format='csr')
 
-    
-def GRAD_3d(p, Nbase, bc):
-    """
-    Returns the 3d discrete gradient matrix.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-        
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
-        
-    Returns
-    -------
-    G : sparse matrix
-        3d discrete gradient matrix
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    bc_x, bc_y, bc_z = bc
-    
-    grad_x_1d = sparse.csr_matrix(GRAD_1d(px, Nbase_x, bc_x))
-    grad_y_1d = sparse.csr_matrix(GRAD_1d(py, Nbase_y, bc_y))
-    grad_z_1d = sparse.csr_matrix(GRAD_1d(pz, Nbase_z, bc_z))
-    
-    if bc_x == None:
-        full_x = 2
-    else:
-        full_x = 0
-        
-    if bc_y == None:
-        full_y = 2
-    else:
-        full_y = 0
-        
-    if bc_z == None:
-        full_z = 2
-    else:
-        full_z = 0
-    
-    Nbase_x_0 = Nbase_x - bc_x*px - (1 - bc_x)*2 + full_x
-    Nbase_y_0 = Nbase_y - bc_y*py - (1 - bc_y)*2 + full_y
-    Nbase_z_0 = Nbase_z - bc_z*pz - (1 - bc_z)*2 + full_z
-    
-    grad_x = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0)), sparse.identity(Nbase_z_0))
-    grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), grad_y_1d), sparse.identity(Nbase_z_0))
-    grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), sparse.identity(Nbase_y_0)), grad_z_1d)
-    
-    G = sparse.bmat([[grad_x], [grad_y], [grad_z]], format='csr')
-    
-    return G
-
-
-
-def CURL_3d(p, Nbase, bc):
-    """
-    Returns the 3d discrete curl matrix.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-        
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
-        
-    Returns
-    -------
-    C : sparse matrix
-        discrete curl matrix    
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    bc_x, bc_y, bc_z = bc
-    
-    grad_x_1d = sparse.csr_matrix(GRAD_1d(px, Nbase_x, bc_x))
-    grad_y_1d = sparse.csr_matrix(GRAD_1d(py, Nbase_y, bc_y))
-    grad_z_1d = sparse.csr_matrix(GRAD_1d(pz, Nbase_z, bc_z))
-    
-    if bc_x == None:
-        full_x = 2
-    else:
-        full_x = 0
-        
-    if bc_y == None:
-        full_y = 2
-    else:
-        full_y = 0
-        
-    if bc_z == None:
-        full_z = 2
-    else:
-        full_z = 0
-    
-    Nbase_x_0 = Nbase_x - bc_x*px - (1 - bc_x)*2 + full_x
-    Nbase_y_0 = Nbase_y - bc_y*py - (1 - bc_y)*2 + full_y
-    Nbase_z_0 = Nbase_z - bc_z*pz - (1 - bc_z)*2 + full_z
-
-    grad_xy = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), sparse.identity(Nbase_y_0 + (1 - bc_y) - full_y)), grad_z_1d)
-    grad_xz = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0), grad_y_1d), sparse.identity(Nbase_z_0 + (1 - bc_z) - full_z))
-
-    grad_yx = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x) - full_x), sparse.identity(Nbase_y_0)), grad_z_1d)
-    grad_yz = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0)), sparse.identity(Nbase_z_0 + (1 - bc_z) - full_z))
-
-    grad_zx = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x) - full_x), grad_y_1d), sparse.identity(Nbase_z_0))
-    grad_zy = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0 + (1 - bc_y) - full_y)), sparse.identity(Nbase_z_0))
-
-    ZERO_xx = sparse.csr_matrix((Nbase_x_0*(Nbase_y_0 + (1 - bc_y) - full_y)*(Nbase_z_0 + (1 - bc_z) - full_z), (Nbase_x_0 + (1 - bc_x) - full_x)*Nbase_y_0*Nbase_z_0))
-    ZERO_yy = sparse.csr_matrix(((Nbase_x_0 + (1 - bc_x) - full_x)*Nbase_y_0*(Nbase_z_0 + (1 - bc_z) - full_z), Nbase_x_0*(Nbase_y_0 + (1 - bc_y) - full_y)*Nbase_z_0))
-    ZERO_zz = sparse.csr_matrix(((Nbase_x_0 + (1 - bc_x) - full_x)*(Nbase_y_0 + (1 - bc_y) - full_y)*Nbase_z_0, Nbase_x_0*Nbase_y_0*(Nbase_z_0 + (1 - bc_z) - full_z)))
-    
-    C = sparse.bmat([[ZERO_xx, -grad_xy, grad_xz], [grad_yx, ZERO_yy, -grad_yz], [-grad_zx, grad_zy, ZERO_zz]], format='csr')
-
-    return C
-    
-    
-    
-def DIV_3d(p, Nbase, bc):
-    """
-    Returns the 3d discrete divergence matrix.
-    
-    Parameters
-    ----------
-    p : list of ints
-        spline degrees in each direction
-        
-    Nbase : list of ints
-        number of spline functions in each direction
-        
-    bc : list of booleans
-        boundary conditions in each direction (True = periodic, False = homogeneous Dirichlet, None = no boundary conditions)
-        
-    Returns
-    -------
-    D : sparse matrix
-        discrete divergence matrix    
-    """
-    
-    px, py, pz = p
-    Nbase_x, Nbase_y, Nbase_z = Nbase
-    bc_x, bc_y, bc_z = bc
-    
-    grad_x_1d = sparse.csr_matrix(GRAD_1d(px, Nbase_x, bc_x))
-    grad_y_1d = sparse.csr_matrix(GRAD_1d(py, Nbase_y, bc_y))
-    grad_z_1d = sparse.csr_matrix(GRAD_1d(pz, Nbase_z, bc_z))
-    
-    if bc_x == None:
-        full_x = 2
-    else:
-        full_x = 0
-        
-    if bc_y == None:
-        full_y = 2
-    else:
-        full_y = 0
-        
-    if bc_z == None:
-        full_z = 2
-    else:
-        full_z = 0
-    
-    Nbase_x_0 = Nbase_x - bc_x*px - (1 - bc_x)*2 + full_x
-    Nbase_y_0 = Nbase_y - bc_y*py - (1 - bc_y)*2 + full_y
-    Nbase_z_0 = Nbase_z - bc_z*pz - (1 - bc_z)*2 + full_z
-
-    grad_x = sparse.kron(sparse.kron(grad_x_1d, sparse.identity(Nbase_y_0 + (1 - bc_y) - full_y)), sparse.identity(Nbase_z_0 + (1 - bc_z) - full_z))
-    grad_y = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x) - full_x), grad_y_1d), sparse.identity(Nbase_z_0 + (1 - bc_z) - full_z))
-    grad_z = sparse.kron(sparse.kron(sparse.identity(Nbase_x_0 + (1 - bc_x) - full_x), sparse.identity(Nbase_y_0 + (1 - bc_y) - full_y)), grad_z_1d)
-    
-    D = sparse.bmat([[grad_x, grad_y, grad_z]], format='csr')
-
-    return D
+        return D     
+#==============================================================================================================================
