@@ -572,7 +572,7 @@ We define the antisymmetric block matrix
 -\text{diag}[\mathbb{P}^{2\top}_2(\mb{Q})\mb{b}_2] &\text{diag}[\mathbb{P}^{2\top}_1(\mb{Q})\mb{b}_1] &0
 \end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},
 \end{align}
-where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$. With this we can write
+where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. For reasons of clarity, we neglect the mapping for the moment, i.e. we have $DF=Id$. This yields
 \begin{align}
 &\left(i_{\#j_\mr{h}^1}B^2,V^1\right)\approx q_\mr{h}\mb{v}^\top\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mb{V}\quad\forall \mb{v}\in\mathbb{R}^{3N},
 \end{align}
@@ -584,11 +584,13 @@ where
 &\text{diag}(w_1,\ldots,w_{N_p}) &  \\
 & &\text{diag}(w_1,\ldots,w_{N_p})
 \end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
-&\mathbb{P}^1=\text{diag}(\mathbb{P}^1_{1/2/3})\in\mathbb{R}^{3N\times 3N_p}.
+&\mathbb{P}^1=\mathbb{P}^1(\mb{Q})=\begin{pmatrix}
+\mathbb{P}^1_1(\mb{Q}) & & \\ &\mathbb{P}^1_2(\mb{Q}) & \\ & &\mathbb{P}^1_3(\mb{Q})
+\end{pmatrix}\in\mathbb{R}^{3N\times 3N_p}.
 \end{align}
 The second term amounts to
 \begin{align}
-q_\mr{h}\left((\ast n_\mr{h}^3)i_{\#U^1}B^2,V^1\right)\approx q_\mr{h}\mb{v}^\top\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mathbb{P}^{1\top}\mb{u}\quad\forall\mb{v}\in\mathbb{R}^{3N}
+q_\mr{h}\left((\ast n_\mr{h}^3)i_{\#U^1}B^2,V^1\right)\approx q_\mr{h}\mb{v}^\top\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mathbb{P}^{1\top}\mb{u}\quad\forall\mb{v}\in\mathbb{R}^{3N},
 \end{align}
 which is clearly antisymmetric. Finally, we have to write the particles' equations of motion, which read for a single particle with logical coordinate $\mb{q}_k$ and physical velocity $\mb{v}_k$
 \begin{align}
@@ -597,7 +599,7 @@ which is clearly antisymmetric. Finally, we have to write the particles' equatio
 \Leftrightarrow \quad &\frac{\mr{d}\mb{Q}}{\mr{d}t}=\mb{V},\\
 &\frac{\mr{d}\mb{V}}{\mr{d}t}=\frac{q_\mr{h}}{m_\mr{h}}\left(\hat{\mathbb{B}}\mathbb{P}^{1\top}\mb{u}-\hat{\mathbb{B}}\mb{V}\right).
 \end{align}
-Let us introduce the discrete Hamiltonian in the case of incompressible shear Alfv\'{e}n waves
+In the last two equations we have again negelcted all terms arising form the mapping. Next, let us introduce the discrete Hamiltonian in the case of incompressible shear Alfv\'{e}n waves
 \small
 \begin{align}
 &\mathcal{H}=\mathcal{H}_U+\mathcal{H}_B+\mathcal{H}_\mr{h}\approx\frac{1}{2}\rho_0\,\mb{u}^\top\mathbb{M}^1\mb{u}+\frac{1}{2\mu_0}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{m_\mr{h}}{2}\mb{V}^\top\mathbb{W}\mb{V},\\
@@ -623,7 +625,30 @@ m_\mr{h}\mathbb{W}\mb{V}
 \end{pmatrix}.
 \end{align}
 \normalsize
-We end up with an antisymmetric Poisson matrix meaning that the discrete Hamiltonian is conserved.
+We end up with an antisymmetric Poisson matrix meaning that the discrete Hamiltonian is conserved. Assuming that the the Poisson matrix satisfies the Jacobi identity, we perform once more a Hamiltonian splitting to advance the system in time. Consequently, we split the Hamiltonian into the 7 parts
+\begin{align*}
+\mathcal{H}=&\mathcal{H}_{U1}+\mathcal{H}_{U2}+\mathcal{H}_{U3}+\mathcal{H}_{B}+\mathcal{H}_{\mr{h}x}+\mathcal{H}_{\mr{h}y}+\mathcal{H}_{\mr{h}z}\\
+=&\frac{1}{2}\rho_0\sum_{\mu=1}^3\,\mb{u}_\mu^\top\mathbb{M}^1_{\mu\mu}\mb{u}_\mu+\frac{1}{2}+\frac{1}{2\mu_0}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{m_\mr{h}}{2}\sum_{\mu=1}^3\mb{V}_\mu^\top\mathbb{W}_\mu\mb{V}_\mu.
+\end{align*}
+This yields the following sub-systems: \\
+
+\noindent \textbf{Problem 1}. For $t\in[0,\Delta t]$ and $\textbf{s}(t=0)=\textbf{s}^0$ we have,
+\begin{align}
+\frac{\mathrm{d} \textbf{s}}{\mathrm{d}t}=\mathbb{J}(\textbf{s})\nabla_{\textbf{s}}\mathcal{H}_{U1}(\textbf{s}),
+\end{align}
+where 
+\begin{align}
+\mathcal{H}_{U1}(\textbf{s})=\frac{1}{2}\rho_0\mb{u}_1^\top\mathbb{M}^1_{11}\mb{u}^1.
+\end{align}
+This can be solved analytically as
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{u}_1}{\mathrm{d}t}=0 &&\Rightarrow\quad \textbf{u}_1(\Delta t) = \textbf{u}_1^0,\\[1mm]
+    &\frac{\mathrm{d} \textbf{u}_2}{\mathrm{d}t}=\frac{q_\mr{h}}{\rho_0}\mathbb{M}_{22}^{-1}\mathbb{P}^1_2\mathbb{W}_2\hat{\mathbb{B}}_{21}\mathbb{P}^{1\top}_1\mb{u}_1 &&\Rightarrow\quad \textbf{u}_2(\Delta t) = \textbf{u}_2^0+\Delta t\frac{q_\mr{h}}{\rho_0}\mathbb{M}_{22}^{-1}\mathbb{P}^1_2\mathbb{W}_2\hat{\mathbb{B}}_{21}\mathbb{P}^{1\top}_1\mb{u}_1^0,\\[1mm]
+    &\frac{\mathrm{d} \textbf{u}_3}{\mathrm{d}t}=-\frac{q_\mr{h}}{\rho_0}\mathbb{M}_{33}^{-1}\mathbb{P}^1_3\mathbb{W}_3\hat{\mathbb{B}}_{31}\mathbb{P}^{1\top}\mb{u}_1 &&\Rightarrow\quad \textbf{u}_2(\Delta t) = \textbf{u}_2^0+\Delta t\frac{q_\mr{h}}{\rho_0}\mathbb{M}_{33}^{-1}\mathbb{P}^1_3\mathbb{W}_3\hat{\mathbb{B}}_{31}\mathbb{P}^{1\top}_1\mb{u}_1^0,\\[1mm]
+\end{alignat}
+\end{subequations}
+The corresponding integrator is denoted by $\textbf{s}(\Delta t)=\Phi_{\Delta t}^{U1}(\textbf{s}^0)$.
 \subsection{Current coupling scheme}
 In this section we add a species of fast particles described by a drift-kinetic equation (in the following DK equation) to the ideal MHD equations and derive the corresponding dispersion relation for parallel wave propagation to look for possible instabilities. The DK equation can be obtained by a guiding center approach where the fast gyromotion around the magnetic field lines is systematically eliminated such that one only works on time scales governed by the slower drift motion of the guiding center. The DK equation for the drift-kinetic distribution function $f^\mr{D}_\mr{h}=\fh(\mb{x},v_\parallel,\hat{\mu},t)$ (the "h" stands for "hot") reads
 \begin{align}

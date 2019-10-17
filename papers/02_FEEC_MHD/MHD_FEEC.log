@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  30 SEP 2019 08:59
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  2 OCT 2019 09:54
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1776,59 +1776,84 @@ e pdfs with page group included in a single page
 pdfTeX warning: pdflatex (file ./01_Figures/D_even.pdf): PDF inclusion: multipl
 e pdfs with page group included in a single page
 >] [10] [11] [12]
-Overfull \hbox (2.31226pt too wide) in paragraph at lines 624--624
+Overfull \hbox (2.31226pt too wide) in paragraph at lines 626--626
 [] 
  []
 
-[13]pdfTeX warning (ext4): destination with the same identifier (name{equation.
-6.1}) has been already used, duplicate ignored
+[13]
+Underfull \hbox (badness 10000) in paragraph at lines 632--634
+
+ []
+
+pdfTeX warning (ext4): destination with the same identifier (name{equation.6.1}
+) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
+l.649 \end{alignat}
+                   pdfTeX warning (ext4): destination with the same identifier 
+(name{equation.6.2}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.649 \end{alignat}
+                   pdfTeX warning (ext4): destination with the same identifier 
+(name{equation.6.3}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.649 \end{alignat}
+                   pdfTeX warning (ext4): destination with the same identifier 
+(name{equation.6.4}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.649 \end{alignat}
+                   pdfTeX warning (ext4): destination with the same identifier 
+(name{equation.6.1}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.670 \end{align}
                  pdfTeX warning (ext4): destination with the same identifier (n
 ame{equation.6.2}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
+l.670 \end{align}
                  pdfTeX warning (ext4): destination with the same identifier (n
 ame{equation.6.3}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
+l.670 \end{align}
                  pdfTeX warning (ext4): destination with the same identifier (n
 ame{equation.6.4}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
+l.670 \end{align}
                  pdfTeX warning (ext4): destination with the same identifier (n
 ame{equation.6.5}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
+l.670 \end{align}
                  pdfTeX warning (ext4): destination with the same identifier (n
 ame{equation.6.6}) has been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.645 \end{align}
-                  [14] [15] [16] [17] [18] [19]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 843.
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 843.
+l.670 \end{align}
+                  [14] [15] [16] [17] [18] [19] [20]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 868.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 868.
  (./MHD_FEEC.xwm)
 (./MHD_FEEC.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 843.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 843.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 868.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 868.
 Package rerunfilecheck Info: File `MHD_FEEC.out' has not changed.
 (rerunfilecheck)             Checksum: C9E0936C3116CAB375F3ADCD6EC3268C;1749.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 843.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 868.
  ) 
 Here is how much of TeX's memory you used:
- 34200 strings out of 493029
- 656336 string characters out of 6136233
- 849377 words of memory out of 5000000
- 36928 multiletter control sequences out of 15000+600000
- 48029 words of font info for 127 fonts, out of 8000000 for 9000
+ 34210 strings out of 493029
+ 656436 string characters out of 6136233
+ 857377 words of memory out of 5000000
+ 36930 multiletter control sequences out of 15000+600000
+ 51766 words of font info for 131 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 53i,23n,58p,10380b,845s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 53i,23n,58p,10380b,866s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbsy10.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/tex
@@ -1850,10 +1875,10 @@ pe1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
 lic/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ams
 fonts/cm/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
 symbols/msbm10.pfb>
-Output written on MHD_FEEC.pdf (19 pages, 416921 bytes).
+Output written on MHD_FEEC.pdf (20 pages, 420932 bytes).
 PDF statistics:
- 756 PDF objects out of 1000 (max. 8388607)
- 558 compressed objects within 6 object streams
- 270 named destinations out of 1000 (max. 500000)
+ 764 PDF objects out of 1000 (max. 8388607)
+ 565 compressed objects within 6 object streams
+ 274 named destinations out of 1000 (max. 500000)
  230 words of extra memory for PDF output out of 10000 (max. 10000000)
 
