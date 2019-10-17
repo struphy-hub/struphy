@@ -1,12 +1,15 @@
-import numpy as np
-import scipy.sparse as sparse
-import utilitis_FEEC.bsplines as bsp
+import numpy                                as np
+import scipy.sparse                         as sparse
+import utilitis_FEEC.bsplines               as bsp
+import utilitis_FEEC.kernels_projectors_mhd as kernels
 
-import utilitis_FEEC.kernels_mhd as kernels
 
+
+
+#==================================================calling epyccel for acceleration===========================================
 from pyccel import epyccel
 kernels = epyccel(kernels)
-
+#=============================================================================================================================
 
 
 

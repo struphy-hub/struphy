@@ -1,14 +1,20 @@
-import numpy as np
-
 from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 from psydac.linalg.block   import ProductSpace, BlockVector, BlockLinearOperator, BlockMatrix
 
+import numpy                              as np
+import utilitis_FEEC.bsplines             as bsp
+import utilitis_FEEC.kernels_mass_stencil as kernels
 
-import utilitis_FEEC.bsplines        as bsp
-import utilitis_FEEC.kernels_stencil as kernels
 
+
+
+
+#==================================================calling epyccel for acceleration===========================================
 from pyccel import epyccel
 kernels = epyccel(kernels)
+#=============================================================================================================================
+
+
 
 
 
