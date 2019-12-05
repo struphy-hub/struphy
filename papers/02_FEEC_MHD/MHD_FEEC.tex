@@ -479,6 +479,8 @@ We shall test different time integration schemes for this system. However, let u
 &\approx\frac{\rho_{0,123}}{2\sqrt{g}}\mb{u}^\top\mathbb{M}^1\mb{u}+\frac{1}{2\mu_0}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{1}{\gamma-1}\mb{p}^\top\mathbb{M}^0\mb{1}\\
 \Rightarrow\quad\frac{\mr{d}\mathcal{H}}{\mr{d}t}&=-\mb{u}^\top\mathbb{M}^1\mathbb{G}\mb{p}+\frac{\gamma}{\gamma-1}\mb{u}^\top\mathbb{M}^1\mathbb{G}\mb{p}_0
 \end{align}
+
+\newpage
 \section{Adding a kinetic species}
 \subsection{Full orbit current coupling scheme}
 We shall first study the coupling of ideal MHD to the full Vlasov equation and compare the results later to the reduced kinetic models. Although we have $\mb{E}=-\mb{U}\times\mb{B}$ in ideal MHD, we assume for the moment a general electric field and thus describe the kinetic component by
@@ -536,35 +538,37 @@ finally leads to
 \begin{align}
 D_\mr{R/L}(k,\omega)=1-\frac{v_\mr{A}^2k^2}{\omega^2}\pm\frac{\nu_\mr{h}\Omega_\mr{ch}}{\omega}+\frac{\nu_\mr{h}\Omega_\mr{ch}^2Z_\mr{h}^2}{A_\mr{h}\omega^2}\frac{\omega-kv_0}{k v_\mr{th}}Z(\xi^\pm),
 \end{align}
-where $Z$ is the plasma dispersion function and $\xi\pm=(\omega-kv_0\pm\Omega_\mr{ch})/(kv_\mr{th})$. Compared to the pure MHD we now have to deal with a new linearized  momentum balance equation of the form
+where $Z$ is the plasma dispersion function and $\xi\pm=(\omega-kv_0\pm\Omega_\mr{ch})/(kv_\mr{th})$. Compared to the pure MHD case, we now have to deal with a new linearized  momentum balance equation of the form
 \begin{align}
-&\rho_0\frac{\pa\mb{U}}{\pa t}=\frac{1}{\mu_0}(\nabla\times\mb{B}_0)\times\mb{B}+\frac{1}{\mu_0}(\nabla\times\mb{B})\times\mb{B}_0-\nabla p+q_\mr{h}n_\mr{h0}\mb{U}\times\mb{B}-\mb{j}_\mr{h}\times\mb{B}\\
-\Leftrightarrow\quad &(\ast\rho_0)\frac{\pa U^1}{\pa t}+\mr{d}p^0=\frac{1}{\mu_0}i_{\#\ast B_0}\mr{d}\ast B^2-q_\mr{h}(\ast n_\mr{h}^3)i_{\#U^1}B^2+i_{\#j_\mr{h}^1}B^2.
+&\rho_0\frac{\pa\mb{U}}{\pa t}=\frac{1}{\mu_0}(\nabla\times\mb{B}_0)\times\mb{B}+\frac{1}{\mu_0}(\nabla\times\mb{B})\times\mb{B}_0-\nabla p+q_\mr{h}n_\mr{h0}\mb{U}\times\mb{B}_\text{t}-\mb{j}_\mr{h}\times\mb{B}_\text{t}\\
+\Leftrightarrow\quad &(\ast\rho_0)\frac{\pa U^1}{\pa t}+\mr{d}p^0=\frac{1}{\mu_0}i_{\#\ast B_0}\mr{d}\ast B^2-q_\mr{h}(\ast n_\mr{h}^3)i_{\#U^1}B^2+i_{\#j_\mr{h}^1}B^2,
 \end{align}
-We assume a particle-like distribution function in physical space, i.e.
+where $\mb{B}_\text{t}$ denotes the total magnetic fiel, i.e. the background and fluctuation field. To descretize the equation, we assume a particle-like distribution function in physical space:
 \begin{align}
-f_\mr{h}=f_\mr{h}(t,\mb{x},\mb{v})\approx \sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\delta(\mb{v}-\mb{v}_k(t)),
+f_\mr{h}=f_\mr{h}(t,\mb{x},\mb{v})\approx \sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\delta(\mb{v}-\mb{v}_k(t)).
 \end{align}
-which means that the current density and number density in physical space are given by
+This means that the number density, current density and energy density in physical space are given by
 \begin{align}
-&\tilde{\mb{j}}_\mr{h}(t,\mb{x})=q_\mr{h}\sum_k w_k\mb{v}_k(t)\delta(\mb{x}-\mb{x}_k(t)), \\
-&\tilde{n}_\mr{h}(t,\mb{x})=\sum_k w_k\delta(\mb{x}-\mb{x}_k(t)).
+&\tilde{n}_\mr{h}(t,\mb{x})=\sum_k w_k\delta(\mb{x}-\mb{x}_k(t)),\\
+&\tilde{\mb{j}}_\mr{h}(t,\mb{x})=q_\mr{h}\sum_k w_k\mb{v}_k(t)\delta(\mb{x}-\mb{x}_k(t)),\\
+&\tilde{\epsilon}_\mr{h}(t,\mb{x})=\sum_{k}w_kv_k^2(t)\delta(\mb{x}-\mb{x}_k(t)).
 \end{align}
-Since there is no difference between vectors and forms in physical space, these expression are are as well the components of 1-form current density and the 3-form number density. To get the components on the logical domain we apply the transformation formulas for 1-forms, respectively 3-forms:
+Since there is no difference between vectors and forms in physical space, these expression are are as well the components of the 3-form number density, the 1-form current density and the 3-form energy density. To get the components on the logical domain we apply the transformation formulas for 3-forms, respectively 1-forms:
 \begin{align}
+&n_\mr{h,123}(t,\mb{q})=\sqrt{g}\tilde{n}_\mr{h}(t,F(\mb{q}))=\sum_k w_k\delta(\mb{q}-\mb{q}_k(t)),\\
 &\mb{j}_\mr{h}(t,\mb{q})=DF^\top\tilde{\mb{j}}_\mr{h}(t, F(\mb{q}))=q_\mr{h}\frac{1}{\sqrt{g}}DF^\top\sum_k w_k\mb{v}_k(t)\delta(\mb{q}-\mb{q}_k(t)),\\
-&n_\mr{h,123}(t,\mb{q})=\sqrt{g}\tilde{n}_\mr{h}(t,F(\mb{q}))=\sum_k w_k\delta(\mb{q}-\mb{q}_k(t)),
+&\epsilon_\mr{h,123}(t,\mb{q})=\sqrt{g}\tilde{\epsilon}_\mr{h}(t,F(\mb{q}))=\sum_k w_kv_k^2(t)\delta(\mb{q}-\mb{q}_k(t)),
 \end{align}
 where we made use of the transformation formula
 \begin{align}
 \delta(\mb{x}-\mb{x}_k(t))=\frac{1}{\sqrt{g}}\delta(\mb{q}-\mb{q}_k(t)).
 \end{align}
-Using these results in the weak fromulation of the momentum balance equation we get
+Using these results in the weak fromulation of the momentum balance equation we get for the term involving the current density
 \begin{align}
-&\left(i_{\#j_\mr{h}^1}B^2,V^1\right)=\int_{\hat{\Omega}}(\hat{\mb{B}}\times G^{-1}\mb{j}_\mr{h})^\top G^{-1}\mb{V}\sqrt{g}\,\mr{d}^3q\approx q_\mr{h}\sum_k w_k(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k)^\top G^{-1}\mb{V}_h(\mb{q}_k), \\
-&q_\mr{h}\left((\ast n_\mr{h}^3)i_{\#U^1}B^2,V^1\right)=q_\mr{h}\int_{\hat{\Omega}}\left(\frac{1}{\sqrt{g}}n_\mr{h,123}\hat{\mb{B}}\times G^{-1}\mb{U}\right)^\top G^{-1}\mb{V}\sqrt{g}\,\mr{d}^3q\\ &\approx q_\mr{h}\sum_k w_k(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}\mb{U}_h(\mb{q}_k))^\top G^{-1}\mb{V}_h(\mb{q}_k)
+&\left(i_{\#j_\mr{h}^1}B^2,V^1\right)=\int_{\hat{\Omega}}(\hat{\mb{B}}\times G^{-1}\mb{j}_\mr{h})^\top G^{-1}\mb{V}\sqrt{g}\,\mr{d}^3q\approx q_\mr{h}\sum_k w_k\mb{V}_h^\top(\mb{q}_k)G^{-1}(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k), \\
+&=q_\mr{h}\mb{v}^\top\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}\qquad\forall\;\mb{v}\in\mathbb{R}^{3N}.
 \end{align}
-We define the antisymmetric block matrix 
+Here we defined the antisymmetric block matrix 
 \begin{align}
 \hat{\mathbb{B}}=\hat{\mathbb{B}}(\mb{b},\mb{Q})=\begin{pmatrix}
 0 &-\text{diag}[\mathbb{P}^{2\top}_3(\mb{Q})\mb{b}_3] &\text{diag}[\mathbb{P}^{2\top}_2(\mb{Q})\mb{b}_2] \\
@@ -572,11 +576,7 @@ We define the antisymmetric block matrix
 -\text{diag}[\mathbb{P}^{2\top}_2(\mb{Q})\mb{b}_2] &\text{diag}[\mathbb{P}^{2\top}_1(\mb{Q})\mb{b}_1] &0
 \end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},
 \end{align}
-where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. For reasons of clarity, we neglect the mapping for the moment, i.e. we have $DF=Id$. This yields
-\begin{align}
-&\left(i_{\#j_\mr{h}^1}B^2,V^1\right)\approx q_\mr{h}\mb{v}^\top\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mb{V}\quad\forall \mb{v}\in\mathbb{R}^{3N},
-\end{align}
-where 
+where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. Moreover,
 \begin{align}
 &\mb{V}=(v_{1x},v_{2x},\ldots,v_{N_px},v_{1y},v_{2y},\ldots,v_{N_py},v_{1z},v_{2z},\ldots,v_{N_pz})^\top\in\mathbb{R}^{3N_p},\\
 &\mathbb{W}=\begin{pmatrix}
@@ -586,42 +586,51 @@ where
 \end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
 &\mathbb{P}^1=\mathbb{P}^1(\mb{Q})=\begin{pmatrix}
 \mathbb{P}^1_1(\mb{Q}) & & \\ &\mathbb{P}^1_2(\mb{Q}) & \\ & &\mathbb{P}^1_3(\mb{Q})
-\end{pmatrix}\in\mathbb{R}^{3N\times 3N_p}.
+\end{pmatrix}\in\mathbb{R}^{3N\times 3N_p}.\\
+&\tilde{G}^{-1}=\begin{pmatrix}
+\text{diag}(G^{11}(\mb{Q})) &\text{diag}(G^{12}(\mb{Q})) &\text{diag}(G^{13}(\mb{Q})) \\
+\text{diag}(G^{21}(\mb{Q})) &\text{diag}(G^{22}(\mb{Q})) &\text{diag}(G^{23}(\mb{Q})) \\
+\text{diag}(G^{31}(\mb{Q})) &\text{diag}(G^{32}(\mb{Q})) &\text{diag}(G^{33}(\mb{Q}))
+\end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
+&\tilde{DF}^{-1}=\begin{pmatrix}
+\text{diag}(DF^{11}(\mb{Q})) &\text{diag}(DF^{12}(\mb{Q})) &\text{diag}(DF^{13}(\mb{Q})) \\
+\text{diag}(DF^{21}(\mb{Q})) &\text{diag}(DF^{22}(\mb{Q})) &\text{diag}(DF^{23}(\mb{Q})) \\
+\text{diag}(DF^{31}(\mb{Q})) &\text{diag}(DF^{32}(\mb{Q})) &\text{diag}(DF^{33}(\mb{Q}))
+\end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p}.
 \end{align}
-The second term amounts to
+The second term involving the number density amounts to
 \begin{align}
-q_\mr{h}\left((\ast n_\mr{h}^3)i_{\#U^1}B^2,V^1\right)\approx q_\mr{h}\mb{v}^\top\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mathbb{P}^{1\top}\mb{u}\quad\forall\mb{v}\in\mathbb{R}^{3N},
+&q_\mr{h}\left((\ast n_\mr{h}^3)i_{\#U^1}B^2,V^1\right)=q_\mr{h}\int_{\hat{\Omega}}\left(\frac{1}{\sqrt{g}}n_\mr{h,123}\hat{\mb{B}}\times G^{-1}\mb{U}\right)^\top G^{-1}\mb{V}\sqrt{g}\,\mr{d}^3q\\ 
+&\approx q_\mr{h}\sum_k w_k\mb{V}_h^\top(\mb{q}_k)G^{-1}(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}\mb{U}_h(\mb{q}_k))=q_\mr{h}\mb{v}^\top\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}\qquad\forall\;\mb{v}\in\mathbb{R}^{3N},
 \end{align}
 which is clearly antisymmetric. Finally, we have to write the particles' equations of motion, which read for a single particle with logical coordinate $\mb{q}_k$ and physical velocity $\mb{v}_k$
 \begin{align}
-&\frac{\mr{d}\mb{q}_k}{\mr{d}t}=DF^{-1}\mb{v}_k,\\
-&\frac{\mr{d}\mb{v}_k}{\mr{d}t}=\frac{q_\mr{h}}{m_\mr{h}}\left(\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-\top}\mb{U}_h(\mb{q}_k)-\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times\mb{v}_k\right).\\
-\Leftrightarrow \quad &\frac{\mr{d}\mb{Q}}{\mr{d}t}=\mb{V},\\
-&\frac{\mr{d}\mb{V}}{\mr{d}t}=\frac{q_\mr{h}}{m_\mr{h}}\left(\hat{\mathbb{B}}\mathbb{P}^{1\top}\mb{u}-\hat{\mathbb{B}}\mb{V}\right).
+\frac{\mr{d}\mb{q}_k}{\mr{d}t}&=DF^{-1}\mb{v}_k,\\
+\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{q_\mr{h}}{m_\mr{h}}\left(\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-\top}\mb{U}_h(\mb{q}_k)-\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times\mb{v}_k\right).\\
+&=\frac{q_\mr{h}}{m_\mr{h}}\left(DF^{-\top}(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}\mb{U}_h(\mb{q}_k))-DF^{-\top}(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k)\right),
+\end{align}
+where we used the identity $A\mb{b}\times A\mb{c}=\det(A)A^{-\top}(\mb{b}\times\mb{c})$ from vector algebra. Writing the above equation of motion in maxtrix-vector form for all particles yields
+\begin{align}
+&\frac{\mr{d}\mb{Q}}{\mr{d}t}=\tilde{DF}^{-1}\mb{V},\\
+&\frac{\mr{d}\mb{V}}{\mr{d}t}=\frac{q_\mr{h}}{m_\mr{h}}\left(\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}\right).
 \end{align}
 In the last two equations we have again negelcted all terms arising form the mapping. Next, let us introduce the discrete Hamiltonian in the case of incompressible shear Alfv\'{e}n waves
 \small
 \begin{align}
 &\mathcal{H}=\mathcal{H}_U+\mathcal{H}_B+\mathcal{H}_\mr{h}\approx\frac{1}{2}\rho_0\,\mb{u}^\top\mathbb{M}^1\mb{u}+\frac{1}{2\mu_0}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{m_\mr{h}}{2}\mb{V}^\top\mathbb{W}\mb{V},\\
-\Rightarrow\quad &\nabla\mathcal{H}=\begin{pmatrix}
-\rho_0\mathbb{M}^1\mb{u} \\
-\mathbb{M}^2\mb{b}/\mu_0 \\
-0 \\
-m_\mr{h}\mathbb{W}\mb{V}
-\end{pmatrix},\\
-\Rightarrow &\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
+\Rightarrow\quad &\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
 \mb{u} \\ \mb{b} \\ \mb{Q} \\ \mb{V}
-\end{pmatrix}=
-\begin{pmatrix}
-q_\mr{h}/\rho_0^2\mathbb{M}^{-1}\mathbb{P}^1\mathbb{W}\hat{\mathbb{B}}\mathbb{P}^{1\top}\mathbb{M}^{-1} &\mathbb{M}^{-1}\mathcal{T}^\top\mathbb{C}^\top/\rho_0 &0 &q_\mr{h}/(\rho_0m_\mr{h})\mathbb{M}^{-1}\mathbb{P}^1\hat{\mathbb{B}}\\
--\mathbb{C}\mathcal{T}\mathbb{M}^{-1}/\rho_0 &0 &0 &0 \\
-0 &0 &0 &1/\mr{m}_\mr{h}\mathbb{W}^{-1} \\
-q_\mr{h}/(\rho_0m_\mr{h})\hat{\mathbb{B}}\mathbb{P}^{1\top}\mathbb{M}^{-1} &0 &-1/m_\mr{h}\mathbb{W}^{-1} &q_\mr{h}/m_\mr{h}^2\hat{\mathbb{B}}\mathbb{W}^{-1}
-\end{pmatrix}\begin{pmatrix}
+\end{pmatrix}=\mathbb{J}\nabla\mathcal{H}=\mathbb{J}\begin{pmatrix}
 \rho_0\mathbb{M}^1\mb{u} \\
 \mathbb{M}^2\mb{b}/\mu_0 \\
 0 \\
 m_\mr{h}\mathbb{W}\mb{V}
+\end{pmatrix},\\ &\mathbb{J}=
+\begin{pmatrix}
+\frac{q_\mr{h}}{\rho_0^2}\mathbb{M}^{-1}\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mathbb{M}^{-1} &\frac{1}{\rho_0}\mathbb{M}^{-1}\mathcal{T}^\top\mathbb{C}^\top &0 &\frac{q_\mr{h}}{\rho_0m_\mr{h}}\mathbb{M}^{-1}\mathbb{P}_1\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\\
+-\frac{1}{\rho_0}\mathbb{C}\mathcal{T}\mathbb{M}^{-1} &0 &0 &0 \\
+0 &0 &0 &\frac{1}{\mr{m}_\mr{h}}\mathbb{W}^{-1} \\
+\frac{q_\mr{h}}{\rho_0m_\mr{h}}\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}^{1\top}\mathbb{M}^{-1} &0 &-\frac{1}{m_\mr{h}}\mathbb{W}^{-1} &\frac{q_\mr{h}}{m_\mr{h}^2}\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{DF}^{-1}\mathbb{W}^{-1}
 \end{pmatrix}.
 \end{align}
 \normalsize
