@@ -105,6 +105,8 @@ class discrete_derivatives:
         
         C   = sparse.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csr')
         
+        return C
+        
     
     def DIV_3d(self, T, p, bc):
         

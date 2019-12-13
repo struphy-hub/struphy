@@ -1343,15 +1343,15 @@ class projections_mhd:
         EQ13 = np.asfortranarray(Ginv[0][2](P11, P12, P13)*g_sqrt(P11, P12, P13))
         EQ1 = [EQ11, EQ12, EQ13]
         
-        EQ21 = np.asfortranarray(Ginv[1][0](P21, P22, P23)*g_sqrt(P11, P12, P13))
-        EQ22 = np.asfortranarray(Ginv[1][1](P21, P22, P23)*g_sqrt(P11, P12, P13))
-        EQ23 = np.asfortranarray(Ginv[1][2](P21, P22, P23)*g_sqrt(P11, P12, P13))
+        EQ21 = np.asfortranarray(Ginv[1][0](P21, P22, P23)*g_sqrt(P21, P22, P23))
+        EQ22 = np.asfortranarray(Ginv[1][1](P21, P22, P23)*g_sqrt(P21, P22, P23))
+        EQ23 = np.asfortranarray(Ginv[1][2](P21, P22, P23)*g_sqrt(P21, P22, P23))
         EQ2 = [EQ21, EQ22, EQ23]
                                  
         
-        EQ31 = np.asfortranarray(Ginv[2][0](P31, P32, P33))
-        EQ32 = np.asfortranarray(Ginv[2][1](P31, P32, P33))
-        EQ33 = np.asfortranarray(Ginv[2][2](P31, P32, P33))
+        EQ31 = np.asfortranarray(Ginv[2][0](P31, P32, P33)*g_sqrt(P31, P32, P33))
+        EQ32 = np.asfortranarray(Ginv[2][1](P31, P32, P33)*g_sqrt(P31, P32, P33))
+        EQ33 = np.asfortranarray(Ginv[2][2](P31, P32, P33)*g_sqrt(P31, P32, P33))
         EQ3 = [EQ31, EQ32, EQ33]
         
         

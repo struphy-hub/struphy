@@ -96,6 +96,21 @@ class mappings:
             self.DF = [[DF11, DF12, DF13], [DF21, DF22, DF23], [DF31, DF32, DF33]]
             
             
+            DF11inv = lambda x, y, z : 1/self.Lx*np.ones(x.shape)
+            DF12inv = lambda x, y, z : 0*x
+            DF13inv = lambda x, y, z : 0*x
+            
+            DF21inv = lambda x, y, z : 0*x
+            DF22inv = lambda x, y, z : 1/self.Ly*np.ones(x.shape)
+            DF23inv = lambda x, y, z : 0*x
+            
+            DF31inv = lambda x, y, z : 0*x
+            DF32inv = lambda x, y, z : 0*x
+            DF33inv = lambda x, y, z : 1/self.Lz*np.ones(x.shape)
+            
+            self.DFinv = [[DF11inv, DF12inv, DF13inv], [DF21inv, DF22inv, DF23inv], [DF31inv, DF32inv, DF33inv]]
+            
+            
             G11 = lambda x, y, z : self.Lx**2*np.ones(x.shape)
             G12 = lambda x, y, z : 0*x
             G13 = lambda x, y, z : 0*x
