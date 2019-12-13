@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  10 DEC 2019 15:12
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  12 DEC 2019 17:01
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**MHD_FEEC.tex
-(./MHD_FEEC.tex
+**MHD_FEEC_Alfven.tex
+(./MHD_FEEC_Alfven.tex
 LaTeX2e <2016/02/01>
 Babel <3.9q> and hyphenation patterns for 81 language(s) loaded.
 (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
@@ -1525,8 +1525,9 @@ Package: framed 2011/10/22 v 0.96: framed or shaded text with page breaks
 \xwm@boxb=\box93
 \xwm@cnta=\count280
 \xwm@wrt=\write4
- (./MHD_FEEC.xwm)
-\openout4 = `MHD_FEEC.xwm'.
+
+(./MHD_FEEC_Alfven.xwm)
+\openout4 = `MHD_FEEC_Alfven.xwm'.
 
 )
 (/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty
@@ -1591,25 +1592,30 @@ Package: abstract 2009/06/08 v1.2a configurable abstracts
 \absrightindent=\skip86
 \absparindent=\skip87
 \absparsep=\skip88
-) (./MHD_FEEC.aux)
-\openout1 = `MHD_FEEC.aux'.
+)
+(/usr/share/texlive/texmf-dist/tex/latex/jknapltx/mathbbol.sty
+Package: mathbbol 1995/01/01
+\symbbold=\mathgroup7
+)
+(./MHD_FEEC_Alfven.aux)
+\openout1 = `MHD_FEEC_Alfven.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 83.
-LaTeX Font Info:    ... okay on input line 83.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 87.
+LaTeX Font Info:    ... okay on input line 87.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -1619,14 +1625,14 @@ LaTeX Font Info:    ... okay on input line 83.
 * layout: <same size as paper>
 * layoutoffset:(h,v)=(0.0pt,0.0pt)
 * modes: 
-* h-part:(L,W,R)=(42.67912pt, 512.14963pt, 42.67912pt)
+* h-part:(L,W,R)=(56.9055pt, 483.69687pt, 56.9055pt)
 * v-part:(T,H,B)=(56.9055pt, 731.23584pt, 56.9055pt)
 * \paperwidth=597.50787pt
 * \paperheight=845.04684pt
-* \textwidth=512.14963pt
+* \textwidth=483.69687pt
 * \textheight=731.23584pt
-* \oddsidemargin=-29.59087pt
-* \evensidemargin=-29.59087pt
+* \oddsidemargin=-15.36449pt
+* \evensidemargin=-15.36449pt
 * \topmargin=-52.36449pt
 * \headheight=12.0pt
 * \headsep=25.0pt
@@ -1666,7 +1672,7 @@ Dictionary: translator-basic-dictionary, Language: English
 (/usr/share/texlive/texmf-dist/tex/latex/siunitx/siunitx-abbreviations.cfg
 File: siunitx-abbreviations.cfg 2016/03/01 v2.6q siunitx: Abbreviated units
 )
-Package hyperref Info: Link coloring OFF on input line 83.
+Package hyperref Info: Link coloring OFF on input line 87.
 
 (/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2012/10/27 v2.43 Cross-referencing by name of section
@@ -1676,20 +1682,21 @@ Package: gettitlestring 2010/12/03 v1.4 Cleanup title references (HO)
 )
 \c@section@level=\count297
 )
-LaTeX Info: Redefining \ref on input line 83.
-LaTeX Info: Redefining \pageref on input line 83.
-LaTeX Info: Redefining \nameref on input line 83.
+LaTeX Info: Redefining \ref on input line 87.
+LaTeX Info: Redefining \pageref on input line 87.
+LaTeX Info: Redefining \nameref on input line 87.
 
-(./MHD_FEEC.out) (./MHD_FEEC.out)
+(./MHD_FEEC_Alfven.out) (./MHD_FEEC_Alfven.out)
 \@outlinefile=\write5
-\openout5 = `MHD_FEEC.out'.
+\openout5 = `MHD_FEEC_Alfven.out'.
 
-LaTeX Info: Redefining \[ on input line 83.
-LaTeX Info: Redefining \] on input line 83.
+LaTeX Info: Redefining \[ on input line 87.
+LaTeX Info: Redefining \] on input line 87.
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: wrapfig package is loaded.
 Package caption Info: End \AtBeginDocument code.
- ABD: EveryShipout initializing macros
+
+ABD: EveryShipout initializing macros
 (/usr/share/texlive/texmf-dist/tex/latex/oberdiek/epstopdf-base.sty
 Package: epstopdf-base 2010/02/09 v2.5 Base part for package epstopdf
 
@@ -1706,175 +1713,100 @@ File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
 \c__siunitx_mathsf_int=\count298
-LaTeX Font Info:    Try loading font information for U+msa on input line 83.
+LaTeX Font Info:    Try loading font information for U+msa on input line 87.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 83.
+LaTeX Font Info:    Try loading font information for U+msb on input line 87.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
+LaTeX Font Info:    Try loading font information for U+bbold on input line 87.
+
+(/usr/share/texlive/texmf-dist/tex/latex/bbold/Ubbold.fd)
 \c__siunitx_mathtt_int=\count299
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-<01_Figures/deRham3d_forms.pdf, id=134, 739.76375pt x 170.6375pt>
+<01_Figures/deRham3d_forms.pdf, id=70, 739.76375pt x 170.6375pt>
 File: 01_Figures/deRham3d_forms.pdf Graphic file (type pdf)
 
 <use 01_Figures/deRham3d_forms.pdf>
-Package pdftex.def Info: 01_Figures/deRham3d_forms.pdf used on input line 123.
+Package pdftex.def Info: 01_Figures/deRham3d_forms.pdf used on input line 132.
 (pdftex.def)             Requested size: 406.8713pt x 93.8509pt.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <8> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 132.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 148.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <6> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 132.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 148.
  [2 <./01_Figures/deRham3d_forms.pdf>]
 [3] [4]
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <7> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 258.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 240.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <5> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 258.
- [5] [6] [7] <01_Figures/N_odd.pdf, id=246, 489.03326pt x 265.50378pt>
-File: 01_Figures/N_odd.pdf Graphic file (type pdf)
-
-<use 01_Figures/N_odd.pdf>
-Package pdftex.def Info: 01_Figures/N_odd.pdf used on input line 381.
-(pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
-
-<01_Figures/D_odd.pdf, id=247, 489.03326pt x 265.50378pt>
-File: 01_Figures/D_odd.pdf Graphic file (type pdf)
-
-<use 01_Figures/D_odd.pdf>
-Package pdftex.def Info: 01_Figures/D_odd.pdf used on input line 382.
-(pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
-
-<01_Figures/N_even.pdf, id=248, 489.03326pt x 265.50378pt>
-File: 01_Figures/N_even.pdf Graphic file (type pdf)
-
-<use 01_Figures/N_even.pdf>
-Package pdftex.def Info: 01_Figures/N_even.pdf used on input line 383.
-(pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
-
-<01_Figures/D_even.pdf, id=249, 489.03326pt x 265.50378pt>
-File: 01_Figures/D_even.pdf Graphic file (type pdf)
-
-<use 01_Figures/D_even.pdf>
-Package pdftex.def Info: 01_Figures/D_even.pdf used on input line 384.
-(pdftex.def)             Requested size: 244.51602pt x 132.75156pt.
- [8] [9 <./01_Figures/N_odd.pdf> <./01_Figures/D_odd.pdf
-
-pdfTeX warning: pdflatex (file ./01_Figures/D_odd.pdf): PDF inclusion: multiple
- pdfs with page group included in a single page
-> <./01_Figures/N_even.pdf
-
-pdfTeX warning: pdflatex (file ./01_Figures/N_even.pdf): PDF inclusion: multipl
-e pdfs with page group included in a single page
-> <./01_Figures/D_even.pdf
-
-pdfTeX warning: pdflatex (file ./01_Figures/D_even.pdf): PDF inclusion: multipl
-e pdfs with page group included in a single page
->] [10] [11] [12] [13] [14]
-Underfull \hbox (badness 10000) in paragraph at lines 641--643
-
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 240.
+ [5]
+Overfull \hbox (67.9631pt too wide) in paragraph at lines 347--347
+[] 
  []
 
-pdfTeX warning (ext4): destination with the same identifier (name{equation.6.1}
-) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.658 \end{alignat}
-                   pdfTeX warning (ext4): destination with the same identifier 
-(name{equation.6.2}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.658 \end{alignat}
-                   pdfTeX warning (ext4): destination with the same identifier 
-(name{equation.6.3}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.658 \end{alignat}
-                   pdfTeX warning (ext4): destination with the same identifier 
-(name{equation.6.4}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.658 \end{alignat}
-                   pdfTeX warning (ext4): destination with the same identifier 
-(name{equation.6.1}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                 pdfTeX warning (ext4): destination with the same identifier (n
-ame{equation.6.2}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                 pdfTeX warning (ext4): destination with the same identifier (n
-ame{equation.6.3}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                 pdfTeX warning (ext4): destination with the same identifier (n
-ame{equation.6.4}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                 pdfTeX warning (ext4): destination with the same identifier (n
-ame{equation.6.5}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                 pdfTeX warning (ext4): destination with the same identifier (n
-ame{equation.6.6}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.679 \end{align}
-                  [15] [16] [17] [18] [19] [20] [21]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 877.
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 877.
- (./MHD_FEEC.xwm)
-(./MHD_FEEC.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 877.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 877.
-Package rerunfilecheck Info: File `MHD_FEEC.out' has not changed.
-(rerunfilecheck)             Checksum: C9E0936C3116CAB375F3ADCD6EC3268C;1749.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 877.
+[6] [7]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 353.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 353.
+ (./MHD_FEEC_Alfven.xwm)
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+(./MHD_FEEC_Alfven.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 353.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 353.
+
+
+Package rerunfilecheck Warning: File `MHD_FEEC_Alfven.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+Package rerunfilecheck Info: Checksums for `MHD_FEEC_Alfven.out':
+(rerunfilecheck)             Before: 849FBE9938E3ED2A28D823667C220E0E;457
+(rerunfilecheck)             After:  9E7A69F78B85B92A14AD95C18607EE9B;527.
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 353.
  ) 
 Here is how much of TeX's memory you used:
- 34215 strings out of 493029
- 656499 string characters out of 6136233
- 857377 words of memory out of 5000000
- 36930 multiletter control sequences out of 15000+600000
- 51766 words of font info for 131 fonts, out of 8000000 for 9000
+ 34047 strings out of 493029
+ 654482 string characters out of 6136233
+ 852669 words of memory out of 5000000
+ 36937 multiletter control sequences out of 15000+600000
+ 55681 words of font info for 141 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 53i,23n,58p,10380b,866s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbsy10.pfb></u
-sr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/sha
-re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/tex
-live/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></usr/share/texlive/te
-xmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmmi6.pfb></usr/share/texlive/texmf-dist/fonts/type
-1/public/amsfonts/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmmib10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
-m/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12
-.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></
-usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr/shar
-e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/share/texliv
-e/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-
-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmsy6.pfb></usr/share/texlive/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmti12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/
-msbm10.pfb>
-Output written on MHD_FEEC.pdf (21 pages, 431918 bytes).
+ 53i,23n,58p,10387b,839s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold10.pfb></u
+sr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold7.pfb></usr/sha
+re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbsy10.pfb></usr/share/te
+xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/
+texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-
+dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></usr/share/texlive/texmf-dist/fo
+nts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmmi6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
+sfonts/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmmi8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr1
+0.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb><
+/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/sh
+are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/share/texl
+ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texm
+f-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/f
+onts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/t
+ype1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/am
+sfonts/cm/cmti10.pfb>
+Output written on MHD_FEEC_Alfven.pdf (7 pages, 261759 bytes).
 PDF statistics:
- 777 PDF objects out of 1000 (max. 8388607)
- 576 compressed objects within 6 object streams
- 279 named destinations out of 1000 (max. 500000)
- 230 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 267 PDF objects out of 1000 (max. 8388607)
+ 231 compressed objects within 3 object streams
+ 91 named destinations out of 1000 (max. 500000)
+ 74 words of extra memory for PDF output out of 10000 (max. 10000000)
 
