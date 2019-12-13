@@ -1,0 +1,182 @@
+\begin{thebibliography}{24}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Article
+\bibitem[{Arnold et~al.(2006)Arnold, Falk, and Winther}]{Arnoldetal2006}
+\bibinfo{author}{D.~N. Arnold}, \bibinfo{author}{R.~S. Falk},
+  \bibinfo{author}{R.~Winther},
+\newblock \bibinfo{title}{Finite element exterior calculus, homological
+  techniques, and applications},
+\newblock \bibinfo{journal}{Acta Numerica} \bibinfo{volume}{15}
+  (\bibinfo{year}{2006}) \bibinfo{pages}{1–155}.
+%Type = Article
+\bibitem[{Kraus et~al.(2017)Kraus, Kormann, Morrison, and
+  Sonnendr\"{u}cker}]{Krausetal2017}
+\bibinfo{author}{M.~Kraus}, \bibinfo{author}{K.~Kormann},
+  \bibinfo{author}{P.~J. Morrison}, \bibinfo{author}{E.~Sonnendr\"{u}cker},
+\newblock \bibinfo{title}{Gempic: geometric electromagnetic particle-in-cell
+  methods},
+\newblock \bibinfo{journal}{{Journal of Plasma Physics}} \bibinfo{volume}{83}
+  (\bibinfo{year}{2017}) \bibinfo{pages}{905830401}.
+%Type = Article
+\bibitem[{{Arnold} et~al.(2010){Arnold}, {Falk}, and
+  {Winther}}]{Arnoldetal2010}
+\bibinfo{author}{D.~N. {Arnold}}, \bibinfo{author}{R.~S. {Falk}},
+  \bibinfo{author}{R.~{Winther}},
+\newblock \bibinfo{title}{{Finite element exterior calculus: from Hodge theory
+  to numerical stability}},
+\newblock \bibinfo{journal}{Bull. Amer. Math. Soc.}  (\bibinfo{year}{2010})
+  \bibinfo{pages}{281--354}.
+%Type = Article
+\bibitem[{Chen and Zonca(2016)}]{Chenetal2016}
+\bibinfo{author}{L.~Chen}, \bibinfo{author}{F.~Zonca},
+\newblock \bibinfo{title}{Physics of alfvén waves and energetic particles in
+  burning plasmas},
+\newblock \bibinfo{journal}{Rev. Mod. Phys.} \bibinfo{volume}{88}
+  (\bibinfo{year}{2016}) \bibinfo{pages}{015008}.
+%Type = Article
+\bibitem[{Katoh and Omura(2007)}]{Katohetal2007}
+\bibinfo{author}{Y.~Katoh}, \bibinfo{author}{Y.~Omura},
+\newblock \bibinfo{title}{Computer simulation of chorus wave generation in the
+  earth's inner magnetosphere},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{34}
+  (\bibinfo{year}{2007}) \bibinfo{pages}{L03102}.
+%Type = Article
+\bibitem[{Tao(2014)}]{Tao2014}
+\bibinfo{author}{X.~Tao},
+\newblock \bibinfo{title}{A numerical study of chorus generation and the
+  related variation of wave intensity using the dawn code},
+\newblock \bibinfo{journal}{{Journal of Geophysical Research: Space Physics}}
+  \bibinfo{volume}{119} (\bibinfo{year}{2014}) \bibinfo{pages}{3362--3372}.
+%Type = Article
+\bibitem[{Tsurutani and Smith(1974)}]{Tsurutaniatal1974}
+\bibinfo{author}{B.~T. Tsurutani}, \bibinfo{author}{E.~J. Smith},
+\newblock \bibinfo{title}{Postmidnight chorus: A substorm phenomenon},
+\newblock \bibinfo{journal}{{Journal of Geophysical Research (1896-1977)}}
+  \bibinfo{volume}{79} (\bibinfo{year}{1974}) \bibinfo{pages}{118--127}.
+%Type = Article
+\bibitem[{Burtis and Helliwell(1976)}]{Burtisetal1976}
+\bibinfo{author}{W.~Burtis}, \bibinfo{author}{R.~Helliwell},
+\newblock \bibinfo{title}{{Magnetospheric chorus: Occurrence patterns and
+  normalized frequency}},
+\newblock \bibinfo{journal}{Planetary and Space Science} \bibinfo{volume}{24}
+  (\bibinfo{year}{1976}) \bibinfo{pages}{1007 -- 1024}.
+%Type = Article
+\bibitem[{Santolík et~al.(2004)Santolík, Gurnett, Pickett, Parrot, and
+  Cornilleau-Wehrlin}]{Santoliketal2004}
+\bibinfo{author}{O.~Santolík}, \bibinfo{author}{D.~A. Gurnett},
+  \bibinfo{author}{J.~S. Pickett}, \bibinfo{author}{M.~Parrot},
+  \bibinfo{author}{N.~Cornilleau-Wehrlin},
+\newblock \bibinfo{title}{A microscopic and nanoscopic view of storm-time
+  chorus on 31 march 2001},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{31}
+  (\bibinfo{year}{2004}).
+%Type = Article
+\bibitem[{Thorne(2010)}]{Thorne2010}
+\bibinfo{author}{R.~M. Thorne},
+\newblock \bibinfo{title}{Radiation belt dynamics: The importance of
+  wave-particle interactions},
+\newblock \bibinfo{journal}{Geophysical Research Letters} \bibinfo{volume}{37}
+  (\bibinfo{year}{2010}).
+%Type = Book
+\bibitem[{Brambilla(1998)}]{Brambilla1998}
+\bibinfo{author}{M.~Brambilla}, \bibinfo{title}{{Kinetic Theory of Plasma
+  Waves: Homogeneous Plasmas}}, \bibinfo{publisher}{Oxford University Press},
+  \bibinfo{year}{1998}.
+%Type = Article
+\bibitem[{Tronci(2010)}]{Tronci2010}
+\bibinfo{author}{C.~Tronci},
+\newblock \bibinfo{title}{Hamiltonian approach to hybrid plasma models},
+\newblock \bibinfo{journal}{Journal of Physics A: Mathematical and Theoretical}
+  \bibinfo{volume}{43} (\bibinfo{year}{2010}) \bibinfo{pages}{375501}.
+%Type = Article
+\bibitem[{Xiao et~al.(1998)Xiao, M.~Thorne, and Summers}]{Xiaoetal1998}
+\bibinfo{author}{F.~Xiao}, \bibinfo{author}{R.~M.~Thorne},
+  \bibinfo{author}{D.~Summers},
+\newblock \bibinfo{title}{Instability of electromagnetic r-mode waves in a
+  relativistic plasma},
+\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{5}
+  (\bibinfo{year}{1998}) \bibinfo{pages}{2489--2497}.
+%Type = Book
+\bibitem[{Fried and Conte(1961)}]{Friedetal1961}
+\bibinfo{author}{B.~D. Fried}, \bibinfo{author}{S.~D. Conte},
+  \bibinfo{title}{{The Plasma Dispersion Function}},
+  \bibinfo{publisher}{Academics Press}, \bibinfo{year}{1961}.
+%Type = Book
+\bibitem[{Donea and Huerta(2003)}]{Doneaetal2003}
+\bibinfo{author}{J.~Donea}, \bibinfo{author}{A.~Huerta},
+  \bibinfo{title}{{Finite Element Methods for Flow Problems}},
+  \bibinfo{publisher}{John Wiley \& Sons, Ltd.}, \bibinfo{year}{2003}.
+%Type = Article
+\bibitem[{Crank and Nicolson(1947)}]{Cranketal1947}
+\bibinfo{author}{J.~Crank}, \bibinfo{author}{P.~Nicolson},
+\newblock \bibinfo{title}{{A practical method for numerical evaluation of
+  solutions of partial differential equations of the heat-conduction type}},
+\newblock \bibinfo{journal}{Mathematical Proceedings of the Cambridge
+  Philosophical Society} \bibinfo{volume}{43} (\bibinfo{year}{1947})
+  \bibinfo{pages}{50–67}.
+%Type = Article
+\bibitem[{Ratnani and Sonnendr\"{u}cker(2012)}]{Ratnanietal2012}
+\bibinfo{author}{A.~Ratnani}, \bibinfo{author}{E.~Sonnendr\"{u}cker},
+\newblock \bibinfo{title}{An arbitrary high-order spline finite element solver
+  for the time domain maxwell equations},
+\newblock \bibinfo{journal}{J. Sci. Comput.} \bibinfo{volume}{51}
+  (\bibinfo{year}{2012}) \bibinfo{pages}{87--106}.
+%Type = Book
+\bibitem[{Birdsall and Langdon(2004)}]{Birdsalletal2004}
+\bibinfo{author}{C.~K. Birdsall}, \bibinfo{author}{A.~B. Langdon},
+  \bibinfo{title}{{Plasma Physics via Computer Simulation}}, {Series in Plasma
+  Physics}, \bibinfo{publisher}{Taylor and Francis Group},
+  \bibinfo{year}{2004}.
+%Type = Inproceedings
+\bibitem[{Boris(1970)}]{Boris1970}
+\bibinfo{author}{J.~P. Boris},
+\newblock \bibinfo{title}{{Relativistic plasma-simulation - optimization of a
+  hybrid code}},
+\newblock in: \bibinfo{booktitle}{Proceedings of the Fourth Conference on
+  Numerical Simulation of Plasmas}, \bibinfo{publisher}{Naval Research
+  Laboratory}, \bibinfo{year}{1970}, pp. \bibinfo{pages}{3--67}.
+%Type = Article
+\bibitem[{Qin et~al.(2013)Qin, Zhang, Xiao, Liu, Sun, and Tang}]{Qinetal2013}
+\bibinfo{author}{H.~Qin}, \bibinfo{author}{S.~Zhang},
+  \bibinfo{author}{J.~Xiao}, \bibinfo{author}{J.~Liu},
+  \bibinfo{author}{Y.~Sun}, \bibinfo{author}{W.~M. Tang},
+\newblock \bibinfo{title}{Why is boris algorithm so good?},
+\newblock \bibinfo{journal}{Physics of Plasmas} \bibinfo{volume}{20}
+  (\bibinfo{year}{2013}) \bibinfo{pages}{084503}.
+%Type = Article
+\bibitem[{Trotter(1959)}]{Trotter1959}
+\bibinfo{author}{H.~F. Trotter},
+\newblock \bibinfo{title}{On the product of semi-groups of operators},
+\newblock \bibinfo{journal}{Proc. Am. Math. Soc.} \bibinfo{volume}{10}
+  (\bibinfo{year}{1959}) \bibinfo{pages}{545--551}.
+%Type = Article
+\bibitem[{Strang(1968)}]{Strang1968}
+\bibinfo{author}{G.~Strang},
+\newblock \bibinfo{title}{On the construction and comparison of difference
+  schemes},
+\newblock \bibinfo{journal}{SIAM J. Numer. Anal.} \bibinfo{volume}{5}
+  (\bibinfo{year}{1968}) \bibinfo{pages}{506--517}.
+%Type = Article
+\bibitem[{McLachlan and Quispel(2002)}]{McLachlanetal2012}
+\bibinfo{author}{R.~I. McLachlan}, \bibinfo{author}{G.~R.~W. Quispel},
+\newblock \bibinfo{title}{Splitting methods},
+\newblock \bibinfo{journal}{Acta Numerica} \bibinfo{volume}{11}
+  (\bibinfo{year}{2002}) \bibinfo{pages}{341–434}.
+%Type = Book
+\bibitem[{Hairer et~al.(2006)Hairer, Lubich, and Wanner}]{Haireretal2006}
+\bibinfo{author}{E.~Hairer}, \bibinfo{author}{C.~Lubich},
+  \bibinfo{author}{G.~Wanner}, \bibinfo{title}{{Geometric Numerical
+  Integration}}, \bibinfo{publisher}{Springer}, \bibinfo{year}{2006}.
+
+\end{thebibliography}

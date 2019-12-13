@@ -1,0 +1,1196 @@
+%% This is file `jcomp-template.tex',
+%% 
+%% Copyright 2017 Elsevier Ltd
+%% 
+%% This file is part of the 'Elsarticle Bundle'.
+%% ---------------------------------------------
+%% 
+%% It may be distributed under the conditions of the LaTeX Project Public
+%% License, either version 1.2 of this license or (at your option) any
+%% later version.  The latest version of this license is in
+%%    http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of LaTeX
+%% version 1999/12/01 or later.
+%% 
+%% The list of all files belonging to the 'Elsarticle Bundle' is
+%% given in the file `manifest.txt'.
+%% 
+%% Template article for Elsevier's document class `elsarticle'
+%% with harvard style bibliographic references
+%%
+%% $Id: jcomp-template.tex 100 2017-07-14 13:15:12Z rishi $
+%%
+%% Use the option review to obtain double line spacing
+%\documentclass[times,review,preprint,authoryear]{elsarticle}
+
+%% Use the options `twocolumn,final' to obtain the final layout
+%% Use longtitle option to break abstract to multiple pages if overfull.
+%% For Review pdf (With double line spacing)
+%%\documentclass[times,twocolumn,review]{elsarticle}
+%% For abstracts longer than one page.
+%\documentclass[times,twocolumn,review,longtitle]{elsarticle}
+%% For Review pdf without preprint line
+%\documentclass[times,twocolumn,review,nopreprintline]{elsarticle}
+%% Final pdf
+\documentclass[fleqn,times,final]{elsarticle}
+%%
+%\documentclass[times,twocolumn,final,longtitle]{elsarticle}
+%%
+\usepackage{lineno}
+%%\linenumbers
+
+%% Stylefile to load JCOMP template
+\usepackage{jcomp}
+\usepackage{framed,multirow}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{latexsym}
+\usepackage{subfigure}
+\usepackage{amsmath}
+\usepackage[overload]{empheq}
+\usepackage{calc}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage[toc,page]{appendix}
+\usepackage{cite}
+\usepackage{import}
+\usepackage[utf8]{inputenc}
+
+
+% Commands
+\newcommand{\pa}{\partial}
+\newcommand{\mr}[1]{\mathrm{#1}}
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\vpar}{v_{\mr{th}\parallel}}
+\newcommand{\vperp}{v_{\mr{th}\perp}}
+\newcommand{\uproman}[1]{\uppercase\expandafter{\romannumeral#1}}
+\newcommand{\blo}[9]{\frac{\pa(\mathbb{J}_{#1,#2})_{#3#4}}{\pa #5}(\mathbb{J}_{#6,#7})_{#8#9}}
+\newcommand{\block}[5]{\frac{\pa\hat{\mathbb{J}}_{#1,#2}}{\pa #3}\hat{\mathbb{J}}_{#4,#5}}
+\newtheorem*{theorem}{Theorem}
+\newtheorem*{lemma}{Lemma}
+
+
+% Following three lines are needed for this document.
+% If you are not loading colors or url, then these are
+% not required.
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{pgf}
+\definecolor{newcolor}{rgb}{.8,.349,.1}
+
+\journal{Journal of Computational Physics}
+
+\begin{document}
+
+\verso{\textit{F. Holderied et al.}}
+
+\begin{frontmatter}
+
+%\title{Comparison of standard and structure-preserving finite element particle-in-cell methods for a four-dimensional electron hybrid plasma model}%
+
+\title{Structure-preserving vs. standard particle-in-cell methods: the case of an electron hybrid model}
+
+\author[1]{Florian \snm{Holderied}\corref{cor1}}
+\cortext[cor1]{Corresponding author:}
+\ead{florian.holderied@ipp.mpg.de}
+\author[1,2]{Stefan \snm{Possanner}}
+\author[1,2]{Ahmed \snm{Ratnani}}
+\author[1]{Xin \snm{Wang}}
+
+
+\address[1]{Max-Planck-Institut f\"{u}r Plasmaphysik, Boltzmannstraße 2, 85748 Garching, Deutschland}
+\address[2]{Technische Universit\"{a}t M\"{u}nchen, Zentrum Mathematik, Boltzmannstraße 3,
+85748 Garching, Deutschland}
+
+%\received{1 May 2013}
+%\finalform{10 May 2013}
+%\accepted{13 May 2013}
+%\availableonline{15 May 2013}
+%\communicated{S. Sarkar}
+
+
+\begin{abstract}
+%%%
+We applied two numerical methods both belonging to the class of finite element particle-in-cell methods to a four-dimensional (one dimension in real space and three dimensions in velocity space) hybrid plasma model for electrons in a stationary, neutralizing background of ions. Here, the term \textit{hybrid} means that (energetic) electrons with velocities close to the phase velocities of the model's characteristic waves are treated kinetically, whereas electrons that are much slower than the phase velocity are treated with fluid equations. The two developed numerical schemes are based on standard finite elements on the one hand and on structure-preserving geometric finite elements on the other hand. We tested and compared the schemes in the linear and in the nonlinear stage. We show that the structure-preserving algorithm leads to better results in both stages. This can be related to the fact that the spatial discretization results in a large system of ordinary differential equations that exhibits a noncanonical Hamiltonian structure. To such systems special time integration schemes with good conservation properties can be applied.
+%%%%
+\end{abstract}
+
+\begin{keyword}
+%% MSC codes here, in the form: \MSC code \sep code
+%% or \MSC[2008] code \sep code (2000 is the default)
+%\MSC 41A05\sep 41A10\sep 65D05\sep 65D17
+%% Keywords
+\KWD Plasma simulation\sep Particle-in-cell\sep Finite elements\sep Finite element exterior calculus\sep B-splines\sep Structure-preserving
+\end{keyword}
+
+\end{frontmatter}
+
+%\linenumbers
+
+%% main text
+ 
+\section{Introduction}
+\label{sec_intro}
+We present two numerical algorithms for a hybrid plasma model in order to demonstrate similarities and differences between standard finite element particle-in-cell (PIC) methods and structure-preserving finite element PIC methods. The latter use techniques from  \textit{finite element exterior calculus} (FEEC) \citep{Arnoldetal2006} and were applied by Kraus et al. \citep{Krausetal2017} on the full six-dimensional Vlasov-Maxwell model. By taking into account the underlying geometric structure of the system of partial differential equations, spatial discretizations using FEEC exactly preserve certain invariants on the semi-discrete level (discrete in space and continuous in time). Examples for this are conservation laws like energy or the two divergence constraints arising in electrodynamics, $\nabla\cdot\mb{E}=\rho/\epsilon_0$ and $\nabla\cdot\mb{B}=0$, where $\mb{E}=\mb{E}(\mb{x},t)$ and $\mb{B}=\mb{B}(\mb{x},t)$ denote the electric field and the magnetic flux density (or induction) which we will simply refer to as magnetic field. Furthermore,  $\rho=\rho(\mb{x},t)$ and $\epsilon_0$ are the charge density and the vacuum permittivity, respectively. As shown by Arnold, Falk \& Winther \citep{Arnoldetal2010}, the preservation of such invariants goes hand in hand with numerical stability. In this work, we shall apply these methods as well as classical finite element PIC methods on a hybrid plasma model which makes use of a combined fluid/kinetic description for different particle species to get a good balance between accuracy (kinetic models) and computational costs (fluid models). By comparing numerical results to the analytical theory in the linear stage and the conservation of energy in the nonlinear stage, the aim of this paper is to investigate whether there is a visible difference in the performances of the two algorithms. 
+
+There are several plasma configurations which involve the interaction of an energetic plasma species with a lower temperature bulk plasma, e.g. fusion born alpha-particles interacting with the ambient plasma in nuclear fusion devices \citep{Chenetal2016} or the interaction of energetic electrons in the solar wind with planetary magnetospheres. The model which is used in this work corresponds to the latter case and is thus applicable to plasma dynamics in the Earth's magnetosphere, for instance. It has been used intensively for the simulation \citep{Katohetal2007, Tao2014} of a special type of electromagnetic waves called \textit{Chorus waves} \citep{Tsurutaniatal1974, Burtisetal1976}, which are electromagnetic emissions whose frequency-time-spectrograms show a series of discrete elements with rising frequencies with respect to time. This phenomenon is also known as \textit{frequency chirping} \citep{Santoliketal2004}. An important condition for the excitation of Chorus waves is the injection of energetic electrons with an anisotropic velocity distribution with respect to the Earth's magnetic field into the magnetosphere, which then interact with Whistler mode waves propagating in the background plasma therein \citep{Thorne2010}.
+
+This article is structured as follows. In Sec. \ref{sec_theory}, we introduce and discuss the considered electron hybrid model by starting with nonlinear fluid equations and subsequently performing a model reduction until we arrive at the simplified model which will be treated numerically. Besides this, we review and study the dispersion relation for waves with transverse disturbances propagating parallel to the external magnetic field in order to have a test case for the developed numerical algorithms. In Sec. \ref{sec_numerical_methods}, we successively apply the two above mentioned finite element PIC methods. For the case of structure-preserving geometric finite element PIC methods, we show, after having done the spatial discretization, that we end up with a noncanonical Hamiltonian system in time by proving the anti-symmetry and the Jacobi identity of the resulting Poisson matrix. In Sec. \ref{sec_numerical_results}, we compare results obtained with the two developed algorithms before we summarize and conclude in Sec. \ref{sec_summary}. For completeness and clarity in the main text, the article contains three appendices. In \ref{sec_appendix1}, the Poisson matrix of the noncanonical Hamiltonian system is displayed, while \ref{sec_appendix2} contains a table which is helpful for the understanding of the proof of the Jacobi identity. Finally, \ref{sec_appendix3} lists the time integrators for the geometric algorithm.
+
+ 
+\section{Theoretical background}
+\label{sec_theory}
+
+\subsection{The full model}
+\label{sec_model}
+The considered model is a high-frequency plasma model which means that wave frequencies $\omega$ are of the order of the electron cyclotron frequency $\Omega_\mr{ce}=q_\mr{e}|\mb{B}|/m_\mr{e}$, where $q_\mr{e}=-e$ and $m_\mr{e}$ are the electron charge and mass, respectively ($e$ is the elementary charge). \textcolor{red}{Since we are interested in phemomena solely arising from electron dynamics, we assume the plasma ions (denoted by the subscript i) to be fixed and hence treat them as a stationary, neutralizing background. Furthermore, we assume that the electron population consists mainly of cold electrons (denoted by the subscript c for ``cold''). Formally, this means taking the limit $T_\mr{c}\rightarrow 0$ for the temperature of the cold electrons. Roughly speaking, this approximation is valid if the electrons' thermal velocity $v_\mr{thc}$ is well below the phase velocity of the considered waves, i.e. $v_\mr{thc}\ll\omega/k$ \citep{Brambilla1998}. Hence the cold electron population is approximated by the distribution function $f_\mr{c}=n_\mr{c}\delta(\mb{v}-\mb{u}_\mr{c})$, where $n_\mr{c}=n_\mr{c}(\mb{x},t)$ is the number density of the cold electrons and $\mb{u}_\mr{c}=\mb{u}_\mr{c}(\mb{x},t)$ denotes the mean velocity of the ensemble as a whole. This leads to a fluid closure when plugging this in the Vlasov equation and taking the first two moments in velocity space}. Moreover, we assume that there is a small amount of energetic electrons (denoted by the subscript h for ``hot'') for which we shall use a kinetic description with negligible collisionality, assuming that the average collision times are much larger than the considered time scales $\omega^{-1}$. Using the mass and momentum balance equation for the cold electrons, the Vlasov equation for the energetic electrons and Maxwell's equations for the self-consistent dynamics of the electromagnetic fields, the full set of equations in SI-units reads 
+\begin{linenomath}
+\begin{subequations}
+\label{eq_model_full}
+\begin{align}[left ={\text{cold fluid electrons}\hspace{2.4mm}\empheqlbrace}]
+&\frac{\pa n_\mr{c}}{\pa t}+\nabla\cdot(n_\mr{c}\mb{u}_\mr{c})=0\,,\label{eq_model_full_cold_1}\\
+&\frac{\partial \mb{u}_\mr{c}}{\partial t}+(\mb{u}_\mr{c}\cdot\nabla)\mb{u}_\mr{c}=\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\mb{u}_\mr{c}\times\mb{B})\,,\label{eq_model_full_cold_2}\\
+&\mb{j}_\mr{c}=q_\mr{e}n_\mr{c}\mb{u}_\mr{c},\label{eq_model_full_cold_3}
+\end{align}
+\begin{align}[left ={\text{hot kinetic electrons}\hspace{0.7mm}\empheqlbrace}]
+&\frac{\pa f_\mr{h}}{\pa t}+\mb{v}\cdot\nabla f_\mr{h}+\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}=0,\label{eq_model_full_hot_1}\\
+&n_\mr{h}=\int f_\mr{h}\,\mr{d}^3\mb{v},\label{eq_model_full_hot_2}\\
+&\mb{j}_\mr{h}=q_\mr{e}\int\mb{v}f_\mr{h}\,\mr{d}^3\mb{v}=q_\mr{e}n_\mr{h}\mb{u}_\mr{h},\label{eq_model_full_hot_3}
+\end{align}
+\begin{align}[left ={\text{Maxwell's equations}\empheqlbrace}]
+&\frac{\pa \mb{B}}{\pa t}=-\nabla\times\mb{E},\label{eq_model_full_maxwell_1}\\
+&\frac{1}{c^2}\frac{\pa \mb{E}}{\pa t}=\nabla\times\mb{B}-\mu_0(\mb{j}_\mr{c}+\mb{j}_\mr{h}),\label{eq_model_full_maxwell_2}\\
+&\nabla\cdot\mb{E}=\frac{1}{\epsilon_0}[q_\mr{i}n_\mr{i}+q_\mr{e}(n_\mr{c}+n_\mr{h})],\label{eq_model_full_maxwell_3}\\
+&\nabla\cdot\mb{B}=0,\label{eq_model_full_maxwell_4}
+\end{align}
+\end{subequations}
+\end{linenomath}
+where, as stated above, the ions shall form a stationary background. This implies a constant number density $n_\mr{i}=n_\mr{i}(\mb{x})$ in time, i.e. $\pa n_\mr{i}/\pa t=0$, and a vanishing ion current $\mb{j}_\mr{i}=0$ for all times. \textcolor{red}{Furthermore, $\mb{j}_{\mr{c}/\mr{h}}$ denote the current densities of the cold/hot electrons, respectively, and $f_\mr{h}=f_\mr{h}(\mb{x},\mb{v},t)$ denotes the distribution function of the energetic electrons}. Moreover, $c$ is the speed of light and $\mu_0$ the vaccuum permeability with $c^2\mu_0\epsilon_0=1$.
+
+The model (\ref{eq_model_full}) possesses a noncanonical Hamiltonian structure which means that the dynamical equations can be derived from a Poisson bracket and a Hamiltonian representing the total energy of the system \citep{Tronci2010}. Thus, when we talk about structure-preserving numerical methods, we aim to perform a discretization that preserves this noncanonical Hamiltonian structure (see \citep{Krausetal2017}).
+
+\subsection{Model reduction}
+The model (\ref{eq_model_full}) can be reduced to an equivalent set of equations for the time evolution of the unknowns ($\mb{u}_\mr{c}$, $f_\mr{h}$, $\mb{E}$, $\mb{B}$) with the constraint that Gauss' law (\ref{eq_model_full_maxwell_3}) and the divergence constraint (\ref{eq_model_full_maxwell_4}) must be satisfied at the initial time $t=0$. The reduced model then takes the form
+\begin{linenomath}
+\begin{subequations}
+\label{eq_model_reduced}
+\begin{align}
+&\frac{\partial \mb{u}_\mr{c}}{\partial t}+(\mb{u}_\mr{c}\cdot\nabla)\mb{u}_\mr{c}=\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\textcolor{green}{\mb{u}_\mr{c}}\times\mb{B}),\label{eq_model_reduced_1}\\
+&\frac{\pa f_\mr{h}}{\pa t}+\mb{v}\cdot\nabla f_\mr{h}+\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}=0,\label{eq_model_reduced_2}\\
+&\frac{\pa \mb{B}}{\pa t}=-\nabla\times\mb{E},\label{eq_model_reduced_3}\\
+&\frac{1}{c^2}\frac{\pa \mb{E}}{\pa t}=\nabla\times\mb{B}-\mu_0q_\mr{e}n_\mr{c}\mb{u}_\mr{c}-\mu_0q_\mr{e}\int\mb{v}f_\mr{h}\,\mr{d}^3\mb{v},\label{eq_model_reduced_4}
+\end{align}
+\end{subequations}
+\end{linenomath}
+combined with the aforementioned constraints at $t=0$. The proof that the model (\ref{eq_model_reduced}) is indeed equivalent to the full model (\ref{eq_model_full}) consists of two steps: First, we note that the dynamics given by Faraday's law (\ref{eq_model_full_maxwell_1}) conserves the divergence constraint for the magnetic field,
+\begin{linenomath}
+\begin{align}
+0=\nabla\cdot\left(\frac{\pa \mb{B}}{\pa t}+\nabla\times\mb{E}\right)=\frac{\pa}{\pa t}(\nabla\cdot\mb{B}),
+\end{align}
+\end{linenomath}
+i.e. the divergence constraint remains satisfied at later times $t>0$ provided that it was satisfied at the initial time $t=0$. Likewise, the mass continuity equation for the cold fluid electrons (\ref{eq_model_full_cold_1}) is automatically satisfied by Amp\'{e}re's law (\ref{eq_model_full_maxwell_2}) by assuming that the cold electron number density $n_\mr{c}$ can be reconstructed from the divergence of the electric field (\ref{eq_model_full_maxwell_3}) at any time $t\geq0$:
+\begin{linenomath}
+\begin{align}
+\begin{split}
+0&=\nabla\cdot\left(\frac{1}{c^2}\frac{\pa\mb{E}}{\pa t}-\nabla\times\mb{B}+\mu_0q_\mr{e}n_\mr{c}\mb{u}_\mr{c}+\mu_0q_\mr{e}\int\mb{v}f_\mr{h}\,\mr{d}^3\mb{v}\right)\\
+&\underset{\underset{\text{(\ref{eq_model_full_maxwell_3})}}{\uparrow}}{=}\mu_0q_\mr{e}\frac{\pa}{\pa t}(n_\mr{c}+n_\mr{h})+\mu_0q_\mr{e}\nabla\cdot(n_\mr{c}\mb{u}_\mr{c})+\mu_0q_\mr{e}\int\mb{v}\cdot\nabla f_\mr{h}\,\mr{d}^3\mb{v}\\
+&\underset{\underset{\text{(\ref{eq_model_full_hot_1}), (\ref{eq_model_full_hot_2})}}{\uparrow}}{=}\mu_0q_\mr{e}\underbrace{\left[\frac{\pa n_\mr{c}}{\pa t}+\nabla\cdot(n_\mr{c}\mb{u}_\mr{c})\right]}_{\text{cont. eq. (\ref{eq_model_full_cold_1})}}-\frac{\mu_0q_\mr{e}^2}{m_\mr{e}}\underbrace{\int(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}\,\mr{d}^3\mb{v}}_{=0}.
+\end{split}
+\end{align}
+\end{linenomath}
+From the second to the third line we first used the Vlasov equation (\ref{eq_model_full_hot_1}) to replace the $\mb{v}\cdot\nabla f_\mr{h}$ term in the integral and subsequently used the definition of the hot electron number density (\ref{eq_model_full_hot_2}). The disappearance of the integral in the third line can easily be verified by partial integration in $\mb{v}$ and noting that $f_\mr{h}\rightarrow0$ for $v\rightarrow\infty$. Consequently, the divergence of Amp\'{e}re's law reduces to the the mass continuity equation for the fluid electrons (\ref{eq_model_full_cold_1}) which is therefore satisfied automatically. In summary, we showed that solutions ($\mb{u}_\mr{c}$, $f_\mr{h}$, $\mb{E}$, $\mb{B}$) of the reduced model (\ref{eq_model_reduced}) with compatible initial conditions are indeed solutions ($n_\mr{c}$, $\mb{u}_\mr{c}$, $f_\mr{h}$, $\mb{E}$, $\mb{B}$) of the full model (\ref{eq_model_full}).
+
+The model can further be simplified by considering waves as small-amplitude perturbations (denoted by tildes) about a given time-independent equilibrium state (denoted by the subscript ``0''). In this case, we can write
+\begin{linenomath}
+\begin{subequations}
+\label{eq_linearization}
+\begin{align}
+&n_\mr{c}(\mb{x},t)=n_{\mr{c}0}(\mb{x})+\tilde{n}_\mr{c}(\mb{x},t),\label{eq_linearization_1}\\
+&\mb{u}_\mr{c}(\mb{x},t)=\tilde{\mb{u}}_\mr{c}(\mb{x},t),\label{eq_linearization_2}\\
+&\mb{B}(\mb{x},t)=\mb{B}_0(\mb{x})+\tilde{\mb{B}}(\mb{x},t),\label{eq_linearization_3}\\
+&\mb{E}(\mb{x},t)=\tilde{\mb{E}}(\mb{x},t),\label{eq_linearization_4}\\
+&f_\mr{h}(\mb{x},\mb{v},t)=f_\mr{h}^0(\mb{x},\mb{v})+\tilde{f}_\mr{h}(\mb{x},\mb{v},t),\label{eq_linearization_5}
+\end{align}  
+\end{subequations}
+\end{linenomath}
+where we assumed that there is no background electric field and no equilibrium plasma flow (which also means that there is no cold equilibrium current $\mb{j}_{\mr{c}0}$ and thus $\nabla\times\mb{B}_0=-\mu_0\mb{j}_{\mr{h}0}$ must be satisfied). In what follows, we neglect nonlinear terms for the fluid quantities, e.g. the perturbed cold current density $\tilde{\mb{j}}_{\mr{c}}=q_\mr{e}n_{\mr{c}0}\tilde{\mb{u}}_\mr{c}$. This leads to a modified momentum balance equation by first linearizing (\ref{eq_model_reduced_1}) and subsequently expressing $\tilde{\mb{u}}_\mr{c}$ in terms of $\tilde{\mb{j}}_\mr{c}$ according to $\tilde{\mb{u}}_\mr{c}=\tilde{\mb{j}}_\mb{c}/q_\mr{e}n_{\mr{c}0}$. However, we keep all nonlinearities in the Vlasov equation for the full distribution function $f_\mr{h}$ in order to apply classical particle-in-cell methods which exploit the fact that the distribution function is constant along its characteristics in a Lagrangian frame, i.e. $\mr{d}/\mr{d}t f_\mr{h}(\mb{x}(t),\mb{v}(t),t)=0$. Finally, this leads to the model
+\begin{linenomath}
+\begin{subequations}
+\label{eq_model_linearized}
+\begin{align}
+&\frac{\partial\tilde{\mb{j}}_\mr{c}}{\pa t}=\epsilon_0\Omega_\mr{pe}^2\tilde{\mb{E}}+\tilde{\mb{j}}_\mr{c}\times\mb{\Omega}_\mr{ce},\label{eq_model_linearized_1}\\
+&\frac{\pa f_\mr{h}}{\pa t}+\mb{v}\cdot\nabla f_\mr{h}+\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}=0,\label{eq_model_linearized_2}\\
+&\frac{\pa \tilde{\mb{B}}}{\pa t}=-\nabla\times\tilde{\mb{E}},\label{eq_model_linearized_3}\\
+&\frac{1}{c^2}\frac{\pa \tilde{\mb{E}}}{\pa t}=\nabla\times\tilde{\mb{B}}-\mu_0\tilde{\mb{j}}_\mr{c}-\mu_0q_\mr{e}\int\mb{v}\tilde{f}_\mr{h}\,\mr{d}^3\mb{v},\label{eq_model_linearized_4}
+\end{align}
+\end{subequations}
+\end{linenomath}
+where we introduced the spatially dependent cold electron plasma frequency $\Omega_\mr{pe}^2(\mb{x})=e^2n_{\mr{c}0}(\mb{x})/\epsilon_0m_\mr{e}$, the oriented electron cyclotron frequency $\mb{\Omega}_\mr{ce}(\mb{x})=q_\mr{e}\mb{B}_0(\mb{x})/m_\mr{e}$ corresponding to the background magnetic field $\mb{B}_0$. An important property of the linearized model (\ref{eq_model_linearized}) is that its dynamics conserves the total energy 
+\begin{linenomath}
+\begin{align}
+\epsilon:=\underbrace{\frac{\epsilon_0}{2}\int_\Omega\tilde{\mb{E}}^2\,\mr{d}^3\mb{x}}_{=:\epsilon_E}+\underbrace{\frac{1}{2\mu_0}\int
+_\Omega\tilde{\mb{B}}^2\,\mr{d}^3\mb{x}}_{=:\epsilon_B}+\underbrace{\frac{1}{2\epsilon_0}\int_\Omega\frac{1}{\Omega_\mr{pe}^2}\tilde{\mb{j}}_\mr{c}^2\,\mr{d}^3\mb{x}}_{:=\epsilon_\mr{c}}+\underbrace{\frac{m_\mr{e}}{2}\int_\Omega\int |\mb{v}|^2f_\mr{h}\,\mr{d}^3\mb{v}\mr{d}^3\mb{x}}_{\epsilon_\mr{h}}\label{eq_total_energy}
+\end{align}
+\end{linenomath}
+in the domain $\Omega=\mathbb{R}^3$, which is the sum of the electric field energy $\epsilon_E$, the magnetic field energy $\epsilon_B$, the kinetic energy of the cold electrons $\epsilon_\mr{c}$ and the kinetic energy of the hot electrons $\epsilon_\mr{h}$, respectively. It is relatively straightforward to proof this property by computing $\mr{d}\epsilon/\mr{d}t$, using the dynamical equations (\ref{eq_model_linearized}) to replace the occurring partial time derivatives, noting that all quantities vanish at infinity (or assuming a periodic domain) and then summing everything up to show that $\mr{d}\epsilon/\mr{d}t=0$. We will use this energy conservation property later as a criterion for the performances of the developed numerical schemes.
+
+\subsection{Linear dispersion relation}
+\label{sec_dispersion}
+We study the linear dispersion relation of the model (\ref{eq_model_linearized}) for the case of wave propagation parallel to a uniform magnetic field $\mb{B}_0=B_0\mb{e}_z$ ($\Rightarrow\Omega_\mr{ce}(\mb{x})=\Omega_\mr{ce}=const.$), i.e. the wave vector $\mb{k}=k\mb{e}_z$, and a spatially uniform plasma in the equilibrium state. The latter implies a constant cold electron plasma frequency $\Omega_\mr{pe}(\mb{x})=\Omega_\mr{pe}=const.$ and a uniform hot electron equilibrium distribution function $f_\mr{h}^0=f_\mr{h}^0(\mb{v})$. In order to obtain a linear dispersion relation, we now linearize the Vlasov equation as well to get the fully linearized model
+\begin{linenomath}
+\begin{subequations}
+\label{eq_model_fullylinearized}
+\begin{align}
+&\frac{\partial\mb{j}_\mr{c}}{\pa t}=\epsilon_0\Omega_\mr{pe}^2\mb{E}+\Omega_\mr{ce}\mb{j}_\mr{c}\times\mb{e}_z,\label{eq_model_fullylinearized_1}\\
+&\frac{\pa f_\mr{h}}{\pa t}+\mb{v}\cdot\nabla f_\mr{h}+\Omega_\mr{ce}(\mb{v}\times\mb{e}_z)\cdot\nabla_\mb{v}f_\mr{h}=-\frac{q_\mr{e}}{m_\mr{e}}(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}^0,\label{eq_model_fullylinearized_2}\\
+&\frac{\pa \mb{B}}{\pa t}=-\nabla\times\mb{E},\label{eq_model_fullylinearized_3}\\
+&\frac{1}{c^2}\frac{\pa \mb{E}}{\pa t}=\nabla\times\mb{B}-\mu_0\mb{j}_\mr{c}-\mu_0q_\mr{e}\int\mb{v}f_\mr{h}\,\mr{d}^3\mb{v},\label{eq_model_fullylinearized_4}
+\end{align}
+\end{subequations}
+\end{linenomath}
+where we performed a relabeling ($\tilde{\mb{B}}\rightarrow\mb{B}$, $\tilde{f}_\mr{h}\rightarrow f_\mr{h}$, $\ldots$) for reasons of clarity. Note that $\Omega_\mr{ce}<0$ for electrons. In the above stated case of parallel wave propagation, the problem becomes effectively one-dimensional in space, which is why we can set $\nabla=\mb{e}_z\pa/\pa z$ in (\ref{eq_model_fullylinearized}). By looking for plane wave solutions $\sim \exp[i(kz-\omega t)]$ for all quantities and solving the linearized Vlasov equation in velocity space with the method of characteristics (see \citep{Brambilla1998}, pp. 93 ff.), one ends up with three linear independent solutions: One of these solutions corresponds to electrostatic waves (longitudinal waves with perturbations parallel to the background magnetic field) which we do not consider further. 
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Real_freq.pdf}
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Growth_rates.pdf}
+%\input{01_Figures/Real_freq.pgf}
+%\input{01_Figures/Growth_rates.pgf}
+\caption{(a) Real part $\omega_\mr{r}=\mr{Re}(\omega)$ of numerical solutions of the dispersion relation (\ref{eq_dispersion_relation}) for parameters $\Omega_\mr{pe}=2|\Omega_\mr{ce}|$, $\nu_\mr{h}=0.005$, $\vpar=0.2c$ and $\vperp=0.6c$. (b) Corresponding imaginary parts $\gamma=\mr{Im}(\omega)$. Here, only the solution corresponding to the R-wave below the electron cyclotron frequency $|\Omega_\mr{ce}|$ is shown since the imaginary parts of the other two branches are close to zero.\label{fig_solutions_dispersion}}
+\end{figure}
+The other two solutions correspond to right-handed (R) and left-handed (L) circularly polarized waves (transversal waves with perturbations perpendicular to the background magnetic field only), respectively. The dispersion relation for these types of waves for an arbitrary hot electron equilibrium distribution function $f_\mr{h}^0$ reads \citep{Brambilla1998, Xiaoetal1998}
+\begin{linenomath}
+\begin{align}
+0=D_{\mr{R/L}}(k,\omega)=1-\frac{c^2k^2}{\omega^2}-\frac{\Omega_\mr{pe}^2}{\omega(\omega\pm\Omega_\mr{ce})}+\nu_\mr{h}\frac{\Omega_\mr{pe}^2}{\omega}\int\frac{v_\perp}{2}\frac{\hat{G}F_\mr{h}^0}{\omega\pm\Omega_\mr{ce}-kv_\parallel}\mr{d}^3\mb{v},\label{eq_dispersion_relation_general}
+\end{align}
+\end{linenomath}
+where $\nu_\mr{h}=n_{\mr{h}0}/n_{\mr{c}0}$ is the ratio between the hot and cold electron number density, $\mr{d}^3\mb{v}=2\pi v_\perp\mr{d}v_\parallel v_\perp$, $F_\mr{h}^0$ the velocity part of the equilibrium distribution function, i.e. $f_\mr{h}^0(v_\perp,v_\parallel)=n_{\mr{h}0}F_\mr{h}^0(v_\perp,v_\parallel)$ and $\hat{G}$ is a differential operator measuring the anisotropy of the distribution function in velocity space:
+\begin{linenomath}
+\begin{align}
+\hat{G}=\frac{\pa}{\pa v_\perp}+\frac{k}{\omega}\left(v_\perp\frac{\pa}{\pa v_\parallel}-v_\parallel\frac{\pa}{\pa v_\perp}\right).
+\end{align}
+\end{linenomath}
+In order to satisfy the steady-state Vlasov equation with the background magnetic field $\mb{B}_0$, it is straightforward to show that the equilibrium distribution function must be rotationally symmetric around the magnetic field and therefore only depends on $v_\perp^2=v_x^2+v_y^2$ and $v_\parallel=v_z$. For the special case of an anisotropic Maxwellian with generally different thermal velocities in parallel and perpendicular direction,
+\begin{linenomath}
+\begin{align}
+F_\mr{h}^0(v_\perp,v_\parallel)=\frac{1}{(2\pi)^{3/2}v_{\mr{th}\parallel}v_{\mr{th}\perp}^2}\exp\left(-\frac{v_\perp^2}{2v_{\mr{th}\perp}^2}-\frac{v_\parallel^2}{2v_{\mr{th}\parallel}^2}\right),\label{eq_anisotropic_Maxwellian}
+\end{align} 
+\end{linenomath}
+the dispersion relation (\ref{eq_dispersion_relation_general}) transfers to
+\begin{linenomath}
+\begin{align}
+0=D_{\mr{R/L}}(k,\omega)=1-\frac{c^2k^2}{\omega^2}-\frac{\Omega_\mr{pe}^2}{\omega(\omega\pm\Omega_\mr{ce})}+\nu_\mr{h}\frac{\Omega_\mr{pe}^2}{\omega^2}\left[\frac{\omega}{k\sqrt{2}v_{\mr{th}\parallel}}Z(\xi^\pm)-\left(1-\frac{v_{\mr{th}\perp}^2}{v_{\mr{th}\parallel}^2}\right)(1+\xi^\pm Z(\xi^\pm))\right],\label{eq_dispersion_relation}
+\end{align}
+\end{linenomath}
+where $\xi^\pm=(\omega\pm\Omega_\mr{ce})/k\sqrt{2}v_{\mr{th}\parallel}$ and $Z$ is the plasma dispersion function \citep{Friedetal1961} given by
+\begin{linenomath}
+\begin{align}
+Z(\xi)=\sqrt{\pi}\mr{e}^{-\xi^2}\left(i-\frac{2}{\sqrt{\pi}}\int_0^\xi\mr{e}^{t^2}\mr{d}t\right)=\sqrt{\pi}\mr{e}^{-\xi^2}(i-\mr{erfi}(\xi))\label{eq_plasma_dispersion_function}.
+\end{align}
+\end{linenomath}
+In the absence of energetic electrons ($\nu_\mr{h}\rightarrow0$), the dispersion relation (\ref{eq_dispersion_relation}) transfers to the well-known cold plasma dispersion relation for electron waves, which only provides solutions with real oscillation frequencies $\omega_r:=\mr{Re}(\omega)$ for all wavenumbers $k$. This means that there is no wave growth or damping due to an imaginary part $\gamma:=\mr{Im}(\omega)$. However, depending on the temperature anisotropy of $F_\mr{h}^0$, the dispersion relation (\ref{eq_dispersion_relation}) provides solutions with $\gamma\neq0$ which is shown in Fig. \ref{fig_solutions_dispersion}, where we plot the real frequency $\omega_\mr{r}$ on the left-hand side and the growth rate $\gamma$ on the right-hand side. One can see that there are two solutions for R-waves and one solution for L-waves, which is known from the cold plasma theory \citep{Brambilla1998}. However, due to interaction of waves with fast electrons that meet the resonance condition $\omega=kv_\parallel\mp\Omega_\mr{ce}$, the lower branch below the electron cyclotron frequency becomes unstable for a certain range of wavenumbers if the temperature anisotropy is sufficiently large.
+
+We shall use these results for the verification of the developed numerical algorithms.
+
+\section{Numerical methods}
+\label{sec_numerical_methods}
+In this section, we apply two kinds of numerical methods on the electron hybrid model which we have just discussed on the continuous level and for which the linear dispersion relation (\ref{eq_dispersion_relation}) is available. Since the latter corresponds to transverse electromagnetic waves, which, in the linear phase, are completely decoupled from longitudinal electrostatic waves, we neglect the $z$-components of the fields $\tilde{\mb{E}}$, $\tilde{\mb{B}}$ and $\tilde{\mb{j}}_\mr{c}$ in the model (\ref{eq_model_linearized}) and only solve for $x$- and $y$-components while retaining all velocity components in the kinetic equation. We start with an intuitive application of a combination of classical finite elements for solving field equations and the classical PIC method for solving the Vlasov equation followed by applying structure-preserving finite element PIC methods. \textcolor{red}{We would like to point out that neglecting the $z$-components means that we only satisfy Gauss's law (\ref{eq_model_full_maxwell_3}) up to the noise in the energetic electron charge density which is induced by the random particle loading and that the schemes are consequently not applicable to electrostatic phenomena like electron Landau damping}.
+
+\subsection{Standard finite element particle-in-cell}
+\label{sec_standard}
+As a first step, we write the momentum balance equation (\ref{eq_model_linearized_1}), Faraday's law (\ref{eq_model_linearized_3}) and Amp\'{e}re's law (\ref{eq_model_linearized_4}) in the compact form
+\begin{linenomath}
+\begin{subequations}
+\label{eq_compact}
+\begin{align}
+\begin{cases}
+\displaystyle\frac{\pa\mb{U}}{\pa t}+A_1\frac{\pa\mb{U}}{\pa z}+A_2\mb{U}=\mb{S},\vspace{0.2cm}\\
+\displaystyle\mb{U}(0,t)=\mb{U}(L,t),\quad\mb{U}(z,t=0)=\mb{U}_0(z)
+\end{cases}
+\end{align}
+\end{subequations}
+\end{linenomath}
+for the vector of unknowns $\mb{U}=(\tilde{E}_x,\tilde{E}_y,\tilde{B}_x,\tilde{B}_y,\tilde{j}_{\mr{c}x},\tilde{j}_{\mr{c}y})$ with initial condition $\mb{U}_0$ and impose periodic boundary conditions on the domain $\Omega=(0,L)$, where $L$ is the length of the computational domain. The constant matrices $A_1,A_2\in\mathbb{R}^{6\times6}$ and the source term $\mb{S}$ are
+\begin{linenomath}
+\begin{subequations}
+\begin{align}
+A_1&=
+\begin{pmatrix}
+0 &0  &0 &c^2  &0 &0 \\
+0 &0  &-c^2 &0 &0 &0 \\
+0 &-1  &0 &0 &0 &0  \\
+1 &0  &0 &0 &0 &0  \\
+0 &0  &0 &0 &0 &0   \\
+0 &0  &0 &0 &0 &0 
+\end{pmatrix},
+\end{align}
+\begin{align}
+A_2&=
+\begin{pmatrix}
+0 &0 &0 &0 &\mu_0c^2 &0 \\
+0 &0 &0 &0 &0 &\mu_0c^2 \\
+0 &0 &0 &0 &0 &0 \\
+0 &0 &0 &0 &0 &0 \\
+-\epsilon_0\Omega_{\mr{pe}}^2 &0 &0 &0 &0 &-\Omega_{\mr{ce}} \\
+0 &-\epsilon_0\Omega_{\mr{pe}}^2 &0 &0 &\Omega_{\mr{ce}} &0 \\
+\end{pmatrix},
+\end{align}
+\begin{align}
+\textbf{S}&=
+\begin{pmatrix}
+-\mu_0c^2 j_{\mr{h}x} \\
+-\mu_0c^2 j_{\mr{h}y} \\
+0 \\
+0 \\
+0 \\
+0
+\end{pmatrix}\label{eq_source_term}.
+\end{align}
+\end{subequations}
+\end{linenomath}
+\textbf{Semi-discretization in space}. Following classical finite element methods (see \citep{Doneaetal2003}, for instance), one assumes $\textbf{U}\in(H^1(\Omega))^6$, which means that all the unknown functions contained in $\textbf{U}$ are elements of the same space $H^1(\Omega)=\{u\in L^2(\Omega),\pa u/\pa z\in L^2(\Omega)\}$ with $L^2(\Omega)$ being the space of square integrable functions in the domain $\Omega$. Furthermore, the problem given in strong form is transformed into an equivalent weak formulation by multiplying the equations with a test function $V\in H^1$ (we shall use the allocations $H^1(\Omega)\rightarrow H^1$ and $L^2(\Omega)\rightarrow L^2$ for a shorter notation) and integrating over the domain $\Omega$. In our case (\ref{eq_compact}), the weak formulation reads: Find $\textbf{U}\in(H^1(\Omega))^6$ such that
+\begin{linenomath}
+\begin{align}
+\int_0^L\frac{\pa \mb{U}}{\pa t}V\mr{d}z+A_1\int_0^L\frac{\pa\mb{U}}{\pa z}V\mr{d}z+A_2\int_0^L\mb{U}V\mr{d}z=\int_0^L\mb{S}V\mr{d}z\quad\quad\forall\,V\in H^1.
+\end{align}
+\end{linenomath}
+As a next step, we replace the function space $H^1$ by a finite-dimensional subspace $\mathcal{S}_h\subset H^1$ in which we look for the approximate solution $\mb{U}_h$ of the problem (\ref{eq_compact}). In addition to that, we use the same subspace for the trial function $\mb{U}_h$ and the test function $V_h$ (Bubnov-Galerkin-method). This leads to the following discrete version of the above problem: Find $\textbf{U}_h\in(\mathcal{S}_h)^6$ such that
+\begin{linenomath}
+\begin{align}
+\int_0^L\frac{\pa \mb{U}_h}{\pa t}V_h\mr{d}z+A_1\int_0^L\frac{\pa\mb{U}_h}{\pa z}V_h\mr{d}z+A_2\int_0^L\mb{U}_hV_h\mr{d}z=\int_0^L\mb{S}V_h\mr{d}z\quad\quad\forall\,V_h\in\mathcal{S}_h.\label{eq_weak_discrete}
+\end{align}
+\end{linenomath}
+Expanding trial and test function in a basis of $\mathcal{S}_h$ denoted by $(\varphi_j)_{j=0,\ldots,N-1}$, where $N$ is the dimension of $\mathcal{S}_h$, 
+\begin{linenomath}
+\begin{align}
+\mb{U}_h(z,t)=\sum_{j=0}^{N-1}\mb{u}_j(t)\varphi_j(z),\quad\quad V_h(z)=\sum_{j=0}^{N-1}v_j\varphi_j(z),\label{eq_expansion}
+\end{align}
+\end{linenomath}
+and substituting these expressions in the discrete weak formulation (\ref{eq_weak_discrete}) yields
+\begin{linenomath}
+\begin{align}
+\sum_{i,j=0}^{N-1}v_i\frac{\mr{d}\mb{u}_j}{\mr{d}t}\underbrace{\int_0^L\varphi_i\varphi_j\mr{d}z}_{=:m_{ij}}+A_1\sum_{i,j=0}^{N-1}v_i\mb{u}_j\underbrace{\int_0^L\varphi_i\varphi_j^\prime\mr{d}z}_{=:c_{ij}}+A_2\sum_{i,j=0}^{N-1}v_i\mb{u}_j\underbrace{\int_0^L\varphi_i\varphi_j\mr{d}z}_{=:m_{ij}}=\sum_{i=0}^{N-1}v_i\int_0^L\mb{S}\varphi_i\mr{d}z,\label{eq_matrix_formulation_1}
+\end{align}
+\end{linenomath}
+where we have defined the entries of the mass matrix $\mathbb{M}:=(m_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{R}^{N\times N}$ and the advection matrix $\mathbb{C}:=(c_{ij})_{i,j=0,\ldots,N-1}\in\mathbb{R}^{N\times N}$. With this, (\ref{eq_matrix_formulation_1}) can be expressed equivalently in the following semi-discrete block matrix form:
+\begin{linenomath}
+\begin{align}
+\mathbb{V}\mathbb{M}_\mr{b}\frac{\mr{d}\mb{u}}{\mr{d}t}+\mathbb{V}\tilde{\mathbb{C}}\mb{u}+\mathbb{V}\tilde{\mathbb{M}}\mb{u}=\mathbb{V}\mathbb{S}.\label{eq_matrix_formulation_2}
+\end{align}
+\end{linenomath}
+In this matrix formulation, the vector $\mb{u}$ contains all the unknown finite element coefficients of the expansion (\ref{eq_expansion}), $\mb{u}=(\mb{u}_0,\mb{u}_1,\ldots,\mb{u}_{N-1})^\top$, and every $\mb{u}_j=(e_{xj},e_{yj},b_{xj},b_{yj},j_{cxj},j_{cyj})$ contains the respective coefficients of all six physical quantities which makes $\mb{u}\in\mathrm{R}^{6N}$. The block matrix $\mathbb{V}$ for the coefficients of the test function $V_h$ is
+\begin{linenomath}
+\begin{align}
+\mathbb{V}:=\begin{pmatrix}
+v_0I_6 &0 &\cdots &0 \\
+0 &v_1I_6 &\cdots &0 \\
+\vdots &\vdots &\ddots &\vdots \\
+0 &0 &\cdots &v_{N-1}I_6\\
+\end{pmatrix}\quad\in\mathbb{R}^{6N\times6N},\label{eq_matrix_test}
+\end{align} 
+\end{linenomath}
+where $I_6$ denotes the $6\times6$ identity matrix. Furthermore, we introduced the block matrices $\mathbb{M}_\mr{b}:=\mathbb{M}\otimes I_6\in\mathbb{R}^{6N\times 6N}$, $\tilde{\mathbb{C}}:=\mathbb{C}\otimes A_1\in\mathbb{R}^{6N\times 6N}$ and $\tilde{\mathbb{M}}:=\mathbb{M}\otimes A_2\in\mathbb{R}^{6N\times 6N}$. The vector $\mathbb{S}$ is given by
+\begin{linenomath}
+\begin{align}
+&\mathbb{S}:=\begin{pmatrix}
+\int_0^L\mathbf{S}\varphi_0(z)\text{d}z \\
+\vdots \\
+\int_0^L\mathbf{S}\varphi_{N-1}(z)\text{d}z
+\end{pmatrix}\quad\in\mathbb{R}^{6N}.\label{eq_def_righthandside}
+\end{align}
+\end{linenomath}
+Since we want (\ref{eq_matrix_formulation_2}) to be true for all $\mathbb{V}$ of the form (\ref{eq_matrix_test}), we finally end up with the semi-discrete system
+\begin{linenomath}
+\begin{align}
+\mathbb{M}_\mr{b}\frac{\mr{d}\mb{u}}{\mr{d}t}=-\tilde{\mathbb{C}}\mb{u}-\tilde{\mathbb{M}}\mb{u}+\mathbb{S}\label{eq_semi_discrete_system}
+\end{align}
+\end{linenomath}
+for the time evolution of all finite element coefficients $\mb{u}\in\mathbb{R}^{6N}$.
+
+\textbf{Discretization in time}. Having done the spatial discretization, the next step is to apply a time stepping scheme on system (\ref{eq_semi_discrete_system}). Here, we use a second-order Crank-Nicolson scheme \citep{Cranketal1947} which consists of applying a mid-point rule on the quantities on the right-hand side. Denoting the time step by $n$, i.e. $t_n=n\Delta t$, the fully discrete matrix formulation for advancing $\mb{u}^n\rightarrow\mb{u}^{n+1}$ then reads
+\begin{linenomath}
+\begin{align}
+\left(\mathbb{M}_\mr{b}+\frac{1}{2}\Delta t\tilde{\mathbb{C}}+\frac{1}{2}\Delta t\tilde{\mathbb{M}}\right)\mb{u}^{n+1}=\left(\mathbb{M}_\mr{b}-\frac{1}{2}\Delta t\tilde{\mathbb{C}}-\frac{1}{2}\Delta t\tilde{\mathbb{M}}\right)\mb{u}^n+\frac{1}{2}\Delta t\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right).\label{eq_Crank_Nicolson}
+\end{align}
+\end{linenomath}
+\textcolor{red}{We see that this method is implicit and thus involves the inversion of the global matrix on the left hand side. In practice, we perform a LU decomposition of the matrix at the beginning of a simulation. This allows us to solve for the new coefficients $\mb{u}^{n+1}$ quite efficiently by forward and backward substitution. All this happens on a computational time scale well below the one needed for assembling the source term $\Delta t/2(\mathbb{S}^{n+1}+\mathbb{S}^n)$ in (\ref{eq_Crank_Nicolson}) which means that the overall efficiency is not affacted by using an implicit scheme.}
+
+\textbf{Basis functions}. Let us now construct a basis of the finite-dimensional subspace $\mathcal{S}_h$ with $\dim\mathcal{S}_h=N$. We do this with a family of B-splines \citep{Ratnanietal2012}, which are piecewise polynomials of degree $p$. The set of basis functions is fully determined by a sequence of $m+1$ points (or knots) $0=z_0\leq z_1\leq\ldots\leq z_m=L$ which defines a knot vector $T=(z_0,z_1,\ldots,z_m)$. For degree $p=0$ the basis functions $(\varphi_j^{p=0})_{j=0,\ldots,m-1}$ are defined by
+\begin{linenomath}
+\begin{align}
+\varphi_{j}^0(z)=\begin{cases}
+1\quad z\in [z_j,\,z_{j+1})\\0 \quad\text{else}.
+\end{cases}\label{eq_def_Bsplines_0}
+\end{align}
+\end{linenomath}
+Higher degrees are defined by the following recursion formula:
+\begin{linenomath}
+\begin{align}
+\varphi_j^p(z)=w_j^p(z)\varphi_j^{p-1}(z)+(1-w_{j+1}^p)\varphi^{p-1}_{j+1}(z), \quad\quad w_j^p(z)=\frac{z-z_j}{z_{j+p}-z_j}.\label{eq_def_Bsplines_higher}
+\end{align}
+\end{linenomath}
+If the knot vector $T$ contains $r$ repeated knots one says that this knot has multiplicity $r$. Using multiple knots at the boundaries enables the application of Dirichlet boundary conditions by enforcing all the interior splines to vanish at the boundaries and setting the first and last spline there to one. This can be achieved by using $r=p+1$ equal knots for the left and right boundary, respectively. In this case $\dim\mathcal{S}_h=m-p$. However, since we are using periodic boundary conditions, we need a periodic basis. This can be achieved by extending the knot vector over the boundaries by $p$ additional points. The result is shown in Fig. \ref{fig_Bsplines_periodic} for generic degrees $p=1$ and $p=2$. In this case $\dim\mathcal{S}_h=m-2p$. Note in Fig. \ref{fig_Bsplines_periodic}, that B-splines which leave the domain at one boundary come back at the other boundary which can be seen by the respective color codings.
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Bsplines_p=1.pdf}
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Bsplines_p=2.pdf}
+%\input{01_Figures/Bsplines_p=1.pgf}
+%\input{01_Figures/Bsplines_p=2.pgf}
+\caption{(a) Example for a periodic B-spline basis of degree $p=1$ on a domain of length $L=1$ discretized by $N_\mr{el}=5$ elements and the corresponding Gauss-Legendre quadrature points. In this special case a B-spline basis is equivalent to the basis of linear Lagrange finite elements. (b) Same as (a) for degree $p=2$.\label{fig_Bsplines_periodic}}
+\end{figure}
+The elements of the discretized domain are naturally related to the knot sequence by simply using all interior knots together with the boundaries of the domain as the element boundaries which we denote by $(c_k)_{k=0,\ldots,N_\text{el}}$, where $N_\text{el}$ is the total number of elements and $c_0=0$ and $c_{N_\text{el}}=L$. Let us summarize some important properties of a B-spline basis \citep{Ratnanietal2012}:
+\begin{itemize}
+\item B-splines are piecewise polynomials of degree $p$,
+\item B-splines are non-negative,
+\item Compact support: there are exactly $p+1$ non-vanishing B-splines in each element and the support of the B-spline $\varphi_j^p$ is contained in $[z_j,\ldots,z_{j+p+1}]$,
+\item B-splines form a partition of unity: $\sum_{j=0}^{N-1}\varphi_j^p(z)=1,\quad\forall z\in\mathbb{R}$,
+\item If a knot $z_m$ has multiplicity $r$ then the B-spline is $\mathcal{C}^{(p-r)}$ at $z_m$.
+\end{itemize}
+Since B-splines are piecewise polynomials, all matrices (mass and advection matrix) can be computed exactly by using a quadrature rule of sufficient order. Here, we use the Gauss-Legendre quadrature rule with $p+1$ quadrature points per element which allows us to integrate exactly polynomials up to an order of $2p+1$.
+
+\textbf{PIC}. Finally, we use a classical PIC solver \citep{Birdsalletal2004} to treat the source term and thus approximate the distribution function $f_\mr{h}$ by a sum of Dirac masses in the four-dimensional phase space
+\begin{linenomath}
+\begin{align}
+f_\mr{h}(z,\mb{v},t)\approx\sum_{k=1}^{N_\mr{p}}w_k\delta(z-z_k(t))\delta(\mb{v}-\mb{v}_k(t)),\label{eq_particle_distribution_function}
+\end{align}
+\end{linenomath}
+where $N_\mr{p}$ is the number of particles, $w_k$ is the weight of the $k$-th particle and $\mb{v}_k=\mb{v}_k(t)$ and $z_k=z_k(t)$ are the particles' velocities and positions, respectively, satisfying the equations of motion
+\begin{linenomath}
+\begin{subequations}
+\label{eq_motion_particles}
+\begin{alignat}{2}
+&\frac{\mr{d}\mb{v}_k}{\mr{d}t}=\frac{q_\mr{e}}{m_\mr{e}}\left[\mb{E}(z_k(t),t)+\mb{v}_k(t)\times\mb{B}(z_k(t),t)\right],\quad\quad &\mb{v}_k(0)=\mb{v}_k^0,\\
+&\frac{\mr{d}z_k}{\mr{d}t}=v_{kz}, &z_k(0)=z_k^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+We solve this set of ordinary differential equations in time with the classical Boris method \citep{Birdsalletal2004, Boris1970, Qinetal2013} which uses a staggered grid for positions and velocities, i.e. positions are computed at integer time steps ($z_k^n \rightarrow z_k^{n+1}$), whereas velocities are computed at interleaved time steps ($\mb{v}_k^{n-1/2}\rightarrow\mb{v}_k^{n+1/2}$). The meaning of the particles' weights $w_k$ in (\ref{eq_particle_distribution_function}) becomes clear if one uses a Monte Carlo interpretation \citep{Aydemir1994} for the evaluation of the integrals over the current contribution from the energetic electrons appearing in (\ref{eq_def_righthandside}):
+\begin{linenomath}
+\begin{align}
+\int_0^Lj_{\mr{h}x/y}\varphi_j\mr{d}z\underset{\underset{\text{\text{see def.} (\ref{eq_model_full_hot_3})}}{\uparrow}}{=}q_\mr{e}\int_0^L\int\underbrace{v_{x/y}\frac{f_\mr{h}}{g_\mr{h}}\varphi_j}_{=:\mathcal{R}}g_\mr{h}\mr{d}^3\mb{v}\mr{d}z\approx q_\mr{e}\frac{1}{N_\mr{p}}\sum_{k=1}^{N_\mr{p}}v_{kx/y}(t)\frac{f_\mr{h}^0(z_k^0,\mb{v}_k^0)}{g_\mr{h}^0(z_k^0,\mb{v}_k^0)}\varphi_j(z_k(t))\label{eq_hotcurrent_weak}
+\end{align} 
+\end{linenomath}
+The last expression is an estimator of the expectation value of the random variable $\mathcal{R}:=v_{x/y}\varphi_jf_\mr{h}/g_\mr{h}$ distributed under the probability density function (PDF) $g_\mr{h}$ in phase space. Since $g_\mr{h}$ is a PDF it must be normalized to one. Note that we used that the distribution function $f_\mr{h}$ and the PDF $g_\mr{h}$ are constant along a particle trajectory according to the Vlasov equation, i.e. $f_\mr{h}(z_k(t),\mb{v}_k(t),t)=f_\mr{h}^0(z_k^0,\mb{v}_k^0)$. This means that the weights are fully determined from the initial distribution function $f_\mr{h}^0$ and the sampling distribution $g_\mr{h}^0$ from which the initial particles are drawn. Throughout this work we shall entirely use the sampling distribution 
+\begin{linenomath}
+\begin{align}
+g_\mr{h}^0(z,v_x,v_y,v_z)=\frac{1}{L}\frac{1}{(2\pi)^{3/2}v_{\mr{th}\parallel}v_{\mr{th}\perp}^2}\exp\left(-\frac{v_x^2+v_y^2}{2v_{\mr{th}\perp}^2}-\frac{v_z^2}{2v_{\mr{th}\parallel}^2}\right).\label{eq_sampling_distribution}
+\end{align}
+\end{linenomath}
+Consequently, we sample uniformly in real space and normally in every velocity direction using standard random number generators. With this particular choice $w_k=1/N_\mr{p}\cdot f_\mr{h}^0(z_k^0,\mb{v}_k^0)/g_\mr{h}^0(z_k^0,\mb{v}_k^0)=n_{\mr{h}0}L/N_\mr{p}$ for the anisotropic Maxwellian $f_\mr{h}^0=n_{\mr{h}0}F_\mr{h}^0$ with $F_\mr{h}^0$ given in (\ref{eq_anisotropic_Maxwellian}). Finally, since the Boris method computes positions at integer time steps and velocities at interleaved time steps, we approximate the entries of the average vector $\Delta t/2\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right)$ appearing on the right-hand side of (\ref{eq_Crank_Nicolson}) due to the Crank-Nicolson discretization in the following manner:
+\begin{linenomath}
+\begin{align}
+-\frac{\mu_0c^2q_\mr{e}\Delta t}{2}\sum_{k=1}^{N_\mr{p}}w_k\left[v_{kx/y}^{n+1}\varphi_j(z_k^{n+1})+v_{kx/y}^{n}\varphi_j(z_k^{n})\right]\approx-\mu_0c^2q_\mr{e}\Delta t\sum_{k=1}^{N_\mr{p}}w_kv_{kx/y}^{n+1/2}\varphi_j\left(\frac{1}{2}(z_k^{n+1}+z_k^n)\right).\label{eq_average_source_term}
+\end{align}
+\end{linenomath}
+
+\textbf{Algorithm}. Let us summarize the algorithm for numerically solving the model (\ref{eq_model_linearized}) for transverse electromagnetic waves only:
+\begin{enumerate}
+\item Create a periodic B-spline basis of degree $p$ on a domain of length $L$ discretized by $N_\mr{el}$ elements (see (\ref{eq_def_Bsplines_0}) and (\ref{eq_def_Bsplines_higher})). This results in $N=N_\mr{el}$.
+\item Assemble the mass matrix $\mathbb{M}$ and advection matrix $\mathbb{C}$ and from this, assemble the block matrices $\mathbb{M}_\mr{b}=\mathbb{M}\otimes I_6\in\mathbb{R}^{6N\times 6N}$, $\tilde{\mathbb{C}}=\mathbb{C}\otimes A_1\in\mathbb{R}^{6N\times 6N}$ and $\tilde{\mathbb{M}}=\mathbb{M}\otimes A_2\in\mathbb{R}^{6N\times 6N}$.
+\item Load the initial fields $\mb{U}(z,t=0)$ and perform a $L^2$-projection to get the initial coefficients $\mb{u}^0\in\mathbb{R}^{6N}$.
+\item Sample the initial positions $(z_k^0)_{k=1,\ldots,N_\mr{p}}$ and velocities $(v_{kx}^0,v_{ky}^0,v_{kz}^0)_{k=1,\ldots,N_\mr{p}}$ according to the sampling distribution (\ref{eq_sampling_distribution}) by using a random number generator and compute the weights $w_k=n_{\mr{h}0}L/N_\mr{p}$.
+\item Compute the electric and magnetic field at the particle positions by noting that
+\begin{linenomath}
+\begin{subequations}
+\label{eq_fields_particles}
+\begin{align}
+&B_{x/y}(z_k^n,t^n)=\tilde{B}_{hx/y}(z_k^n,t^n)=\sum_{j=0}^{N-1}b_{x/y}^n\varphi_j(z_k^n),\\
+&B_z(z_k^n,t^n)=B_0,\\
+&E_{x/y}(z_k^n,t^n)=\tilde{E}_{hx/y}(z_k^n,t^n)=\sum_{j=0}^{N-1}e_{x/y}^n\varphi_j(z_k^n),\\
+&E_z(z_k^n,t^n)=0.
+\end{align}
+\end{subequations}
+\end{linenomath}
+\item In order to initialize the Boris algorithm with interleaved particle positions and velocities, compute the velocities $(v_{kx}^{-1/2},v_{ky}^{-1/2},v_{kz}^{-1/2})_{k=1,\ldots,N_\mr{p}}$ by applying the Boris algorithm with the time step $-\Delta t/2$.
+\item Start the time loop:
+	\begin{enumerate}[label*=\arabic*]
+	\item Update the particle positions ($z_k^n \rightarrow z_k^{n+1}$) and 	velocities ($\mb{v}_k^{n-1/2}\rightarrow\mb{v}_k^{n+1/2}$) by applying the Boris algorithm 	with the time step $\Delta t$.\label{eq_time_loop_1}
+	\item Assemble the source term $\Delta t/2\left(\mathbb{S}^{n+1}+\mathbb{S}^n\right)$ in the scheme (\ref{eq_Crank_Nicolson}) according to formula (\ref{eq_average_source_term}).
+	\item Update the finite element coefficients ($\mb{u}^n\rightarrow\mb{u}^{n+1}$) according to the scheme (\ref{eq_Crank_Nicolson}) with the time step $\Delta t$.
+	\item Compute the new fields at the particle positions according to formulas (\ref{eq_fields_particles}).
+	\item Go to 7.1.
+	\end{enumerate} 
+\end{enumerate}
+
+
+\begin{wrapfigure}{r}{8cm}
+\vspace{-0.9cm}
+\centering
+\includegraphics[scale=0.2]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/deRham1D.pdf}
+\caption{Commuting diagram for involved function spaces in one spatial dimension with continuous spaces in the upper line and discrete subspaces in the lower line. The connection between the two sequences \textcolor{blue}{is} made by the projectors $\Pi_0$ and $\Pi_1$.\vspace{-0.3cm} \label{fig_commuting_diagram}}
+\end{wrapfigure}
+
+\subsection{Geometric finite element particle-in-cell}
+\label{sec_geometric}
+In this section, we apply a structure-preserving finite element PIC method on the same model (\ref{eq_model_linearized}), once more with transverse electromagnetic field components ($x$- and $y$-components) only. The main difference compared to standard finite element approach is that we now look for the fields ($\tilde{E}_x$, $\tilde{E}_y$, $\tilde{B}_x$, $\tilde{B}_y$, $\tilde{j}_{\mr{c}x}$, $\tilde{j}_{\mr{c}y}$) in different function spaces $H^1$, respectively $L^2$. These spaces and the respective finite-dimensional subspaces $V_0\subset H^1$ and $V_1\subset L^2$ are related according to the commuting diagram depicted in Fig. \ref{fig_commuting_diagram}, where the upper line represents the sequence of spaces involved in Maxwell's equations and the lower line the finite-dimensional counterparts. The projectors $\Pi_0:H^1\rightarrow V_0$ and $\Pi_1:L^2\rightarrow V_1$ must be constructed carefully in order to assure the diagram to be commuting, i.e. $\Pi_1\pa\psi/\pa z=\pa/\pa z\Pi_0\psi$ \citep{Krausetal2017}. 
+
+\textbf{Weak formulation}. In analogy to the previous section, we assume the domain to be $\Omega=(0,L)$ and impose periodic boundary conditions on all quantities. Obviously, we should look for $\tilde{\mb{E}}=(\tilde{E}_x,\tilde{E}_y)$ and $\tilde{\mb{j}}_\mr{c}=(\tilde{j}_{\mr{c}x},\tilde{j}_{\mr{c}y})$ in the same space since they are never connected via spatial derivatives in the same equation. The opposite is true for the magnetic field because in Maxwell's equations $\tilde{\mb{B}}=(\tilde{B}_x,\tilde{B}_y)$ is connected with the other two quantities via a spatial derivative and therefore $\tilde{\mb{B}}$ must be an element of a different space if we want to satisfy the diagram in Fig. \ref{fig_commuting_diagram}. Consequently, there are two options: Either we choose $\tilde{\mb{B}}\in (L^2)^2$ and $\tilde{\mb{E}}$, $\tilde{\mb{j}}_\mr{c}\in (H^1)^2$ or vice versa. We follow Kraus et al. \citep{Krausetal2017} and choose the former option. In order to obtain a weak formulation, we multiply by test functions $D_x$, $D_y\in H^1$, $C_x$, $C_y\in L^2$ and $O_x$, $O_y\in H^1$ and integrate over the domain $\Omega$. This results in the following formulation: 
+find $(\tilde{E}_x,\tilde{E}_y,\tilde{B}_x,\tilde{B}_y,\tilde{j}_{\text{c}x},\tilde{j}_{\text{c}y})\in H^1\times H^1\times L^2\times L^2\times H^1\times H^1$ such that
+\begin{linenomath}
+\begin{subequations}
+\label{eq_weak_gem}
+\begin{alignat}{2}
+	&\int_0^L\frac{\partial\tilde{E}_x}{\partial t}D_x\mathrm{d}z-c^2\int_0^L\tilde{B}_y\frac{\partial D_x}{\partial z}\mathrm{d}z+\mu_0c^2\int_0^L\tilde{j}_{\text{c}x}D_x\mathrm{d}z=-\mu_0c^2\int_0^Lj_{\text{h}x}D_x\mathrm{d}z \quad\quad&&\forall\,D_x\in H^1,\\
+	&\int_0^L\frac{\partial\tilde{E}_y}{\partial t}D_y\mathrm{d}z+c^2\int_0^L\tilde{B}_x\frac{\partial D_y}{\partial z}\mathrm{d}z+\mu_0c^2\int_0^L\tilde{j}_{\text{c}y}D_y\mathrm{d}z=-\mu_0c^2\int_0^Lj_{\text{h}y}D_y\mathrm{d}z &&\forall\,D_y\in H^1,\\
+	&\int_0^L\frac{\partial\tilde{B}_x}{\partial t}C_x\mathrm{d}z-\int_0^L\frac{\partial\tilde{E}_y}{\partial z}C_x\mathrm{d}z=0 &&\forall\,C_x\in L^2,\\
+	&\int_0^L\frac{\partial\tilde{B}_y}{\partial t}C_y\mathrm{d}z+\int_0^L\frac{\partial\tilde{E}_x}{\partial z}C_y\mathrm{d}z=0 &&\forall\,C_y\in L^2,\\  
+	&\int_0^L\frac{\partial\tilde{j}_{\text{c}x}}{\partial t}O_x\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_xO_x\mathrm{d}z-\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}y}O_x\mathrm{d}z=0 &&\forall\,O_x\in H^1,\\
+	&\int_0^L\frac{\partial\tilde{j}_{\text{c}y}}{\partial t}O_y\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_yO_y\mathrm{d}z+\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}x}O_y\mathrm{d}z=0 &&\forall\,O_y\in H^1.
+\end{alignat}
+\end{subequations} 
+\end{linenomath}
+Due to this particular choice for the function spaces, we have integrated by parts the terms involving the magnetic field in Amp\'{e}re's law in order for the weak formulation to be well-defined (this changes the sign). This has the consequence that these equations will be solved in a weak sense, whereas the other equations will be solved in a strong sense. Note that this procedure is actually not necessary for the last two equations since they do not involve spatial derivatives and are thus ordinary differential equations in time. However, for reasons of clarity, we continue with the above formulation. We will see later that all matrices due to the spatial discretization cancel out.
+
+As a next step, we replace the spaces  $H^1$ and $L^2$ by their finite-dimensional counterparts $V_0\subset H^1$ and $V_1\subset L^2$ and denote the dimensions by $\dim V_0=N_0$ and $\dim V_1=N_1$ and the set of basis functions that span the spaces by $(\varphi^0_j)_{j=0,\ldots,N_0-1}$ and $(\varphi^1_{j+1/2})_{j=0,\ldots,N_1-1}$, respectively. The discrete version of (\ref{eq_weak_gem}) then simply reads: find $(\tilde{E}_{hx},\tilde{E}_{hy},\tilde{B}_{hx},\tilde{B}_{hy},\tilde{j}_{\text{c}x}^h,\tilde{j}_{\text{c}y}^h)\in V_0\times V_0\times V_1\times V_1\times V_0\times V_0$ such that
+\begin{linenomath}
+\begin{subequations}
+\label{eq_weak_gem_discrete}
+\begin{alignat}{2}
+	&\int_0^L\frac{\partial\tilde{E}_{hx}}{\partial t}D_{hx}\mathrm{d}z-c^2\int_0^L\tilde{B}_{hy}\frac{\partial D_{hx}}{\partial z}\mathrm{d}z+\mu_0c^2\int_0^L\tilde{j}_{\text{c}x}^hD_{hx}\mathrm{d}z=-\mu_0c^2\int_0^Lj_{\text{h}x}D_{hx}\mathrm{d}z \quad\quad&&\forall\,D_{hx}\in V_0,\label{eq_weak_gem_discrete_1}\\
+	&\int_0^L\frac{\partial\tilde{E}_{hy}}{\partial t}D_{hy}\mathrm{d}z+c^2\int_0^L\tilde{B}_{hx}\frac{\partial D_{hy}}{\partial z}\mathrm{d}z+\mu_0c^2\int_0^L\tilde{j}_{\text{c}y}^hD_{hy}\mathrm{d}z=-\mu_0c^2\int_0^Lj_{\text{h}y}D_{hy}\mathrm{d}z &&\forall\,D_{hy}\in V_0,\\
+	&\int_0^L\frac{\partial\tilde{B}_{hx}}{\partial t}C_{hx}\mathrm{d}z-\int_0^L\frac{\partial\tilde{E}_{hy}}{\partial z}C_{hx}\mathrm{d}z=0 &&\forall\,C_{hx}\in V_1,\\
+	&\int_0^L\frac{\partial\tilde{B}_{hy}}{\partial t}C_{hy}\mathrm{d}z+\int_0^L\frac{\partial\tilde{E}_{hx}}{\partial z}C_{hy}\mathrm{d}z=0 &&\forall\,C_{hy}\in V_1,\\  
+	&\int_0^L\frac{\partial\tilde{j}_{\text{c}x}^h}{\partial t}O_{hx}\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_{hx}O_{hx}\mathrm{d}z-\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}y}^hO_{hx}\mathrm{d}z=0 &&\forall\,O_{hx}\in V_0,\\
+	&\int_0^L\frac{\partial\tilde{j}_{\text{c}y}^h}{\partial t}O_{hy}\mathrm{d}z-\epsilon_0\Omega_\mathrm{pe}^2\int_0^L\tilde{E}_{hy}O_{hy}\mathrm{d}z+\Omega_\mathrm{ce}\int_0^L\tilde{j}_{\text{c}x}^hO_{hy}\mathrm{d}z=0 &&\forall\,O_{hy}\in V_0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+
+\textbf{Commuting diagram}. There are multiple possibilities to construct the commuting diagram shown in Fig. \ref{fig_commuting_diagram}. The general procedure is to define a basis for the first subspace $V_0$, then to look for an appropriate basis for the next space $V_1$ in order to satisfy the sequence for differential operators in the lower line,  and finally to find the projectors such that the diagram is commuting. For the space $V_0$, we choose standard Lagrange finite elements\footnote{In doing FEEC, one is not restricted to Lagrange FEM. One can take any kind of basis for $V_0$, in particular splines.} of degree $p$ which are most easily defined on a reference element $I=[-1,1]$ together with a mapping $F_k:I\rightarrow\Omega_k$, $s\mapsto z$ on elements $\Omega_k=[c_k,c_{k+1}]$ on the physical domain $\Omega$, where $(c_k)_{k=0,\ldots,N_\mr{el}}$ denote the boundaries of $N_\mr{el}$ elements (and the elements are simply labeled by $0,\ldots,N_\mr{el}-1$). The mapping $F_k$ and its inverse $F_k^{-1}$ are given by
+\begin{linenomath}
+\begin{subequations}
+\label{eq_mapping}
+\begin{align}
+&z=F_k(s):=c_k+\frac{s+1}{2}(c_{k+1}-c_k),\\
+&s=F_k^{-1}(z):=\frac{2(z-c_k)}{c_{k+1}-c_k}-1.
+\end{align}
+\end{subequations}
+\end{linenomath}
+The Lagrange \textit{shape} functions $(\eta_n(s))_{n=0,\ldots,p}$ of degree $p$ in the reference element $I$ are created from a sequence of knots $s_0=-1<\ldots<s_m<\ldots<1=s_p$ and are defined by $\eta_n(s_m)=\delta_{nm}$, which leads to the well-known formula
+\begin{linenomath}
+\begin{align}
+\eta_n(s)=\prod_{m\neq n}\frac{s-s_m}{s_n-s_m}.\label{eq_def_Lagrange_shape}
+\end{align}
+\end{linenomath}
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Lagrange_poly_p=2.pdf}
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Lagrange_histo_p=2.pdf}
+%\input{01_Figures/Lagrange_poly_p=2.pgf}
+%\input{01_Figures/Lagrange_histo_p=2.pgf}
+\caption{(a) Lagrange shape functions of degree $p=2$ in the reference element $I=[-1,1]$ and the corresponding periodic basis functions on a physical domain of length $L=1$ which has been discretized by $N_\mr{el}=3$ elements of equal length. (b) Corresponding local histopolation shape and basis functions.\label{fig_Lagrange}}
+\end{figure}
+\hspace{-2.3mm} The construction of the \textit{basis} functions on the physical domain is then done by noting that we need continuity at the shared degrees of freedom at the element boundaries in order for $V_0$ to be a subspace of $H^1$. This leads to a total number of $N_0=pN_\mr{el}$ basis functions in case of periodic boundary conditions and we get the formula $j=\mr{mod}(pk+n,N_0)_{n=0,\ldots,p;k=0\ldots N_\mr{el}-1}$ to go from shape to basis functions. The corresponding projector $\Pi_0$ on this basis acting on some continuous function $E\in H^1$ we define by
+\begin{linenomath}
+\begin{align}
+\Pi_0:H^1\rightarrow V_0,\quad(\Pi_0 E)(z_i)=E(z_i),\label{eq_def_projector0}
+\end{align}
+\end{linenomath}
+where $(z_i)_{i=0,\ldots,N_0-1}$ is the global knot sequence on the physical domain which satisfies $\varphi^0_j(z_i)=\delta_{ij}$. Denoting the projected function by $E_h:=\Pi_0E$ we thus have
+\begin{linenomath}
+\begin{align}
+E(z_i)=E_h(z_i)=\sum_{j=0}^{N_0-1}e_j\varphi_j^0(z_i)=\textcolor{blue}{e_i},
+\end{align}
+\end{linenomath}
+which means that the finite element coefficients are the values of the function at the knot sequence $(z_i)_{i=0,\ldots,N_0-1}$. As a next step, we consider the space $V_1$ and define the shape functions $(\chi_{n+1/2})_{n=0,\ldots,p-1}$ in the reference element $I$ by
+\begin{linenomath}
+\begin{align}
+\int_{s_m}^{s_{m+1}}\chi_{n+1/2}(s)\mr{d}s=\delta_{nm},\label{eq_def_LHP}
+\end{align}
+\end{linenomath}
+where $s_0=-1<\ldots<s_m<\ldots<1=s_p$ is the same local knots sequence as for the usual Lagrange shape functions. The polynomials $(\chi_{n+1/2})_{n=0,\ldots,p-1}$ are called \textit{Lagrange histopolation polynomials} (LHPs). Some simple considerations yield that the solution of these equations is given by linear combinations of first order derivatives of the Lagrange shape functions $(\eta_n(s))_{n=0,\ldots,p}$,
+\begin{linenomath}
+\begin{align}
+\chi_{n+1/2}(s)=\sum_{m=n+1}^p\frac{\mr{d}}{\mr{d}s}\eta_m(s),\label{eq_def_Lagrange_histo}
+\end{align}
+\end{linenomath}
+which can be verified by plugging this in the definition (\ref{eq_def_LHP}) and using the property $\eta_n(s_m)=\delta_{nm}$. In order to get a basis on the physical domain, these shape functions are just put next to each other since there are no shared degrees of freedom at the element boundaries at which continuity must be enforced. This also has the consequence that the total number of basis function is again $N_1=pN_\mr{el}$, however, in contrast to the previous case, there are now $p$ non-vanishing basis function per element (and not $p+1$) which means that we get the conversion formula $j=(pk+n)_{n=0,\ldots,p-1;k=0,\ldots,N_\mr{el}-1}$ to go from shape to basis functions. We define the corresponding projector $\Pi_1$ acting on some square integrable function $B\in L^2$ by
+\begin{linenomath}
+\begin{align}
+\Pi_1:L^2\rightarrow V_1,\quad\int_{z_i}^{z_{i+1}}(\Pi_1 B)(z)\mr{d}z=\int_{z_i}^{z_{i+1}}B(z)\mr{d}z.\label{eq_def_projector1}
+\end{align}
+\end{linenomath}
+Note that $i=0,\ldots,N_0-1$ and thus $z_{N_0}=L$ is just the right end of the domain. Again, denoting the projected function by $B_h:=\Pi_1B$ we have
+\begin{linenomath}
+\begin{align}
+\int_{z_i}^{z_{i+1}}B(z)\mr{d}z=\int_{z_i}^{z_{i+1}}B_h(z)\mr{d}z=\sum_{j=0}^{N_1-1}b_{j+1/2}\int_{z_i}^{z_{i+1}}\varphi_{j+1/2}^1(z)\mr{d}z=\frac{c_{k+1}-c_k}{2}b_{i+1/2}\quad\quad\forall\,z_i\in[c_k,c_{k+1}),\label{eq_coefficients_V1}
+\end{align}
+\end{linenomath}
+where $(c_{k+1}-c_k)/2$ is the Jacobian originating from evaluating the integral in (\ref{eq_coefficients_V1}) on the reference element $I$. This choice for the bases of the space $V_0$ and $V_1$ together with the projectors $\Pi_0$ in (\ref{eq_def_projector0}) and $\Pi_1$ in (\ref{eq_def_projector1}) leads to the following consideration: take $\psi\in H^1$ and note that
+\begin{linenomath}
+\begin{align}
+&\int_{z_i}^{z_{i+1}}(\Pi_1\frac{\pa\psi}{\pa z})(z)\mr{d}z\underset{\underset{\text{(\ref{eq_def_projector1})}}{\uparrow}}{=}\int_{z_i}^{z_{i+1}}\frac{\pa\psi}{\pa z}(z)\mr{d}z=\psi(z_{i+1})-\psi(z_i)\underset{\underset{\text{(\ref{eq_def_projector0})}}{\uparrow}}{=}(\Pi_0\psi)(z_{i+1})-(\Pi_0\psi)(z_{i})=\int_{z_i}^{z_{i+1}}\frac{\pa}{\pa z}(\Pi_0\psi)(z)\mr{d}z.
+\end{align}
+\end{linenomath}
+Since the integrations from $z_i$ to $z_{i+1}$ for $i=0,\ldots,N_0-1$ uniquely define an element of $V_1$, we get $\Pi_1\pa\psi/\pa z=\pa/\pa z(\Pi_0\psi)$ and hence the diagram is commuting. 
+
+\textbf{Semi-discratization in space}. In order to obtain a matrix formulation out of the (discrete) weak formulation (\ref{eq_weak_gem_discrete}), we express all quantities in their respective basis by
+\begin{linenomath}
+\begin{align}
+\tilde{E}_{hx/y}(z,t)=\sum_{j=0}^{N_0-1}e_{x/yj}(t)\varphi_j^0(z),\quad\tilde{B}_{hx/y}(z,t)=\sum_{j=0}^{N_1-1}b_{x/yj+1/2}(t)\varphi_{j+1/2}^1(z),\quad\tilde{j}_{\mr{c}x/y}^h(z,t)=\sum_{j=0}^{N_0-1}y_{x/yj}(t)\varphi_j^0(z),
+\end{align}
+\end{linenomath}
+and substitute this in the weak formulation (\ref{eq_weak_gem_discrete}). The same is done for the test functions $D_{hx/y}\in V_0$, $C_{hx/y}\in V_1$ and $O_{hx/y}\in V_0$. Let us do this in an exemplary way for the $x$-component of Amp\'{e}re's law (\ref{eq_weak_gem_discrete_1}) by noting that the spatial derivative in the second term is acting on the test function $D_{hx}\in V_0$ with coefficients $(d_{xj})_{j=0,\ldots,N_0-1}$. According to the diagram in Fig. \ref{fig_commuting_diagram}, this has the consequence that the function $\pa D_{hx}/\pa z$ must now be an element of the space $V_1$ with new coefficients $(d_{xj+1/2})_{j=0,\ldots,N_1-1}$, which are given by formula (\ref{eq_coefficients_V1}):
+\begin{linenomath}
+\begin{align}
+\frac{c_{k+1}-c_k}{2}d_{xj+1/2}=\int_{z_j}^{z_{j+1}}\frac{\pa D_{hx}}{\pa z}\mr{d}z=\sum_{i=0}^{N_0-1}d_{xi}\int_{z_j}^{z_{j+1}}\frac{\pa}{\pa z}\varphi_i^0(z)\mr{d}z=\sum_{i=0}^{N_0-1}d_{xi}\left[\varphi_i^0(z_{j+1})-\varphi_i^0(z_{j})\right]=d_{xj+1}-d_{xj}.
+\end{align} 
+\end{linenomath}
+For a uniform mesh $c_{k+1}-c_k=h$ we hence get from (\ref{eq_weak_gem_discrete_1}) 
+\begin{linenomath}
+\begin{align}
+\begin{split}
+&\sum_{i,j}^{N_0-1}\frac{\mr{d}e_{xj}}{\mr{d}t}d_{xi}\underbrace{\int_0^L\varphi_i^0\varphi_j^0\mr{d}z}_{=:m_{0ij}}-\frac{2c^2}{h}\sum_{i,j=0}^{N_1-1}b_{yj+1/2}(d_{xi+1}-d_{xi})\underbrace{\int_0^L\varphi_{i+1/2}^1\varphi_{j+1/2}^1\mr{d}z}_{=:m_{1ij}}+\mu_0c^2\sum_{i,j=0}^{N_0-1}y_{xj}d_{xi}\underbrace{\int_0^L\varphi_i^0\varphi_j^0\mr{d}z}_{=:m_{0ij}}\\
+=&-\mu_0c^2\sum_{i=0}^{N_0-1}d_{xi}\underbrace{\int_0^Lj_{\mr{h}x}\varphi_i^0\mr{d}z}_{=:\bar{j}_{\mr{h}xi}}.
+\end{split}
+\end{align}
+\end{linenomath}
+Here, we defined the entries of the two mass matrices $\mathbb{M}_0:=(m_{0ij})_{i,j=0,\ldots,N_0-1}\in\mathbb{R}^{N_0\times N_0}$ and $\mathbb{M}_1:=(m_{1ij})_{i,j=0,\ldots,N_1-1}\in\mathbb{R}^{N_1\times N_1}$, respectively, as well as the vector $\bar{\mb{j}}_{\mr{h}x}:=(\bar{j}_{\mr{h}xi})_{i=0,\ldots,N_0-1}\in\mathbb{R}^{N_0}$ for the right-hand side, which is coupled to the PIC part of the algorithm in the exact same way as it was done in (\ref{eq_hotcurrent_weak}). All together, this leads to the equivalent matrix formulation
+\begin{linenomath}
+\begin{subequations}
+\begin{align}
+&\textbf{d}_x^\top\mathbb{M}_0\frac{\text{d}\textbf{e}_x}{\text{d}t}-c^2(\mathbb{G}\textbf{d}_x)^\top\mathbb{M}_1\textbf{b}_y+\mu_0c^2\textbf{d}_x^\top\mathbb{M}_0\textbf{y}_x=-\mu_0c^2q_\mr{e}\textbf{d}_x^\top\mathbb{Q}^0\mathbb{W}\mb{V}_x,\qquad\forall \mb{d}_x\in\mathbb{R}^{N_0},\\[3mm]\Leftrightarrow\quad&\mathbb{M}_0\frac{\text{d}\textbf{e}_x}{\text{d}t}-c^2\mathbb{G}^\top\mathbb{M}_1\textbf{b}_y+\mu_0c^2\mathbb{M}_0\textbf{y}_x=-\mu_0c^2q_\mr{e}\mathbb{Q}^0\mathbb{W}\mb{V}_x,
+\end{align}
+\end{subequations}
+\end{linenomath}
+were we introduced the vector $\mb{V}_x=(v_{1x}\ldots,v_{N_\mr{p}x})^\top\in\mathbb{R}^{N_\mr{p}}$ holding the particles' velocities in $x$-direction. The matrices $\mathbb{Q}^0\in\mathbb{R}^{N_0\times N_\mr{p}}$ and $\mathbb{W}\in\mathbb{R}^{N_\mr{p}\times N_\mr{p}}$ defined by
+\begin{linenomath}
+\begin{subequations}
+\begin{align}
+&\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z}):=(\varphi_i^0(z_k))_{i=0,\ldots,N_0-1;k=1\ldots,N_\mr{p}},\label{eq_def_Q0}\\
+&\mathbb{W}:=\mr{diag}(w_1,\ldots,w_{N_\mr{p}}),\label{eq_def_W}
+\end{align}
+\end{subequations}
+\end{linenomath}
+with $\mb{Z}=(z_1\ldots,z_{N_\mr{p}})^\top\in\mathbb{R}^{N_\mr{p}}$ being the particle positions, simply result from writing (\ref{eq_hotcurrent_weak}) in terms of matrix-vector multiplications. Finally, we introduced the discrete gradient matrix
+\begin{linenomath}
+\begin{align}
+\mathbb{G}:=\frac{2}{h}
+\begin{pmatrix}
+ -1 & 1  &  &  &  \\
+  & -1 & 1 & &   \\
+  &  & \ddots & \ddots &  \\
+  &  &   & -1 & 1 \\
+  1 &  &  &    & -1  
+\end{pmatrix} \quad\in\mathbb{R}^{N_1\times N_0},\label{eq_discrete_gradient}
+\end{align}
+\end{linenomath}
+where the last row is due to periodic boundary conditions and thus $d_{N_0}=d_0$, for instance.
+
+Doing the same for the other equations in (\ref{eq_weak_gem_discrete}) as well as for the equations of motion for the particles (\ref{eq_motion_particles}), leads to the following semi-discrete system for the ten variables $\mb{\mb{u}}=(\mb{e}_x,\mb{e}_y,\mb{b}_x,\mb{b}_y,\mb{y}_x,\mb{y}_y,\mb{Z},\mb{V}_x,\mb{V}_y,\mb{V}_z)\in\mathbb{R}^{4N_0+2N_1+4N_\mr{p}}$:
+\begin{linenomath}
+\begin{subequations}
+\label{eq_semi}
+\begin{align}
+    &\mathbb{M}_0\frac{\mathrm{d}\textbf{e}_x}{\mathrm{d} t}=c^2\mathbb{G}^\top\mathbb{M}_1\textbf{b}_y-\mu_0c^2\mathbb{M}_0\textbf{y}_x-\mu_0c^2q_\text{e}\mathbb{Q}^0\mathbb{W}\textbf{V}_x,\label{eq_semi1}\\
+    &\mathbb{M}_0\frac{\mathrm{d}\textbf{e}_y}{\mathrm{d} t}=-c^2\mathbb{G}^\top\mathbb{M}_1\textbf{b}_x-\mu_0c^2\mathbb{M}_0\textbf{y}_y-\mu_0c^2q_\text{e}\mathbb{Q}^0\mathbb{W}\textbf{V}_y,\label{eq_semi2}\\
+    &\frac{\mathrm{d}\textbf{b}_x}{\mathrm{d} t}=\mathbb{G}\textbf{e}_y,\label{eq_semi3}\\
+    &\frac{\mathrm{d}\textbf{b}_y}{\mathrm{d} t}=-\mathbb{G}\textbf{e}_x,\label{eq_semi4}\\
+    &\frac{\mathrm{d}\textbf{y}_x}{\mathrm{d} t}=\epsilon_0\Omega_\text{pe}^2\textbf{e}_x+\Omega_\text{ce}\textbf{y}_y,\label{eq_semi5}\\
+    &\frac{\mathrm{d}\textbf{y}_y}{\mathrm{d} t}=\epsilon_0\Omega_\text{pe}^2\textbf{e}_y-\Omega_\text{ce}\textbf{y}_x,\label{eq_semi6}\\
+    &\frac{\mathrm{d}\textbf{Z}}{\mathrm{d} t}=\textbf{V}_z,\label{eq_semi7}\\
+    &\frac{\mathrm{d}\textbf{V}_x}{\mathrm{d} t}=\frac{q_\text{e}}{m_\text{e}}[(\mathbb{Q}^0)^\top\textbf{e}_x-\mathbb{B}_y\textbf{V}_z+B_0\textbf{V}_y],\label{eq_semi8}\\
+    &\frac{\mathrm{d}\textbf{V}_y}{\mathrm{d} t}=\frac{q_\text{e}}{m_\text{e}}[(\mathbb{Q}^0)^\top\textbf{e}_y+\mathbb{B}_x\textbf{V}_z-B_0\textbf{V}_x], \label{eq_semi9}\\
+    &\frac{\mathrm{d}\textbf{V}_z}{\mathrm{d} t}=\frac{q_\text{e}}{m_\text{e}}[\mathbb{B}_y\textbf{V}_x-\mathbb{B}_x\textbf{V}_y],\label{eq_semi10},
+\end{align}
+\end{subequations}
+\end{linenomath}
+where the matrices $\mathbb{Q}^1\in\mathbb{R}^{N_1\times N_\mr{p}}$ and $\mathbb{B}_{x/y}\in\mathbb{R}^{N_\mr{p}\times N_\mr{p}}$ defined by
+\begin{linenomath}
+\begin{align}
+&\mathbb{Q}^1=\mathbb{Q}^1(\mb{Z}):=(\varphi_{i+1/2}^1(z_k))_{i=0,\ldots,N_1-1;k=1\ldots,N_\mr{p}},\label{eq_def_Q1}\\
+&\mathbb{B}_{x/y}=\mathbb{B}_{x/y}(\mb{Z},\mb{b}_{x/y}):=\mr{diag}\left[(\mathbb{Q}^1)^\top(\mb{Z})\mb{b}_{x/y}\right],\label{eq_def_Bxy}
+\end{align}
+\end{linenomath}
+arise naturally after writing the particles' equations of motion (\ref{eq_motion_particles}) in matrix-vector form and noting that the discrete electric and magnetic fields can be expressed in their respective bases (see (\ref{eq_fields_particles})).
+
+In order to analyze the semi-discrete system of equations (\ref{eq_semi}), we define the system's discrete Hamiltonian ${H_h:\mathbb{R}^n\rightarrow\mathbb{R}}$, $\mb{u}\mapsto H_h(\mb{u})$ ($n=4N_0+2N_1+4N_\mr{p}$) by replacing the continuous functions in the energy (\ref{eq_total_energy}) by their discrete counterparts. This results in
+\begin{linenomath}
+\begin{align}
+\label{eq_discrete_Hamiltonian}
+\begin{split}
+H_h(\mb{u}):=&\underbrace{\frac{\epsilon_0}{2}(\mb{e}_x^\top\mathbb{M}_0\mb{e}_x+\mb{e}_y^\top\mathbb{M}_0\mb{e}_y)}_{H_E}+\underbrace{\frac{1}{2\mu_0}(\mb{b}_x^\top\mathbb{M}_1\mb{b}_x+\mb{b}_y^\top\mathbb{M}_1\mb{b}_y)}_{H_B}+\underbrace{\frac{1}{2\epsilon_0\Omega_\mr{pe}^2}(\mb{y}_x^\top\mathbb{M}_0\mb{y}_x+\mb{y}_y^\top\mathbb{M}_0\mb{y}_y)}_{H_Y}\\
++&\underbrace{\frac{m_\mr{e}}{2}\mb{V}_x^\top\mathbb{W}\mb{V}_x}_{H_x}+\underbrace{\frac{m_\mr{e}}{2}\mb{V}_y^\top\mathbb{W}\mb{V}_y}_{H_y}+\underbrace{\frac{m_\mr{e}}{2}\mb{V}_z^\top\mathbb{W}\mb{V}_z}_{H_z}.
+\end{split}
+\end{align} 
+\end{linenomath}
+Using this discrete Hamiltonian, it is straightforward to show that the semi-discrete system (\ref{eq_semi}) can be equivalently written in a noncanonical Hamiltonian structure for the dynamics of the variable $\mb{u}$:
+\begin{linenomath}
+\begin{align}
+\frac{\mr{d}\mb{u}}{\mr{d}t}=\mathbb{J}(\mb{u})\nabla_\mb{u}H_h(\mb{u}).\label{eq_Hamiltonian_structure}
+\end{align}
+\end{linenomath}
+\begin{lemma}
+The matrix $\mathbb{J}$ in (\ref{eq_Hamiltonian_structure}) is skew-symmetric and satisfies the Jacobi identity,
+\begin{linenomath}
+\begin{align}
+\sum_{l}\left(\frac{\pa \mathbb{J}_{ab}}{\pa u_l}\mathbb{J}_{lc}+\frac{\pa \mathbb{J}_{bc}}{\pa u_l}\mathbb{J}_{la}+\frac{\pa \mathbb{J}_{ca}}{\pa u_l}\mathbb{J}_{lb}\right)=0,\qquad\forall\ a,b,c.\label{eq_Jacobi}
+\end{align}
+\end{linenomath}
+\begin{table}
+\centering
+\caption{Block index triples for which the terms in (\ref{eq_Jacobi_2}) are not equal to zero.\label{tab_Jacobi1}}
+\begin{tabular}{|c|c|}
+\hline
+\rule{0pt}{2ex}  Term & Block indices (i,j,k)\\
+\hline \rule{0pt}{2ex}
+\uproman{1} &(9,10,2)\,\, (10,9,2) \\
+\uproman{2} &(2,9,10)\,\, (2,10,9) \\
+\uproman{3} &(9,2,10)\,\, (10,2,9) \\
+\uproman{4} &(8,10,1)\,\, (10,8,1) \\
+\uproman{5} &(1,8,10)\,\, (1,10,8) \\
+\uproman{6} &(8,1,10)\,\, (10,1,8) \\
+\uproman{7} &(1,8,10)\,\, (8,1,10)\,\, (2,9,10)\,\, (9,2,10)\,\, (8,10,10)\,\, (10,8,10)\,\, (9,10,10)\,\, (10,9,10) \\
+\uproman{8} &(10,1,8)\,\, (10,8,1)\,\, (10,2,9)\,\, (10,9,2)\,\, (10,8,10)\,\, (10,10,8)\,\, (10,9,10)\,\, (10,10,9) \\
+\uproman{9} &(1,10,8)\,\, (8,10,1)\,\, (2,10,9)\,\, (9,10,2)\,\, (8,10,10)\,\, (10,10,8)\,\, (9,10,10)\,\, (10,10,9) \\
+\hline
+\end{tabular}
+\end{table}
+\begin{proof}
+The matrix $\mathbb{J}$ is written explicitly in \ref{sec_appendix1} in a $10\times10$ block structure. From this, the skew-symmetry $\mathbb{J}^\top=-\mathbb{J}$ is obvious. To \textcolor{blue}{prove} the Jacobi identity we again take advantage of the $10\times10$ block structure of $\mathbb{J}$ and denote the $(i,j)$-th block by $\hat{\mathbb{J}}_{i,j}$($1\leq i\leq 10$, $1\leq j\leq 10$). Due to the fact that only very few blocks depend on the unknown $\mb{u}$, namely $\hat{\mathbb{J}}_{1,8}$, $\hat{\mathbb{J}}_{8,1}$, $\hat{\mathbb{J}}_{2,9}$, $\hat{\mathbb{J}}_{9,2}$, $\hat{\mathbb{J}}_{8,10}$, $\hat{\mathbb{J}}_{10,8}$, $\hat{\mathbb{J}}_{9,10}$ and $\hat{\mathbb{J}}_{10,9}$ via $\mathbb{B}_x=\mathbb{B}_x(\mb{Z},\mb{b}_x)$, $\mathbb{B}_y=\mathbb{B}_y(\mb{Z},\mb{b}_y)$ and $\mathbb{Q}^0=\mathbb{Q}^0(\mb{Z})$, the Jacobi identity (\ref{eq_Jacobi}) reduces to
+\begin{linenomath}
+\begin{align}
+\label{eq_Jacobi_2}
+\begin{split}
+0&=\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,k=2}}_{\text{\uproman{1}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,i=2}}_{\text{\uproman{2}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{b}_x}\hat{\mathbb{J}}_{3,j=2}}_{\text{\uproman{3}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,k=1}}_{\text{\uproman{4}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,i=1}}_{\text{\uproman{5}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{b}_y}\hat{\mathbb{J}}_{4,j=1}}_{\text{\uproman{6}}}\\
+&+\underbrace{\frac{\pa\hat{\mathbb{J}}_{i,j}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,k=10}}_{\text{\uproman{7}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{j,k}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,i=10}}_{\text{\uproman{8}}}+\underbrace{\frac{\pa\hat{\mathbb{J}}_{k,i}}{\pa\mb{Z}}\hat{\mathbb{J}}_{7,j=10}}_{\text{\uproman{9}}},\qquad\forall\ i,j,k.
+\end{split}
+\end{align}
+\end{linenomath}
+Here, we could already identify one block index in each term (e.g. $k=2$ for term \uproman{1} or $k=1$ for term \uproman{4}). The other indices can be determined from the aforementioned dependencies of the matrices $\mathbb{B}_x$, $\mathbb{B}_y$ and $\mathbb{Q}^0$ on $\mb{b}_{x/y}$ and $\mb{Z}$, respectively. In Tab. \ref{tab_Jacobi1}, we list the resulting block index combinations giving a non-zero contribution for each term \uproman{1},\,\ldots\,,\uproman{9}. Summing up terms corresponding to identical index triples leads to 18 different index triples listed in Tab. \ref{tab_Jacobi2} for which the Jacobi identity in the form (\ref{eq_Jacobi_2}) needs to proven. Since the Jacobi identity gives the same expression for cyclic permutations of $(i,j,k)$, there are always three index triples which are equivalent. Consequently, there are only six distinct expressions that need to be checked. It is immediately clear that the last two expressions in Tab. \ref{tab_Jacobi2} are equal to zero and that the first and second and the third and fourth expression, respectively, are the same up to the sign. The remaining two expressions only differ with respect to $\pa\mathbb{B}_x/\pa\mb{b}_x$ and $\pa\mathbb{B}_y/\pa\mb{b}_y$. Because of the definitions (\ref{eq_def_Bxy}) of $\mathbb{B}_x$ and $\mathbb{B}_y$, respectively, these terms are again equivalent which means that we only have to \textcolor{blue}{prove} one combination explicitly, for example
+\begin{linenomath}
+\begin{align}
+\sum_l\frac{\pa(\mathbb{B}_y(\mb{Z},\mb{b}_y)\mathbb{W}^{-1})_{ab}}{\pa b_{yl+1/2}}(\mathbb{G}\mathbb{M}_0^{-1})_{lc}=\sum_l\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}^0(\mb{Z}))_{ca}}{\pa z_{l}}(\mathbb{W}^{-1})_{lb},\qquad\forall\ a,b,c.\label{eq_proof_Jacobi_1}
+\end{align} 
+\end{linenomath}
+Writing all matrix products explicitly yields
+\begin{linenomath}
+\begin{align}
+\sum_{l,m,n,r}(\mathbb{Q}^{1})^\top_{am}\delta_{an}\underbrace{\frac{\pa b_{ym+1/2}}{\pa b_{y_{l+1/2}}}}_{=\delta_{lm}}\delta_{nb}\frac{1}{w_n}\mathbb{G}_{lr}(\mathbb{M}_0^{-1})_{rc}=\sum_{l,m}(\mathbb{M}_0^{-1})_{cm}\underbrace{\frac{\pa\varphi^0_{m}(z_a)}{\pa z_l}}_{=\delta_{al}(\mr{d}\varphi_m^0/\mr{d}z)(z_a)}\delta_{lb}\frac{1}{w_l}\,.
+\end{align}
+\end{linenomath}
+As a next step, we eliminate all sums involving a Kronecker delta. This results in
+\begin{linenomath}
+\begin{align}
+\delta_{ab}\frac{1}{w_a}\sum_{m,r}\varphi_{m+1/2}^1(z_a)\mathbb{G}_{mr}(\mathbb{M}_0^{-1})_{rc}=\delta_{ab}\frac{1}{w_a}\sum_m(\mathbb{M}_0^{-1})_{cm}\frac{\mr{d}\varphi_m^0}{\mr{d}z}(z_a).
+\end{align}
+\end{linenomath}
+Using that the discrete gradient matrix (\ref{eq_discrete_gradient}) can be written as $\mathbb{G}_{mr}=2(\delta_{mr-1}-\delta_{mr})/h$ and performing the sum over $m$ yields
+\begin{linenomath}
+\begin{align}
+\delta_{ab}\frac{1}{w_a}\frac{2}{h}\sum_r(\mathbb{M}_0^{-1})_{rc}(\varphi_{r-1/2}^1(z_a)-\varphi_{r+1/2}^1(z_a))=\delta_{ab}\frac{1}{w_a}\sum_r(\mathbb{M}_0^{-1})_{rc}\frac{\mr{d}\varphi_r^0}{\mr{d}z}(z_a),
+\end{align}
+\end{linenomath}
+where we have used the symmetry of the inverse of the mass matrix $(\mathbb{M}_0^{-1})_{rc}=(\mathbb{M}_0^{-1})_{cr}$. Furthermore, we renamed the summation index on the right-hand-side from $m$ to $r$.
+Since the basis function on both sides are evaluated at the same particle position $z_a$ it remains to show that
+\begin{linenomath}
+\begin{align}
+\varphi_{r-1/2}^1-\varphi_{r+1/2}^1=\frac{h}{2}\frac{\mr{d}\varphi_r^0}{\mr{d}z},
+\end{align}
+\end{linenomath}
+which is true due to our particular choice of basis functions satisfying the commuting diagram in Fig. \ref{fig_commuting_diagram}. By using the mappings $F_k$ and $F_k^{-1}$ in  (\ref{eq_mapping}) from real space to the reference element $I=[-1,1]$ and by using the definition (\ref{eq_def_LHP}) of the LHPs $(\chi_{n+1/2})_{n=0,\ldots,p-1}$, we get
+\begin{linenomath}
+\begin{align}
+\begin{split}
+&\varphi_{r-1/2}^1(F_k(s))-\varphi_{r+1/2}^1(F_k(s))=\chi_{n-1/2}(s)-\chi_{n+1/2}(s)\\=&\sum_{m=n}^p\frac{\mr{d}}{\mr{d}s}\eta_m(s)-\sum_{m=n+1}^p\frac{\mr{d}}{\mr{d}s}\eta_m(s)=\frac{\mr{d}}{\mr{d}s}\eta_n(s)\\
+=&\frac{\mr{d}}{\mr{d}s}\eta_n(F_k^{-1}(F_k(s)))=\frac{\mr{d}}{\mr{d}s}\varphi^0_r(F_k(s))=\frac{\mr{d}F_k}{\mr{d}s}\frac{\mr{d}\varphi_r^0}{\mr{d}z}=\frac{h}{2}\frac{\mr{d}\varphi_r^0}{\mr{d}z},
+\end{split}
+\end{align}
+\end{linenomath}
+which completes the proof of the Jacobi identity (\ref{eq_Jacobi}).
+\end{proof}
+\end{lemma}
+
+With the stated properties of $\mathbb{J}$, we can define the following Poisson bracket, a bilinear, anti-symmetric bracket, that satisfies Leibniz' rule and the Jacobi identity: 
+\begin{linenomath}
+\begin{align}
+\{R,S\}=\nabla_\mb{u}R^\top\mathbb{J}(\mb{u})\nabla_\mb{u}S
+\end{align} 
+\end{linenomath}
+where $R,S:\mathbb{R}^n\rightarrow\mathbb{R},\mb{u}\mapsto R,S(\mb{u})$ are functions of the dynamical variables $\mb{u}$. This means that the time evolution of an arbitrary function $R$ can be written as
+\begin{linenomath}
+\begin{align}
+\frac{\mr{d}}{\mr{d}t}R(\mb{u}(t))=\nabla_\mb{u}R^\top\frac{\mr{d}\mb{u}}{\mr{d}t}\underset{\underset{\text{(\ref{eq_Hamiltonian_structure})}}{\uparrow}}{=}\nabla_\mb{u}R^\top\mathbb{J}(\mb{u})\nabla_\mb{u}H_h=\{R,H_h\},
+\end{align}
+\end{linenomath}
+and taking $R=H_h$ and using the anti-symmetry of the bracket yields
+\begin{linenomath}
+\begin{align}
+\frac{\mr{d}}{\mr{d}t}H_h(\mb{u}(t))=\{H_h,H_h\}=-\{H_h,H_h\}=0,
+\end{align}
+\end{linenomath}
+which means that the semi-discrete system (\ref{eq_Hamiltonian_structure}) exactly conserves the discrete Hamiltonian (\ref{eq_discrete_Hamiltonian}).
+
+\textbf{Discretization in time}. We once more follow \citep{Krausetal2017} and choose a splitting scheme for the integration of the Hamiltonian system (\ref{eq_Hamiltonian_structure}) in time. For Hamiltonian systems there are in principle two options: The first one is to split the Poisson matrix $\mathbb{J}$ and to keep the full Hamiltonian. If each of the subsystems can then be solved analytically, this yields exact energy conservation. Or one splits the Hamiltonian while keeping the full Poisson matrix. This yields so-called Poisson integrators which have the advantage that some invariants, the so-called Casimir invariants of Hamiltonian systems, are preserved exactly even on the fully discretized level. We choose the latter option and consequently split the Hamiltonian (\ref{eq_discrete_Hamiltonian}) into the six parts 
+\begin{linenomath}
+\begin{align}
+H_h=H_E+H_B+H_Y+H_x+H_y+H_z,
+\end{align} 
+\end{linenomath}
+in order to obtain six subsystems which still have the form (\ref{eq_Hamiltonian_structure}), however, with a simpler Hamiltonian, respectively. We find that each of the subsystems can be solved analytically in the way listed in \ref{sec_appendix3}, which means that we get a set of six Poisson integrators denoted by $\Phi_{\Delta t}^E$, $\Phi_{\Delta t}^B$, $\Phi_{\Delta t}^Y$, $\Phi_{\Delta t}^x$, $\Phi_{\Delta t}^y$ and $\Phi_{\Delta t}^z$, which can be applied successively in some specific order to advance $\mb{u}$ by a time step $\Delta t$. \textcolor{red}{It is worth mentioning that qualitatively, the computation of the line integrals along the particle trajectories in the last integrator leads to a slight increase of computational costs compared to the standard scheme}. The easiest composition is the first-order Lie-Trotter splitting \citep{Trotter1959}, which consists of simply applying each integrator one after the other:
+\begin{linenomath}
+\begin{align}
+\Phi_{\Delta t}^L:=\Phi_{\Delta t}^z\circ\Phi_{\Delta t}^y\circ\Phi_{\Delta t}^x\circ\Phi_{\Delta t}^Y\circ\Phi_{\Delta t}^B\circ\Phi_{\Delta t}^E.\label{eq_LieTrotter}
+\end{align}
+\end{linenomath}
+It is important to note that the input to each integrator must be the output of the previous integrator which has the consequence that if the magnetic field coefficients $\mb{b}_x$ and $\mb{b}_y$ change, for instance, the matrices $\mathbb{B}_{x/y}=\mathbb{B}_{x/y}(\mb{Z},\mb{b}_{x/y})$ need to be updated. Furthermore, we use the second order, symmetric Strang splitting \citep{Strang1968}
+\begin{linenomath}
+\begin{align}
+\Phi_{\Delta t}^S:=\Phi_{\Delta t/2}^z\circ\Phi_{\Delta t/2}^y\circ\Phi_{\Delta t/2}^x\circ\Phi_{\Delta t/2}^Y\circ\Phi_{\Delta t/2}^B\circ\Phi_{\Delta t/2}^E\circ\Phi_{\Delta t}^E\circ\Phi_{\Delta t}^B\circ\Phi_{\Delta t}^Y\circ\Phi_{\Delta t}^x\circ\Phi_{\Delta t}^y\circ\Phi_{\Delta t}^z.\label{eq_Strang}
+\end{align} 
+\end{linenomath}
+Higher order splitting schemes can e.g. be found in \citep{McLachlanetal2012}.
+
+\textbf{Algorithm}. Finally, like it was done in the previous section, we want to summarize the algorithm for for numerically solving the model (\ref{eq_model_linearized}) for transverse electromagnetic waves only:
+\begin{enumerate}
+\item Create a periodic basis of Lagrange polynomials $(\varphi_j^0(z))_{j=0,\ldots,N_0-1}$ of degree $p$ on a domain $L$ discretized by $N_\text{el}$ elements using the definition of the shape functions (\ref{eq_def_Lagrange_shape}) on the reference element $I=[-1,1]$ and the formulas (\ref{eq_mapping}) for transformations on the physical domain. This results in $N_0=pN_\text{el}$.
+\item Create the corresponding basis of Lagrange histopolation polynomials $(\varphi_{j+1/2}^1(z))$ $_{j=0,\ldots,N_1-1}$ using the definition of the shape functions (\ref{eq_def_Lagrange_histo}) on the reference element $I=[-1,1]$ and the formulas (\ref{eq_mapping}) for transformations on the physical domain. This results in $N_1=pN_\text{el}$.
+\item Assemble the global mass matrices $\mathbb{M}_0$ and $\mathbb{M}_1$.
+\item Load the initial fields $\tilde{E}_x(z,t=0)$, $\tilde{E}_y(z,t=0)$, $\tilde{B}_x(z,t=0)$, $\tilde{B}_y(z,t=0)$, $\tilde{j}_{\text{c}x}(z,t=0)$, $\tilde{j}_{\text{c}y}(z,t=0)$ and use the projectors $\Pi_0$ (\ref{eq_def_projector0}) and $\Pi_1$ (\ref{eq_def_projector1}) in order to get the initial finite element coefficients $\textbf{e}_x^0$, $\textbf{e}_y^0$, $\textbf{b}_x^0$, $\textbf{b}_y^0$, $\textbf{y}_x^0$, $\textbf{y}_y^0$.
+\item Sample the initial positions $(z_k^0)_{k=1,\ldots,N_\mr{p}}$ and velocities $(v_{kx}^0,v_{ky}^0,v_{kz}^0)_{k=1,\ldots,N_\mr{p}}$ according to the sampling distribution (\ref{eq_sampling_distribution}) by using a random number generator and compute the weights $w_k=n_{\mr{h}0}L/N_\mr{p}$.
+\item Assemble the matrices $\mathbb{G}$ (\ref{eq_discrete_gradient}), $\mathbb{Q}^0(\textbf{Z}^0)$ (\ref{eq_def_Q0}), $\mathbb{Q}^1(\textbf{Z}^0)$ (\ref{eq_def_Q1}), $\mathbb{B}_x(\textbf{Z}^0,\textbf{b}_x^0)$ (\ref{eq_def_Bxy}), $\mathbb{B}_y(\textbf{Z}^0,\textbf{b}_y^0)$ (\ref{eq_def_Bxy}) and $\mathbb{W}$ (\ref{eq_def_W}).
+\item Start the time loop:
+	\begin{enumerate}[label*=\arabic*]
+	\item Apply one of the time integrators (\ref{eq_LieTrotter}) (Lie-Trotter) or (\ref{eq_Strang}) (Strang) for a time step $\Delta t$ in order to update $\textbf{e}_x^n$, $\textbf{e}_y^n$, $\textbf{b}_x^n$, $\textbf{b}_y^n$, $\textbf{y}_x^n$, $\textbf{y}_y^n$, $\textbf{Z}^n$, $\textbf{V}_x^n$, $\textbf{V}_y^n$, $\textbf{V}_z^n$ $\rightarrow$ $\textbf{e}_x^{n+1}$, $\textbf{e}_y^{n+1}$, $\textbf{b}_x^{n+1}$, $\textbf{b}_y^{n+1}$, $\textbf{y}_x^{n+1}$, $\textbf{y}_y^{n+1}$, $\textbf{Z}^{n+1}$, $\textbf{V}_x^{n+1}$, $\textbf{V}_y^{n+1}$, $\textbf{V}_z^{n+1}$. The single integrators are listed in \ref{sec_appendix3}.
+	\item Go to 7.1
+	\end{enumerate}
+\end{enumerate}
+
+
+\section{Numerical experiments}
+\label{sec_numerical_results}
+In this section, we present results of two runs performed with each algorithm developed in the previous two sections (Sec. \ref{sec_standard} and Sec. \ref{sec_geometric}). In the first run, we excite the instability stated in section \ref{sec_dispersion} for a single wavenumber $k$, while in the second run we excite multiple modes without expecting an instability.
+
+\subsection{Run 1: Single $k$-mode}
+For the first run, we initialize the codes as follows: We choose an anisotropic Maxwellian for the energetic electrons and perturb the $x$-component of the magnetic wave field by $\tilde{B}_x(z,t=0)=a\sin(kz)$ in order to seed the instability for one particular $k$-mode. The amplitude $a$ is chosen with respect to the background magnetic field such that it is small enough to start in the linear phase, but large enough to reach the nonlinear phase within a reasonable simulation time. All other field quantities are initially zero, which means that there is no electric field and cold plasma current at $t=0$. All physical and numerical parameters of the run are listed in Tab. \ref{tab_parameters}. Note that we have chosen a polynomial degree of $p=1$ in order to get basis functions which are as similar as possible for the two codes since B-splines and Lagrange polynomials are the same only for this degree (see Fig. \ref{fig_Bsplines_periodic}a). In this case, the main difference between the two codes is that the magnetic field is still expressed with piecewise linear functions for standard finite elements, but with piecewise constant functions for structure-preserving geometric finite elements. \textcolor{green}{However, we would like to emphasize that there are no additional difficulties in using hogher order shape functions for both schemes}. 
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/comparison_1e5.pdf}
+%\input{01_Figures/comparison_1e5.pgf}
+\caption{Run 1 with parameters listed in Tab. \ref{tab_parameters}: (a) Time evolution of the magnetic field energy $\mathcal{E}_B$, electric field energy $\mathcal{E}_E$ and cold plasma energy  $\mathcal{E}_\mr{c}$ obtained with standard finite element PIC methods from section \ref{sec_standard} together with the expected growth rate from the analytical dispersion relation (\ref{eq_dispersion_relation}). (b) Same as (a) for structure-preserving finite element PIC methods from section \ref{sec_geometric} with the Strang splitting scheme (\ref{eq_Strang}).\label{fig_energies}}
+\end{figure}
+
+\begin{wraptable}{r}{7.4cm}
+%\vspace{-0.35cm}
+\caption{\label{tab_parameters}Parameters for Run 1. In case of the structure-preserving code, the polynomial degree refers to the Lagrange polynomials that span the space $V_0$.}
+\centering
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Parameter} & \textbf{Value} \\
+\hline
+Parallel thermal velocity $v_{\mr{th}\parallel}$ & $0.2c$ \\
+\hline
+Perpendicular thermal velocity $v_{\mr{th}\perp}$ & $0.53c$ \\
+\hline
+Density ratio $\nu_\mr{h}=n_{\mr{h}0}/n_{\mr{c}0}$ & $0.06$ \\
+\hline
+Cold plasma frequency $\Omega_\mr{pe}$ & $2|\Omega_\mr{ce}|$ \\
+\hline 
+Wavenumber of perturbation $k$ & $2|\Omega_\mr{ce}|/c$ \\
+\hline
+Amplitude of perturbation $a$ & $10^{-4}B_0$ \\
+\hline
+Length of computational domain $L$ & $2\pi/k$ \\
+\hline
+Number of elements $N_\mr{el}$ & 32 \\
+\hline
+Polynomial degree $p$ & 1 \\
+\hline
+Number of particles $N_\mr{p}$ & $10^5$ \\
+\hline
+Time step & $0.0125|\Omega_\mr{ce}|$ \\
+\hline
+\end{tabular}
+\end{wraptable} 
+With the choice of parameters in Tab. \ref{tab_parameters}, the numerical solution of the dispersion relation (\ref{eq_dispersion_relation}) yields an expected growth rate of $\gamma\approx0.0447|\Omega_\mr{ce}|$. In Fig. \ref{fig_energies}, we plot the resulting time evolution of the magnetic field energy $\mathcal{E}_B$, the electric field energy $\mathcal{E}_E$ and the cold plasma energy $\mathcal{E}_\mr{c}$ (see (\ref{eq_discrete_Hamiltonian})) normalized to the total energy $\mathcal{E}=\mathcal{E}_B+\mathcal{E}_E+\mathcal{E}_\mr{c}+\mathcal{E}_\mr{h}$ together with the expected growth rate (which is $2\gamma$ in the case of energies). Note that most of the energy is carried by the energetic electrons which is why $\mathcal{E}_\mr{h}$ would be orders of magnitude above the other curves in Fig. \ref{fig_energies}. Therefore, we do not show its evolution. Qualitatively, we observe a similar behavior for the two codes: First, as expected, all quantities grow exponentially, i.e. energy is transfered from the fast electrons to the electromagnetic field and the cold plasma. After this, the wave fields saturate when nonlinear terms start to play a role and the linear theory thus breaks down. In both cases, the numerical growth matches the analytical one very well and the curves end up at the same saturation level. However, the standard PIC code seems to be more sensitive to the noise induced by the random particle initialization, since it takes some time in the beginning until the exponential growth phase is reached (obvious for the electric field energy). 
+
+
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=0.95]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/distribution_functions_1e5.pdf}
+%\input{01_Figures/distribution_functions_1e5.pgf}
+\caption{Run 1 with parameters listed in Tab. \ref{tab_parameters}: (a) Initial ($t=t_0=0$) and final ($t=t_\mr{f}=200\,|\Omega_\mr{ce}|$) distribution function in parallel direction obtained with standard finite element PIC methods from section \ref{sec_standard} . (b) Same as (a) for structure-preserving finite element PIC methods from section \ref{sec_geometric} with the Strang splitting scheme (\ref{eq_Strang}). (c) Difference between the initial and final distribution corresponding to (a). (d) Difference between the initial and final distribution corresponding to (b).\label{fig_distribution_functions}}
+\end{figure}
+
+In addition to the time evolution of the energies, we plot in Fig. \ref{fig_distribution_functions} the distribution functions $f_{\mr{h}\parallel}=2\pi\int f_\mr{h}v_\perp\,\mr{d}v_\perp$ for the parallel velocity at the beginning ($t=t_0=0$) and at the end ($t=t_\mr{f}=200\,|\Omega_\mr{ce}|$) of the simulations. In both cases, we observe a flattening of the distribution functions around the resonant velocities, which are expected to be at $v_\mr{R}=(\omega_\mr{r}+|\Omega_\mr{ce}|)/k\approx\pm0.26\,c$ for the wavenumber $k=2|\Omega_\mr{ce}|/c$. This means that energetic electrons initially close to the resonant velocities gain energy in parallel direction which can more clearly be seen in the plots below where we show the difference in the initial and final distributions. In contrast to that, energetic electrons lose energy in perpendicular direction (not shown). A quantitative analysis yields that the energetic electrons lose more energy in perpendicular direction than what they gain in parallel direction, which is of course expected because the wave energies grow due to energy transfer from the energetic electrons to the wave. Qualitatively, the two algorithms do not result in visible differences regarding the distribution functions.  
+
+Finally, we check the conservation of the total energy $\mathcal{E}$ in the system and show in Fig. \ref{fig_comparison} the evolution of its relative error $|\mathcal{E}(t)-\mathcal{E}(0)|/\mathcal{E}(0)$ with respect to time for three cases: For the first case (purple), which is standard PIC, we find an oscillation of the error on a nearly bounded level until $t\approx40\,|\Omega_\mr{ce}|$. This is followed by a sudden increase of the error of about three orders of magnitude until a saturation phase is reached. Second, we plot the evolution of the relative error for geometric PIC with the first-order Lie-Trotter splitting (\ref{eq_LieTrotter}) (brown) and we observe that the error is again oscillating, however, uniformly bounded during the whole simulation. This is expected for a symplectic integrator \citep{Haireretal2006}. Third, we observe for geometric PIC with the Strang-splitting (\ref{eq_Strang}) (orange), which is second order in time, that the error is reduced by about three orders of magnitude and that it shows the same behavior as the Lie-Trotter splitting up to $t\approx110|\Omega_\mr{ce}|$, i.e. the error is oscillating and uniformly bounded. However, this is followed by a slow, linear increase of the error, where the oscillation vanishes.
+\begin{figure}[!t]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/comparison_energies_1e5.pdf}
+%\input{01_Figures/comparison_energies_1e5.pgf}
+\caption{Run 1 with parameters listed in Tab. \ref{tab_parameters}: Time evolution of the relative error in the conservation of energy for three cases: Standard finite element PIC (purple), structure-preserving finite element PIC with Lie-Trotter splitting (brown) and Strang splitting (orange).\label{fig_comparison}}
+\end{figure}
+
+\begin{figure}[!b]
+\centering
+\includegraphics[scale=1]{/home/florian/Desktop/PHD/02_Projekte/hylife/papers/01_Comp_FEEC_standard/01_Figures/Spectra_1e5.pdf}
+%\input{Spectra_1e5.pgf}
+\caption{Run 2 with parameters $\vpar=\vperp=0.1\,c$, $\nu_\mr{h}=0.002$, $\Omega_\mr{pe}=2|\Omega_\mr{ce}|$, $L=80c/|\Omega_\mr{ce}|$, $N_\mr{el}=512$, $p=1$, $N_\mr{p}=1\cdot 10^5$ and $\Delta t=0.05|\Omega_\mr{ce}|^{-1}$. The simulation was run until $t_\mr{f}=300|\Omega_\mr{ce}|$: (a) Normalized 2d Discrete Fourier Transform of the $x$-component of the magnetic field for standard finite element PIC. (b) Same as (a) for structure preserving finite element PIC. (c) Comparison of the spectrum (a) with the real part of the analytical dispersion relation (\ref{eq_dispersion_relation}). (d) Same as (c) for the spectrum (b).\label{fig_spectra}}
+\end{figure}
+
+\subsection{Run 2: Multiple $k$-modes}
+So far we have initialized the code with a small perturbation of the $x$-component of the magnetic field for a single wavenumber $k$. Next, we want to excite multiple $k$-modes of the system at the same time. This can be achieved by directly using the fact that the random initialization of the particles in phase space induces a low-level noise in the system. In Fig. \ref{fig_spectra}, one can see the normalized two-dimensional Discrete Fourier transform (DFT) of a run
+that has been initialized with a low density ($\nu_\mr{h}=0.002$), isotropic Maxwellian ($\vpar=\vperp=0.1\,c$) for the energetic electrons and no electromagnetic fields and cold current density. With this choice of parameters, there is no wave growth expected, however, by taking a look at the spectrum in the $k$-$\omega$-plane in Fig. \ref{fig_comparison}, we see that the particle noise leads to an excitation of all three characteristic waves (see Sec. \ref{sec_dispersion}) with a continuous spectrum in each quadrant. For both numerical methods, we obtain similar results for small wavenumbers and frequencies which we can compare to the real part of the dispersion relation (\ref{eq_dispersion_relation}) and for which we find a very good agreement. However, there is an obvious different behavior when it comes to higher wavenumbers. In case of standard PIC, the two branches corresponding to vacuum light waves ''bend down'' which is not the case for structure-preserving PIC. Although it also differs from the expected straight line representing the speed of light, there are no unphysical modes as for standard PIC. This is also true for the Whistler branch below the electron cyclotron frequency $\Omega_\mr{ce}$. Whereas there are unphysical modes with a rather large intensity (red) for the highest wavenumbers $k\approx 20|\Omega_\mr{ce}|/c$ for standard PIC, this is not the case for structure-preserving PIC. The reason for this qualitative behavior is not obvious and needs to be analyzed further. 
+
+
+\section{Summary}
+\label{sec_summary}
+In this article, we have developed two different finite element particle-in-cell algorithms for a four-dimensional hybrid plasma model and compared the results for two test runs. The considered hybrid plasma model is a combined kinetic/fluid description for a magnetized plasma, which consists of cold (fluid) electrons and energetic (kinetic) electrons that move in a stationary, neutralizing background of ions. The model's key physics content for wave propagation parallel to a uniform background magnetic field is that it predicts the existence of growing/damped modes due to energy exchange between the energetic electrons and waves which propagate in the cold plasma.
+
+For this case, first, a combination of one-dimensional B-spline finite elements for Maxwell's equations and the momentum balance equation for the cold electrons and the standard particle-in-cell method with a Boris particle pusher for the Vlasov equation (one dimension in real space and three dimensions in velocity space) has been applied in an intuitive way without taking into account the geometric structure of the equations. Second, geometric finite element particle-in-cell methods \citep{Krausetal2017} which use tools from \textit{finite element exterior calculus} have been applied on the same model. By choosing finite elements spaces and projectors on these spaces satisfying a commuting diagram with the continuous spaces, a semi-discrete system (discrete in space and continuous in time) for the time evolution of all finite element coefficients and particle configurations has been derived. By proofing the skew-symmetry and the Jacobi identity of the Poisson matrix, it has been shown that the semi-discrete system exhibits a noncanonical Hamiltonian structure. The subsequent construction of Poisson time integrators by splitting the Hamiltonian and analytically solving the resulting subsystems has led to a uniformly bounded error in the conservation of energy for the first presented numerical experiment in the linear and nonlinear stage which is was not the case for standard PIC. Finally, the second numerical experiment revealed that standard PIC leads to spurious modes for large wavenumbers (compared to the inverse of the element size) which is not the case for structure-preserving geometric PIC.
+ 
+
+
+\newpage
+\appendix
+
+\section{Poisson matrix}
+\label{sec_appendix1}
+\noindent The matrix $\mathbb{J}$ in (\ref{eq_Hamiltonian_structure}) reads
+\renewcommand{\arraystretch}{2.0}
+\begin{linenomath}
+\begin{align}
+\hspace{3cm}
+\rotatebox{90}{$
+\left(\begin{array}{c|c|c|c|c|c|c|c|c|c}
+ & & &\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0  & &
+\\ 
+\hline & & -\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top & & & -\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & &-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0 &
+ \\
+\hline & \frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1} & & & & & & & &
+ \\
+\hline -\frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1} & & & & & & & & &
+ \\
+\hline  \Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & & & & \epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1} & & & &
+ \\
+\hline & \Omega_\mathrm{pe}^2\mathbb{M}_0^{-1} & & & -\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1} & & & & &
+ \\
+\hline & & & & & & & & &\mathbb{W}^{-1}
+ \\
+\hline \frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1} & & & & & & & &\Omega_\mathrm{ce}\mathbb{W}^{-1} &-\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y\mathbb{W}^{-1}
+ \\
+\hline &\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}  & & & & & & -\Omega_\mathrm{ce}\mathbb{W}^{-1} & &\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x\mathbb{W}^{-1}
+ \\
+\hline & & & & & &-\mathbb{W}^{-1} &\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y\mathbb{W}^{-1} &-\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x\mathbb{W}^{-1} &
+ \end{array}\right)$
+ }\label{eq_Poisson_matrix}
+\end{align}
+\end{linenomath}
+
+
+\section{Jacobi identity}
+\label{sec_appendix2}
+\begin{table}[ht!]
+\centering
+\caption{Block index triples for which the Jacobi identity needs to be proven.\label{tab_Jacobi2}}
+\begin{tabular}{|c|c|c|c|}
+\hline
+(i,j,k) &terms &block matrix term & explicit expression \\[1mm]
+\hline
+(1,8,10) &\uproman{5}+\uproman{7} & &\\[1mm]
+(8,10,1) &\uproman{4}+\uproman{9} &\large$\block{8}{10}{\mb{b}_y}{4}{1}+\block{1}{8}{\mb{Z}}{7}{10}$ &\large$\frac{q_\mr{e}}{m_\mr{e}\epsilon_0}\left(\frac{\pa(\mathbb{B}_y\mathbb{W}^{-1})}{\pa\mb{b}_y}\mathbb{G}\mathbb{M}_0^{-1}-\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}_0)}{\pa \mb{Z}}\mathbb{W}^{-1}\right)$ \\[1mm]
+(10,1,8) &\uproman{6}+\uproman{8} & &\\
+\hline
+
+(1,10,8) &\uproman{5}+\uproman{9} & &\\[1mm]
+(10,8,1) &\uproman{4}+\uproman{8} &\large$\block{10}{8}{\mb{b}_y}{4}{1}+\block{8}{1}{\mb{Z}}{7}{10}$ &\large$-\frac{q_\mr{e}}{m_\mr{e}\epsilon_0}\left(\frac{\pa(\mathbb{B}_y\mathbb{W}^{-1})}{\pa\mb{b}_y}\mathbb{G}\mathbb{M}_0^{-1}-\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}_0)}{\pa \mb{Z}}\mathbb{W}^{-1}\right)$ \\[1mm]
+(8,1,10) &\uproman{6}+\uproman{7} & &\\
+\hline
+
+
+(2,9,10) &\uproman{2}+\uproman{7} & & \\[1mm]
+(9,10,2) &\uproman{1}+\uproman{9} &\large$\block{9}{10}{\mb{b}_x}{3}{2}+\block{2}{9}{\mb{Z}}{7}{10}$ &\large$\frac{q_\mr{e}}{m_\mr{e}\epsilon_0}\left(\frac{\pa(\mathbb{B}_x\mathbb{W}^{-1})}{\pa\mb{b}_x}\mathbb{G}\mathbb{M}_0^{-1}-\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}_0)}{\pa \mb{Z}}\mathbb{W}^{-1}\right)$ \\[1mm]
+(10,2,9) &\uproman{3}+\uproman{8} & &\\
+\hline
+
+
+(2,10,9) &\uproman{2}+\uproman{9} & &\\[1mm]
+(10,9,2) &\uproman{1}+\uproman{8} &\large$\block{10}{9}{\mb{b}_x}{3}{2}+\block{9}{2}{\mb{Z}}{7}{10}$ &\large$-\frac{q_\mr{e}}{m_\mr{e}\epsilon_0}\left(\frac{\pa(\mathbb{B}_x\mathbb{W}^{-1})}{\pa\mb{b}_x}\mathbb{G}\mathbb{M}_0^{-1}-\frac{\pa(\mathbb{M}_0^{-1}\mathbb{Q}_0)}{\pa \mb{Z}}\mathbb{W}^{-1}\right)$ \\[1mm]
+(9,2,10) &\uproman{3}+\uproman{7} & &\\
+\hline
+
+
+(8,10,10) &\uproman{7}+\uproman{9} & &\\[1mm]
+(10,10,8) &\uproman{8}+\uproman{9} &\large$\block{8}{10}{\mb{Z}}{7}{10}+\block{10}{8}{\mb{Z}}{7}{10}$ &\large$-\frac{q_\mr{e}}{m_\mr{e}}\frac{\pa(\mathbb{B}_y\mathbb{W}^{-1})}{\pa\mb{Z}}\mathbb{W}^{-1}+\frac{q_\mr{e}}{m_\mr{e}}\frac{\pa(\mathbb{B}_y\mathbb{W}^{-1})}{\pa\mb{Z}}\mathbb{W}^{-1}=0$ \\[1mm]
+(10,8,10) &\uproman{7}+\uproman{8} & &\\
+\hline
+
+
+
+(9,10,10) &\uproman{7}+\uproman{9} & &\\[1mm]
+(10,10,9) &\uproman{8}+\uproman{9} &\large$\block{9}{10}{\mb{Z}}{7}{10}+\block{10}{9}{\mb{Z}}{7}{10}$ &\large$\frac{q_\mr{e}}{m_\mr{e}}\frac{\pa(\mathbb{B}_x\mathbb{W}^{-1})}{\pa\mb{Z}}\mathbb{W}^{-1}-\frac{q_\mr{e}}{m_\mr{e}}\frac{\pa(\mathbb{B}_x\mathbb{W}^{-1})}{\pa\mb{Z}}\mathbb{W}^{-1}=0$ \\[1mm]
+(10,9,10) &\uproman{7}+\uproman{8} & &\\
+
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+\section{Time integrators for Hamiltonian splitting}
+\label{sec_appendix3}
+\noindent \textbf{Problem 1}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$ we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_E(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{\epsilon_0}{2}(\textbf{e}_x^\top\mathbb{M}_0\textbf{e}_x+\textbf{e}_y^\top\mathbb{M}_0\textbf{e}_y)\right].
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0 + \Delta t\mathbb{G}\textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}\mathbb{G}\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0 - \Delta t\mathbb{G}\textbf{e}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0 + \Delta t\epsilon_0\Omega_\mathrm{pe}^2\textbf{e}_y^0,\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_x\quad &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_x^0,\\ 
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=\frac{q_\text{e}}{\epsilon_0m_\text{e}}(\mathbb{Q}^0)^\top\mathbb{M}_0^{-1}\epsilon_0\mathbb{M}_0\textbf{e}_y &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_x^0 + \Delta t\frac{q_\text{e}}{m_\text{e}}(\mathbb{Q}^0)^\top(\textbf{Z}^0)\textbf{e}_y^0,\\ 
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^E(\textbf{u}^0)$.\\ \\
+\textbf{Problem 2}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$ we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_B(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\mu_0}(\textbf{b}_x^\top\mathbb{M}_1\textbf{b}_x+\textbf{b}_y^\top\mathbb{M}_1\textbf{b}_y)\right].
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}_1\textbf{b}_y &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0 + \Delta tc^2\mathbb{M}_0^{-1}\mathbb{G}^\top\mathbb{M}_1\textbf{b}_y^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{1}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{G}^\top\frac{1}{\mu_0}\mathbb{M}_1\textbf{b}_x \quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta tc^2\mathbb{M}_0^{-1}\mathbb{G}^\top\mathbb{M}_1\textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0,
+\end{alignat}
+\begin{alignat}{3}
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0\hspace{3cm} &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0,\\
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0,\\
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^B(\textbf{u}^0)$.\\ \\
+\textbf{Problem 3}. For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$, we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_Y(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left[\frac{1}{2\epsilon_0\Omega_\mr{pe}^2}(\textbf{y}_x^\top\mathbb{M}_0\textbf{y}_x+\textbf{y}_y^\top\mathbb{M}_0\textbf{y}_y)\right].
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+\begin{split}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_x \\
+    &\Longrightarrow \textbf{e}_x(\Delta t)=\textbf{e}_x^0 - \frac{1}{\epsilon_0}\int_{0}^{\Delta t} y_x(t^\prime)\mathrm{d}t^\prime =\textbf{e}_x^0 - \frac{1}{\epsilon_0\Omega_\mathrm{ce}}[\textbf{y}_x^0\sin(\Omega_\mathrm{ce}t)-\textbf{y}_y^0\cos(\Omega_\mathrm{ce}t)+\textbf{y}_y^0],
+\end{split}\\
+\begin{split}
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\Omega_\mathrm{pe}^2\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_y \\
+    &\Longrightarrow \textbf{e}_y(\Delta t)= \textbf{e}_y^0 - \frac{1}{\epsilon_0}\int_{0}^{\Delta t} y_y(t^\prime)\mathrm{d}t^\prime =\textbf{e}_y^0 - \frac{1}{\epsilon_0\Omega_\mathrm{ce}}[\textbf{y}_y^0\sin(\Omega_\mathrm{ce}t)+\textbf{y}_x^0\cos(\Omega_\mathrm{ce}t)-\textbf{y}_x^0],
+\end{split}
+\end{alignat}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_y &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0\cos(\Omega_\mathrm{ce}\Delta t)+\textbf{y}_y^0\sin(\Omega_\mathrm{ce}\Delta t),\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=-\epsilon_0\Omega_\mathrm{pe}^2\Omega_\mathrm{ce}\mathbb{M}_0^{-1}\frac{1}{\epsilon_0\Omega_\mathrm{pe}^2}\mathbb{M}_0\textbf{y}_x \quad &&\Longrightarrow\quad\textbf{y}_y(\Delta t) = \textbf{y}_y^0\cos(\Omega_\mathrm{ce}\Delta t)-\textbf{y}_x^0\sin(\Omega_\mathrm{ce}\Delta t),\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad\textbf{V}_x(\Delta t) = \textbf{V}_x^0,\\
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0,\\
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad\textbf{V}_z(\Delta t) = \textbf{V}_z^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^Y(\textbf{u}^0)$.\\ \\
+\textbf{Problem 4.} For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$, we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_x(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left(\frac{m_\mr{e}}{2}\textbf{V}_x^\top\mathbb{W}\textbf{V}_x\right).
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_x\quad &&\Longrightarrow\quad\textbf{e}_x(\Delta t) =\textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0,\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0,\\
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=-\frac{\Omega_\mathrm{ce}}{m}\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_x &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0-\Delta t\Omega_\text{ce}\textbf{V}_x^0,\\
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=\frac{q_\text{e}}{m_\text{e}^2}\mathbb{B}_y\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_x \quad &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0+\Delta t\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_y(\textbf{Z}^0,\textbf{b}_y^0)\textbf{V}_x^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^y(\textbf{u}^0)$.\\ \\
+\textbf{Problem 5.} For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$, we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d}\textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_y(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left(\frac{m_\mr{e}}{2}\textbf{V}_y^\top\mathbb{W}\textbf{V}_y\right).
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=-\frac{q_\text{e}}{\epsilon_0m_\text{e}}\mathbb{M}_0^{-1}\mathbb{Q}^0m_\text{e}\mathbb{W}\textbf{V}_y\quad &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0 - \Delta t\frac{q_\text{e}}{\epsilon_0}\mathbb{M}_0^{-1}\mathbb{Q}^0(\textbf{Z}^0)\mathbb{W}\textbf{V}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0,\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=\frac{\Omega_\mathrm{ce}}{m}\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_y &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0+\Delta t\Omega_\mathrm{ce}\textbf{V}_y^0,\\
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0,\\
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=-\frac{q_\text{e}}{m_\text{e}^2}\mathbb{B}_x\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_y &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0-\Delta t\frac{q_\text{e}}{m_\text{e}}\mathbb{B}_x(\textbf{Z}^0,\textbf{b}_x^0)\textbf{V}_y^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^y(\textbf{u}^0)$.\\ \\
+\textbf{Problem 6.} For $t\in[0,\Delta t]$ and $\textbf{u}(t=0)=\textbf{u}^0$, we have
+\begin{linenomath}
+\begin{align}
+\frac{\mathrm{d} \textbf{u}}{\mathrm{d}t}=\mathbb{J}(\textbf{u})\nabla_{\textbf{u}} H_z(\textbf{u})=\mathbb{J}(\mb{u})\nabla_{\textbf{u}}\left(\frac{m_\mr{e}}{2}\textbf{V}_z^\top\mathbb{W}\textbf{V}_z\right).
+\end{align}
+\end{linenomath}
+This can be solved analytically as
+\begin{linenomath}
+\begin{subequations}
+\begin{alignat}{3}
+    &\frac{\mathrm{d} \textbf{e}_x}{\mathrm{d}t}=0\quad &&\Longrightarrow\quad \textbf{e}_x(\Delta t) = \textbf{e}_x^0,\\
+    &\frac{\mathrm{d} \textbf{e}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{e}_y(\Delta t) = \textbf{e}_y^0,\\
+    &\frac{\mathrm{d} \textbf{b}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_x(\Delta t) = \textbf{b}_x^0,\\
+    &\frac{\mathrm{d} \textbf{b}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{b}_y(\Delta t) = \textbf{b}_y^0,\\
+     &\frac{\mathrm{d} \textbf{y}_x}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_x(\Delta t) = \textbf{y}_x^0,\\
+     &\frac{\mathrm{d} \textbf{y}_y}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{y}_y(\Delta t) = \textbf{y}_y^0,\\
+     &\frac{\mathrm{d} \textbf{Z}}{\mathrm{d}t}=\frac{1}{m}\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_z &&\Longrightarrow\quad \textbf{Z}(\Delta t) = \textbf{Z}^0+\Delta t\textbf{V}_z^0,\\
+     &\frac{\mathrm{d} \textbf{V}_x}{\mathrm{d}t}=-\frac{q_\text{e}}{m_\text{e}^2}\mathbb{B}_y\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_z \quad &&\Longrightarrow\quad \textbf{V}_x(\Delta t) = \textbf{V}_x^0-\frac{q_\text{e}}{m_\text{e}}\int_{0}^{\Delta t}\mathbb{B}_y(\textbf{Z}(s),\textbf{b}_y^0)\mathrm{d}s\textbf{V}_z^0\label{eq_lineIntegral_1}\\
+     &\frac{\mathrm{d} \textbf{V}_y}{\mathrm{d}t}=\frac{q_\text{e}}{m_\text{e}^2}\mathbb{B}_x\mathbb{W}^{-1}m_\text{e}\mathbb{W}\textbf{V}_z &&\Longrightarrow\quad \textbf{V}_y(\Delta t) = \textbf{V}_y^0+\frac{q_\text{e}}{m_\text{e}}\int_{0}^{\Delta t}\mathbb{B}_x(\textbf{Z}(s),\textbf{b}_x^0)\mathrm{d}s\textbf{V}_z^0\label{eq_lineIntegral_2}\\
+     &\frac{\mathrm{d} \textbf{V}_z}{\mathrm{d}t}=0 &&\Longrightarrow\quad \textbf{V}_z(\Delta t) = \textbf{V}_z^0.
+\end{alignat}
+\end{subequations}
+\end{linenomath}
+The corresponding integrator is denoted by $\textbf{u}(\Delta t)=\Phi_{\Delta t}^z(\textbf{u}^0)$. Note that the integrals can be computed exactly along each particle trajectories as the basis functions are piecewise polynomials.
+
+\section*{Acknowledgments}
+To end this article, we would like to thank C. Tronci for stimulating discussions and collaborations.
+
+%%Vancouver style references.
+\bibliographystyle{model1-num-names}
+\bibliography{refs}
+\end{document}
+
+%%
