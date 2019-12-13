@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  13 DEC 2019 08:57
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  13 DEC 2019 13:47
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1747,29 +1747,21 @@ LaTeX Font Info:    Font shape `U/lasy/b/n' in size <7> not available
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <5> not available
 (Font)              Font shape `U/lasy/m/n' tried instead on input line 240.
  [5] [6] [7] [8] [9]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 354.
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 354.
- (./MHD_FEEC_Alfven.xwm)
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
-(./MHD_FEEC_Alfven.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 354.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 354.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 435.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 435.
+ (./MHD_FEEC_Alfven.xwm) (./MHD_FEEC_Alfven.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 435.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 435.
 Package rerunfilecheck Info: File `MHD_FEEC_Alfven.out' has not changed.
-(rerunfilecheck)             Checksum: 9E7A69F78B85B92A14AD95C18607EE9B;527.
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 354.
+(rerunfilecheck)             Checksum: BD3739CF2E2269EC42790C33B3D421A8;523.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 435.
  ) 
 Here is how much of TeX's memory you used:
- 34075 strings out of 493029
- 654737 string characters out of 6136233
- 854741 words of memory out of 5000000
- 36951 multiletter control sequences out of 15000+600000
- 60445 words of font info for 155 fonts, out of 8000000 for 9000
+ 34112 strings out of 493029
+ 655188 string characters out of 6136233
+ 854725 words of memory out of 5000000
+ 36952 multiletter control sequences out of 15000+600000
+ 62668 words of font info for 158 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  53i,23n,58p,10387b,839s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold10.pfb></u
@@ -1793,10 +1785,10 @@ e1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
 lic/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ams
 fonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
 m/cmti10.pfb>
-Output written on MHD_FEEC_Alfven.pdf (9 pages, 276476 bytes).
+Output written on MHD_FEEC_Alfven.pdf (9 pages, 281905 bytes).
 PDF statistics:
- 283 PDF objects out of 1000 (max. 8388607)
- 244 compressed objects within 3 object streams
- 93 named destinations out of 1000 (max. 500000)
+ 322 PDF objects out of 1000 (max. 8388607)
+ 283 compressed objects within 3 object streams
+ 126 named destinations out of 1000 (max. 500000)
  82 words of extra memory for PDF output out of 10000 (max. 10000000)
 

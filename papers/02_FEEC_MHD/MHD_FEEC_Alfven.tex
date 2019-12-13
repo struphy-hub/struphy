@@ -312,14 +312,14 @@ We immediately see that we obtain the same projection matrix as for the Hall ter
 \subsection{Particles' equation of motion}
 As a last step, the equations of motion for a single particle with logical coordinate $\mb{q}_k$ and physical velocity $\mb{v}_k$ read
 \begin{align}
-\frac{\mr{d}\mb{q}_k}{\mr{d}t}&=DF^{-1}\mb{v}_k,\\
-\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-\top}\mb{U}_h(\mb{q}_k)-\frac{1}{\sqrt{g}}DF\hat{\mb{B}}_h(\mb{q}_k)\times\mb{v}_k.\\
-&=DF^{-\top}(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}\mb{U}_h(\mb{q}_k))-DF^{-\top}(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k),
+\frac{\mr{d}\mb{q}_k}{\mr{d}t}&=DF^{-1}(\mb{q}_k)\mb{v}_k,\\
+\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{1}{\sqrt{g}}DF(\mb{q}_k)\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-\top}(\mb{q}_k)\mb{U}_h(\mb{q}_k)-\frac{1}{\sqrt{g}}DF(\mb{q}_k)\hat{\mb{B}}_h(\mb{q}_k)\times\mb{v}_k.\\
+&=DF^{-\top}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}(\mb{q}_k)\mb{U}_h(\mb{q}_k))-DF^{-\top}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k),
 \end{align}
 where we used the identity $A\mb{b}\times A\mb{c}=\det(A)A^{-\top}(\mb{b}\times\mb{c})$ from vector calculus. Writing the above equation of motion in matrix-vector form for all particles yields
 \begin{align}
 &\frac{\mr{d}\mb{Q}}{\mr{d}t}=\tilde{DF}^{-1}\mb{V},\\
-&\frac{\mr{d}\mb{V}}{\mr{d}t}=\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}.
+&\frac{\mr{d}\mb{V}}{\mr{d}t}=\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{DF}^{-1}(\mb{q}_k)\mb{V}.
 \end{align}
 
 \subsection{Hamiltonian system}
@@ -337,7 +337,90 @@ With this we can formulate the semi-discrete system in a $4\times 4$ block struc
 \mathbb{M}^2\mb{b}\\
 0 \\
 \mathbb{W}\mb{V}
-\end{pmatrix},\\ &\mathbb{J}(\mb{b},\mb{Q})=\\
+\end{pmatrix}
+\end{align}
+We end up with an antisymmetric Poisson matrix meaning that the discrete Hamiltonian is conserved. 
+
+\section{Time integration}
+\subsection{Poisson splitting}
+\begin{align}
+&\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
+\mb{u} \\ \mb{b} \\ \mb{Q} \\ \mb{V}
+\end{pmatrix}=
+\begin{pmatrix}
+\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})} &\textcolor{blue}{\mathbb{J}_{12}} &0 &\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}\\
+\textcolor{blue}{-\mathbb{J}_{12}^\top} &0 &0 &0 \\
+0 &0 &0 &\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})} \\
+\textcolor{green}{-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})} &0 &\textcolor{magenta}{-\mathbb{J}_{34}^\top(\mb{Q})} &\mathbb{J}_{44}(\mb{b},\mb{Q})
+\end{pmatrix}\begin{pmatrix}
+\mathcal{A}\mb{u} \\
+\mathbb{M}^2\mb{b}\\
+0 \\
+\mathbb{W}\mb{V}
+\end{pmatrix}\\[1cm]
+&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1}\\
+&\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top\\
+&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\\
+&\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}\\
+&\mathbb{J}_{44}(\mb{Q})=-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
+\end{align}
+\paragraph{Sub-step 1}
+The first sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{11}(\mb{b},\mb{Q})\mathcal{A}\mb{u}\\
+&\dot{\mb{b}}=0\\
+&\dot{\mb{Q}}=0\\
+&\dot{\mb{V}}=0
+\end{align}
+We solve the this equation with the Crank-Nicolson method:
+\begin{align}
+\frac{\mb{u}^{n+1}-\mb{u}^n}{\Delta t}=\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\frac{\mb{u}^n+\mb{u}^{n+1}}{2}
+\end{align} 
+\paragraph{Sub-step 2}
+The second sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{12}\mathbb{M}^2\mb{b}\\
+&\dot{\mb{b}}=-\mathbb{J}_{12}^\top\mathcal{A}\mb{u}\\
+&\dot{\mb{Q}}=0\\
+&\dot{\mb{V}}=0
+\end{align}
+We solve the first two equations analytically with an exponential integrator:
+\begin{align}
+\begin{pmatrix}
+\mb{u}^{n+1}\\ \mb{b}^{n+1}
+\end{pmatrix}=\exp\begin{pmatrix}
+0 &\mathbb{J}_{12}\mathbb{M}^2\Delta t\\-\mathbb{J}_{12}^\top\mathcal{A}\Delta t &0
+\end{pmatrix}\begin{pmatrix}
+\mb{u}^{n}\\ \mb{b}^{n}
+\end{pmatrix}
+\end{align}
+\paragraph{Sub-step 3}
+The third sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{14}(\mb{b},\mb{Q})\mathbb{W}\mb{V}\\
+&\dot{\mb{b}}=0\\
+&\dot{\mb{Q}}=0\\
+&\dot{\mb{V}}=-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})\mathcal{A}\mb{u}
+\end{align}
+\paragraph{Sub-step 4}
+The fourth sub-system reads
+\begin{align}
+&\dot{\mb{u}}=0\\
+&\dot{\mb{b}}=0\\
+&\dot{\mb{Q}}=\mathbb{J}_{34}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}\\
+&\dot{\mb{V}}=0
+\end{align}
+\paragraph{Sub-step 5}
+The fifth sub-system reads
+\begin{align}
+&\dot{\mb{u}}=0\\
+&\dot{\mb{b}}=0\\
+&\dot{\mb{Q}}=0\\
+&\dot{\mb{V}}=\mathbb{J}_{44}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}
+\end{align}
+\appendix
+\begin{align}
+\mathbb{J}(\mb{b},\mb{Q})=\\
 &\rotatebox{90}{$\begin{pmatrix}
 \mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1} &\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top &0 &\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\\
 -\mathbb{C}\mathcal{T}\mathcal{A}^{-1} &0 &0 &0 \\
@@ -345,10 +428,8 @@ With this we can formulate the semi-discrete system in a $4\times 4$ block struc
 \tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}^{1\top}(\mb{Q})\mathcal{A}^{-1} &0 &-\mathbb{W}^{-1}\tilde{DF}^{-\top}(\mb{Q}) &-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
 \end{pmatrix}$}
 \end{align}
-\normalsize
-We end up with an antisymmetric Poisson matrix meaning that the discrete Hamiltonian is conserved. 
 
-\section{Time integration}
-\subsection{Hamiltonian splitting}
-We split the part of the Hamiltonian involving the kinetic energy in its 9 sub-parts 
+
+
+
 \end{document}
