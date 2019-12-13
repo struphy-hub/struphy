@@ -98,9 +98,9 @@ We consider a hybrid kinetic-MHD model where the coupling of the fluid and kinet
 &\frac{\pa p}{\pa t}+\nabla\cdot(p\mb{U})+(\gamma-1)p\nabla\cdot\mb{U}=0,
 \label{eq_pressure}\\
 &\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\mb{U}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0,\\
-&\rho_\text{h}=\int f_\text{h}\text{d}^3v,\qquad\mb{j}_\text{h}=\int\mb{v}f_\text{h}\text{d}^3v.
+&\rho_\text{h}=\int f_\text{h}\text{d}^3v,\qquad\mb{j}_\text{h}=\int\mb{v}f_\text{h}\text{d}^3v.\label{eq_moments}
 \end{align}
-where we set all physical constants equal to one. This set of equations forms a closed system of nonlinear partial differential equations for the the bulk mass density $\rho$, the bulk velocity $\mb{U}$, the magnetic induction $\mb{B}$ (which we will simply refer to as magnetic field), the bulk pressure $p$ and the distribution function of the hot ions $f_\text{h}$. Furthermore, $\gamma=5/3$ is the adiabatic exponent. This system possesses a Hamiltonian structure with the following conserved energy:
+where we set all physical constants equal to one\footnote{We assume hot ions with a positive charge. Therefore, one does not have to be careful with the signs in (\ref{eq_moments})}. This set of equations forms a closed system of nonlinear partial differential equations for the the bulk mass density $\rho$, the bulk velocity $\mb{U}$, the magnetic induction $\mb{B}$ (which we will simply refer to as magnetic field), the bulk pressure $p$ and the distribution function of the hot ions $f_\text{h}$. Furthermore, $\gamma=5/3$ is the adiabatic exponent. This system possesses a Hamiltonian structure with the following conserved energy:
 \begin{align}
 \mathcal{H}_0(t)=\frac{1}{2}\int\rho\mb{U}^2\text{d}^3x+\frac{1}{\gamma-1}\int p\text{d}^3x+\frac{1}{2}\int\mb{B}^2\text{d}^3x+\frac{1}{2}\int\int\mb{v}^2f_\text{h}\mr{d}^3v\mr{d}^3x.\label{eq_H0}
 \end{align}
@@ -110,7 +110,7 @@ In order to start from a simpler model we shall restrict ourselves for the momen
 &\frac{\pa\tilde{\mb{B}}}{\pa t}=\nabla\times(\tilde{\mb{U}}\times\mb{B}_\text{eq}),\label{eq_induction}\\
 &\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\mb{U}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0.\label{eq_Vlasov}
 \end{align}
-The linearization of the MHD part breaks energy conservation, i.e. the Hamiltonian (\ref{eq_H0}) is not conserved anymore. However, we can write down the new Hamiltonian
+The linearization of the MHD part breaks energy conservation, i.e. the Hamiltonian (\ref{eq_H0}) is no longer conserved. However, we can write down the new Hamiltonian
 \begin{align}
 \mathcal{H}_1(t)=\frac{1}{2}\int\rho_\text{eq}\tilde{\mb{U}}^2\text{d}^3x+\frac{1}{2}\int\tilde{\mb{B}}^2\text{d}^3x+\frac{1}{2}\int\int\mb{v}^2f_\text{h}\mr{d}^3v\mr{d}^3x,\label{eq_H1}
 \end{align} 
@@ -130,7 +130,7 @@ As a next step, we introduce finite element basis functions which satisfy a disc
 \begin{figure}
 \centering
 \includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
-\caption{Commuting diagram for function spaces in 3d. The upper line represents the sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
+\caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
 \end{figure}
 Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their resepective bases as
 \begin{alignat}{2}
@@ -226,7 +226,7 @@ where we introduced the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 
 \end{align}
 The projection matrix $\mathcal{T}$ is given by
 \begin{align}
-\mathcal{T}_{ij}:=\Pi_{1,\mu}^{i_\mu}\left[(\mathbb{B}_\text{eq})_{\mu k}G^{kl}\mathbb{\Lambda}^1_{jl}\right]=\Pi_{1,\mu}^{i_\mu}\left[\epsilon_{\mu mk}B_{\text{eq},m}G^{kl}\mathbb{\Lambda}^1_{jl}\right],\qquad\mu=\{1,2,3\},
+\mathcal{T}_{ij}:=\Pi_{1,\mu}^{i_\mu}\left[(\mathbb{B}_\text{eq})_{\mu k}G^{kl}\Lambda^1_{j,l}\right]=\Pi_{1,\mu}^{i_\mu}\left[\epsilon_{\mu mk}B_{\text{eq},m}G^{kl}\Lambda^1_{j,l}\right],\qquad\mu=\{1,2,3\},
 \end{align}
 which has the right-hand sides
 \small
@@ -247,7 +247,7 @@ Performing the same steps for the second term yields
 \end{align}
 The projection tensor $\mathcal{P}\in\mathbb{R}^{3N\times3N\times3N}$ is given by
 \begin{align}
-\mathcal{P}_{ijk}=\Pi_1^{j_\mu}\left[\epsilon_{\mu lm}\Lambda^2_{il}G^{mn}\Lambda^1_{kn}\right],
+\mathcal{P}_{ijk}=\Pi_1^{j_\mu}\left[\epsilon_{\mu lm}\Lambda^2_{i,l}G^{mn}\Lambda^1_{k,n}\right],
 \end{align}
 where it is important to note that the entries of $\mb{b}$ contract from left with the index $i$ and the entries of $\mb{v}$ from right with the index $k$. The result is then a vector defined by the index $j$. 
 
@@ -266,7 +266,7 @@ where we introduced the antisymmetric block matrix
 \end{pmatrix}.
 \end{align}
 \normalsize
-where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. Moreover,
+where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ represents the evaluation of all basis functions at all particle positions and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. Moreover,
 \begin{align}
 &\mb{V}=(v_{1x},v_{2x},\ldots,v_{N_px},v_{1y},v_{2y},\ldots,v_{N_py},v_{1z},v_{2z},\ldots,v_{N_pz})^\top\in\mathbb{R}^{3N_p},\\
 &\mathbb{W}=\begin{pmatrix}
@@ -338,11 +338,11 @@ With this we can formulate the semi-discrete system in a $4\times 4$ block struc
 0 \\
 \mathbb{W}\mb{V}
 \end{pmatrix},\\ &\mathbb{J}(\mb{b},\mb{Q})=\\
-&\rotatebox{0}{$\begin{pmatrix}
+&\rotatebox{90}{$\begin{pmatrix}
 \mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1} &\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top &0 &\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\\
 -\mathbb{C}\mathcal{T}\mathcal{A}^{-1} &0 &0 &0 \\
-0 &0 &0 &\mathbb{W}^{-1} \\
-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}^{1\top}(\mb{Q})\mathcal{A}^{-1} &0 &-\mathbb{W}^{-1} &-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
+0 &0 &0 &\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1} \\
+\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}^{1\top}(\mb{Q})\mathcal{A}^{-1} &0 &-\mathbb{W}^{-1}\tilde{DF}^{-\top}(\mb{Q}) &-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
 \end{pmatrix}$}
 \end{align}
 \normalsize
@@ -350,4 +350,5 @@ We end up with an antisymmetric Poisson matrix meaning that the discrete Hamilto
 
 \section{Time integration}
 \subsection{Hamiltonian splitting}
+We split the part of the Hamiltonian involving the kinetic energy in its 9 sub-parts 
 \end{document}
