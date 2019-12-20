@@ -1,8 +1,8 @@
 import numpy        as np
 import scipy.sparse as spa
 
-import bsplines     as bsp
-import kernels_mass as ker
+import utilitis_FEEC.bsplines     as bsp
+import utilitis_FEEC.kernels_mass as ker
 
 
 

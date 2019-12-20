@@ -88,6 +88,9 @@
 
 \maketitle
 
+\begin{abstract}
+\noindent This work documents the progress regarding the development of a new code which simulates the equations of linear ideal magnetohydrodynamics (MHD) which are nonlinearly coupled to a kinetic equation (either full-orbit or drift-kinetic). Such so-called hybrid models are a suitable way to describe the self-consistent interaction of a hot plasma (governed by a kinetic theory) with a fluid bulk (governed by MHD). Typical examples are those of nuclear fusion devices, in which energetic ions, either fusion born or coming from external heating devices, interact with the ambient plasma, and those of spaces plasmas, involving the interaction of fast electron in the solar wind with Earth's magnetosphere. The goal of the present work is to explore the usage of numerical methods which are related to \textit{finite element exterior calculus} (FEEC) with the aim to exactly preserve as many properties of the continuous model as possible, e.g. conservation of energy, the divergence-free constraint for the magnetic field or ideally the full Hamiltonian structure, leading to good long-time stability properties. The FEEC approach is based on considerations from algebraic geometry allowing for preserving cohomological invariants at the discrete level. In practice, it ensures the reproduction of the well-known identities curl(grad)=0 and div(curl)=0 the discrete level.
+\end{abstract}
 
 \section{Full model and model reduction}
 We consider a hybrid kinetic-MHD model where the coupling of the fluid and kinetic species is done via a current coupling scheme. In classical vector calculus notation the model reads
@@ -132,6 +135,11 @@ As a next step, we introduce finite element basis functions which satisfy a disc
 \includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
 \caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
 \end{figure}
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{01_Figures/mapping.pdf}
+\caption{Commuting projectors. Unlike classical finite element methods, the degrees of freedom do not only represent point values, but also edge integrals, face integrals and volume integrals. \label{fig_projectors}}
+\end{figure}
 Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their resepective bases as
 \begin{alignat}{2}
 &\tilde{U}^1(\mb{q})\approx \tilde{U}_h^1(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}\Lambda^1_{\mu,\mathbf{i}}(\mb{q})\mathrm{d}q^\mu, \qquad &&\mb{u}^\top:=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\in\mathbb{R}^{3N},\\
@@ -166,7 +174,7 @@ where we made use of the transformation formula
 \begin{align}
 \delta(\mb{x}-\mb{x}_k(t))=\frac{1}{\sqrt{g}}\delta(\mb{q}-\mb{q}_k(t)).
 \end{align}
-Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of  $\tilde{U}_h^1$ and $\tilde{B}_h^2$ and the particle's positions and velocities $(\mb{q}_k,\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
+Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of  $\tilde{U}_h^1$ and $\tilde{B}_h^2$ and the particle's positions $(\mb{q}_k)_{k=1,\ldots,N_\text{p}}$ and velocities $(\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
 
 \subsection{Momentum equation}
 We choose a weak formulation for the momentum equation and consequently take the inner product with a test function $V^1\in H\Lambda^1(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^1\in H\Lambda^1(\Omega)$ such that
@@ -188,9 +196,9 @@ where $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space 
 for $i_\mu=\{1,\ldots,N\}$. Unfortunately, this matrix is dense which is problematic from a memory consumption point of view. Therefore, we just compute the right-hand sides of the projection for each basis function which defines a sparse matrix due to the compact support of B-splines. The final projection we then perform in each time step again. Explicitly, the right-hand side reads
 \begin{align}
 &\tilde{\mathcal{W}}:=\begin{pmatrix}
-\mr{vec}_{1,1}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_1^1)^\top\right] &0 &0 \\
-0 &\mr{vec}_{1,2}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_2^1)^\top\right] &0 \\
-0 &0 &\mr{vec}_{1,3}\left[\rho_0/\sqrt{g}(\bo{\Lambda}_3^1)^\top\right]
+\mr{vec}_{1,1}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_1^1)^\top\right] &0 &0 \\
+0 &\mr{vec}_{1,2}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_2^1)^\top\right] &0 \\
+0 &0 &\mr{vec}_{1,3}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_3^1)^\top\right]
 \end{pmatrix}\\
 &\bo{\mathcal{I}}_1^{-1}:=\begin{pmatrix}
 \mathcal{I}_{1,1}^{-1} &0 &0 \\ 0 &\mathcal{I}_{1,2}^{-1} &0 \\ 0 &0 &\mathcal{I}_{1,3}^{-1} 
@@ -199,9 +207,9 @@ for $i_\mu=\{1,\ldots,N\}$. Unfortunately, this matrix is dense which is problem
 \end{align}
 For some 1-form $f^1=f_1\text{d}q^1+f_2\text{d}q^2+f_3\text{d}q^3$ the projection is a mixed interpolation-histopolation problem defined by
 \begin{align}
-&(\mr{vec}_{1,1})_i(f^1)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}f_1(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1,\qquad  (\mathcal{I}_{1,1})_{ij}=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\bo{\Lambda}^1_{1,j}(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1 \\
-&(\mr{vec}_{1,2})_i(f^1)=\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_2(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2,\qquad  (\mathcal{I}_{1,2})_{ij}=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\bo{\Lambda}^1_{2,j}(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2 \\
-&(\mr{vec}_{1,3})_i(f^1)=\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_3(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,\qquad (\mathcal{I}_{1,3})_{ij}=\int_{\xi_{i_3}}^{\xi_{i_3+1}}\bo{\Lambda}^1_{3,j}(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,
+&(\mr{vec}_{1,1})_i(f^1)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}f_1(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1,\qquad  (\mathcal{I}_{1,1})_{ij}=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\Lambda^1_{1,j}(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1 \\
+&(\mr{vec}_{1,2})_i(f^1)=\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_2(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2,\qquad  (\mathcal{I}_{1,2})_{ij}=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\Lambda^1_{2,j}(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2 \\
+&(\mr{vec}_{1,3})_i(f^1)=\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_3(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,\qquad (\mathcal{I}_{1,3})_{ij}=\int_{\xi_{i_3}}^{\xi_{i_3+1}}\Lambda^1_{3,j}(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,
 \end{align}
 where the $\xi_\mb{i}$ are some well-chosen interpolation points on the logical domain. Finally, we obtain
 \begin{align}
@@ -229,13 +237,13 @@ The projection matrix $\mathcal{T}$ is given by
 \mathcal{T}_{ij}:=\Pi_{1,\mu}^{i_\mu}\left[(\mathbb{B}_\text{eq})_{\mu k}G^{kl}\Lambda^1_{j,l}\right]=\Pi_{1,\mu}^{i_\mu}\left[\epsilon_{\mu mk}B_{\text{eq},m}G^{kl}\Lambda^1_{j,l}\right],\qquad\mu=\{1,2,3\},
 \end{align}
 which has the right-hand sides
-\small
+\footnotesize
 \begin{align}
 &\tilde{\mathcal{T}}=\\
 &=\begin{pmatrix}
-\mr{vec}_{1,1}\left[(B_{0,31}G^{31}-B_{0,12}G^{21})(\bo{\Lambda}^1_1)^\top, (B_{0,31}G^{32}-B_{0,12}G^{22})(\bo{\Lambda}^1_2)^\top, (B_{0,31}G^{33}-B_{0,12}G^{23})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
-\mr{vec}_{1,2}\left[(B_{0,12}G^{11}-B_{0,23}G^{31})(\bo{\Lambda}^1_1)^\top, (B_{0,12}G^{12}-B_{0,23}G^{32})(\bo{\Lambda}^1_2)^\top, (B_{0,12}G^{13}-B_{0,23}G^{33})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
-\mr{vec}_{1,3}\left[(B_{0,23}G^{21}-B_{0,31}G^{11})(\bo{\Lambda}^1_1)^\top, (B_{0,23}G^{22}-B_{0,31}G^{12})(\bo{\Lambda}^1_2)^\top, (B_{0,23}G^{23}-B_{0,31}G^{13})(\bo{\Lambda}^1_3)^\top\right]
+\mr{vec}_{1,1}\left[(B_{\text{eq},31}G^{31}-B_{\text{eq},12}G^{21})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},31}G^{32}-B_{\text{eq},12}G^{22})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},31}G^{33}-B_{\text{eq},12}G^{23})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,2}\left[(B_{\text{eq},12}G^{11}-B_{\text{eq},23}G^{31})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},12}G^{12}-B_{\text{eq},23}G^{32})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},12}G^{13}-B_{\text{eq},23}G^{33})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,3}\left[(B_{\text{eq},23}G^{21}-B_{\text{eq},31}G^{11})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},23}G^{22}-B_{\text{eq},31}G^{12})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},23}G^{23}-B_{\text{eq},31}G^{13})(\bo{\Lambda}^1_3)^\top\right]
 \end{pmatrix}.
 \end{align}
 \normalsize
@@ -277,12 +285,12 @@ where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N
 &\mathbb{P}^1=\mathbb{P}^1(\mb{Q})=\begin{pmatrix}
 \mathbb{P}^1_1(\mb{Q}) & & \\ &\mathbb{P}^1_2(\mb{Q}) & \\ & &\mathbb{P}^1_3(\mb{Q})
 \end{pmatrix}\in\mathbb{R}^{3N\times 3N_p}.\\
-&\tilde{G}^{-1}=\tilde{G}^{-1}(\mb{Q})\begin{pmatrix}
+&\tilde{G}^{-1}=\tilde{G}^{-1}(\mb{Q})=\begin{pmatrix}
 \text{diag}(G^{11}(\mb{Q})) &\text{diag}(G^{12}(\mb{Q})) &\text{diag}(G^{13}(\mb{Q})) \\
 \text{diag}(G^{21}(\mb{Q})) &\text{diag}(G^{22}(\mb{Q})) &\text{diag}(G^{23}(\mb{Q})) \\
 \text{diag}(G^{31}(\mb{Q})) &\text{diag}(G^{32}(\mb{Q})) &\text{diag}(G^{33}(\mb{Q}))
 \end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
-&\tilde{DF}^{-1}=\tilde{DF}^{-1}(\mb{Q})\begin{pmatrix}
+&\tilde{DF}^{-1}=\tilde{DF}^{-1}(\mb{Q})=\begin{pmatrix}
 \text{diag}(DF^{11}(\mb{Q})) &\text{diag}(DF^{12}(\mb{Q})) &\text{diag}(DF^{13}(\mb{Q})) \\
 \text{diag}(DF^{21}(\mb{Q})) &\text{diag}(DF^{22}(\mb{Q})) &\text{diag}(DF^{23}(\mb{Q})) \\
 \text{diag}(DF^{31}(\mb{Q})) &\text{diag}(DF^{32}(\mb{Q})) &\text{diag}(DF^{33}(\mb{Q}))
@@ -343,6 +351,7 @@ We end up with an antisymmetric Poisson matrix meaning that the discrete Hamilto
 
 \section{Time integration}
 \subsection{Poisson splitting}
+We split the Poisson matrix into antisymmetric sub-systems such that each sub-system again defines a Hamiltonian system
 \begin{align}
 &\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
 \mb{u} \\ \mb{b} \\ \mb{Q} \\ \mb{V}
@@ -357,79 +366,161 @@ We end up with an antisymmetric Poisson matrix meaning that the discrete Hamilto
 \mathbb{M}^2\mb{b}\\
 0 \\
 \mathbb{W}\mb{V}
-\end{pmatrix}\\[1cm]
-&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1}\\
-&\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top\\
-&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\\
-&\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}\\
-&\mathbb{J}_{44}(\mb{Q})=-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
+\end{pmatrix},\\[1cm]
+&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1},\\
+&\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top,\\
+&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q}),\\
+&\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1},\\
+&\mathbb{J}_{44}(\mb{Q})=-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}.
 \end{align}
 \paragraph{Sub-step 1}
 The first sub-system reads
 \begin{align}
-&\dot{\mb{u}}=\mathbb{J}_{11}(\mb{b},\mb{Q})\mathcal{A}\mb{u}\\
-&\dot{\mb{b}}=0\\
-&\dot{\mb{Q}}=0\\
-&\dot{\mb{V}}=0
+&\dot{\mb{u}}=\mathbb{J}_{11}(\mb{b},\mb{Q})\mathcal{A}\mb{u},\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=0.
 \end{align}
-We solve the this equation with the Crank-Nicolson method:
+We solve the this equation with the energy-preserving Crank-Nicolson method:
 \begin{align}
-\frac{\mb{u}^{n+1}-\mb{u}^n}{\Delta t}=\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\frac{\mb{u}^n+\mb{u}^{n+1}}{2}
-\end{align} 
+&\frac{\mb{u}^{n+1}-\mb{u}^n}{\Delta t}=\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\frac{\mb{u}^n+\mb{u}^{n+1}}{2}.\\
+\Leftrightarrow \quad &\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\end{align}
+To avoid multiple matrix inversions, we multiply everything with $\mathcal{A}$ from the left to obtain 
+\begin{align}
+\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^1$.
 \paragraph{Sub-step 2}
 The second sub-system reads
 \begin{align}
-&\dot{\mb{u}}=\mathbb{J}_{12}\mathbb{M}^2\mb{b}\\
-&\dot{\mb{b}}=-\mathbb{J}_{12}^\top\mathcal{A}\mb{u}\\
-&\dot{\mb{Q}}=0\\
-&\dot{\mb{V}}=0
+&\dot{\mb{u}}=\mathbb{J}_{12}\mathbb{M}^2\mb{b},\\
+&\dot{\mb{b}}=-\mathbb{J}_{12}^\top\mathcal{A}\mb{u},\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=0.
 \end{align}
-We solve the first two equations analytically with an exponential integrator:
+We again solve this system with an energy-preserving Crank-Nicolson method:
 \begin{align}
 \begin{pmatrix}
+\mathcal{A} &-\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
+\end{pmatrix}
+\begin{pmatrix}
 \mb{u}^{n+1}\\ \mb{b}^{n+1}
-\end{pmatrix}=\exp\begin{pmatrix}
-0 &\mathbb{J}_{12}\mathbb{M}^2\Delta t\\-\mathbb{J}_{12}^\top\mathcal{A}\Delta t &0
+\end{pmatrix}=
+\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
 \end{pmatrix}\begin{pmatrix}
 \mb{u}^{n}\\ \mb{b}^{n}
-\end{pmatrix}
+\end{pmatrix}.
 \end{align}
+Using the Schur complement $S:=\mathcal{A}+\frac{\Delta t^2}{4}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}$, we can calculate the in inverse of the matrix on the left-hand side which we can then multiply with the matrix on the right-hand side:
+\begin{align}
+&\begin{pmatrix} \mathcal{S}^{-1} &\frac{\Delta t}{2}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}S^{-1} &\mathbb{I}-\frac{\Delta t^2}{4}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top
+\mathbb{C}^\top\mathbb{M}^2 
+\end{pmatrix}\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
+\end{pmatrix}=\\[2mm]
+=&\begin{pmatrix}
+\mathcal{S}^{-1}\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T} &\Delta t\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}S^{-1}\mathcal{A}-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}+\frac{\Delta t^3}{8}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top
+\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T} &\mathbb{I}-\frac{\Delta t^2}{2}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2
+\end{pmatrix}\\
+&\Rightarrow\quad\mb{u}^{n+1}=\mathcal{S}^{-1}\left[\left(\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\right)\mb{u}^{n}+\Delta t\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}^n\right]\\
+&\Rightarrow\quad\mb{b}^{n+1}=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}\left(\mb{u}^n+\mathcal{S}^{-1}\mathcal{A}\mb{u}^n-\frac{\Delta t^2}{2}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\mb{u}^n+\Delta t\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}^n\right)\\
+&=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}(\mb{u}^n+\mb{u}^{n+1})
+\end{align}
+We immediately see that the update for $\mb{b}$ preserves the divergence-free constraint. We denote the corresponding integrator by $\Phi_{\Delta t}^2$.
 \paragraph{Sub-step 3}
 The third sub-system reads
 \begin{align}
-&\dot{\mb{u}}=\mathbb{J}_{14}(\mb{b},\mb{Q})\mathbb{W}\mb{V}\\
-&\dot{\mb{b}}=0\\
-&\dot{\mb{Q}}=0\\
-&\dot{\mb{V}}=-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})\mathcal{A}\mb{u}
+&\dot{\mb{u}}=\mathbb{J}_{14}(\mb{b},\mb{Q})\mathbb{W}\mb{V},\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})\mathcal{A}\mb{u}.
 \end{align}
+We solve this system in the same way as before. Since $\mb{b}$ and $\mb{Q}$ do not change in this step, the same is true for the matrix $\mathbb{J}_{14}$. Hence $\mathbb{J}_{14}=\mathbb{J}_{14}(\mb{b}^n,\mathbb{Q}^n)$ and we have
+\begin{align}
+\begin{pmatrix}
+\mathcal{A} &-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{14}\mathbb{W} \\
+\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A} &\mathbb{I}
+\end{pmatrix}
+\begin{pmatrix}
+\mb{u}^{n+1}\\ \mb{V}^{n+1}
+\end{pmatrix}=
+\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{14}\mathbb{W} \\
+-\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A} &\mathbb{I}
+\end{pmatrix}\begin{pmatrix}
+\mb{u}^{n}\\ \mb{V}^{n}
+\end{pmatrix}.
+\end{align}
+Using once more the Schur complement $\mathcal{S}^{-1}:=\mathcal{A}+\frac{\Delta t^2}{4}\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mathbb{J}_{14}^\top\mathcal{A}$ yields
+\begin{align}
+&\mb{u}^{n+1}=\mathcal{S}^{-1}\left[\left(\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mathbb{J}_{14}^\top\mathcal{A}\right)\mb{u}^{n}+\Delta t\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mb{V}^n\right],\\
+&\mb{V}^{n+1}=\mb{V}^n-\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A}(\mb{u}^n+\mb{u}^{n+1})
+\end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^3$.
 \paragraph{Sub-step 4}
 The fourth sub-system reads
 \begin{align}
-&\dot{\mb{u}}=0\\
-&\dot{\mb{b}}=0\\
-&\dot{\mb{Q}}=\mathbb{J}_{34}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}\\
-&\dot{\mb{V}}=0
+&\dot{\mb{u}}=0,\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=\mathbb{J}_{34}(\mb{Q})\mathbb{W}\mb{V},\\
+&\dot{\mb{V}}=0.
 \end{align}
+Using again a Crank-Nicolson approximation for particle $k$ yields
+\begin{align}
+\mb{q}_k^{n+1}=\mb{q}_k^n+\frac{\Delta t}{2}(DF^{-1}(\mb{q}_k^n)+DF^{-1}(\mb{q}_k^{n+1}))\mb{v}_k^n,
+\end{align}
+which can be solved for $\mb{q}^{n+1}$ using a fix point iteration. We denote the corresponding integrator by $\Phi_{\Delta t}^4$.
 \paragraph{Sub-step 5}
 The fifth sub-system reads
 \begin{align}
-&\dot{\mb{u}}=0\\
-&\dot{\mb{b}}=0\\
-&\dot{\mb{Q}}=0\\
-&\dot{\mb{V}}=\mathbb{J}_{44}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}
+&\dot{\mb{u}}=0,\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=\mathbb{J}_{44}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}.
 \end{align}
-\appendix
+Using again a Crank-Nicolson approximation for particle $k$ yields
 \begin{align}
-\mathbb{J}(\mb{b},\mb{Q})=\\
-&\rotatebox{90}{$\begin{pmatrix}
-\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1} &\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top &0 &\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\\
--\mathbb{C}\mathcal{T}\mathcal{A}^{-1} &0 &0 &0 \\
-0 &0 &0 &\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1} \\
-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}^{1\top}(\mb{Q})\mathcal{A}^{-1} &0 &-\mathbb{W}^{-1}\tilde{DF}^{-\top}(\mb{Q}) &-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}
-\end{pmatrix}$}
+\left(\mathbb{I}+\frac{\Delta t}{2}DF^{-\top}(\mb{q}_k^n)\hat{\mathbb{B}}_h(\mb{q}_k^n)DF^{-1}(\mb{q}_k^n)\right)\mb{v}_k^{n+1}=\left(\mathbb{I}-\frac{\Delta t}{2}DF^{-\top}(\mb{q}_k^n)\hat{\mathbb{B}}_h(\mb{q}_k^n)DF^{-1}(\mb{q}_k^n)\right)\mb{v}_k^{n}.
 \end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^5$.
 
-
-
+\section{Dispersion relation}
+Our current-coupling hybrid full-orbit kinetic-MHD model possesses the following dispersion relation for pure transverse waves (shear Alfv\'{e}n waves):
+\begin{align}
+D_\mr{R/L}(k,\omega)=1-\frac{v_\mr{A}^2k^2}{\omega^2}\pm\frac{\nu_\mr{h}\Omega_\mr{ch}}{\omega}+\frac{\nu_\mr{h}\Omega_\mr{ch}^2Z_\mr{h}^2}{A_\mr{h}\omega}\int\frac{v_\perp}{2}\frac{\hat{G}F_\mr{h}^0}{\omega-kv_\parallel\pm\Omega_\mr{ch}}\mr{d}^3v=0.
+\end{align}
+Assuming a shifted, isotropic Maxwellian of the form
+\begin{align}
+&F_\mr{h}^0=\frac{1}{\pi^{3/2}v_\mr{th}^3}\exp\left(-\frac{(v_\parallel-v_0)^2+v_\perp^2}{v_\mr{th}^2}\right)\\
+&\Rightarrow \frac{\pa F_\mr{h}^0}{\pa v_\parallel}=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}(v_\parallel-v_0)\\
+&\Rightarrow \frac{\pa F_\mr{h}^0}{\pa v_\perp}=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp\\
+&\Rightarrow \hat{G}F_\mr{h}^0=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp+\frac{k}{\omega}F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp v_0\\
+&\Rightarrow \pi\int_0^\infty\frac{1}{\pi^{3/2}v_\mr{th}^3}\begin{pmatrix}
+1 \\ v_\perp \\ v_\perp^2 \\ v_\perp^3
+\end{pmatrix}\exp\left(-\frac{v_\perp^2}{v_\mr{th}^2}\right)\mr{d}v_\perp=\begin{pmatrix}
+1/(2v_\mr{th}^2)\\
+1/(2v_\mr{th}\sqrt{\pi}) \\
+1/4\\
+v_\mr{th}/(2\sqrt{\pi})
+\end{pmatrix},
+\end{align}
+finally leads to
+\begin{align}
+D_\mr{R/L}(k,\omega)=1-\frac{v_\mr{A}^2k^2}{\omega^2}\pm\frac{\nu_\mr{h}\Omega_\mr{ch}}{\omega}+\frac{\nu_\mr{h}\Omega_\mr{ch}^2Z_\mr{h}^2}{A_\mr{h}\omega^2}\frac{\omega-kv_0}{k v_\mr{th}}Z(\xi^\pm),
+\end{align}
+where $Z$ is the plasma dispersion function and $\xi\pm=(\omega-kv_0\pm\Omega_\mr{ch})/(kv_\mr{th})$.
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{01_Figures/R-wave.pdf}
+\includegraphics[scale=0.5]{01_Figures/L-wave.pdf}
+\caption{Growth rates for different shifts of the Maxwellian}
+\end{figure}
 
 \end{document}
