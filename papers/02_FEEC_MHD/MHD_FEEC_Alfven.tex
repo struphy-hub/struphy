@@ -119,7 +119,7 @@ The linearization of the MHD part breaks energy conservation, i.e. the Hamiltoni
 \end{align} 
 which is conserved if $\nabla\times\mb{B}_\text{eq}=0$. 
 
-We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter one works with differential forms instead of vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho_\text{eq},\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field to be a 2-form ($\mb{B}_\text{eq},\tilde{\mb{B}}\rightarrow B_\text{eq}^2,\tilde{B}^2$) and the bulk velocity and the hot current density to be 1-forms ($\tilde{\mb{U}},\mb{j}_\text{h}\rightarrow \tilde{U}^1,j^1_\text{h}$). Eq. (\ref{eq_momentum}) and (\ref{eq_induction}) can then be written as
+We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho_\text{eq},\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field to be a 2-form ($\mb{B}_\text{eq},\tilde{\mb{B}}\rightarrow B_\text{eq}^2,\tilde{B}^2$) and the bulk velocity and the hot current density to be 1-forms ($\tilde{\mb{U}},\mb{j}_\text{h}\rightarrow \tilde{U}^1,j^1_\text{h}$). Eq. (\ref{eq_momentum}) and (\ref{eq_induction}) can then be written as
 \begin{align}
 &(\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t}=i_{\#\ast B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+i_{\#\ast\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2+i_{\#j_\text{h}^1}B^2,\\
 &\frac{\pa \tilde{B}^2}{\pa t}+\mr{d}(i_{\#U^1}B^2_\text{eq})=0,
@@ -140,7 +140,7 @@ As a next step, we introduce finite element basis functions which satisfy a disc
 \includegraphics[scale=0.5]{01_Figures/mapping.pdf}
 \caption{Commuting projectors. Unlike classical finite element methods, the degrees of freedom do not only represent point values, but also edge integrals, face integrals and volume integrals. \label{fig_projectors}}
 \end{figure}
-Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their resepective bases as
+Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their respective bases as
 \begin{alignat}{2}
 &\tilde{U}^1(\mb{q})\approx \tilde{U}_h^1(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}\Lambda^1_{\mu,\mathbf{i}}(\mb{q})\mathrm{d}q^\mu, \qquad &&\mb{u}^\top:=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\in\mathbb{R}^{3N},\\
 &\tilde{B}^2(\mb{q})\approx \tilde{B}_h^2(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3b_{\mu,\mathbf{i}}\Lambda^2_{\mu,\mathbf{i}}(\mb{q})(\mathrm{d}q^\alpha\wedge\mr{d}q^\beta)_\mu, \qquad &&\mb{b}^\top:=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\in\mathbb{R}^{3N},
@@ -154,7 +154,7 @@ where $\mb{i}=(i_1,i_2,i_3)$ is a multi-index and $N$ the total number of basis 
 \bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
 \end{pmatrix}=\mb{b}^\top\mathbb{\Lambda}^2,\qquad&&\mathbb{\Lambda}^2\in\mathbb{R}^{3N\times 3}.
 \end{alignat}
-As already stated, solve the kinetic equation with particle-in-cell techniques. Hence we assume a particle-like distribution function which in physical space takes the form
+As already stated, we solve the kinetic equation with particle-in-cell techniques. Hence we assume a particle-like distribution function which, in physical space, takes the form
 \begin{align}
 f_\mr{h}=f_\mr{h}(t,\mb{x},\mb{v})\approx \sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\delta(\mb{v}-\mb{v}_k(t)).
 \end{align}
@@ -164,7 +164,7 @@ From this, the hot ion charge density, current density and energy density can ea
 \mathring{\mb{j}}_\mr{h}(t,\mb{x})=&\sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\mb{v}_k(t),\\
 \mathring{\epsilon}_\mr{h}(t,\mb{x})=&\sum_{k}w_k\delta(\mb{x}-\mb{x}_k(t))\mb{v}_k^2(t).
 \end{align}
-To avoid confusions, we use the notation $\mathring{(\cdot)}$ where necessary for quantities which are defined on physical space. Since there is no difference between vectors/scalars and forms in physical space, these expression are are as well the components of the 3-form number density, the 1-form current density and the 3-form energy density. To get the components on the logical domain we apply the transformation formulas for 3-forms, respectively 1-forms to obtain
+To avoid confusions, we use the notation $\mathring{(\cdot)}$, where necessary, for quantities which are defined on the physical space. Since there is no difference between vectors/scalars and forms in physical space, these expressions are as well the components of the 3-form number density, the 1-form current density and the 3-form energy density. To get the components on the logical domain we apply the transformation formulas for 3-forms, respectively 1-forms to obtain
 \begin{align}
 &\rho_\mr{h,123}(t,\mb{q})=\sqrt{g}\mathring{\rho}_\mr{h}(t,F(\mb{q}))=\sum_k w_k\delta(\mb{q}-\mb{q}_k(t)),\\
 &\mb{j}_\mr{h}(t,\mb{q})=DF^\top\mathring{\mb{j}}_\mr{h}(t, F(\mb{q}))=\frac{1}{\sqrt{g}}DF^\top\sum_k w_k\delta(\mb{q}-\mb{q}_k(t))\mb{v}_k(t),\\
@@ -384,11 +384,11 @@ The first sub-system reads
 We solve the this equation with the energy-preserving Crank-Nicolson method:
 \begin{align}
 &\frac{\mb{u}^{n+1}-\mb{u}^n}{\Delta t}=\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\frac{\mb{u}^n+\mb{u}^{n+1}}{2}.\\
-\Leftrightarrow \quad &\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\Leftrightarrow \quad &\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathbb{I}+\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
 \end{align}
 To avoid multiple matrix inversions, we multiply everything with $\mathcal{A}$ from the left to obtain 
 \begin{align}
-\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathcal{A}+\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
 \end{align}
 We denote the corresponding integrator by $\Phi_{\Delta t}^1$.
 \paragraph{Sub-step 2}
@@ -483,7 +483,7 @@ The fifth sub-system reads
 &\dot{\mb{u}}=0,\\
 &\dot{\mb{b}}=0,\\
 &\dot{\mb{Q}}=0,\\
-&\dot{\mb{V}}=\mathbb{J}_{44}^\top(\mb{b},\mb{Q})\mathbb{W}\mb{V}.
+&\dot{\mb{V}}=\mathbb{J}_{44}(\mb{b},\mb{Q})\mathbb{W}\mb{V}.
 \end{align}
 Using again a Crank-Nicolson approximation for particle $k$ yields
 \begin{align}
