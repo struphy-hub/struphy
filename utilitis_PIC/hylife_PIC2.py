@@ -130,8 +130,8 @@ def basis_funs(knots, degree, x, span, left, right, values):
 
 #==========================================================================================================
 @external_call
-@types('double[:,:](order=F)','int[:]','int[:,:](order=F)','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double[:]','double[:,:,:,:](order=F)')
-def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2, tt3, mapping, dt, Beq, mat12):
+@types('double[:,:](order=F)','int[:]','int[:,:](order=F)','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double[:]','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2, tt3, mapping, dt, Beq, mat12, mat13, mat23):
     
     from numpy import empty
     from numpy import zeros
@@ -187,7 +187,9 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
     
     np = len(particles[:, 0])
     
-    mat12[:, :, :, :] = 0.
+    mat12[:, :, :, :, :, :] = 0.
+    mat13[:, :, :, :, :, :] = 0.
+    mat23[:, :, :, :, :, :] = 0.
     
     for ip in range(np):
         # ... field evaluation (wave + background)
@@ -215,6 +217,10 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
         basis_funs(tt2, p1_2, pos2, span1_2, Dl2, Dr2, D2)
         basis_funs(tt3, p1_3, pos3, span1_3, Dl3, Dr3, D3)
         
+        D1[:] = D1/delta1
+        D2[:] = D2/delta2
+        D3[:] = D3/delta3
+        
         
         # evaluation of 1 - component
         for il1 in range(p0_1 + 1):
@@ -225,7 +231,7 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
                     i2 = (span1_2 - il2)%Nbase[1]
                     i3 = (span1_3 - il3)%Nbase[2]
 
-                    B[0] += b1[i1, i2, i3] * N1[p0_1 - il1] * D2[p1_2 - il2]/delta2 * D3[p1_3 - il3]/delta3
+                    B[0] += b1[i1, i2, i3] * N1[p0_1 - il1] * D2[p1_2 - il2] * D3[p1_3 - il3]
         
         
         # evaluation of 2 - component
@@ -237,7 +243,7 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
                     i2 = (span0_2 - il2)%Nbase[1]
                     i3 = (span1_3 - il3)%Nbase[2]
 
-                    B[1] += b2[i1, i2, i3] * D1[p1_1 - il1]/delta1 * N2[p0_2 - il2] * D3[p1_3 - il3]/delta3
+                    B[1] += b2[i1, i2, i3] * D1[p1_1 - il1] * N2[p0_2 - il2] * D3[p1_3 - il3]
                                 
         
         # evaluation of 3 - component
@@ -249,7 +255,7 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
                     i2 = (span1_2 - il2)%Nbase[1]
                     i3 = (span0_3 - il3)%Nbase[2]
 
-                    B[2] += b3[i1, i2, i3] * D1[p1_1 - il1]/delta1 * D2[p1_2 - il2]/delta2 * N3[p0_3 - il3]
+                    B[2] += b3[i1, i2, i3] * D1[p1_1 - il1] * D2[p1_2 - il2] * N3[p0_3 - il3]
                     
                     
         B_prod[0, 1] = -B[2]
@@ -268,21 +274,62 @@ def matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2, T3, tt1, tt2,
         matrix_matrix(Ginv, B_prod, temp_mat1)
         matrix_matrix(temp_mat1, Ginv, temp_mat2)
         
+        temp12 = w*temp_mat2[0, 1]
+        temp13 = w*temp_mat2[0, 2]
+        temp23 = w*temp_mat2[1, 2]
+        
         
         # add contribution to 12 component (DNN NDN)
         for il1 in range(p1_1 + 1):
+            i1 = (span1_1 - il1)%Nbase[0]
             for il2 in range(p0_2 + 1):
-                for jl1 in range(p0_1 + 1):
-                    for jl2 in range(p1_2 + 1):
-
-                        i1 = (span1_1 - il1)%Nbase[0]
-                        i2 = (span0_2 - il2)%Nbase[1]
-                        
+                i2 = (span0_2 - il2)%Nbase[1]
+                for il3 in range(p0_3 + 1):
+                    i3 = (span0_3 - il3)%Nbase[2]
+                    for jl1 in range(p0_1 + 1):
                         j1 = (span0_1 - jl1)%Nbase[0]
-                        j2 = (span1_2 - jl2)%Nbase[1]
+                        for jl2 in range(p1_2 + 1):
+                            j2 = (span1_2 - jl2)%Nbase[1]
+                            for jl3 in range(p0_3 + 1):
+                                j3 = (span0_3 - jl3)%Nbase[2]
 
-                        mat12[i1, i2, j1, j2] += w * temp_mat2[0, 1] * D1[p1_1 - il1]/delta1 * N2[p0_2 - il2] * N1[p0_1 - jl1] * D2[p1_2 - jl2]/delta2
-        
+                                mat12[i1, i2, i3, j1, j2, j3] += temp12 * D1[p1_1 - il1] * N2[p0_2 - il2] * N3[p0_3 - il3] * N1[p0_1 - jl1] * D2[p1_2 - jl2] * N3[p0_3 - jl3]
+                                
+                                
+                                
+        # add contribution to 13 component (DNN NND)
+        for il1 in range(p1_1 + 1):
+            i1 = (span1_1 - il1)%Nbase[0]
+            for il2 in range(p0_2 + 1):
+                i2 = (span0_2 - il2)%Nbase[1]
+                for il3 in range(p0_3 + 1):
+                    i3 = (span0_3 - il3)%Nbase[2]
+                    for jl1 in range(p0_1 + 1):
+                        j1 = (span0_1 - jl1)%Nbase[0]
+                        for jl2 in range(p0_2 + 1):
+                            j2 = (span0_2 - jl2)%Nbase[1]
+                            for jl3 in range(p1_3 + 1):
+                                j3 = (span1_3 - jl3)%Nbase[2]
+
+                                mat13[i1, i2, i3, j1, j2, j3] += temp13 * D1[p1_1 - il1] * N2[p0_2 - il2] * N3[p0_3 - il3] * N1[p0_1 - jl1] * N2[p0_2 - jl2] * D3[p1_3 - jl3]
+                                
+                                
+        # add contribution to 23 component (NDN NND)
+        for il1 in range(p0_1 + 1):
+            i1 = (span0_1 - il1)%Nbase[0]
+            for il2 in range(p1_2 + 1):
+                i2 = (span1_2 - il2)%Nbase[1]
+                for il3 in range(p0_3 + 1):
+                    i3 = (span0_3 - il3)%Nbase[2]
+                    for jl1 in range(p0_1 + 1):
+                        j1 = (span0_1 - jl1)%Nbase[0]
+                        for jl2 in range(p0_2 + 1):
+                            j2 = (span0_2 - jl2)%Nbase[1]
+                            for jl3 in range(p1_3 + 1):
+                                j3 = (span1_3 - jl3)%Nbase[2]
+
+                                mat23[i1, i2, i3, j1, j2, j3] += temp23 * N1[p0_1 - il1] * D2[p1_2 - il2] * N3[p0_3 - il3] * N1[p0_1 - jl1] * N2[p0_2 - jl2] * D3[p1_3 - jl3]
+                                
     
     ierr = 0
 #==========================================================================================================
