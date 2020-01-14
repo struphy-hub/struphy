@@ -1,4 +1,4 @@
-module hylife_PIC2
+module hylife_PIC3
 
 implicit none
 
@@ -126,30 +126,22 @@ end subroutine
 !........................................
 
 !........................................
-pure subroutine cross(a, b, c) 
+pure subroutine transpose(A, B) 
 
 implicit none
-real(kind=8), intent(in)  :: a (0:)
-real(kind=8), intent(in)  :: b (0:)
-real(kind=8), intent(inout)  :: c (0:)
-
-c(0) = a(1)*b(2) + (-a(2))*b(1)
-c(1) = (-a(0))*b(2) + a(2)*b(0)
-c(2) = a(0)*b(1) + (-a(1))*b(0)
-end subroutine
-!........................................
-
-!........................................
-pure subroutine transpose(A) 
-
-implicit none
-real(kind=8), intent(inout)  :: A (0:,0:)
+real(kind=8), intent(in)  :: A (0:,0:)
+real(kind=8), intent(inout)  :: B (0:,0:)
 integer(kind=4) :: i  
 integer(kind=4) :: j  
 
+
+
+B(:, :) = 0.0d0
+
+
 do i = 0, 2, 1
 do j = 0, 2, 1
-A(i, j) = A(j, i)
+B(i, j) = A(j, i)
 
 
 
@@ -162,7 +154,7 @@ end subroutine
 !........................................
 
 !........................................
-pure real(kind=8) function det(A)  result(Dummy_6835)
+pure real(kind=8) function det(A)  result(Dummy_2299)
 
 implicit none
 real(kind=8), intent(in)  :: A (0:,0:)
@@ -177,7 +169,7 @@ minus = (A(0, 2)*A(1, 1))*A(2, 0) + (A(0, 0)*A(1, 2))*A(2, 1) + (A(0, 1) &
       *A(1, 0))*A(2, 2)
 
 
-Dummy_6835 = -minus + plus
+Dummy_2299 = -minus + plus
 return
 end function
 !........................................
@@ -232,8 +224,8 @@ end subroutine
 !........................................
 
 !........................................
-subroutine matrix_step1(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2 &
-      , T3, tt1, tt2, tt3, mapping, dt, Beq, mat12, mat13, mat23)
+subroutine matrix_step3(particles, p0, spans0, Nbase, b1, b2, b3, T1, T2 &
+      , T3, tt1, tt2, tt3, mapping, dt, Beq, test)
 
 implicit none
 real(kind=8), intent(in)  :: particles (0:,0:)
@@ -252,9 +244,7 @@ real(kind=8), intent(in)  :: tt3 (0:)
 real(kind=8), intent(in)  :: mapping (0:)
 real(kind=8), intent(in)  :: dt 
 real(kind=8), intent(in)  :: Beq (0:)
-real(kind=8), intent(inout)  :: mat12 (0:,0:,0:,0:,0:,0:)
-real(kind=8), intent(inout)  :: mat13 (0:,0:,0:,0:,0:,0:)
-real(kind=8), intent(inout)  :: mat23 (0:,0:,0:,0:,0:,0:)
+real(kind=8), intent(inout)  :: test (0:,0:,0:)
 integer(kind=4) :: p0_1  
 integer(kind=4) :: p0_2  
 integer(kind=4) :: p0_3  
@@ -285,8 +275,8 @@ real(kind=8), allocatable :: D3 (:)
 real(kind=8), allocatable :: B (:) 
 real(kind=8), allocatable :: temp_mat1 (:,:) 
 real(kind=8), allocatable :: temp_mat2 (:,:) 
-real(kind=8), allocatable :: rhs (:) 
 real(kind=8), allocatable :: B_prod (:,:) 
+real(kind=8), allocatable :: B_prod_T (:,:) 
 real(kind=8), allocatable :: Ginv (:,:) 
 real(kind=8), allocatable :: q (:) 
 integer(kind=4) :: np  
@@ -302,21 +292,12 @@ integer(kind=4) :: span1_1
 integer(kind=4) :: span1_2  
 integer(kind=4) :: span1_3  
 real(kind=8) :: w  
-real(kind=8) :: temp12  
-real(kind=8) :: temp13  
-real(kind=8) :: temp23  
 integer(kind=4) :: il1  
 integer(kind=4) :: il2  
 integer(kind=4) :: il3  
 integer(kind=4) :: i1  
 integer(kind=4) :: i2  
 integer(kind=4) :: i3  
-integer(kind=4) :: jl1  
-integer(kind=4) :: j1  
-integer(kind=4) :: jl2  
-integer(kind=4) :: j2  
-integer(kind=4) :: jl3  
-integer(kind=4) :: j3  
 
 
 
@@ -385,12 +366,10 @@ allocate(temp_mat2(0:2, 0:2))
 temp_mat2 = 0.0
 
 
-allocate(rhs(0:2))
-rhs = 0.0
-
-
 allocate(B_prod(0:2, 0:2))
 B_prod = 0.0
+allocate(B_prod_T(0:2, 0:2))
+B_prod_T = 0.0
 
 
 allocate(Ginv(0:2, 0:2))
@@ -404,9 +383,7 @@ q = 0.0
 np = size(particles(:, 0),1)
 
 
-mat12(:, :, :, :, :, :) = 0.0d0
-mat13(:, :, :, :, :, :) = 0.0d0
-mat23(:, :, :, :, :, :) = 0.0d0
+test(:, :, :) = 0.0d0
 
 
 do ip = 0, np - 1, 1
@@ -532,115 +509,15 @@ w = particles(ip, 6)
 call mapping_matrices(q, 1, mapping, 4, Ginv)
 call matrix_matrix(Ginv, B_prod, temp_mat1)
 call matrix_matrix(temp_mat1, Ginv, temp_mat2)
+call transpose(B_prod, B_prod_T)
+call matrix_matrix(temp_mat2, B_prod_T, temp_mat1)
+call matrix_matrix(temp_mat1, Ginv, temp_mat2)
 
 
-temp12 = w*temp_mat2(0, 1)
-temp13 = w*temp_mat2(0, 2)
-temp23 = w*temp_mat2(1, 2)
-
-
-
-
-do il1 = 0, p1_1, 1
-i1 = modulo(-il1 + span1_1,Nbase(0))
-do il2 = 0, p0_2, 1
-i2 = modulo(-il2 + span0_2,Nbase(1))
-do il3 = 0, p0_3, 1
-i3 = modulo(-il3 + span0_3,Nbase(2))
-do jl1 = 0, p0_1, 1
-j1 = modulo(-jl1 + span0_1,Nbase(0))
-do jl2 = 0, p1_2, 1
-  j2 = modulo(-jl2 + span1_2,Nbase(1))
-  do jl3 = 0, p0_3, 1
-    j3 = modulo(-jl3 + span0_3,Nbase(2))
-
-
-    mat12(i1, i2, i3, j1, j2, j3) = temp12*(((((D2(-jl2 + p1_2)*N3(-jl3 &
-      + p0_3))*N1(-jl1 + p0_1))*N3(-il3 + p0_3))*N2(-il2 + p0_2))*D1( &
-      -il1 + p1_1)) + mat12(i1, i2, i3, j1, j2, j3)
+test(ip, :, :) = temp_mat2
 
 
 
-
-
-
-  end do
-
-end do
-
-end do
-
-end do
-
-end do
-
-end do
-
-do il1 = 0, p1_1, 1
-i1 = modulo(-il1 + span1_1,Nbase(0))
-do il2 = 0, p0_2, 1
-i2 = modulo(-il2 + span0_2,Nbase(1))
-do il3 = 0, p0_3, 1
-i3 = modulo(-il3 + span0_3,Nbase(2))
-do jl1 = 0, p0_1, 1
-j1 = modulo(-jl1 + span0_1,Nbase(0))
-do jl2 = 0, p0_2, 1
-  j2 = modulo(-jl2 + span0_2,Nbase(1))
-  do jl3 = 0, p1_3, 1
-    j3 = modulo(-jl3 + span1_3,Nbase(2))
-
-
-    mat13(i1, i2, i3, j1, j2, j3) = temp13*(((((D3(-jl3 + p1_3)*N2(-jl2 &
-      + p0_2))*N1(-jl1 + p0_1))*N3(-il3 + p0_3))*N2(-il2 + p0_2))*D1( &
-      -il1 + p1_1)) + mat13(i1, i2, i3, j1, j2, j3)
-
-
-
-
-  end do
-
-end do
-
-end do
-
-end do
-
-end do
-
-end do
-
-do il1 = 0, p0_1, 1
-i1 = modulo(-il1 + span0_1,Nbase(0))
-do il2 = 0, p1_2, 1
-i2 = modulo(-il2 + span1_2,Nbase(1))
-do il3 = 0, p0_3, 1
-i3 = modulo(-il3 + span0_3,Nbase(2))
-do jl1 = 0, p0_1, 1
-j1 = modulo(-jl1 + span0_1,Nbase(0))
-do jl2 = 0, p0_2, 1
-  j2 = modulo(-jl2 + span0_2,Nbase(1))
-  do jl3 = 0, p1_3, 1
-    j3 = modulo(-jl3 + span1_3,Nbase(2))
-
-
-    mat23(i1, i2, i3, j1, j2, j3) = temp23*(((((D3(-jl3 + p1_3)*N2(-jl2 &
-      + p0_2))*N1(-jl1 + p0_1))*N3(-il3 + p0_3))*D2(-il2 + p1_2))*N1( &
-      -il1 + p0_1)) + mat23(i1, i2, i3, j1, j2, j3)
-
-
-
-
-  end do
-
-end do
-
-end do
-
-end do
-
-end do
-
-end do
 
 end do
 
@@ -648,9 +525,6 @@ end do
 !evaluation of 1 - component
 !evaluation of 2 - component
 !evaluation of 3 - component
-!add contribution to 12 component (DNN NDN)
-!add contribution to 13 component (DNN NND)
-!add contribution to 23 component (NDN NND)
 ierr = 0
 end subroutine
 !........................................
