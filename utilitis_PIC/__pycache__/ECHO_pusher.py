@@ -97,26 +97,13 @@ def det(A):
 #==========================================================================================================
 
 
-
 #==========================================================================================================
 @external_call
-@types('double[:,:](order=F)','int[:]','int[:,:](order=F)','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:]','double','double[:]','double[:]')
-def pusher_step3(particles, p0, spans0, Nbase, b1, b2, b3, u1, u2, u3, pp0_1, pp0_2, pp0_3, pp1_1, pp1_2, pp1_3, mapping, dt, Beq, Ueq):
+@types('double[:,:](order=F)','double[:]','double','double[:,:](order=F)','double[:,:](order=F)')
+def pusher_step3(particles, mapping, dt, B_part, U_part):
     
     from numpy import empty
     from numpy import zeros
-    
-    p0_1      = p0[0]
-    p0_2      = p0[1]
-    p0_3      = p0[2]
-    
-    p1_1      = p0_1 - 1
-    p1_2      = p0_2 - 1
-    p1_3      = p0_3 - 1
-    
-    delta1    = 1/Nbase[0]
-    delta2    = 1/Nbase[1]
-    delta3    = 1/Nbase[2]
     
     B         = empty( 3    , dtype=float)
     U         = empty( 3    , dtype=float)
@@ -140,139 +127,13 @@ def pusher_step3(particles, p0, spans0, Nbase, b1, b2, b3, u1, u2, u3, pp0_1, pp
     
     for ip in range(np):
         
-        B[0]    = Beq[0]
-        B[1]    = Beq[1]
-        B[2]    = Beq[2]
+        B[0] = B_part[ip, 0]
+        B[1] = B_part[ip, 1]
+        B[2] = B_part[ip, 2]
         
-        U[0]    = Ueq[0]
-        U[1]    = Ueq[1]
-        U[2]    = Ueq[2]
-        
-        pos1    = particles[ip, 0]
-        pos2    = particles[ip, 1]
-        pos3    = particles[ip, 2]
-        
-        span0_1 = spans0[ip, 0]
-        span0_2 = spans0[ip, 1]
-        span0_3 = spans0[ip, 2]
-        
-        span1_1 = span0_1 - 1
-        span1_2 = span0_2 - 1
-        span1_3 = span0_3 - 1
-        
-        # evaluation of B1 - component (NDD)
-        for il1 in range(p0_1 + 1):
-            i1 = (span0_1 - il1)%Nbase[0]
-            for il2 in range(p1_2 + 1):
-                i2 = (span1_2 - il2)%Nbase[1]
-                for il3 in range(p1_3 + 1):
-                    i3 = (span1_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p0_1 + 1):
-                        for jl2 in range(p1_2 + 1):
-                            for jl3 in range(p1_3 + 1):
-
-                                N1 = pp0_1[p0_1 - il1, jl1]*((pos1 - (span0_1 - p0_1)*delta1))**jl1
-                                D2 = pp1_2[p1_2 - il2, jl2]*((pos2 - (span1_2 - p1_2)*delta2))**jl2
-                                D3 = pp1_3[p1_3 - il3, jl3]*((pos3 - (span1_3 - p1_3)*delta3))**jl3
-
-                                B[0] += b1[i1, i2, i3] * N1 * D2 * D3
-        
-        
-        # evaluation of B2 - component (DND)
-        for il1 in range(p1_1 + 1):
-            i1 = (span1_1 - il1)%Nbase[0]
-            for il2 in range(p0_2 + 1):
-                i2 = (span0_2 - il2)%Nbase[1]
-                for il3 in range(p1_3 + 1):
-                    i3 = (span1_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p1_1 + 1):
-                        for jl2 in range(p0_2 + 1):
-                            for jl3 in range(p1_3 + 1):
-
-                                D1 = pp1_1[p1_1 - il1, jl1]*((pos1 - (span1_1 - p1_1)*delta1))**jl1
-                                N2 = pp0_2[p0_2 - il2, jl2]*((pos2 - (span0_2 - p0_2)*delta2))**jl2
-                                D3 = pp1_3[p1_3 - il3, jl3]*((pos3 - (span1_3 - p1_3)*delta3))**jl3
-
-                                B[1] += b2[i1, i2, i3] * D1 * N2 * D3
-                                
-        
-        # evaluation of B3 - component (DDN)
-        for il1 in range(p1_1 + 1):
-            i1 = (span1_1 - il1)%Nbase[0]
-            for il2 in range(p1_2 + 1):
-                i2 = (span1_2 - il2)%Nbase[1]
-                for il3 in range(p0_3 + 1):
-                    i3 = (span0_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p1_1 + 1):
-                        for jl2 in range(p1_2 + 1):
-                            for jl3 in range(p0_3 + 1):
-
-                                D1 = pp1_1[p1_1 - il1, jl1]*((pos1 - (span1_1 - p1_1)*delta1))**jl1
-                                D2 = pp1_2[p1_2 - il2, jl2]*((pos2 - (span1_2 - p1_2)*delta2))**jl2
-                                N3 = pp0_3[p0_3 - il3, jl3]*((pos3 - (span0_3 - p0_3)*delta3))**jl3
-
-                                B[2] += b3[i1, i2, i3] * D1 * D2 * N3
-        
-        
-        # evaluation of U1 - component (DNN)
-        for il1 in range(p1_1 + 1):
-            i1 = (span1_1 - il1)%Nbase[0]
-            for il2 in range(p0_2 + 1):
-                i2 = (span0_2 - il2)%Nbase[1]
-                for il3 in range(p0_3 + 1):
-                    i3 = (span0_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p1_1 + 1):
-                        for jl2 in range(p0_2 + 1):
-                            for jl3 in range(p0_3 + 1):
-
-                                D1 = pp1_1[p1_1 - il1, jl1]*((pos1 - (span1_1 - p1_1)*delta1))**jl1
-                                N2 = pp0_2[p0_2 - il2, jl2]*((pos2 - (span0_2 - p0_2)*delta2))**jl2
-                                N3 = pp0_3[p0_3 - il3, jl3]*((pos3 - (span0_3 - p0_3)*delta3))**jl3
-
-                                U[0] += u1[i1, i2, i3] * D1 * N2 * N3
-                                
-                                
-        # evaluation of U2 - component (NDN)
-        for il1 in range(p0_1 + 1):
-            i1 = (span0_1 - il1)%Nbase[0]
-            for il2 in range(p1_2 + 1):
-                i2 = (span1_2 - il2)%Nbase[1]
-                for il3 in range(p0_3 + 1):
-                    i3 = (span0_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p0_1 + 1):
-                        for jl2 in range(p1_2 + 1):
-                            for jl3 in range(p0_3 + 1):
-
-                                N1 = pp0_1[p0_1 - il1, jl1]*((pos1 - (span0_1 - p0_1)*delta1))**jl1
-                                D2 = pp1_2[p1_2 - il2, jl2]*((pos2 - (span1_2 - p1_2)*delta2))**jl2
-                                N3 = pp0_3[p0_3 - il3, jl3]*((pos3 - (span0_3 - p0_3)*delta3))**jl3
-
-                                U[1] += u2[i1, i2, i3] * N1 * D2 * N3
-                                
-                                
-        # evaluation of U3 - component (NND)
-        for il1 in range(p0_1 + 1):
-            i1 = (span0_1 - il1)%Nbase[0]
-            for il2 in range(p0_2 + 1):
-                i2 = (span0_2 - il2)%Nbase[1]
-                for il3 in range(p1_3 + 1):
-                    i3 = (span1_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p0_1 + 1):
-                        for jl2 in range(p0_2 + 1):
-                            for jl3 in range(p1_3 + 1):
-
-                                N1 = pp0_1[p0_1 - il1, jl1]*((pos1 - (span0_1 - p0_1)*delta1))**jl1
-                                N2 = pp0_2[p0_2 - il2, jl2]*((pos2 - (span0_2 - p0_2)*delta2))**jl2
-                                D3 = pp1_3[p1_3 - il3, jl3]*((pos3 - (span1_3 - p1_3)*delta3))**jl3
-
-                                U[2] += u3[i1, i2, i3] * N1 * N2 * D3
-        
+        U[0] = U_part[ip, 0]
+        U[1] = U_part[ip, 1]
+        U[2] = U_part[ip, 2]
         
         B_prod[0, 1] = -B[2]
         B_prod[0, 2] =  B[1]
@@ -299,7 +160,6 @@ def pusher_step3(particles, p0, spans0, Nbase, b1, b2, b3, u1, u2, u3, pp0_1, pp
         
     ierr = 0
 #==========================================================================================================
-
 
 
 #==========================================================================================================
@@ -332,26 +192,13 @@ def pusher_step4(particles, mapping, dt):
 #==========================================================================================================
 
 
-
 #==========================================================================================================
 @external_call
-@types('double[:,:](order=F)','int[:]','int[:,:](order=F)','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:]','double','double[:]')
-def pusher_step5(particles, p0, spans0, Nbase, b1, b2, b3, pp0_1, pp0_2, pp0_3, pp1_1, pp1_2, pp1_3, mapping, dt, Beq):
+@types('double[:,:](order=F)','double[:]','double','double[:,:](order=F)')
+def pusher_step5(particles, mapping, dt, B_part):
     
     from numpy import empty
     from numpy import zeros
-    
-    p0_1      = p0[0]
-    p0_2      = p0[1]
-    p0_3      = p0[2]
-    
-    p1_1      = p0_1 - 1
-    p1_2      = p0_2 - 1
-    p1_3      = p0_3 - 1
-    
-    delta1    = 1/Nbase[0]
-    delta2    = 1/Nbase[1]
-    delta3    = 1/Nbase[2]
     
     B         = empty( 3    , dtype=float)
     
@@ -382,79 +229,10 @@ def pusher_step5(particles, p0, spans0, Nbase, b1, b2, b3, pp0_1, pp0_2, pp0_3, 
     np        = len(particles[:, 0])
     
     for ip in range(np):
-        # ... field evaluation (wave + background)
-        B[0]    = Beq[0]
-        B[1]    = Beq[1]
-        B[2]    = Beq[2]
         
-        pos1    = particles[ip, 0]
-        pos2    = particles[ip, 1]
-        pos3    = particles[ip, 2]
-        
-        span0_1 = spans0[ip, 0]
-        span0_2 = spans0[ip, 1]
-        span0_3 = spans0[ip, 2]
-        
-        span1_1 = span0_1 - 1
-        span1_2 = span0_2 - 1
-        span1_3 = span0_3 - 1
-        
-        # evaluation of B1 - component (NDD)
-        for il1 in range(p0_1 + 1):
-            i1 = (span0_1 - il1)%Nbase[0]
-            for il2 in range(p1_2 + 1):
-                i2 = (span1_2 - il2)%Nbase[1]
-                for il3 in range(p1_3 + 1):
-                    i3 = (span1_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p0_1 + 1):
-                        for jl2 in range(p1_2 + 1):
-                            for jl3 in range(p1_3 + 1):
-
-                                N1 = pp0_1[p0_1 - il1, jl1]*((pos1 - (span0_1 - p0_1)*delta1))**jl1
-                                D2 = pp1_2[p1_2 - il2, jl2]*((pos2 - (span1_2 - p1_2)*delta2))**jl2
-                                D3 = pp1_3[p1_3 - il3, jl3]*((pos3 - (span1_3 - p1_3)*delta3))**jl3
-
-                                B[0] += b1[i1, i2, i3] * N1 * D2 * D3
-        
-        
-        # evaluation of B2 - component (DND)
-        for il1 in range(p1_1 + 1):
-            i1 = (span1_1 - il1)%Nbase[0]
-            for il2 in range(p0_2 + 1):
-                i2 = (span0_2 - il2)%Nbase[1]
-                for il3 in range(p1_3 + 1):
-                    i3 = (span1_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p1_1 + 1):
-                        for jl2 in range(p0_2 + 1):
-                            for jl3 in range(p1_3 + 1):
-
-                                D1 = pp1_1[p1_1 - il1, jl1]*((pos1 - (span1_1 - p1_1)*delta1))**jl1
-                                N2 = pp0_2[p0_2 - il2, jl2]*((pos2 - (span0_2 - p0_2)*delta2))**jl2
-                                D3 = pp1_3[p1_3 - il3, jl3]*((pos3 - (span1_3 - p1_3)*delta3))**jl3
-
-                                B[1] += b2[i1, i2, i3] * D1 * N2 * D3
-                                
-        
-        # evaluation of B3 - component (DDN)
-        for il1 in range(p1_1 + 1):
-            i1 = (span1_1 - il1)%Nbase[0]
-            for il2 in range(p1_2 + 1):
-                i2 = (span1_2 - il2)%Nbase[1]
-                for il3 in range(p0_3 + 1):
-                    i3 = (span0_3 - il3)%Nbase[2]
-                    
-                    for jl1 in range(p1_1 + 1):
-                        for jl2 in range(p1_2 + 1):
-                            for jl3 in range(p0_3 + 1):
-
-                                D1 = pp1_1[p1_1 - il1, jl1]*((pos1 - (span1_1 - p1_1)*delta1))**jl1
-                                D2 = pp1_2[p1_2 - il2, jl2]*((pos2 - (span1_2 - p1_2)*delta2))**jl2
-                                N3 = pp0_3[p0_3 - il3, jl3]*((pos3 - (span0_3 - p0_3)*delta3))**jl3
-
-                                B[2] += b3[i1, i2, i3] * D1 * D2 * N3
-        
+        B[0]    = B_part[ip, 0]
+        B[1]    = B_part[ip, 1]
+        B[2]    = B_part[ip, 2]
         
         B_prod[0, 1] = -B[2]
         B_prod[0, 2] =  B[1]
@@ -464,7 +242,6 @@ def pusher_step5(particles, p0, spans0, Nbase, b1, b2, b3, pp0_1, pp0_2, pp0_3, 
 
         B_prod[2, 0] = -B[1]
         B_prod[2, 1] =  B[0]
-        
         
         v[:] = particles[ip, 3:6]
         q[:] = particles[ip, 0:3]
