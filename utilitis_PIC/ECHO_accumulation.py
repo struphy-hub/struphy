@@ -165,14 +165,15 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     
     B         = empty( 3    , dtype=float)
     
-    temp_mat1 = empty((3, 3), dytpe=float, order='F')
-    temp_mat2 = empty((3, 3), dytpe=float, order='F')
-    
     B_prod    = zeros((3, 3), dtype=float, order='F')
+    
+    q         = empty( 3    , dtype=float)
     
     Ginv      = empty((3, 3), dypte=float, order='F') 
     
-    q         = empty( 3    , dtype=float)
+    temp_mat1 = empty((3, 3), dytpe=float, order='F')
+    temp_mat2 = empty((3, 3), dytpe=float, order='F')
+    
     
     np        = len(particles[:, 0])
     
@@ -180,6 +181,9 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     mat13[:, :, :, :, :, :] = 0.
     mat23[:, :, :, :, :, :] = 0.
     
+    
+    #$ omp parallel
+    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, B, B_prod, q, Ginv, temp_mat1, temp_mat2, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp12, temp13, temp23, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1)
     for ip in range(np):
 
         B[0]    = B_part[ip, 0]
@@ -299,10 +303,11 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
                                 
                                 mat23[i1, i2, i3, j1, j2, j3] += bi1
                                 
+    #$ omp end do
+    #$ omp end parallel   
     
     ierr = 0
 #==========================================================================================================
-
 
 
 #==========================================================================================================
@@ -351,21 +356,21 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     
     B            = empty( 3    , dtype=float)
     
+    B_prod       = zeros((3, 3), dtype=float, order='F')
+    B_prod_T     = zeros((3, 3), dtype=float, order='F')
+    
+    q            = empty( 3    , dtype=float)
+    v            = empty( 3    , dtype=float)
+    
+    Ginv         = empty((3, 3), dypte=float, order='F')
+    DFinv        = empty((3, 3), dypte=float, order='F')
+    
     temp_mat1    = empty((3, 3), dytpe=float, order='F')
     temp_mat2    = empty((3, 3), dytpe=float, order='F')
     
     temp_mat_vec = empty((3, 3), dytpe=float, order='F')
     
-    B_prod       = zeros((3, 3), dtype=float, order='F')
-    B_prod_T     = zeros((3, 3), dtype=float, order='F')
-    
-    Ginv         = empty((3, 3), dypte=float, order='F')
-    DFinv        = empty((3, 3), dypte=float, order='F')
-    
     temp_vec     = empty( 3    , dtype=float)
-    
-    q            = empty( 3    , dtype=float)
-    v            = empty( 3    , dtype=float)
     
     np           = len(particles[:, 0])
     
@@ -380,6 +385,9 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     vec2[:, :, :] = 0.
     vec3[:, :, :] = 0.
     
+    
+    #$ omp parallel
+    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, B, B_prod, B_prod_T, q, v, Ginv, DFinv, temp_mat1, temp_mat2, temp_mat_vec, temp_vec, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1)
     for ip in range(np):
         
         B[0]    = B_part[ip, 0]
@@ -587,7 +595,8 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
                                 bi1 = bi2 * N1[p0_1 - il1] 
                                 
                                 mat33[i1, i2, i3, j1, j2, j3] += bi1 
-        
+    #$ omp end do
+    #$ omp end parallel      
     
     ierr = 0
 #==========================================================================================================

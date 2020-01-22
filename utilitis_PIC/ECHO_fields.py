@@ -3,7 +3,6 @@ from pyccel.decorators import pure
 from pyccel.decorators import external_call
 
 
-
 #==========================================================================================================
 @external_call
 @types('double[:,:](order=F)','int[:]','int[:,:](order=F)','int[:]','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
@@ -22,6 +21,8 @@ def evaluate_1form(particles_pos, p0, spans0, Nbase, Np, u1, u2, u3, Ueq, pp0_1,
     delta3 = 1/Nbase[2]
     
     
+    #$ omp parallel
+    #$ omp do private(ip, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, posloc_1, posloc_2, posloc_3, jl3, jl2, jl1, il3, il2, il1, pow1, pow2, pow3, i3, i2, i1, N3, N2, N1, D3, D2, D1)
     for ip in range(Np):
         
         U_part[ip, 0] = Ueq[0]
@@ -102,9 +103,11 @@ def evaluate_1form(particles_pos, p0, spans0, Nbase, Np, u1, u2, u3, Ueq, pp0_1,
                                 
                                 U_part[ip, 2] += u3[i1, i2, i3] * N1 * N2 * D3
                                  
+    #$ omp end do
+    #$ omp end parallel 
+    
     ierr = 0
 #==========================================================================================================
-
 
 
 
@@ -125,7 +128,8 @@ def evaluate_2form(particles_pos, p0, spans0, Nbase, Np, b1, b2, b3, Beq, pp0_1,
     delta2 = 1/Nbase[1]
     delta3 = 1/Nbase[2]
     
-    
+    #$ omp parallel
+    #$ omp do private(ip, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, posloc_1, posloc_2, posloc_3, jl3, jl2, jl1, il3, il2, il1, pow1, pow2, pow3, i3, i2, i1, N3, N2, N1, D3, D2, D1)
     for ip in range(Np):
         
         B_part[ip, 0] = Beq[0]
@@ -205,7 +209,8 @@ def evaluate_2form(particles_pos, p0, spans0, Nbase, Np, b1, b2, b3, Beq, pp0_1,
                                 D1 = pp1_1[p1_1 - il1, jl1] * pow1
                                 
                                 B_part[ip, 2] += b3[i1, i2, i3] * D1 * D2 * N3
-                            
+    #$ omp end do
+    #$ omp end parallel                      
         
     ierr = 0
 #==========================================================================================================

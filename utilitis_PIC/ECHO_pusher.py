@@ -108,23 +108,27 @@ def pusher_step3(particles, mapping, dt, B_part, U_part):
     B         = empty( 3    , dtype=float)
     U         = empty( 3    , dtype=float)
     
-    temp_mat1 = empty((3, 3), dytpe=float, order='F')
-    temp_mat2 = empty((3, 3), dytpe=float, order='F')
-    
     B_prod    = zeros((3, 3), dtype=float, order='F')
-    
-    Ginv      = empty((3, 3), dypte=float, order='F')
-    
-    DFinv     = empty((3, 3), dypte=float, order='F')
-    DFinv_T   = empty((3, 3), dypte=float, order='F')
-    
-    temp_vec  = empty( 3    , dtype=float)
     
     v         = empty( 3    , dtype=float)
     q         = empty( 3    , dtype=float)
     
+    DFinv     = empty((3, 3), dypte=float, order='F')
+    DFinv_T   = empty((3, 3), dypte=float, order='F')
+    Ginv      = empty((3, 3), dypte=float, order='F')
+    
+    temp_mat1 = empty((3, 3), dytpe=float, order='F')
+    temp_mat2 = empty((3, 3), dytpe=float, order='F')
+    
+    temp_vec  = empty( 3    , dtype=float)
+    
+    
+    
     np        = len(particles[:, 0])
     
+    
+    #$ omp parallel
+    #$ omp do private (ip, B, U, B_prod, v, q, DFinv, DFinv_T, Ginv, temp_mat1, temp_mat2, temp_vec)
     for ip in range(np):
         
         B[0] = B_part[ip, 0]
@@ -154,12 +158,16 @@ def pusher_step3(particles, mapping, dt, B_part, U_part):
         matrix_matrix(temp_mat1, Ginv, temp_mat2)
         matrix_vector(temp_mat2, U, temp_vec)
         
-        particles[ip, 3] += dt/2*temp_vec[0]
-        particles[ip, 4] += dt/2*temp_vec[1]
-        particles[ip, 5] += dt/2*temp_vec[2]
+        particles[ip, 3] += dt*temp_vec[0]
+        particles[ip, 4] += dt*temp_vec[1]
+        particles[ip, 5] += dt*temp_vec[2]
+        
+    #$ omp end do
+    #$ omp end parallel 
         
     ierr = 0
 #==========================================================================================================
+
 
 
 #==========================================================================================================
@@ -169,13 +177,16 @@ def pusher_step4(particles, mapping, dt):
     
     from numpy import empty
     
-    DFinv = empty((3, 3), dtype=float, order='F')
     v     = empty( 3    , dtype=float)
     q     = empty( 3    , dtype=float)
+    
+    DFinv = empty((3, 3), dtype=float, order='F')
     temp  = empty( 3    , dtype=float)
     
     np    = len(particles[:, 0])
     
+    #$ omp parallel
+    #$ omp do private (ip, v, q, DFinv, temp)
     for ip in range(np):
         
         v[:] = particles[ip, 3:6]
@@ -184,9 +195,12 @@ def pusher_step4(particles, mapping, dt):
         mapping_matrices(q, 1, mapping, 2, DFinv)
         matrix_vector(DFinv, v, temp)
         
-        particles[ip, 0] = (q[0] + dt*temp[0])%mapping[0]
-        particles[ip, 1] = (q[1] + dt*temp[1])%mapping[1]
-        particles[ip, 2] = (q[2] + dt*temp[2])%mapping[2]
+        particles[ip, 0] = (q[0] + dt*temp[0])%1.
+        particles[ip, 1] = (q[1] + dt*temp[1])%1.
+        particles[ip, 2] = (q[2] + dt*temp[2])%1.
+    
+    #$ omp end do
+    #$ omp end parallel 
         
     ierr = 0
 #==========================================================================================================
@@ -202,15 +216,18 @@ def pusher_step5(particles, mapping, dt, B_part):
     
     B         = empty( 3    , dtype=float)
     
+    B_prod    = zeros((3, 3), dtype=float, order='F')
+    
+    v         = empty( 3    , dtype=float)
+    q         = empty( 3    , dtype=float)
+    
+    DFinv     = empty((3, 3), dypte=float, order='F') 
+    DFinv_T   = empty((3, 3), dypte=float, order='F')
+    
     temp_mat1 = empty((3, 3), dytpe=float, order='F')
     temp_mat2 = empty((3, 3), dytpe=float, order='F')
     
     rhs       = empty( 3    , dtype=float)
-    
-    B_prod    = zeros((3, 3), dtype=float, order='F')
-    
-    DFinv     = empty((3, 3), dypte=float, order='F') 
-    DFinv_T   = empty((3, 3), dypte=float, order='F')
     
     I         = zeros((3, 3), dtype=float, order='F')
     I[0, 0]   = 1.
@@ -223,11 +240,12 @@ def pusher_step5(particles, mapping, dt, B_part):
     lhs2      = empty((3, 3), dtype=float, order='F')
     lhs3      = empty((3, 3), dtype=float, order='F')
     
-    v         = empty( 3    , dtype=float)
-    q         = empty( 3    , dtype=float)
+    
     
     np        = len(particles[:, 0])
     
+    #$ omp parallel
+    #$ omp do private (ip, B, B_prod, v, q, DFinv, DFinv_T, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3)
     for ip in range(np):
         
         B[0]    = B_part[ip, 0]
@@ -275,8 +293,9 @@ def pusher_step5(particles, mapping, dt, B_part):
         particles[ip, 3] = det_lhs1/det_lhs
         particles[ip, 4] = det_lhs2/det_lhs
         particles[ip, 5] = det_lhs3/det_lhs
-        # ...
-        
+    
+    #$ omp end do
+    #$ omp end parallel     
         
     ierr = 0
 #==========================================================================================================
