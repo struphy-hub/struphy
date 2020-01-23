@@ -1,3 +1,7 @@
+import time
+start_simulation = time.time()
+
+
 import numpy             as np
 import matplotlib.pyplot as plt
 import scipy.sparse      as sparse
@@ -19,7 +23,6 @@ import utilitis_PIC.ECHO_accumulation
 import sobol_seq
 import scipy.special as sp
 
-import time
 
 #====================================================================================
 #  calling epyccel for particle pusher
@@ -36,7 +39,7 @@ print('pyccelization done!')
 
 
 # ======================================= parameters ===================================================================
-Nel = [4, 4, 32]           # mesh generation on logical domain
+Nel = [4, 4, 16]           # mesh generation on logical domain
 bc  = [True, True, True]   # boundary conditions
 p   = [2, 2, 2]            # splines degrees  
 L   = [1., 1., 2*np.pi]    # box lengthes of physical domain
@@ -50,7 +53,9 @@ Nbase0    = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]                 #
 Nbase_old = [Nel + p for Nel, p, bc in zip(Nel, p, bc)]                        # TODO delete this later
 Ntot      = Nbase0[0] *Nbase0[1]*Nbase0[2]                                     # total number of basis functions
 
-
+dt       = 0.05     # time step
+Tend     = 500.     # simulation time
+max_time = 23.5*60  # maximum runtime of program in minutes
 
 # geometry
 DF      = np.array([[  L[0], 0., 0.], [0.,   L[1], 0.], [0., 0.,   L[2]]])           # Jacobian matrix
@@ -64,16 +69,15 @@ g_sqrt  = L[0]*L[1]*L[2]                                                        
 mapping = maps.mappings(['slab', L[0], L[1], L[2]])                                  # object for mappings in MHD part
 
 
-# time step
-dt = 0.05
-
 # particle parameters
-Np  = int(5e5)         # total number of particles
+Np  = int(2e5)         # total number of particles
 vth = 1.               # thermal velocity of particles in all directions
 v0  = 2.               # mean velocity of particles in z-direction
 nuh = 0.05             # ratio of hot/cold mass densities        
-nh0 = (1.)*nuh*g_sqrt  # hot ion number density on logical domain
 
+# name of data file
+identifier  = 'test_ECHO'
+dir_results = 'results/'
 # =====================================================================================================================
 
 
@@ -94,20 +98,22 @@ for i in range(3):
 
 
 # ====================================== background quantities ========================================================
-Ueq_phys = np.array([0., 0., 0.])     # background bulk flow (vector/1-form on physical domain)
-Ueq      = DF.T.dot(Ueq_phys)         # background bulk flow (1-form on logical domain)
+Ueq_phys   = np.array([0., 0., 0.])     # background bulk flow (vector/1-form on physical domain)
+Ueq        = DF.T.dot(Ueq_phys)         # background bulk flow (1-form on logical domain)
 
 
-Beq_phys = np.array([0., 0., 1.])     # background magnetic field (vector/2-form on physical domain)
-Beq      = g_sqrt*DFinv.dot(Beq_phys) # background magnetic field (2-form on logical domain)
+Beq_phys   = np.array([0., 0., 1.])     # background magnetic field (vector/2-form on physical domain)
+Beq        = g_sqrt*DFinv.dot(Beq_phys) # background magnetic field (2-form on logical domain)
 
-B0_23    = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (0.)
-B0_31    = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[1][1](q1, q2, q3) * (0.)   
-B0_12    = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (1.)   
+B0_23      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (0.)
+B0_31      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[1][1](q1, q2, q3) * (0.)   
+B0_12      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (1.)   
 
-B0_hat   = [B0_23, B0_31, B0_12]
+B0_hat     = [B0_23, B0_31, B0_12]
 
-rho0_123 = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (1.) # background bulk mass density (3-form on logical domain)
+rhoeq_phys = 1.                         # background bulk mass density (scalar/3-from on physical domain)
+
+rho0_123 = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (rhoeq_phys) # background bulk mass density (3-form on logical domain)
 # =====================================================================================================================
 
 
@@ -150,6 +156,9 @@ spans0    = np.empty((Np, 3), dtype=int,   order='F')
 # fields at particle positions
 B_part = np.empty((Np, 3), dtype=float, order='F')
 U_part = np.empty((Np, 3), dtype=float, order='F')
+
+# energies
+energies = np.empty(3, dtype=float)
 # =====================================================================================================================
 
 
@@ -234,6 +243,7 @@ particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth
 particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0
 
 # compute weights
+nh0 = rhoeq_phys * nuh * g_sqrt  # hot ion number density on logical domain
 particles[:, 6]  = nh0/Np 
 
 # compute spans
@@ -245,7 +255,7 @@ print('Particle initialization done')
 # =====================================================================================================================
 
 
-# compute initial fields at particle positions
+# ================ compute initial fields at particle positions and initial energies ==================================
 timea = time.time()
 pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(b[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
 pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(u[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
@@ -253,14 +263,14 @@ timeb = time.time()
 print('Initial field computation at particles done. Time : ', timeb-timea)
 
 # initial energies
-en_U = 1/2*u.dot(A.dot(u))
-en_B = 1/2*b.dot(M2.dot(b))
-en_H = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)
-
-energies = np.array([en_U, en_B, en_H])
-
+energies[0] = 1/2*u.dot(A.dot(u))
+energies[1] = 1/2*b.dot(M2.dot(b))
+energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)
+# =====================================================================================================================
 
 
+
+# =============================================== time integrator =====================================================
 def update():
     
     # step 1 (update u)
@@ -304,8 +314,41 @@ def update():
     pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(b[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
     pic_pusher.pusher_step5(particles, L, dt, B_part)
     
+    # diagnostics
+    energies[0] = 1/2*u.dot(A.dot(u))
+    energies[1] = 1/2*b.dot(M2.dot(b))
+    energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)
+# =====================================================================================================================    
 
-timea = time.time()
-update()
-timeb = time.time()
-print('time for one step : ', timeb-timea)
+
+
+
+
+# ========================================== time integration =========================================================
+title = dir_results + identifier + '.txt'
+file  = open(title, 'ab')
+data  = np.concatenate((energies, np.array([0.])))
+np.savetxt(file, data.reshape(1, 4), fmt = '%1.12e')
+
+print('initial energies:', energies)
+print('start time integration! (number of time steps : ' + str(int(Tend/dt)) + ')')
+time_step = 0
+
+while True:
+    
+    if (time_step*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
+        break
+        
+    if time_step%10 == 0:
+        print('time steps finished: ' + str(time_step))
+        print('energies', energies)
+    
+    update()
+    
+    data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
+    np.savetxt(file, data.reshape(1, 4), fmt = '%1.12e')
+    
+    time_step += 1
+    
+file.close()
+# =====================================================================================================================
