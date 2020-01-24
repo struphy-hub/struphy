@@ -29,8 +29,8 @@ import scipy.special as sp
 #====================================================================================
 from pyccel.epyccel import epyccel
 
-pic_fields = epyccel(utilitis_PIC.ECHO_fields,       accelerator='openmp')
-pic_pusher = epyccel(utilitis_PIC.ECHO_pusher,       accelerator='openmp')
+pic_fields = epyccel(utilitis_PIC.ECHO_fields, accelerator='openmp')
+pic_pusher = epyccel(utilitis_PIC.ECHO_pusher, accelerator='openmp')
 pic_accumu = epyccel(utilitis_PIC.ECHO_accumulation, accelerator='openmp')
 
 print('pyccelization done!')
@@ -76,7 +76,7 @@ v0  = 2.               # mean velocity of particles in z-direction
 nuh = 0.05             # ratio of hot/cold mass densities        
 
 # name of data file
-identifier  = 'test_ECHO'
+identifier  = 'test_ECHO_not_notebook_OMP=2'
 dir_results = 'results/'
 # =====================================================================================================================
 
@@ -113,7 +113,7 @@ B0_hat     = [B0_23, B0_31, B0_12]
 
 rhoeq_phys = 1.                         # background bulk mass density (scalar/3-from on physical domain)
 
-rho0_123 = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (rhoeq_phys) # background bulk mass density (3-form on logical domain)
+rho0_123   = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (rhoeq_phys) # background bulk mass density (3-form on logical domain)
 # =====================================================================================================================
 
 
@@ -227,7 +227,7 @@ A = A.toarray()
 # delete everything which is not needed to save memory
 del PRO, MHD, W1, W2, W3, TAU1, TAU2, TAU3, M1, W
 
-print('Assembly of constant matrices done')
+print('assembly of constant matrices done')
 # ======================================================================================================================
 
 
@@ -235,7 +235,8 @@ print('Assembly of constant matrices done')
 
 # ================================ create particles with random numbers ================================================
 #particles[:, :6] = sobol_seq.i4_sobol_generate(6, Np)
-particles[:, :6] = np.random.rand(Np, 6)
+#particles[:, :6] = np.random.rand(Np, 6)
+particles[:, :] = np.load('test_particles.npy')
 
 # transform velocities to Maxwellians
 particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth
@@ -251,7 +252,7 @@ spans0[:, 0] = np.floor(particles[:, 0]*Nel[0]).astype(int) + p[0]
 spans0[:, 1] = np.floor(particles[:, 1]*Nel[1]).astype(int) + p[1]
 spans0[:, 2] = np.floor(particles[:, 2]*Nel[2]).astype(int) + p[2]
 
-print('Particle initialization done')
+print('particle initialization done')
 # =====================================================================================================================
 
 
@@ -260,13 +261,29 @@ timea = time.time()
 pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(b[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
 pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(u[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
 timeb = time.time()
-print('Initial field computation at particles done. Time : ', timeb-timea)
+print('initial field computation at particles done. Time : ', timeb-timea)
+
+#timea = time.time()
+#mat12_step1 = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+#mat13_step1 = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+#mat23_step1 = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+
+
+#pic_accumu.accumulation_step1(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat12_step1, mat13_step1, mat23_step1)
+#timeb = time.time()
+#print('test timing of accumulation (step 1) . Time : ', timeb-timea)
+
+#timea = time.time()
+#pic_accumu.accumulation_step3(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+#timeb = time.time()
+#print('test timing of accumulation (step 3) . Time : ', timeb-timea)
 
 # initial energies
 energies[0] = 1/2*u.dot(A.dot(u))
 energies[1] = 1/2*b.dot(M2.dot(b))
 energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)
 # =====================================================================================================================
+
 
 
 
@@ -339,7 +356,7 @@ while True:
     if (time_step*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
         break
         
-    if time_step%10 == 0:
+    if time_step%2 == 0:
         print('time steps finished: ' + str(time_step))
         print('energies', energies)
     
