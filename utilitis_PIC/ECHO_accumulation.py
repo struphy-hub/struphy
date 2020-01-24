@@ -183,7 +183,7 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, B, B_prod, q, Ginv, temp_mat1, temp_mat2, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp12, temp13, temp23, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1)
+    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, B, q, Ginv, temp_mat1, temp_mat2, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp12, temp13, temp23, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1) firstprivate(B_prod)
     for ip in range(np):
 
         B[0]    = B_part[ip, 0]
@@ -210,9 +210,9 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
         basis_funs(tt2, p1_2, pos2, span1_2, Dl2, Dr2, D2)
         basis_funs(tt3, p1_3, pos3, span1_3, Dl3, Dr3, D3)
         
-        D1[:] = D1/delta1
-        D2[:] = D2/delta2
-        D3[:] = D3/delta3
+        D1 = D1/delta1
+        D2 = D2/delta2
+        D3 = D3/delta3
                     
         B_prod[0, 1] = -B[2]
         B_prod[0, 2] =  B[1]
@@ -223,8 +223,8 @@ def accumulation_step1(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
         B_prod[2, 0] = -B[1]
         B_prod[2, 1] =  B[0]
         
-        q[:] = particles[ip, 0:3]
-        w    = particles[ip,   6]
+        q = particles[ip, 0:3]
+        w = particles[ip,   6]
         
         mapping_matrices(q, 1, mapping, 4, Ginv)
         matrix_matrix(Ginv, B_prod, temp_mat1)
@@ -387,7 +387,7 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, B, B_prod, B_prod_T, q, v, Ginv, DFinv, temp_mat1, temp_mat2, temp_mat_vec, temp_vec, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1)
+    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, B, B_prod_T, q, v, Ginv, DFinv, temp_mat1, temp_mat2, temp_mat_vec, temp_vec, Nl1, Nr1, N1, Nl2, Nr2, N2, Nl3, Nr3, N3, Dl1, Dr1, D1, Dl2, Dr2, D2, Dl3, Dr3, D3, pos1, pos2, pos3, span0_1, span0_2, span0_3, span1_1, span1_2, span1_3, w, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, jl3, jl2, jl1, il3, il2, il1, j3, j2, j1, i3, i2, i1, bj3, bj2, bj1, bi3, bi2, bi1) firstprivate(B_prod)
     for ip in range(np):
         
         B[0]    = B_part[ip, 0]
@@ -414,9 +414,9 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
         basis_funs(tt2, p1_2, pos2, span1_2, Dl2, Dr2, D2)
         basis_funs(tt3, p1_3, pos3, span1_3, Dl3, Dr3, D3)
         
-        D1[:] = D1/delta1
-        D2[:] = D2/delta2
-        D3[:] = D3/delta3
+        D1 = D1/delta1
+        D2 = D2/delta2
+        D3 = D3/delta3
                     
         B_prod[0, 1] = -B[2]
         B_prod[0, 2] =  B[1]
@@ -427,9 +427,9 @@ def accumulation_step3(particles, p0, spans0, Nbase, T1, T2, T3, tt1, tt2, tt3, 
         B_prod[2, 0] = -B[1]
         B_prod[2, 1] =  B[0]
         
-        q[:] = particles[ip, 0:3]
-        v[:] = particles[ip, 3:6]
-        w    = particles[ip,   6]
+        q = particles[ip, 0:3]
+        v = particles[ip, 3:6]
+        w = particles[ip,   6]
         
         mapping_matrices(q, 1, mapping, 4, Ginv)
         mapping_matrices(q, 1, mapping, 2, DFinv)
