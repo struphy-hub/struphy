@@ -304,7 +304,7 @@ Finally, the term involving the hot ion charge density amounts to
 \end{align}
 which is clearly antisymmetric because $\hat{\mathbb{B}}$ is antisymmetric. In total we get the following semi-discrete momentum balance equation:
 \begin{align}
-\mathcal{A}\dot{\mb{u}}=\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}+\mb{b}_\mb{eq}^\top\mathbb{M}^2\mathbb{C}\mathcal{P}^{jki}\mb{b}+\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}+\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}
+\mathcal{A}\dot{\mb{u}}=\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}+\mb{b}_\mb{eq}^\top\mathbb{M}^2\mathbb{C}\mathcal{P}^{jki}\mb{b}-\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}+\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}
 \end{align}
 where $\mathcal{P}^{jki}$ means that order of the indices is changed from $()_{ijk}$ to $()_{jki}$ such that $\mb{b}$ still contracts with the index $i$ from right and the $\mathbb{C}$ with the index $j$ from left.
  
@@ -367,7 +367,7 @@ We split the Poisson matrix into antisymmetric sub-systems such that each sub-sy
 0 \\
 \mathbb{W}\mb{V}
 \end{pmatrix},\\[1cm]
-&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1},\\
+&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=-\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1},\\
 &\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top,\\
 &\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q}),\\
 &\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1},\\
