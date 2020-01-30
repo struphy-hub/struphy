@@ -153,9 +153,6 @@ b     = np.empty(3*Ntot, dtype=float)   # B-field FEM coefficients
 u     = np.empty(3*Ntot, dtype=float)   # U-field FEM coefficients
 u_old = np.empty(3*Ntot, dtype=float)   # U-field FEM coefficients from previous time step (needed in step 3)
 
-CV1   = np.empty(Ntot, dtype=float)     # 1 - component of control variate in step 3 (rhs of L2-projection of B x jh0)
-CV2   = np.empty(Ntot, dtype=float)     # 2 - component of control variate in step 3 (rhs of L2-projection of B x jh0)
-CV3   = np.empty(Ntot, dtype=float)     # 3 - component of control variate in step 3 (rhs of L2-projection of B x jh0)
 
 # matrices and vectors in steps 1 and 3
 mat11 = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
@@ -318,7 +315,7 @@ def update():
     
     # step 3 (update first u, then evaluate U-field at particle positions and then update V)
     pic_accumu.accumulation_step3(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-    CV1[:], CV2[:], CV3[:] = mass.inner_prod_V1_jh0(T, p, bc, mapping.Ginv, mapping.DFinv, mapping.g_sqrt, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, [0., 0., nh0_phys*v0z])
+    CV = mass.inner_prod_V1_jh0(T, p, bc, mapping.Ginv, mapping.DFinv, mapping.g_sqrt, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, [0., 0., nh0_phys*v0z])
     
     BLOCK = np.block([[mat11.reshape(Ntot, Ntot), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [mat12.reshape(Ntot, Ntot).T, mat22.reshape(Ntot, Ntot), mat23.reshape(Ntot, Ntot)], [mat13.reshape(Ntot, Ntot).T, mat23.reshape(Ntot, Ntot).T, mat33.reshape(Ntot, Ntot)]])/Np
     
