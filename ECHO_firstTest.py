@@ -79,7 +79,7 @@ control = 1             # control variate? (0: no, 1: yes)
 
 
 # name of data file
-identifier  = 'test_ECHO_CV'
+identifier  = 'ECHO_Nel=32_p=3_L=2pi_dt=0.05_Np=1e5_vth=1.0_v0=2.0_nuh=0.05_k=1.0_amp=1e-4'
 dir_results = 'results/'
 # =====================================================================================================================
 
@@ -137,7 +137,7 @@ nh0_phys = rhoeq_phys*nuh              # hot ion number density on physical doma
 nh0      = nh0_phys*g_sqrt             # hot ion number density on logical domain
 Eh_eq    = nh0/2*(v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
 
-# initial hot ion distribution function
+# initial hot ion distribution function (3-form on logical domain)
 fh0             = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vz - v0z)**2/vth**2 - (vx**2 + vy**2)/vth**2)
 
 # control variate
@@ -287,7 +287,7 @@ print('initial field computation at particles done. Time : ', timeb-timea)
 # initial energies
 energies[0] = 1/2*u.dot(A.dot(u))
 energies[1] = 1/2*b.dot(M2.dot(b))
-energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + control*Eh_eq
+energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + (control - 1)*Eh_eq
 # =====================================================================================================================
 
 
@@ -299,7 +299,7 @@ def update():
     # step 1 (update u)
     pic_accumu.accumulation_step1(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat12, mat13, mat23)
     
-    AJ11A = -(np.block([[np.zeros((Ntot, Ntot)), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [-mat12.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot)), mat23.reshape(Ntot, Ntot)], [-mat13.reshape(Ntot, Ntot).T, -mat23.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot))]])/Np + mass.mass_V1_nh0(T, p, bc, mapping.Ginv, mapping.g_sqrt, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0).toarray()) 
+    AJ11A = -(np.block([[np.zeros((Ntot, Ntot)), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [-mat12.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot)), mat23.reshape(Ntot, Ntot)], [-mat13.reshape(Ntot, Ntot).T, -mat23.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot))]])/Np + mass.mass_V1_nh0(T, p, bc, mapping.Ginv, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0).toarray()) 
     
     u[:] = np.linalg.solve(A - dt/2*AJ11A, (A + dt/2*AJ11A).dot(u))
     
@@ -343,7 +343,7 @@ def update():
     # diagnostics
     energies[0] = 1/2*u.dot(A.dot(u))
     energies[1] = 1/2*b.dot(M2.dot(b))
-    energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + control*Eh_eq
+    energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + (control - 1)*Eh_eq
 # =====================================================================================================================    
 
 

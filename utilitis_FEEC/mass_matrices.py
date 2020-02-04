@@ -700,7 +700,7 @@ def inner_prod_V1_jh0(T, p, bc, Ginv, DFinv, g_sqrt, b1, b2, b3, Beq, jheq):
 
 
 #==================================================mass matrix in V1 (3d)======================================================
-def mass_V1_nh0(T, p, bc, Ginv, g_sqrt, b1, b2, b3, Beq, nh0):
+def mass_V1_nh0(T, p, bc, Ginv, b1, b2, b3, Beq, nh0):
     '''
     nh0 on logical domain!!
     b1, b2, b3 must be flattened! 
