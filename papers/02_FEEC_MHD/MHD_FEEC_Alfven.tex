@@ -107,11 +107,11 @@ where we set all physical constants equal to one\footnote{We assume hot ions wit
 \begin{align}
 \mathcal{H}_0(t)=\frac{1}{2}\int\rho\mb{U}^2\text{d}^3x+\frac{1}{\gamma-1}\int p\text{d}^3x+\frac{1}{2}\int\mb{B}^2\text{d}^3x+\frac{1}{2}\int\int\mb{v}^2f_\text{h}\mr{d}^3v\mr{d}^3x.\label{eq_H0}
 \end{align}
-In order to start from a simpler model we shall restrict ourselves for the moment on waves which are non-perturbative in density and pressure. Hence we drop equations (\ref{eq_continuity}) and (\ref{eq_pressure}). Moreover, we linearize all terms related to the MHD part by assuming that MHD waves are small perturbations about an equilibrium state. Making the Ansatzes $\mb{B}=\mb{B}_\text{eq}+\tilde{\mb{B}}$, $\mb{U}=\tilde{\mb{U}}$ and $\rho=\rho_\text{eq}$ and neglecting nonlinear terms in the MHD part yields
+In order to start from a simpler model we shall restrict ourselves for the moment on waves which are non-perturbative in density and pressure. Hence we drop equations (\ref{eq_continuity}) and (\ref{eq_pressure}). Moreover, we linearize all terms related to the MHD part by assuming that MHD waves are small perturbations about an equilibrium state. Making the ansatzes $\mb{B}=\mb{B}_\text{eq}+\tilde{\mb{B}}$, $\mb{U}=\tilde{\mb{U}}$ and $\rho=\rho_\text{eq}$ and neglecting nonlinear terms in the MHD part yields
 \begin{align}
 \rho_\text{eq}&\frac{\pa\tilde{\mb{U}}}{\pa t}=(\nabla\times\tilde{\mb{B}})\times\mb{B}_\text{eq}+(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}+(\rho_\text{h}\tilde{\mb{U}}-\mb{j}_\text{h})\times\mb{B},\label{eq_momentum}\\
 &\frac{\pa\tilde{\mb{B}}}{\pa t}=\nabla\times(\tilde{\mb{U}}\times\mb{B}_\text{eq}),\label{eq_induction}\\
-&\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\mb{U}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0.\label{eq_Vlasov}
+&\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\tilde{\mb{U}}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0.\label{eq_Vlasov}
 \end{align}
 The linearization of the MHD part breaks energy conservation, i.e. the Hamiltonian (\ref{eq_H0}) is no longer conserved. However, we can write down the new Hamiltonian
 \begin{align}

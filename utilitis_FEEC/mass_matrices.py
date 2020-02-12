@@ -7,7 +7,7 @@ import utilitis_FEEC.evaluation   as eva
 
 
 
-#==================================================calling epyccel for acceleration============================================
+#================================================= calling epyccel for acceleration ===========================================
 from pyccel import epyccel
 ker = epyccel(ker)
 #==============================================================================================================================
@@ -15,7 +15,7 @@ ker = epyccel(ker)
 
 
 
-#==================================================mass matrix in V0 (1d)======================================================
+#================================================= mass matrix in V0 (1d) =====================================================
 def mass_1d_NN(T, p, bc):
     
     
@@ -57,7 +57,7 @@ def mass_1d_NN(T, p, bc):
 
 
 
-#==================================================mass matrix in V0/V1 (1d DN) (1d)===========================================
+#================================================= mass matrix in V0/V1 (1d DN) (1d) ==========================================
 def mass_1d_DN(T, p, bc):
     
     t                = T[1:-1]
@@ -102,7 +102,7 @@ def mass_1d_DN(T, p, bc):
 
 
 
-#==================================================mass matrix in V0/V1 (1d ND) (1d)===========================================
+#================================================= mass matrix in V0/V1 (1d ND) (1d) ==========================================
 def mass_1d_ND(T, p, bc):
     
     t                = T[1:-1]
@@ -148,7 +148,7 @@ def mass_1d_ND(T, p, bc):
 
 
 
-#==================================================mass matrix in V1 (1d)======================================================
+#================================================= mass matrix in V1 (1d) =====================================================
 def mass_1d_DD(T, p, bc):
     
     t                = T[1:-1]
@@ -192,10 +192,83 @@ def mass_1d_DD(T, p, bc):
 
 
 
+#================================================= mass matrix in V1 (2d) =====================================================
+def mass_V1(T, p, bc, Ginv, g_sqrt):
+    '''
+    Corresponds to the sequence grad --> curl
+    '''
+    
+    t         = [T[1:-1] for T in T]
+    
+    el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
+    Nel       = [len(el_b) - 1 for el_b in el_b]
+    NbaseN    = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]
+    NbaseD    = [NbaseN - (1 - bc) for NbaseN, bc in zip(NbaseN, bc)]
+    
+    quad_loc  = [np.polynomial.legendre.leggauss(p + 1) for p in p]
+    quad      = [bsp.quadrature_grid(el_b, quad_loc[0], quad_loc[1]) for el_b, quad_loc in zip(el_b, quad_loc)]
+    
+    quad      = [(quad[0], np.asfortranarray(quad[1])) for quad in quad]
+    
+    basisN    = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, quad[0], 0)) for T, p, quad in zip(T, p, quad)]
+    basisD    = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p - 1, quad[0], 0, normalize=True)) for t, p, quad in zip(t, p, quad)]
+    
+    Nbi1      = [NbaseD[0], NbaseN[0], NbaseN[0]]
+    Nbi2      = [NbaseN[1], NbaseD[1], NbaseD[1]]
+    
+    Nbj1      = [NbaseD[0], NbaseD[0], NbaseN[0]]
+    Nbj2      = [NbaseN[1], NbaseN[1], NbaseD[1]]
+    
+    basis     = [[basisD[0], basisN[1]], [basisN[0], basisD[1]]]
+    ns        = [[1, 0], [0, 1]]
+    
+    M1        = [np.zeros((Nbi1, Nbi2, 2*p[0] + 1, 2*p[1] + 1), order='F') for Nbi1, Nbi2 in zip(Nbi1, Nbi2)]
+    
+    
+    counter   = 0
+    
+    for a in range(2):
+        for b in range(a + 1):
+            
+            mat_map = np.asfortranarray(Ginv[a][b](quad_mesh[0], quad_mesh[1], quad_mesh[2]) * g_sqrt(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
+            
+            ni1, ni2, ni3 = ns[a]
+            nj1, nj2, nj3 = ns[b]
+            
+            bi1, bi2, bi3 = basis[a]
+            bj1, bj2, bj3 = basis[b]
+            
+            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_map)
+            
+            indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            
+            shift1  = np.arange(Nbi1[counter]) - p[0]
+            shift2  = np.arange(Nbi2[counter]) - p[1]
+            shift3  = np.arange(Nbi3[counter]) - p[2]
+            
+            row     = (Nbi2[counter]*Nbi3[counter]*indices[0] + Nbi3[counter]*indices[1] + indices[2]).flatten()
+            
+            col1    = (indices[3] + shift1[:, None, None, None, None, None])%Nbj1[counter]
+            col2    = (indices[4] + shift2[None, :, None, None, None, None])%Nbj2[counter]
+            col3    = (indices[5] + shift3[None, None, :, None, None, None])%Nbj3[counter]
+            
+            col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
+            
+            M1[counter] = spa.csr_matrix((M1[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
+            M1[counter].eliminate_zeros()
+            
+            counter += 1
+    
+    M1 = spa.bmat([[M1[0], M1[1].T, M1[3].T], [M1[1], M1[2], M1[4].T], [M1[3], M1[4], M1[5]]], format='csr')
+            
+    return M1
+#==============================================================================================================================
 
 
 
-#==================================================mass matrix in V0 (3d)======================================================
+
+
+#================================================= mass matrix in V0 (3d) =====================================================
 def mass_V0(T, p, bc, g_sqrt):
     
     el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
@@ -239,7 +312,7 @@ def mass_V0(T, p, bc, g_sqrt):
 
 
 
-#==================================================mass matrix in V1 (3d)======================================================
+#================================================= mass matrix in V1 (3d) =====================================================
 def mass_V1(T, p, bc, Ginv, g_sqrt):
     
     t         = [T[1:-1] for T in T]
@@ -317,7 +390,7 @@ def mass_V1(T, p, bc, Ginv, g_sqrt):
 
 
 
-#==================================================mass matrix in V2 (3d)======================================================
+#================================================= mass matrix in V2 (3d) =====================================================
 def mass_V2(T, p, bc, G, g_sqrt):
     
     t         = [T[1:-1] for T in T]
@@ -393,7 +466,7 @@ def mass_V2(T, p, bc, G, g_sqrt):
 
 
 
-#==================================================mass matrix in V3 (3d)======================================================
+#================================================= mass matrix in V3 (3d) =====================================================
 def mass_V3(T, p, bc, g_sqrt):
     
     t         = [T[1:-1] for T in T]
@@ -439,7 +512,7 @@ def mass_V3(T, p, bc, g_sqrt):
 
 
 
-#==================================================inner product in V0 (3d)====================================================
+#================================================= inner product in V0 (3d) ===================================================
 def inner_prod_V0(T, p, bc, g_sqrt, fun):
     
     el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
@@ -469,7 +542,7 @@ def inner_prod_V0(T, p, bc, g_sqrt, fun):
                                   
 
             
-#==================================================inner product in V1 (3d)====================================================
+#================================================= inner product in V1 (3d) ===================================================
 def inner_prod_V1(T, p, bc, Ginv, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
@@ -515,7 +588,7 @@ def inner_prod_V1(T, p, bc, Ginv, g_sqrt, fun):
             
 
 
-#==================================================inner product in V2 (3d)====================================================
+#================================================= inner product in V2 (3d) ===================================================
 def inner_prod_V2(T, p, bc, G, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
@@ -561,7 +634,7 @@ def inner_prod_V2(T, p, bc, G, g_sqrt, fun):
             
 
         
-#==================================================inner product in V3 (3d)====================================================
+#================================================= inner product in V3 (3d) ===================================================
 def inner_prod_V3(T, p, bc, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
@@ -594,7 +667,7 @@ def inner_prod_V3(T, p, bc, g_sqrt, fun):
         
             
 
-#==================================================L2 error in V0 (3d)=========================================================
+#================================================= L2 error in V0 (3d) ========================================================
 def L2_error_V0(coeff, T, p, bc, g_sqrt, fun):
     
     
@@ -699,7 +772,7 @@ def inner_prod_V1_jh0(T, p, bc, Ginv, DFinv, g_sqrt, b1, b2, b3, Beq, jheq):
 
 
 
-#==================================================mass matrix in V1 (3d)======================================================
+#================================== mass matrix in V1 (3d) of equilibrium charge density ======================================
 def mass_V1_nh0(T, p, bc, Ginv, b1, b2, b3, Beq, nh0):
     '''
     nh0 on logical domain!!
