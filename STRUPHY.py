@@ -24,9 +24,9 @@ import sobol_seq
 import scipy.special as sp
 
 
-#====================================================================================
+# ====================================================================================
 #  calling epyccel for particle pusher
-#====================================================================================
+# ====================================================================================
 from pyccel.epyccel import epyccel
 
 pic_fields = epyccel(utilitis_PIC.ECHO_fields,       accelerator='openmp')
@@ -34,12 +34,12 @@ pic_pusher = epyccel(utilitis_PIC.ECHO_pusher,       accelerator='openmp')
 pic_accumu = epyccel(utilitis_PIC.ECHO_accumulation, accelerator='openmp')
 
 print('pyccelization done!')
-#====================================================================================
+# ====================================================================================
 
 
 
-# ======================================= parameters ===================================================================
-Nel = [3, 3, 32]           # mesh generation on logical domain
+# ========================================== parameters ==============================================================
+Nel = [3, 3, 20]           # mesh generation on logical domain
 bc  = [True, True, True]   # boundary conditions
 p   = [2, 2, 3]            # spline degrees  
 L   = [1., 1., 2*np.pi]    # box lengthes of physical domain
@@ -51,13 +51,15 @@ T         = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]  #
 t         = [T[1:-1] for T in T]                                               # reduced knot vectors
 Nbase0    = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]                 # number of basis functions in V0
 Nbase_old = [Nel + p for Nel, p, bc in zip(Nel, p, bc)]                        # TODO delete this later
-Ntot      = Nbase0[0]*Nbase0[1]*Nbase0[2]                                      # total number of basis functions
+Ntot      =  Nbase0[0]*Nbase0[1]*Nbase0[2]                                     # total number of basis functions
+
+
 
 dt       = 0.05     # time step
 Tend     = 500.     # simulation time
 max_time = 23.5*60  # maximum runtime of program in minutes
 
-# geometry
+# geometry (slab geometry)
 DF      = np.array([[  L[0], 0., 0.], [0.,   L[1], 0.], [0., 0.,   L[2]]])           # Jacobian matrix
 DFinv   = np.array([[1/L[0], 0., 0.], [0., 1/L[1], 0.], [0., 0., 1/L[2]]])           # inverse Jacobian matrix
 
@@ -70,16 +72,20 @@ mapping = maps.mappings(['slab', L[0], L[1], L[2]])                             
 
 
 # particle parameters
-Np   = int(2e5)         # total number of particles
-vth  = 1.               # thermal velocity of particles in all directions
-v0z  = 2.               # mean velocity of particles in z-direction
-nuh  = 0.05             # ratio of hot/cold mass densities 
+Np      = int(2e5)         # total number of particles
+vth     = 1.               # thermal velocity of particles in all directions
 
-control = 1             # control variate? (0: no, 1: yes)
+v0x     = 0.               # mean velocity of hot ions in x-direction (must be compatible with backgound field)
+v0y     = 0.               # mean velocity of hot ions in y-direction (must be compatible with backgound field)
+v0z     = 2.               # mean velocity of hot ions in z-direction (must be compatible with backgound field)
+
+nuh     = 0.05             # ratio of hot/bulk equlibrium number densities 
+
+control = 1                # control variate? (0: no, 1: yes)
 
 
 # name of data file
-identifier  = 'ECHO_Nel=32_p=3_L=2pi_dt=0.05_Np=1e5_vth=1.0_v0=2.0_nuh=0.05_k=1.0_amp=1e-4'
+identifier  = 'STRUPHY_Nel=32_p=3_L=2pi_dt=0.05_Np=1e5_vth=1.0_v0=2.0_nuh=0.05_k=1.0_amp=1e-4_CV=off'
 dir_results = 'results/'
 # =====================================================================================================================
 
@@ -138,14 +144,15 @@ nh0      = nh0_phys*g_sqrt             # hot ion number density on logical domai
 Eh_eq    = nh0/2*(v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
 
 # initial hot ion distribution function (3-form on logical domain)
-fh0             = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vz - v0z)**2/vth**2 - (vx**2 + vy**2)/vth**2)
+fh0             = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 
 # control variate
-control_variate = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vz - v0z)**2/vth**2 - (vx**2 + vy**2)/vth**2)
+control_variate = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 
 # initial sampling distribution
-g_sampling      = lambda q1, q2, q3, vx, vy, vz :   1/((np.pi)**(3/2)*vth**3)*np.exp(-(vz - v0z)**2/vth**2 - (vx**2 + vy**2)/vth**2)
+g_sampling      = lambda q1, q2, q3, vx, vy, vz :   1/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 # =====================================================================================================================
+
 
 
 # ========================================= reserve memory for unknowns ===============================================
@@ -210,10 +217,10 @@ M1 = mass.mass_V1(T, p, bc, mapping.Ginv, mapping.g_sqrt)
 M2 = mass.mass_V2(T, p, bc, mapping.G, mapping.g_sqrt)
 
 # discrete curl and div matrices
-derivatives = der.discrete_derivatives(p, T, bc)
+derivatives = der.discrete_derivatives(T, p, bc)
 
-CURL = derivatives.CURL_3d(T, p, bc)
-DIV  = derivatives.DIV_3d(T, p, bc)
+CURL = derivatives.CURL_3d()
+DIV  = derivatives.DIV_3d()
 
 # perform projections of TAU1, TAU2, TAU3
 TAU1 = sparse.linalg.spsolve(PRO.interhistopolation_V1_1, TAU1)
@@ -257,8 +264,8 @@ particles[:, :6] = np.random.rand(Np, 6)                 # random numbers betwee
 #particles[:, :] = np.load('test_particles.npy')         # load numbers from file
 
 # inversion of cumulative distribution function
-particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth
-particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth
+particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
+particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
 particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
 
 # compute parameters for control variate and initial weights
@@ -287,7 +294,7 @@ print('initial field computation at particles done. Time : ', timeb-timea)
 # initial energies
 energies[0] = 1/2*u.dot(A.dot(u))
 energies[1] = 1/2*b.dot(M2.dot(b))
-energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + (control - 1)*Eh_eq
+energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*Eh_eq
 # =====================================================================================================================
 
 
@@ -299,7 +306,10 @@ def update():
     # step 1 (update u)
     pic_accumu.accumulation_step1(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat12, mat13, mat23)
     
-    AJ11A = -(np.block([[np.zeros((Ntot, Ntot)), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [-mat12.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot)), mat23.reshape(Ntot, Ntot)], [-mat13.reshape(Ntot, Ntot).T, -mat23.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot))]])/Np + mass.mass_V1_nh0(T, p, bc, mapping.Ginv, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0).toarray()) 
+    AJ11A = -np.block([[np.zeros((Ntot, Ntot)), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [-mat12.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot)), mat23.reshape(Ntot, Ntot)], [-mat13.reshape(Ntot, Ntot).T, -mat23.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot))]])/Np
+    
+    if control == 1:
+        AJ11A -= mass.mass_V1_nh0(T, p, bc, mapping.Ginv, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0).toarray()
     
     u[:] = np.linalg.solve(A - dt/2*AJ11A, (A + dt/2*AJ11A).dot(u))
     
@@ -315,13 +325,20 @@ def update():
     
     # step 3 (update first u, then evaluate U-field at particle positions and then update V)
     pic_accumu.accumulation_step3(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-    CV = mass.inner_prod_V1_jh0(T, p, bc, mapping.Ginv, mapping.DFinv, mapping.g_sqrt, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, [0., 0., nh0_phys*v0z])
     
     BLOCK = np.block([[mat11.reshape(Ntot, Ntot), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [mat12.reshape(Ntot, Ntot).T, mat22.reshape(Ntot, Ntot), mat23.reshape(Ntot, Ntot)], [mat13.reshape(Ntot, Ntot).T, mat23.reshape(Ntot, Ntot).T, mat33.reshape(Ntot, Ntot)]])/Np
     
     u_old[:] = u
     
-    u[:] = np.linalg.solve(A + dt**2/4*BLOCK, (A - dt**2/4*BLOCK).dot(u_old) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((CV[0].flatten(), CV[1].flatten(), CV[2].flatten())))
+    if control == 1:
+        CV = mass.inner_prod_V1_jh0(T, p, bc, mapping.Ginv, mapping.DFinv, mapping.g_sqrt, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, [nh0_phys*v0x, nh0_phys*v0y, nh0_phys*v0z])
+        
+        u[:] = np.linalg.solve(A + dt**2/4*BLOCK, (A - dt**2/4*BLOCK).dot(u_old) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((CV[0].flatten(), CV[1].flatten(), CV[2].flatten())))
+    
+    
+    else:
+        u[:] = np.linalg.solve(A + dt**2/4*BLOCK, (A - dt**2/4*BLOCK).dot(u_old) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np)
+    
     
     pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(1/2*(u + u_old)[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(1/2*(u + u_old)[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(1/2*(u + u_old)[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
     
@@ -343,7 +360,7 @@ def update():
     # diagnostics
     energies[0] = 1/2*u.dot(A.dot(u))
     energies[1] = 1/2*b.dot(M2.dot(b))
-    energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2) + (control - 1)*Eh_eq
+    energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*Eh_eq
 # =====================================================================================================================    
 
 

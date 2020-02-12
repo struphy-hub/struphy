@@ -136,7 +136,7 @@ class discrete_derivatives:
         
     
     
-    def GRAD_3d(self, T, p, bc):
+    def GRAD_3d(self):
         '''
         corresponds to diagram grad --> curl --> div
         '''
@@ -151,7 +151,7 @@ class discrete_derivatives:
     
     
     
-    def CURL_3d(self, T, p, bc):
+    def CURL_3d(self):
         '''
         corresponds to diagram grad --> curl --> div
         '''
@@ -171,7 +171,7 @@ class discrete_derivatives:
         
     
     
-    def DIV_3d(self, T, p, bc):
+    def DIV_3d(self):
         '''
         corresponds to diagram grad --> curl --> div
         '''
