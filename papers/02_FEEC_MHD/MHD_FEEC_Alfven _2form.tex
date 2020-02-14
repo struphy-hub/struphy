@@ -1,0 +1,586 @@
+ \documentclass[11pt,oneside,a4paper,fleqn]{article}
+
+
+% Usepackages
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[intoc]{nomencl}
+\usepackage{float}
+\usepackage{floatflt}
+\restylefloat{figure}
+\usepackage{color}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\usepackage[utf8]{inputenc}
+\sisetup{separate-uncertainty}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{ae}
+\usepackage{chngcntr}
+\usepackage[round]{natbib}
+\usepackage[overload]{empheq}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{latexsym}
+\usepackage[title]{appendix}
+\usepackage{multicol}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage[multiple]{footmisc}
+\usepackage{color}
+\definecolor{grau}{rgb}{0.95,0.95,0.95}
+\definecolor{dunkelgrau}{rgb}{0.8,0.8,0.8}
+\usepackage{colortbl}
+\usepackage{authblk}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{pgf}
+\usepackage{wrapfig}
+\usepackage[printwatermark]{xwatermark}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{lipsum}
+\usepackage{tikz}
+\usepackage{abstract}
+\numberwithin{equation}{section}
+\usepackage{mathbbol}
+\usepackage{amssymb}             % AMS Math
+
+\DeclareSymbolFontAlphabet{\amsmathbb}{AMSb}%
+
+
+
+
+
+
+% Commands
+\newcommand{\pa}{\partial}
+\newcommand{\mr}[1]{\mathrm{#1}}
+\newcommand{\mb}[1]{\mathbf{#1}}
+\newcommand{\bo}[1]{\boldsymbol{#1}}
+\newcommand{\fh}{f_\mr{h}^\mr{D}}
+\newcommand{\fho}{f_\mr{h0}^\mr{D}}
+\newcommand{\fhi}{f_\mr{h1}^\mr{D}}
+\newcommand{\Bpa}{B_\parallel^\ast}
+
+
+\renewcommand\Affilfont{\fontsize{10}{20}\itshape}
+
+% Title
+\title{Hybrid kinetic-shear Alfv\'{e}n physics using discrete differential forms}
+
+% Date
+\date{}
+
+% Authors and affiliations
+\author[1]{Florian Holderied}
+
+
+\affil[1]{\textit{Max Planck Institute for Plasma Physics, Boltzmannstrasse 2, 85748 Garching, Germany}}
+\affil[2]{\textit{Technical University of Munich, Department of Physics, Boltzmannstrasse 2, 85748 Garching, Germany}}
+
+
+
+
+
+\begin{document} 
+
+\maketitle
+
+\begin{abstract}
+\noindent This work documents the progress regarding the development of a new code which simulates the equations of linear ideal magnetohydrodynamics (MHD) which are nonlinearly coupled to a kinetic equation (either full-orbit or drift-kinetic). Such so-called hybrid models are a suitable way to describe the self-consistent interaction of a hot plasma (governed by a kinetic theory) with a fluid bulk (governed by MHD). Typical examples are those of nuclear fusion devices, in which energetic ions, either fusion born or coming from external heating devices, interact with the ambient plasma, and those of spaces plasmas, involving the interaction of fast electron in the solar wind with Earth's magnetosphere. The goal of the present work is to explore the usage of numerical methods which are related to \textit{finite element exterior calculus} (FEEC) with the aim to exactly preserve as many properties of the continuous model as possible, e.g. conservation of energy, the divergence-free constraint for the magnetic field or ideally the full Hamiltonian structure, leading to good long-time stability properties. The FEEC approach is based on considerations from algebraic geometry allowing for preserving cohomological invariants at the discrete level. In practice, it ensures the reproduction of the well-known identities curl(grad)=0 and div(curl)=0 the discrete level.
+\end{abstract}
+
+\section{Full model and model reduction}
+We consider a hybrid kinetic-MHD model where the coupling of the fluid and kinetic species is done via a current coupling scheme. In classical vector calculus notation the model reads
+\begin{align}
+&\frac{\pa\rho}{\pa t}+\nabla\cdot(\rho\mb{U})=0,\label{eq_continuity}\\
+&\frac{\pa\mb{U}}{\pa t}+(\mb{U}\cdot\nabla)\mb{U}=\frac{1}{\rho}(\nabla\times\mb{B}+\rho_\text{h}\mb{U}-\mb{j}_\text{h})\times\mb{B}-\frac{\nabla p}{\rho},\\
+&\frac{\pa\mb{B}}{\pa t}=\nabla\times(\mb{U}\times\mb{B}),\\
+&\frac{\pa p}{\pa t}+\nabla\cdot(p\mb{U})+(\gamma-1)p\nabla\cdot\mb{U}=0,
+\label{eq_pressure}\\
+&\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\mb{U}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0,\\
+&\rho_\text{h}=\int f_\text{h}\text{d}^3v,\qquad\mb{j}_\text{h}=\int\mb{v}f_\text{h}\text{d}^3v.\label{eq_moments}
+\end{align}
+where we set all physical constants equal to one\footnote{We assume hot ions with a positive charge. Therefore, one does not have to be careful with the signs in (\ref{eq_moments})}. This set of equations forms a closed system of nonlinear partial differential equations for the the bulk mass density $\rho$, the bulk velocity $\mb{U}$, the magnetic induction $\mb{B}$ (which we will simply refer to as magnetic field), the bulk pressure $p$ and the distribution function of the hot ions $f_\text{h}$. Furthermore, $\gamma=5/3$ is the adiabatic exponent. This system possesses a Hamiltonian structure with the following conserved energy:
+\begin{align}
+\mathcal{H}_0(t)=\frac{1}{2}\int\rho\mb{U}^2\text{d}^3x+\frac{1}{\gamma-1}\int p\text{d}^3x+\frac{1}{2}\int\mb{B}^2\text{d}^3x+\frac{1}{2}\int\int\mb{v}^2f_\text{h}\mr{d}^3v\mr{d}^3x.\label{eq_H0}
+\end{align}
+In order to start from a simpler model we shall restrict ourselves for the moment on linearized MHD equations by assuming that MHD waves are small perturbations about an equilibrium state. However, we keep all nonlinearities which are related to the coupling to the kinetic species. Making the ansatzes $\mb{B}=\mb{B}_\text{eq}+\tilde{\mb{B}}$, $\mb{U}=\tilde{\mb{U}}$ (zero-flow equilibrium), $\rho=\rho_\text{eq} + \tilde{\rho}$ and $p=p_\text{eq}+\tilde{p}$ and neglecting nonlinear terms in the MHD part yields
+\begin{align}
+&\frac{\pa\tilde{\rho}}{\pa t}+\nabla\cdot(\rho_\text{eq}\tilde{\mb{U}})=0,\label{eq_continuity_linear}\\
+\rho_\text{eq}&\frac{\pa\tilde{\mb{U}}}{\pa t}=(\nabla\times\tilde{\mb{B}})\times\mb{B}_\text{eq}+(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}+(\rho_\text{h}\tilde{\mb{U}}-\mb{j}_\text{h})\times\mb{B}-\nabla\tilde{p},\label{eq_momentum}\\
+&\frac{\pa\tilde{\mb{B}}}{\pa t}=\nabla\times(\tilde{\mb{U}}\times\mb{B}_\text{eq}),\label{eq_induction}\\
+&\frac{\pa\tilde{p}}{\pa t}+\nabla\cdot(p_\text{eq}\tilde{\mb{U}})+(\gamma-1)p_\text{eq}\nabla\cdot\tilde{\mb{U}}=0,\label{eq_pressure_linear}\\
+&\frac{\pa f_\text{h}}{\pa t}+\mb{v}\cdot\nabla f_\text{h}+(\mb{B}\times\tilde{\mb{U}}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\text{h}=0.\label{eq_Vlasov}
+\end{align}
+The linearization of the MHD part has the consequence that the Hamiltonian (\ref{eq_H0}) is no longer conserved. However, if we define the new Hamiltonian
+\begin{align}
+\mathcal{H}_1(t)=\frac{1}{2}\int\rho_\text{eq}\tilde{\mb{U}}^2\,\text{d}^3x+\frac{1}{2}\int\tilde{\mb{B}}^2\,\text{d}^3x+\frac{1}{2}\int\int\mb{v}^2f_\text{h}\,\mr{d}^3v\,\mr{d}^3x+\frac{1}{\gamma-1}\int\tilde{p}\,\text{d}^3x,\label{eq_H1}
+\end{align} 
+we get the following energy balance:
+\begin{align}
+\frac{\text{d}\mathcal{H}_1}{\text{d}t}&=\int\tilde{\mb{U}}\cdot\left[(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}\right]\,\text{d}^3x-\int\tilde{\mb{U}}\cdot\nabla\tilde{p}\,\text{d}^3x-\int p_\text{eq}\nabla\cdot\tilde{\mb{U}}\,\text{d}^3x\\
+&=\int\tilde{\mb{U}}\cdot\left[(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}\right]\,\text{d}^3x-\int\tilde{\mb{U}}\cdot\nabla\tilde{p}\,\text{d}^3x+\int\tilde{\mb{U}}\cdot\nabla p_\text{eq}\,\text{d}^3x
+\end{align}
+
+We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho,\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field and the hot ion current density to be 2-forms ($\mb{B},\mb{j}_\text{h}\rightarrow B^2,j^2_\text{h}$) and the pressure to be a 0-form ($p\rightarrow p^0$). The bulk velocity field, which is naturally a vector field, we choose to be a 2-form ($\tilde{\mb{U}}\rightarrow \tilde{U}^2$). Eq. (\ref{eq_continuity_linear})-(\ref{eq_pressure_linear}) can then be written as
+\begin{align}
+&\frac{\pa\tilde{\rho}^3}{\pa t}+\text{d}(i_{\lozenge U^2}\rho_\text{eq}^3)=0,\\
+(\ast\rho_\text{eq}^3)\wedge&\frac{\pa\tilde{U}^2}{\pa t}=\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge \ast i_{\lozenge\tilde{U}^2}B^2+\ast i_{\lozenge j_\text{h}^2}B^2,\\
+&\frac{\pa \tilde{B}^2}{\pa t}+\mr{d}(i_{\lozenge U^2}B^2_\text{eq})=0,\\
+&\frac{\pa \tilde{p}^0}{\pa t}+\ast\text{d}(p_\text{eq}^0\wedge U^2)+(\gamma-1)\ast(p_\text{eq}^0\wedge\text{d}U^2)=0,
+\end{align} 
+where $\ast$ is the Hodge-star operator, $\wedge$ the wedge product, $i$ the interior product and $\lozenge$ the operator which transforms a 2-form to a vector field.
+
+
+
+\section{Semi-discretization in space}
+As a next step, we introduce finite element basis functions which satisfy a discrete deRham sequence and which form a commuting diagram with the continuous functions via the interpolation-histopolation projectors $\Pi_0$, $\Pi_1$, $\Pi_2$ and $\Pi_3$. This is depicted in Fig. \ref{fig_diagram}. 
+\begin{figure}
+\centering
+\includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
+\caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
+\end{figure}
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{01_Figures/mapping.pdf}
+\caption{Commuting projectors. Unlike classical finite element methods, the degrees of freedom do not only represent point values, but also edge integrals, face integrals and volume integrals. \label{fig_projectors}}
+\end{figure}
+Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their respective bases as
+\begin{alignat}{2}
+&\tilde{p}^0(\mb{q})\approx \tilde{p}_h^0(\mb{q})=\sum_{\mathbf{i}}p_\mb{i}\Lambda^0_\mb{i}(\mb{q}), &&\mb{p}^\top:=(p_0,\ldots,p_{N-1})\in\mathbb{R}^N,\\
+&\tilde{U}^2(\mb{q})\approx \tilde{U}_h^2(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}\Lambda^2_{\mu,\mathbf{i}}(\mb{q})(\mathrm{d}q^\alpha\wedge\mr{d}q^\beta)_\mu, \qquad &&\mb{u}^\top:=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\in\mathbb{R}^{3N},\\
+&\tilde{B}^2(\mb{q})\approx \tilde{B}_h^2(\mb{q})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3b_{\mu,\mathbf{i}}\Lambda^2_{\mu,\mathbf{i}}(\mb{q})(\mathrm{d}q^\alpha\wedge\mr{d}q^\beta)_\mu, \qquad &&\mb{b}^\top:=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\in\mathbb{R}^{3N},\\
+&\tilde{\rho}^3(\mb{q})\approx \tilde{\rho}_h^3(\mb{q})=\sum_{\mathbf{i}}\rho_\mb{i}\Lambda^3_\mb{i}(\mb{q})\,\text{d}q^1\wedge\text{d}q^2\wedge\text{d}q^3, &&\boldsymbol{\rho}^\top:=(\rho_0,\ldots,\rho_{N-1})\in\mathbb{R}^N,
+\end{alignat}
+where $\mb{i}=(i_1,i_2,i_3)$ is a multi-index and $N$ the total number of basis functions. To simplify the notation, we write for the components of the differential forms
+\begin{alignat}{2}
+&\tilde{p}_h^0\leftrightarrow \tilde{p}_h=(p_0,\ldots,p_{N-1})\begin{pmatrix}
+\Lambda_0^0\\ \vdots \\ \Lambda^0_{N-1}
+\end{pmatrix}=\mb{p}^\top\boldsymbol{\Lambda}^0, && \boldsymbol{\Lambda^0}\in\mathbb{R}^N\\
+&\tilde{U}^2_h\leftrightarrow \tilde{\mb{U}}_h^\top=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\begin{pmatrix}
+\bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
+\end{pmatrix}=\mb{u}^\top\mathbb{\Lambda}^2,\qquad&&\mathbb{\Lambda}^2\in\mathbb{R}^{3N\times 3},\\
+&\tilde{B}^2_h\leftrightarrow \tilde{\mb{B}}_h^\top=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\begin{pmatrix}
+\bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
+\end{pmatrix}=\mb{b}^\top\mathbb{\Lambda}^2,\qquad&&\mathbb{\Lambda}^2\in\mathbb{R}^{3N\times 3},\\
+&\tilde{\rho}_h^3\leftrightarrow \tilde{\rho}_{123,h}=(\rho_0,\ldots,\rho_{N-1})\begin{pmatrix}
+\Lambda_0^3\\ \vdots \\ \Lambda^3_{N-1}
+\end{pmatrix}=\boldsymbol{\rho}^\top\boldsymbol{\Lambda}^3, && \boldsymbol{\Lambda^3}\in\mathbb{R}^N
+\end{alignat}
+As already stated, we solve the kinetic equation with particle-in-cell techniques. Hence we assume a particle-like distribution function which, in physical space, takes the form
+\begin{align}
+f_\mr{h}=f_\mr{h}(t,\mb{x},\mb{v})\approx \sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\delta(\mb{v}-\mb{v}_k(t)).
+\end{align}
+From this, the hot ion charge density, current density and energy density can easily be obtained by taking the first three moments in velocity space:
+\begin{align}
+\mathring{\rho}_\mr{h}(t,\mb{x})=&\sum_k w_k\delta(\mb{x}-\mb{x}_k(t)),\\
+\mathring{\mb{j}}_\mr{h}(t,\mb{x})=&\sum_k w_k\delta(\mb{x}-\mb{x}_k(t))\mb{v}_k(t),\\
+\mathring{\epsilon}_\mr{h}(t,\mb{x})=&\sum_{k}w_k\delta(\mb{x}-\mb{x}_k(t))\mb{v}_k^2(t).
+\end{align}
+To avoid confusions, we use the notation $\mathring{(\cdot)}$, where necessary, for quantities which are defined on the physical space. Since there is no difference between vectors/scalars and forms in physical space, these expressions are as well the components of the 3-form number density, the 2-form current density and the 3-form energy density. To get the components on the logical domain we apply the transformation formulas for 3-forms, respectively 1-forms to obtain
+\begin{align}
+&\rho_\mr{h,123}(t,\mb{q})=\sqrt{g}\mathring{\rho}_\mr{h}(t,F(\mb{q}))=\sum_k w_k\delta(\mb{q}-\mb{q}_k(t)),\\
+&\mb{j}_\mr{h}(t,\mb{q})=\sqrt{g}DF^{-1}\mathring{\mb{j}}_\mr{h}(t, F(\mb{q}))=DF^{-1}\sum_k w_k\delta(\mb{q}-\mb{q}_k(t))\mb{v}_k(t),\\
+&\epsilon_\mr{h,123}(t,\mb{q})=\sqrt{g}\mathring{\epsilon}_\mr{h}(t,F(\mb{q}))=\sum_k w_k\delta(\mb{q}-\mb{q}_k(t))\mb{v}_k^2(t),
+\end{align}
+where we made use of the transformation formula
+\begin{align}
+\delta(\mb{x}-\mb{x}_k(t))=\frac{1}{\sqrt{g}}\delta(\mb{q}-\mb{q}_k(t)).
+\end{align}
+Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of $\tilde{p}_h^0$, $\tilde{U}_h^2$, $\tilde{B}_h^2$ and $\tilde{\rho}^3_h$ and the particle's positions $(\mb{q}_k)_{k=1,\ldots,N_\text{p}}$ and velocities $(\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
+
+\subsection{Momentum equation}
+We choose a weak formulation for the momentum equation and consequently take the inner product with a test function $C^1\in H\Lambda^1(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^1\in H\Lambda^1(\Omega)$ such that
+\begin{align}
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)=&\left(i_{\#\ast B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)+\left(i_{\#\ast\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^1\right)\\-&\left((\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2,C^1\right)+\left(i_{\#j_\text{h}^1}B^2,C^1\right)\qquad\forall\;C^1\in H\Lambda^1(\Omega).
+\end{align}
+We apply the Galerkin approximation to each term and project back into the right spaces where necessary. Let us start with the first term on the left-hand side involving the equilibrium bulk density. To achieve conservation of energy at the discrete level we make use of the fact that the wedge with a 0-form is just a multiplication with a scalar. Hence the wedge product can as well be applied to the test function and the following equality holds:
+\begin{align}
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)=\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)+\frac{1}{2}\left(\frac{\pa\tilde{U}^1}{\pa t},(\ast\rho_\text{eq}^3)\wedge C^1\right).
+\end{align}
+Using the definition of the inner product of 1-forms yields for the first term
+\begin{align}
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)&=\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\rho_\text{eq,123}\dot{\tilde{\mb{U}}}^\top G^{-1}\mb{C}\sqrt{g}\,\mr{d}^3q\approx\int_{\hat{\Omega}}\Pi_1\left(\frac{1}{\sqrt{g}}\rho_{\text{eq},123}\dot{\tilde{\mb{U}}}_h^\top\right)G^{-1}\mb{C}_h\sqrt{g}\,\mr{d}^3q\\&=\dot{\mb{u}}^\top\mathcal{W}^\top\underbrace{\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\mr{d}^3q}_{=:\mathbb{M}^1}\,\mb{c}=\dot{\mb{u}}^\top\mathcal{W}^\top\mathbb{M}^1\mb{c}\quad\forall\;\mb{c}\in\mathbb{R}^{3N},
+\end{align}
+where $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space $V_1$. The projection matrix, for which we use calligraphic symbols, is given by
+\begin{align}
+\mathcal{W}_{ij}=\Pi_{1,\mu}^{i_\mu}\left[\frac{1}{\sqrt{g}}\rho_{\text{eq},123}\mathbb{\Lambda}^1_{j\mu}\right],\qquad i=\begin{cases}i_\mu, \quad &\mu=1\\ N+i_\mu, &\mu=2\\2N+i_\mu, &\mu=3\end{cases}
+\end{align}
+for $i_\mu=\{1,\ldots,N\}$. Unfortunately, this matrix is dense which is problematic from a memory consumption point of view. Therefore, we just compute the right-hand sides of the projection for each basis function which defines a sparse matrix due to the compact support of B-splines. The final projection we then perform in each time step again. Explicitly, the right-hand side reads
+\begin{align}
+&\tilde{\mathcal{W}}:=\begin{pmatrix}
+\mr{vec}_{1,1}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_1^1)^\top\right] &0 &0 \\
+0 &\mr{vec}_{1,2}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_2^1)^\top\right] &0 \\
+0 &0 &\mr{vec}_{1,3}\left[\rho_\text{eq}/\sqrt{g}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}\\
+&\bo{\mathcal{I}}_1^{-1}:=\begin{pmatrix}
+\mathcal{I}_{1,1}^{-1} &0 &0 \\ 0 &\mathcal{I}_{1,2}^{-1} &0 \\ 0 &0 &\mathcal{I}_{1,3}^{-1} 
+\end{pmatrix},\\
+\Rightarrow\quad&\mathcal{W}=\bo{\mathcal{I}}_1^{-1}\tilde{\mathcal{W}}.
+\end{align}
+For some 1-form $f^1=f_1\text{d}q^1+f_2\text{d}q^2+f_3\text{d}q^3$ the projection is a mixed interpolation-histopolation problem defined by
+\begin{align}
+&(\mr{vec}_{1,1})_i(f^1)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}f_1(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1,\qquad  (\mathcal{I}_{1,1})_{ij}=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\Lambda^1_{1,j}(q_1,\xi_{i_2},\xi_{i_3})\mr{d}q^1 \\
+&(\mr{vec}_{1,2})_i(f^1)=\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_2(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2,\qquad  (\mathcal{I}_{1,2})_{ij}=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\Lambda^1_{2,j}(\xi_{i_1},q_2,\xi_{i_3})\mr{d}q^2 \\
+&(\mr{vec}_{1,3})_i(f^1)=\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_3(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,\qquad (\mathcal{I}_{1,3})_{ij}=\int_{\xi_{i_3}}^{\xi_{i_3+1}}\Lambda^1_{3,j}(\xi_{i_1},\xi_{i_2},q_3)\mr{d}q^3,
+\end{align}
+where the $\xi_\mb{i}$ are some well-chosen interpolation points on the logical domain. Finally, we obtain
+\begin{align}
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)\approx\frac{1}{2}\mb{c}^\top\left(\mathbb{M}^1\mathcal{W}+\mathcal{W}^\top\mathbb{M}^1\right)\dot{\mb{u}}=:\mb{c}^\top\mathcal{A}\dot{\mb{u}},
+\end{align}
+with $\mathcal{A}\in\mathbb{R}^{3N\times 3N}$ being symmetric.
+
+Using the identities $\langle i_{\#\gamma^1}\alpha^2,\beta^1\rangle=\langle\alpha^2,\gamma^1\wedge\beta^1\rangle$ and $\ast(\ast \alpha^2\wedge \beta^1)=i_{\#\beta^1}\alpha^2$, the first term on the right-hand side can be written as
+\begin{align}
+\left(i_{\#\ast B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)=\left(d\ast\tilde{B}^2,\ast B^2_\text{eq}\wedge C^1\right)=\left(\ast\mr{d}\ast\tilde{B}^2,\ast(\ast B_\text{eq}^2\wedge C^1)\right)=\left(d^\ast\tilde{B}^2,i_{\#C^1}B_\text{eq}^2\right),
+\end{align}
+where we introduced the co-differential operator $\mr{d}^\ast\alpha^p=(-1)^p\ast\mr{d}\ast\alpha^p$. Applying the Green formula for differential forms and assuming that the boundary term vanishes yields
+\begin{align}
+\left(i_{\#\ast B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)&=\left(\tilde{B}^2,\mr{d}i_{\#C^1}B_\text{eq}^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\hat{\tilde{\mb{B}}}^\top G\left(\nabla\times(\hat{\mb{B}}_\text{eq}\times G^{-1}\mb{C})\right)\sqrt{g}\,\mr{d}^3q\\
+&\approx\mb{b}^\top\underbrace{\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3q}_{=:\mathbb{M}^2}\,\mathbb{C}\tilde{\Pi}_1\left(\mathbb{B}_\text{eq}G^{-1}(\mathbb{\Lambda}^1)^\top\right)\mb{c}=\mb{b}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\mb{c}\quad\forall\mb{c}\in\mathbb{R}^{3N},
+\end{align}
+where we introduced the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 3N}$, the mass matrix $\mathbb{M}^2\in\mathbb{R}^{3N\times 3N}$ in the space $V_2$ and we wrote the vector product of the background magnetic field with the velocity field in terms of a matrix-vector product by using the matrix
+\begin{align}
+\mathbb{B}_\text{eq}=\begin{pmatrix}
+0 &-B_{\text{eq},12} &B_{\text{eq},31} \\ B_{\text{eq},12} &0 &-B_{\text{eq},23} \\ -B_{\text{eq},31} &B_{\text{eq},23} &0
+\end{pmatrix}\in\mathbb{R}^{3\times 3}.
+\end{align}
+The projection matrix $\mathcal{T}$ is given by
+\begin{align}
+\mathcal{T}_{ij}:=\Pi_{1,\mu}^{i_\mu}\left[(\mathbb{B}_\text{eq})_{\mu k}G^{kl}\Lambda^1_{j,l}\right]=\Pi_{1,\mu}^{i_\mu}\left[\epsilon_{\mu mk}B_{\text{eq},m}G^{kl}\Lambda^1_{j,l}\right],\qquad\mu=\{1,2,3\},
+\end{align}
+which has the right-hand sides
+\footnotesize
+\begin{align}
+&\tilde{\mathcal{T}}=\\
+&=\begin{pmatrix}
+\mr{vec}_{1,1}\left[(B_{\text{eq},31}G^{31}-B_{\text{eq},12}G^{21})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},31}G^{32}-B_{\text{eq},12}G^{22})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},31}G^{33}-B_{\text{eq},12}G^{23})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,2}\left[(B_{\text{eq},12}G^{11}-B_{\text{eq},23}G^{31})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},12}G^{12}-B_{\text{eq},23}G^{32})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},12}G^{13}-B_{\text{eq},23}G^{33})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,3}\left[(B_{\text{eq},23}G^{21}-B_{\text{eq},31}G^{11})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},23}G^{22}-B_{\text{eq},31}G^{12})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},23}G^{23}-B_{\text{eq},31}G^{13})(\bo{\Lambda}^1_3)^\top\right]
+\end{pmatrix}.
+\end{align}
+\normalsize
+Performing the same steps for the second term yields
+\begin{align}
+\left(i_{\#\ast\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^1\right)&=\left(B_\text{eq}^2,\mr{d}i_{\#C^1}\tilde{B}^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\hat{\mb{B}}_\text{eq}^\top G\left(\nabla\times(\tilde{\mb{B}}\times G^{-1}\mb{C})\right)\sqrt{g}\,\mr{d}^3q\\
+&\approx\tilde{\Pi}_2\left(\hat{\mb{B}}_\text{eq}^\top\right)\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3q\,\mathbb{C}\tilde{\Pi}_1\left[(\mathbb{\Lambda}^2)^\top\mb{b}\times G^{-1}(\mathbb{\Lambda}^1)^\top\mb{c}\right]\\
+&=\mb{b}_\text{eq}^\top\mathbb{M}^2\mathbb{C}(\mb{b}^\top\mathcal{P}\mb{c})\quad\forall \mb{c}\in\mathbb{R}^{3N}.
+\end{align}
+The projection tensor $\mathcal{P}\in\mathbb{R}^{3N\times3N\times3N}$ is given by
+\begin{align}
+\mathcal{P}_{ijk}=\Pi_1^{j_\mu}\left[\epsilon_{\mu lm}\Lambda^2_{i,l}G^{mn}\Lambda^1_{k,n}\right],
+\end{align}
+where it is important to note that the entries of $\mb{b}$ contract from left with the index $i$ and the entries of $\mb{c}$ from right with the index $k$. The result is then a vector defined by the index $j$. 
+
+Next, we consider the term involving the hot ion current density. Since this term must be computed from the particle-in-cell approximation of the hot ion distribution function, we can make use of a control variate $M_0$ for noise reduction. In practice, one can take the equilibrium distribution function which is typically a Maxwellian. By noting that a distribution function can be transformed to a 3-form by multiplying with the square root of the Jacobi determinant, we find
+\begin{align}
+&\left(i_{\#j_\mr{h}^1}B^2,C^1\right)=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}(\hat{\mb{B}}\times G^{-1}\mb{j}_\mr{h})\sqrt{g}\,\mr{d}^3q\\
+=&\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\hat{\mb{B}}\times DF^{-1}\int (\mathring{f}_\mr{h}-\mathring{M}_0)\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3q\\
+&\qquad\qquad+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\hat{\mb{B}}\times DF^{-1}\int \mathring{M}_0\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3q\\
+=&\int_{\hat{\Omega}}\int\mb{C}^\top G^{-1}\left[\hat{\mb{B}}\times DF^{-1}\left(\frac{f_\mr{h}-M_0}{g_\mr{h}}\right)\mb{v}\right]g_\mr{h}\,\mr{d}^3v\,\mr{d}^3q+\mb{c}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1 G^{-1}\left(\hat{\mb{B}}\times DF^{-1}\mathring{\mb{j}}_\mr{h0}\right)\sqrt{g}\,\mr{d}^3q
+\end{align}
+The second term is just the right-hand side of the $L^2$-projection in the space $V^1$ of the function in the curly brackets which we can compute numerically for some given magnetic field and which we denote by $\mb{x}_2=\mb{x}_2(\mb{b})$. It is important to note that in this form the equilibrium current density must be given in physical space. In the first term we introduced the marker sampling density $g_\mr{h}$ which must is normalized to one. This allows us to interpret the integral as the expectation value of a random variable which we can approximate using the randomly drawn markers. Hence we can write
+\begin{align}
+&\int_{\hat{\Omega}}\int\mb{C}^\top G^{-1}\left[\hat{\mb{B}}\times DF^{-1}\left(\frac{f_\mr{h}-M_0}{g_\mr{h}}\right)\mb{v}\right]g_\mr{h}\,\mr{d}^3v\,\mr{d}^3q\\
+&\approx\sum_k \underbrace{\frac{1}{N_k}\left(\frac{f_\mr{h}^0(\mb{q}_k^0,\mb{v}_k^0)}{g_\mr{h}^0(\mb{q}_k^0,\mb{v}_k^0)}-\frac{M_0(\mb{q}_k,\mb{v}_k)}{g_\mr{h}^0(\mb{q}_k^0,\mb{v}_k^0)}\right)}_{:=w_k(t)}\mb{C}_h^\top(\mb{q}_k)G^{-1}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}(\mb{q}_k)\mb{v}_k), \\
+&=\mb{c}^\top\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V},
+\end{align}
+where we introduced the antisymmetric block matrix 
+\small
+\begin{align}
+&\hat{\mathbb{B}}=\hat{\mathbb{B}}(\mb{b},\mb{Q})=\\=&\begin{pmatrix}
+0 &-\text{diag}[\mathbb{P}^{2\top}_3(\mb{Q})\mb{b}_3+B_{\text{eq},12}(\mb{Q})] &\text{diag}[\mathbb{P}^{2\top}_2(\mb{Q})\mb{b}_2+B_{\text{eq},31}(\mb{Q})] \\
+\text{diag}[\mathbb{P}^{2\top}_3(\mb{Q})\mb{b}_3+B_{\text{eq},12}(\mb{Q})] &0 &-\text{diag}[\mathbb{P}^{2\top}_1(\mb{Q})\mb{b}_1+B_{\text{eq},23}(\mb{Q})] \\
+-\text{diag}[\mathbb{P}^{2\top}_2(\mb{Q})\mb{b}_2+B_{\text{eq},31}(\mb{Q})] &\text{diag}[\mathbb{P}^{2\top}_1(\mb{Q})\mb{b}_1+B_{\text{eq},23}(\mb{Q})] &0
+\end{pmatrix}.
+\end{align}
+\normalsize
+where $(\mathbb{P}^2_{1/2/3})_{ik}=\Lambda^2_{1/2/3,i}(\mb{q}_k)\in\mathbb{R}^{N\times N_p}$ represents the evaluation of all basis functions at all particle positions and $\mb{Q}\in\mathbb{R}^{3N_p}$ is the vector holding all particle positions. Moreover,
+\begin{align}
+&\mb{V}=(v_{1x},v_{2x},\ldots,v_{N_px},v_{1y},v_{2y},\ldots,v_{N_py},v_{1z},v_{2z},\ldots,v_{N_pz})^\top\in\mathbb{R}^{3N_p},\\
+&\mathbb{W}=\begin{pmatrix}
+\text{diag}(w_1,\ldots,w_{N_p}) & & \\
+&\text{diag}(w_1,\ldots,w_{N_p}) &  \\
+& &\text{diag}(w_1,\ldots,w_{N_p})
+\end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
+&\mathbb{P}^1=\mathbb{P}^1(\mb{Q})=\begin{pmatrix}
+\mathbb{P}^1_1(\mb{Q}) & & \\ &\mathbb{P}^1_2(\mb{Q}) & \\ & &\mathbb{P}^1_3(\mb{Q})
+\end{pmatrix}\in\mathbb{R}^{3N\times 3N_p}.\\
+&\tilde{G}^{-1}=\tilde{G}^{-1}(\mb{Q})=\begin{pmatrix}
+\text{diag}(G^{11}(\mb{Q})) &\text{diag}(G^{12}(\mb{Q})) &\text{diag}(G^{13}(\mb{Q})) \\
+\text{diag}(G^{21}(\mb{Q})) &\text{diag}(G^{22}(\mb{Q})) &\text{diag}(G^{23}(\mb{Q})) \\
+\text{diag}(G^{31}(\mb{Q})) &\text{diag}(G^{32}(\mb{Q})) &\text{diag}(G^{33}(\mb{Q}))
+\end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p},\\
+&\tilde{DF}^{-1}=\tilde{DF}^{-1}(\mb{Q})=\begin{pmatrix}
+\text{diag}(DF^{11}(\mb{Q})) &\text{diag}(DF^{12}(\mb{Q})) &\text{diag}(DF^{13}(\mb{Q})) \\
+\text{diag}(DF^{21}(\mb{Q})) &\text{diag}(DF^{22}(\mb{Q})) &\text{diag}(DF^{23}(\mb{Q})) \\
+\text{diag}(DF^{31}(\mb{Q})) &\text{diag}(DF^{32}(\mb{Q})) &\text{diag}(DF^{33}(\mb{Q}))
+\end{pmatrix}\in\mathbb{R}^{3N_p\times 3N_p}.
+\end{align}
+Finally, the term involving the hot ion charge density amounts to
+\begin{align}
+&\left((\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2,C^1\right)=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\mathring{\rho_\mr{h}}\hat{\mb{B}}\times G^{-1}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3q\\ 
+=&\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\int(\mathring{f}_\mr{h}^0-\mathring{M}_0)\,\mr{d}^3v\,\hat{\mb{B}}\times G^{-1}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3q\\
+&\qquad\qquad+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\int \mathring{M}_0\,\mr{d}^3v\,\hat{\mb{B}}\times G^{-1}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3q\\
+\approx &\sum_k w_k\mb{C}_h^\top(\mb{q}_k)G^{-1}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}(\mb{q}_k)\tilde{\mb{U}}_h(\mb{q}_k))\\
+&\qquad\qquad+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\rho_\mr{h0,123}\,\hat{\mb{B}}\times G^{-1}\tilde{\mb{U}}\right)\,\mr{d}^3q\\
+=&\,\,\mb{c}^\top\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}+\mb{c}^\top X_1(\mb{b})\mb{u},
+\end{align}
+where both terms are clearly antisymmetric because $\hat{\mathbb{B}}$ is antisymmetric. In total we get the following semi-discrete momentum balance equation:
+\begin{align}
+\mathcal{A}\dot{\mb{u}}=\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}+\mb{b}_\mb{eq}^\top\mathbb{M}^2\mathbb{C}\mathcal{P}^{jki}\mb{b}-\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}-X_1\mb{u}+\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{DF}^{-1}\mb{V}+\mb{x}_2
+\end{align}
+where $\mathcal{P}^{jki}$ means that order of the indices is changed from $()_{ijk}$ to $()_{jki}$ such that $\mb{b}$ still contracts with the index $i$ from right and the $\mathbb{C}$ with the index $j$ from left.
+ 
+\subsection{Induction equation}
+In contrast to the momentum equation, we keep the induction equation in strong form. This time we have to use the projector $\Pi_2$ which commutes with the curl operator:
+\begin{align}
+&\frac{\pa \tilde{\mb{B}}_h}{\pa t}+\Pi_2\left[\nabla\times(\hat{\mb{B}}_\text{eq}\times G^{-1}\tilde{\mb{U}}_h)\right]=0\\
+\Leftrightarrow\quad &\frac{\pa\mb{b}}{\pa t}+\mathbb{C}\tilde{\Pi}_1\left[\mathbb{B}_\text{eq}G^{-1}(\mathbb{\Lambda}^1)^\top\right]\mb{u}=0 \\
+\Leftrightarrow\quad &\frac{\pa\mb{b}}{\pa t}+\mathbb{C}\mathcal{T}\mb{u}=0.
+\end{align}
+We immediately see that we obtain the same projection matrix as for the Hall term in the momentum equation.
+
+\subsection{Particles' equation of motion}
+As a last step, the equations of motion for a single particle with logical coordinate $\mb{q}_k$ and physical velocity $\mb{v}_k$ read
+\begin{align}
+\frac{\mr{d}\mb{q}_k}{\mr{d}t}&=DF^{-1}(\mb{q}_k)\mb{v}_k,\\
+\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{1}{\sqrt{g}}DF(\mb{q}_k)\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-\top}(\mb{q}_k)\mb{U}_h(\mb{q}_k)-\frac{1}{\sqrt{g}}DF(\mb{q}_k)\hat{\mb{B}}_h(\mb{q}_k)\times\mb{v}_k.\\
+&=DF^{-\top}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times G^{-1}(\mb{q}_k)\mb{U}_h(\mb{q}_k))-DF^{-\top}(\mb{q}_k)(\hat{\mb{B}}_h(\mb{q}_k)\times DF^{-1}\mb{v}_k),
+\end{align}
+where we used the identity $A\mb{b}\times A\mb{c}=\det(A)A^{-\top}(\mb{b}\times\mb{c})$ from vector calculus. Writing the above equation of motion in matrix-vector form for all particles yields
+\begin{align}
+&\frac{\mr{d}\mb{Q}}{\mr{d}t}=\tilde{DF}^{-1}\mb{V},\\
+&\frac{\mr{d}\mb{V}}{\mr{d}t}=\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\tilde{DF}^{-\top}\hat{\mathbb{B}}\tilde{DF}^{-1}(\mb{q}_k)\mb{V}.
+\end{align}
+
+\subsection{Hamiltonian system}
+From now on, we restrict ourselves for the moment on the case without control variate, i.e. $M_0=0$. To write down the semi-discrete system in Hamiltonian form, let us introduce the discrete Hamiltonian
+\begin{align}
+\mathcal{H}_h:=&\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\tilde{U}_h^1,\tilde{U}_h^1\right)+\frac{1}{2}(\tilde{B}_h^2,\tilde{B}_h^2)+\frac{1}{2}\int_{\hat{\Omega}}\epsilon_{\text{h},123}\text{d}^3q\\
+=&\frac{1}{2}\mb{u}^\top\mathcal{A}\mb{u}+\frac{1}{2}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{1}{2}\mb{V}^\top\mathbb{W}\mb{V}.
+\end{align}
+With this we can formulate the semi-discrete system in a $4\times 4$ block structure:
+\begin{align}
+&\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
+\mb{u} \\ \mb{b} \\ \mb{Q} \\ \mb{V}
+\end{pmatrix}=\mathbb{J}(\mb{b},\mb{Q})\nabla\mathcal{H}=\mathbb{J}(\mb{b},\mb{Q})\begin{pmatrix}
+\mathcal{A}\mb{u} \\
+\mathbb{M}^2\mb{b}\\
+0 \\
+\mathbb{W}\mb{V}
+\end{pmatrix}
+\end{align}
+We end up with an antisymmetric Poisson matrix meaning that the discrete Hamiltonian is conserved. 
+
+\section{Time integration}
+\subsection{Poisson splitting}
+We split the Poisson matrix into antisymmetric sub-systems such that each sub-system again defines a Hamiltonian system
+\begin{align}
+&\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}
+\mb{u} \\ \mb{b} \\ \mb{Q} \\ \mb{V}
+\end{pmatrix}=
+\begin{pmatrix}
+\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})} &\textcolor{blue}{\mathbb{J}_{12}} &0 &\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}\\
+\textcolor{blue}{-\mathbb{J}_{12}^\top} &0 &0 &0 \\
+0 &0 &0 &\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})} \\
+\textcolor{green}{-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})} &0 &\textcolor{magenta}{-\mathbb{J}_{34}^\top(\mb{Q})} &\mathbb{J}_{44}(\mb{b},\mb{Q})
+\end{pmatrix}\begin{pmatrix}
+\mathcal{A}\mb{u} \\
+\mathbb{M}^2\mb{b}\\
+0 \\
+\mathbb{W}\mb{V}
+\end{pmatrix},\\[1cm]
+&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=-\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1},\\
+&\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top,\\
+&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q}),\\
+&\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1},\\
+&\mathbb{J}_{44}(\mb{Q})=-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}.
+\end{align}
+\paragraph{Sub-step 1}
+The first sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{11}(\mb{b},\mb{Q})\mathcal{A}\mb{u},\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=0.
+\end{align}
+We solve the this equation with the energy-preserving Crank-Nicolson method:
+\begin{align}
+&\frac{\mb{u}^{n+1}-\mb{u}^n}{\Delta t}=\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\frac{\mb{u}^n+\mb{u}^{n+1}}{2}.\\
+\Leftrightarrow \quad &\left(\mathbb{I}-\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathbb{I}+\frac{\Delta t}{2}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\end{align}
+To avoid multiple matrix inversions, we multiply everything with $\mathcal{A}$ from the left to obtain 
+\begin{align}
+\left(\mathcal{A}-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^{n+1}=\left(\mathcal{A}+\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{11}(\mb{b}^n,\mb{Q}^n)\mathcal{A}\right)\mb{u}^n.
+\end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^1$.
+\paragraph{Sub-step 2}
+The second sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{12}\mathbb{M}^2\mb{b},\\
+&\dot{\mb{b}}=-\mathbb{J}_{12}^\top\mathcal{A}\mb{u},\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=0.
+\end{align}
+We again solve this system with an energy-preserving Crank-Nicolson method:
+\begin{align}
+\begin{pmatrix}
+\mathcal{A} &-\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
+\end{pmatrix}
+\begin{pmatrix}
+\mb{u}^{n+1}\\ \mb{b}^{n+1}
+\end{pmatrix}=
+\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
+\end{pmatrix}\begin{pmatrix}
+\mb{u}^{n}\\ \mb{b}^{n}
+\end{pmatrix}.
+\end{align}
+Using the Schur complement $S:=\mathcal{A}+\frac{\Delta t^2}{4}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}$, we can calculate the in inverse of the matrix on the left-hand side which we can then multiply with the matrix on the right-hand side:
+\begin{align}
+&\begin{pmatrix} \mathcal{S}^{-1} &\frac{\Delta t}{2}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}S^{-1} &\mathbb{I}-\frac{\Delta t^2}{4}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top
+\mathbb{C}^\top\mathbb{M}^2 
+\end{pmatrix}\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2 \\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T} &\mathbb{I}
+\end{pmatrix}=\\[2mm]
+=&\begin{pmatrix}
+\mathcal{S}^{-1}\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T} &\Delta t\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\\
+-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}S^{-1}\mathcal{A}-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}+\frac{\Delta t^3}{8}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top
+\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T} &\mathbb{I}-\frac{\Delta t^2}{2}\mathbb{C}\mathcal{T}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2
+\end{pmatrix}\\
+&\Rightarrow\quad\mb{u}^{n+1}=\mathcal{S}^{-1}\left[\left(\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\right)\mb{u}^{n}+\Delta t\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}^n\right]\\
+&\Rightarrow\quad\mb{b}^{n+1}=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}\left(\mb{u}^n+\mathcal{S}^{-1}\mathcal{A}\mb{u}^n-\frac{\Delta t^2}{2}\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\mb{u}^n+\Delta t\mathcal{S}^{-1}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}^n\right)\\
+&=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}(\mb{u}^n+\mb{u}^{n+1})
+\end{align}
+We immediately see that the update for $\mb{b}$ preserves the divergence-free constraint. We denote the corresponding integrator by $\Phi_{\Delta t}^2$.
+\paragraph{Sub-step 3}
+The third sub-system reads
+\begin{align}
+&\dot{\mb{u}}=\mathbb{J}_{14}(\mb{b},\mb{Q})\mathbb{W}\mb{V},\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=-\mathbb{J}_{14}^\top(\mb{b},\mb{Q})\mathcal{A}\mb{u}.
+\end{align}
+We solve this system in the same way as before. Since $\mb{b}$ and $\mb{Q}$ do not change in this step, the same is true for the matrix $\mathbb{J}_{14}$. Hence $\mathbb{J}_{14}=\mathbb{J}_{14}(\mb{b}^n,\mathbb{Q}^n)$ and we have
+\begin{align}
+\begin{pmatrix}
+\mathcal{A} &-\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{14}\mathbb{W} \\
+\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A} &\mathbb{I}
+\end{pmatrix}
+\begin{pmatrix}
+\mb{u}^{n+1}\\ \mb{V}^{n+1}
+\end{pmatrix}=
+\begin{pmatrix}
+\mathcal{A} &\frac{\Delta t}{2}\mathcal{A}\mathbb{J}_{14}\mathbb{W} \\
+-\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A} &\mathbb{I}
+\end{pmatrix}\begin{pmatrix}
+\mb{u}^{n}\\ \mb{V}^{n}
+\end{pmatrix}.
+\end{align}
+Using once more the Schur complement $\mathcal{S}^{-1}:=\mathcal{A}+\frac{\Delta t^2}{4}\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mathbb{J}_{14}^\top\mathcal{A}$ yields
+\begin{align}
+&\mb{u}^{n+1}=\mathcal{S}^{-1}\left[\left(\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mathbb{J}_{14}^\top\mathcal{A}\right)\mb{u}^{n}+\Delta t\mathcal{A}\mathbb{J}_{14}\mathbb{W}\mb{V}^n\right],\\
+&\mb{V}^{n+1}=\mb{V}^n-\frac{\Delta t}{2}\mathbb{J}_{14}^\top\mathcal{A}(\mb{u}^n+\mb{u}^{n+1})
+\end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^3$.
+\paragraph{Sub-step 4}
+The fourth sub-system reads
+\begin{align}
+&\dot{\mb{u}}=0,\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=\mathbb{J}_{34}(\mb{Q})\mathbb{W}\mb{V},\\
+&\dot{\mb{V}}=0.
+\end{align}
+Using again a Crank-Nicolson approximation for particle $k$ yields
+\begin{align}
+\mb{q}_k^{n+1}=\mb{q}_k^n+\frac{\Delta t}{2}(DF^{-1}(\mb{q}_k^n)+DF^{-1}(\mb{q}_k^{n+1}))\mb{v}_k^n,
+\end{align}
+which can be solved for $\mb{q}^{n+1}$ using a fix point iteration. We denote the corresponding integrator by $\Phi_{\Delta t}^4$.
+\paragraph{Sub-step 5}
+The fifth sub-system reads
+\begin{align}
+&\dot{\mb{u}}=0,\\
+&\dot{\mb{b}}=0,\\
+&\dot{\mb{Q}}=0,\\
+&\dot{\mb{V}}=\mathbb{J}_{44}(\mb{b},\mb{Q})\mathbb{W}\mb{V}.
+\end{align}
+Using again a Crank-Nicolson approximation for particle $k$ yields
+\begin{align}
+\left(\mathbb{I}+\frac{\Delta t}{2}DF^{-\top}(\mb{q}_k^n)\hat{\mathbb{B}}_h(\mb{q}_k^n)DF^{-1}(\mb{q}_k^n)\right)\mb{v}_k^{n+1}=\left(\mathbb{I}-\frac{\Delta t}{2}DF^{-\top}(\mb{q}_k^n)\hat{\mathbb{B}}_h(\mb{q}_k^n)DF^{-1}(\mb{q}_k^n)\right)\mb{v}_k^{n}.
+\end{align}
+We denote the corresponding integrator by $\Phi_{\Delta t}^5$.
+
+\section{Dispersion relation}
+In this section we derive the dispersion relation for wave propagation parallel to an external, uniform magnetic field $\mb{B}=B_0\mb{e}_z$. Although we have $\mb{E}=-\mb{U}\times\mb{B}$ in ideal MHD, we assume for the moment a general electric field. With this, linearization of the Vlasov equation about an homogeneous (in space) equilibrium $f_\mr{h}^0=f_\mr{h}^0(v_\parallel, v_\perp)$ yields
+\begin{align}
+\frac{\pa f_\mr{h}}{\pa t}+\mb{v}\cdot\nabla f_\mr{h}+\Omega_\mr{ch}(\mb{v}\times\mb{e}_z)\cdot\nabla_\mb{v}f_\mr{h}=-\frac{q_\mr{h}}{m_\mr{h}}(\mb{E}+\mb{v}\times\mb{B})\cdot\nabla_\mb{v}f_\mr{h}^0.
+\end{align}
+The solution of this equation in Fourier space leads to an Ohm's law of the form
+\begin{align}
+\hat{\mb{j}}_\mr{h}=\begin{pmatrix}
+-i\frac{q_\mr{h}^2}{m_\mr{h}}\int\frac{v_\perp(\omega-kv_\parallel)\hat{G}f_\mr{h}^0}{2\Omega_+\Omega_-}\mr{d}^3v &\frac{q_\mr{h}^2}{m_\mr{h}}\Omega_\mr{ch}\int\frac{v_\perp\hat{G}f_\mr{h}^0}{2\Omega_+\Omega_-}\mr{d}^3v &0 \\
+-\frac{q_\mr{h}^2}{m_\mr{h}}\Omega_\mr{ch}\int\frac{v_\perp\hat{G}f_\mr{h}^0}{2\Omega_+\Omega_-}\mr{d}^3v &-i\frac{q_\mr{h}^2}{m_\mr{h}}\int\frac{v_\perp(\omega-kv_\parallel)\hat{G}f_\mr{h}^0}{2\Omega_+\Omega_-}\mr{d}^3v &0 \\
+0 &0 &-i\frac{q_\mr{h}^2}{m_\mr{h}}\int\frac{v_\parallel\pa_\parallel f_\mr{h}^0}{\omega-kv_\parallel}\mr{d}^3v
+\end{pmatrix}\hat{\mb{E}}=\sigma_\mr{h}(k,\omega)\hat{\mb{E}},
+\end{align}
+where $\hat{G}=\pa/\pa v_\perp+k(v_\perp\pa/\pa v_\parallel-v_\parallel\pa/\pa v_\perp)/\omega$ is a differential operator measuring the anisotropy of the distribution function and velocity space and $\Omega_\pm=\omega-kv_\parallel\pm\Omega_\mr{ce}$ denote the frequencies of resonant particles. 
+We make now use of the fact that $\hat{\mb{E}}=-B_0\hat{\mb{U}}\times\mb{e}_z$ in ideal MHD. This yields a pure transverse current with components
+\begin{align}
+&\hat{j}_{\mr{h}x}=-\sigma_{\mr{h}xx}B_0U_y+\sigma_{\mr{h}xy}B_0U_x \\
+&\hat{j}_{\mr{h}y}=-\sigma_{\mr{h}yx}B_0U_y+\sigma_{\mr{h}yy}B_0U_x.
+\end{align}
+The momentum balance equation then reads
+\begin{align}
+&-i\omega\hat{\mb{U}}+i\frac{v_\mr{A}^2k^2}{\omega}\hat{\mb{U}}_\perp+i\frac{c_\mr{S}^2k^2}{\omega}\mb{e}_z\hat{U}_\parallel=\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}}{A_\mr{MHD}}\hat{\mb{U}}\times\mb{e}_z+\frac{B_0}{\rho_\mr{eq}}(\mb{e}_z\times\hat{\mb{j}}_\mr{h}),
+\end{align}
+where we approximated the bulk mass density by the ion contribution $\rho_\mr{eq}=A_\mr{MHD}m_\mr{i}n_0$, $Z_\mr{h}$ is the hot ion charge number and $\nu_\mr{h}=n_\mr{h0}/n_0$ is the the ratio of the equilibrium bulk and energetic ion number densities. Writing everything in terms of the bulk velocity yields the linear system
+\begin{align}
+\begin{pmatrix}
+\omega^2-v_\mr{A}^2k^2+iv_\mr{A}^2\sigma_{\mr{h}yy}\omega &i\left(-\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}\omega}{A_\mr{MHD}}-v_\mr{A}^2\sigma_{\mr{h}yx}\omega\right) &0 \\
+-i\left(-\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}\omega}{A_\mr{MHD}}+v_\mr{A}^2\sigma_{\mr{h}xy}\omega\right) &\omega^2-v_\mr{A}^2k^2+iv_\mr{A}^2\sigma_{\mr{h}xx}\omega &0 \\
+0 &0 &\omega^2-c_\mr{S}^2k^2
+\end{pmatrix}\begin{pmatrix}
+\hat{U}_x \\ \hat{U}_y \\ \hat{U}_\parallel
+\end{pmatrix}=0.
+\end{align}
+The structure of this system immediately reveals that we deal with circularly polarized waves in perpendicular direction characterized by $iU_x/U_y=\pm 1$ for R/L-waves, respectively. This leads to the dispersion relation
+\begin{align}
+D_\mr{R/L}(k,\omega)&=1-\frac{v_\mr{A}^2k^2}{\omega^2}+\frac{iv_\mr{A}^2\sigma_{\mr{h}xx}}{\omega}\pm\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}}{A_\mr{MHD}\omega}\mp\frac{v_\mr{A}^2\sigma_\mr{hxy}}{\omega}\\
+&=1-\frac{v_\mr{A}^2k^2}{\omega^2}\pm\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}}{A_\mr{MHD}\omega}+\frac{\nu_\mr{h}\Omega_\mr{ch}^2Z_\mr{h}^2}{A_\mr{h}A_\mr{MHD}\omega}\int\frac{v_\perp}{2}\frac{\hat{G}F_\mr{h}^0}{\omega-kv_\parallel\pm\Omega_\mr{ch}}\mr{d}^3v=0.
+\end{align}
+Assuming a shifted, isotropic Maxwellian of the form
+\begin{align}
+&F_\mr{h}^0=\frac{1}{\pi^{3/2}v_\mr{th}^3}\exp\left(-\frac{(v_\parallel-v_0)^2+v_\perp^2}{v_\mr{th}^2}\right)\\
+&\Rightarrow \frac{\pa F_\mr{h}^0}{\pa v_\parallel}=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}(v_\parallel-v_0)\\
+&\Rightarrow \frac{\pa F_\mr{h}^0}{\pa v_\perp}=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp\\
+&\Rightarrow \hat{G}F_\mr{h}^0=-F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp+\frac{k}{\omega}F_\mr{h}^0\frac{2}{v_\mr{th}^2}v_\perp v_0=F_\mr{h}^0\frac{2v_\perp}{v_\mr{th}^2}\left(\frac{kv_0}{\omega}-1\right)\\
+&\Rightarrow \pi\int_0^\infty\frac{1}{\pi^{3/2}v_\mr{th}^3}\begin{pmatrix}
+1 \\ v_\perp \\ v_\perp^2 \\ v_\perp^3
+\end{pmatrix}\exp\left(-\frac{v_\perp^2}{v_\mr{th}^2}\right)\mr{d}v_\perp=\begin{pmatrix}
+1/(2v_\mr{th}^2)\\
+1/(2v_\mr{th}\sqrt{\pi}) \\
+1/4\\
+v_\mr{th}/(2\sqrt{\pi})
+\end{pmatrix},
+\end{align}
+leads to
+\begin{align}
+D_\mr{R/L}(k,\omega)=1-\frac{v_\mr{A}^2k^2}{\omega^2}\pm\frac{Z_\mr{h}\nu_\mr{h}\Omega_\mr{ch}}{A_\mr{MHD}\omega}+\frac{\nu_\mr{h}\Omega_\mr{ch}^2Z_\mr{h}^2}{A_\mr{h}A_\mr{MHD}\omega^2}\frac{\omega-kv_0}{k v_\mr{th}}Z(\xi^\pm),
+\end{align}
+where $Z$ is the plasma dispersion function and $\xi\pm=(\omega-kv_0\pm\Omega_\mr{ch})/(kv_\mr{th})$.
+\begin{figure}
+\centering
+\includegraphics[scale=0.5]{01_Figures/R-wave.pdf}
+\includegraphics[scale=0.5]{01_Figures/L-wave.pdf}
+\caption{Growth rates for different shifts of the Maxwellian}
+\end{figure}
+
+\end{document}

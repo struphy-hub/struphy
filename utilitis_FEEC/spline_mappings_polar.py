@@ -17,7 +17,7 @@ class discrete_mapping_2d:
     Defines a discrete spline mapping from a logical domain [0, 1] x [0, 1] to a physical cartesian domain
     '''
     
-    def __init__(self, p, T, bc, kind):
+    def __init__(self, T, p, bc, kind):
         
         self.p        = p
         self.T        = T
@@ -81,6 +81,15 @@ class discrete_mapping_2d:
             
             self.x = lambda q1, q2 : Lx*q1
             self.y = lambda q1, q2 : Ly*q2
+            
+        elif kind == 'colella':
+            
+            Lx    = 2.
+            Ly    = 2.
+            alpha = 0.1
+            
+            self.x = lambda q1, q2 : Lx*(q1 + alpha*np.sin(2*np.pi*q1)*np.sin(2*np.pi*q2))
+            self.y = lambda q1, q2 : Ly*(q2 + alpha*np.sin(2*np.pi*q1)*np.sin(2*np.pi*q2))
             
         else:
             print('mapping not implemented!')
