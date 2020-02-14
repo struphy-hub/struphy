@@ -1,9 +1,10 @@
 \BOOKMARK [1][-]{section.1}{Full model and model reduction}{}% 1
 \BOOKMARK [1][-]{section.2}{Semi-discretization in space}{}% 2
-\BOOKMARK [2][-]{subsection.2.1}{Momentum equation}{section.2}% 3
-\BOOKMARK [2][-]{subsection.2.2}{Induction equation}{section.2}% 4
-\BOOKMARK [2][-]{subsection.2.3}{Particles' equation of motion}{section.2}% 5
-\BOOKMARK [2][-]{subsection.2.4}{Hamiltonian system}{section.2}% 6
-\BOOKMARK [1][-]{section.3}{Time integration}{}% 7
-\BOOKMARK [2][-]{subsection.3.1}{Poisson splitting}{section.3}% 8
-\BOOKMARK [1][-]{section.4}{Dispersion relation}{}% 9
+\BOOKMARK [2][-]{subsection.2.1}{Continuity equation}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Momentum equation}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Induction equation}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.4}{Particles' equation of motion}{section.2}% 6
+\BOOKMARK [2][-]{subsection.2.5}{Hamiltonian system}{section.2}% 7
+\BOOKMARK [1][-]{section.3}{Time integration}{}% 8
+\BOOKMARK [2][-]{subsection.3.1}{Poisson splitting}{section.3}% 9
+\BOOKMARK [1][-]{section.4}{Dispersion relation}{}% 10

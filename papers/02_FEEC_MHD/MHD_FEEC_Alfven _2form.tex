@@ -122,9 +122,13 @@ The linearization of the MHD part has the consequence that the Hamiltonian (\ref
 we get the following energy balance:
 \begin{align}
 \frac{\text{d}\mathcal{H}_1}{\text{d}t}&=\int\tilde{\mb{U}}\cdot\left[(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}\right]\,\text{d}^3x-\int\tilde{\mb{U}}\cdot\nabla\tilde{p}\,\text{d}^3x-\int p_\text{eq}\nabla\cdot\tilde{\mb{U}}\,\text{d}^3x\\
-&=\int\tilde{\mb{U}}\cdot\left[(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}\right]\,\text{d}^3x-\int\tilde{\mb{U}}\cdot\nabla\tilde{p}\,\text{d}^3x+\int\tilde{\mb{U}}\cdot\nabla p_\text{eq}\,\text{d}^3x
+&=\int\tilde{\mb{U}}\cdot\left[(\nabla\times\mb{B}_\text{eq})\times\tilde{\mb{B}}\right]\,\text{d}^3x-\int\tilde{\mb{U}}\cdot\nabla\tilde{p}\,\text{d}^3x+\int\tilde{\mb{U}}\cdot\nabla p_\text{eq}\,\text{d}^3x.
 \end{align}
-
+\begin{figure}
+\centering
+\includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
+\caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
+\end{figure}
 We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho,\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field and the hot ion current density to be 2-forms ($\mb{B},\mb{j}_\text{h}\rightarrow B^2,j^2_\text{h}$) and the pressure to be a 0-form ($p\rightarrow p^0$). The bulk velocity field, which is naturally a vector field, we choose to be a 2-form ($\tilde{\mb{U}}\rightarrow \tilde{U}^2$). Eq. (\ref{eq_continuity_linear})-(\ref{eq_pressure_linear}) can then be written as
 \begin{align}
 &\frac{\pa\tilde{\rho}^3}{\pa t}+\text{d}(i_{\lozenge U^2}\rho_\text{eq}^3)=0,\\
@@ -138,11 +142,7 @@ where $\ast$ is the Hodge-star operator, $\wedge$ the wedge product, $i$ the int
 
 \section{Semi-discretization in space}
 As a next step, we introduce finite element basis functions which satisfy a discrete deRham sequence and which form a commuting diagram with the continuous functions via the interpolation-histopolation projectors $\Pi_0$, $\Pi_1$, $\Pi_2$ and $\Pi_3$. This is depicted in Fig. \ref{fig_diagram}. 
-\begin{figure}
-\centering
-\includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
-\caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
-\end{figure}
+
 \begin{figure}
 \centering
 \includegraphics[scale=0.5]{01_Figures/mapping.pdf}
@@ -191,6 +191,60 @@ where we made use of the transformation formula
 \delta(\mb{x}-\mb{x}_k(t))=\frac{1}{\sqrt{g}}\delta(\mb{q}-\mb{q}_k(t)).
 \end{align}
 Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of $\tilde{p}_h^0$, $\tilde{U}_h^2$, $\tilde{B}_h^2$ and $\tilde{\rho}^3_h$ and the particle's positions $(\mb{q}_k)_{k=1,\ldots,N_\text{p}}$ and velocities $(\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
+
+
+\subsection{Continuity equation}
+We start with the discretization of the mass continuity equation which we shall keep in strong form. Following the diagram in Fig. \ref{fig_diagram}, we apply the projector $\Pi_3$ and use the diagram's commutativity to exchange projectors and exterior derivatives:
+\begin{align}
+&\frac{\pa(\Pi_3\tilde{\rho}^3)}{\pa t}+\Pi_3\text{d}(i_{\lozenge\tilde{U}^2}\rho^3_\text{eq})=\frac{\pa\tilde{\rho}^3_h}{\pa t}+\text{d}\Pi_2(i_{\lozenge\tilde{U}^2}\rho^3_\text{eq})=0.
+\end{align}
+In terms of the components of the forms, this amounts to
+\begin{align}
+&\frac{\pa\tilde{\rho}_h}{\pa t}+\hat{\nabla}\cdot\left\lbrace\Pi_2(i_{\lozenge\tilde{U}^2}\rho^3_\text{eq})\right\rbrace=0\\
+\Leftrightarrow\quad&\frac{\pa\bo{\rho}}{\pa t}+\mathbb{D}\mathcal{Q}\mb{u}=0
+\end{align}
+Note that we have used the commuting diagram property for exchanging projectors and differential operators. Furthermore, we have introduced the discrete divergence matrix $\mathbb{D}\in\mathbb{R}^{N\times 3N}$ and the projection matrix $\mathcal{Q}\in\mathbb{R}^{3N\times3N}$. We shall use calligraphic symbols for tensors which are related to projections. Explicitly, we have
+\begin{align}
+\mathcal{Q}_{ij}:=\Pi_{2,\mu}^{i_\mu}\left[\rho_0 G^{\mu k}\bo{\Lambda}^1_{jk}\right],\qquad i=\begin{cases}i_\mu, \quad &\mu=1\\ N+i_\mu &\mu=2\\2N+i_\mu &\mu=3\end{cases}
+\end{align}
+for $\mu=\{1,2,3\}$. Summing over repeated indices inside the squared bracket is assumed and $\Pi_2^{i_\mu}$ selects the $i_\mu$-th coefficient of the projection ($0\leq i_\mu\leq N-1$). If we stack these coefficients in a column vector, $\mathcal{Q}$ can be written as
+\begin{align}
+\mathcal{Q}&=\begin{pmatrix}
+\Pi_{2,1}\left[\rho_0G^{11}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,1}\left[\rho_0G^{12}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,1}\left[\rho_0G^{13}(\bo{\Lambda}_3^1)^\top\right] \\[2mm]
+\Pi_{2,2}\left[\rho_0G^{21}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,2}\left[\rho_0G^{22}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,2}\left[\rho_0G^{23}(\bo{\Lambda}_3^1)^\top\right] \\[2mm]
+\Pi_{2,3}\left[\rho_0G^{31}(\bo{\Lambda}_1^1)^\top\right] &\Pi_{2,3}\left[\rho_0G^{32}(\bo{\Lambda}_2^1)^\top\right] &\Pi_{2,3}\left[\rho_0G^{33}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}\label{proj_matrix_p12}\\[1mm]
+&=\begin{pmatrix}
+\mb{c}_{11,0} &\mb{c}_{11,1} &\cdots &\mb{c}_{12,0} &\mb{c}_{12,1} &\cdots &\mb{c}_{13,0} &\mb{c}_{13,1} &\cdots \\
+\mb{c}_{21,0} &\mb{c}_{21,1} &\cdots &\mb{c}_{22,0} &\mb{c}_{22,1} &\cdots &\mb{c}_{23,0} &\mb{c}_{23,1} &\cdots \\
+\mb{c}_{31,0} &\mb{c}^1_{31,1} &\cdots &\mb{c}_{32,0} &\mb{c}_{32,1} &\cdots &\mb{c}_{33,0} &\mb{c}_{33,1} &\cdots
+\end{pmatrix}.
+\end{align}
+Here, e.g. $\mb{c}_{23,1}$ are the coefficients resulting from the projection of the basis function with the index 1 in the block 23 in the matrix (\ref{proj_matrix_p12}). Unfortunately, this is a dense matrix, which is problematic from a memory consumption point of view. Therefore, we just save the right-hand sides, which define a sparse matrix, and perform the final projection in every time step again. Denoting by $(\mathcal{I}_{2,1},\mathcal{I}_{2,2},\mathcal{I}_{2,3})$ the mixed interpolation-histopolation matrices and by $(\mr{vec}_{2,1}(f),\mr{vec}_{2,2}(f),\mr{vec}_{2,3}(f))$ the right-hand side vectors for a 2-form with components $(f_1,f_2,f_3)$, we can write
+\begin{align}
+Q&=\begin{pmatrix}
+\mathcal{I}_{2,1}^{-1} &0 &0 \\ 0 &\mathcal{I}_{2,2}^{-1} &0 \\ 0 &0 &\mathcal{I}_{2,3}^{-1} 
+\end{pmatrix}
+\begin{pmatrix}
+\mr{vec}_{2,1}\left[\rho_0G^{11}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,1}\left[\rho_0G^{12}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,1}\left[\rho_0G^{13}(\bo{\Lambda}_3^1)^\top\right] \\[2mm]
+\mr{vec}_{2,2}\left[\rho_0G^{21}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,2}\left[\rho_0G^{22}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,2}\left[\rho_0G^{23}(\bo{\Lambda}_3^1)^\top\right] \\[2mm]
+\mr{vec}_{2,3}\left[\rho_0G^{31}(\bo{\Lambda}_1^1)^\top\right] &\mr{vec}_{2,3}\left[\rho_0G^{32}(\bo{\Lambda}_2^1)^\top\right] &\mr{vec}_{2,3}\left[\rho_0G^{33}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}\\ &=:\bo{\mathcal{I}}_2^{-1}\tilde{\mathcal{Q}}.
+\end{align}
+Thus, we only precompute the sparse matrices $\tilde{\mathcal{Q}}$ and $\mathcal{I}_2$. The entries of the former are defined by
+\begin{align}
+&(\mr{vec}_{2,1})_i(f):=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_1(\xi_{i_2},q_2,q_3)\mr{d}q^2\mr{d}q^3,  \\
+&(\mr{vec}_{2,2})_i(f)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}f_2(q_1,\xi_{i_2},q_3)\mr{d}q^1\mr{d}q^3, \\
+&(\mr{vec}_{2,3})_i(f)=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_2}}^{\xi_{i_2+1}}f_3(q_1, q_2, \xi_{i_3})\mr{d}q^1\mr{d}q^2, 
+\end{align}
+where the $\xi_{i_\mu}$ are some well chosen interpolation points. The mixed interpolation-histopolation matrices are given by
+\begin{align}
+(\mathcal{I}_{2,1})_{ij}:=\int_{\xi_{i_2}}^{\xi_{i_2+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}\bo{\Lambda}^2_{1,j}(\xi_{i_2},q_2,q_3)\mr{d}q^2\mr{d}q^3 \\
+(\mathcal{I}_{2,2})_{ij}:=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_3}}^{\xi_{i_3+1}}\bo{\Lambda}_{2,j}^2(q_1,\xi_{i_2},q_3)\mr{d}q^1\mr{d}q^3 \\
+(\mathcal{I}_{2,3})_{ij}:=\int_{\xi_{i_1}}^{\xi_{i_1+1}}\int_{\xi_{i_2}}^{\xi_{i_2+1}}\bo{\Lambda}_{3,j}^2(q_1, q_2, \xi_{i_3})\mr{d}q^1\mr{d}q^2
+\end{align}
+The sparsity of $\tilde{\mathcal{Q}}$ and $\mathcal{I}_2$ follows immediately from the local support of the basis functions.
+
 
 \subsection{Momentum equation}
 We choose a weak formulation for the momentum equation and consequently take the inner product with a test function $C^1\in H\Lambda^1(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^1\in H\Lambda^1(\Omega)$ such that

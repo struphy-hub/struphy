@@ -20,7 +20,7 @@ import utilitis_PIC.ECHO_fields
 import utilitis_PIC.ECHO_pusher
 import utilitis_PIC.ECHO_accumulation
 
-import sobol_seq
+import utilitis_PIC.sobol_seq as sobol
 import scipy.special as sp
 
 
@@ -39,10 +39,10 @@ print('pyccelization done!')
 
 
 # ========================================== parameters ==============================================================
-Nel = [3, 3, 20]           # mesh generation on logical domain
-bc  = [True, True, True]   # boundary conditions
-p   = [2, 2, 3]            # spline degrees  
-L   = [1., 1., 2*np.pi]    # box lengthes of physical domain
+Nel = [3, 3, 20]                # mesh generation on logical domain
+bc  = [True, True, True]        # boundary conditions
+p   = [2, 2, 3]                 # spline degrees  
+L   = [1., 1., 2*np.pi/0.75]    # box lengthes of physical domain
 
 
 el_b      = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                      # element boundaries
@@ -55,9 +55,9 @@ Ntot      =  Nbase0[0]*Nbase0[1]*Nbase0[2]                                     #
 
 
 
-dt       = 0.05     # time step
-Tend     = 500.     # simulation time
-max_time = 23.5*60  # maximum runtime of program in minutes
+dt       = 0.04     # time step
+Tend     = 200.     # simulation time
+max_time = 60*60    # maximum runtime of program in minutes
 
 # geometry (slab geometry)
 DF      = np.array([[  L[0], 0., 0.], [0.,   L[1], 0.], [0., 0.,   L[2]]])           # Jacobian matrix
@@ -72,12 +72,12 @@ mapping = maps.mappings(['slab', L[0], L[1], L[2]])                             
 
 
 # particle parameters
-Np      = int(2e5)         # total number of particles
+Np      = int(1e5)         # total number of particles
 vth     = 1.               # thermal velocity of particles in all directions
 
 v0x     = 0.               # mean velocity of hot ions in x-direction (must be compatible with backgound field)
 v0y     = 0.               # mean velocity of hot ions in y-direction (must be compatible with backgound field)
-v0z     = 2.               # mean velocity of hot ions in z-direction (must be compatible with backgound field)
+v0z     = 2.5              # mean velocity of hot ions in z-direction (must be compatible with backgound field)
 
 nuh     = 0.05             # ratio of hot/bulk equlibrium number densities 
 
@@ -85,7 +85,7 @@ control = 1                # control variate? (0: no, 1: yes)
 
 
 # name of data file
-identifier  = 'STRUPHY_Nel=32_p=3_L=2pi_dt=0.05_Np=1e5_vth=1.0_v0=2.0_nuh=0.05_k=1.0_amp=1e-4_CV=off'
+identifier  = 'STRUPHY_Nel=20_p=3_L=2pidk_dt=0.04_Np=1e5_vth=1.0_v0=2.5_nuh=0.05_k=0.75_amp=1e-4_CV=on_z'
 dir_results = 'results/'
 # =====================================================================================================================
 
@@ -127,7 +127,7 @@ rho0_123   = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (rhoeq_phys) # bac
 
 
 # ============================================== initial conditions ===================================================
-k      = 1.    # wavenumber of initial perturbation
+k      = 0.75  # wavenumber of initial perturbation
 amp    = 1e-4  # amplitude  of initial perturbation
 
 B1_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (amp * np.sin(k * q3 *L[2]))
@@ -139,9 +139,9 @@ U2_ini = lambda q1, q2, q3 : mapping.DF[1][1](q1, q2, q3) * (0. * q1)  # actuall
 U3_ini = lambda q1, q2, q3 : mapping.DF[2][2](q1, q2, q3) * (0. * q1)  # actually DF.T !!
 
 
-nh0_phys = rhoeq_phys*nuh              # hot ion number density on physical domain
-nh0      = nh0_phys*g_sqrt             # hot ion number density on logical domain
-Eh_eq    = nh0/2*(v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
+nh0_phys = rhoeq_phys*nuh                                # hot ion number density on physical domain
+nh0      = nh0_phys*g_sqrt                               # hot ion number density on logical domain
+Eh_eq    = nh0/2*(v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
 
 # initial hot ion distribution function (3-form on logical domain)
 fh0             = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
@@ -200,7 +200,7 @@ b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot] = PRO.PI_2([B1_ini, B2_ini,
 u[0*Ntot:1*Ntot], u[1*Ntot:2*Ntot], u[2*Ntot:3*Ntot] = PRO.PI_1([U1_ini, U2_ini, U3_ini])
 
 
-print('projection of initial conditions done')
+print('projection of initial conditions done!')
 # =====================================================================================================================
 
 
@@ -252,14 +252,14 @@ A = A.toarray()
 # delete everything which is not needed to save memory
 del PRO, MHD, W1, W2, W3, TAU1, TAU2, TAU3, M1, W
 
-print('assembly of constant matrices done')
+print('assembly of constant matrices done!')
 # ======================================================================================================================
 
 
 
 
 # ================================================ create particles ====================================================
-#particles[:, :6] = sobol_seq.i4_sobol_generate(6, Np)   # quasi-random Sobol numbers between (0, 1)
+#particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000) # quasi-random Sobol numbers between (0, 1) (skip first 1000 numbers)
 particles[:, :6] = np.random.rand(Np, 6)                 # random numbers between (0, 1)
 #particles[:, :] = np.load('test_particles.npy')         # load numbers from file
 
@@ -279,7 +279,7 @@ spans0[:, 0] = np.floor(particles[:, 0]*Nel[0]).astype(int) + p[0]
 spans0[:, 1] = np.floor(particles[:, 1]*Nel[1]).astype(int) + p[1]
 spans0[:, 2] = np.floor(particles[:, 2]*Nel[2]).astype(int) + p[2]
 
-print('particle initialization done')
+print('particle initialization done!')
 # =====================================================================================================================
 
 
@@ -373,7 +373,7 @@ file  = open(title, 'ab')
 data  = np.concatenate((energies, np.array([0.])))
 np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
 
-print('initial energies:', energies)
+print('initial energies : ', energies)
 print('start time integration! (number of time steps : ' + str(int(Tend/dt)) + ')')
 time_step = 0
 
@@ -383,10 +383,15 @@ while True:
         break
         
     if time_step%5 == 0:
-        print('time steps finished: ' + str(time_step))
+        print('time steps finished : ' + str(time_step))
         print('energies', energies)
     
+    timea = time.time()
     update()
+    timeb = time.time()
+    
+    if time_step == 0:
+        print('time for one time step : ', timeb-timea)
     
     data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
     np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
