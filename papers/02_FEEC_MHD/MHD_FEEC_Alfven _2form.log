@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  14 FEB 2020 09:57
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  17 FEB 2020 13:59
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1741,88 +1741,78 @@ Package pdftex.def Info: 01_Figures/deRham3d_forms.pdf used on input line 129.
 File: 01_Figures/mapping.pdf Graphic file (type pdf)
 
 <use 01_Figures/mapping.pdf>
-Package pdftex.def Info: 01_Figures/mapping.pdf used on input line 148.
+Package pdftex.def Info: 01_Figures/mapping.pdf used on input line 147.
 (pdftex.def)             Requested size: 369.88097pt x 85.31853pt.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <8> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 157.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 156.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <6> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 157.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 156.
  [3 <./01_Figures/mapping.pdf>] [4] [5] [6]
-LaTeX Font Info:    Font shape `U/lasy/b/n' in size <9> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 318.
-LaTeX Font Info:    Font shape `U/lasy/b/n' in size <5> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 318.
-
 [7] [8] [9] [10] [11] [12]
-<01_Figures/R-wave.pdf, id=314, 660.26999pt x 309.66344pt>
+<01_Figures/R-wave.pdf, id=302, 660.26999pt x 309.66344pt>
 File: 01_Figures/R-wave.pdf Graphic file (type pdf)
 
 <use 01_Figures/R-wave.pdf>
-Package pdftex.def Info: 01_Figures/R-wave.pdf used on input line 635.
+Package pdftex.def Info: 01_Figures/R-wave.pdf used on input line 600.
 (pdftex.def)             Requested size: 330.13419pt x 154.83133pt.
 
-<01_Figures/L-wave.pdf, id=315, 677.38115pt x 309.66344pt>
+<01_Figures/L-wave.pdf, id=303, 677.38115pt x 309.66344pt>
 File: 01_Figures/L-wave.pdf Graphic file (type pdf)
 
 <use 01_Figures/L-wave.pdf>
-Package pdftex.def Info: 01_Figures/L-wave.pdf used on input line 636.
+Package pdftex.def Info: 01_Figures/L-wave.pdf used on input line 601.
 (pdftex.def)             Requested size: 338.68974pt x 154.83133pt.
- [13]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 640.
- [14 <./01_Figures/R-wave.pdf> <./01_Figures/L-wave.pdf
+ [13 <./01_Figures/R-wave.pdf> <./01_Figures/L-wave.pdf
 
 pdfTeX warning: pdflatex (file ./01_Figures/L-wave.pdf): PDF inclusion: multipl
 e pdfs with page group included in a single page
 >]
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 640.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 605.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 605.
  (./MHD_FEEC_Alfven _2form.xwm) (./MHD_FEEC_Alfven _2form.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 640.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 640.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 605.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 605.
 Package rerunfilecheck Info: File `"MHD_FEEC_Alfven _2form".out' has not change
 d.
 (rerunfilecheck)             Checksum: 47F958E260A68E50C51001AF308E7FF8;646.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 640.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 605.
  ) 
 Here is how much of TeX's memory you used:
- 34204 strings out of 493029
- 656597 string characters out of 6136233
- 853237 words of memory out of 5000000
- 36970 multiletter control sequences out of 15000+600000
- 64430 words of font info for 159 fonts, out of 8000000 for 9000
+ 34183 strings out of 493029
+ 656342 string characters out of 6136233
+ 855235 words of memory out of 5000000
+ 36964 multiletter control sequences out of 15000+600000
+ 63210 words of font info for 155 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 53i,23n,58p,10396b,841s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 53i,23n,58p,10396b,839s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold10.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold7.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbsy10.pfb></usr/share/te
 xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/
 texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-
 dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></usr/share/texlive/texmf-dist/fo
-nts/type1/public/amsfonts/cm/cmbx9.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
-lic/amsfonts/cmextra/cmex9.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmmi12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
-m/cmmi6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7
-.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></
-usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/sha
-re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib10.pfb></usr/share/te
-xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texlive/t
-exmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texmf-dist/font
-s/type1/public/amsfonts/cm/cmr6.pfb></usr/share/texlive/texmf-dist/fonts/type1/
-public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
-cm/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy1
-0.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb><
-/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/sh
-are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/tex
-live/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/te
-xmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-di
-st/fonts/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on "MHD_FEEC_Alfven _2form.pdf" (14 pages, 486899 bytes).
+nts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/fonts/ty
+pe1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmmi12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmmi6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts
+/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmm
+i8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmib10.pf
+b></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr
+/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/
+texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive
+/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/share/texlive/texmf-d
+ist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/font
+s/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/texmf-dist/fonts/type1/
+public/amsfonts/cm/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
+msfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfont
+s/cm/cmsy6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cm
+sy7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb
+></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr
+/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb>
+Output written on "MHD_FEEC_Alfven _2form.pdf" (13 pages, 453354 bytes).
 PDF statistics:
- 499 PDF objects out of 1000 (max. 8388607)
- 437 compressed objects within 5 object streams
- 192 named destinations out of 1000 (max. 500000)
+ 464 PDF objects out of 1000 (max. 8388607)
+ 407 compressed objects within 5 object streams
+ 179 named destinations out of 1000 (max. 500000)
  113 words of extra memory for PDF output out of 10000 (max. 10000000)
 
