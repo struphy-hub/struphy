@@ -37,8 +37,8 @@ def kernel_mass_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1
 
 #================================================================================                                        
 @external_call
-@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
-def kernel_mass(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, Nbase1, Nbase2, Nbase3, M, mat_map):
+@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:,:,:,:](order=F)','double[:,:,:](order=F)')
+def kernel_mass_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, Nbase1, Nbase2, Nbase3, M, mat_map):
     
     for ie1 in range(Nel1):
         for ie2 in range(Nel2):
@@ -99,7 +99,7 @@ def kernel_inner_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, Nb
 #================================================================================
 @external_call
 @types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
-def kernel_inner(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, L, mat_f, mat_map):
+def kernel_inner_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, L, mat_f, mat_map):
     
     for ie1 in range(Nel1):
         for ie2 in range(Nel2):
@@ -129,7 +129,7 @@ def kernel_inner(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1,
 #================================================================================
 @external_call
 @types('int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
-def kernel_L2error_V0_2d(Nel1, Nel2, p1, p2, nq1, nq2, w1, w2, bi1, bi2, Nbase1, Nbase2, error, mat_f, mat_c, mat_g):
+def kernel_l2error_v0_2d(Nel1, Nel2, p1, p2, nq1, nq2, w1, w2, bi1, bi2, Nbase1, Nbase2, error, mat_f, mat_c, mat_g):
     
     for ie1 in range(Nel1):
         for ie2 in range(Nel2):
@@ -157,7 +157,7 @@ def kernel_L2error_V0_2d(Nel1, Nel2, p1, p2, nq1, nq2, w1, w2, bi1, bi2, Nbase1,
 #================================================================================
 @external_call
 @types('int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
-def kernel_L2error_V0(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, error, mat_f, mat_c, mat_g):
+def kernel_l2error_v0_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, error, mat_f, mat_c, mat_g):
     
     for ie1 in range(Nel1):
         for ie2 in range(Nel2):

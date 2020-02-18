@@ -237,7 +237,7 @@ Thus, we only precompute the matrices $\tilde{\mathcal{Q}}$ and $\mathcal{I}_2$,
 \subsection{Momentum equation}
 We choose a weak formulation for the momentum equation. Consequently, we take the inner product with a test function $C^2\in H\Lambda^2(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^2\in H\Lambda^2(\Omega)$ such that
 \begin{align}
-\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)=&\left(\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^2\right)+\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)-\left(\ast\text{d}\tilde{p}^0,C^2\right)\\-&\left((\ast\rho^3_\text{h})\wedge i_{\lozenge\tilde{U}^2}B^2,C^2\right)+\left(i_{\lozenge j_\text{h}^2}B^2,C^2\right)\qquad\forall\;C^2\in H\Lambda^2(\Omega).
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)=&\left(\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^2\right)+\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)-\left(\ast\text{d}\tilde{p}^0,C^2\right)\\-&\left((\ast\rho^3_\text{h})\wedge\ast i_{\lozenge\tilde{U}^2}B^2,C^2\right)+\left(\ast i_{\lozenge j_\text{h}^2}B^2,C^2\right)\qquad\forall\;C^2\in H\Lambda^2(\Omega).
 \end{align}
 We apply the Galerkin approximation to each term and project back into the right spaces where necessary. Let us start with the first term on the left-hand side involving the equilibrium bulk density. To achieve conservation of energy at the discrete level we make use of the fact that the wedge product with a 0-form is just a multiplication with a scalar. Hence the wedge product can as well be applied to the test function and the following equality holds:
 \begin{align}
@@ -284,17 +284,35 @@ which has the right-hand sides
 \normalsize
 Performing the same steps for the second term without integration by parts yields
 \begin{align}
-\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)&=\left(\mr{d}\ast\tilde{B}^2,\ast i_{\lozenge C^2}B_\text{eq}^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\hat{\mb{B}}_\text{eq}^\top G\left(\nabla\times(\tilde{\mb{B}}\times G^{-1}\mb{C})\right)\sqrt{g}\,\mr{d}^3q\\
-&\approx\tilde{\Pi}_2\left(\hat{\mb{B}}_\text{eq}^\top\right)\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3q\,\mathbb{C}\tilde{\Pi}_1\left[(\mathbb{\Lambda}^2)^\top\mb{b}\times G^{-1}(\mathbb{\Lambda}^1)^\top\mb{c}\right]\\
-&=\mb{b}_\text{eq}^\top\mathbb{M}^2\mathbb{C}(\mb{b}^\top\mathcal{P}\mb{c})\quad\forall \mb{c}\in\mathbb{R}^{3N}.
+\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)&=\left(\mr{d}\ast\tilde{B}^2,\ast i_{\lozenge C^2}B_\text{eq}^2\right)\\
+&=\int_{\hat{\Omega}}\frac{1}{g}\left[\hat{\nabla}\times\left(\frac{1}{\sqrt{g}}G\tilde{\mb{B}}\right)\right]^\top G\sqrt{g}G^{-1}\left(\mb{B}_\text{eq}\times\frac{1}{\sqrt{g}}\mb{C}\right)\sqrt{g}\,\mr{d}^3q\\
+&\approx\mb{b}^\top\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G\right]\mathbb{C}^\top\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3\xi\,\hat{\Pi}_2\left[G^{-1}\mathbb{B}_\text{eq}(\mathbb{\Lambda}^2)^\top\right]\mb{c}\\
+&=\mb{b}^\top\mathcal{P}_1^\top\mathbb{C}^\top\mathbb{M}^2\mathcal{P}_2\,\mb{c}\quad\forall \,\mb{c}\in\mathbb{R}^{3N}.
 \end{align}
-The projection tensor $\mathcal{P}\in\mathbb{R}^{3N\times3N\times3N}$ is given by
+The projection matrices $\mathcal{P}_1\in\mathbb{R}^{3N\times3N}$ and $\mathcal{P}_2\in\mathbb{R}^{3N\times3N}$ are given by
 \begin{align}
-\mathcal{P}_{ijk}=\Pi_1^{j_\mu}\left[\epsilon_{\mu lm}\Lambda^2_{i,l}G^{mn}\Lambda^1_{k,n}\right],
+\mathcal{P}_{1,ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{G_{\mu k}\Lambda_{jk}}{\sqrt{g}}\right],\qquad\mathcal{P}_{2,ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[G_{\mu l}\epsilon_{lmn}B_{\text{eq}, m}\Lambda_{jn}^2\right].
 \end{align}
-where it is important to note that the entries of $\mb{b}$ contract from left with the index $i$ and the entries of $\mb{c}$ from right with the index $k$. The result is then a vector defined by the index $j$. 
+As a next step, we consider the term involving the pressure gradient. Using the fact that the Hodge operator is self-adjoint in the inner product, we obtain
+\begin{align}
+(\ast\text{d}\tilde{p}^0,C^2)=(\text{d}\tilde{p}^0,\ast C^2)&=\int_{\hat{\Omega}}\hat{\nabla}\tilde{p}^\top\,G^{-1}\frac{1}{\sqrt{g}}G\mb{C}\sqrt{g}\,\text{d}^3\xi\\
+&\hspace{-2cm}\approx \mb{p}^\top\mathbb{G}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\,\text{d}^3\xi\,\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}G(\mathbb{\Lambda}^2)^\top\right]\mb{c}=\mb{p}^\top\mathbb{G}^\top\mathbb{M}^1\mathcal{W}\,\mb{c}\quad\forall \,\mb{c}\in\mathbb{R}^{3N},
+\end{align}
+where $\mathbb{G}\in\mathbb{R}^{3N\times N}$ being the discrete gradient matrix, $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ the mass matrix in the space $V_1$ and $\mathcal{W}\in\mathbb{R}^{3N\times3N}$ is defined as
+\begin{align}
+\mathcal{W}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{1}{\sqrt{g}}G_{\mu k}\Lambda_{jk}^2\right].
+\end{align}
+The term involving the hot ion charge density must be computed from the particle-in-cell approximation of the hot ion distribution function. Hence we can generally make use of a control variate $M_0$ for noise reduction:
+\begin{align}
+&\left((\ast\rho^3_\text{h})\wedge \ast i_{\lozenge\tilde{U}^2}B^2,C^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top G\sqrt{g}G^{-1}\left(\mathring{\rho_\mr{h}}\mb{B}\times \frac{1}{\sqrt{g}}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\ 
+=&\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top \left[\int(\mathring{f}_\mr{h}^0-\mathring{M}_0)\,\mr{d}^3v\,\mb{B}\times\tilde{\mb{U}}\right]\sqrt{g}\,\mr{d}^3\xi+\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top\left(\int \mathring{M}_0\,\mr{d}^3v\,\mb{B}\times\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\
+=&\int_{\hat{\Omega}}\int\frac{1}{g}\mb{C}^\top\left[\left(\frac{f_\mr{h}^0-M_0}{g_\text{h}}\right)\,\mb{B}\times\tilde{\mb{U}}\right]g_\text{h}\,\mr{d}^3v\mr{d}^3\xi+\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top\left(\rho_{\text{h0},123}\,\mb{B}\times\tilde{\mb{U}}\right)\,\mr{d}^3\xi\\
+\approx &\sum_k \frac{1}{g(\boldsymbol{\xi}_k)} w_k\mb{C}_h^\top(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times\tilde{\mb{U}}_h(\boldsymbol{\xi}_k))+\int_{\hat{\Omega}}\frac{1}{g}\mb{C}_h^\top\left(\rho_\mr{h0,123}\,\mb{B}_h\times\tilde{\mb{U}}_h\right)\,\mr{d}^3\xi\\
+=&\,\,\mb{c}^\top\mathbb{P}_1\mathbb{W}\tilde{G}^{-1}\hat{\mathbb{B}}\tilde{G}^{-1}\mathbb{P}_1^\top\mb{u}+\mb{c}^\top X_1(\mb{b})\mb{u},
+\end{align}
+where both terms are clearly antisymmetric because $\hat{\mathbb{B}}$ is antisymmetric.
 
-Next, we consider the term involving the hot ion current density. Since this term must be computed from the particle-in-cell approximation of the hot ion distribution function, we can make use of a control variate $M_0$ for noise reduction. In practice, one can take the equilibrium distribution function which is typically a Maxwellian. By noting that a distribution function can be transformed to a 3-form by multiplying with the square root of the Jacobi determinant, we find
+The term inv must be computed from the particle-in-cell approximation of the hot ion distribution function, we can make use of a control variate $M_0$ for noise reduction. In practice, one can take the equilibrium distribution function which is typically a Maxwellian. By noting that a distribution function can be transformed to a 3-form by multiplying with the square root of the Jacobi determinant, we find
 \begin{align}
 &\left(i_{\#j_\mr{h}^1}B^2,C^1\right)=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}(\hat{\mb{B}}\times G^{-1}\mb{j}_\mr{h})\sqrt{g}\,\mr{d}^3q\\
 =&\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\hat{\mb{B}}\times DF^{-1}\int (\mathring{f}_\mr{h}-\mathring{M}_0)\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3q\\

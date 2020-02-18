@@ -5,14 +5,6 @@ import utilitis_FEEC.kernels_projectors_mhd as kernels
 
 
 
-
-#==================================================calling epyccel for acceleration===========================================
-from pyccel import epyccel
-kernels = epyccel(kernels)
-#=============================================================================================================================
-
-
-
 class projections_mhd:
     
     def __init__(self, p, Nbase, T, bc):
@@ -373,27 +365,27 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI21(n1[0], self.ne[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, D_int[0], N_his[1], N_his[2], EQ1[0], RHS1[0])
+        kernels.kernel_pi2_1(n1[0], self.ne[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, D_int[0], N_his[1], N_his[2], EQ1[0], RHS1[0])
                                      
-        kernels.kernel_PI21(n1[0], self.ne[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, N_int[0], D_his[1], N_his[2], EQ1[1], RHS1[1])
+        kernels.kernel_pi2_1(n1[0], self.ne[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, N_int[0], D_his[1], N_his[2], EQ1[1], RHS1[1])
                                      
-        kernels.kernel_PI21(n1[0], self.ne[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, N_int[0], N_his[1], D_his[2], EQ1[2], RHS1[2])
+        kernels.kernel_pi2_1(n1[0], self.ne[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[1], self.ies[2], il_add[1], il_add[2], nq2, nq3, w2, w3, N_int[0], N_his[1], D_his[2], EQ1[2], RHS1[2])
         
         
         # Assembly of the second line
-        kernels.kernel_PI22(self.ne[0], n2[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, D_his[0], N_int[1], N_his[2], EQ2[0], RHS2[0])
+        kernels.kernel_pi2_2(self.ne[0], n2[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, D_his[0], N_int[1], N_his[2], EQ2[0], RHS2[0])
                                      
-        kernels.kernel_PI22(self.ne[0], n2[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, N_his[0], D_int[1], N_his[2], EQ2[1], RHS2[1])
+        kernels.kernel_pi2_2(self.ne[0], n2[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, N_his[0], D_int[1], N_his[2], EQ2[1], RHS2[1])
                                      
-        kernels.kernel_PI22(self.ne[0], n2[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, N_his[0], N_int[1], D_his[2], EQ2[2], RHS2[2])
+        kernels.kernel_pi2_2(self.ne[0], n2[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[0], self.ies[2], il_add[0], il_add[2], nq1, nq3, w1, w3, N_his[0], N_int[1], D_his[2], EQ2[2], RHS2[2])
         
         
         # Assembly of the third line
-        kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1, p2 + 1, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, D_his[0], N_his[1], N_int[2], EQ3[0], RHS3[0])
+        kernels.kernel_pi2_3(self.ne[0], self.ne[1], n3[2], p1, p2 + 1, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, D_his[0], N_his[1], N_int[2], EQ3[0], RHS3[0])
                                      
-        kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], D_his[1], N_int[2], EQ3[1], RHS3[1])
+        kernels.kernel_pi2_3(self.ne[0], self.ne[1], n3[2], p1 + 1, p2, p3 + 1, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], D_his[1], N_int[2], EQ3[1], RHS3[1])
                                      
-        kernels.kernel_PI23(self.ne[0], self.ne[1], n3[2], p1 + 1, p2 + 1, p3, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], N_his[1], D_int[2], EQ3[2], RHS3[2])
+        kernels.kernel_pi2_3(self.ne[0], self.ne[1], n3[2], p1 + 1, p2 + 1, p3, self.ies[0], self.ies[1], il_add[0], il_add[1], nq1, nq2, w1, w2, N_his[0], N_his[1], D_int[2], EQ3[2], RHS3[2])
         
         
         # Grid indices               
@@ -560,15 +552,15 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
         
         
         # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
         
         
         # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
         
         
          
@@ -739,27 +731,27 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1[0], RHS1[0])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1[0], RHS1[0])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], N_int[2], EQ1[1], RHS1[1])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], N_int[2], EQ1[1], RHS1[1])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], N_int[1], D_int[2], EQ1[2], RHS1[2])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1 + 1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], N_int[1], D_int[2], EQ1[2], RHS1[2])
         
         
         # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], N_int[2], EQ2[0], RHS2[0])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], N_int[2], EQ2[0], RHS2[0])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2[1], RHS2[1])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2[1], RHS2[1])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], N_his[1], D_int[2], EQ2[2], RHS2[2])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], N_his[1], D_int[2], EQ2[2], RHS2[2])
         
         
         # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], N_his[2], EQ3[0], RHS3[0])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], N_his[2], EQ3[0], RHS3[0])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], N_his[2], EQ3[1], RHS3[1])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], N_his[2], EQ3[1], RHS3[1])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3[2], RHS3[2])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3[2], RHS3[2])
         
         
         # Grid indices               
@@ -924,15 +916,15 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1, RHS1)
         
         
         # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2, RHS2)
         
         
         # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3, RHS3)
         
         
          
@@ -1038,7 +1030,7 @@ class projections_mhd:
         RHS = np.zeros((n[0], n[1], n[2], nv[0], nv[1], nv[2]), order='F')
         
         # Assembly
-        kernels.kernel_PI0(n[0], n[1], n[2], p1 + 1, p2 + 1, p3 + 1, N_int[0], N_int[1], N_int[2], EQ, RHS)
+        kernels.kernel_pi0(n[0], n[1], n[2], p1 + 1, p2 + 1, p3 + 1, N_int[0], N_int[1], N_int[2], EQ, RHS)
         
          
         # Grid indices               
@@ -1184,27 +1176,27 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], D_int[2], EQ1[0], RHS1[0])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], D_int[2], EQ1[0], RHS1[0])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], D_int[2], EQ1[1], RHS1[1])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], D_int[2], EQ1[1], RHS1[1])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], D_int[1], N_int[2], EQ1[2], RHS1[2])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], D_int[1], N_int[2], EQ1[2], RHS1[2])
         
         
         # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], D_int[2], EQ2[0], RHS2[0])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], D_int[2], EQ2[0], RHS2[0])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], D_int[2], EQ2[1], RHS2[1])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], D_int[2], EQ2[1], RHS2[1])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], D_his[1], N_int[2], EQ2[2], RHS2[2])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], D_his[1], N_int[2], EQ2[2], RHS2[2])
         
         
         # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], D_his[2], EQ3[0], RHS3[0])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], D_his[2], EQ3[0], RHS3[0])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], D_his[2], EQ3[1], RHS3[1])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], D_his[2], EQ3[1], RHS3[1])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], D_int[1], N_his[2], EQ3[2], RHS3[2])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], D_int[1], N_his[2], EQ3[2], RHS3[2])
         
         
         # Grid indices               
@@ -1388,27 +1380,27 @@ class projections_mhd:
         
         
         # Assembly of the first line
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1[0], RHS1[0])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1, p2 + 1, p3 + 1, self.ies[0], il_add[0], nq1, w1, D_his[0], N_int[1], N_int[2], EQ1[0], RHS1[0])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], N_int[2], EQ1[1], RHS1[1])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1 + 1, p2, p3 + 1, self.ies[0], il_add[0], nq1, w1, N_his[0], D_int[1], N_int[2], EQ1[1], RHS1[1])
                                      
-        kernels.kernel_PI11(self.ne[0], n1[1], n1[2], p1 + 1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], N_int[1], D_int[2], EQ1[2], RHS1[2])
+        kernels.kernel_pi1_1(self.ne[0], n1[1], n1[2], p1 + 1, p2 + 1, p3, self.ies[0], il_add[0], nq1, w1, N_his[0], N_int[1], D_int[2], EQ1[2], RHS1[2])
         
         
         # Assembly of the second line
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], N_int[2], EQ2[0], RHS2[0])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1, p2 + 1, p3 + 1, self.ies[1], il_add[1], nq2, w2, D_int[0], N_his[1], N_int[2], EQ2[0], RHS2[0])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2[1], RHS2[1])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2, p3 + 1, self.ies[1], il_add[1], nq2, w2, N_int[0], D_his[1], N_int[2], EQ2[1], RHS2[1])
                                      
-        kernels.kernel_PI12(n2[0], self.ne[1], n2[2], p1 + 1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], N_his[1], D_int[2], EQ2[2], RHS2[2])
+        kernels.kernel_pi1_2(n2[0], self.ne[1], n2[2], p1 + 1, p2 + 1, p3, self.ies[1], il_add[1], nq2, w2, N_int[0], N_his[1], D_int[2], EQ2[2], RHS2[2])
         
         
         # Assembly of the third line
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], N_his[2], EQ3[0], RHS3[0])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add[2], nq3, w3, D_int[0], N_int[1], N_his[2], EQ3[0], RHS3[0])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], N_his[2], EQ3[1], RHS3[1])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add[2], nq3, w3, N_int[0], D_int[1], N_his[2], EQ3[1], RHS3[1])
                                      
-        kernels.kernel_PI13(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3[2], RHS3[2])
+        kernels.kernel_pi1_3(n3[0], n3[1], self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add[2], nq3, w3, N_int[0], N_int[1], D_his[2], EQ3[2], RHS3[2])
         
         
         # Grid indices               
@@ -1624,19 +1616,19 @@ class projections_mhd:
         
         
         # Assembly
-        kernels.kernel_PI11(self.ne[0], n12, n13, p1, p2 + 1, p3 + 1, self.ies[0], il_add_1, nq1, w1, bs1_1_his, bs0_2_int, bs0_3_int, EQ_11, RHS_11)
-        kernels.kernel_PI11(self.ne[0], n12, n13, p1 + 1, p2, p3 + 1, self.ies[0], il_add_1, nq1, w1, bs0_1_his, bs1_2_int, bs0_3_int, EQ_12, RHS_12)
-        kernels.kernel_PI11(self.ne[0], n12, n13, p1 + 1, p2 + 1, p3, self.ies[0], il_add_1, nq1, w1, bs0_1_his, bs0_2_int, bs1_3_int, EQ_13, RHS_13) 
+        kernels.kernel_pi1_1(self.ne[0], n12, n13, p1, p2 + 1, p3 + 1, self.ies[0], il_add_1, nq1, w1, bs1_1_his, bs0_2_int, bs0_3_int, EQ_11, RHS_11)
+        kernels.kernel_pi1_1(self.ne[0], n12, n13, p1 + 1, p2, p3 + 1, self.ies[0], il_add_1, nq1, w1, bs0_1_his, bs1_2_int, bs0_3_int, EQ_12, RHS_12)
+        kernels.kernel_pi1_1(self.ne[0], n12, n13, p1 + 1, p2 + 1, p3, self.ies[0], il_add_1, nq1, w1, bs0_1_his, bs0_2_int, bs1_3_int, EQ_13, RHS_13)
         
         
-        kernels.kernel_PI12(n21, self.ne[1], n23, p1, p2 + 1, p3 + 1, self.ies[1], il_add_2, nq2, w2, bs1_1_int, bs0_2_his, bs0_3_int, EQ_21, RHS_21)
-        kernels.kernel_PI12(n21, self.ne[1], n23, p1 + 1, p2, p3 + 1, self.ies[1], il_add_2, nq2, w2, bs0_1_int, bs1_2_his, bs0_3_int, EQ_22, RHS_22)
-        kernels.kernel_PI12(n21, self.ne[1], n23, p1 + 1, p2 + 1, p3, self.ies[1], il_add_2, nq2, w2, bs0_1_int, bs0_2_his, bs1_3_int, EQ_23, RHS_23)
+        kernels.kernel_pi1_2(n21, self.ne[1], n23, p1, p2 + 1, p3 + 1, self.ies[1], il_add_2, nq2, w2, bs1_1_int, bs0_2_his, bs0_3_int, EQ_21, RHS_21)
+        kernels.kernel_pi1_2(n21, self.ne[1], n23, p1 + 1, p2, p3 + 1, self.ies[1], il_add_2, nq2, w2, bs0_1_int, bs1_2_his, bs0_3_int, EQ_22, RHS_22)
+        kernels.kernel_pi1_2(n21, self.ne[1], n23, p1 + 1, p2 + 1, p3, self.ies[1], il_add_2, nq2, w2, bs0_1_int, bs0_2_his, bs1_3_int, EQ_23, RHS_23)
         
         
-        kernels.kernel_PI13(n31, n32, self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add_3, nq3, w3, bs1_1_int, bs0_2_int, bs0_3_his, EQ_31, RHS_31)
-        kernels.kernel_PI13(n31, n32, self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add_3, nq3, w3, bs0_1_int, bs1_2_int, bs0_3_his, EQ_32, RHS_32)
-        kernels.kernel_PI13(n31, n32, self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add_3, nq3, w3, bs0_1_int, bs0_2_int, bs1_3_his, EQ_33, RHS_33)
+        kernels.kernel_pi1_3(n31, n32, self.ne[2], p1, p2 + 1, p3 + 1, self.ies[2], il_add_3, nq3, w3, bs1_1_int, bs0_2_int, bs0_3_his, EQ_31, RHS_31)
+        kernels.kernel_pi1_3(n31, n32, self.ne[2], p1 + 1, p2, p3 + 1, self.ies[2], il_add_3, nq3, w3, bs0_1_int, bs1_2_int, bs0_3_his, EQ_32, RHS_32)
+        kernels.kernel_pi1_3(n31, n32, self.ne[2], p1 + 1, p2 + 1, p3, self.ies[2], il_add_3, nq3, w3, bs0_1_int, bs0_2_int, bs1_3_his, EQ_33, RHS_33)
         
         
         # Grid indices

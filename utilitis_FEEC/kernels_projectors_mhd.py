@@ -8,7 +8,7 @@ from pyccel.decorators import external_call
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI0(n1, n2, n3, pl1, pl2, pl3, b1, b2, b3, mat, rhs):
+def kernel_pi0(n1, n2, n3, pl1, pl2, pl3, b1, b2, b3, mat, rhs):
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -26,7 +26,7 @@ def kernel_PI0(n1, n2, n3, pl1, pl2, pl3, b1, b2, b3, mat, rhs):
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI11(n1, n2, n3, pl1, pl2, pl3, ies_1, il_add_1, nq1, w1, b1, b2, b3, mat, rhs_1):
+def kernel_pi1_1(n1, n2, n3, pl1, pl2, pl3, ies_1, il_add_1, nq1, w1, b1, b2, b3, mat, rhs_1):
 
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -45,7 +45,7 @@ def kernel_PI11(n1, n2, n3, pl1, pl2, pl3, ies_1, il_add_1, nq1, w1, b1, b2, b3,
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI12(n1, n2, n3, pl1, pl2, pl3, ies_2, il_add_2, nq2, w2, b1, b2, b3, mat, rhs_2):
+def kernel_pi1_2(n1, n2, n3, pl1, pl2, pl3, ies_2, il_add_2, nq2, w2, b1, b2, b3, mat, rhs_2):
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -64,7 +64,7 @@ def kernel_PI12(n1, n2, n3, pl1, pl2, pl3, ies_2, il_add_2, nq2, w2, b1, b2, b3,
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI13(n1, n2, n3, pl1, pl2, pl3, ies_3, il_add_3, nq3, w3, b1, b2, b3, mat, rhs_3):
+def kernel_pi1_3(n1, n2, n3, pl1, pl2, pl3, ies_3, il_add_3, nq3, w3, b1, b2, b3, mat, rhs_3):
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -83,7 +83,7 @@ def kernel_PI13(n1, n2, n3, pl1, pl2, pl3, ies_3, il_add_3, nq3, w3, b1, b2, b3,
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI21(n1, n2, n3, pl1, pl2, pl3, ies_2, ies_3, il_add_2, il_add_3, nq2, nq3, w2, w3, b1, b2, b3, mat, rhs_1):
+def kernel_pi2_1(n1, n2, n3, pl1, pl2, pl3, ies_2, ies_3, il_add_2, il_add_3, nq2, nq3, w2, w3, b1, b2, b3, mat, rhs_1):
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -104,7 +104,7 @@ def kernel_PI21(n1, n2, n3, pl1, pl2, pl3, ies_2, ies_3, il_add_2, il_add_3, nq2
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI22(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_3, il_add_1, il_add_3, nq1, nq3, w1, w3, b1, b2, b3, mat, rhs_2):
+def kernel_pi2_2(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_3, il_add_1, il_add_3, nq1, nq3, w1, w3, b1, b2, b3, mat, rhs_2):
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -125,7 +125,7 @@ def kernel_PI22(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_3, il_add_1, il_add_3, nq1
 #==============================================================================================================================
 @external_call
 @types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_PI23(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_2, il_add_1, il_add_2, nq1, nq2, w1, w2, b1, b2, b3, mat, rhs_3):
+def kernel_pi2_3(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_2, il_add_1, il_add_2, nq1, nq2, w1, w2, b1, b2, b3, mat, rhs_3):
 
     for ie1 in range(n1):
         for ie2 in range(n2):

@@ -1,39 +1,15 @@
-import numpy             as np
-import matplotlib.pyplot as plt
-import bsplines          as bsp
-import Bspline           as bspline
+import numpy                as np
+import matplotlib.pyplot    as plt
+import bsplines             as bsp
+import Bspline              as bspline
 
-import ECHO_fields
-import ECHO_pusher
-import ECHO_accumulation
+import STRUPHY_fields       as pic_fields
+import STRUPHY_pusher       as pic_pusher
+import STRUPHY_accumulation as pic_accumu
 
 import time
 
-test_case = 'accumulation_step1'
-
-
-#====================================================================================
-#  calling epyccel for particle pusher
-#====================================================================================
-from pyccel.epyccel import epyccel
-
-if (test_case == 'fields-B') or (test_case == 'fields-U'):
-
-    pic        = epyccel(ECHO_fields, accelerator='openmp')
-    
-elif (test_case == 'pusher_step3') or (test_case == 'pusher_step4') or (test_case == 'pusher_step5'):
-    
-    pic_fields = epyccel(ECHO_fields, accelerator='openmp')
-    pic_pusher = epyccel(ECHO_pusher, accelerator='openmp')
-    
-elif (test_case == 'accumulation_step1') or (test_case == 'accumulation_step3'):
-    
-    pic_fields = epyccel(ECHO_fields      , accelerator='openmp')
-    pic_accumu = epyccel(ECHO_accumulation, accelerator='openmp')
-    
-
-print('pyccelization done!')
-#====================================================================================
+test_case = 'fields-B'
 
 
 
@@ -110,17 +86,17 @@ if test_case == 'fields-B':
     B_part = np.empty((Np, 3), dtype=float, order='F')
 
     timea = time.time()
-    pic.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
     timeb = time.time()
     
     print('time : ', timeb - timea)
     
 elif test_case == 'fields-U':
     print('-------------fields-U------------------')
-    U_part          = np.empty((Np, 3), dtype=float, order='F')
+    U_part = np.empty((Np, 3), dtype=float, order='F')
 
     timea = time.time()
-    pic.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
+    pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
     timeb = time.time()
     print('time : ', timeb - timea)
 
@@ -129,8 +105,8 @@ elif test_case == 'fields-U':
 elif test_case == 'pusher_step3':
     print('-------------pusher-step3------------------')
     
-    B_part          = np.empty((Np, 3), dtype=float, order='F')
-    U_part          = np.empty((Np, 3), dtype=float, order='F')
+    B_part = np.empty((Np, 3), dtype=float, order='F')
+    U_part = np.empty((Np, 3), dtype=float, order='F')
     
     timea = time.time()
     pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
@@ -153,7 +129,7 @@ elif test_case == 'pusher_step4':
 elif test_case == 'pusher_step5':
     print('-------------pusher-step5------------------')
     
-    B_part          = np.empty((Np, 3), dtype=float, order='F')
+    B_part = np.empty((Np, 3), dtype=float, order='F')
     
     timea = time.time()
     pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
@@ -165,11 +141,11 @@ elif test_case == 'pusher_step5':
 elif test_case == 'accumulation_step1':
     print('-------------accumulation-step1------------------')
     
-    B_part         = np.empty((Np, 3), dtype=float, order='F')
+    B_part = np.empty((Np, 3), dtype=float, order='F')
     
-    mat12          = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
-    mat13          = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
-    mat23          = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat12  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat13  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat23  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
     
     timea = time.time()
     pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)

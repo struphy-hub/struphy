@@ -1,21 +1,15 @@
 import numpy        as np
 import scipy.sparse as spa
 
-import utilitis_FEEC.bsplines     as bsp
-import utilitis_FEEC.kernels_mass as ker
-import utilitis_FEEC.evaluation   as eva
+import utilitis_FEEC.bsplines              as bsp
+import utilitis_FEEC.kernels_mass          as ker
+import utilitis_FEEC.evaluation            as eva
 import utilitis_FEEC.spline_mappings_polar as splmap
 
 
-#================================================= calling epyccel for acceleration ===========================================
-from pyccel import epyccel
-ker = epyccel(ker)
-#==============================================================================================================================
 
 
-
-
-#================================================= mass matrix in V0 (1d) =====================================================
+# ================================================ mass matrix in V0 (1d) ====================================================
 def mass_1d_NN(T, p, bc):
     
     
@@ -52,12 +46,12 @@ def mass_1d_NN(T, p, bc):
     M.eliminate_zeros()
                 
     return M    
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
-#================================================= mass matrix in V0/V1 (1d DN) (1d) ==========================================
+# =============================================== mass matrix in V0/V1 (1d DN) (1d) ==========================================
 def mass_1d_DN(T, p, bc):
     
     t                = T[1:-1]
@@ -97,12 +91,12 @@ def mass_1d_DN(T, p, bc):
     M.eliminate_zeros()
                 
     return M
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
-#================================================= mass matrix in V0/V1 (1d ND) (1d) ==========================================
+# =============================================== mass matrix in V0/V1 (1d ND) (1d) ==========================================
 def mass_1d_ND(T, p, bc):
     
     t                = T[1:-1]
@@ -143,12 +137,12 @@ def mass_1d_ND(T, p, bc):
     M.eliminate_zeros()
                 
     return M
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
-#================================================= mass matrix in V1 (1d) =====================================================
+# ================================================ mass matrix in V1 (1d) ====================================================
 def mass_1d_DD(T, p, bc):
     
     t                = T[1:-1]
@@ -188,13 +182,13 @@ def mass_1d_DD(T, p, bc):
     M.eliminate_zeros()
                 
     return M
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
 
-#================================================= mass matrix in V0 (2d) =====================================================
+# ================================================ mass matrix in V0 (2d) ====================================================
 def mass_V0_2d(T, p, bc, mapping):
     
     el_b       = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
@@ -230,11 +224,11 @@ def mass_V0_2d(T, p, bc, mapping):
     M0.eliminate_zeros()
                 
     return M0
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
-#================================================= mass matrix in V1 (2d) =====================================================
+# ================================================ mass matrix in V1 (2d) ====================================================
 def mass_V1_2d_curl(T, p, bc, mapping):
     '''
     Corresponds to the sequence grad --> curl
@@ -304,14 +298,14 @@ def mass_V1_2d_curl(T, p, bc, mapping):
     M1 = spa.bmat([[M1[0], M1[1].T], [M1[1], M1[2]]], format='csr')
             
     return M1
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
 
-#================================================= mass matrix in V0 (3d) =====================================================
-def mass_V0(T, p, bc, g_sqrt):
+# ================================================ mass matrix in V0 (3d) ====================================================
+def mass_V0_3d(T, p, bc, g_sqrt):
     
     el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
     Nel       = [len(el_b) - 1 for el_b in el_b]
@@ -330,7 +324,7 @@ def mass_V0(T, p, bc, g_sqrt):
                                   
     mat_map   = np.asfortranarray(g_sqrt(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 0, 0, 0, 0, 0, 0, quad[0][1], quad[1][1], quad[2][1], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], M0, mat_map)
+    ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 0, 0, 0, 0, 0, 0, quad[0][1], quad[1][1], quad[2][1], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], M0, mat_map)
                 
     indices   = np.indices((NbaseN[0], NbaseN[1], NbaseN[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
     
@@ -348,14 +342,14 @@ def mass_V0(T, p, bc, g_sqrt):
     M0.eliminate_zeros()
                 
     return M0
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
 
-#================================================= mass matrix in V1 (3d) =====================================================
-def mass_V1(T, p, bc, Ginv, g_sqrt):
+# ================================================ mass matrix in V1 (3d) ====================================================
+def mass_V1_3d(T, p, bc, Ginv, g_sqrt):
     
     t         = [T[1:-1] for T in T]
     
@@ -400,7 +394,7 @@ def mass_V1(T, p, bc, Ginv, g_sqrt):
             bi1, bi2, bi3 = basis[a]
             bj1, bj2, bj3 = basis[b]
             
-            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_map)
+            ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_map)
             
             indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
             
@@ -424,7 +418,7 @@ def mass_V1(T, p, bc, Ginv, g_sqrt):
     M1 = spa.bmat([[M1[0], M1[1].T, M1[3].T], [M1[1], M1[2], M1[4].T], [M1[3], M1[4], M1[5]]], format='csr')
             
     return M1
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
@@ -432,8 +426,8 @@ def mass_V1(T, p, bc, Ginv, g_sqrt):
 
 
 
-#================================================= mass matrix in V2 (3d) =====================================================
-def mass_V2(T, p, bc, G, g_sqrt):
+# ================================================ mass matrix in V2 (3d) ====================================================
+def mass_V2_3d(T, p, bc, G, g_sqrt):
     
     t         = [T[1:-1] for T in T]
     
@@ -478,7 +472,7 @@ def mass_V2(T, p, bc, G, g_sqrt):
             bi1, bi2, bi3 = basis[a]
             bj1, bj2, bj3 = basis[b]
             
-            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M2[counter], mat_map)
+            ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M2[counter], mat_map)
             
             indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
             
@@ -502,14 +496,14 @@ def mass_V2(T, p, bc, G, g_sqrt):
     M2 = spa.bmat([[M2[0], M2[1].T, M2[3].T], [M2[1], M2[2], M2[4].T], [M2[3], M2[4], M2[5]]], format='csr')
             
     return M2
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
 
-#================================================= mass matrix in V3 (3d) =====================================================
-def mass_V3(T, p, bc, g_sqrt):
+# ================================================ mass matrix in V3 (3d) ====================================================
+def mass_V3_3d(T, p, bc, g_sqrt):
     
     t         = [T[1:-1] for T in T]
     
@@ -531,7 +525,7 @@ def mass_V3(T, p, bc, g_sqrt):
     
     mat_map   = np.asfortranarray(1/g_sqrt(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 1, 1, 1, 1, 1, 1, quad[0][1], quad[1][1], quad[2][1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], M3, mat_map)
+    ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 1, 1, 1, 1, 1, 1, quad[0][1], quad[1][1], quad[2][1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], M3, mat_map)
                 
     indices   = np.indices((NbaseD[0], NbaseD[1], NbaseD[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
     
@@ -549,12 +543,12 @@ def mass_V3(T, p, bc, g_sqrt):
     M3.eliminate_zeros()
                 
     return M3
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
-#================================================= inner product in V0 (2d) ===================================================
+# ================================================ inner product in V0 (2d) ==================================================
 def inner_prod_V0_2d(T, p, bc, mapping, fun):
     
     el_b       = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
@@ -579,11 +573,11 @@ def inner_prod_V0_2d(T, p, bc, mapping, fun):
     ker.kernel_inner_2d(Nel[0], Nel[1], p[0], p[1], p[0] + 1, p[1] + 1, 0, 0, quad[0][1], quad[1][1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], F0, mat_f, mat_map)
                 
     return F0
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
-#================================================= inner product in V1 (2d) ===================================================
+# ================================================ inner product in V1 (2d) ==================================================
 def inner_prod_V1_2d_curl(T, p, bc, mapping, fun):
     '''
     Corresponds to the sequence grad --> curl
@@ -634,15 +628,15 @@ def inner_prod_V1_2d_curl(T, p, bc, mapping, fun):
             counter += 1
             
     return F1
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
 
 
 
-#================================================= inner product in V0 (3d) ===================================================
-def inner_prod_V0(T, p, bc, g_sqrt, fun):
+# ================================================ inner product in V0 (3d) ==================================================
+def inner_prod_V0_3d(T, p, bc, g_sqrt, fun):
     
     el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
     Nel       = [len(el_b) - 1 for el_b in el_b]
@@ -662,17 +656,17 @@ def inner_prod_V0(T, p, bc, g_sqrt, fun):
     mat_f     = np.asfortranarray(fun(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     mat_map   = np.asfortranarray(g_sqrt(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 0, 0, 0, quad[0][1], quad[1][1], quad[2][1], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], F0, mat_f, mat_map)
+    ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 0, 0, 0, quad[0][1], quad[1][1], quad[2][1], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], F0, mat_f, mat_map)
                 
     return F0
-#==============================================================================================================================
+# ============================================================================================================================
                                   
                                   
                                   
 
             
-#================================================= inner product in V1 (3d) ===================================================
-def inner_prod_V1(T, p, bc, Ginv, g_sqrt, fun):
+# =============================================== inner product in V1 (3d) ===================================================
+def inner_prod_V1_3d(T, p, bc, Ginv, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
     
@@ -709,16 +703,16 @@ def inner_prod_V1(T, p, bc, Ginv, g_sqrt, fun):
             
             mat_f   = np.asfortranarray(fun[b](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
             
-            ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F1[a], mat_f, mat_map)
+            ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F1[a], mat_f, mat_map)
             
     return F1
-#==============================================================================================================================
+# ============================================================================================================================
             
             
 
 
-#================================================= inner product in V2 (3d) ===================================================
-def inner_prod_V2(T, p, bc, G, g_sqrt, fun):
+# =============================================== inner product in V2 (3d) ===================================================
+def inner_prod_V2_3d(T, p, bc, G, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
     
@@ -755,16 +749,16 @@ def inner_prod_V2(T, p, bc, G, g_sqrt, fun):
             
             mat_f   = np.asfortranarray(fun[b](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
             
-            ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F2[a], mat_f, mat_map)
+            ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F2[a], mat_f, mat_map)
             
     return F2
-#==============================================================================================================================
+# ============================================================================================================================
             
             
 
         
-#================================================= inner product in V3 (3d) ===================================================
-def inner_prod_V3(T, p, bc, g_sqrt, fun):
+# =============================================== inner product in V3 (3d) ===================================================
+def inner_prod_V3_3d(T, p, bc, g_sqrt, fun):
     
     t         = [T[1:-1] for T in T]
     
@@ -787,10 +781,10 @@ def inner_prod_V3(T, p, bc, g_sqrt, fun):
     mat_f     = np.asfortranarray(fun(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     mat_map   = np.asfortranarray(1/g_sqrt(quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 1, 1, 1, quad[0][1], quad[1][1], quad[2][1], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], F3, mat_f, mat_map)
+    ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, 1, 1, 1, quad[0][1], quad[1][1], quad[2][1], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], F3, mat_f, mat_map)
                 
     return F3
-#==============================================================================================================================        
+# ============================================================================================================================        
         
     
 # ================================================= L2 error in V0 (2d) ======================================================
@@ -816,7 +810,7 @@ def L2_error_V0_2d(coeff, T, p, bc, mapping, fun):
     mat_f      = np.asfortranarray(fun(quad_mesh[0], quad_mesh[1]))
     coeff      = np.asfortranarray(coeff)
     
-    ker.kernel_L2error_V0_2d(Nel[0], Nel[1], p[0], p[1], p[0] + 1, p[1] + 1, quad[0][1], quad[1][1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], error, mat_f, coeff, mat_map)
+    ker.kernel_l2error_v0_2d(Nel[0], Nel[1], p[0], p[1], p[0] + 1, p[1] + 1, quad[0][1], quad[1][1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], error, mat_f, coeff, mat_map)
                                   
     error      = np.sqrt(error.sum())
                 
@@ -825,8 +819,8 @@ def L2_error_V0_2d(coeff, T, p, bc, mapping, fun):
         
             
 
-#================================================= L2 error in V0 (3d) ========================================================
-def L2_error_V0(coeff, T, p, bc, g_sqrt, fun):
+# =============================================== L2 error in V0 (3d) ========================================================
+def L2_error_V0_3d(coeff, T, p, bc, g_sqrt, fun):
     
     
     el_b               = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
@@ -855,16 +849,16 @@ def L2_error_V0(coeff, T, p, bc, g_sqrt, fun):
     mat_g              = np.asfortranarray(g_sqrt(quad[0], quad[1], quad[2]))
     coeff              = np.asfortranarray(coeff)
     
-    ker.kernel_L2error_V0(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], Nbase[0], Nbase[1], Nbase[2], error, mat_f, coeff, mat_g)
+    ker.kernel_l2error_v0_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], Nbase[0], Nbase[1], Nbase[2], error, mat_f, coeff, mat_g)
                                   
     error = np.sqrt(error.sum())
                 
     return error
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
-#====================================== inner product in V1 (3d) of equilibrium Hall term =====================================
+# ==================================== inner product in V1 (3d) of equilibrium Hall term =====================================
 def inner_prod_V1_jh0(T, p, bc, Ginv, DFinv, g_sqrt, b1, b2, b3, Beq, jheq):
     '''
     jheq = [jheq_x, jheq_y, jheq_z] on physical domain!!
@@ -923,14 +917,14 @@ def inner_prod_V1_jh0(T, p, bc, Ginv, DFinv, g_sqrt, b1, b2, b3, Beq, jheq):
             elif b == 2:
                 mat_f = np.asfortranarray(B1*(DFinv[1][0](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[0] + DFinv[1][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[1] + DFinv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[2]) - B2*(DFinv[0][0](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[0] + DFinv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[1] + DFinv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*jheq[2]))
             
-            ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F1[a], mat_f, mat_map)
+            ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F1[a], mat_f, mat_map)
             
     return F1
-#==============================================================================================================================
+# ============================================================================================================================
 
 
 
-#================================== mass matrix in V1 (3d) of equilibrium charge density ======================================
+# ================================ mass matrix in V1 (3d) of equilibrium charge density ======================================
 def mass_V1_nh0(T, p, bc, Ginv, b1, b2, b3, Beq, nh0):
     '''
     nh0 on logical domain!!
@@ -997,7 +991,7 @@ def mass_V1_nh0(T, p, bc, Ginv, b1, b2, b3, Beq, nh0):
             bi1, bi2, bi3 = basis[a]
             bj1, bj2, bj3 = basis[b]
             
-            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_f)
+            ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_f)
             
             indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
             
@@ -1021,4 +1015,4 @@ def mass_V1_nh0(T, p, bc, Ginv, b1, b2, b3, Beq, nh0):
     M1 = spa.bmat([[None, -M1[0].T, -M1[1].T], [M1[0], None, -M1[2].T], [M1[1], M1[2], None]], format='csr')
             
     return M1
-#==============================================================================================================================
+# ============================================================================================================================

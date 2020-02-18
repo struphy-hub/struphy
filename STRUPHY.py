@@ -1,6 +1,7 @@
 import time
 start_simulation = time.time()
 
+import os
 
 import numpy             as np
 import matplotlib.pyplot as plt
@@ -15,78 +16,91 @@ import utilitis_FEEC.evaluation     as eva
 import utilitis_FEEC.mass_matrices  as mass
 import utilitis_FEEC.mappings       as maps
 
-
-import utilitis_PIC.ECHO_fields
-import utilitis_PIC.ECHO_pusher
-import utilitis_PIC.ECHO_accumulation
+import utilitis_PIC.STRUPHY_fields       as pic_fields
+import utilitis_PIC.STRUPHY_pusher       as pic_pusher
+import utilitis_PIC.STRUPHY_accumulation as pic_accumu
 
 import utilitis_PIC.sobol_seq as sobol
 import scipy.special as sp
 
 
-# ====================================================================================
-#  calling epyccel for particle pusher
-# ====================================================================================
-from pyccel.epyccel import epyccel
-
-pic_fields = epyccel(utilitis_PIC.ECHO_fields,       accelerator='openmp')
-pic_pusher = epyccel(utilitis_PIC.ECHO_pusher,       accelerator='openmp')
-pic_accumu = epyccel(utilitis_PIC.ECHO_accumulation, accelerator='openmp')
-
-print('pyccelization done!')
-# ====================================================================================
-
-
 
 # ========================================== parameters ==============================================================
-Nel = [3, 3, 20]                # mesh generation on logical domain
-bc  = [True, True, True]        # boundary conditions
-p   = [2, 2, 3]                 # spline degrees  
-L   = [1., 1., 2*np.pi/0.75]    # box lengthes of physical domain
+Nel       = [20, 3, 3]                # mesh generation on logical domain
+bc        = [True, True, True]        # boundary conditions (True: periodic, False: else)
+p         = [3, 2, 2]                 # spline degrees  
+L         = [2*np.pi/0.75, 1., 1.]    # box lengthes of physical domain
 
 
 el_b      = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                      # element boundaries
 delta     = [1/Nel for Nel in Nel]                                             # element sizes
-T         = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]  # knot vectors
-t         = [T[1:-1] for T in T]                                               # reduced knot vectors
-Nbase0    = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]                 # number of basis functions in V0
+T         = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]  # knot vectors (for N functions)
+t         = [T[1:-1] for T in T]                                               # reduced knot vectors (for D function)
+Nbase0    = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]                 # number of basis functions (N functions)
 Nbase_old = [Nel + p for Nel, p, bc in zip(Nel, p, bc)]                        # TODO delete this later
 Ntot      =  Nbase0[0]*Nbase0[1]*Nbase0[2]                                     # total number of basis functions
 
 
+time_int  = True     # do time integration?
+dt        = 0.04     # time step
+Tend      = 0.8      # simulation time
+max_time  = 60*60    # maximum runtime of program in minutes
 
-dt       = 0.04     # time step
-Tend     = 200.     # simulation time
-max_time = 60*60    # maximum runtime of program in minutes
 
 # geometry (slab geometry)
-DF      = np.array([[  L[0], 0., 0.], [0.,   L[1], 0.], [0., 0.,   L[2]]])           # Jacobian matrix
-DFinv   = np.array([[1/L[0], 0., 0.], [0., 1/L[1], 0.], [0., 0., 1/L[2]]])           # inverse Jacobian matrix
+DF        = np.array([[  L[0], 0., 0.], [0.,   L[1], 0.], [0., 0.,   L[2]]])           # Jacobian matrix
+DFinv     = np.array([[1/L[0], 0., 0.], [0., 1/L[1], 0.], [0., 0., 1/L[2]]])           # inverse Jacobian matrix
 
-G       = np.array([[  L[0]**2, 0., 0.], [0.,   L[1]**2, 0.], [0., 0.,   L[2]**2]])  # metric tensor
-Ginv    = np.array([[1/L[0]**2, 0., 0.], [0., 1/L[1]**2, 0.], [0., 0., 1/L[2]**2]])  # inverse metric tensor
+G         = np.array([[  L[0]**2, 0., 0.], [0.,   L[1]**2, 0.], [0., 0.,   L[2]**2]])  # metric tensor
+Ginv      = np.array([[1/L[0]**2, 0., 0.], [0., 1/L[1]**2, 0.], [0., 0., 1/L[2]**2]])  # inverse metric tensor
 
-g_sqrt  = L[0]*L[1]*L[2]                                                             # Jacobian determinant
+g_sqrt    = L[0]*L[1]*L[2]                                                             # Jacobian determinant
 
-mapping = maps.mappings(['slab', L[0], L[1], L[2]])                                  # object for mappings in MHD part
+mapping   = maps.mappings(['slab', L[0], L[1], L[2]])                                  # object for mappings in MHD part
 
 
 # particle parameters
-Np      = int(1e5)         # total number of particles
-vth     = 1.               # thermal velocity of particles in all directions
+Np        = int(5e5)         # total number of particles
+vth       = 1.               # thermal velocity of particles in all directions
 
-v0x     = 0.               # mean velocity of hot ions in x-direction (must be compatible with backgound field)
-v0y     = 0.               # mean velocity of hot ions in y-direction (must be compatible with backgound field)
-v0z     = 2.5              # mean velocity of hot ions in z-direction (must be compatible with backgound field)
+v0x       = 2.5              # mean velocity of hot ions in x-direction (must be compatible with backgound field)
+v0y       = 0.               # mean velocity of hot ions in y-direction (must be compatible with backgound field)
+v0z       = 0.               # mean velocity of hot ions in z-direction (must be compatible with backgound field)
 
-nuh     = 0.05             # ratio of hot/bulk equlibrium number densities 
+nuh       = 0.05             # ratio of hot/bulk equlibrium number densities 
 
-control = 1                # control variate? (0: no, 1: yes)
+control   = 0                # control variate? (0: no, 1: yes)
 
 
+loading   = 'sobol_antithetic'  # loading of initial particles ('pseudo-random': particles[:, :6] = np.random.rand(Np, 6))
+                                # loading of initial particles ('sobol': particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000))
+                                # loading of initial particles ('external': particles[:, :6] = np.load('name_of_file.npy'))
+                           
+            
+            
 # name of data file
-identifier  = 'STRUPHY_Nel=20_p=3_L=2pidk_dt=0.04_Np=1e5_vth=1.0_v0=2.5_nuh=0.05_k=0.75_amp=1e-4_CV=on_z'
+#identifier  = 'STRUPHY_Nel=20_p=3_L=2pidk_dt=0.04_Np=1e5_vth=1.0_v0=2.5_nuh=0.05_k=0.75_amp=1e-4_CV=on_x_sobol_ref'
+identifier  = 'STRUPHY_test_sobol'
 dir_results = 'results/'
+
+
+
+# Is this run a restart? If True, locate restart files
+restart = False  
+
+name_particles = 'restart_files/' + identifier + '_restart_files/' + identifier + '_restart=particles1.npy'
+name_u_coeff   = 'restart_files/' + identifier + '_restart_files/' + identifier + '_restart=u_coeff1.npy'
+name_b_coeff   = 'restart_files/' + identifier + '_restart_files/' + identifier + '_restart=b_coeff1.npy'
+name_control   = 'restart_files/' + identifier + '_restart_files/' + identifier + '_restart=CV1.npy'
+name_time_step = 'restart_files/' + identifier + '_restart_files/' + identifier + '_restart=time1.npy'
+
+
+# Create restart files at the end of the simulation? If True, name full directory where to save them
+create_restart = False
+dir_restart    = '/home/florian/Desktop/PHD/02_Projekte/hylife/restart_files/' + identifier + '_restart_files/'
+
+
+
 # =====================================================================================================================
 
 
@@ -111,12 +125,12 @@ Ueq_phys   = np.array([0., 0., 0.])     # background bulk flow (vector/1-form on
 Ueq        = DF.T.dot(Ueq_phys)         # background bulk flow (1-form on logical domain)
 
 
-Beq_phys   = np.array([0., 0., 1.])     # background magnetic field (vector/2-form on physical domain)
+Beq_phys   = np.array([1., 0., 0.])     # background magnetic field (vector/2-form on physical domain)
 Beq        = g_sqrt*DFinv.dot(Beq_phys) # background magnetic field (2-form on logical domain)
 
-B0_23      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (0.)
+B0_23      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (1.)
 B0_31      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[1][1](q1, q2, q3) * (0.)   
-B0_12      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (1.)   
+B0_12      = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (0.)   
 
 B0_hat     = [B0_23, B0_31, B0_12]
 
@@ -127,30 +141,33 @@ rho0_123   = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * (rhoeq_phys) # bac
 
 
 # ============================================== initial conditions ===================================================
-k      = 0.75  # wavenumber of initial perturbation
+kx     = 0.75  # wavenumber of initial perturbation in x - direction
+ky     = 0.    # wavenumber of initial perturbation in y - direction
+kz     = 0.    # wavenumber of initial perturbation in z - direction
+
 amp    = 1e-4  # amplitude  of initial perturbation
 
-B1_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (amp * np.sin(k * q3 *L[2]))
+B1_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[0][0](q1, q2, q3) * (0. * q1)
 B2_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[1][1](q1, q2, q3) * (0. * q1)
-B3_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (0. * q1)
+B3_ini = lambda q1, q2, q3 : mapping.g_sqrt(q1, q2, q3) * mapping.DFinv[2][2](q1, q2, q3) * (amp * np.sin(kx * q1 * L[0] + ky * q2 * L[1]))
 
 U1_ini = lambda q1, q2, q3 : mapping.DF[0][0](q1, q2, q3) * (0. * q1)  # actually DF.T !!
 U2_ini = lambda q1, q2, q3 : mapping.DF[1][1](q1, q2, q3) * (0. * q1)  # actually DF.T !!
 U3_ini = lambda q1, q2, q3 : mapping.DF[2][2](q1, q2, q3) * (0. * q1)  # actually DF.T !!
 
 
-nh0_phys = rhoeq_phys*nuh                                # hot ion number density on physical domain
-nh0      = nh0_phys*g_sqrt                               # hot ion number density on logical domain
-Eh_eq    = nh0/2*(v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
+nh0_phys = rhoeq_phys*nuh                                    # hot ion number density on physical domain
+nh0_123  = nh0_phys*g_sqrt                                   # hot ion number density on logical domain
+Eh_eq    = nh0_123/2*(v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2) # hot ion equilibrium energy
 
 # initial hot ion distribution function (3-form on logical domain)
-fh0             = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+fh0             = lambda q1, q2, q3, vx, vy, vz : nh0_123/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 
 # control variate
-control_variate = lambda q1, q2, q3, vx, vy, vz : nh0/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+control_variate = lambda q1, q2, q3, vx, vy, vz : nh0_123/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 
 # initial sampling distribution
-g_sampling      = lambda q1, q2, q3, vx, vy, vz :   1/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+g_sampling      = lambda q1, q2, q3, vx, vy, vz :       1/((np.pi)**(3/2)*vth**3)*np.exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
 # =====================================================================================================================
 
 
@@ -174,7 +191,7 @@ vec1  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
 vec2  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
 vec3  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
 
-# particles and span indices
+# particles and knot span indices
 particles = np.empty((Np, 7), dtype=float, order='F')
 spans0    = np.empty((Np, 3), dtype=int,   order='F')
 
@@ -182,7 +199,7 @@ spans0    = np.empty((Np, 3), dtype=int,   order='F')
 B_part = np.empty((Np, 3), dtype=float, order='F')
 U_part = np.empty((Np, 3), dtype=float, order='F')
 
-# energies
+# energies (bulk kinetic energy, magnetic energy, hot ion kinetic + internal energy (delta f))
 energies = np.empty(3, dtype=float)
 # =====================================================================================================================
 
@@ -213,8 +230,8 @@ W1,   W2,   W3   = MHD.projection_W(rho0_123, mapping.g_sqrt)
 TAU1, TAU2, TAU3 = MHD.projection_T(B0_hat, mapping.Ginv)
 
 # mass matrices in V1 and V2
-M1 = mass.mass_V1(T, p, bc, mapping.Ginv, mapping.g_sqrt)
-M2 = mass.mass_V2(T, p, bc, mapping.G, mapping.g_sqrt)
+M1 = mass.mass_V1_3d(T, p, bc, mapping.Ginv, mapping.g_sqrt)
+M2 = mass.mass_V2_3d(T, p, bc, mapping.G, mapping.g_sqrt)
 
 # discrete curl and div matrices
 derivatives = der.discrete_derivatives(T, p, bc)
@@ -259,9 +276,17 @@ print('assembly of constant matrices done!')
 
 
 # ================================================ create particles ====================================================
-#particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000) # quasi-random Sobol numbers between (0, 1) (skip first 1000 numbers)
-particles[:, :6] = np.random.rand(Np, 6)                 # random numbers between (0, 1)
-#particles[:, :] = np.load('test_particles.npy')         # load numbers from file
+if   loading == 'pseudo-random':
+    particles[:, :6] = np.random.rand(Np, 6)                          # pseudo-random numbers between (0, 1)
+elif loading == 'sobol_standard':
+    particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000)           # Sobol numbers between (0, 1) (skip first 1000 numbers)
+elif loading == 'sobol_antithetic':
+    particles[:int(Np/2), :6] = sobol.i4_sobol_generate(6, Np, 1000)[::2]  # Sobol numbers between (0, 1) (skip first 1000 numbers)
+    particles[int(Np/2):, :6] = 1 - particles[:int(Np/2), :6]                   # antithetic sequence
+elif loading == 'external':
+    particles[:, :6] = np.load('test_particles.npy')                  # load numbers from file
+else:
+    print('particle loading not specified')
 
 # inversion of cumulative distribution function
 particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
@@ -309,7 +334,7 @@ def update():
     AJ11A = -np.block([[np.zeros((Ntot, Ntot)), mat12.reshape(Ntot, Ntot), mat13.reshape(Ntot, Ntot)], [-mat12.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot)), mat23.reshape(Ntot, Ntot)], [-mat13.reshape(Ntot, Ntot).T, -mat23.reshape(Ntot, Ntot).T, np.zeros((Ntot, Ntot))]])/Np
     
     if control == 1:
-        AJ11A -= mass.mass_V1_nh0(T, p, bc, mapping.Ginv, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0).toarray()
+        AJ11A -= mass.mass_V1_nh0(T, p, bc, mapping.Ginv, b[0*Ntot:1*Ntot], b[1*Ntot:2*Ntot], b[2*Ntot:3*Ntot], Beq, nh0_123).toarray()
     
     u[:] = np.linalg.solve(A - dt/2*AJ11A, (A + dt/2*AJ11A).dot(u))
     
@@ -357,7 +382,7 @@ def update():
     
     particles[:, 6] = w0 - control*control_variate(particles[:, 0], particles[:, 1], particles[:, 2], particles[:, 3], particles[:, 4], particles[:, 5])/g0 
     
-    # diagnostics
+    # diagnostics (compute energies)
     energies[0] = 1/2*u.dot(A.dot(u))
     energies[1] = 1/2*b.dot(M2.dot(b))
     energies[2] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*Eh_eq
@@ -368,35 +393,76 @@ def update():
 
 
 # ========================================== time integration =========================================================
-title = dir_results + identifier + '.txt'
-file  = open(title, 'ab')
-data  = np.concatenate((energies, np.array([0.])))
-np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
-
-print('initial energies : ', energies)
-print('start time integration! (number of time steps : ' + str(int(Tend/dt)) + ')')
-time_step = 0
-
-while True:
+if time_int == True:
     
-    if (time_step*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
-        break
+    if restart == False:
+        title = dir_results + identifier + '.txt'
+        file  = open(title, 'ab')
+        data  = np.concatenate((energies, np.array([0.])))
+        np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
+
+        print('initial energies : ', energies)
         
-    if time_step%5 == 0:
-        print('time steps finished : ' + str(time_step))
-        print('energies', energies)
+        time_step = 0
+        counter   = 0
+        
+    else:
+        title = dir_results + identifier + '.txt'
+        file  = open(title, 'ab')
+        
+        particles[:, :]    = np.load(name_particles)
+        u[:]               = np.load(name_u_coeff)
+        b[:]               = np.load(name_b_coeff)
+        w0                 = np.load(name_control)[0]
+        g0                 = np.load(name_control)[1]
+        time_step, counter = np.load(name_time_step)
+        
+        spans0[:, 0] = np.floor(particles[:, 0]*Nel[0]).astype(int) + p[0]
+        spans0[:, 1] = np.floor(particles[:, 1]*Nel[1]).astype(int) + p[1]
+        spans0[:, 2] = np.floor(particles[:, 2]*Nel[2]).astype(int) + p[2]
+        
+        pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(b[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(b[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+        pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, np.asfortranarray(u[:Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[Ntot:2*Ntot].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), np.asfortranarray(u[2*Ntot:].reshape(Nbase0[0], Nbase0[1], Nbase0[2])), Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
+        
+        particles[:, 6] = w0 - control*control_variate(particles[:, 0], particles[:, 1], particles[:, 2], particles[:, 3], particles[:, 4], particles[:, 5])/g0 
+
+        
+    print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
     
-    timea = time.time()
-    update()
-    timeb = time.time()
-    
-    if time_step == 0:
-        print('time for one time step : ', timeb-timea)
-    
-    data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
-    np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
-    
-    time_step += 1
-    
-file.close()
+    while True:
+
+        if (time_step*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
+            
+            if create_restart:
+                
+                if not os.path.exists(dir_restart):
+                    os.makedirs(dir_restart)
+                
+                counter += 1
+
+                np.save(dir_restart + identifier + '_restart=particles' + str(counter), particles)
+                np.save(dir_restart + identifier + '_restart=u_coeff'   + str(counter), u)
+                np.save(dir_restart + identifier + '_restart=b_coeff'   + str(counter), b)
+                np.save(dir_restart + identifier + '_restart=CV'        + str(counter), np.vstack((w0, g0)))
+                np.save(dir_restart + identifier + '_restart=time'      + str(counter), np.array([time_step, counter]))
+            
+            break
+
+        if time_step%10 == 0:
+            print('time steps finished : ' + str(time_step))
+            print('energies : ', energies)
+
+        timea = time.time()
+        update()
+        timeb = time.time()
+
+        if time_step == 0:
+            print('time for one time step : ', timeb-timea)
+
+        data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
+        np.savetxt(file, data.reshape(1, 4), fmt = '%1.16e')
+
+        time_step += 1
+
+    file.close()
 # =====================================================================================================================

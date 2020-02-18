@@ -1,29 +1,16 @@
-import numpy             as np
-import matplotlib.pyplot as plt
-import bsplines          as bsp
+import numpy                as np
+import matplotlib.pyplot    as plt
+import bsplines             as bsp
 
-import ECHO_pusher
-import ECHO_fields
-import ECHO_accumulation
+import STRUPHY_pusher       as pic_pusher
+import STRUPHY_fields       as pic_fields
+import STRUPHY_accumulation as pic_accumu
 
 import time
 
-#====================================================================================
-#  calling epyccel for particle pusher
-#====================================================================================
-from pyccel.epyccel import epyccel
-
-pic_pusher = epyccel(ECHO_pusher, accelerator='openmp')
-pic_fields = epyccel(ECHO_fields, accelerator='openmp')
-pic_accumu = epyccel(ECHO_accumulation, accelerator='openmp')
-
-print('pyccelization done!')
-#====================================================================================
 
 
-test_case = 'B-field'
-
-
+test_case = 'accumulation_step3'
 
 
 
@@ -32,12 +19,13 @@ bc  = [True, True, True]   # boundary conditions
 p   = [2, 2, 3]            # splines degrees
 
 L   = [2., 3., 1.]         # box lengthes of physical domain
-Np  = int(100)              # number of particles
+Np  = int(100)             # number of particles
 
 el_b     = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                           # element boundaries
 T        = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]       # knot vectors
 t        = [T[1:-1] for T in T]                                                    # reduced knot vectors
 Nbase0   = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]                      # number of basis functions in V0
+delta    = [1/Nel for Nel in Nel]
 
 dt       = 0.15
 
@@ -86,65 +74,127 @@ g_sqrt = L[0]*L[1]*L[2]
 Beq    = g_sqrt*DFinv.dot(np.array([0., 0., 1.]))
 Ueq    = DF.T.dot(np.array([0.02, 0., 0.]))
 
-#=================== coefficients for pp-forms (1 - component) ======================
-if p[0] == 3:
-    d1 = 1/Nel[0]
-    pp0_1 = np.asfortranarray([[1/6, -1/(2*d1), 1/(2*d1**2), -1/(6*d1**3)], [2/3, 0., -1/d1**2, 1/(2*d1**3)], [1/6, 1/(2*d1), 1/(2*d1**2), -1/(2*d1**3)], [0., 0., 0., 1/(6*d1**3)]])
-    pp1_1 = np.asfortranarray([[1/2, -1/d1, 1/(2*d1**2)], [1/2, 1/d1, -1/d1**2], [0., 0., 1/(2*d1**2)]])/d1
-elif p[0] == 2:
-    d1 = 1/Nel[0]
-    pp0_1 = np.asfortranarray([[1/2, -1/d1, 1/(2*d1**2)], [1/2, 1/d1, -1/d1**2], [0., 0., 1/(2*d1**2)]])
-    pp1_1 = np.asfortranarray([[1., -1/d1], [0., 1/d1]])/d1
-else:
-    print('Only cubic and quadratic splines implemented!')
-#====================================================================================
 
 
+# ================ coefficients for pp-forms in interval [0, delta] (N and D) ==================
+pp0 = []
+pp1 = []
 
-#=================== coefficients for pp-forms (2 - component) ======================
-if p[1] == 3:
-    d2 = 1/Nel[1]
-    pp0_2 = np.asfortranarray([[1/6, -1/(2*d2), 1/(2*d2**2), -1/(6*d2**3)], [2/3, 0., -1/d2**2, 1/(2*d2**3)], [1/6, 1/(2*d2), 1/(2*d2**2), -1/(2*d2**3)], [0., 0., 0., 1/(6*d2**3)]])
-    pp1_2 = np.asfortranarray([[1/2, -1/d2, 1/(2*d2**2)], [1/2, 1/d2, -1/d2**2], [0., 0., 1/(2*d2**2)]])/d2
-elif p[1] == 2:
-    d2 = 1/Nel[1]
-    pp0_2 = np.asfortranarray([[1/2, -1/d2, 1/(2*d2**2)], [1/2, 1/d2, -1/d2**2], [0., 0., 1/(2*d2**2)]])
-    pp1_2 = np.asfortranarray([[1., -1/d2], [0., 1/d2]])/d2
-else:
-    print('Only cubic and quadratic splines implemented!')
-#====================================================================================
-
-
-
-#=================== coefficients for pp-forms (3 - component) ======================
-if p[2] == 3:
-    d3 = 1/Nel[2]
-    pp0_3 = np.asfortranarray([[1/6, -1/(2*d3), 1/(2*d3**2), -1/(6*d3**3)], [2/3, 0., -1/d3**2, 1/(2*d3**3)], [1/6, 1/(2*d3), 1/(2*d3**2), -1/(2*d3**3)], [0., 0., 0., 1/(6*d3**3)]])
-    pp1_3 = np.asfortranarray([[1/2, -1/d3, 1/(2*d3**2)], [1/2, 1/d3, -1/d3**2], [0., 0., 1/(2*d3**2)]])/d3
-elif p[2] == 2:
-    d3 = 1/Nel[2]
-    pp0_3 = np.asfortranarray([[1/2, -1/d3, 1/(2*d3**2)], [1/2, 1/d3, -1/d3**2], [0., 0., 1/(2*d3**2)]])
-    pp1_3 = np.asfortranarray([[1., -1/d3], [0., 1/d3]])/d3
-else:
-    print('Only cubic and quadratic splines implemented!')
-#====================================================================================
-
-
+for i in range(3):
+    if p[i] == 3:
+        pp0.append(np.asfortranarray([[1/6, -1/(2*delta[i]), 1/(2*delta[i]**2), -1/(6*delta[i]**3)], [2/3, 0., -1/delta[i]**2, 1/(2*delta[i]**3)], [1/6, 1/(2*delta[i]), 1/(2*delta[i]**2), -1/(2*delta[i]**3)], [0., 0., 0., 1/(6*delta[i]**3)]]))
+        pp1.append(np.asfortranarray([[1/2, -1/delta[i], 1/(2*delta[i]**2)], [1/2, 1/delta[i], -1/delta[i]**2], [0., 0., 1/(2*delta[i]**2)]])/delta[i])
+    elif p[i] == 2:
+        pp0.append(np.asfortranarray([[1/2, -1/delta[i], 1/(2*delta[i]**2)], [1/2, 1/delta[i], -1/delta[i]**2], [0., 0., 1/(2*delta[i]**2)]]))
+        pp1.append(np.asfortranarray([[1., -1/delta[i]], [0., 1/delta[i]]])/delta[i])
+    else:
+        print('So far only cubic and quadratic splines implemented!')
+# ==============================================================================================
 
 
 
 # test evaluate_1-form
 if test_case == 'U-field':
     timea = time.time()
-    pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0_1, pp0_2, pp0_3, pp1_1, pp1_2, pp1_3, U_part)
-    np.save('U_part_parallel', U_part)
+    pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
     timeb = time.time()
+    np.save('U_part_parallel', U_part)
     print('evaluate 1-form; time : ', timeb-timea)
     
+
 # test evaluate_2-form
 if test_case == 'B-field':
     timea = time.time()
-    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0_1, pp0_2, pp0_3, pp1_1, pp1_2, pp1_3, B_part)
-    np.save('B_part_parallel', B_part)
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
     timeb = time.time()
+    np.save('B_part_parallel', B_part)
     print('evaluate 2-form; time : ', timeb-timea)
+    
+
+# test pusher_step3
+if test_case == 'pusher_step3':
+    B_part = np.empty((Np, 3), dtype=float, order='F')
+    U_part = np.empty((Np, 3), dtype=float, order='F')
+    
+    timea = time.time()
+    pic_fields.evaluate_1form(particles[:, 0:3], p, spans0, Nbase0, Np, u1, u2, u3, Ueq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part)
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+    pic_pusher.pusher_step3(particles, L, dt, B_part, U_part)
+    timeb = time.time()
+    np.save('particles_after_push3', particles)
+    print('pusher_step3; time : ', timeb - timea)
+    
+      
+# test pusher_step4    
+if test_case == 'pusher_step4':
+    timea = time.time()
+    pic_pusher.pusher_step4(particles, L, dt)
+    timeb = time.time()
+    np.save('particles_after_push4', particles)
+    print('pusher_step4; time : ', timeb - timea)
+    
+    
+# test pusher_step5   
+if test_case == 'pusher_step5':
+    B_part = np.empty((Np, 3), dtype=float, order='F')
+    
+    timea = time.time()
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+    pic_pusher.pusher_step5(particles, L, dt, B_part)
+    timeb = time.time()
+    np.save('particles_after_push5', particles)
+    print('pusher_step5; time : ', timeb - timea)
+
+
+# test accumulation_step1   
+if test_case == 'accumulation_step1':
+    B_part = np.empty((Np, 3), dtype=float, order='F')
+    
+    mat12  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat13  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat23  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    
+    timea = time.time()
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+    pic_accumu.accumulation_step1(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat12, mat13, mat23)
+    timeb = time.time()
+    np.save('mat12_step1', mat12)
+    np.save('mat13_step1', mat13)
+    np.save('mat23_step1', mat23)
+    print('accumulation_step1; time : ', timeb - timea)
+    
+    
+# test accumulation_step3   
+if test_case == 'accumulation_step3':
+    B_part = np.empty((Np, 3), dtype=float, order='F')
+    
+    mat11  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat12  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat13  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat22  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat23  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    mat33  = np.empty((Nbase0[0], Nbase0[1], Nbase0[2], Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    
+    vec1   = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    vec2   = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    vec3   = np.empty((Nbase0[0], Nbase0[1], Nbase0[2]), dtype=float, order='F')
+    
+    
+    timea = time.time()
+    pic_fields.evaluate_2form(particles[:, 0:3], p, spans0, Nbase0, Np, b1, b2, b3, Beq, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part)
+    pic_accumu.accumulation_step3(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    timeb = time.time()
+    
+    np.save('mat11_step3', mat11)
+    np.save('mat12_step3', mat12)
+    np.save('mat13_step3', mat13)
+    
+    np.save('mat22_step3', mat22)
+    np.save('mat23_step3', mat23)
+    np.save('mat33_step3', mat33)
+    
+    np.save('vec1_step3', vec1)
+    np.save('vec2_step3', vec2)
+    np.save('vec3_step3', vec3)
+    
+    print('accumulation_step3; time : ', timeb - timea)
