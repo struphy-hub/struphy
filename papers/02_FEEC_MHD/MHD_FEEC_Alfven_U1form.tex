@@ -129,14 +129,14 @@ we get the following energy balance:
 \includegraphics[scale=0.55]{01_Figures/deRham3d_forms.pdf}
 \caption{Commuting diagram for function spaces in 3d. The upper line represents the de Rham sequence for the continuous spaces, while the lower line represents the discrete counterpart.\label{fig_diagram}}
 \end{figure}
-We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho,\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field and the hot ion current density to be 2-forms ($\mb{B},\mb{j}_\text{h}\rightarrow B^2,j^2_\text{h}$) and the pressure to be a 0-form ($p\rightarrow p^0$). The bulk velocity field, which is naturally a vector field, we choose to be a 2-form ($\tilde{\mb{U}}\rightarrow \tilde{U}^2$). Eq. (\ref{eq_continuity_linear})-(\ref{eq_pressure_linear}) can then be written as
+We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho,\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field and the hot ion current density to be 2-forms ($\mb{B},\mb{j}_\text{h}\rightarrow B^2,j^2_\text{h}$) and the pressure to be a 0-form ($p\rightarrow p^0$). The bulk velocity field, which is naturally a vector field, we choose to be a 1-form ($\tilde{\mb{U}}\rightarrow \tilde{U}^1$). Eq. (\ref{eq_continuity_linear})-(\ref{eq_pressure_linear}) can then be written as
 \begin{align}
-&\frac{\pa\tilde{\rho}^3}{\pa t}+\text{d}(i_{\lozenge U^2}\rho_\text{eq}^3)=0,\\
-(\ast\rho_\text{eq}^3)\wedge&\frac{\pa\tilde{U}^2}{\pa t}=\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge \ast i_{\lozenge\tilde{U}^2}B^2+\ast i_{\lozenge j_\text{h}^2}B^2-\ast d\tilde{p}^0,\\
-&\frac{\pa \tilde{B}^2}{\pa t}+\mr{d}(i_{\lozenge U^2}B^2_\text{eq})=0,\\
-&\frac{\pa \tilde{p}^0}{\pa t}+\ast\text{d}(p_\text{eq}^0\wedge U^2)+(\gamma-1)\ast(p_\text{eq}^0\wedge\text{d}U^2)=0,
+&\frac{\pa\tilde{\rho}^3}{\pa t}+\text{d}(i_{\# U^1}\rho_\text{eq}^3)=0,\\
+(\ast\rho_\text{eq}^3)\wedge&\frac{\pa\tilde{U}^1}{\pa t}=i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge i_{\lozenge\tilde{U}^2}B^2+i_{\lozenge j_\text{h}^2}B^2-d\tilde{p}^0,\\
+&\frac{\pa \tilde{B}^2}{\pa t}+\mr{d}(i_{\# U^1}B^2_\text{eq})=0,\\
+&\frac{\pa \tilde{p}^0}{\pa t}+\ast\text{d}\ast(p_\text{eq}^0\wedge U^1)+(\gamma-1)p_\text{eq}^0\wedge(\ast\text{d}\ast U^1)=0,
 \end{align} 
-where $\ast$ is the Hodge-star operator, $\wedge$ the wedge product, $i$ the interior product and $\lozenge$ the operator which transforms a 2-form to a vector field.
+where $\ast$ is the Hodge-star operator, $\wedge$ the wedge product, $i$ the interior product, $\#$ the sharp operator which transforms a 1-form to a vector field and $\lozenge$ the operator which transforms a 2-form to a vector field.
 
 
 
@@ -150,7 +150,7 @@ As a next step, we introduce finite element basis functions which satisfy a disc
 Assuming that we know the basis functions in each space (how this can be done with e.g. tensor-product B-splines, see Sec. ...), we express the forms in their respective bases as
 \begin{alignat}{2}
 &\tilde{p}^0(t,\boldsymbol{\xi})\approx \tilde{p}_h^0(t,\boldsymbol{\xi})=\sum_{\mathbf{i}}p_\mb{i}(t)\Lambda^0_\mb{i}(\boldsymbol{\xi}), &&\mb{p}^\top:=(p_0(t),\ldots,p_{N-1}(t))\in\mathbb{R}^N,\\
-&\tilde{U}^2(t,\boldsymbol{\xi})\approx \tilde{U}_h^2(t,\boldsymbol{\xi})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}(t)\Lambda^2_{\mu,\mathbf{i}}(\boldsymbol{\xi})(\mathrm{d}\xi^\alpha\wedge\mr{d}\xi^\beta)_\mu, \qquad &&\mb{u}^\top:=(\mb{u}_1^\top(t),\mb{u}_2^\top(t),\mb{u}_3^\top(t))\in\mathbb{R}^{3N},\\
+&\tilde{U}^1(t,\boldsymbol{\xi})\approx \tilde{U}_h^1(t,\boldsymbol{\xi})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3u_{\mu,\mathbf{i}}(t)\Lambda^1_{\mu,\mathbf{i}}(\boldsymbol{\xi})\mathrm{d}\xi^\mu \qquad &&\mb{u}^\top:=(\mb{u}_1^\top(t),\mb{u}_2^\top(t),\mb{u}_3^\top(t))\in\mathbb{R}^{3N},\\
 &\tilde{B}^2(t,\boldsymbol{\xi})\approx \tilde{B}_h^2(t,\boldsymbol{\xi})=\sum_{\mathbf{i}}\sum_{\mu = 1}^3b_{\mu,\mathbf{i}}(t)\Lambda^2_{\mu,\mathbf{i}}(\boldsymbol{\xi})(\mathrm{d}\xi^\alpha\wedge\mr{d}\xi^\beta)_\mu, \qquad &&\mb{b}^\top:=(\mb{b}_1^\top(t),\mb{b}_2^\top(t),\mb{b}_3^\top(t))\in\mathbb{R}^{3N},\\
 &\tilde{\rho}^3(t,\boldsymbol{\xi})\approx \tilde{\rho}_h^3(t,\boldsymbol{\xi})=\sum_{\mathbf{i}}\rho_\mb{i}(t)\Lambda^3_\mb{i}(\boldsymbol{\xi})\,\text{d}\xi^1\wedge\text{d}\xi^2\wedge\text{d}\xi^3, &&\boldsymbol{\rho}^\top:=(\rho_0(t),\ldots,\rho_{N-1}(t))\in\mathbb{R}^N,
 \end{alignat}
@@ -159,9 +159,9 @@ where $\mb{i}=(i_1,i_2,i_3)$ is a multi-index representing the three coordinate 
 &\tilde{p}_h^0\leftrightarrow \tilde{p}_h=(p_0,\ldots,p_{N-1})\begin{pmatrix}
 \Lambda_0^0\\ \vdots \\ \Lambda^0_{N-1}
 \end{pmatrix}=\mb{p}^\top\boldsymbol{\Lambda}^0, && \boldsymbol{\Lambda}^0\in\mathbb{R}^N\\
-&\tilde{U}^2_h\leftrightarrow \tilde{\mb{U}}_h^\top=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\begin{pmatrix}
-\bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
-\end{pmatrix}=\mb{u}^\top\mathbb{\Lambda}^2,\qquad&&\mathbb{\Lambda}^2\in\mathbb{R}^{3N\times 3},\\
+&\tilde{U}^1_h\leftrightarrow \tilde{\mb{U}}_h^\top=(\mb{u}_1^\top,\mb{u}_2^\top,\mb{u}_3^\top)\begin{pmatrix}
+\bo{\Lambda}^1_1 &0 &0 \\ 0 &\bo{\Lambda}^1_2 &0 \\ 0 &0 &\bo{\Lambda}^1_3
+\end{pmatrix}=\mb{u}^\top\mathbb{\Lambda}^1,\qquad&&\mathbb{\Lambda}^1\in\mathbb{R}^{3N\times 3},\\
 &\tilde{B}^2_h\leftrightarrow \tilde{\mb{B}}_h^\top=(\mb{b}_1^\top,\mb{b}_2^\top,\mb{b}_3^\top)\begin{pmatrix}
 \bo{\Lambda}^2_1 &0 &0 \\ 0 &\bo{\Lambda}^2_2 &0 \\ 0 &0 &\bo{\Lambda}^2_3
 \end{pmatrix}=\mb{b}^\top\mathbb{\Lambda}^2,\qquad&&\mathbb{\Lambda}^2\in\mathbb{R}^{3N\times 3},\\
@@ -189,81 +189,83 @@ where we made use of the transformation formula
 \begin{align}
 \delta(\mb{x}-\mb{x}_k(t))=\frac{1}{\sqrt{g}}\delta(\boldsymbol{\xi}-\boldsymbol{\xi}_k(t)).
 \end{align}
-Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of $\tilde{p}_h^0$, $\tilde{U}_h^2$, $\tilde{B}_h^2$ and $\tilde{\rho}^3_h$ and the particle's positions $(\boldsymbol{\xi}_k)_{k=1,\ldots,N_\text{p}}$ and velocities $(\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
-
+Let us use these results to derive an energy conserving semi-discrete system for the finite element coefficients of $\tilde{p}_h^0$, $\tilde{U}_h^1$, $\tilde{B}_h^2$ and $\tilde{\rho}^3_h$ and the particle's positions $(\boldsymbol{\xi}_k)_{k=1,\ldots,N_\text{p}}$ and velocities $(\mb{v}_k)_{k=1,\ldots,N_\text{p}}$.
 
 \subsection{Continuity equation}
 We start with the discretization of the mass continuity equation which we shall keep in strong form. Following the diagram in Fig. \ref{fig_diagram}, we apply the projector $\Pi_3$ and use the diagram's commutativity to exchange projectors and exterior derivatives:
 \begin{align}
-&\frac{\pa(\Pi_3\tilde{\rho}^3)}{\pa t}+\Pi_3\text{d}(i_{\lozenge\tilde{U}^2}\rho^3_\text{eq})=\frac{\pa\tilde{\rho}^3_h}{\pa t}+\text{d}\Pi_2(i_{\lozenge\tilde{U}^2}\rho^3_\text{eq})=0.
+&\frac{\pa(\Pi_3\tilde{\rho}^3)}{\pa t}+\Pi_3\text{d}(i_{\#\tilde{U}^1}\rho^3_\text{eq})=\frac{\pa\tilde{\rho}^3_h}{\pa t}+\text{d}\Pi_2(i_{\#\tilde{U}^1}\rho^3_\text{eq})=0.
 \end{align}
 In terms of the components of the forms\footnote{We use the same symbol for the projectors if it returns the entire form or just its components.}, this amounts to
 \begin{align}
-&\frac{\pa\tilde{\rho}_h}{\pa t}+\hat{\nabla}\cdot\Pi_2\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}\tilde{\mb{U}}_h\right]=0,\\
-\Leftrightarrow\quad&\frac{\pa\tilde{\rho}_h}{\pa t}+\hat{\nabla}\cdot\Pi_2\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\mathbb{\Lambda}^2)^\top\right]\mb{u}=0,\\
+&\frac{\pa\tilde{\rho}_h}{\pa t}+\hat{\nabla}\cdot\Pi_2\left[\rho_\text{eq,123}G^{-1}\tilde{\mb{U}}_h\right]=0,\\
+\Leftrightarrow\quad&\frac{\pa\tilde{\rho}_h}{\pa t}+\hat{\nabla}\cdot\Pi_2\left[\rho_\text{eq,123}G^{-1}(\mathbb{\Lambda}^1)^\top\right]\mb{u}=0,\\
 \Leftrightarrow\quad&\frac{\text{d}\bo{\rho}}{\text{d} t}+\mathbb{D}\mathcal{Q}\mb{u}=0,
 \end{align}
 where we have introduced the discrete divergence matrix $\mathbb{D}\in\mathbb{R}^{N\times 3N}$ and the projection matrix $\mathcal{Q}\in\mathbb{R}^{3N\times3N}$. We shall use calligraphic symbols for tensors which are related to projections. Explicitly, we have
 \begin{align}
-\mathcal{Q}_{ij}:=\hat{\Pi}_{2,\mu}^{i_\mu}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}\Lambda^2_{j\mu}\right],\qquad i=\begin{cases}i_\mu, \quad &\mu=1\\ N+i_\mu &\mu=2\\2N+i_\mu &\mu=3\end{cases}
+\mathcal{Q}_{ij}:=\hat{\Pi}_{2,\mu}^{i_\mu}\left[\rho_\text{eq,123}G^{\mu k}\Lambda^1_{jk}\right],\qquad i=\begin{cases}i_\mu, \quad &\mu=1\\ N+i_\mu &\mu=2\\2N+i_\mu &\mu=3\end{cases}
 \end{align}
 for $\mu=\{1,2,3\}$ and $\hat{\Pi}_{2,\mu}^{i_\mu}$ selects the $i_\mu$-th coefficient of the projection on the space $V_2$ ($0\leq i_\mu\leq N-1$). If we stack these coefficients in a column vector, $\mathcal{Q}$ can be written as
 \begin{align}
 \mathcal{Q}&=\begin{pmatrix}
-\hat{\Pi}_{2,1}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_1^2)^\top\right] &0 &0 \\
-0 &\hat{\Pi}_{2,2}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_2^2)^\top\right] &0 \\
-0 &0 &\hat{\Pi}_{2,3}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_3^2)^\top\right]
-\end{pmatrix}\label{proj_matrix_p12}\\[1mm]
+\hat{\Pi}_{2,1}\left[\rho_\text{eq,123}G^{11}(\bo{\Lambda}_1^1)^\top\right] &\hat{\Pi}_{2,1}\left[\rho_\text{eq,123}G^{12}(\bo{\Lambda}_2^1)^\top\right] &\hat{\Pi}_{2,1}\left[\rho_\text{eq,123}G^{13}(\bo{\Lambda}_3^1)^\top\right] \\[1mm]
+\hat{\Pi}_{2,2}\left[\rho_\text{eq,123}G^{21}(\bo{\Lambda}_1^1)^\top\right] &\hat{\Pi}_{2,2}\left[\rho_\text{eq,123}G^{22}(\bo{\Lambda}_2^1)^\top\right] &\hat{\Pi}_{2,2}\left[\rho_\text{eq,123}G^{23}(\bo{\Lambda}_3^1)^\top\right] \\[1mm]
+\hat{\Pi}_{2,3}\left[\rho_\text{eq,123}G^{31}(\bo{\Lambda}_1^1)^\top\right] &\hat{\Pi}_{2,3}\left[\rho_\text{eq,123}G^{32}(\bo{\Lambda}_2^1)^\top\right] &\hat{\Pi}_{2,3}\left[\rho_\text{eq,123}G^{33}(\bo{\Lambda}_3^1)^\top\right]
+\end{pmatrix}\label{proj_matrix_p12}\\[2mm]
 &=\begin{pmatrix}
-\mb{c}_{1,0} &\cdots &\mb{c}_{1,N-1} &0 &\cdots &0 &0 &\cdots &0\\
-0 &\cdots &0 &\mb{c}_{2,0} &\cdots &\mb{c}_{2,N-1} &0 &\cdots &0\\
-0 &\cdots &0 &0 &\cdots &0 &\mb{c}_{3,0} &\cdots &\mb{c}_{3,N-1}\\
+\mb{c}_{11,0} &\cdots &\mb{c}_{11,N-1} &\mb{c}_{12,0} &\cdots &\mb{c}_{12,N-1} &\mb{c}_{13,0} &\cdots &\mb{c}_{13,N-1}\\[1mm]
+\mb{c}_{21,0} &\cdots &\mb{c}_{21,N-1} &\mb{c}_{22,0} &\cdots &\mb{c}_{22,N-1} &\mb{c}_{23,0} &\cdots &\mb{c}_{23,N-1}\\[1mm]
+\mb{c}_{31,0} &\cdots &\mb{c}_{31,N-1} &\mb{c}_{32,0} &\cdots &\mb{c}_{32,N-1} &\mb{c}_{33,0} &\cdots &\mb{c}_{33,N-1}
 \end{pmatrix}.
 \end{align}
-Here, e.g. $\mb{c}_{2,0}$ are the coefficients resulting from the projection of the basis function with the index 0 in the block 12 in the matrix (\ref{proj_matrix_p12}). Unfortunately, this is a dense matrix, which is problematic from a memory consumption point of view. Therefore, we just save the right-hand sides, which define a sparse matrix, and perform the final projection in every time step again. Denoting by $(\mathcal{I}_{2,1},\mathcal{I}_{2,2},\mathcal{I}_{2,3})$ the mixed interpolation-histopolation matrices and by $(\mr{vec}_{2,1}(f^2),\mr{vec}_{2,2}(f^2),\mr{vec}_{2,3}(f^2))$ the right-hand side vectors for a 2-form $f^2$, we can write
+Here, e.g. $\mb{c}_{23,0}$ are the coefficients resulting from the projection of the basis function with the index 0 in the block 23 in the matrix (\ref{proj_matrix_p12}). Unfortunately, this is a dense matrix, which is problematic from a memory consumption point of view. Therefore, we just save the right-hand sides, which define a sparse matrix, and perform the final projection in every time step again. Denoting by $(\mathcal{I}_{2,1},\mathcal{I}_{2,2},\mathcal{I}_{2,3})$ the mixed interpolation-histopolation matrices and by $(\mr{vec}_{2,1}(f^2),\mr{vec}_{2,2}(f^2),\mr{vec}_{2,3}(f^2))$ the right-hand side vectors for a 2-form $f^2$, we can write
 \begin{align}
 Q&=\begin{pmatrix}
-\mathcal{I}_{2,1}^{-1} &0 &0 \\ 0 &\mathcal{I}_{2,2}^{-1} &0 \\ 0 &0 &\mathcal{I}_{2,3}^{-1} 
+\mathcal{I}_{2,1}^{-1} &0 &0 \\[1mm] 0 &\mathcal{I}_{2,2}^{-1} &0 \\[1mm] 0 &0 &\mathcal{I}_{2,3}^{-1} 
 \end{pmatrix}
 \begin{pmatrix}
-\mr{vec}_{2,1}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_1^2)^\top\right] &0 &0 \\
-0 &\mr{vec}_{2,2}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_2^2)^\top\right] &0 \\
-0 &0 &\mr{vec}_{2,3}\left[\frac{\rho_\text{eq,123}}{\sqrt{g}}(\bo{\Lambda}_3^2)^\top\right]
-\end{pmatrix}\\ &=:\bo{\mathcal{I}}_2^{-1}\tilde{\mathcal{Q}}.
+\text{vec}_{2,1}^{11}(\mathcal{Q}) &\text{vec}_{2,1}^{12}(\mathcal{Q}) &\text{vec}_{2,1}^{13}(\mathcal{Q}) \\[1mm]
+\text{vec}_{2,1}^{21}(\mathcal{Q}) &\text{vec}_{2,1}^{22}(\mathcal{Q}) &\text{vec}_{2,1}^{23}(\mathcal{Q}) \\[1mm]
+\text{vec}_{2,1}^{31}(\mathcal{Q}) &\text{vec}_{2,1}^{32}(\mathcal{Q}) &\text{vec}_{2,1}^{33}(\mathcal{Q})
+\end{pmatrix}=:\bo{\mathcal{I}}_2^{-1}\tilde{\mathcal{Q}}.
 \end{align}
 Thus, we only precompute the matrices $\tilde{\mathcal{Q}}$ and $\mathcal{I}_2$, whose sparsity immediately from the local support of the basis functions.
 
-
 \subsection{Momentum equation}
-We choose a weak formulation for the momentum equation. Consequently, we take the inner product with a test function $C^2\in H\Lambda^2(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^2\in H\Lambda^2(\Omega)$ such that
+We choose a weak formulation for the momentum equation. Consequently, we take the inner product with a test function $C^1\in H\Lambda^1(\Omega)$ to obtain the variational formulation: Find $\tilde{U}^1\in H\Lambda^1(\Omega)$ such that
 \begin{align}
-\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)=&\left(\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^2\right)+\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)-\left(\ast\text{d}\tilde{p}^0,C^2\right)\\-&\left((\ast\rho^3_\text{h})\wedge\ast i_{\lozenge\tilde{U}^2}B^2,C^2\right)+\left(\ast i_{\lozenge j_\text{h}^2}B^2,C^2\right)\qquad\forall\;C^2\in H\Lambda^2(\Omega).
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)=&\left(i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)+\left(i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^1\right)-\left(\text{d}\tilde{p}^0,C^1\right)\\-&\left((\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^2}B^2,C^1\right)+\left(i_{\lozenge j_\text{h}^2}B^2,C^1\right)\qquad\forall\;C^1\in H\Lambda^1(\Omega).
 \end{align}
 We apply the Galerkin approximation to each term and project back into the right spaces where necessary. Let us start with the first term on the left-hand side involving the equilibrium bulk density. To achieve conservation of energy at the discrete level we make use of the fact that the wedge product with a 0-form is just a multiplication with a scalar. Hence the wedge product can as well be applied to the test function and the following equality holds:
 \begin{align}
-\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)=\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)+\frac{1}{2}\left(\frac{\pa\tilde{U}^2}{\pa t},(\ast\rho_\text{eq}^3)\wedge C^2\right).
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)=\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)+\frac{1}{2}\left(\frac{\pa\tilde{U}^1}{\pa t},(\ast\rho_\text{eq}^3)\wedge C^1\right).
 \end{align}
-Using the definition of the inner product of 2-forms involving the metric tensor $G$ yields for the first term
+Using the definition of the inner product of 1-forms involving the metric tensor $G^{-1}$ yields for the first term
 \begin{align}
-\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)&=\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\rho_\text{eq,123}\left(\frac{\pa\tilde{\mb{U}}}{\pa t}\right)^\top G\mb{C}\frac{1}{\sqrt{g}}\,\mr{d}^3\xi\\
-&\approx\int_{\hat{\Omega}}\Pi_2\left[\frac{1}{\sqrt{g}}\rho_{\text{eq},123}\left(\frac{\pa\tilde{\mb{U}}_h}{\pa t}\right)^\top\right]G \mb{C}_h\frac{1}{\sqrt{g}}\,\mr{d}^3\xi\\&=\dot{\mb{u}}^\top\mathcal{Q}^\top\underbrace{\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\,\mr{d}^3\xi}_{=:\mathbb{M}^2}\,\mb{c}=\dot{\mb{u}}^\top\mathcal{Q}^\top\mathbb{M}^2\mb{c}\quad\forall\;\mb{c}\in\mathbb{R}^{3N},
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)&=\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\rho_\text{eq,123}\left(\frac{\pa\tilde{\mb{U}}}{\pa t}\right)^\top G^{-1}\mb{C}\sqrt{g}\,\mr{d}^3\xi\\
+&\approx\int_{\hat{\Omega}}\Pi_1\left[\frac{1}{\sqrt{g}}\rho_{\text{eq},123}\left(\frac{\pa\tilde{\mb{U}}_h}{\pa t}\right)^\top\right]G^{-1} \mb{C}_h\sqrt{g}\,\mr{d}^3\xi\\&=\dot{\mb{u}}^\top\mathcal{W}^\top\underbrace{\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\mr{d}^3\xi}_{=:\mathbb{M}^1}\,\mb{c}=\dot{\mb{u}}^\top\mathcal{W}^\top\mathbb{M}^1\mb{c}\quad\forall\;\mb{c}\in\mathbb{R}^{3N},
 \end{align}
-where $\mathbb{M}^2\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space $V_2$ and the projection matrix is the same one as in the discretized continuity equation. Finally, we obtain
+where $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space $V_1$ and the projection matrix is given by
 \begin{align}
-\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^2}{\pa t},C^2\right)\approx\frac{1}{2}\mb{c}^\top\left(\mathbb{M}^2\mathcal{Q}+\mathcal{Q}^\top\mathbb{M}^2\right)\dot{\mb{u}}=:\mb{c}^\top\mathcal{A}\dot{\mb{u}},
+\mathcal{W}_{ij}=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{\rho_{\text{eq},123}}{\sqrt{g}}\Lambda^1_{j\mu}\right].
 \end{align}
-with $\mathcal{A}\in\mathbb{R}^{3N\times 3N}$ being a symmetric matrix.
+Finally, we obtain
+\begin{align}
+\left((\ast\rho_\text{eq}^3)\wedge\frac{\pa\tilde{U}^1}{\pa t},C^1\right)\approx\frac{1}{2}\mb{c}^\top\left(\mathbb{M}^1\mathcal{W}+\mathcal{W}^\top\mathbb{M}^1\right)\dot{\mb{u}}=:\mb{c}^\top\mathcal{A}\dot{\mb{u}},
+\end{align}
+with $\mathcal{A}\in\mathbb{R}^{3N\times 3N}$ being symmetric.
 
-For the first term on the right-hand side, we make use of the identities $\langle\ast i_{\lozenge\gamma^2}\alpha^2,\beta^2\rangle=\langle\alpha^2,\ast\gamma^2\wedge\ast\beta^2\rangle$ and $\ast(\ast \alpha^2\wedge\ast\beta^2)=i_{\lozenge\beta^2}\alpha^2$, such that we obtain
+For the first term on the right-hand side, we make use of the identities $\langle i_{\lozenge\gamma^2}\alpha^2,\beta^1\rangle=\langle\alpha^2,\ast\gamma^2\wedge\beta^1\rangle$ and $\ast(\ast \alpha^2\wedge\beta^1)=i_{\#\beta^1}\alpha^2$, such that we obtain
 \begin{align}
-\left(\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^2\right)=\left(\mr{d}\ast\tilde{B}^2,\ast B^2_\text{eq}\wedge \ast C^2\right)=\left(\ast\mr{d}\ast\tilde{B}^2,\ast(\ast B_\text{eq}^2\wedge \ast C^2)\right)=\left(\mr{d}^\ast\tilde{B}^2,i_{\lozenge C^2}B_\text{eq}^2\right),
+\left(i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)=\left(\mr{d}\ast\tilde{B}^2,\ast B^2_\text{eq}\wedge C^1\right)=\left(\ast\mr{d}\ast\tilde{B}^2,\ast(\ast B_\text{eq}^2\wedge C^1)\right)=\left(\mr{d}^\ast\tilde{B}^2,i_{\# C^1}B_\text{eq}^2\right),
 \end{align}
 where we introduced the co-differential operator $\mr{d}^\ast\alpha^p=(-1)^p\ast\mr{d}\ast\alpha^p$. Applying the Green formula for differential forms and assuming that the resulting boundary term vanishes yields
 \begin{align}
-\left(\ast i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^2\right)&=\left(\tilde{B}^2,\mr{d}i_{\lozenge C^2}B_\text{eq}^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\tilde{\mb{B}}^\top G\left[\hat{\nabla}\times\left(\mb{B}_\text{eq}\times \frac{1}{\sqrt{g}}\mb{C}\right)\right]\sqrt{g}\,\mr{d}^3\xi\\
-&\approx\mb{b}^\top\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3\xi\,\mathbb{C}\hat{\Pi}_1\left[\mathbb{B}_\text{eq}\frac{1}{\sqrt{g}}(\mathbb{\Lambda}^2)^\top\right]\mb{c}=\mb{b}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\mb{c}\quad\forall\,\mb{c}\in\mathbb{R}^{3N},
+\left(i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2,C^1\right)&=\left(\tilde{B}^2,\mr{d}i_{\# C^1}B_\text{eq}^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\tilde{\mb{B}}^\top G\left[\hat{\nabla}\times\left(\mb{B}_\text{eq}\times G^{-1}\mb{C}\right)\right]\sqrt{g}\,\mr{d}^3\xi\\
+&\approx\mb{b}^\top\underbrace{\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3\xi}_{=:\mathbb{M}^2}\,\mathbb{C}\hat{\Pi}_1\left[\mathbb{B}_\text{eq}G^{-1}(\mathbb{\Lambda}^1)^\top\right]\mb{c}=\mb{b}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\mb{c}\quad\forall\,\mb{c}\in\mathbb{R}^{3N},
 \end{align}
-where we introduced the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 3N}$ and we wrote the vector product of the background magnetic field with the test function in terms of a matrix-vector product by using the anti-symmetric matrix
+where we introduced the mass matrix $\mathbb{M}^2\in\mathbb{R}^{3N\times 3N}$ in the space $V_2$ and the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 3N}$. Moreover, we wrote the vector product of the background magnetic field with the test function in terms of a matrix-vector product by using the anti-symmetric matrix
 \begin{align}
 \mathbb{B}_\text{eq}:=\begin{pmatrix}
 0 &-B_{\text{eq},3} &B_{\text{eq},2} \\ B_{\text{eq},3} &0 &-B_{\text{eq},1} \\ -B_{\text{eq},2} &B_{\text{eq},1} &0
@@ -271,50 +273,46 @@ where we introduced the discrete curl matrix $\mathbb{C}\in\mathbb{R}^{3N\times 
 \end{align}
 The projection matrix $\mathcal{T}$ is given by
 \begin{align}
-\mathcal{T}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{\mathbb{B}_{\text{eq},\mu k}}{\sqrt{g}}\Lambda^2_{jk}\right]=\Pi_{1,\mu}^{i_\mu}\left[\frac{\epsilon_{\mu mn}B_{\text{eq},m}}{\sqrt{g}}\Lambda^2_{jn}\right],\qquad\mu=\{1,2,3\},
+\mathcal{T}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\mathbb{B}_{\text{eq},\mu k}G^{kl}\Lambda^1_{j,l}\right]=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\epsilon_{\mu mk}B_{\text{eq},m}G^{kl}\Lambda^1_{j,l}\right],\qquad\mu=\{1,2,3\},
 \end{align}
 which has the right-hand sides
+\small
 \begin{align}
-&\tilde{\mathcal{T}}=\begin{pmatrix}
-0 &-\mr{vec}_{1,1}\left[\frac{B_{\text{eq},3}}{\sqrt{g}}(\bo{\Lambda}^2_2)^\top\right] &\mr{vec}_{1,1}\left[\frac{B_{\text{eq},2}}{\sqrt{g}}(\bo{\Lambda}^2_3)^\top\right] \\[2mm]
-\mr{vec}_{1,2}\left[\frac{B_{\text{eq},3}}{\sqrt{g}}(\bo{\Lambda}^2_1)^\top\right] &0 &-\mr{vec}_{1,2}\left[\frac{B_{\text{eq},1}}{\sqrt{g}}(\bo{\Lambda}^2_3)^\top\right] \\[2mm]
--\mr{vec}_{1,3}\left[\frac{B_{\text{eq},2}}{\sqrt{g}}(\bo{\Lambda}^2_1)^\top\right] &\mr{vec}_{1,3}\left[\frac{B_{\text{eq},1}}{\sqrt{g}}(\bo{\Lambda}^2_2)^\top\right] &0
+\hspace{-2mm}\tilde{\mathcal{T}}=\begin{pmatrix}
+\mr{vec}_{1,1}\left[(B_{\text{eq},2}G^{31}-B_{\text{eq},3}G^{21})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},2}G^{32}-B_{\text{eq},3}G^{22})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},2}G^{33}-B_{\text{eq},3}G^{23})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,2}\left[(B_{\text{eq},3}G^{11}-B_{\text{eq},1}G^{31})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},3}G^{12}-B_{\text{eq},1}G^{32})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},3}G^{13}-B_{\text{eq},1}G^{33})(\bo{\Lambda}^1_3)^\top\right] \\[2mm]
+\mr{vec}_{1,3}\left[(B_{\text{eq},1}G^{21}-B_{\text{eq},2}G^{11})(\bo{\Lambda}^1_1)^\top, (B_{\text{eq},1}G^{22}-B_{\text{eq},2}G^{12})(\bo{\Lambda}^1_2)^\top, (B_{\text{eq},1}G^{23}-B_{\text{eq},2}G^{13})(\bo{\Lambda}^1_3)^\top\right]
 \end{pmatrix}.
 \end{align}
 \normalsize
 Performing the same steps for the second term without integration by parts yields
 \begin{align}
-\left(\ast i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^2\right)&=\left(\mr{d}\ast\tilde{B}^2,\ast i_{\lozenge C^2}B_\text{eq}^2\right)\\
-&=\int_{\hat{\Omega}}\frac{1}{g}\left[\hat{\nabla}\times\left(\frac{1}{\sqrt{g}}G\tilde{\mb{B}}\right)\right]^\top G\sqrt{g}G^{-1}\left(\mb{B}_\text{eq}\times\frac{1}{\sqrt{g}}\mb{C}\right)\sqrt{g}\,\mr{d}^3q\\
-&\approx\mb{b}^\top\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G\right]\mathbb{C}^\top\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G(\mathbb{\Lambda}^2)^\top\mr{d}^3\xi\,\hat{\Pi}_2\left[G^{-1}\mathbb{B}_\text{eq}(\mathbb{\Lambda}^2)^\top\right]\mb{c}\\
-&=\mb{b}^\top\mathcal{P}_1^\top\mathbb{C}^\top\mathbb{M}^2\mathcal{P}_2\,\mb{c}\quad\forall \,\mb{c}\in\mathbb{R}^{3N}.
+\left(i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq},C^1\right)&=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\left(\hat{\nabla}\times\frac{1}{\sqrt{g}}G\mb{B}_\text{eq}\right)\times\frac{1}{\sqrt{g}}\tilde{\mb{B}}\right]\sqrt{g}\,\mr{d}^3\xi\\
+&\hspace{-2cm}\approx\mb{c}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1 G^{-1}(\mathbb{\Lambda}^1)^\top\mr{d}^3\xi\,\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}\mathbb{B}_\text{eq}^{\nabla\times}(\mathbb{\Lambda}^2)^\top\right]\mb{b}=\mb{c}^\top\mathbb{M}^1\mathcal{P}\,\mb{b}\quad\forall \,\mb{c}\in\mathbb{R}^{3N}.
 \end{align}
-The projection matrices $\mathcal{P}_1\in\mathbb{R}^{3N\times3N}$ and $\mathcal{P}_2\in\mathbb{R}^{3N\times3N}$ are given by
+The projection matrix $\mathcal{P}\in\mathbb{R}^{3N\times3N}$ is given by
 \begin{align}
-\mathcal{P}_{1,ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{G_{\mu k}\Lambda_{jk}^2}{\sqrt{g}}\right],\qquad\mathcal{P}_{2,ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[G_{\mu l}\epsilon_{lmn}B_{\text{eq}, m}\Lambda_{jn}^2\right].
+\mathcal{P}_{ij}=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{1}{\sqrt{g}}\mathbb{B}_{\text{eq},\mu k}^{\nabla\times}\Lambda^2_{kj}\right].
 \end{align}
-As a next step, we consider the term involving the pressure gradient. Using the fact that the Hodge operator is self-adjoint in the inner product, we obtain
+As a next step, we consider the term involving the pressure gradient:
 \begin{align}
-(\ast\text{d}\tilde{p}^0,C^2)=(\text{d}\tilde{p}^0,\ast C^2)&=\int_{\hat{\Omega}}\hat{\nabla}\tilde{p}^\top\,G^{-1}\frac{1}{\sqrt{g}}G\mb{C}\sqrt{g}\,\text{d}^3\xi\\
-&\hspace{-2cm}\approx \mb{p}^\top\mathbb{G}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\,\text{d}^3\xi\,\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}G(\mathbb{\Lambda}^2)^\top\right]\mb{c}=\mb{p}^\top\mathbb{G}^\top\mathbb{M}^1\mathcal{W}\,\mb{c}\quad\forall \,\mb{c}\in\mathbb{R}^{3N},
+(\text{d}\tilde{p}^0,C^1)=(\text{d}\tilde{p}^0,C^1)&=\int_{\hat{\Omega}}\hat{\nabla}\tilde{p}^\top\,G^{-1}\mb{C}\sqrt{g}\,\text{d}^3\xi\\
+&\hspace{-2cm}\approx \mb{p}^\top\mathbb{G}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\,\text{d}^3\xi\,\mb{c}=\mb{p}^\top\mathbb{G}^\top\mathbb{M}^1\mb{c}\quad\forall \,\mb{c}\in\mathbb{R}^{3N},
 \end{align}
-where $\mathbb{G}\in\mathbb{R}^{3N\times N}$ being the discrete gradient matrix, $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ the mass matrix in the space $V_1$ and $\mathcal{W}\in\mathbb{R}^{3N\times3N}$ is defined as
-\begin{align}
-\mathcal{W}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[\frac{1}{\sqrt{g}}G_{\mu k}\Lambda_{jk}^2\right].
-\end{align}
+with $\mathbb{G}\in\mathbb{R}^{3N\times N}$ being the discrete gradient matrix.
 The term involving the hot ion charge density must be computed from the particle-in-cell approximation of the hot ion distribution function. Hence we can generally make use of a control variate $M_0$ for variance reduction:
 \begin{align}
-&\left((\ast\rho^3_\text{h})\wedge(\ast i_{\lozenge\tilde{U}^2}B^2),C^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top G\sqrt{g}G^{-1}\left(\mathring{\rho_\mr{h}}\mb{B}\times \frac{1}{\sqrt{g}}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\ 
-=&\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top \left[\int(\mathring{f}_\mr{h}^0-\mathring{M}_0)\,\mr{d}^3v\,\mb{B}\times\tilde{\mb{U}}\right]\sqrt{g}\,\mr{d}^3\xi+\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top\left(\int \mathring{M}_0\,\mr{d}^3v\,\mb{B}\times\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\
-=&\int_{\hat{\Omega}}\int\left\lbrace\frac{1}{g}\mb{C}^\top\left[\left(\frac{f_\mr{h}^0-M_0}{g_\text{h}}\right)\,\mb{B}\times\tilde{\mb{U}}\right]\right\rbrace g_\text{h}\,\mr{d}^3v\,\mr{d}^3\xi+\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mb{C}^\top\left(\mathring{\rho}_{\text{h0}}\,\mb{B}\times\tilde{\mb{U}}\right)\,\mr{d}^3\xi.
+&\left((\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2,C^1\right)=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\mathring{\rho_\mr{h}}\mb{B}\times G^{-1}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\ 
+=&\int_{\hat{\Omega}}\mb{C}^\top G^{-1} \left[\int(\mathring{f}_\mr{h}^0-\mathring{M}_0)\,\mr{d}^3v\,\mb{B}\times G^{-1}\tilde{\mb{U}}\right]\sqrt{g}\,\mr{d}^3\xi+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\int \mathring{M}_0\,\mr{d}^3v\,\mb{B}\times G^{-1}\tilde{\mb{U}}\right)\sqrt{g}\,\mr{d}^3\xi\\
+=&\int_{\hat{\Omega}}\int\left\lbrace\mb{C}^\top G^{-1}\left[\left(\frac{f_\mr{h}^0-M_0}{g_\text{h}}\right)\,\mb{B}\times G^{-1}\tilde{\mb{U}}\right]\right\rbrace g_\text{h}\,\mr{d}^3v\,\mr{d}^3\xi+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\mathring{\rho}_{\text{h0}}\,\mb{B}\times G^{-1}\tilde{\mb{U}}\right)\,\mr{d}^3\xi.
 \end{align}
 In the last line we introduced the probability density $g_\text{h}$ which satisfies the Vlasov equation and which is normalized to one. This allows us interpret the expression in the curly brackets of the first term as a random variable and we can write down the Monte Carlo estimate 
 \begin{align}
-&\left((\ast\rho^3_\text{h})\wedge(\ast i_{\lozenge\tilde{U}^2}B^2),C^2\right)\\
-\approx &\sum_k\underbrace{\frac{1}{N_k}\left(\frac{f_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}{g_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}-\frac{M_0(\boldsymbol{\xi_k},\mb{v}_k)}{g_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}\right)}_{=:w_k(t)}\frac{1}{g(\boldsymbol{\xi}_k)}\mb{C}_h^\top(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times\tilde{\mb{U}}_h(\boldsymbol{\xi}_k))\\
-&\hspace{8cm}+\mb{c}^\top\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2\mathring{\rho}_{\text{h0}}\,\mathbb{B}(\mathbb{\Lambda}^2)^\top\,\mr{d}^3\xi\,\mb{u}\\
-= &\sum_k \frac{1}{g(\boldsymbol{\xi}_k)} w_k\mb{C}_h^\top(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times\tilde{\mb{U}}_h(\boldsymbol{\xi}_k))+\mb{c}^\top \mathbb{X}\mb{u}\\
-=&\,\,\mb{c}^\top\mathbb{P}^2\bar{\mathbb{g}}^{-1}\mathbb{W}\bar{\mathbb{B}}\mathbb{P}^{2\top}\mb{u}+\mb{c}^\top \mathbb{X}(\mb{b})\mb{u},
+&\left((\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2,C^1\right)\\
+\approx &\sum_k\underbrace{\frac{1}{N_k}\left(\frac{f_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}{g_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}-\frac{M_0(\boldsymbol{\xi_k},\mb{v}_k)}{g_\mr{h}^0(\boldsymbol{\xi}_k^0,\mb{v}_k^0)}\right)}_{=:w_k(t)}\mb{C}_h^\top(\boldsymbol{\xi}) G^{-1}(\bo{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times G^{-1}(\bo{\xi}_k)\tilde{\mb{U}}_h(\boldsymbol{\xi}_k))\\
+&\hspace{8cm}+\mb{c}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1\mathring{\rho}_{\text{h0}}\,\mathbb{B}(\mathbb{\Lambda}^1)^\top\,\mr{d}^3\xi\,\mb{u}\\
+= &\sum_k w_k\mb{C}_h^\top(\boldsymbol{\xi}_k) G^{-1}(\bo{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times G^{-1}(\bo{\xi}_k)\tilde{\mb{U}}_h(\boldsymbol{\xi}_k))+\mb{c}^\top \mathbb{X}(\mb{b})\mb{u}\\
+=&\,\,\mb{c}^\top\mathbb{P}^1\mathbb{W}\bar{G}^{-1}\bar{\mathbb{B}}\bar{G}^{-1}\mathbb{P}^{1\top}\mb{u}+\mb{c}^\top \mathbb{X}(\mb{b})\mb{u},
 \end{align}
 where both terms are clearly anti-symmetric because $\mathbb{B}$ is anti-symmetric. In the last line we introduced the anti-symmetric block matrix $\bar{\mathbb{B}}\in\mathbb{R}^{3N_\text{p}\times3N_\text{p}}$ given by
 \begin{align}
@@ -324,37 +322,38 @@ where both terms are clearly anti-symmetric because $\mathbb{B}$ is anti-symmetr
 -\text{diag}[\mathbb{P}^{2\top}_2(\boldsymbol{\Xi})\mb{b}_2] &\text{diag}[\mathbb{P}^{2\top}_1(\boldsymbol{\Xi})\mb{b}_1] &0
 \end{pmatrix}+\bar{\mathbb{B}}_\text{eq}(\mb{\Xi}),
 \end{align}
-where $N_\text{p}$ is the number of particles and $\boldsymbol{\Xi}\in\mathbb{R}^{3N_\text{p}}$ is a vector holding all particle positions. Moreover,
+where $N_\text{p}$ is the number of particles and $\boldsymbol{\Xi}\in\mathbb{R}^{3N_\text{p}}$ is a vector holding all particle positions. Moreover, we define the following matrices:
 \begin{itemize}
-\item $\mathbb{P}^2_{\mu,ik}=\Lambda^2_{\mu,i}(\boldsymbol{\xi}_k)\in\mathbb{R}^{N\times N_p}$,
-\item $\mathbb{P}^2=\text{diag}(\mathbb{P}^2_1,\,\mathbb{P}^2_2,\,\mathbb{P}^2_3)\in\mathbb{R}^{3N\times3N_\text{p}}$,
-\item $\mathbb{g}^{-1}=\mathbb{I}_3\otimes\text{diag}(1/g(\boldsymbol{\xi}_1),\ldots,1/g(\boldsymbol{\xi}_{N_\text{p}}))\in\mathbb{R}^{3N_\text{p}\times3N_\text{p}}$,
-\item $\mathbb{W}=\mathbb{I}_3\otimes\text{diag}(w_1,\ldots,w_{N_\text{p}})\in\mathbb{R}^{3N_\text{p}\times3N_\text{p}}$.
+\item $\mathbb{P}^1_{\mu,ik}=\Lambda^1_{\mu,i}(\boldsymbol{\xi}_k)\in\mathbb{R}^{N\times N_p}$,\qquad\qquad\qquad $\mathbb{P}^2_{\mu,ik}=\Lambda^2_{\mu,i}(\boldsymbol{\xi}_k)\in\mathbb{R}^{N\times N_p}$,
+\item $\mathbb{P}^1=\text{diag}(\mathbb{P}^1_1,\,\mathbb{P}^1_2,\,\mathbb{P}^1_3)\in\mathbb{R}^{3N\times3N_\text{p}}$,\hspace{-1.5mm}\qquad\quad$\mathbb{P}^2=\text{diag}(\mathbb{P}^2_1,\,\mathbb{P}^2_2,\,\mathbb{P}^2_3)\in\mathbb{R}^{3N\times3N_\text{p}}$
+\item $\mathbb{W}=\mathbb{I}_3\otimes\text{diag}(w_1,\ldots,w_{N_\text{p}})\in\mathbb{R}^{3N_\text{p}\times3N_\text{p}}$,
+\item $(\bar{G}^{-1})_{ab}=\text{diag}\left[(G^{-1})_{ab}(\boldsymbol{\Xi})\right]$\quad $1\leq a,b\leq3$
+\item $(\bar{DF}^{-1})_{ab}=\text{diag}\left[(DF^{-1})_{ab}(\boldsymbol{\Xi})\right]$\quad $1\leq a,b\leq3$
 \end{itemize}
 A similar procedure for the term involving the hot ion current density yields
 \begin{align}
-&\left(\ast i_{\lozenge j_\mr{h}^2}B^2,C^2\right)=\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top G\sqrt{g}G^{-1}\left(\mb{B}\times \frac{1}{\sqrt{g}}\mb{j}_\mr{h}\right)\sqrt{g}\,\mr{d}^3\xi\\
-=&\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top\sqrt{g}\left[\mb{B}\times DF^{-1}\int (\mathring{f}_\mr{h}-\mathring{M}_0)\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3\xi\\
-&\qquad\qquad+\int_{\hat{\Omega}}\frac{1}{g}\mb{C}^\top \sqrt{g}\left[\mb{B}\times DF^{-1}\int \mathring{M}_0\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3\xi\\
-=&\int_{\hat{\Omega}}\int\frac{1}{\sqrt{g}}\mb{C}^\top\left[\mb{B}\times DF^{-1}\left(\frac{f_\mr{h}-M_0}{g_\mr{h}}\right)\mb{v}\right]g_\mr{h}\,\mr{d}^3v\,\mr{d}^3\xi+\int_{\hat{\Omega}}\mb{C}^\top\left[\mb{B}\times DF^{-1}\mathring{\mb{j}}_{\text{h0}}\right]\,\mr{d}^3\xi\\
-\approx&\sum_k\frac{1}{\sqrt{g(\boldsymbol{\xi}_k)}}w_k\mb{C}^\top_h(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times DF^{-1}(\boldsymbol{\xi}_k)\mb{v}_k)+\mb{c}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^2\left(\mb{B}_h\times DF^{-1}\mathring{\mb{j}}_\mr{h0}\right)\,\mr{d}^3\xi\\
-=&\,\,\mb{c}^\top\mathbb{P}^2\mathbb{g}^{-1/2}\mathbb{W}\bar{\mathbb{B}}\bar{DF}^{-1}\mb{V}+\mb{c}^\top\mb{x}(\mb{b})\quad\forall\,\mb{c}\in\mathbb{R}^{3N}.
+&\left(i_{\lozenge j_\mr{h}^2}B^2,C^1\right)=\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left(\mb{B}\times \frac{1}{\sqrt{g}}\mb{j}_\mr{h}\right)\sqrt{g}\,\mr{d}^3\xi\\
+=&\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\mb{B}\times DF^{-1}\int (\mathring{f}_\mr{h}-\mathring{M}_0)\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3\xi\\
+&\hspace{5cm}+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\mb{B}\times DF^{-1}\int \mathring{M}_0\mb{v}\,\mr{d}^3v\right]\sqrt{g}\,\mr{d}^3\xi\\
+=&\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\mb{B}\times DF^{-1}\left(\frac{f_\mr{h}-M_0}{g_\mr{h}}\right)\mb{v}\right]g_\mr{h}\,\mr{d}^3v\,\mr{d}^3\xi+\int_{\hat{\Omega}}\mb{C}^\top G^{-1}\left[\mb{B}\times DF^{-1}\mathring{\mb{j}}_{\text{h0}}\right]\sqrt{g}\,\mr{d}^3\xi\\
+\approx&\sum_k w_k\mb{C}^\top_h(\boldsymbol{\xi}_k)\bar{G}^{-1}(\bo{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times DF^{-1}(\boldsymbol{\xi}_k)\mb{v}_k)+\mb{c}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1\left(\mb{B}_h\times DF^{-1}\mathring{\mb{j}}_\mr{h0}\right)\sqrt{g}\,\mr{d}^3\xi\\
+=&\,\,\mb{c}^\top\mathbb{P}^1\mathbb{W}\bar{G}^{-1}\bar{\mathbb{B}}\bar{DF}^{-1}\mb{V}+\mb{c}^\top\mb{x}(\mb{b})\quad\forall\,\mb{c}\in\mathbb{R}^{3N}.
 \end{align}
-Here, $\mb{V}=(v_{1x},\ldots,v_{N_\text{p}x},v_{1y},\ldots,v_{N_\text{p}y},v_{1z},\ldots,v_{N_\text{p}z})\in\mathbb{R}^{3N_\text{p}}$ is the vector holding all particle velocities and the block matrix $(\bar{DF}^{-1})_{ab}=\text{diag}\left[(DF^{-1})_{ab}(\boldsymbol{\Xi})\right]$ ($1\leq a,b\leq3$). The second term can be computed numerically for some given magnetic field. In total we get the following semi-discrete momentum balance equation:
+Here, $\mb{V}=(v_{1x},\ldots,v_{N_\text{p}x},v_{1y},\ldots,v_{N_\text{p}y},v_{1z},\ldots,v_{N_\text{p}z})\in\mathbb{R}^{3N_\text{p}}$ is the vector holding all particle velocities. The second term is just the right-hand side of the $L^2$-projection in the space $V_1$ of the function inside the round brackets and can be computed numerically for some given magnetic field. In total we get the following semi-discrete momentum balance equation:
 \begin{align}
-\mathcal{A}\dot{\mb{u}}=\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}+\mathcal{P}_2^\top\mathbb{M}^2\mathbb{C}\mathcal{P}_1\mb{b}-\mathcal{W}^\top\mathbb{M}^1\mathbb{G}\mb{p}-\mathbb{P}^2\bar{\mathbb{g}}^{-1}\mathbb{W}\bar{\mathbb{B}}\mathbb{P}^{2\top}\mb{u}-\mathbb{X}\mb{u}+\mathbb{P}^2\bar{\mathbb{g}}^{-1/2}\mathbb{W}\bar{\mathbb{B}}\bar{DF}^{-1}\mb{V}+\mb{x}.
+\mathcal{A}\dot{\mb{u}}=\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}+\mathbb{M}^1\mathcal{P}\mb{b}-\mathbb{M}^1\mathbb{G}\mb{p}-\mathbb{P}^1\mathbb{W}\bar{G}^{-1}\bar{\mathbb{B}}\bar{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\mathbb{X}\mb{u}+\mathbb{P}^1\mathbb{W}\bar{G}^{-1}\bar{\mathbb{B}}\bar{DF}^{-1}\mb{V}+\mb{x}.
 \end{align}
-Not that recovering the full-$f$ case just means choosing the control variate $\mathcal{M}_0=0$ which results in $\mathbb{X}=\mb{x}=0$.
+Note that recovering the full-$f$ case just means choosing the control variate $\mathcal{M}_0=0$ which results in $\mathbb{X}=0$ and $\mb{x}=0$.
  
 \subsection{Induction equation}
 Like the mass continuity equation, we keep the induction equation in strong form. Hence we apply the projector $\Pi_2$ and once more use the diagram's commutativity to exchange projectors and exterior derivatives:
 \begin{align}
-\frac{\pa(\Pi_2\tilde{B}^2)}{\pa t}+\Pi_2\text{d}(i_{\lozenge U^2}B_\text{eq}^2)=\frac{\pa(\Pi_2\tilde{B}^2)}{\pa t}+\text{d}\Pi_1(i_{\lozenge U^2}B_\text{eq}^2).
+\frac{\pa(\Pi_2\tilde{B}^2)}{\pa t}+\Pi_2\text{d}(i_{\# U^1}B_\text{eq}^2)=\frac{\pa(\Pi_2\tilde{B}^2)}{\pa t}+\text{d}\Pi_1(i_{\# U^1}B_\text{eq}^2).
 \end{align}
 In terms of the components of the forms, this amounts to
 \begin{align}
-&\frac{\pa \tilde{\mb{B}}_h}{\pa t}+\hat{\nabla}\times\Pi_1\left[\mb{B}_\text{eq}\times\frac{1}{\sqrt{g}}\tilde{\mb{U}}_h\right]=0\\
-\Leftrightarrow\quad&\frac{\pa \tilde{\mb{B}}_h}{\pa t}+\hat{\nabla}\times\Pi_1\left[\mathbb{B}_\text{eq}\frac{1}{\sqrt{g}}(\mathbb{\Lambda}^2)^\top\right]\mb{u}=0\\
+&\frac{\pa \tilde{\mb{B}}_h}{\pa t}+\hat{\nabla}\times\Pi_1\left[\mb{B}_\text{eq}\times G^{-1}\tilde{\mb{U}}_h\right]=0\\
+\Leftrightarrow\quad&\frac{\pa \tilde{\mb{B}}_h}{\pa t}+\hat{\nabla}\times\Pi_1\left[\mathbb{B}_\text{eq}G^{-1}(\mathbb{\Lambda}^1)^\top\right]\mb{u}=0\\
 \Leftrightarrow\quad &\frac{\text{d}\mb{b}}{\text{d} t}+\mathbb{C}\mathcal{T}\mb{u}=0.
 \end{align}
 We immediately see that we obtain the same projection matrix $\mathcal{T}$ as for the Hall term in the momentum equation.
@@ -362,54 +361,55 @@ We immediately see that we obtain the same projection matrix $\mathcal{T}$ as fo
 \subsection{Pressure equation}
 We once more choose a weak formulation for the pressure equation. Hence we take the inner product with a test function $r^0\in H\Lambda^0(\Omega)$ which yields the variational formulation: find $\tilde{p}^0\in H\Lambda^0(\Omega)$ such that
 \begin{align}
-&\left(\frac{\pa\tilde{p}^0}{\pa t},r^0\right)-(\text{d}^\ast(p_\text{eq}^0\wedge\ast\tilde{U}^2),r^0)-(\gamma-1)(\text{d}^\ast(\ast\tilde{U}^2),p^0_\text{eq}\wedge r^0)=0\quad\forall\,r^0\in H\Lambda^0(\Omega)\\
-\Leftrightarrow\quad&\left(\frac{\pa\tilde{p}^0}{\pa t},r^0\right)-(p_\text{eq}^0\wedge\ast\tilde{U}^2,\text{d}r^0)-(\gamma-1)(\ast\tilde{U}^2,\text{d}(p^0_\text{eq}\wedge r^0))=0\quad\forall\,r^0\in H\Lambda^0(\Omega),
+&\left(\frac{\pa\tilde{p}^0}{\pa t},r^0\right)-(\text{d}^\ast(p_\text{eq}^0\wedge\tilde{U}^1),r^0)-(\gamma-1)(\text{d}^\ast\tilde{U}^1,p^0_\text{eq}\wedge r^0)=0\quad\forall\,r^0\in H\Lambda^0(\Omega)\\
+\Leftrightarrow\quad&\left(\frac{\pa\tilde{p}^0}{\pa t},r^0\right)-(p_\text{eq}^0\wedge\tilde{U}^1,\text{d}r^0)-(\gamma-1)(\tilde{U}^1,\text{d}(p^0_\text{eq}\wedge r^0))=0\quad\forall\,r^0\in H\Lambda^0(\Omega),
 \end{align}
 if we again assume all boundary terms to vanish. For the first term we simply get
 \begin{align}
 \left(\frac{\pa\tilde{p}^0}{\pa t},r^0\right)=\int_{\hat{\Omega}}\frac{\pa\tilde{p}}{\pa t}r\sqrt{g}\text{d}^3\xi\approx\dot{\mb{p}}^\top\underbrace{\int_{\hat{\Omega}}\boldsymbol{\Lambda}^0(\boldsymbol{\Lambda}^0)^\top\sqrt{g}\,\text{d}^3\xi}_{=:\mathbb{M}^0}\mb{r}=\dot{\mb{p}}^\top\mathbb{M}^0\mb{r}\quad\forall\,\mb{r}\in\mathbb{R}^N,
 \end{align}
-where $\mathbb{M}^0\in\mathbb{R}^{N\times N}$ is the mass matrix in the space $V_0$. The second term amount to
+where $\mathbb{M}^0\in\mathbb{R}^{N\times N}$ is the mass matrix in the space $V_0$. The second term amounts to
 \begin{align}
-(p_\text{eq}^0\wedge\ast\tilde{U}^2,\text{d}r^0)&=\int_{\hat{\Omega}}p_\text{eq}\frac{1}{\sqrt{g}}(G\tilde{\mb{U}})^\top G^{-1}\hat{\nabla}r\sqrt{g}\,\text{d}^3\xi\\
-&=\mb{u}^\top\hat{\Pi}_1\left[\frac{p_\text{eq}}{\sqrt{g}}\mathbb{\Lambda}^2G\right]\underbrace{\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\text{d}^3\xi}_{=:\mathbb{M}^1}\,\mathbb{G}\mb{r}=\mb{u}^\top\mathcal{S}^\top\mathbb{M}^1\mathbb{G}\mb{r}\quad\forall\,\mb{r}\in\mathbb{R}^N,
+(p_\text{eq}^0\wedge\tilde{U}^1,\text{d}r^0)&=\int_{\hat{\Omega}}p_\text{eq}\tilde{\mb{U}}^\top G^{-1}\hat{\nabla}r\sqrt{g}\,\text{d}^3\xi\\
+&=\mb{u}^\top\hat{\Pi}_1\left[p_\text{eq}\mathbb{\Lambda}^1\right]\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\text{d}^3\xi\,\mathbb{G}\mb{r}=\mb{u}^\top\mathcal{S}^\top\mathbb{M}^1\mathbb{G}\mb{r}\quad\forall\,\mb{r}\in\mathbb{R}^N,
 \end{align} 
-where $\mathbb{M}^1\in\mathbb{R}^{3N\times 3N}$ is the mass matrix in the space $V_1$, $\mathbb{G}\in\mathbb{R}^{3N\times N}$ is the discrete gradient matrix and the projection matrix $\mathcal{S}\in\mathbb{R}^{3N\times 3N}$ is defined as
+where the projection matrix $\mathcal{S}\in\mathbb{R}^{3N\times 3N}$ is defined as
 \begin{align}
-\mathcal{S}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[p_\text{eq}\frac{G_{\mu k}\Lambda_{jk}^2}{\sqrt{g}}\right].
+\mathcal{S}_{ij}:=\hat{\Pi}_{1,\mu}^{i_\mu}\left[p_\text{eq}\Lambda_{j\mu}^1\right].
 \end{align}
-Finally, the third term yields
+Finally, we obtain for the last term
 \begin{align}
-(\ast\tilde{U}^2,\text{d}(p^0_\text{eq}\wedge r^0))&=\int_{\hat{\Omega}}\frac{1}{\sqrt{g}}(G\tilde{\mb{U}})^\top G^{-1}\hat{\nabla}(p_\text{eq}r)\sqrt{g}\,\text{d}^3\xi\\
-&=\mb{u}^\top\hat{\Pi}_1\left[\frac{1}{\sqrt{g}}\mathbb{\Lambda}^2G\right]\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\text{d}^3\xi\,\mathbb{G}\,\hat{\Pi}_0\left[p_\text{eq}(\boldsymbol{\Lambda}^0)^\top\right]\mb{r}\\
-&=\mb{u}^\top\mathcal{W}^\top\mathbb{M}^1\mathbb{G}\mathcal{K}\mb{r}\quad\forall\,\mb{r}\in\mathbb{R}^N.
+(\tilde{U}^1,\text{d}(p^0_\text{eq}\wedge r^0))&=\int_{\hat{\Omega}}\tilde{\mb{U}}^\top G^{-1}\hat{\nabla}(p_\text{eq}r)\sqrt{g}\,\text{d}^3\xi\\
+&=\mb{u}^\top\int_{\hat{\Omega}}\mathbb{\Lambda}^1G^{-1}(\mathbb{\Lambda}^1)^\top\sqrt{g}\,\text{d}^3\xi\,\mathbb{G}\,\hat{\Pi}_0\left[p_\text{eq}(\boldsymbol{\Lambda}^0)^\top\right]\mb{r}\\
+&=\mb{u}^\top\mathbb{M}^1\mathbb{G}\mathcal{K}\mb{r}\quad\forall\,\mb{r}\in\mathbb{R}^N.
 \end{align} 
-The projection matrix $\mathcal{W}$ already appeared in the momentum equation, while the new projection matrix $\mathcal{K}\in\mathbb{R}^{N\times N}$ is given by
+The new projection matrix $\mathcal{K}\in\mathbb{R}^{N\times N}$ is given by
 \begin{align}
 \mathcal{K}_{ij}:=\hat{\Pi}_0^i\left[p_\text{eq}\Lambda^0_j\right].
 \end{align}
 Summing up all terms yields the following semi-discrete pressure equation:
 \begin{align}
-&\dot{\mb{p}}^\top\mathbb{M}^0\mb{r}-\mb{u}^\top\mathcal{S}^\top\mathbb{M}^1\mathbb{G}\mb{r}-(\gamma - 1)\mb{u}^\top\mathcal{W}^\top\mathbb{M}^1\mathbb{G}\mathcal{K}\mb{r}=0\quad\forall\,\mb{r}\in\mathbb{R}^N\\
-\Leftrightarrow\quad &\mathbb{M}^0\dot{\mb{p}}=\mathbb{G}^\top\mathbb{M}^1\mathcal{S}\mb{u}+(\gamma-1)\mathcal{K}^\top\mathbb{G}^\top\mathbb{M}^1\mathcal{W}\mb{u}.
+&\dot{\mb{p}}^\top\mathbb{M}^0\mb{r}-\mb{u}^\top\mathcal{S}^\top\mathbb{M}^1\mathbb{G}\mb{r}-(\gamma - 1)\mb{u}^\top\mathbb{M}^1\mathbb{G}\mathcal{K}\mb{r}=0\quad\forall\,\mb{r}\in\mathbb{R}^N\\
+\Leftrightarrow\quad &\mathbb{M}^0\dot{\mb{p}}=\mathbb{G}^\top\mathbb{M}^1\mathcal{S}\mb{u}+(\gamma-1)\mathcal{K}^\top\mathbb{G}^\top\mathbb{M}^1\mb{u}.
 \end{align}
+
 \subsection{Particles' equation of motion}
-As a last step, we derive the equations of motion for a single particle with logical coordinate $\mb{\xi}_k$ and physical velocity $\mb{v}_k$. For the latter, we have to transform the forms $B^2$ and $\tilde{U}^2$ to physical coordinates:
+As a last step, we derive the equations of motion for a single particle with logical coordinate $\mb{\xi}_k$ and physical velocity $\mb{v}_k$. For the latter, we have to transform the forms $B^2$ and $\tilde{U}^1$ to physical coordinates:
 \begin{align}
-\frac{\mr{d}\boldsymbol{\xi}_k}{\mr{d}t}&=DF^{-1}(\boldsymbol{\xi}_k)\mb{v}_k,\\
-\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{1}{\sqrt{g(\boldsymbol{\xi}_k)}}DF(\boldsymbol{\xi}_k)\mb{B}_h(\boldsymbol{\xi}_k)\times\frac{1}{\sqrt{g(\boldsymbol{\xi}_k)}}DF(\boldsymbol{\xi}_k)\tilde{\mb{U}}_h(\boldsymbol{\xi}_k)-\frac{1}{\sqrt{g(\boldsymbol{\xi}_k)}}DF(\boldsymbol{\xi}_k)\mb{B}_h(\boldsymbol{\xi}_k)\times\mb{v}_k\\
-&=\frac{1}{\sqrt{g(\boldsymbol{\xi}_k)}}DF^{-\top}(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times \tilde{\mb{U}}_h(\boldsymbol{\xi}_k))-DF^{-\top}(\boldsymbol{\xi}_k)(\mb{B}_h(\boldsymbol{\xi}_k)\times DF^{-1}(\boldsymbol{\xi}_k)\mb{v}_k),
+\frac{\mr{d}\bo{\xi}_k}{\mr{d}t}&=DF^{-1}(\bo{\xi}_k)\mb{v}_k,\\
+\frac{\mr{d}\mb{v}_k}{\mr{d}t}&=\frac{1}{\sqrt{g(\bo{\xi}_k)}}DF(\bo{\xi}_k)\mb{B}_h(\bo{\xi}_k)\times DF^{-\top}(\bo{\xi}_k)\tilde{\mb{U}}_h(\bo{\xi}_k)-\frac{1}{\sqrt{g(\bo{\xi}_k)}}DF(\bo{\xi}_k)\mb{B}_h(\bo{\xi}_k)\times\mb{v}_k.\\
+&=DF^{-\top}(\bo{\xi}_k)(\mb{B}_h(\bo{\xi}_k)\times G^{-1}(\bo{\xi}_k)\mb{U}_h(\bo{\xi}_k))-DF^{-\top}(\bo{\xi}_k)(\mb{B}_h(\bo{\xi}_k)\times DF^{-1}(\bo{\xi}_k)\mb{v}_k),
 \end{align}
-where we used the identity $A\mb{b}\times A\mb{c}=\det(A)A^{-\top}(\mb{b}\times\mb{c})$. Writing the above equation of motion in matrix-vector form for all particles yields
+where we used the identity $A\mb{b}\times A\mb{c}=\det(A)A^{-\top}(\mb{b}\times\mb{c})$ from vector calculus. Writing the above equation of motion in matrix-vector form for all particles yields
 \begin{align}
-&\frac{\mr{d}\boldsymbol{\Xi}}{\mr{d}t}=\tilde{DF}^{-1}\mb{V},\\
-&\frac{\mr{d}\mb{V}}{\mr{d}t}=\mathbb{g}^{-1/2}\tilde{DF}^{-\top}\mathbb{B}\mathbb{P}^{2\top}\mb{u}-\tilde{DF}^{-\top}\mathbb{B}\tilde{DF}^{-1}\mb{V}.
+&\frac{\mr{d}\bo{\Xi}}{\mr{d}t}=\bar{DF}^{-1}\mb{V},\\
+&\frac{\mr{d}\mb{V}}{\mr{d}t}=\bar{DF}^{-\top}\bar{\mathbb{B}}\bar{G}^{-1}\mathbb{P}^{1\top}\mb{u}-\bar{DF}^{-\top}\bar{\mathbb{B}}\bar{DF}^{-1}\mb{V}.
 \end{align}
 
 \subsection{Hamiltonian system}
 Let us try to write the semi-discrete system of equation in Hamiltonian form. For this, we define the discrete Hamiltonian
 \begin{align}
-\mathcal{H}_h:=&\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\tilde{U}_h^2,\tilde{U}_h^2\right)+\frac{1}{2}(\tilde{B}_h^2,\tilde{B}_h^2)+\frac{1}{\gamma-1}(\tilde{p}^0,1)+\frac{1}{2}\int_{\hat{\Omega}}\epsilon_{\text{h},123}\,\text{d}^3\xi\\
+\mathcal{H}_h:=\,\,&\frac{1}{2}\left((\ast\rho_\text{eq}^3)\wedge\tilde{U}_h^1,\tilde{U}_h^1\right)+\frac{1}{2}(\tilde{B}_h^2,\tilde{B}_h^2)+\frac{1}{\gamma-1}(\tilde{p}^0,1)+\frac{1}{2}\int_{\hat{\Omega}}\epsilon_{\text{h},123}\,\text{d}^3\xi\\
 =&\frac{1}{2}\mb{u}^\top\mathcal{A}\mb{u}+\frac{1}{2}\mb{b}^\top\mathbb{M}^2\mb{b}+\frac{1}{\gamma-1}\mb{p}^\top\mb{n}+\frac{1}{2}\mb{V}^\top\mathbb{W}\mb{V}+\epsilon_{\text{h}0}:=\mathcal{H}_{h1}+\frac{1}{\gamma-1}\mb{p}^\top\mb{n}+\epsilon_{\text{h}0}.
 \end{align}
 With this we can write the semi-discrete system in the following form:
@@ -434,24 +434,26 @@ With this we can write the semi-discrete system in the following form:
 \end{pmatrix}\\[2mm]
 &+\begin{pmatrix}
 -\mathbb{D}\mathcal{Q}\mb{u} \\
-\mathcal{A}^{-1}\mathcal{P}_2^\top\mathbb{M}^2\mathbb{C}\mathbb{P}_1\mb{b}-\mathcal{A}^{-1}\mathcal{W}^\top\mathbb{M}^1\mathbb{G}\mb{p}-\mathcal{A}^{-1}\mathbb{X}\mb{u}+\mathcal{A}^{-1}\mb{x}\\
+\mathcal{A}^{-1}\mathbb{M}^1\mathcal{P}\mb{b}-\mathcal{A}^{-1}\mathbb{M}^1\mathbb{G}\mb{p}-\mathcal{A}^{-1}\mathbb{X}\mb{u}+\mathcal{A}^{-1}\mb{x}\\
 0\\
-(\mathbb{M}^0)^{-1}\mathbb{G}\top\mathbb{M}^1\mathcal{S}\mb{u}+(\gamma-1)\mathcal{K}^\top\mathbb{G}^\top\mathbb{M}^1\mathcal{W}\mb{u}\\
+(\mathbb{M}^0)^{-1}\mathbb{G}^\top\mathbb{M}^1\mathcal{S}\mb{u}+(\gamma-1)(\mathbb{M}^0)^{-1}\mathcal{K}^\top\mathbb{G}^\top\mathbb{M}^1\mb{u}\\
 0\\
 0
 \end{pmatrix}.
 \end{align}
 We see that we can write the system as the sum of a non-canonical Hamiltonian part with the Hamiltonian $\mathcal{H}_{h1}$ and an additional non-Hamiltonian part. The latter vanishes if we you use the full-$f$ description, if $\nabla\times\mb{B}_\text{eq}=0$ and if there are no pressure and density perturbations. The blocks in the Poisson matrix are given by 
 \begin{align}
-&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\mb{Q})}=-\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\mathbb{W}\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{G}^{-1}(\mb{Q})\mathbb{P}_1^\top(\mb{Q})\mathcal{A}^{-1},\\
+&\textcolor{red}{\mathbb{J}_{11}(\mb{b},\bo{\Xi})}=-\mathcal{A}^{-1}\mathbb{P}^1(\bo{\Xi})\mathbb{W}\bar{G}^{-1}(\bo{\Xi})\bar{\mathbb{B}}(\mb{b},\bo{\Xi})\bar{G}^{-1}(\bo{\Xi})\mathbb{P}^{1\top}(\bo{\Xi})\mathcal{A}^{-1},\\
 &\textcolor{blue}{\mathbb{J}_{12}}=\mathcal{A}^{-1}\mathcal{T}^\top\mathbb{C}^\top,\\
-&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\mb{Q})}=\mathcal{A}^{-1}\mathbb{P}_1(\mb{Q})\tilde{G}^{-1}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q}),\\
-&\textcolor{magenta}{\mathbb{J}_{34}(\mb{Q})}=\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1},\\
-&\mathbb{J}_{44}(\mb{Q})=-\tilde{DF}^{-\top}(\mb{Q})\hat{\mathbb{B}}(\mb{b},\mb{Q})\tilde{DF}^{-1}(\mb{Q})\mathbb{W}^{-1}.
+&\textcolor{green}{\mathbb{J}_{14}(\mb{b},\bo{\Xi})}=\mathcal{A}^{-1}\mathbb{P}^1(\bo{\Xi})\tilde{G}^{-1}(\bo{\Xi})\bar{\mathbb{B}}(\mb{b},\bo{\Xi})\tilde{DF}^{-1}(\bo{\Xi}),\\
+&\textcolor{magenta}{\mathbb{J}_{34}(\bo{\Xi})}=\bar{DF}^{-1}(\bo{\Xi})\mathbb{W}^{-1},\\
+&\mathbb{J}_{44}(\mb{b},\bo{\Xi})=-\tilde{DF}^{-\top}(\bo{\Xi})\bar{\mathbb{B}}(\mb{b},\bo{\Xi})\tilde{DF}^{-1}(\bo{\Xi})\mathbb{W}^{-1}.
 \end{align}
+We now turn our attention to the integration of this system in time.
+
 
 \section{Time integration}
-\subsection{Poisson splitting}
+\subsection{Poisson splitting for Hamiltonian part}
 We split the Poisson matrix into antisymmetric sub-systems such that each sub-system again defines a Hamiltonian system
 \begin{align}
 &\frac{\mr{d}}{\mr{d}t}\begin{pmatrix}

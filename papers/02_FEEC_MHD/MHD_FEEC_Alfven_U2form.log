@@ -1,9 +1,9 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  20 FEB 2020 16:34
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2018.10.12)  21 FEB 2020 09:27
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**"MHD_FEEC_Alfven _2form.tex"
-(./MHD_FEEC_Alfven _2form.tex
+**MHD_FEEC_Alfven_U2form.tex
+(./MHD_FEEC_Alfven_U2form.tex
 LaTeX2e <2016/02/01>
 Babel <3.9q> and hyphenation patterns for 81 language(s) loaded.
 (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
@@ -1526,8 +1526,8 @@ Package: framed 2011/10/22 v 0.96: framed or shaded text with page breaks
 \xwm@cnta=\count280
 \xwm@wrt=\write4
 
-(./MHD_FEEC_Alfven _2form.xwm)
-\openout4 = `"MHD_FEEC_Alfven _2form.xwm"'.
+(./MHD_FEEC_Alfven_U2form.xwm)
+\openout4 = `MHD_FEEC_Alfven_U2form.xwm'.
 
 )
 (/usr/share/texlive/texmf-dist/tex/latex/lipsum/lipsum.sty
@@ -1597,8 +1597,8 @@ Package: abstract 2009/06/08 v1.2a configurable abstracts
 Package: mathbbol 1995/01/01
 \symbbold=\mathgroup7
 )
-(./MHD_FEEC_Alfven _2form.aux)
-\openout1 = `"MHD_FEEC_Alfven _2form.aux"'.
+(./MHD_FEEC_Alfven_U2form.aux)
+\openout1 = `MHD_FEEC_Alfven_U2form.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 87.
 LaTeX Font Info:    ... okay on input line 87.
@@ -1686,9 +1686,9 @@ LaTeX Info: Redefining \ref on input line 87.
 LaTeX Info: Redefining \pageref on input line 87.
 LaTeX Info: Redefining \nameref on input line 87.
 
-(./MHD_FEEC_Alfven _2form.out) (./MHD_FEEC_Alfven _2form.out)
+(./MHD_FEEC_Alfven_U2form.out) (./MHD_FEEC_Alfven_U2form.out)
 \@outlinefile=\write5
-\openout5 = `"MHD_FEEC_Alfven _2form.out"'.
+\openout5 = `MHD_FEEC_Alfven_U2form.out'.
 
 LaTeX Info: Redefining \[ on input line 87.
 LaTeX Info: Redefining \] on input line 87.
@@ -1778,22 +1778,22 @@ pdfTeX warning: pdflatex (file ./01_Figures/L-wave.pdf): PDF inclusion: multipl
 e pdfs with page group included in a single page
 >]
 Package atveryend Info: Executing hook `AfterLastShipout' on input line 660.
- (./MHD_FEEC_Alfven _2form.xwm) (./MHD_FEEC_Alfven _2form.aux)
+ (./MHD_FEEC_Alfven_U2form.xwm) (./MHD_FEEC_Alfven_U2form.aux)
 Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 660.
 Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 660.
-Package rerunfilecheck Info: File `"MHD_FEEC_Alfven _2form".out' has not change
-d.
+Package rerunfilecheck Info: File `MHD_FEEC_Alfven_U2form.out' has not changed.
+
 (rerunfilecheck)             Checksum: 7D5549B7A86FFF3920A3E17143D946FC;713.
 Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 660.
  ) 
 Here is how much of TeX's memory you used:
  34217 strings out of 493029
- 656860 string characters out of 6136233
- 854238 words of memory out of 5000000
+ 656858 string characters out of 6136233
+ 854208 words of memory out of 5000000
  36976 multiletter control sequences out of 15000+600000
  61409 words of font info for 153 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 53i,24n,58p,10396b,841s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 53i,24n,58p,10394b,841s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold10.pfb></u
 sr/share/texlive/texmf-dist/fonts/type1/public/bbold-type1/bbold7.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbsy10.pfb></usr/share/te
@@ -1817,7 +1817,7 @@ amsfonts/cm/cmsy6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfont
 s/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cm
 ti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/msa
 m10.pfb>
-Output written on "MHD_FEEC_Alfven _2form.pdf" (15 pages, 449495 bytes).
+Output written on MHD_FEEC_Alfven_U2form.pdf (15 pages, 449495 bytes).
 PDF statistics:
  491 PDF objects out of 1000 (max. 8388607)
  434 compressed objects within 5 object streams
