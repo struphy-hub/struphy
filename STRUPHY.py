@@ -19,6 +19,7 @@ import utilitis_FEEC.mappings       as maps
 import utilitis_PIC.STRUPHY_fields       as pic_fields
 import utilitis_PIC.STRUPHY_pusher       as pic_pusher
 import utilitis_PIC.STRUPHY_accumulation as pic_accumu
+import utilitis_PIC.STRUPHY_sampling     as pic_sample
 
 import utilitis_PIC.sobol_seq as sobol
 import scipy.special as sp
@@ -26,7 +27,7 @@ import scipy.special as sp
 
 
 # ========================================== parameters ==============================================================
-Nel       = [20, 3, 3]                # mesh generation on logical domain
+Nel       = [16, 3, 3]                # mesh generation on logical domain
 bc        = [True, True, True]        # boundary conditions (True: periodic, False: else)
 p         = [3, 2, 2]                 # spline degrees  
 L         = [2*np.pi/0.75, 1., 1.]    # box lengthes of physical domain
@@ -60,7 +61,7 @@ mapping   = maps.mappings(['slab', L[0], L[1], L[2]])                           
 
 
 # particle parameters
-Np        = int(5e5)         # total number of particles
+Np        = 102400           # total number of particles
 vth       = 1.               # thermal velocity of particles in all directions
 
 v0x       = 2.5              # mean velocity of hot ions in x-direction (must be compatible with backgound field)
@@ -72,15 +73,16 @@ nuh       = 0.05             # ratio of hot/bulk equlibrium number densities
 control   = 0                # control variate? (0: no, 1: yes)
 
 
-loading   = 'sobol_antithetic'  # loading of initial particles ('pseudo-random': particles[:, :6] = np.random.rand(Np, 6))
-                                # loading of initial particles ('sobol': particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000))
-                                # loading of initial particles ('external': particles[:, :6] = np.load('name_of_file.npy'))
+loading   = 'sobol_antithetic'  # particle loading ('pseudo-random': particles[:, :6] = np.random.rand(Np, 6))
+                                # particle loading ('sobol_standard': particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000))
+                                # particle loading ('sobol_antithetic': pic_sample.set_particles_symmetric(sobol.i4_sobol_generate(6, int(Np/64), 1000), particles)  
+                                # particle loading ('external': particles[:, :6] = np.load('name_of_file.npy'))
                            
             
             
 # name of data file
 #identifier  = 'STRUPHY_Nel=20_p=3_L=2pidk_dt=0.04_Np=1e5_vth=1.0_v0=2.5_nuh=0.05_k=0.75_amp=1e-4_CV=on_x_sobol_ref'
-identifier  = 'STRUPHY_test_sobol'
+identifier  = 'STRUPHY_test_sobol_antithetic2'
 dir_results = 'results/'
 
 
@@ -277,14 +279,21 @@ print('assembly of constant matrices done!')
 
 # ================================================ create particles ====================================================
 if   loading == 'pseudo-random':
-    particles[:, :6] = np.random.rand(Np, 6)                          # pseudo-random numbers between (0, 1)
+    # pseudo-random numbers between (0, 1)
+    particles[:, :6] = np.random.rand(Np, 6)
+    
 elif loading == 'sobol_standard':
-    particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000)           # Sobol numbers between (0, 1) (skip first 1000 numbers)
+    # plain sobol numbers between (0, 1) (skip first 1000 numbers)
+    particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000) 
+    
 elif loading == 'sobol_antithetic':
-    particles[:int(Np/2), :6] = sobol.i4_sobol_generate(6, Np, 1000)[::2]  # Sobol numbers between (0, 1) (skip first 1000 numbers)
-    particles[int(Np/2):, :6] = 1 - particles[:int(Np/2), :6]                   # antithetic sequence
+    # symmetric sobol numbers between (0, 1) (skip first 1000 numbers) in all 6 dimensions
+    pic_sample.set_particles_symmetric(sobol.i4_sobol_generate(6, int(Np/64), 1000), particles)  
+    
 elif loading == 'external':
-    particles[:, :6] = np.load('test_particles.npy')                  # load numbers from file
+    # load numbers between (0, 1) from an external file
+    particles[:, :6] = np.load('test_particles.npy') 
+    
 else:
     print('particle loading not specified')
 
