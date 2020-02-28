@@ -12,8 +12,6 @@ def set_particles_symmetric(numbers, particles):
     v  = zeros(3, dtype=float)
     np = len(particles[:, 0])
     
-    #$ omp parallel
-    #$ omp do private (i_part, ip, q, v)
     for i_part in range(np):
         ip = i_part%64
         
@@ -42,8 +40,6 @@ def set_particles_symmetric(numbers, particles):
         particles[i_part, 0:3] = q
         particles[i_part, 3:6] = v  
         
-    #$ omp end do
-    #$ omp end parallel
     
     ierr = 0
 # ==============================================================================

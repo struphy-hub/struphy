@@ -288,6 +288,9 @@ class projections_mhd:
     
     
     def projection_Q(self, rho0, Ginv):
+        '''
+        Computes the right-hand sides for each basis function of the expression Pi_2(rho0 * Ginv * lambda^1)
+        '''
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -478,6 +481,9 @@ class projections_mhd:
     
     
     def projection_W(self, rho0, g_sqrt):
+        '''
+        Computes the right-hand sides for each basis function of the expression Pi_1(rho0/g_sqrt * lambda^1)
+        '''
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -637,6 +643,9 @@ class projections_mhd:
     
     
     def projection_T(self, B0, Ginv):
+        '''
+        Computes the right-hand sides for each basis function of the expression Pi_1(B_eq * Ginv * lambda^1)
+        '''
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -841,7 +850,10 @@ class projections_mhd:
     
     
     
-    def projection_A(self, p0):
+    def projection_S(self, p0):
+        '''
+        Computes the right-hand sides for each basis function of the expression Pi_1(p0 * lambda^1)
+        '''
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
@@ -997,10 +1009,10 @@ class projections_mhd:
     
     
     
-    
-    
-
-    def projection_S(self, p0):
+    def projection_K(self, p0):
+        '''
+        Computes the right-hand sides for each basis function of the expression Pi_0(p0 * lambda^0)
+        '''
         
         p1,    p2,   p3 = self.p         # spline degrees
         bc1,  bc2,  bc3 = self.bc        # boundary conditions
