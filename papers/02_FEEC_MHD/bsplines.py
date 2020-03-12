@@ -75,7 +75,7 @@ def find_span( knots, degree, x ):
     return span
 
 #==============================================================================
-def basis_funs( knots, degree, x, span ):
+def basis_funs( knots, degree, x, span, normalize=False):
     """
     Compute the non-vanishing B-splines at location x, given the knot sequence,
     polynomial degree and knot span. See Algorithm A2.2 in [1].
@@ -118,8 +118,14 @@ def basis_funs( knots, degree, x, span ):
             temp      = values[r] / (right[r] + left[j-r])
             values[r] = saved + right[r] * temp
             saved     = left[j-r] * temp
+            
         values[j+1] = saved
-
+        
+    if normalize == True:
+        for il in range(degree + 1):
+            i = span - il
+            values[degree - il] = (degree + 1)*values[degree - il]/(knots[i + degree + 1] - knots[i])
+            
     return values
 
 #==============================================================================

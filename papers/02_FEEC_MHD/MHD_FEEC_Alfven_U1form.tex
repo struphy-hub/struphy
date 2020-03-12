@@ -132,7 +132,7 @@ we get the following energy balance:
 We shall use classical particle-in-cell techniques for solving the kinetic equation (\ref{eq_Vlasov}) and the framework of \textit{finite element exterior calculus} (FEEC) for solving field equations. In the latter, one works with differential forms rather than vector and scalar field. This allows us to treat arbitrary geometries in a natural fashion. For physical reasons we assume the bulk mass density and the hot charge density to be 3-forms ($\rho,\rho_\text{h}\rightarrow\rho_\text{eq}^3,\rho_\text{h}^3$), the magnetic field and the hot ion current density to be 2-forms ($\mb{B},\mb{j}_\text{h}\rightarrow B^2,j^2_\text{h}$) and the pressure to be a 0-form ($p\rightarrow p^0$). The bulk velocity field, which is naturally a vector field, we choose to be a 1-form ($\tilde{\mb{U}}\rightarrow \tilde{U}^1$). Eq. (\ref{eq_continuity_linear})-(\ref{eq_pressure_linear}) can then be written as
 \begin{align}
 &\frac{\pa\tilde{\rho}^3}{\pa t}+\text{d}(i_{\# U^1}\rho_\text{eq}^3)=0,\\
-(\ast\rho_\text{eq}^3)\wedge&\frac{\pa\tilde{U}^1}{\pa t}=i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge i_{\lozenge\tilde{U}^2}B^2+i_{\lozenge j_\text{h}^2}B^2-d\tilde{p}^0,\\
+(\ast\rho_\text{eq}^3)\wedge&\frac{\pa\tilde{U}^1}{\pa t}=i_{\lozenge B^2_\text{eq}}\mr{d}\ast \tilde{B}^2+i_{\lozenge\tilde{B}^2}\mr{d}\ast B^2_\text{eq}-(\ast\rho^3_\text{h})\wedge i_{\#\tilde{U}^1}B^2+i_{\lozenge j_\text{h}^2}B^2-d\tilde{p}^0,\\
 &\frac{\pa \tilde{B}^2}{\pa t}+\mr{d}(i_{\# U^1}B^2_\text{eq})=0,\\
 &\frac{\pa \tilde{p}^0}{\pa t}+\ast\text{d}\ast(p_\text{eq}^0\wedge U^1)+(\gamma-1)p_\text{eq}^0\wedge(\ast\text{d}\ast U^1)=0,
 \end{align} 
