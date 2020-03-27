@@ -496,7 +496,7 @@ energies[3] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + 
 # =============================================== time integrator =====================================================
 def update():
     
-    '''
+    
     # step 1 (update u)
     pic_accumu.accumulation_step1(particles, p, spans0, Nbase0, T[0], T[1], T[2], t[0], t[1], t[2], L, B_part, mat12, mat13, mat23)
     
@@ -552,7 +552,7 @@ def update():
     pic_pusher.pusher_step5(particles, L, dt, B_part)
     
     particles[:, 6] = w0 - control*control_variate(particles[:, 0], particles[:, 1], particles[:, 2], particles[:, 3], particles[:, 4], particles[:, 5])/g0
-    '''
+    
     
     # step 6 (non-Hamiltonian)
     if add_pressure:
