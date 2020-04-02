@@ -1,6 +1,6 @@
 from pyccel.decorators import types
-import ..simulation.initial_conditions as ini
-import ..geometry.equilibrium as eq
+import ..simulation.initial_conditions_MHD as ini
+import ..simulation.equilibrium_MHD as eq
 import ..geometry.mappings_analytical as mapping
 
 

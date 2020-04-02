@@ -397,7 +397,7 @@ class projectors_local_mhd:
     # ======================================================================== 
     def projection_Q(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_2(rho_eq * Ginv * lambda^1) with the output (basis_fun, coefficient).
+        Computes the matrix of the expression Pi_2(rho_eq * Ginv * lambda^1) with the output (coefficients, basis_fun).
         
         non-vanishing coefficients
         (int, his, his) : (D, N, N)*Ginv_00*rho_eq, (N, D, N)*Ginv_01*rho_eq, (N, N, D)*Ginv_02*rho_eq
@@ -609,7 +609,7 @@ class projectors_local_mhd:
     # ======================================================================== 
     def projection_T(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_1(B_eq * Ginv * lambda^1) with the output (basis_fun, coefficient).
+        Computes the matrix of the expression Pi_1(B_eq * Ginv * lambda^1) with the output (coefficients, basis_fun).
         
         non-vanishing coefficients
         (his, int, int) : (D, N, N)*(B1*Ginv_20 - B2*Ginv_10), (N, D, N)*(B1*Ginv_21 - B2*Ginv_11), (N, N, D)*(B1*Ginv_22 - B2*Ginv_12)
@@ -821,7 +821,7 @@ class projectors_local_mhd:
     # ======================================================================== 
     def projection_W(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_1(rho_eq/g_sqrt * lambda^1) with the output (basis_fun, coefficient).
+        Computes the matrix of the expression Pi_1(rho_eq/g_sqrt * lambda^1) with the output (coefficients, basis_fun).
         
         non-vanishing coefficients
         (his, int, int) : (D, N, N)*rho_eq/g_sqrt, 0, 0
@@ -918,7 +918,7 @@ class projectors_local_mhd:
     # ======================================================================== 
     def projection_S(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_1(p_eq * lambda^1) with the output (basis_fun, coefficient).
+        Computes the matrix of the expression Pi_1(p_eq * lambda^1) with the output (coefficients, basis_fun).
         
         non-vanishing coefficients
         (his, int, int) : (D, N, N)*p_eq, 0, 0
@@ -1016,7 +1016,7 @@ class projectors_local_mhd:
     # ======================================================================== 
     def projection_P(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_1(curlb_eq * lambda^2) with the output (basis_fun, coefficient).
+        Computes the matrix of the expression Pi_1(curlb_eq * lambda^2) with the output (coefficients, basis_fun).
         
         non-vanishing coefficients
         (his, int, int) :  0, -(D, N, D)*curlb3_eq, (D, D, N)*curlb2_eq 
@@ -1171,7 +1171,7 @@ class projectors_local_mhd:
     # ========================================================================                
     def projection_K(self, kind_map, params_map):
         '''
-        Computes the matrix of the expression Pi_0(p_eq * lambda^0) with the output (basis_funs, coefficients)
+        Computes the matrix of the expression Pi_0(p_eq * lambda^0) with the output (coefficients, basis_fun)
         
         non-vanishing coefficients
         (int, int, int) : (N, N, N)*p_eq
