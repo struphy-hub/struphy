@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as spa
-from ..utilitis_FEEC import bsplines as bsp
-from ..utilitis_FEEC import kernels_projectors_local_mhd as ker_loc
-from ..utilitis_FEEC import kernels_projectors_local_ini as ker_loc_ini
+import hylife.utilitis_FEEC.bsplines as bsp
+import hylife.utilitis_FEEC.kernels_projectors_local_mhd as ker_loc
+import hylife.utilitis_FEEC.kernels_projectors_local_ini as ker_loc_ini
 
 
 class projectors_local_mhd:

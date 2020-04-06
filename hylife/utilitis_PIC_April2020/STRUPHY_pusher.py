@@ -1,6 +1,6 @@
 from pyccel.decorators import types
-from ..linear_algebra import core as linalg
-from ..geometry import mappings_analytical as mapping
+import hylife.linear_algebra.core as linalg
+import hylife.geometry.mappings_analytical as mapping
 
 
 # ==========================================================================================================

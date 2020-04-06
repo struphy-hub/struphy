@@ -3,8 +3,8 @@ import  scipy.sparse       as sparse
 
 from scipy.sparse.linalg import splu
 
-from ..utilitis_FEEC import bsplines           as bsp
-from ..utilitis_FEEC import kernels_projectors as kernels
+import hylife.utilitis_FEEC.bsplines           as bsp
+import hylife.utilitis_FEEC.kernels_projectors as kernels
 
 
 

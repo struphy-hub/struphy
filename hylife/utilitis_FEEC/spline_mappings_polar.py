@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.sparse as sparse
 
-from ..utilitis_FEEC import bsplines    as bsp
-from ..utilitis_FEEC import derivatives as der
-from ..utilitis_FEEC import Bspline     as bspline
+import hylife.utilitis_FEEC.bsplines    as bsp
+import hylife.utilitis_FEEC.derivatives as der
+import hylife.utilitis_FEEC.Bspline     as bspline
 
 from scipy.sparse.linalg import splu
 
