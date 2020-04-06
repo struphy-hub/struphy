@@ -1,5 +1,5 @@
 from pyccel.decorators import types
-import hylife.geometry.mappings_analytical as mapping
+from ..geometry import mappings_analytical as mapping
 
 
 

@@ -1,7 +1,7 @@
 from pyccel.decorators import types
-import hylife.simulation.equilibrium_PIC as eq_pic
-import hylife.simulation.equilibrium_MHD as eq_mhd
-import hylife.geometry.mappings_analytical as mapping
+from ..simulation import equilibrium_PIC as eq_pic
+from ..simulation import equilibrium_MHD as eq_mhd
+from ..geometry import mappings_analytical as mapping
 
 
 # ==========================================================================================

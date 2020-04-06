@@ -1,6 +1,6 @@
 from pyccel.decorators import types
 from numpy             import sin, cos, pi
-import hylife.geometry.mappings_analytical as mapping
+from ..geometry import mappings_analytical as mapping
 
 
 

@@ -1,5 +1,5 @@
 from pyccel.decorators import types
-import hylife.simulation.equilibrium_MHD as eq
+from ..simulation import equilibrium_MHD as eq
 
 
 # ==============================================================================

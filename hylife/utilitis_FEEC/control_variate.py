@@ -1,10 +1,10 @@
 import  numpy                 as np
 import  scipy.sparse          as spa
 
-import hylife.utilitis_FEEC.bsplines                as bsp
-import hylife.utilitis_FEEC.kernels_mass            as ker_mass
-import hylife.utilitis_FEEC.kernels_control_variate as ker_cv
-import hylife.utilitis_FEEC.evaluation              as eva
+from ..utilitis_FEEC import bsplines       as bsp
+from ..utilitis_FEEC import kernels_mass            as ker_mass
+from ..utilitis_FEEC import kernels_control_variate as ker_cv
+from ..utilitis_FEEC import evaluation              as eva
 
 
 

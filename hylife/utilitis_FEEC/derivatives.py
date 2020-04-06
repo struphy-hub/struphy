@@ -1,5 +1,5 @@
 import numpy as np
-import hylife.utilitis_FEEC.bsplines as bsp
+from ..utilitis_FEEC import bsplines as bsp
 
 from scipy import sparse
 

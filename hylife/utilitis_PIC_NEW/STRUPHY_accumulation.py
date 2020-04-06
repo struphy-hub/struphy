@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as spa
 
-#import hylife.utilitis_FEEC.bsplines                as bsp
-#import hylife.utilitis_PIC_NEW.STRUPHY_accumulation_kernels as ker
+#from ..utilitis_FEEC import bsplines                as bsp
+#import ..utilitis_PIC_NEW.STRUPHY_accumulation_kernels as ker
 
 import bsplines as bsp
 import STRUPHY_accumulation_kernels as ker
