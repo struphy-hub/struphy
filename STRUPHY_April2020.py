@@ -70,8 +70,12 @@ restart        = params.restart
 
 name_particles = 'hylife/' + identifier + '/restart_files/' + 'restart=particles1.npy'
 name_rho_coeff = 'hylife/' + identifier + '/restart_files/' + 'restart=rho_coeff1.npy'
-name_u_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=u_coeff1.npy'
-name_b_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=b_coeff1.npy'
+name_u1_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u1_coeff1.npy'
+name_u2_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u2_coeff1.npy'
+name_u3_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u3_coeff1.npy'
+name_b1_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b1_coeff1.npy'
+name_b2_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b2_coeff1.npy'
+name_b3_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b3_coeff1.npy'
 name_p_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=p_coeff1.npy'
 name_control   = 'hylife/' + identifier + '/restart_files/' + 'restart=CV1.npy'
 name_time_step = 'hylife/' + identifier + '/restart_files/' + 'restart=time1.npy'
@@ -429,10 +433,14 @@ if time_int == True:
         file  = open(title, 'ab')
         
         particles[:, :]    = np.load(name_particles)
-        rho[:]             = np.load(name_rho_coeff)
-        u[:]               = np.load(name_u_coeff)
-        b[:]               = np.load(name_b_coeff)
-        pr[:]              = np.load(name_p_coeff)
+        rho[:, :, :]       = np.load(name_rho_coeff)
+        u1[:, :, :]        = np.load(name_u1_coeff)
+        u2[:, :, :]        = np.load(name_u2_coeff)
+        u3[:, :, :]        = np.load(name_u3_coeff)
+        b1[:, :, :]        = np.load(name_b1_coeff)
+        b2[:, :, :]        = np.load(name_b2_coeff)
+        b3[:, :, :]        = np.load(name_b3_coeff)
+        pr[:, :, :]        = np.load(name_p_coeff)
         w0                 = np.load(name_control)[0]
         g0                 = np.load(name_control)[1]
         time_step, counter = np.load(name_time_step)
@@ -440,7 +448,7 @@ if time_int == True:
         pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
         pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
         
-        pic_sample.compute_weights(particles, control, kind_map, params_map)
+        pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
 
         
     print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
@@ -458,8 +466,12 @@ if time_int == True:
 
                 np.save(dir_restart + 'restart=particles' + str(counter), particles)
                 np.save(dir_restart + 'restart=rho_coeff' + str(counter), rho)
-                np.save(dir_restart + 'restart=u_coeff'   + str(counter), u)
-                np.save(dir_restart + 'restart=b_coeff'   + str(counter), b)
+                np.save(dir_restart + 'restart=u1_coeff'  + str(counter), u1)
+                np.save(dir_restart + 'restart=u2_coeff'  + str(counter), u2)
+                np.save(dir_restart + 'restart=u3_coeff'  + str(counter), u3)
+                np.save(dir_restart + 'restart=b1_coeff'  + str(counter), b1)
+                np.save(dir_restart + 'restart=b2_coeff'  + str(counter), b2)
+                np.save(dir_restart + 'restart=b3_coeff'  + str(counter), b3)
                 np.save(dir_restart + 'restart=p_coeff'   + str(counter), pr)
                 np.save(dir_restart + 'restart=CV'        + str(counter), np.vstack((w0, g0)))
                 np.save(dir_restart + 'restart=time'      + str(counter), np.array([time_step, counter]))
