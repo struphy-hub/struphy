@@ -1,7 +1,7 @@
 from pyccel.decorators import types
 from numpy             import sin, cos, pi
-import ..geometry.mappings_analytical as mapping
-
+#import ..geometry.mappings_analytical as mapping
+import hylife.geometry.mappings_analytical as mapping
 
 
 # ============================ physical domain ===========================================================
