@@ -15,19 +15,19 @@ import hylife.utilitis_FEEC.evaluation           as eva
 import hylife.utilitis_FEEC.mass_matrices        as mass
 import hylife.utilitis_FEEC.control_variate      as cv
 
-import hylife.utilitis_PIC_NEW.STRUPHY_fields        as pic_fields
-import hylife.utilitis_PIC_NEW.STRUPHY_pusher        as pic_pusher
-import hylife.utilitis_PIC_NEW.STRUPHY_accumulation  as pic_accumu
-import hylife.utilitis_PIC_NEW.STRUPHY_sampling      as pic_sample
-import hylife.utilitis_PIC_NEW.sobol_seq             as sobol
-  
+import hylife.utilitis_PIC_April2020.STRUPHY_fields        as pic_fields
+import hylife.utilitis_PIC_April2020.STRUPHY_pusher        as pic_pusher
+import hylife.utilitis_PIC_April2020.STRUPHY_accumulation  as pic_accumu
+import hylife.utilitis_PIC_April2020.STRUPHY_sampling      as pic_sample
+import hylife.utilitis_PIC_April2020.sobol_seq             as sobol
+
 import hylife.interface as inter
 
 
 
 # ======================== load parameters ============================
-import hylife.simulation_06042020_1.parameters as pa    # name input folder here!
-identifier = 'simulation_06042020_1'                    # name input folder here!
+import hylife.simulation_06042020_2.parameters as pa    # name input folder here!
+identifier = 'simulation_06042020_2'                    # name input folder here!
 
 params = pa.parameters()
 

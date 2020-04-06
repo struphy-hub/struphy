@@ -11,10 +11,10 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-EQM := hylife/simulation_03042020_1/equilibrium_MHD
-EQP := hylife/simulation_03042020_1/equilibrium_PIC
-ICM := hylife/simulation_03042020_1/initial_conditions_MHD
-ICP := hylife/simulation_03042020_1/initial_conditions_PIC
+EQM := hylife/simulation_06042020_2/equilibrium_MHD
+EQP := hylife/simulation_06042020_2/equilibrium_PIC
+ICM := hylife/simulation_06042020_2/initial_conditions_MHD
+ICP := hylife/simulation_06042020_2/initial_conditions_PIC
 INT := hylife/interface
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/kernels_mass
@@ -22,10 +22,10 @@ KPL := hylife/utilitis_FEEC/kernels_projectors_local
 KPI := hylife/utilitis_FEEC/kernels_projectors_local_ini
 KPM := hylife/utilitis_FEEC/kernels_projectors_local_mhd
 LA  := hylife/linear_algebra/core
-PF  := hylife/utilitis_PIC_NEW/STRUPHY_fields
-PP  := hylife/utilitis_PIC_NEW/STRUPHY_pusher
-PA  := hylife/utilitis_PIC_NEW/STRUPHY_accumulation_kernels
-PS  := hylife/utilitis_PIC_NEW/STRUPHY_sampling
+PF  := hylife/utilitis_PIC_April2020/STRUPHY_fields
+PP  := hylife/utilitis_PIC_April2020/STRUPHY_pusher
+PA  := hylife/utilitis_PIC_April2020/STRUPHY_accumulation_kernels
+PS  := hylife/utilitis_PIC_April2020/STRUPHY_sampling
 
 SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -98,4 +98,4 @@ clean:
 	rm -rf hylife/simulation/__pyccel__ hylife/simulation/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
 	rm -rf hylife/utilities_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
-	rm -rf hylife/utilities_PIC_NEW/__pyccel__ hylife/utilities_PIC_NEW/__pycache__
+	rm -rf hylife/utilities_PIC_April2020/__pyccel__ hylife/utilities_PIC_April2020/__pycache__
