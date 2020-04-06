@@ -278,7 +278,7 @@ particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
 # compute initial weights
 pic_sample.compute_weights_ini(particles, w0, g0, kind_map, params_map)
 
-if control == 1:
+if control == True:
     pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
 else:
     particles[:, 6] = w0
@@ -288,11 +288,12 @@ print('particle initialization done!')
 
 
 # == compute initial fields at particle positions and initial energies =========
-timea = time.time()
-pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
-pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
-timeb = time.time()
-print('initial field computation at particles done. Time : ', timeb-timea)
+if add_PIC == True:
+    timea = time.time()
+    pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
+    pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
+    timeb = time.time()
+    print('initial field computation at particles done. Time : ', timeb-timea)
 
 
 # initial energies
