@@ -11,9 +11,11 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-EQM := hylife/simulation/equilibrium_MHD
-EQP := hylife/simulation/equilibrium_PIC
-ICM := hylife/simulation/initial_conditions_MHD
+EQM := hylife/simulation_03042020_1/equilibrium_MHD
+EQP := hylife/simulation_03042020_1/equilibrium_PIC
+ICM := hylife/simulation_03042020_1/initial_conditions_MHD
+ICP := hylife/simulation_03042020_1/initial_conditions_PIC
+INT := hylife/interface
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/kernels_mass
 KPL := hylife/utilitis_FEEC/kernels_projectors_local
@@ -25,7 +27,7 @@ PP  := hylife/utilitis_PIC_NEW/STRUPHY_pusher
 PA  := hylife/utilitis_PIC_NEW/STRUPHY_accumulation_kernels
 PS  := hylife/utilitis_PIC_NEW/STRUPHY_sampling
 
-SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
@@ -47,7 +49,13 @@ $(EQP)$(SO_EXT) : $(EQP).py $(MA)$(SO_EXT)
 $(ICM)$(SO_EXT) : $(ICM).py $(MA)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(EQP)$(SO_EXT)
+$(ICP)$(SO_EXT) : $(ICP).py $(MA)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(INT)$(SO_EXT) : $(INT).py $(EQM)$(SO_EXT) $(EQP)$(SO_EXT) $(ICM)$(SO_EXT) $(ICP)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(KM)$(SO_EXT)  : $(KM).py $(MA)$(SO_EXT)
@@ -56,7 +64,7 @@ $(KM)$(SO_EXT)  : $(KM).py $(MA)$(SO_EXT)
 $(KPL)$(SO_EXT) : $(KPL).py
 	pyccel $< $(FLAGS)
     
-$(KPI)$(SO_EXT) : $(KPI).py $(MA)$(SO_EXT) $(ICM)$(SO_EXT) $(EQM)$(SO_EXT)
+$(KPI)$(SO_EXT) : $(KPI).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KPM)$(SO_EXT) : $(KPM).py
@@ -65,7 +73,7 @@ $(KPM)$(SO_EXT) : $(KPM).py
 $(LA)$(SO_EXT) : $(LA).py
 	pyccel $< $(FLAGS)
     
-$(PF)$(SO_EXT) : $(PF).py $(EQM)$(SO_EXT)
+$(PF)$(SO_EXT) : $(PF).py $(INT)$(SO_EXT)
 	pyccel --openmp $< $(FLAGS)
 
 $(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
@@ -74,7 +82,7 @@ $(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
 $(PA)$(SO_EXT) : $(PA).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
 	pyccel --openmp $< $(FLAGS)
 
-$(PS)$(SO_EXT) : $(PS).py
+$(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 
@@ -85,7 +93,7 @@ $(PS)$(SO_EXT) : $(PS).py
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-	rm -rf hylife/__pycache__
+	rm -rf hylife/__pycache__ hylife/__pyccel__
 	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
 	rm -rf hylife/simulation/__pyccel__ hylife/simulation/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__

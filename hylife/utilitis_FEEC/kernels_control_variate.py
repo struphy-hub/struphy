@@ -1,7 +1,12 @@
+# import pyccel decorators
 from pyccel.decorators import types
-import ..simulation.equilibrium_PIC as eq_pic
-import ..simulation.equilibrium_MHD as eq_mhd
+
+# relative import of subroutines
 import ..geometry.mappings_analytical as mapping
+
+# absolute import of interface for simulation setup
+import hylife.interface as inter
+
 
 
 # ==========================================================================================
@@ -16,9 +21,9 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
         y     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
         z     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 3)
 
-        jhx   = eq_pic.jhx_eq(x, y, z)
-        jhy   = eq_pic.jhy_eq(x, y, z)
-        jhz   = eq_pic.jhz_eq(x, y, z)
+        jhx   = inter.jhx_eq(x, y, z)
+        jhy   = inter.jhy_eq(x, y, z)
+        jhz   = inter.jhz_eq(x, y, z)
         
         df_11 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 11)
         df_21 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 21)
@@ -32,9 +37,9 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
         y     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
         z     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 3)
 
-        jhx   = eq_pic.jhx_eq(x, y, z)
-        jhy   = eq_pic.jhy_eq(x, y, z)
-        jhz   = eq_pic.jhz_eq(x, y, z)
+        jhx   = inter.jhx_eq(x, y, z)
+        jhy   = inter.jhy_eq(x, y, z)
+        jhz   = inter.jhz_eq(x, y, z)
         
         df_12 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 12)
         df_22 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 22)
@@ -48,9 +53,9 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
         y     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
         z     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 3)
 
-        jhx   = eq_pic.jhx_eq(x, y, z)
-        jhy   = eq_pic.jhy_eq(x, y, z)
-        jhz   = eq_pic.jhz_eq(x, y, z)
+        jhx   = inter.jhx_eq(x, y, z)
+        jhy   = inter.jhy_eq(x, y, z)
+        jhz   = inter.jhz_eq(x, y, z)
         
         df_13 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 13)
         df_23 = mapping.df(xi1, xi2, xi3, kind_map, params_map, 23)
@@ -64,14 +69,14 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
         y     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
         z     = mapping.f(xi1, xi2, xi3, kind_map, params_map, 3)
         
-        value = eq_pic.n_eq(x, y, z)
+        value = inter.nh_eq_phys(x, y, z)
     
     elif kind_fun == 11:
-        value = eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params_map)
+        value = inter.b1_eq(xi1, xi2, xi3, kind_map, params_map)
     elif kind_fun == 12:
-        value = eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params_map)
+        value = inter.b2_eq(xi1, xi2, xi3, kind_map, params_map)
     elif kind_fun == 13:
-        value = eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params_map)
+        value = inter.b3_eq(xi1, xi2, xi3, kind_map, params_map)
     
     return value
 

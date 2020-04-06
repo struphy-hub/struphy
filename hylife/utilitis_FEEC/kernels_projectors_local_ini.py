@@ -1,7 +1,14 @@
+# import pyccel decorators
 from pyccel.decorators import types
-import ..simulation.initial_conditions_MHD as ini
-import ..simulation.equilibrium_MHD as eq
+
+# relative import of subroutines
 import ..geometry.mappings_analytical as mapping
+
+
+# absolute import of interface for simulation setup
+import hylife.interface as inter
+
+
 
 
 # ==========================================================================================
@@ -12,83 +19,83 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params):
     
     # initial conditions
     if   kind_fun == 1:
-        value = ini.p_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.p_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 2:
-        value = ini.u1_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.u1_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 3:
-        value = ini.u2_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.u2_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 4:
-        value = ini.u3_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.u3_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 5:
-        value = ini.b1_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.b1_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 6:
-        value = ini.b2_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.b2_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 7:
-        value = ini.b3_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.b3_ini(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 8:
-        value = ini.rho_ini(xi1, xi2, xi3, kind_map, params)
+        value = inter.rho_ini(xi1, xi2, xi3, kind_map, params)
     
     # quantities for projection matrix Q
     elif kind_fun == 11:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
     elif kind_fun == 12:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
     elif kind_fun == 13:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
     elif kind_fun == 14:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
     elif kind_fun == 15:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
     elif kind_fun == 16:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
     elif kind_fun == 17:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
     elif kind_fun == 18:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
     elif kind_fun == 19:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
         
     # quantities for projection matrix T
     elif kind_fun == 21:
-        value = eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31) - eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
+        value = inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31) - inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
     elif kind_fun == 22:
-        value = eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32) - eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
+        value = inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32) - inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
     elif kind_fun == 23:
-        value = eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) - eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
+        value = inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) - inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
     elif kind_fun == 24:
-        value = eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) - eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
+        value = inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) - inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
     elif kind_fun == 25:
-        value = eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12) - eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
+        value = inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12) - inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
     elif kind_fun == 26:
-        value = eq.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13) - eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
+        value = inter.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13) - inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
     elif kind_fun == 27:
-        value = eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21) - eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
+        value = inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21) - inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
     elif kind_fun == 28:
-        value = eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22) - eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
+        value = inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22) - inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
     elif kind_fun == 29:
-        value = eq.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23) - eq.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
+        value = inter.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23) - inter.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
         
     # quantities for projection matrix W
     elif kind_fun == 31:
-        value = eq.rho_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = inter.rho_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
         
     # quantities for projection matrix P
     elif kind_fun == 41:
-        value = -eq.curlb3_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = -inter.curlb3_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 42:
-        value =  eq.curlb2_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value =  inter.curlb2_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 43:
-        value =  eq.curlb3_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value =  inter.curlb3_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 44:
-        value = -eq.curlb1_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = -inter.curlb1_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 45:
-        value = -eq.curlb2_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = -inter.curlb2_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 46:
-        value =  eq.curlb1_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value =  inter.curlb1_eq(xi1, xi2, xi3, kind_map, params) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     
     # quantities for projection matrices K and S
     elif kind_fun == 91:
-        value = eq.p_eq(xi1, xi2, xi3, kind_map, params)
+        value = inter.p_eq(xi1, xi2, xi3, kind_map, params)
         
     
     return value

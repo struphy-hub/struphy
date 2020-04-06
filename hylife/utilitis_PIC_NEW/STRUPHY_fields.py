@@ -1,5 +1,8 @@
+# import pyccel decorators
 from pyccel.decorators import types
-import ..simulation.equilibrium_MHD as eq
+
+# absolute import of interface for simulation setup
+import hylife.interface as inter
 
 
 # ==============================================================================
@@ -82,9 +85,9 @@ def evaluate_1form(particles_pos, t0_1, t0_2, t0_3, t1_1, t1_2, t1_3, p0, nel, n
     for ip in range(np):
         
         # evaluation of equilibrium field
-        u_part[ip, 0] = eq.u1_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
-        u_part[ip, 1] = eq.u2_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
-        u_part[ip, 2] = eq.u3_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        u_part[ip, 0] = inter.u1_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        u_part[ip, 1] = inter.u2_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        u_part[ip, 2] = inter.u3_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
         
         span0_1  = int(particles_pos[ip, 0]*nel[0]) + p0_1
         span0_2  = int(particles_pos[ip, 1]*nel[1]) + p0_2
@@ -279,9 +282,9 @@ def evaluate_2form(particles_pos, t0_1, t0_2, t0_3, t1_1, t1_2, t1_3, p0, nel, n
     for ip in range(np):
         
         # evaluation of equilibrium field
-        b_part[ip, 0] = eq.b1_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
-        b_part[ip, 1] = eq.b2_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
-        b_part[ip, 2] = eq.b3_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        b_part[ip, 0] = inter.b1_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        b_part[ip, 1] = inter.b2_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
+        b_part[ip, 2] = inter.b3_eq(particles_pos[ip, 0], particles_pos[ip, 1], particles_pos[ip, 2], kind_map, params_map)
         
         span0_1  = int(particles_pos[ip, 0]*nel[0]) + p0_1
         span0_2  = int(particles_pos[ip, 1]*nel[1]) + p0_2

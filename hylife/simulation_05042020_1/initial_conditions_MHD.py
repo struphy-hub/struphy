@@ -9,7 +9,7 @@ import ..geometry.mappings_analytical as mapping
 @types('double','double','double')
 def p_ini_phys(x, y, z):
     
-    p_phys = 1.
+    p_phys = 0.
     #p_phys = sin(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi3)
     
     return p_phys
@@ -79,7 +79,7 @@ def bz_ini(x, y, z):
 @types('double','double','double')
 def rho_ini_phys(x, y, z):
     
-    rho_phys = 1.
+    rho_phys = 0.
     #rho_phys = cos(2*pi*xi1) * cos(2*pi*xi2) * cos(2*pi*xi3) * (2*pi)**3
     
     return rho_phys

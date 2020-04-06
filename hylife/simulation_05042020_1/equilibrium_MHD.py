@@ -9,8 +9,8 @@ import ..geometry.mappings_analytical as mapping
 @types('double','double','double')
 def p_eq_phys(x, y, z):
     
-    #p_phys = 1.
-    p_phys = (1 - x) * (1 - y) * (1 - z) * x * y * z
+    p_phys = 1.
+    #p_phys = (1 - x) * (1 - y) * (1 - z) * x * y * z
     
     return p_phys
 
