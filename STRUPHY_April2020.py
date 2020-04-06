@@ -26,8 +26,8 @@ import hylife.interface as inter
 
 
 # ======================== load parameters ============================
-import hylife.simulation_05042020_1.parameters as pa    # name input folder here!
-identifier = 'simulation_05042020_1'                    # name input folder here!
+import hylife.simulation_06042020_1.parameters as pa    # name input folder here!
+identifier = 'simulation_06042020_1'                    # name input folder here!
 
 params = pa.parameters()
 
@@ -50,6 +50,7 @@ params_map   = params.params_map     # parameters for mapping
 gamma        = params.gamma          # adiabatic exponent
 
 # particle parameters
+add_PIC      = params.add_PIC        # add kinetic terms to simulation?
 Np           = params.Np             # total number of particles
 control      = params.control        # control variate on/off
 
@@ -101,12 +102,14 @@ Ntot_1form  = [NbaseD[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseD[1]*NbaseN[2], Nba
 Ntot_2form  = [NbaseN[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseN[2]]  
 Ntot_3form  =  NbaseD[0]*NbaseD[1]*NbaseD[2] 
 
-# delta-f corrections
-if control == 1:
-    cont = cv.terms_control_variate(T, p, bc, kind_map, params_map)
 
-# particle accumulator
-acc = pic_accumu.accumulation(T, p, bc)
+if add_PIC == True:
+    # delta-f corrections
+    if control == True:
+        cont = cv.terms_control_variate(T, p, bc, kind_map, params_map)
+
+    # particle accumulator
+    acc = pic_accumu.accumulation(T, p, bc)
 # =======================================================================
 
 
@@ -164,10 +167,17 @@ energies = np.empty(4, dtype=float)
 pro = proj.projectors_local_3d(T, p, bc)
 
 # projection of initial conditions
-pr[:, :, :]                           = pro.PI_0( None,               1,        kind_map, params_map)
-u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.PI_1([None, None, None], [2, 3, 4], kind_map, params_map) 
-b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.PI_2([None, None, None], [5, 6, 7], kind_map, params_map)
-rho[:, :, :]                          = pro.PI_3( None,               8,        kind_map, params_map)
+if params.ic_from_params == True:
+    pr[:, :, :]                           = pro.PI_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
+    u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.PI_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
+    b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.PI_2([lambda xi1, xi2, xi3 : params.b1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b3_ini(xi1, xi2, xi3)])
+    rho[:, :, :]                          = pro.PI_3(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
+    
+else:
+    pr[:, :, :]                           = pro.PI_0( None,               1,        kind_map, params_map)
+    u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.PI_1([None, None, None], [2, 3, 4], kind_map, params_map) 
+    b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.PI_2([None, None, None], [5, 6, 7], kind_map, params_map)
+    rho[:, :, :]                          = pro.PI_3( None,               8,        kind_map, params_map)
 
 del pro
 
@@ -298,16 +308,17 @@ energies[3] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + 
 def update():
     
     # step 1 (1 : update u)
-    mat = -acc.accumulation_step1(particles, B_part, kind_map, params_map)/Np
-    
-    if control == 1:
-        mat -= cont.mass_V1_nh_eq(b1, b2, b3, kind_map, params_map)
-        
-    temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A - dt/2*mat, (A + dt/2*mat).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
-    
-    u1[:, :, :] = temp1.reshape(Nbase_1form[0])
-    u2[:, :, :] = temp2.reshape(Nbase_1form[1])
-    u3[:, :, :] = temp3.reshape(Nbase_1form[2])
+    if add_PIC == True:
+        mat = -acc.accumulation_step1(particles, B_part, kind_map, params_map)/Np
+
+        if control == True:
+            mat -= cont.mass_V1_nh_eq(b1, b2, b3, kind_map, params_map)
+
+        temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A - dt/2*mat, (A + dt/2*mat).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+
+        u1[:, :, :] = temp1.reshape(Nbase_1form[0])
+        u2[:, :, :] = temp2.reshape(Nbase_1form[1])
+        u3[:, :, :] = temp3.reshape(Nbase_1form[2])
                                    
     
     # step 2 (1 : update u, 2 : update b, 3 : evaluate B-field at particle positions)
@@ -327,47 +338,49 @@ def update():
     b2[:, :, :] = temp2.reshape(Nbase_2form[1])
     b3[:, :, :] = temp3.reshape(Nbase_2form[2])
     
-    pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
     
-    # step 3 (1 : update u, 2 : evaluate U-field at particle positions, 3 : update particles velocities (V))
-    u1_old[:, :, :] = u1[:, :, :]
-    u2_old[:, :, :] = u2[:, :, :]
-    u3_old[:, :, :] = u3[:, :, :]
+    if add_PIC == True:
+        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
     
-    mat, vec = acc.accumulation_step3(particles, B_part, kind_map, params_map)
-    
-    if control == 1:
-        vec_cv = cont.inner_prod_V1_jh_eq(b1, b2, b3, kind_map, params_map)
-        
-        temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A + dt**2/4*mat/Np, (A - dt**2/4*mat/Np).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten()))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
-        
-        u1[:, :, :] = temp1.reshape(Nbase_1form[0])
-        u2[:, :, :] = temp2.reshape(Nbase_1form[1])
-        u3[:, :, :] = temp3.reshape(Nbase_1form[2])
-    
-    else:
-        temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A + dt**2/4*mat/Np, (A - dt**2/4*mat/Np).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec/Np), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
-        
-        u1[:, :, :] = temp1.reshape(Nbase_1form[0])
-        u2[:, :, :] = temp2.reshape(Nbase_1form[1])
-        u3[:, :, :] = temp3.reshape(Nbase_1form[2])
-        
-    pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
-    
-    pic_pusher.pusher_step3(particles, dt, B_part, U_part, kind_map, params_map)
-    
-    # step 4 (1 : update particles positions (Xi))
-    pic_pusher.pusher_step4(particles, dt, kind_map, params_map)
-    
-    # step 5 (1 : update particle veclocities (V), 2 : update particle weights (W))
-    pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
-    pic_pusher.pusher_step5(particles, dt, B_part, kind_map, params_map)
-    
-    if control == 1:
-        pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
+        # step 3 (1 : update u, 2 : evaluate U-field at particle positions, 3 : update particles velocities (V))
+        u1_old[:, :, :] = u1[:, :, :]
+        u2_old[:, :, :] = u2[:, :, :]
+        u3_old[:, :, :] = u3[:, :, :]
+
+        mat, vec = acc.accumulation_step3(particles, B_part, kind_map, params_map)
+
+        if control == True:
+            vec_cv = cont.inner_prod_V1_jh_eq(b1, b2, b3, kind_map, params_map)
+
+            temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A + dt**2/4*mat/Np, (A - dt**2/4*mat/Np).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten()))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+
+            u1[:, :, :] = temp1.reshape(Nbase_1form[0])
+            u2[:, :, :] = temp2.reshape(Nbase_1form[1])
+            u3[:, :, :] = temp3.reshape(Nbase_1form[2])
+
+        else:
+            temp1, temp2, temp3 = np.split(sparse.linalg.spsolve(A + dt**2/4*mat/Np, (A - dt**2/4*mat/Np).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec/Np), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+
+            u1[:, :, :] = temp1.reshape(Nbase_1form[0])
+            u2[:, :, :] = temp2.reshape(Nbase_1form[1])
+            u3[:, :, :] = temp3.reshape(Nbase_1form[2])
+
+        pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
+
+        pic_pusher.pusher_step3(particles, dt, B_part, U_part, kind_map, params_map)
+
+        # step 4 (1 : update particles positions (Xi))
+        pic_pusher.pusher_step4(particles, dt, kind_map, params_map)
+
+        # step 5 (1 : update particle veclocities (V), 2 : update particle weights (W))
+        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
+        pic_pusher.pusher_step5(particles, dt, B_part, kind_map, params_map)
+
+        if control == True:
+            pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
     
     # step 6 (1 : update rho, u and p from non-Hamiltonian terms)
-    if add_pressure:
+    if add_pressure == True:
         temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten())))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
         
         rho[:, :, :] = temp1.reshape(Nbase_3form)
@@ -384,6 +397,11 @@ def update():
     energies[3] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
 # ============================================================================
 
+
+
+
+
+
 # ========================== time integration ================================
 if time_int == True:
     
@@ -393,11 +411,11 @@ if time_int == True:
         
         
         # == initial data to save ==
-        data  = np.concatenate((energies, np.array([0.])))
-        np.savetxt(file, data.reshape(1, 5), fmt = '%1.16e')
+        #data  = np.concatenate((energies, np.array([0.])))
+        #np.savetxt(file, data.reshape(1, 5), fmt = '%1.16e')
         
-        #data  = np.concatenate((pr, u[1*Ntot:2*Ntot], u[2*Ntot:3*Ntot], energies, np.array([0.])))
-        #np.savetxt(file, data.reshape(1, len(pr) + len(u[1*Ntot:2*Ntot]) + len(u[2*Ntot:3*Ntot]) + 5), fmt = '%1.16e')
+        data  = np.concatenate((pr.flatten(), u3.flatten(), energies, np.array([0.])))
+        np.savetxt(file, data.reshape(1, len(pr.flatten()) + len(u3.flatten()) + len(energies) + 1), fmt = '%1.16e')
         # ==========================
 
         print('initial energies : ', energies)
@@ -459,11 +477,11 @@ if time_int == True:
             print('time for one time step : ', timeb-timea)
 
         # == data to save ==========
-        data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
-        np.savetxt(file, data.reshape(1, 5), fmt = '%1.16e')
+        #data  = np.concatenate((energies, np.array([(time_step + 1)*dt])))
+        #np.savetxt(file, data.reshape(1, 5), fmt = '%1.16e')
         
-        #data  = np.concatenate((pr, u[1*Ntot:2*Ntot], u[2*Ntot:3*Ntot], energies, np.array([(time_step + 1)*dt])))
-        #np.savetxt(file, data.reshape(1, len(pr) + len(u[1*Ntot:2*Ntot]) + len(u[2*Ntot:3*Ntot]) + 5), fmt = '%1.16e')
+        data  = np.concatenate((pr.flatten(), u3.flatten(), energies, np.array([(time_step + 1)*dt])))
+        np.savetxt(file, data.reshape(1, len(pr.flatten()) + len(u3.flatten()) + len(energies) + 1), fmt = '%1.16e')
         # ==========================
 
         time_step += 1

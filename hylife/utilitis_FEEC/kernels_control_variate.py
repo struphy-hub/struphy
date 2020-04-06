@@ -2,7 +2,8 @@
 from pyccel.decorators import types
 
 # relative import of subroutines
-import ..geometry.mappings_analytical as mapping
+#import ..geometry.mappings_analytical as mapping
+import hylife.geometry.mappings_analytical as mapping
 
 # absolute import of interface for simulation setup
 import hylife.interface as inter
