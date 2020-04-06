@@ -11,31 +11,53 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
+LA  := hylife/linear_algebra/core
 EQM := hylife/simulation_06042020_2/equilibrium_MHD
 EQP := hylife/simulation_06042020_2/equilibrium_PIC
 ICM := hylife/simulation_06042020_2/initial_conditions_MHD
 ICP := hylife/simulation_06042020_2/initial_conditions_PIC
 INT := hylife/interface
+SRC_BASE := $(MA).py $(LA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py
+OBJ_BASE := $(SRC_BASE:.py=$(SO_EXT))
+
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/kernels_mass
 KPL := hylife/utilitis_FEEC/kernels_projectors_local
 KPI := hylife/utilitis_FEEC/kernels_projectors_local_ini
 KPM := hylife/utilitis_FEEC/kernels_projectors_local_mhd
-LA  := hylife/linear_algebra/core
+SRC_FEEC := $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py 
+OBJ_FEEC := $(SRC_FEEC:.py=$(SO_EXT))
+
 PF  := hylife/utilitis_PIC_April2020/STRUPHY_fields
 PP  := hylife/utilitis_PIC_April2020/STRUPHY_pusher
 PA  := hylife/utilitis_PIC_April2020/STRUPHY_accumulation_kernels
 PS  := hylife/utilitis_PIC_April2020/STRUPHY_sampling
+SRC_PIC := $(PF).py $(PP).py $(PA).py $(PS).py
+OBJ_PIC  := $(SRC_PIC:.py=$(SO_EXT))
 
 SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
-# PYCCELIZE
+# Main targets and general rules 
 #--------------------------------------
 
-.PHONY: all
-all: $(OUTPUTS)
+.PHONY: all base feec pic
+all: base feec pic
+
+base: $(OBJ_BASE)
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE BASE DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+
+feec: base $(OBJ_FEEC)
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE FEEC DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+pic: base $(OBJ_PIC)
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE PIC DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+#--------------------------------------
+# dependencies and pyccelize 
+#--------------------------------------
 
 $(MA)$(SO_EXT) : $(MA).py
 	pyccel $< $(FLAGS)
@@ -90,12 +112,23 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 # CLEAN UP
 #--------------------------------------
 
-.PHONY: clean
-clean:
-	rm -rf $(OUTPUTS)
-	rm -rf hylife/__pycache__ hylife/__pyccel__
-	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
-	rm -rf hylife/simulation/__pyccel__ hylife/simulation/__pycache__
-	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
-	rm -rf hylife/utilities_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
-	rm -rf hylife/utilities_PIC_April2020/__pyccel__ hylife/utilities_PIC_April2020/__pycache__
+.PHONY: clean cleanbase cleanfeec cleanpic
+clean: cleanbase cleanfeec cleanpic
+
+cleanbase:
+	rm -rf $(OBJ_BASE)
+	rm -rf hylife/__pyc*__ 
+	rm -rf hylife/geometry/__pyc*__
+	rm -rf hylife/linear_algebra/__pyc*__
+	rm -rf hylife/simulation_06042020_2/__pyc*__
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN BASE DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+cleanfeec:
+	rm -rf $(OBJ_FEEC)
+	rm -rf hylife/utilitis_FEEC/__pyc*__
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN FEEC DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+cleanpic:
+	rm -rf $(OBJ_PIC)
+	rm -rf hylife/utilitis_PIC_April2020/__pyc*__
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN PIC DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
