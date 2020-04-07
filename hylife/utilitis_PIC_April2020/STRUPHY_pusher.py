@@ -1,7 +1,9 @@
 from pyccel.decorators import types
-import ..linear_algebra.core as linalg
-import ..geometry.mappings_analytical as mapping
+#import ..linear_algebra.core as linalg
+#import ..geometry.mappings_analytical as mapping
 
+import hylife.linear_algebra.core as linalg
+import hylife.geometry.mappings_analytical as mapping
 
 # ==========================================================================================================
 @types('double[:,:](order=F)','double','double[:,:](order=F)','double[:,:](order=F)','int','double[:]')
