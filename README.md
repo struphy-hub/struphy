@@ -9,14 +9,16 @@ The STRUPHY code features:
 - Exact conservation of div**B**=0 and of magnetic helicity, reagardless of grid spacing and mapping
 - Exact energy balance, reagardless of grid spacing and mapping
 - Control variate method for PIC (optional)
-- Implicit time stepping
+- Implicit time stepping with operator splitting
 - OpenMP parallelization of PIC
 
 The low-level routines feature:
 
-- B-spline bases of and commuting projectors for the 3D de Rham complex
+- B-spline bases and commuting projectors (inter- and histopolation) for the 3D de Rham complex
 - Periodic and Dirichlet boundary conditions
-- Local projection operators (quasi-interpolation)
+- Local projection operators based on quasi-interpolation (optional)
+
+STRUPHY is a [python](https://www.python.org/) code that uses [pyccel](https://github.com/pyccel/pyccel) to accelerate to Fortran speed.
 
 ## Getting Started
 
