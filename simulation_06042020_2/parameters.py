@@ -11,7 +11,7 @@ class parameters():
 
         self.time_int     = True     # do time integration?
         self.dt           = 0.05     # time step
-        self.Tend         = 20.      # simulation time
+        self.Tend         = 40.      # simulation time
         self.max_time     = 60*60    # maximum runtime of program in minutes
         self.add_pressure = True     # add non-Hamiltonian terms to simulation?
 

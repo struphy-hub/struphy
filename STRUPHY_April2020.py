@@ -26,8 +26,8 @@ import hylife.interface as inter
 
 
 # ======================== load parameters ============================
-import hylife.simulation_06042020_2.parameters as pa    # name input folder here!
-identifier = 'simulation_06042020_2'                    # name input folder here!
+import simulation_06042020_2.parameters as pa    # name input folder here!
+identifier = 'simulation_06042020_2'             # name input folder here!
 
 params = pa.parameters()
 
@@ -68,21 +68,21 @@ loading      = params.loading
 # restart function
 restart        = params.restart  
 
-name_particles = 'hylife/' + identifier + '/restart_files/' + 'restart=particles1.npy'
-name_rho_coeff = 'hylife/' + identifier + '/restart_files/' + 'restart=rho_coeff1.npy'
-name_u1_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u1_coeff1.npy'
-name_u2_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u2_coeff1.npy'
-name_u3_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=u3_coeff1.npy'
-name_b1_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b1_coeff1.npy'
-name_b2_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b2_coeff1.npy'
-name_b3_coeff  = 'hylife/' + identifier + '/restart_files/' + 'restart=b3_coeff1.npy'
-name_p_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=p_coeff1.npy'
-name_control   = 'hylife/' + identifier + '/restart_files/' + 'restart=CV1.npy'
-name_time_step = 'hylife/' + identifier + '/restart_files/' + 'restart=time1.npy'
+name_particles = identifier + '/restart_files/' + 'restart=particles1.npy'
+name_rho_coeff = identifier + '/restart_files/' + 'restart=rho_coeff1.npy'
+name_u1_coeff  = identifier + '/restart_files/' + 'restart=u1_coeff1.npy'
+name_u2_coeff  = identifier + '/restart_files/' + 'restart=u2_coeff1.npy'
+name_u3_coeff  = identifier + '/restart_files/' + 'restart=u3_coeff1.npy'
+name_b1_coeff  = identifier + '/restart_files/' + 'restart=b1_coeff1.npy'
+name_b2_coeff  = identifier + '/restart_files/' + 'restart=b2_coeff1.npy'
+name_b3_coeff  = identifier + '/restart_files/' + 'restart=b3_coeff1.npy'
+name_p_coeff   = identifier + '/restart_files/' + 'restart=p_coeff1.npy'
+name_control   = identifier + '/restart_files/' + 'restart=CV1.npy'
+name_time_step = identifier + '/restart_files/' + 'restart=time1.npy'
 
 
 create_restart = params.create_restart
-dir_restart    = 'hylife/' + identifier + '/restart_files/'
+dir_restart    = identifier + '/restart_files/'
 # ========================================================================
 
 
@@ -214,7 +214,7 @@ Q   = MHD.projection_Q(kind_map, params_map)
 W   = MHD.projection_W(kind_map, params_map)
 TAU = MHD.projection_T(kind_map, params_map)
 S   = MHD.projection_S(kind_map, params_map)
-K   = MHD.projection_K(kind_map, params_map).tocsc()
+K   = MHD.projection_K(kind_map, params_map)
 
 # compute matrix A
 A = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
@@ -374,7 +374,7 @@ def update():
 
         pic_pusher.pusher_step3(particles, dt, B_part, U_part, kind_map, params_map)
 
-        # step 4 (1 : update particles positions (Xi))
+        # step 4 (1 : update particle positions (Xi))
         pic_pusher.pusher_step4(particles, dt, kind_map, params_map)
 
         # step 5 (1 : update particle veclocities (V), 2 : update particle weights (W))
@@ -411,7 +411,7 @@ def update():
 if time_int == True:
     
     if restart == False:
-        title = 'hylife/' + identifier + '/output.txt'
+        title = identifier + '/output_' + identifier + '.txt'
         file  = open(title, 'ab')
         
         
@@ -429,7 +429,7 @@ if time_int == True:
         counter   = 0
         
     else:
-        title = 'hylife/' + identifier + '/output.txt'
+        title = identifier + '/output_' + identifier + '.txt'
         file  = open(title, 'ab')
         
         particles[:, :]    = np.load(name_particles)

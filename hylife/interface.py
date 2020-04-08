@@ -3,15 +3,10 @@ from pyccel.decorators import types
 # ===================================================
 # name input files here
 # ===================================================
-#import simulation_06042020_2.equilibrium_MHD as eq_mhd
-#import simulation_06042020_2.equilibrium_PIC as eq_pic
-#import simulation_06042020_2.initial_conditions_MHD as ini_mhd
-#import simulation_06042020_2.initial_conditions_PIC as ini_pic
-
-import hylife.simulation_06042020_2.equilibrium_MHD as eq_mhd
-import hylife.simulation_06042020_2.equilibrium_PIC as eq_pic
-import hylife.simulation_06042020_2.initial_conditions_MHD as ini_mhd
-import hylife.simulation_06042020_2.initial_conditions_PIC as ini_pic
+import simulation_06042020_2.equilibrium_MHD as eq_mhd
+import simulation_06042020_2.equilibrium_PIC as eq_pic
+import simulation_06042020_2.initial_conditions_MHD as ini_mhd
+import simulation_06042020_2.initial_conditions_PIC as ini_pic
 # ===================================================
 
 
