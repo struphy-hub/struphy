@@ -9,13 +9,12 @@ import hylife.utilitis_FEEC.spline_mappings_polar as splmap
 
 
 
-# ================================================ mass matrix in V0 (1d) ====================================================
+# =========================== mass matrix in V0 (1d) ====================================================
 def mass_1d_NN(T, p, bc):
     '''
     Computes the sparse 1d mass matrix (NN) of the given spline space of degree p.
     '''
-    
-    
+      
     el_b             = bsp.breakpoints(T, p)
     Nel              = len(el_b) - 1
     NbaseN           = Nel + p - bc*p
@@ -49,12 +48,9 @@ def mass_1d_NN(T, p, bc):
     M.eliminate_zeros()
                 
     return M    
-# ============================================================================================================================
 
 
-
-
-# =============================================== mass matrix in V1/V0 (DN) (1d) =============================================
+# ========================== mass matrix in V1/V0 (DN) (1d) ============================================
 def mass_1d_DN(T, p, bc):
     '''
     Computes the sparse 1d mass matrix (DN) of the given spline space of degree p.
@@ -1046,218 +1042,4 @@ def L2_error_V0_2d(coeff, T, p, bc, mapping, fun):
     error      = np.sqrt(error.sum())
                 
     return error
-# ============================================================================================================================
-        
-            
-
-# =============================================== L2 error in V0 (3d) ========================================================
-def L2_error_V0_3d(coeff, T, p, bc, g_sqrt, fun):
-    
-    
-    el_b               = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
-    Nel                = [len(el_b) - 1 for el_b in el_b]
-    Nbase              = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]
-    
-    pts1_loc, wts1_loc = np.polynomial.legendre.leggauss(p[0] + 1)
-    pts2_loc, wts2_loc = np.polynomial.legendre.leggauss(p[1] + 1)
-    pts3_loc, wts3_loc = np.polynomial.legendre.leggauss(p[2] + 1)
-    
-    pts1, wts1         = bsp.quadrature_grid(el_b[0], pts1_loc, wts1_loc)
-    pts2, wts2         = bsp.quadrature_grid(el_b[1], pts2_loc, wts2_loc)
-    pts3, wts3         = bsp.quadrature_grid(el_b[2], pts3_loc, wts3_loc)
-    
-    pts                = [pts1, pts2, pts3]
-    wts                = [wts1, wts2, wts3]
-    wts                = [np.asfortranarray(wts) for wts in wts]
-    
-    basisN             = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, pts, 0)) for T, p, pts in zip(T, p, pts)]
-
-    error              = np.zeros((Nel[0], Nel[1], Nel[2]), order='F')
-
-    quad               = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
-                                  
-    mat_f              = np.asfortranarray(fun(quad[0], quad[1], quad[2]))
-    mat_g              = np.asfortranarray(g_sqrt(quad[0], quad[1], quad[2]))
-    coeff              = np.asfortranarray(coeff)
-    
-    ker.kernel_l2error_v0_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], Nbase[0], Nbase[1], Nbase[2], error, mat_f, coeff, mat_g)
-                                  
-    error = np.sqrt(error.sum())
-                
-    return error
-# ============================================================================================================================
-
-
-
-# ==================================== inner product in V1 (3d) of equilibrium Hall term =====================================
-def inner_prod_V1_jh0(T, p, bc, b1, b2, b3, jheq, Beq, DFinv, mapping, *args):
-    '''
-    mapping[0] = g_sqrt
-    mapping[1] = Ginv
-    
-    jheq = [jheq_x, jheq_y, jheq_z] on physical domain!!
-    b1, b2, b3 must be flattened!
-    '''
-    
-    t          = [T[1:-1] for T in T]
-    
-    el_b       = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
-    Nel        = [len(el_b) - 1 for el_b in el_b]
-    NbaseN     = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]
-    NbaseD     = [NbaseN - (1 - bc) for NbaseN, bc in zip(NbaseN, bc)]
-    
-    quad_loc   = [np.polynomial.legendre.leggauss(p + 1) for p in p]
-    quad       = [bsp.quadrature_grid(el_b, quad_loc[0], quad_loc[1]) for el_b, quad_loc in zip(el_b, quad_loc)]
-    
-    quad       = [(quad[0], np.asfortranarray(quad[1])) for quad in quad]
-    
-    basisN     = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, quad[0], 0)) for T, p, quad in zip(T, p, quad)]
-    basisD     = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p - 1, quad[0], 0, normalize=True)) for t, p, quad in zip(t, p, quad)]
-    
-    Nbase      = [[NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]]]
-    basis      = [[basisD[0], basisN[1], basisN[2]], [basisN[0], basisD[1], basisN[2]], [basisN[0], basisN[1], basisD[2]]]
-    ns         = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    
-    F1         = [np.zeros((Nbase[0], Nbase[1], Nbase[2]), order='F') for Nbase in Nbase]
-    
-    if mapping[0] == None:
-        mat_map    = np.zeros((quad[0][0].flatten().size, quad[1][0].flatten().size, quad[2][0].flatten().size), dtype=float, order='F')
-        kind_funs  = [11, 12, 14, 12, 13, 15, 14, 15, 16]
-    else:
-        quad_mesh  = np.meshgrid(quad[0][0].flatten(), quad[1][0].flatten(), quad[2][0].flatten(), indexing='ij')
-        
-    B1, B2, B3 = eva.FEM_field_V2_3d([b1, b2, b3], [quad[0][0].flatten(), quad[1][0].flatten(), quad[2][0].flatten()], T, p, bc)
-    
-    B1 += Beq[0]
-    B2 += Beq[1]
-    B3 += Beq[2]
-    
-    B1 = B1.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    B2 = B2.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    B3 = B3.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    
-    counter = 0
-    
-    for a in range(3):
-        
-        ni1,    ni2,    ni3    = ns[a]
-        bi1,    bi2,    bi3    = basis[a]
-        Nbase1, Nbase2, Nbase3 = Nbase[a]
-        
-        for b in range(3):
-            
-            if mapping[0] == None:
-                ker.kernel_eva_3d([quad[0][0].flatten().size, quad[1][0].flatten().size, quad[2][0].flatten().size], quad[0][0].flatten(), quad[1][0].flatten(), quad[2][0].flatten(), mat_map, kind_fun=kind_funs[counter], kind_map=args[0], params=args[1])
-            else:
-                mat_map = np.asfortranarray(mapping[1][a][b](quad_mesh[0], quad_mesh[1], quad_mesh[2]) * mapping[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-            
-            if b == 0:
-                mat_f = np.asfortranarray(B2*(DFinv[2][0]*jheq[0] + DFinv[2][1]*jheq[1] + DFinv[2][2]*jheq[2]) - B3*(DFinv[1][0]*jheq[0] + DFinv[1][1]*jheq[1] + DFinv[1][2]*jheq[2]))
-                
-            elif b == 1:
-                mat_f = np.asfortranarray(B3*(DFinv[0][0]*jheq[0] + DFinv[0][1]*jheq[1] + DFinv[0][2]*jheq[2]) - B1*(DFinv[2][0]*jheq[0] + DFinv[2][1]*jheq[1] + DFinv[2][2]*jheq[2]))
-                
-            elif b == 2:
-                mat_f = np.asfortranarray(B1*(DFinv[1][0]*jheq[0] + DFinv[1][1]*jheq[1] + DFinv[1][2]*jheq[2]) - B2*(DFinv[0][0]*jheq[0] + DFinv[0][1]*jheq[1] + DFinv[0][2]*jheq[2]))
-            
-            ker.kernel_inner_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F1[a], mat_f, mat_map)
-            
-            counter += 1
-            
-    return F1
-# ============================================================================================================================
-
-
-
-# ================================ mass matrix in V1 (3d) of equilibrium charge density ======================================
-def mass_V1_nh0(T, p, bc, b1, b2, b3, nh0, Beq, Ginv):
-    '''
-    nh0 on logical domain!!
-    b1, b2, b3 must be flattened! 
-    '''
-    
-    t          = [T[1:-1] for T in T]
-    
-    el_b       = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
-    Nel        = [len(el_b) - 1 for el_b in el_b]
-    NbaseN     = [Nel + p - bc*p for Nel, p, bc in zip(Nel, p, bc)]
-    NbaseD     = [NbaseN - (1 - bc) for NbaseN, bc in zip(NbaseN, bc)]
-    
-    quad_loc   = [np.polynomial.legendre.leggauss(p + 1) for p in p]
-    quad       = [bsp.quadrature_grid(el_b, quad_loc[0], quad_loc[1]) for el_b, quad_loc in zip(el_b, quad_loc)]
-    
-    quad       = [(quad[0], np.asfortranarray(quad[1])) for quad in quad]
-    
-    basisN     = [np.asfortranarray(bsp.basis_ders_on_quad_grid(T, p, quad[0], 0)) for T, p, quad in zip(T, p, quad)]
-    basisD     = [np.asfortranarray(bsp.basis_ders_on_quad_grid(t, p - 1, quad[0], 0, normalize=True)) for t, p, quad in zip(t, p, quad)]
-    
-    Nbi1       = [NbaseN[0], NbaseN[0], NbaseN[0]]
-    Nbi2       = [NbaseD[1], NbaseN[1], NbaseN[1]]
-    Nbi3       = [NbaseN[2], NbaseD[2], NbaseD[2]]
-    
-    Nbj1       = [NbaseD[0], NbaseD[0], NbaseN[0]]
-    Nbj2       = [NbaseN[1], NbaseN[1], NbaseD[1]]
-    Nbj3       = [NbaseN[2], NbaseN[2], NbaseN[2]]
-    
-    basis      = [[basisD[0], basisN[1], basisN[2]], [basisN[0], basisD[1], basisN[2]], [basisN[0], basisN[1], basisD[2]]]
-    ns         = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    
-    M1         = [np.zeros((Nbi1, Nbi2, Nbi3, 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), order='F') for Nbi1, Nbi2, Nbi3 in zip(Nbi1, Nbi2, Nbi3)]
-    
-    quad_mesh  = np.meshgrid(quad[0][0].flatten(), quad[1][0].flatten(), quad[2][0].flatten(), indexing='ij')
-    
-    B1, B2, B3 = eva.FEM_field_V2_3d([b1, b2, b3], [quad[0][0].flatten(), quad[1][0].flatten(), quad[2][0].flatten()], T, p, bc)
-    
-    B1 += Beq[0]
-    B2 += Beq[1]
-    B3 += Beq[2]
-    
-    B1 = B1.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    B2 = B2.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    B3 = B3.reshape((p[0] + 1)*Nel[0], (p[1] + 1)*Nel[1], (p[2] + 1)*Nel[2])
-    
-    counter    = 0
-    
-    for a in range(1, 3):
-        for b in range(0, a):
-            
-            if   (a == 1) and (b == 0):
-                mat_f = nh0*np.asfortranarray(-Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[1][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[0][0](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[1][1](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[0][0](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-                
-            elif (a == 2) and (b == 0):
-                mat_f = nh0*np.asfortranarray(-Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[0][0](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[2][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[0][0](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[2][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-                
-            elif (a == 2) and (b == 1):
-                mat_f = nh0*np.asfortranarray(-Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[1][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[0][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B3*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[1][2](quad_mesh[0], quad_mesh[1], quad_mesh[2]) - Ginv[2][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B2*Ginv[0][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]) + Ginv[2][2](quad_mesh[0], quad_mesh[1], quad_mesh[2])*B1*Ginv[1][1](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-            
-            ni1, ni2, ni3 = ns[a]
-            nj1, nj2, nj3 = ns[b]
-            
-            bi1, bi2, bi3 = basis[a]
-            bj1, bj2, bj3 = basis[b]
-            
-            ker.kernel_mass_3d(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], p[0] + 1, p[1] + 1, p[2] + 1, ni1, ni2, ni3, nj1, nj2, nj3, quad[0][1], quad[1][1], quad[2][1], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M1[counter], mat_f)
-            
-            indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
-            
-            shift1  = np.arange(Nbi1[counter]) - p[0]
-            shift2  = np.arange(Nbi2[counter]) - p[1]
-            shift3  = np.arange(Nbi3[counter]) - p[2]
-            
-            row     = (Nbi2[counter]*Nbi3[counter]*indices[0] + Nbi3[counter]*indices[1] + indices[2]).flatten()
-            
-            col1    = (indices[3] + shift1[:, None, None, None, None, None])%Nbj1[counter]
-            col2    = (indices[4] + shift2[None, :, None, None, None, None])%Nbj2[counter]
-            col3    = (indices[5] + shift3[None, None, :, None, None, None])%Nbj3[counter]
-            
-            col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
-            
-            M1[counter] = spa.csr_matrix((M1[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
-            M1[counter].eliminate_zeros()
-            
-            counter += 1
-    
-    M1 = spa.bmat([[None, -M1[0].T, -M1[1].T], [M1[0], None, -M1[2].T], [M1[1], M1[2], None]], format='csr')
-            
-    return M1
 # ============================================================================================================================
