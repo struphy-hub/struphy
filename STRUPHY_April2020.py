@@ -108,6 +108,7 @@ Ntot_3form  =  NbaseD[0]*NbaseD[1]*NbaseD[2]
 
 
 if add_PIC == True:
+    
     # delta-f corrections
     if control == True:
         cont = cv.terms_control_variate(T, p, bc, kind_map, params_map)
@@ -175,7 +176,7 @@ if params.ic_from_params == True:
     pr[:, :, :]                           = pro.PI_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
     u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.PI_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
     b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.PI_2([lambda xi1, xi2, xi3 : params.b1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b3_ini(xi1, xi2, xi3)])
-    rho[:, :, :]                          = pro.PI_3(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
+    rho[:, :, :]                          = pro.PI_3(lambda xi1, xi2, xi3 : params.rho_ini(xi1, xi2, xi3))
     
 else:
     pr[:, :, :]                           = pro.PI_0( None,               1,        kind_map, params_map)
@@ -233,8 +234,8 @@ MAT = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
 
 del S, K
 
-LHS_LU = sparse.linalg.splu((sparse.bmat([[sparse.identity(Ntot),  dt/2*DIV.dot(Q), None], [None, A,  dt/2*M1.dot(GRAD)], [None, -dt/2*MAT, M0]])).tocsc())
-RHS    =                     sparse.bmat([[sparse.identity(Ntot), -dt/2*DIV.dot(Q), None], [None, A, -dt/2*M1.dot(GRAD)], [None,  dt/2*MAT, M0]], format='csc')
+LHS_LU = sparse.linalg.splu(sparse.bmat([[sparse.identity(Ntot),  dt/2*DIV.dot(Q), None], [None, A,  dt/2*M1.dot(GRAD)], [None, -dt/2*MAT, M0]]).tocsc())
+RHS    =                    sparse.bmat([[sparse.identity(Ntot), -dt/2*DIV.dot(Q), None], [None, A, -dt/2*M1.dot(GRAD)], [None,  dt/2*MAT, M0]]).tocsc()
 
 # delete everything which is not needed to save memory
 del MHD, M0, GRAD, DIV, Q, MAT
