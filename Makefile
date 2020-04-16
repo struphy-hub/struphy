@@ -35,6 +35,10 @@ PS  := hylife/utilitis_PIC_April2020/STRUPHY_sampling
 SRC_PIC := $(PF).py $(PP).py $(PA).py $(PS).py
 OBJ_PIC  := $(SRC_PIC:.py=$(SO_EXT))
 
+KPG := hylife/utilitis_FEEC/kernels_projectors_global
+SRC_PROJ := $(KPG).py
+OBJ_PROJ := $(SRC_PROJ:.py=$(SO_EXT))
+
 SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -42,8 +46,12 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 # Main targets and general rules 
 #--------------------------------------
 
-.PHONY: all base feec pic
-all: base feec pic
+.PHONY: all proj base feec pic
+all: proj   #base feec pic
+
+# only projectors
+proj: $(OBJ_PROJ)
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE PROJ DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 base: $(OBJ_BASE)
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE BASE DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
@@ -58,6 +66,9 @@ pic: base $(OBJ_PIC)
 #--------------------------------------
 # dependencies and pyccelize 
 #--------------------------------------
+
+$(KPG)$(SO_EXT) : $(KPG).py
+	pyccel $< $(FLAGS)
 
 $(MA)$(SO_EXT) : $(MA).py
 	pyccel $< $(FLAGS)
@@ -112,8 +123,13 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 # CLEAN UP
 #--------------------------------------
 
-.PHONY: clean cleanbase cleanfeec cleanpic
-clean: cleanbase cleanfeec cleanpic
+.PHONY: clean cleanproj cleanbase cleanfeec cleanpic
+clean: cleanproj #cleanbase cleanfeec cleanpic
+
+cleanproj:
+	rm -rf $(OBJ_PROJ)
+	rm -rf hylife/utilitis_FEEC/__pyc*__ 
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN PROJ DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 cleanbase:
 	rm -rf $(OBJ_BASE)

@@ -110,7 +110,7 @@ def FEM_field_V0_2d(coeff, q, T, p, bc):
         the function values at the points q (flattened)
     """
 
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
     
     eva = sparse.kron(N[0], N[1]).dot(coeff)
     
@@ -150,8 +150,8 @@ def FEM_field_V1curl_2d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
     
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva1 = sparse.kron(D[0], N[1]).dot(coeff[0])
     eva2 = sparse.kron(N[0], D[1]).dot(coeff[1])
@@ -192,8 +192,8 @@ def FEM_field_V1div_2d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
     
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva1 = sparse.kron(N[0], D[1]).dot(coeff[0])
     eva2 = sparse.kron(D[0], N[1]).dot(coeff[1])
@@ -235,7 +235,7 @@ def FEM_field_V2_2d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
     
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva = sparse.kron(D[0], D[1]).dot(coeff)
     
@@ -273,7 +273,7 @@ def FEM_field_V0_3d(coeff, q, T, p, bc):
         the function values at the points q (flattened)
     """
 
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
     
     eva = sparse.kron(sparse.kron(N[0], N[1]), N[2]).dot(coeff.flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
     
@@ -312,8 +312,8 @@ def FEM_field_V1_3d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
     
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva1 = sparse.kron(sparse.kron(D[0], N[1]), N[2]).dot(coeff[0].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
     eva2 = sparse.kron(sparse.kron(N[0], D[1]), N[2]).dot(coeff[1].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
@@ -354,8 +354,8 @@ def FEM_field_V2_3d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
     
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i)) for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva1 = sparse.kron(sparse.kron(N[0], D[1]), D[2]).dot(coeff[0].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
     eva2 = sparse.kron(sparse.kron(D[0], N[1]), D[2]).dot(coeff[1].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
@@ -396,7 +396,7 @@ def FEM_field_V3_3d(coeff, q, T, p, bc):
     
     t = [T[1:-1] for T in T]
 
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(t_i, p_i - 1, q_i, bc_i, normalize=True)) for t_i, p_i, q_i, bc_i in zip(t, p, q, bc)]
     
     eva = sparse.kron(sparse.kron(D[0], D[1]), D[2]).dot(coeff.flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
     

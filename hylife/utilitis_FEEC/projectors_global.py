@@ -82,8 +82,8 @@ def integrate_2d(points, weights, fun):
     nq2 = pts2.shape[1]
     
     
-    f_int = np.empty((n1, n2), order='F')
-    mat_f = np.empty((nq1, nq2), order='F')
+    f_int = np.empty((n1, n2))
+    mat_f = np.empty((nq1, nq2))
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -135,8 +135,8 @@ def integrate_3d(points, weights, fun):
     nq3 = pts3.shape[1]
     
     
-    f_int = np.empty((n1, n2, n3), order='F')
-    mat_f = np.empty((nq1, nq2, nq3), order='F')
+    f_int = np.empty((n1, n2, n3))
+    mat_f = np.empty((nq1, nq2, nq3))
     
     for ie1 in range(n1):
         for ie2 in range(n2):
