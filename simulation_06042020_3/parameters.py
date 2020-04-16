@@ -5,7 +5,7 @@ class parameters():
     
     def __init__(self):
         
-        self.Nel          = [48, 48, 4]            # mesh generation on logical domain
+        self.Nel          = [64, 64, 4]            # mesh generation on logical domain
         self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
         self.p            = [3, 3, 2]              # spline degrees  
 
@@ -55,7 +55,7 @@ class parameters():
         # initial conditions 
         self.ic_from_params = True
         
-        self.nmodes = [48, 48]
+        self.nmodes = [64, 64]
         self.modes  = [np.linspace(0, nmodes, nmodes + 1) - nmodes/2 for nmodes in self.nmodes]
         self.modes  = [np.delete(modes, int(nmodes/2)) for modes, nmodes in zip(self.modes, self.nmodes)]
         
