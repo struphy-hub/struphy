@@ -4,7 +4,7 @@ import  scipy.sparse          as spa
 import hylife.utilitis_FEEC.bsplines              as bsp
 import hylife.utilitis_FEEC.kernels_mass          as ker
 import hylife.utilitis_FEEC.evaluation            as eva
-import hylife.utilitis_FEEC.spline_mappings_polar as splmap
+import hylife.geometry.spline_mappings_polar as splmap
 
 
 

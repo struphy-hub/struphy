@@ -1,6 +1,5 @@
 from pyccel.decorators import types
 
-#import ..geometry.mappings_analytical as mapping
 import hylife.geometry.mappings_analytical as mapping
 
 
@@ -14,7 +13,7 @@ def fun_3d(xi1, xi2, xi3, kind_fun, kind_map, params):
     if   kind_fun == 1:
         value = mapping.det_df(xi1, xi2, xi3, kind_map, params)
     
-    # quantities for 1-form mass matrix (Hcurl)
+    # quantities for 1-form mass matrix (H curl)
     elif kind_fun == 11:
         value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 12:
@@ -28,7 +27,7 @@ def fun_3d(xi1, xi2, xi3, kind_fun, kind_map, params):
     elif kind_fun == 16:
         value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
         
-    # quantities for 2-form mass matrix (Hdiv)
+    # quantities for 2-form mass matrix (H div)
     elif kind_fun == 21:
         value = mapping.g(xi1, xi2, xi3, kind_map, params, 11) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 22:
