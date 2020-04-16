@@ -10,7 +10,8 @@ Modules to compute L2 - error in 3d.
 import numpy        as np
 import scipy.sparse as spa
 
-import hylife.utilitis_FEEC.mass_matrices_new.kernels_3d as ker
+import hylife.utilitis_FEEC.basics.kernels_3d as ker
+
 
 # ======= error in V0 ====================
 def l2_error_V0(tensor_space, kind_map, params_map, coeff, fun):

@@ -10,7 +10,7 @@ Modules to compute mass matrices 3d.
 import numpy        as np
 import scipy.sparse as spa
 
-import hylife.utilitis_FEEC.mass_matrices_new.kernels_3d as ker
+import hylife.utilitis_FEEC.basics.kernels_3d as ker
 
 
 # ================ mass matrix in V0 ===========================

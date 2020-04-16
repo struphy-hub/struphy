@@ -1,10 +1,10 @@
-import  numpy                 as np
-import  scipy.sparse          as spa
+import numpy        as np
+import scipy.sparse as spa
 
-import hylife.utilitis_FEEC.bsplines              as bsp
-import hylife.utilitis_FEEC.kernels_mass          as ker
-import hylife.utilitis_FEEC.evaluation            as eva
-import hylife.geometry.spline_mappings_polar as splmap
+import hylife.utilitis_FEEC.bsplines                as bsp
+import hylife.utilitis_FEEC.basics.kernels_mass_old as ker
+import hylife.utilitis_FEEC.evaluation              as eva
+import hylife.geometry.spline_mappings_polar        as splmap
 
 
 
