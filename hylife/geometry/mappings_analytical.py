@@ -59,8 +59,9 @@ def f(xi1, xi2, xi3, kind, params, component):
             value = Ly * (xi2 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
         elif component == 3:
             value = Lz * xi3
-    else
-        raise ValueError("kind of mapping unknown")
+    else:
+    #    raise ValueError("kind of mapping unknown")
+         value = -999999999999999999.
             
     return value
 
@@ -108,8 +109,9 @@ def df(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lz
-        else
-            raise ValueError("df component not correct")
+        else:
+            #raise ValueError("df component not correct")
+            value = -999999999999999999.
             
     elif kind == 2:
         
@@ -136,8 +138,9 @@ def df(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lz
-        else
-            raise ValueError("df component not correct")
+        else:
+            #raise ValueError("df component not correct")
+            value = -999999999999999999.
             
     elif kind == 3:
         
@@ -164,10 +167,12 @@ def df(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = Lz
-        else
-            raise ValueError("df component not correct")
-    else
-        raise ValueError("kind of mapping unknown")
+        else:
+            #raise ValueError("df component not correct")
+            value = -999999999999999999.
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -999999999999999999.
             
     return value
 
@@ -214,8 +219,9 @@ def det_df(xi1, xi2, xi3, kind, params):
         Lz    = params[3]
         
         value = Lx*Ly*Lz * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
-    else
-        raise ValueError("kind of mapping unknown")
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -999999999999999999.
             
     return value
 
@@ -264,8 +270,9 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lx * Ly
-        else
-            raise ValueError("df_inv component not correct")
+        else:
+            #raise ValueError("df_inv component not correct")
+            value = -999999999999999999.
             
     elif kind == 2:
         
@@ -292,8 +299,9 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = dR * 2*pi * (xi1*dR + R1)
-        else
-            raise ValueError("df_inv component not correct")
+        else:
+            #raise ValueError("df_inv component not correct")
+            value = -999999999999999999.
             
     elif kind == 3:
         
@@ -320,11 +328,13 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = Lx*Ly * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
-        else
-            raise ValueError("df_inv component not correct")
+        else:
+            #raise ValueError("df_inv component not correct")
+            value = -999999999999999999.
             
-    else
-        raise ValueError("kind of mapping unknown")
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -999999999999999999.
             
     return value/det_df(xi1, xi2, xi3, kind, params)
 
@@ -372,8 +382,9 @@ def g(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lz**2
-        else
-            raise ValueError("g component not correct")
+        else:
+            #raise ValueError("g component not correct")
+            value = -999999999999999999.
             
     elif kind == 2:
         
@@ -400,8 +411,9 @@ def g(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lz**2
-        else
-            raise ValueError("g component not correct")
+        else:
+            #raise ValueError("g component not correct")
+            value = -999999999999999999.
             
     elif kind == 3:
         
@@ -428,10 +440,12 @@ def g(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = Lz**2
-        else
-            raise ValueError("g component not correct")
-    else
-        raise ValueError("kind of mapping unknown")
+        else:
+            #raise ValueError("g component not correct")
+            value = -999999999999999999.
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -999999999999999999.
         
             
     return value
@@ -480,8 +494,9 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = Lx**2 * Ly**2
-        else
-            raise ValueError("g_inv component not correct")
+        else:
+            #raise ValueError("g_inv component not correct")
+            value = -999999999999999999.
             
     elif kind == 2:
         
@@ -508,8 +523,9 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.
         elif component == 33:
             value = dR**2 * (2*pi)**2 * (xi1*dR + R1)**2
-        else
-            raise ValueError("g_inv component not correct")
+        else:
+            #raise ValueError("g_inv component not correct")
+            value = -999999999999999999.
             
     elif kind == 3:
         
@@ -536,10 +552,12 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = (Lx*Ly * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi))**2
-        else
-            raise ValueError("g_inv component not correct")
+        else:
+            #raise ValueError("g_inv component not correct")
+            value = -999999999999999999.
             
-    else
-        raise ValueError("kind of mapping unknown")
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -999999999999999999.
           
     return value/det_df(xi1, xi2, xi3, kind, params)**2
