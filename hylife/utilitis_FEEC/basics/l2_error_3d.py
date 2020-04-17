@@ -100,8 +100,8 @@ def l2_error_V1(tensor_space, kind_map, params_map, coeff, fun):
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
     mat_f1    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-    mat_f2    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-    mat_f3    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
+    mat_f2    = np.asfortranarray(fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
+    mat_f3    = np.asfortranarray(fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
     # evaluation of mapping at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float, order='F')
@@ -180,8 +180,8 @@ def l2_error_V2(tensor_space, kind_map, params_map, coeff, fun):
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
     mat_f1    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-    mat_f2    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
-    mat_f3    = np.asfortranarray(fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
+    mat_f2    = np.asfortranarray(fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
+    mat_f3    = np.asfortranarray(fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2]))
     
     # evaluation of mapping at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float, order='F')
