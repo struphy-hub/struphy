@@ -410,7 +410,7 @@ class tensor_spline_space:
             evaluated FEM field at the tensor product grid given by (xi[0], xi[1], xi[2])
         """
         
-        D = [spa.csr_matrix(bsp.collocation_matrix(t, p - 1, xi, bc, normalize=True)) for T, p, xi, bc in zip(self.t, self.p, xi, self.bc)]
+        D = [spa.csr_matrix(bsp.collocation_matrix(t, p - 1, xi, bc, normalize=True)) for t, p, xi, bc in zip(self.t, self.p, xi, self.bc)]
         
         values = spa.kron(spa.kron(D[0], D[1]), D[2]).dot(coeff.flatten()).reshape(len(xi[0]), len(xi[1]), len(xi[2]))
         
