@@ -1,12 +1,22 @@
+'''
+ Module for evaluating functions living in the discrete subspaces of the de Rham complex. 
+ Periodic and Dirichlet boundary conditions are available.
+ 
+ Written 2019/20 by Florian Holderied and Stefan Possanner
+'''
+
 import numpy        as np
 import scipy.sparse as sparse
 import hylife.utilitis_FEEC.bsplines as bsp
 
 
+__all__ = ['FEM_field_1d',
+           'FEM_field_2d',
+           'FEM_field_3d']
 
 
 #==============================================================================================================================
-def FEM_field_V0_1d(coeff, q, T, p, bc):
+def FEM_field_1d(coeff, basis, q, T, p, bc):
     """
     Evaluates the 1d FEM field in the space V0 at the points q.
     
@@ -15,42 +25,10 @@ def FEM_field_V0_1d(coeff, q, T, p, bc):
     coeff : ndarray
         1d coefficient vector
         
-    q : ndarray
-        1d evaluation points
-        
-    T : ndarray
-        1d knot vector defining the spline basis
-    
-    p : int
-        spline degree 
-        
-    bc : boolean
-        boundary conditions (True = periodic, False = else)
-        
-    Returns
-    -------
-    eva : ndarray
-        the function values at the points q
-    """
-    
-    N = bsp.collocation_matrix(T, p, q, bc)
-              
-    eva = np.dot(N, coeff) 
-        
-    return eva
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-def FEM_field_V1_1d(coeff, q, T, p, bc):
-    """
-    Evaluates the 1d FEM field in the space V1 at the points q.
-    
-    Parameters
-    ----------
-    coeff : ndarray
-        1d coefficient vector
+    basis : int
+        The basis in which the FEM field is expandend.
+             0: V0
+             1: V1
         
     q : ndarray
         1d evaluation points
@@ -62,23 +40,23 @@ def FEM_field_V1_1d(coeff, q, T, p, bc):
         spline degree 
         
     bc : boolean
-        boundary conditions (True = periodic, False = else)
+        boundary conditions (True = periodic, False = clamped)
         
     Returns
     -------
     eva : ndarray
         the function values at the points q
     """
-    
-    t = T[1:-1]
-    
-    D = bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)
-    
-    eva = np.dot(D, coeff)
-    
+
+    if basis==0:
+        eva = np.dot( bsp.collocation_matrix(T, p, q, bc), coeff ) 
+    elif basis==1:
+        eva = np.dot( bsp.collocation_matrix(T[1:-1], p - 1, q, bc, normalize=True), coeff )
+    else:
+        print('WARNING: no basis matched.')
+        
     return eva
 #==============================================================================================================================
-
 
 
 
@@ -243,54 +221,26 @@ def FEM_field_V2_2d(coeff, q, T, p, bc):
 #==============================================================================================================================
 
 
-
-
 #==============================================================================================================================
-def FEM_field_V0_3d(coeff, q, T, p, bc):
+def FEM_field_3d(coeff, basis, q, T, p, bc):
     """
-    Evaluates the 3d FEM field in the space V0 at the tensor-grid given by q = [q1, q2, q3].
+    Evaluates the 3d FEM field in the suitable basis at the tensor-grid given by q = [q1, q2, q3].
     
     Parameters
     ----------
     coeff : ndarray
-        FEM coefficient vector (either 3d or 1d flattened)
-        
-    q : list of ndarrays
-        1d evaluation points in each direction
-        
-    T : list of ndarrays
-        1d knot vectors defining the spline basis
-    
-    p : list of ints
-        spline degrees 
-        
-    bc : list of booleans
-        boundary conditions (True = periodic, False = else)
-        
-    Returns
-    -------
-    eva : ndarray
-        the function values at the points q (flattened)
-    """
-
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    
-    eva = sparse.kron(sparse.kron(N[0], N[1]), N[2]).dot(coeff.flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    
-    return eva
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-def FEM_field_V1_3d(coeff, q, T, p, bc):
-    """
-    Evaluates the 3d FEM field in the space V1 at the tensor-grid given by q = [q1, q2, q3].
-    
-    Parameters
-    ----------
-    coeff : list of ndarrays
         FEM coefficient vectors (either 3d or 1d flattened)
+        
+    basis : int
+        The basis in which the FEM field is expandend.
+             0: V0
+            11: first  component of V1
+            12: second component of V1
+            13: third  component of V1
+            21: first  component of V2
+            22: second component of V2
+            23: third  component of V2
+             3: V3
         
     q : list of ndarrays
         1d evaluation points in each direction
@@ -310,95 +260,37 @@ def FEM_field_V1_3d(coeff, q, T, p, bc):
         evaluated values at the points q for each component (flattened)
     """
     
-    t = [T[1:-1] for T in T]
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc))
+         for T, p, q, bc in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(T[1:-1], p - 1, q, bc, normalize=True)) 
+         for T, p, q, bc in zip(T, p, q, bc)]
     
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
-    
-    eva1 = sparse.kron(sparse.kron(D[0], N[1]), N[2]).dot(coeff[0].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    eva2 = sparse.kron(sparse.kron(N[0], D[1]), N[2]).dot(coeff[1].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    eva3 = sparse.kron(sparse.kron(N[0], N[1]), D[2]).dot(coeff[2].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    
-    return [eva1, eva2, eva3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-def FEM_field_V2_3d(coeff, q, T, p, bc):
-    """
-    Evaluates the 3d FEM field in the space V2 at the tensor-grid given by q = [q1, q2, q3].
-    
-    Parameters
-    ----------
-    coeff : list of ndarrays
-        FEM coefficient vectors (either 3d or 1d flattened)
-        
-    q : list of ndarrays
-        1d evaluation points in each direction
-        
-    T : list of ndarrays
-        1d knot vectors defining the spline basis
-    
-    p : list of ints
-        spline degrees 
-        
-    bc : list of booleans
-        boundary conditions (True = periodic, False = else)
-        
-    Returns
-    -------
-    eva : list of ndarrays
-        evaluated values at the points q for each component (flattened)
-    """
-    
-    t = [T[1:-1] for T in T]
-    
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T, p, q, bc)) for T, p, q, bc in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
-    
-    eva1 = sparse.kron(sparse.kron(N[0], D[1]), D[2]).dot(coeff[0].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    eva2 = sparse.kron(sparse.kron(D[0], N[1]), D[2]).dot(coeff[1].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    eva3 = sparse.kron(sparse.kron(D[0], D[1]), N[2]).dot(coeff[2].flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
-    
-    return [eva1, eva2, eva3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-def FEM_field_V3_3d(coeff, q, T, p, bc):
-    """
-    Evaluates the 3d FEM field in the space V3 at the tensor-grid given by q = [q1, q2, q3].
-    
-    Parameters
-    ----------
-    coeff : ndarray
-        FEM coefficient vector (either 3d or 1d flattened)
-        
-    q : list of ndarrays
-        1d evaluation points in each direction
-        
-    T : list of ndarrays
-        1d knot vectors defining the spline basis
-    
-    p : list of ints
-        spline degrees 
-        
-    bc : list of booleans
-        boundary conditions (True = periodic, False = else)
-        
-    Returns
-    -------
-    eva : ndarray
-        the function values at the points q (3d)
-    """
-    
-    t = [T[1:-1] for T in T]
-
-    D = [sparse.csr_matrix(bsp.collocation_matrix(t, p - 1, q, bc, normalize=True)) for t, p, q, bc in zip(t, p, q, bc)]
-    
-    eva = sparse.kron(sparse.kron(D[0], D[1]), D[2]).dot(coeff.flatten()).reshape(len(q[0]), len(q[1]), len(q[2]))
+    if basis==0:
+        eva = sparse.kron(sparse.kron(N[0], N[1]), N[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==11:
+        eva = sparse.kron(sparse.kron(D[0], N[1]), N[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==12:
+        eva = sparse.kron(sparse.kron(N[0], D[1]), N[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==13:
+        eva = sparse.kron(sparse.kron(N[0], N[1]), D[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==21:
+        eva = sparse.kron(sparse.kron(N[0], D[1]), D[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==22:
+        eva = sparse.kron(sparse.kron(D[0], N[1]), D[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==23:
+        eva = sparse.kron(sparse.kron(D[0], D[1]), N[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    elif basis==3:
+        eva = sparse.kron(sparse.kron(D[0], D[1]), D[2]).dot(coeff.flatten()).reshape(
+                                                                    len(q[0]), len(q[1]), len(q[2]))
+    else:
+        print('WARNING: no basis matched.')
     
     return eva
 #==============================================================================================================================

@@ -1,9 +1,647 @@
+'''
+ Module that provides projectors for commuting diagrams in the de Rham sequence, based on
+ inter-/histopolation of b-splines at Greville points. 
+ Periodic and Dirichlet boundary conditions are available.
+ 
+ Written 2019/20 by Florian Holderied and Stefan Possanner
+'''
+
 import numpy              as np
 import scipy.sparse       as sparse
+from scipy.sparse.linalg import splu
+
 import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.kernels_projectors_global as kernels
 
-from scipy.sparse.linalg import splu
+
+__all__ = ['projectors_3d',
+           'projectors_1d',
+           'integrate_1d',
+           'integrate_2d',
+           'integrate_3d']
+
+
+# ===================================================================
+class projectors_3d:
+    
+    '''
+    Commuting projectors for the 3D de Rham complex, based on inter-/histopolation of b-splines
+    at Greville points. 
+
+    Parameters
+    ----------
+    T : list of 1D array_like
+        Knot vectors defining the spline basis.
+    
+    p : list of int
+        Spline degrees.
+        
+    bc : list of boolean
+        Boundary conditions (True = periodic, False = clamped)
+        
+    Nq : list of int
+        Number of quadratute points per element in each direction.
+        
+    Returns
+    -------
+    self.T : list of 1D array_like
+        Knot vectors defining the spline basis in each direction.
+             
+    self.p : list of int
+        Spline degrees in each direction.
+             
+    self.bc : list boolean
+        Boundary conditions (True = periodic, False = clamped) in each direction.
+        
+    self.Nq : list of int
+        Number of quadratute points per element in each direction.
+              
+    self.el_b : list of 1D array_like
+        Element boundaries in each direction.
+        
+    self.greville : list of 1D array_like
+        Greville points in each direction.
+                
+    self.Nel : list of int
+        Number of elements.
+              
+    self.NbaseN : list of int
+        Number of N-spline basis functions.
+                  
+    self.NbaseD : list of int
+        Number of D-spline basis functions. 
+                
+    self.quad_loc : list of array_like
+        Local Gauss-Legendre quadrature points and weights
+                    
+    self.delta : list of float
+        Grid spacings.
+                 
+    self.grid : list of array_like
+        Grid points.
+                
+    self.pts : list of array_like
+        Gauss-Legendre quadrature points between Greville points.
+               
+    self.wts : list of array_like
+        Gauss-Legendre quadrature weights between Greville points.
+               
+    self.N : list of array_like (sparse)
+        Collocation matrices for N-splines in each direction.
+             
+    self.D : list of array_like (sparse)
+        Collocation matrices for D-splines in each direction.
+             
+    Returns methods (described in detail below)
+    ---------------------------------
+    self.NNN_LU
+    self.DNN_LU
+    self.NDN_LU
+    self.NND_LU
+    self.NDD_LU
+    self.DND_LU
+    self.DDN_LU
+    self.DDD_LU
+    self.PI_0  : Projection on the space V0 via inter-inter-inter-polation in x1-x2-x3.
+    self.PI_11 : FIRST  component of projection on the space V1 via histo-inter-inter-polation.
+    self.PI_12 : SECOND component of projection on the space V1 via inter-histo-inter-polation.
+    self.PI_13 : THIRD  component of projection on the space V1 via inter-inter-histo-polation.
+    self.PI_21 : FIRST  component of projection on the space V2 via inter-histo-histo-polation.
+    self.PI_22 : SECOND component of projection on the space V2 via histo-inter-histo-polation.
+    self.PI_23 : THIRD  component of projection on the space V2 via histo-histo-inter-polation.
+    self.PI_3  : Projection on the space V3 via histo-histo-histo-polation in x1-x2-x3.
+    '''
+    
+    def __init__(self, T, p, bc, Nq):
+        
+        self.T         = T
+        self.p         = p
+        self.bc        = bc
+        self.Nq        = Nq
+        self.el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
+        self.greville  = [bsp.greville(T, p, bc) for T, p, bc in zip(T, p, bc)]
+        self.Nel       = [len(el_b) - 1 for el_b in self.el_b]
+        self.NbaseN    = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, p, bc)]
+        self.NbaseD    = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, bc)]
+        self.quad_loc  = [np.polynomial.legendre.leggauss(Nq) for Nq in Nq] 
+        self.delta     = [el_b[1] - el_b[0] for el_b in self.el_b] 
+        
+        # Quadrature grids in cells defined by consecutive Greville points in each direction
+        self.pts = []
+        self.wts = []
+        for a in range(3):
+            
+            if self.bc[a]:
+                xgrid = np.append( self.greville[a], self.el_b[a][-1] + self.greville[a][0] )
+            else:
+                xgrid = self.greville[a]
+            
+            pts_a, wts_a = bsp.quadrature_grid( xgrid , self.quad_loc[a][0],
+                                                        self.quad_loc[a][1] )
+            
+            self.pts.append(pts_a)
+            self.wts.append(wts_a)
+        
+        # Collocation matrices for N-splines in each direction
+        self.N = [sparse.csc_matrix(bsp.collocation_matrix(T, p, greville, bc)) 
+                  for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
+        # Histopolation matrices for D-splines in each direction
+        self.D = [sparse.csc_matrix(bsp.histopolation_matrix(T[1:-1], p-1, greville, bc, True)) 
+                  for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
+         
+    # ======================================
+    def NNN_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrices in x1, x2, x3 in sparse format.
+        '''
+
+        self.NNN_LU = splu( sparse.kron( sparse.kron( self.N[0], self.N[1] ), self.N[2], format='csc' ) )
+        
+    # ======================================
+    def DNN_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrices in x2, x3 and
+        histopolation matrix in x1 in sparse format.
+        '''
+        
+        self.DNN_LU = splu( sparse.kron( sparse.kron( self.D[0], self.N[1] ), self.N[2], format='csc' ) )
+        
+    # ======================================
+    def NDN_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrices in x1, x3 and 
+        histopolation matrix in x2 in sparse format.
+        '''
+
+        self.NDN_LU = splu( sparse.kron( sparse.kron( self.N[0], self.D[1] ), self.N[2], format='csc' ) )
+        
+    # ======================================
+    def NND_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrices in x1, x2 and
+        histopolation matrix in x3 in sparse format.
+        '''
+
+        self.NND_LU = splu( sparse.kron( sparse.kron( self.N[0], self.N[1] ), self.D[2], format='csc' ) )
+        
+    # ======================================
+    def NDD_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrix in x1 and 
+        histopolation matrices in x2, x3 in sparse format.
+        '''
+
+        self.NDD_LU = splu( sparse.kron( sparse.kron( self.N[0], self.D[1] ), self.D[2], format='csc' ) )
+        
+    # ======================================
+    def DND_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrix in x2 and 
+        histopolation matrices in x1, x3 in sparse format.
+        '''
+
+        self.DND_LU = splu( sparse.kron( sparse.kron( self.D[0], self.N[1] ), self.D[2], format='csc' ) )
+        
+    # ======================================
+    def DDN_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of collocation matrix in x3 and
+        histopolation matrices in x1, x2 in sparse format.
+        '''
+        
+        self.DDN_LU = splu( sparse.kron( sparse.kron( self.D[0], self.D[1] ), self.N[2], format='csc' ) )
+        
+    # ======================================
+    def DDD_LU(self):
+        
+        '''
+        LU decompostion of Kronecker product of histopolation matrices in x1, x2, x3 in sparse format.
+        '''
+
+        self.DDD_LU = splu( sparse.kron( sparse.kron( self.D[0], self.D[1] ), self.D[2], format='csc' ) )
+    
+    # ======================================        
+    def PI_0(self, fun):
+        
+        '''
+        Projection on the space V0 via inter-inter-inter-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the 0-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+        
+        rhs = np.empty( (n[0], n[1], n[2]) )
+        
+        for i in range(n[0]):
+            for j in range(n[1]):
+                for k in range(n[2]):
+                    rhs[i, j, k] = fun( self.greville[0][i], self.greville[1][j], self.greville[2][k] )
+                               
+        coeffs = self.NNN_LU.solve(rhs.flatten())
+        
+        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseN[2] )
+    
+    # ======================================
+    def PI_11(self, fun):
+        
+        '''
+        FIRST component of projection on the space V1 via histo-inter-inter-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the FIRST component of the 1-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+            
+        rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2]) )
+                    
+        for j in range(n[1]):
+            for k in range(n[2]):
+
+                integrand = lambda xi1 : fun( xi1, self.greville[1][j], self.greville[2][k] )
+
+                rhs[:, j, k] = integrate_1d(self.pts[0], self.wts[0], integrand)
+                
+        coeffs = self.DNN_LU.solve(rhs.flatten()) 
+        
+        return coeffs.reshape( self.NbaseD[0], self.NbaseN[1], self.NbaseN[2] )
+    
+    # ======================================
+    def PI_12(self, fun):
+        
+        '''
+        SECOND component of projection on the space V1 via inter-histo-inter-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the SECOND component of the 1-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+            
+        rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2]) )
+
+        for i in range(n[0]):
+            for k in range(n[2]):
+
+                integrand = lambda xi2 : fun( self.greville[0][i], xi2, self.greville[2][k] )
+
+                rhs[i, :, k] = integrate_1d(self.pts[1], self.wts[1], integrand)
+                
+        coeffs = self.NDN_LU.solve(rhs.flatten()) 
+        
+        return  coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseN[2] )
+    
+    # ======================================
+    def PI_13(self, fun):
+        
+        '''
+        THIRD component of projection on the space V1 via inter-inter-histo-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the THIRD component of the 1-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+            
+        rhs = np.empty( (n[0], n[1], n[2] - 1 + self.bc[2]) )
+                    
+        for i in range(n[0]):
+            for j in range(n[1]):
+
+                integrand = lambda xi3 : fun( self.greville[0][i], self.greville[1][j], xi3 )
+
+                rhs[i, j, :] = integrate_1d(self.pts[2], self.wts[2], integrand)
+                
+        coeffs = self.NND_LU.solve(rhs.flatten()) 
+        
+        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseD[2] )
+    
+    # ======================================
+    def PI_21(self, fun):
+        
+        '''
+        FIRST component of projection on the space V2 via inter-histo-histo-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the FIRST component of the 2-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+        
+        rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]) )
+        
+        for i in range(n[0]):
+            
+            integrand = lambda xi2, xi3 : fun( self.greville[0][i], xi2, xi3 )
+            
+            rhs[i, :, :] = integrate_2d([self.pts[1], self.pts[2]], 
+                                        [self.wts[1], self.wts[2]], integrand )
+            
+        coeffs = self.NDD_LU.solve(rhs.flatten()) 
+        
+        return coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseD[2] )
+    
+    # ======================================
+    def PI_22(self, fun):
+        
+        '''
+        SECOND component of projection on the space V2 via histo-inter-histo-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the SECOND component of the 2-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+        
+        rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2] - 1 + self.bc[2]) )
+            
+        for j in range(n[1]):
+            
+            integrand = lambda xi1, xi3 : fun(xi1, self.greville[1][j], xi3)
+            
+            rhs[:, j, :] = integrate_2d([self.pts[0], self.pts[2]], 
+                                        [self.wts[0], self.wts[2]], integrand)
+        
+        coeffs = self.DND_LU.solve(rhs.flatten())
+        
+        return coeffs.reshape(self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+    
+    # ======================================
+    def PI_23(self, fun):
+        
+        '''
+        THIRD component of projection on the space V2 via histo-histo-inter-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the THIRD component of the 2-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = [greville.size for greville in self.greville]
+        
+        rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2]))
+            
+        for k in range(n[2]):
+            
+            integrand = lambda xi1, xi2 : fun(xi1, xi2, self.greville[2][k])
+            
+            rhs[:, :, k] = integrate_2d([self.pts[0], self.pts[1]], 
+                                        [self.wts[0], self.wts[1]], integrand)
+            
+        coeffs = self.DDN_LU.solve(rhs.flatten())
+        
+        return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+    
+    # ======================================
+    def PI_3(self, fun):
+        
+        '''
+        Projection on the space V3 via histo-histo-histo-polation in x1-x2-x3.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x1,x2,x3) \in R is the 3-form to be projected.
+
+        Returns
+        -------
+        coeffs : 3D array_like
+            Finite element coefficients obtained by projection.
+        '''
+
+        n = [greville.size for greville in self.greville]
+
+        rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]))
+
+        rhs[:, :, :] = integrate_3d([self.pts[0], self.pts[1], self.pts[2]],
+                                    [self.wts[0], self.wts[1], self.wts[2]], fun)
+
+        coeffs = self.DDD_LU.solve(rhs.flatten())
+
+        return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+# ===================================================================
+
+
+
+# ===================================================================
+class projectors_1d:
+    
+    '''
+    Projectors for the 1D commuting diagram, based on inter-/histopolation of b-splines
+    at Greville points. 
+    
+    Written 2019/20 by Florian Holderied, Stefan Possanner 
+    
+    Parameters
+    ----------
+    T : 1D array_like
+        Knot vectors defining the spline basis.
+    
+    p : int
+        Spline degrees.
+        
+    bc : boolean
+        Boundary conditions (True = periodic, False = clamped)
+        
+    Nq : int
+        Number of quadratute points per element.
+        
+    Returns
+    -------
+    self.T : 1D array_like
+        Knot vectors defining the spline basis.
+             
+    self.p : int
+        Spline degree.
+             
+    self.bc : boolean
+        Boundary conditions (True = periodic, False = clamped).
+        
+    self.Nq : int
+        Number of quadrature points per element.
+              
+    self.el_b : 1D array_like
+        Element boundaries.
+        
+    self.greville : 1D array_like
+        Greville points.
+                
+    self.Nel : int
+        Number of elements.
+              
+    self.NbaseN : int
+        Number of N-spline basis functions.
+                  
+    self.NbaseD : int
+        Number of D-spline basis functions. 
+                
+    self.quad_loc : array_like
+        Local Gauss-Legendre quadrature points and weights
+                    
+    self.delta : float
+        Grid spacings.
+                 
+    self.grid : array_like
+        Grid points.
+                
+    self.pts : array_like
+        Gauss-Legendre quadrature points between Greville points.
+               
+    self.wts : array_like
+        Gauss-Legendre quadrature weights between Greville points.
+               
+    self.N : array_like (sparse)
+        Collocation matrix for N-splines.
+             
+    self.D : array_like (sparse)
+        Collocation matrix for D-splines.
+             
+    Returns methods (described in detail below)
+    ---------------------------------
+    self.N_LU
+    self.D_LU
+    self.PI_0  : Projection on the space V0 via interpolation.
+    self.PI_1  : Projection on the space V1 via histopolation.
+    '''
+    
+    def __init__(self, T, p, bc, Nq):
+        
+        self.T         = T
+        self.p         = p
+        self.bc        = bc
+        self.Nq        = Nq
+        self.el_b      = bsp.breakpoints(self.T, self.p)
+        self.greville  = bsp.greville(self.T, self.p, self.bc)
+        self.Nel       = len(self.el_b) - 1
+        self.NbaseN    = self.Nel + self.p - self.bc*self.p
+        self.NbaseD    = self.NbaseN - (1 - self.bc)
+        self.quad_loc  = np.polynomial.legendre.leggauss(self.Nq)
+        self.delta     = self.el_b[1] - self.el_b[0]
+         
+        # Quadrature grids in cells defined by consecutive Greville points   
+        if bc:
+            xgrid = np.append( self.greville, self.el_b[-1] + self.greville[0] )
+        else:
+            xgrid = self.greville
+
+        self.pts, self.wts = bsp.quadrature_grid( xgrid , self.quad_loc[0], self.quad_loc[1] )
+        
+        # Collocation matrix for N-splines and its LU decomposition in sparse format 
+        self.N    = sparse.csc_matrix(bsp.collocation_matrix(T, p, self.greville, bc)) 
+        self.N_LU = splu(self.N)
+        # Histopolation matrix for D-splines and its LU decomposition in sparse format
+        self.D = sparse.csc_matrix(bsp.histopolation_matrix(T[1:-1], p-1, self.greville, bc, True)) 
+        self.D_LU = splu(self.D)          
+    
+    # ======================================        
+    def PI_0(self, fun):
+        
+        '''
+        Projection on the space V0 via interpolation.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x) \in R is the 0-form to be projected.
+
+        Returns
+        -------
+        coeffs : 1D array_like
+            Finite element coefficients obtained by projection.
+        '''
+        
+        n = self.greville.size
+        
+        rhs = np.empty(n)
+        
+        for i in range(n):
+            rhs[i] = fun(self.greville[i])
+                              
+        return self.N_LU.solve(rhs)
+    
+    
+    # ======================================
+    def PI_1(self, fun):
+        
+        '''
+        Projection on the space V1 via histopolation.
+        
+        Parameters
+        ----------
+        fun : callable
+            fun(x) \in R is the 1-form to be projected.
+
+        Returns
+        -------
+        coeffs : 1D array_like
+            Finite element coefficients obtained by projection.
+        '''
+
+        n = self.greville.size
+
+        rhs = np.empty(n - 1 + self.bc)
+
+        rhs[:] = integrate_1d(self.pts, self.wts, fun)
+
+        return self.D_LU.solve(rhs)
+# ===================================================================
 
 
 
@@ -105,6 +743,7 @@ def integrate_2d(points, weights, fun):
 # ===================================================================
 
 
+
 # ===================================================================
 def integrate_3d(points, weights, fun):
     """
@@ -159,358 +798,4 @@ def integrate_3d(points, weights, fun):
                 f_int[ie1, ie2, ie3] = f_loc
                      
     return f_int
-# ===================================================================
-
-
-
-# ===================================================================
-def histopolation_matrix_1d(T, p, greville, bc):
-    """
-    Computest the 1d histopolation matrix of the M-splines at the greville points.
-    
-    Parameters
-    ----------
-    
-    T : np.array 
-        knot vector
-    
-    p : int
-        spline degree
-    
-    greville : np.array
-        greville points
-    
-    bc : boolean
-        boundary conditions (True = periodic, False = else)
-      
-    Returns
-    -------
-    D : 2d np.array
-        histopolation matrix
-    """
-    
-    el_b = bsp.breakpoints(T, p)
-    Nel  = len(el_b) - 1
-    t    = T[1:-1]
-    
-    if bc == True:
-        
-        pts_loc, wts_loc = np.polynomial.legendre.leggauss(p - 1)
-        D = np.zeros((Nel, Nel))
-        
-        if p%2 != 0:
-            
-            grid = el_b
-            
-            pts, wts = bsp.quadrature_grid(grid, pts_loc, wts_loc)
-            col_quad = bsp.collocation_matrix(t, p - 1, pts.flatten(), bc, normalize=True)
-            
-            for ie in range(Nel):
-                for il in range(p):
-                    
-                    i = (ie + il)%Nel
-                    
-                    for k in range(p - 1):
-                        D[ie, i] += wts[ie, k]*col_quad[ie*(p - 1) + k, i]
-
-            return D
-        
-        else:
-            
-            grid = np.linspace(0., el_b[-1], 2*Nel + 1)
-            
-            pts, wts = bsp.quadrature_grid(grid, pts_loc, wts_loc)
-            col_quad = bsp.collocation_matrix(t, p - 1, pts.flatten(), bc, normalize=True)
-            
-            for iee in range(2*Nel):
-                for il in range(p):
-                    
-                    ie = int(iee/2)
-                    ie_grev = int(np.ceil(iee/2) - 1)
-                    
-                    i = (ie + il)%Nel
-                    
-                    for k in range(p - 1):
-                        D[ie_grev, i] += wts[iee, k]*col_quad[iee*(p - 1) + k, i]
-
-            return D
-        
-    else:
-        
-        ng = len(greville)
-        
-        col_quad = bsp.collocation_matrix(T, p, greville, bc)
-        
-        Nbase = Nel + p
-        D = np.zeros((ng - 1, Nbase - 1))
-        
-        for i in range(ng - 1):
-            for j in range(max(i - p + 1, 1), min(i + p + 3, Nbase)):
-                s = 0.
-                for k in range(j):
-                    s += col_quad[i, k] - col_quad[i + 1, k]
-                    
-                if np.abs(s) > 1e-15:
-                    
-                    D[i, j - 1] = s
-                
-        return D
-# ===================================================================
-
-
-
-
-# ===================================================================
-class projectors_3d:
-    
-    def __init__(self, T, p, bc):
-        
-        self.T         = T
-        self.p         = p
-        self.bc        = bc
-        self.el_b      = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
-        self.Nel       = [len(el_b) - 1 for el_b in self.el_b]
-        self.NbaseN    = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, p, bc)]
-        self.NbaseD    = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, bc)]
-        self.quad_loc  = [np.polynomial.legendre.leggauss(p + 1) for p in p]
-        self.greville  = [bsp.greville(T, p, bc) for T, p, bc in zip(T, p, bc)]
-        self.delta     = [1/Nel for Nel in self.Nel] 
-        
-        
-        # Quadrature grids
-        pts = []
-        wts = []
-        
-        for a in range(3):
-            
-            if self.bc[a] == True:
-                
-                if self.p[a]%2 != 0:
-                    grid = self.el_b[a]
-                    pts_a, wts_a = bsp.quadrature_grid(grid, self.quad_loc[a][0], self.quad_loc[a][1])
-                    
-                else:
-                    grid = self.el_b[a] + self.delta[a]/2
-                    pts_a, wts_a = bsp.quadrature_grid(grid, self.quad_loc[a][0], self.quad_loc[a][1])
-                    pts_a = pts_a%1.
-
-
-            else:
-                
-                grid = self.greville[a]
-                pts_a, wts_a = bsp.quadrature_grid(grid, self.quad_loc[a][0], self.quad_loc[a][1])
-                
-            pts.append(pts_a)
-            wts.append(wts_a)
-            
-        self.pts = pts
-        self.wts = wts
-        
-    
-    # ======================================
-    def assemble_V0(self):
-        
-        N = [sparse.csc_matrix(bsp.collocation_matrix(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        self.interhistopolation_V0    = sparse.kron(sparse.kron(N[0], N[1]), N[2], format='csc')
-        self.interhistopolation_V0_LU = splu(self.interhistopolation_V0)
-        
-    # ======================================
-    def assemble_V1(self):
-        
-        N = [sparse.csc_matrix(bsp.collocation_matrix(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        D = [sparse.csc_matrix(histopolation_matrix_1d(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        
-        self.interhistopolation_V1    = [sparse.kron(sparse.kron(D[0], N[1]), N[2], format='csc'), sparse.kron(sparse.kron(N[0], D[1]), N[2], format='csc'), sparse.kron(sparse.kron(N[0], N[1]), D[2], format='csc')] 
-        
-        self.interhistopolation_V1_LU = [splu(interhistopolation_V1) for interhistopolation_V1 in self.interhistopolation_V1]
-    
-    # ======================================    
-    def assemble_V2(self):
-        
-        N = [sparse.csc_matrix(bsp.collocation_matrix(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        D = [sparse.csc_matrix(histopolation_matrix_1d(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        
-        self.interhistopolation_V2    = [sparse.kron(sparse.kron(N[0], D[1]), D[2], format='csc'), sparse.kron(sparse.kron(D[0], N[1]), D[2], format='csc'), sparse.kron(sparse.kron(D[0], D[1]), N[2], format='csc')] 
-        
-        self.interhistopolation_V2_LU = [splu(interhistopolation_V2) for interhistopolation_V2 in self.interhistopolation_V2]
-    
-    # ======================================
-    def assemble_V3(self):
-        
-        D = [sparse.csc_matrix(histopolation_matrix_1d(T, p, greville, bc)) for T, p, greville, bc in zip(self.T, self.p, self.greville, self.bc)]
-        
-        self.interhistopolation_V3    = sparse.kron(sparse.kron(D[0], D[1]), D[2], format='csc') 
-        self.interhistopolation_V3_LU = splu(self.interhistopolation_V3)
-    
-    
-    # ======================================        
-    def PI_0(self, fun):
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = np.empty((n[0], n[1], n[2]))
-        
-        for i in range(n[0]):
-            for j in range(n[1]):
-                for k in range(n[2]):
-                    rhs[i, j, k] = fun(self.greville[0][i], self.greville[1][j], self.greville[2][k])
-                    
-                    
-        vec0 = self.interhistopolation_V0_LU.solve(rhs.flatten())
-        
-        return vec0.reshape(self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
-    
-    # ======================================
-    def PI_1(self, fun):
-        
-        n = [greville.size for greville in self.greville]
-            
-        rhs = [np.empty((n[0] - 1 + self.bc[0], n[1], n[2])), np.empty((n[0], n[1] - 1 + self.bc[1], n[2])), np.empty((n[0], n[1], n[2] - 1 + self.bc[2]))]
-                    
-        for j in range(n[1]):
-            for k in range(n[2]):
-
-                integrand = lambda xi1 : fun[0](xi1, self.greville[1][j], self.greville[2][k])
-
-                rhs[0][:, j, k] = integrate_1d(self.pts[0], self.wts[0], integrand)
-
-
-        for i in range(n[0]):
-            for k in range(n[2]):
-
-                integrand = lambda xi2 : fun[1](self.greville[0][i], xi2, self.greville[2][k])
-
-                rhs[1][i, :, k] = integrate_1d(self.pts[1], self.wts[1], integrand)
-
-        
-        for i in range(n[0]):
-            for j in range(n[1]):
-
-                integrand = lambda xi3 : fun[2](self.greville[0][i], self.greville[1][j], xi3)
-
-                rhs[2][i, j, :] = integrate_1d(self.pts[2], self.wts[2], integrand)
-                
-        vec1 = [interhistopolation_V1_LU.solve(rhs.flatten()) for interhistopolation_V1_LU, rhs in zip(self.interhistopolation_V1_LU, rhs)]
-        
-        return [vec1[0].reshape(self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), vec1[1].reshape(self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), vec1[2].reshape(self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])]
-    
-    # ======================================
-    def PI_2(self, fun):
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = [np.empty((n[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2])), np.empty((n[0] - 1 + self.bc[0], n[1], n[2] - 1 + self.bc[2])), np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2]))]
-        
-        
-        for i in range(n[0]):
-            
-            integrand = lambda xi2, xi3 : fun[0](self.greville[0][i], xi2, xi3)
-            
-            rhs[0][i, :, :] = integrate_2d([self.pts[1], self.pts[2]], [self.wts[1], self.wts[2]], integrand)
-            
-        for j in range(n[1]):
-            
-            integrand = lambda xi1, xi3 : fun[1](xi1, self.greville[1][j], xi3)
-            
-            rhs[1][:, j, :] = integrate_2d([self.pts[0], self.pts[2]], [self.wts[0], self.wts[2]], integrand)
-            
-        for k in range(n[2]):
-            
-            integrand = lambda xi1, xi2 : fun[2](xi1, xi2, self.greville[2][k])
-            
-            rhs[2][:, :, k] = integrate_2d([self.pts[0], self.pts[1]], [self.wts[0], self.wts[1]], integrand)
-            
-        
-        vec2 = [interhistopolation_V2_LU.solve(rhs.flatten()) for interhistopolation_V2_LU, rhs in zip(self.interhistopolation_V2_LU, rhs)]
-        
-        return [vec2[0].reshape(self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), vec2[1].reshape(self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), vec2[2].reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])]
-    
-    # ======================================
-    def PI_3(self, fun):
-
-        n = [greville.size for greville in self.greville]
-
-        rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]))
-
-        rhs[:, :, :] = integrate_3d([self.pts[0], self.pts[1], self.pts[2]], [self.wts[0], self.wts[1], self.wts[2]], fun)
-
-        vec3 = self.interhistopolation_V3_LU.solve(rhs.flatten())
-
-        return vec3.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
-# ===================================================================
-
-
-# ===================================================================
-class projectors_1d:
-    
-    def __init__(self, T, p, bc):
-        
-        self.T         = T
-        self.p         = p
-        self.bc        = bc
-        self.el_b      = bsp.breakpoints(self.T, self.p)
-        self.Nel       = len(self.el_b) - 1
-        self.NbaseN    = self.Nel + self.p - self.bc*self.p
-        self.NbaseD    = self.NbaseN - (1 - self.bc)
-        self.quad_loc  = np.polynomial.legendre.leggauss(self.p + 1)
-        self.greville  = bsp.greville(self.T, self.p, self.bc)
-        self.delta     = 1/self.Nel
-        
-        
-        # Quadrature grid
-        if self.bc == True:
-
-            if self.p%2 != 0:
-                grid = self.el_b
-                self.pts, self.wts = bsp.quadrature_grid(grid, self.quad_loc[0], self.quad_loc[1])
-
-            else:
-                grid = self.el_b + self.delta/2
-                self.pts, self.wts = bsp.quadrature_grid(grid, self.quad_loc[0], self.quad_loc[1])
-                self.pts = self.pts%1.
-
-
-        else:
-
-            grid = self.greville
-            self.pts, self.wts = bsp.quadrature_grid(grid, self.quad_loc[0], self.quad_loc[1])
-
-        
-    
-    # ======================================
-    def assemble_V0(self):
-        
-        self.interhistopolation_V0    = sparse.csc_matrix(bsp.collocation_matrix(self.T, self.p, self.greville, self.bc))
-        self.interhistopolation_V0_LU = splu(self.interhistopolation_V0)
-        
-    # ======================================
-    def assemble_V1(self):
-        
-        self.interhistopolation_V1    = sparse.csc_matrix(histopolation_matrix_1d(self.T, self.p, self.greville, self.bc))
-        self.interhistopolation_V1_LU = splu(self.interhistopolation_V1)
-    
-    
-    # ======================================        
-    def PI_0(self, fun):
-        
-        n = self.greville.size
-        
-        rhs = np.empty(n)
-        
-        for i in range(n):
-            rhs[i] = fun(self.greville[i])
-                              
-        return self.interhistopolation_V0_LU.solve(rhs)
-    
-    
-    # ======================================
-    def PI_1(self, fun):
-
-        n = self.greville.size
-
-        rhs = np.empty(n - 1 + self.bc)
-
-        rhs[:] = integrate_1d(self.pts, self.wts, fun)
-
-        return self.interhistopolation_V1_LU.solve(rhs)
 # ===================================================================
