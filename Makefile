@@ -47,7 +47,8 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 #--------------------------------------
 
 .PHONY: all proj base feec pic
-all: proj   #base feec pic
+#all: proj base feec pic
+all: proj
 
 # only projectors
 proj: $(OBJ_PROJ)
@@ -124,16 +125,22 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 #--------------------------------------
 
 .PHONY: clean cleanproj cleanbase cleanfeec cleanpic
-clean: cleanproj #cleanbase cleanfeec cleanpic
+#clean: cleanproj cleanbase cleanfeec cleanpic
+clean: cleanproj
+
+veryclean:
+	rm -rf hylife/*.so hylife/*/*.so
+	rm -rf hylife/__pyc*__ hylife/*/__pyc*__
+	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VERYCLEAN DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 cleanproj:
 	rm -rf $(OBJ_PROJ)
-	rm -rf hylife/utilitis_FEEC/__pyc*__ 
+	rm -rf hylife/utilitis_FEEC/__pyc*__
 	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN PROJ DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 cleanbase:
 	rm -rf $(OBJ_BASE)
-	rm -rf hylife/__pyc*__ 
+	rm -rf hylife/__pyc*__
 	rm -rf hylife/geometry/__pyc*__
 	rm -rf hylife/linear_algebra/__pyc*__
 	rm -rf hylife/simulation_06042020_2/__pyc*__

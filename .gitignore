@@ -30,7 +30,7 @@
 *.err
 
 # others
+*.ipynb_*
 *__pyc*
-*__init__*
 .DS_*
 *~
