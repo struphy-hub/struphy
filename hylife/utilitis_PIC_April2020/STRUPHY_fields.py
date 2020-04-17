@@ -4,7 +4,6 @@ from pyccel.decorators import types
 # absolute import of interface for simulation setup
 import hylife.interface as inter
 
-
 # ==============================================================================
 @types('double[:]','int','double','int','double[:]','double[:]','double[:]')
 def basis_funs(knots, degree, x, span, left, right, values):

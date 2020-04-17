@@ -22,7 +22,6 @@ __all__ = ['find_span',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
            'collocation_matrix',
-           'histopolation_matrix',
            'breakpoints',
            'greville',
            'elements_spans',
@@ -76,7 +75,7 @@ def find_span( knots, degree, x ):
     return span
 
 #==============================================================================
-def basis_funs( knots, degree, x, span, normalize=False ):
+def basis_funs( knots, degree, x, span ):
     """
     Compute the non-vanishing B-splines at location x, given the knot sequence,
     polynomial degree and knot span. See Algorithm A2.2 in [1].
@@ -120,11 +119,6 @@ def basis_funs( knots, degree, x, span, normalize=False ):
             values[r] = saved + right[r] * temp
             saved     = left[j-r] * temp
         values[j+1] = saved
-        
-    if normalize == True:
-        for il in range(degree + 1):
-            i = span - il
-            values[degree - il] = (degree + 1)*values[degree - il]/(knots[i + degree + 1] - knots[i])
 
     return values
 
@@ -279,7 +273,7 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
     return ders
 
 #==============================================================================
-def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
+def collocation_matrix( knots, degree, xgrid, periodic ):
     """
     Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
@@ -304,22 +298,6 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
         Collocation matrix: values of all basis functions on each point in xgrid.
 
     """
-    
-    el_b = breakpoints(knots, degree)
-    ne = len(el_b) - 1 
-    
-    if normalize == True:
-        x_norm = np.zeros((ne, degree + 1))
-        
-        for ie in range(ne):
-            
-            loc = ie + np.arange(degree + 1)
-            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
-            
-    else:
-        x_norm = np.ones((ne, degree + 1))
-    
-    
     # Number of basis functions (in periodic case remove degree repeated elements)
     nb = len(knots)-degree-1
     if periodic:
@@ -327,7 +305,6 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
 
     # Number of evaluation points
     nx = len(xgrid)
-
     # Collocation matrix as 2D Numpy array (dense storage)
     mat = np.zeros( (nx,nb) )
 
@@ -340,146 +317,11 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
     # Fill in non-zero matrix values
     for i,x in enumerate( xgrid ):
         span  =  find_span( knots, degree, x )
-        basis = basis_funs( knots, degree, x, span )*x_norm[span - degree]
+        basis = basis_funs( knots, degree, x, span )
         mat[i,js(span)] = basis
 
     return mat
 
-#==============================================================================
-def histopolation_matrix( knots, degree, xgrid, periodic, normalize=False ):
-    """
-    Computes the histopolation matrix $H_ij = \int_x(i)^x(i+1) B_j(x) dx$, which contains the
-    integrals of each B-spline basis function $B_j$ integrated over the cells $[x(i),x(i+1)]$
-    defined by xgrid. To get exact integrals, we use Gauss-Legendre quadrature with $n$ points
-    if B-splines are of degree $2n-1$ or $2n-2$ (exact integration is provided up to n=5,
-    i.e. splines of order $p=9$).
-    
-    Written April 2020 by Stefan Possanner
-
-    Parameters
-    ----------
-    knots : 1D array_like
-        Knots sequence.
-
-    degree : int
-        Polynomial degree of B-splines, degree>=0.
-        
-    xgrid : 1D array_like
-        Cell boundaries for integration.
-
-    periodic : bool
-        True if domain is periodic, False otherwise.
-
-    Returns
-    -------
-    mat : 2D numpy.ndarray
-        Histopolation matrix: integrals of all basis functions over each cell defined by xgrid.
-
-    """
-    
-    # Gauss-Legendre quadrature points and weights on the interval [-1, 1]
-    if degree==1:
-        pts_loc = [0.]
-        wts_loc = [2.]
-    elif degree==2 or degree==3:
-        pts_loc = [-0.5773502691896257, 0.5773502691896257]
-        wts_loc = [1., 1.]
-    elif degree==4 or degree==5:
-        pts_loc = [-0.7745966692414834, 0., 0.7745966692414834]
-        wts_loc = [0.5555555555555557, 0.8888888888888888, 0.5555555555555557]
-    elif degree==6 or degree==7:
-        pts_loc = [-0.8611363115940526, -0.3399810435848563, 0.3399810435848563, 0.8611363115940526]
-        wts_loc = [0.3478548451374537, 0.6521451548625462, 0.6521451548625462, 0.3478548451374537]
-    else:
-        pts_loc = [-0.906179845938664, -0.5384693101056831, 0., 0.5384693101056831, 0.906179845938664 ]
-        wts_loc = [0.2369268850561894, 0.4786286704993662, 0.568888888888889, 0.4786286704993662,
-                   0.2369268850561894]
-    
-    # element boundaries
-    el_b = breakpoints(knots, degree)   
-    ne = len(el_b) - 1   # number of elements
-    
-    # normalization (used for D-splines)
-    if normalize == True:
-        x_norm = np.zeros((ne, degree + 1))
-        
-        for ie in range(ne):
-            
-            loc = ie + np.arange(degree + 1)
-            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
-            
-    else:
-        x_norm = np.ones((ne, degree + 1))
-        
-    # Number of basis functions (in periodic case remove degree repeated elements)
-    nb = len(knots)-degree-1
-    if periodic:
-        nb -= degree
-
-    # cell boundaries for integration
-    x_conc = np.unique( np.concatenate( (el_b, xgrid) ))
-        
-    # Number of cells
-    nx = len(x_conc) - 1
-    
-    # Number of intervals to integrate over (= number of rows in output) 
-    n_row = len(xgrid) - (not periodic)
-
-    # Collocation matrix as 2D Numpy array (dense storage)
-    mat_tmp = np.zeros( (nb) )
-    mat = np.zeros( (n_row ,nb) )
-
-    # Indexing of basis functions (periodic or not) for a given span
-    if periodic:
-        js = lambda span: [(span-degree+s) % nb for s in range( degree+1 )]
-    else:
-        js = lambda span: slice( span-degree, span+1 )
-               
-    pts, wts = quadrature_grid( x_conc, pts_loc, wts_loc )
-    
-    # starting row index of histopolation matrix
-    if xgrid[0]==x_conc[0]:
-        ind = 0
-    else:
-        ind = -1
-        
-    # loop over cells defined by x_conc
-    for i in range( nx ):
-        # loop over quadrature points in each cell
-        mat_tmp[:] = 0.
-        for iq, xq in enumerate( pts[i, :] ):
-            span = find_span( knots, degree, xq )
-            quad = wts[i, iq]*basis_funs(knots, degree, xq, span)*x_norm[span - degree]
-            mat_tmp[js(span)] += quad
-        
-        mat[ind%n_row, :] += mat_tmp[:]
-        
-        if x_in_ab( xgrid, x_conc[i], x_conc[i+1]): 
-            ind += 1
-
-    return mat
-
-#==============================================================================
-def x_in_ab( x, a, b ):
-    '''
-    Checks if any value of vector x is in the interval (a,b], thus whether any( a<x<=b ) is true.
-    
-    Parameters
-    ----------
-    x : ndarray
-        1D vector of floats.
- 
-    a,b: float
-        Interval boundaries.
-
-    Returns
-    -------
-    ans : bool
-        True if a < x <= b.
-    ''' 
-        
-    return np.logical_and( x-a > 0., x-b <= 0. ).any()
-    
 #==============================================================================
 def breakpoints( knots, degree ):
     """
@@ -499,16 +341,10 @@ def breakpoints( knots, degree ):
         Abscissas of all breakpoints.
 
     """
-    
-    if degree==0:
-        endsl = None
-    else:
-        endsl = -degree
-    
-    return np.unique( knots[slice(degree, endsl)] )
+    return np.unique( knots[degree:-degree] )
 
 #==============================================================================
-def greville( knots, degree, periodic ):
+def greville( knots, p):
     """
     Compute coordinates of all Greville points.
 
@@ -529,21 +365,13 @@ def greville( knots, degree, periodic ):
         Abscissas of all Greville points.
 
     """
-    T = knots
-    p = degree
-    s = 1+p//2       if periodic else 1
-    n = len(T)-2*p-1 if periodic else len(T)-p-1
-
-    # Compute greville abscissas as average of p consecutive knot values
-    xg = np.around( [sum(T[i:i+p])/p for i in range(s,s+n)], decimals=15 )
-
-    # If needed apply periodic boundary conditions
-    if periodic:
-        a  = T[ p]
-        b  = T[-p]
-        xg = np.around( (xg-a)%(b-a)+a, decimals=15 )
-
-    return xg
+    n=len(knots)-p-1
+    X=np.zeros(n, dtype=float)
+    for i in range(0, n):
+        for j in range(1, p+1):
+            X[i]+=knots[i+j]
+        X[i]=X[i]/p
+    return X
 
 #===============================================================================
 def elements_spans( knots, degree ):
@@ -752,37 +580,45 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
     """
     # TODO: add example to docstring
     # TODO: check if it is safe to compute span only once for each element
-    
-    el_b = breakpoints(knots, degree)
-    ne = len(el_b) - 1 
-    
-    if normalize == True:
-        x_norm = np.zeros((ne, degree + 1))
-        
-        for ie in range(ne):
-            
-            loc = ie + np.arange(degree + 1)
-            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
-            
-    else:
-        x_norm = np.ones((ne, degree + 1))
 
     ne,nq = quad_grid.shape
     basis = np.zeros( (ne,degree+1,nders+1,nq) )
 
     for ie in range(ne):
         xx = quad_grid[ie,:]
-        
-        
         for iq,xq in enumerate(xx):
             span = find_span( knots, degree, xq )
-            ders = basis_funs_all_ders( knots, degree, xq, span, nders )*x_norm[span - degree]
+            ders = basis_funs_all_ders( knots, degree, xq, span, nders )
             basis[ie,:,:,iq] = ders.transpose()
+
+    if normalize:
+        x = scaling_matrix(degree, ne+degree, knots)
+        basis *= x[0]
 
     return basis
 
 #==============================================================================
-def scaling_vector(p, n, T):
+def basis_from_1D_basis(basis_1, basis_2):
+    ne1, degree1, nderiv1, nq1 = basis_1.shape
+    ne2, degree2, nderiv2, nq2 = basis_2.shape
+    nderiv1=nderiv1-1
+    degree1=degree1-1
+    nderiv12=nderiv2-1
+    degree2=degree2-1
+    basis_2D=np.zeros((ne1*ne2, (degree1+1)*(degree2+2), 3, nq1*nq2))
+    for ie in range(ne1):
+        for je in range(ne2):
+            for iq in range(nq1):
+                for jq in range(nq2):
+                    for p1 in range(degree1+1):
+                        for p2 in range(degree2+1):
+                            basis_2D[ie+je*ne1, p1+p2*(degree1+1), 0, iq+jq*nq1]=basis_1[ie, p1, 0, iq]*basis_2[je, p2, 0, jq]
+                            basis_2D[ie+je*ne1, p1+p2*(degree1+1), 1, iq+jq*nq1]=basis_1[ie, p1, 1, iq]*basis_2[je, p2, 0, jq]
+                            basis_2D[ie+je*ne1, p1+p2*(degree1+1), 2, iq+jq*nq1]=basis_1[ie, p1, 0, iq]*basis_2[je, p2, 1, jq]
+    return basis_2D
+
+#==============================================================================
+def scaling_matrix(p, n, T):
     """Returns the scaling array for M-splines.
     It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
 

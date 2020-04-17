@@ -10,11 +10,11 @@ def fun_3d(xi1, xi2, xi3, kind_fun, kind_map, params):
     
     value = 0.
     
-    # quantities for mass matrix V0
+    # quantities for 0-form mass matrix (H1)
     if   kind_fun == 1:
         value = mapping.det_df(xi1, xi2, xi3, kind_map, params)
     
-    # quantities for mass matrix V1
+    # quantities for 1-form mass matrix (Hcurl)
     elif kind_fun == 11:
         value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 12:
@@ -28,7 +28,7 @@ def fun_3d(xi1, xi2, xi3, kind_fun, kind_map, params):
     elif kind_fun == 16:
         value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
         
-    # quantities for mass matrix V2
+    # quantities for 2-form mass matrix (Hdiv)
     elif kind_fun == 21:
         value = mapping.g(xi1, xi2, xi3, kind_map, params, 11) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     elif kind_fun == 22:
@@ -42,11 +42,12 @@ def fun_3d(xi1, xi2, xi3, kind_fun, kind_map, params):
     elif kind_fun == 26:
         value = mapping.g(xi1, xi2, xi3, kind_map, params, 33) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
         
-    # quantities for mass matrix V3
+    # quantities for 3-form mass matrix (L2)
     elif kind_fun == 2:
         value = 1. / mapping.det_df(xi1, xi2, xi3, kind_map, params)
     
     return value
+
 
 
 # ==========================================================================================
@@ -59,10 +60,8 @@ def kernel_eva_3d(n, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
                 mat_f[i1, i2, i3] = fun_3d(xi1[i1], xi2[i2], xi3[i3], kind_fun, kind_map, params)
 
 
-
-
                 
-#================================================================================                                        
+# ==========================================================================================                                   
 @types('int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','double[:,:,:,:](order=F)','double[:,:](order=F)')
 def kernel_mass_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1, bi2, bj1, bj2, Nbase1, Nbase2, M, mat_map):
     
@@ -86,13 +85,10 @@ def kernel_mass_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1
                                     value += wvol * bi * bj
 
                             M[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2, p1 + jl1 - il1, p2 + jl2 - il2] += value
-#================================================================================
 
 
 
-
-
-#================================================================================                                        
+# ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:,:,:,:](order=F)','double[:,:,:](order=F)')
 def kernel_mass_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, Nbase1, Nbase2, Nbase3, M, mat_map):
     
@@ -120,12 +116,11 @@ def kernel_mass_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, n
                                                     value += wvol * bi * bj
 
                                         M[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2, (ie3 + il3)%Nbase3, p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
-#================================================================================
 
 
 
 
-#================================================================================
+# ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
 def kernel_inner_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, Nbase1, Nbase2, L, mat_f, mat_map):
     
@@ -146,12 +141,10 @@ def kernel_inner_2d(Nel1, Nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, Nb
                             value += wvol * bi * mat_f[nq1*ie1 + q1, nq2*ie2 + q2]
 
                     L[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2] += value
-#================================================================================
 
 
 
-
-#================================================================================
+# ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
 def kernel_inner_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, L, mat_f, mat_map):
     
@@ -175,61 +168,74 @@ def kernel_inner_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, 
                                         value += wvol * bi * mat_f[nq1*ie1 + q1, nq2*ie2 + q2, nq3*ie3 + q3]
 
                             L[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2, (ie3 + il3)%Nbase3] += value
-#================================================================================
 
 
 
-
-#================================================================================
-@types('int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
-def kernel_l2error_v0_2d(Nel1, Nel2, p1, p2, nq1, nq2, w1, w2, bi1, bi2, Nbase1, Nbase2, error, mat_f, mat_c, mat_g):
+# ==========================================================================================          
+@types('int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
+def kernel_l2error_2d(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_g):
     
-    for ie1 in range(Nel1):
-        for ie2 in range(Nel2):
+    # loop over all elements
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
                 
-            # Cycle over quadrature points
-            for q1 in range(nq1):
-                for q2 in range(nq2):
-            
-                    wvol = w1[ie1, q1] * w2[ie2, q2] * mat_g[nq1*ie1 + q1, nq2*ie2 + q2]
+            # loop over quadrature points in element
+            for q1 in range(nq[0]):
+                for q2 in range(nq[1]):
 
-                    # Evaluate basis at quadrature point
+                    wvol = w1[ie1, q1] * w2[ie2, q2] * mat_g[nq[0]*ie1 + q1, nq[1]*ie2 + q2]
+
+                    # evaluate discrete fields at quadrature point
                     bi = 0.
+                    bj = 0. 
 
-                    for il1 in range(p1 + 1):
-                        for il2 in range(p2 + 1):
-                    
-                            bi += mat_c[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+                    for il1 in range(p[0] + 1 - ni[0]):
+                        for il2 in range(p[1] + 1 - ni[1]):
 
-                    error[ie1, ie2] += wvol * (bi - mat_f[nq1*ie1 + q1, nq2*ie2 + q2])**2
-#================================================================================
+                            bi += mat_c1[(ie1 + il1)%nbi[0], (ie2 + il2)%nbi[1]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2] 
 
+                    for jl1 in range(p[0] + 1 - nj[0]):
+                        for jl2 in range(p[1] + 1 - nj[1]):
 
+                            bj += mat_c2[(ie1 + jl1)%nbj[0], (ie2 + jl2)%nbj[1]] * bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2]
 
-
-#================================================================================
-@types('int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
-def kernel_l2error_v0_3d(Nel1, Nel2, Nel3, p1, p2, p3, nq1, nq2, nq3, w1, w2, w3, bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, error, mat_f, mat_c, mat_g):
+                    # compare this value to exact one and add contribution to error in element
+                    error[ie1, ie2] += wvol * (bi - mat_f1[nq[0]*ie1 + q1, nq[1]*ie2 + q2]) * (bj - mat_f2[nq[0]*ie1 + q1, nq[1]*ie2 + q2])
+                            
+                            
+                            
+# ==========================================================================================          
+@types('int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int[:]','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)')
+def kernel_l2error_3d(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_g):
     
-    for ie1 in range(Nel1):
-        for ie2 in range(Nel2):
-            for ie3 in range(Nel3):
+    # loop over all elements
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
+            for ie3 in range(nel[2]):
                 
-                # Cycle over quadrature points
-                for q1 in range(nq1):
-                    for q2 in range(nq2):
-                        for q3 in range(nq3):
+                # loop over quadrature points in element
+                for q1 in range(nq[0]):
+                    for q2 in range(nq[1]):
+                        for q3 in range(nq[2]):
 
-                            wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_g[nq1*ie1 + q1, nq2*ie2 + q2, nq3*ie3 + q3]
+                            wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_g[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3]
 
-                            # Evaluate basis at quadrature point
+                            # evaluate discrete fields at quadrature point
                             bi = 0.
+                            bj = 0. 
 
-                            for il1 in range(p1 + 1):
-                                for il2 in range(p2 + 1):
-                                    for il3 in range(p3 + 1):
+                            for il1 in range(p[0] + 1 - ni[0]):
+                                for il2 in range(p[1] + 1 - ni[1]):
+                                    for il3 in range(p[2] + 1 - ni[2]):
 
-                                        bi += mat_c[(ie1 + il1)%Nbase1, (ie2 + il2)%Nbase2, (ie3 + il3)%Nbase3] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2] * bi3[ie3, il3, 0, q3]
+                                        bi += mat_c1[(ie1 + il1)%nbi[0], (ie2 + il2)%nbi[1], (ie3 + il3)%nbi[2]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2] * bi3[ie3, il3, 0, q3]
+                                        
+                            for jl1 in range(p[0] + 1 - nj[0]):
+                                for jl2 in range(p[1] + 1 - nj[1]):
+                                    for jl3 in range(p[2] + 1 - nj[2]):
 
-                            error[ie1, ie2, ie3] += wvol * (bi - mat_f[nq1*ie1 + q1, nq2*ie2 + q2, nq3*ie3 + q3])**2
-#================================================================================
+                                        bj += mat_c2[(ie1 + jl1)%nbj[0], (ie2 + jl2)%nbj[1], (ie3 + jl3)%nbj[2]] * bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2] * bj3[ie3, jl3, 0, q3]
+
+                            
+                            # compare this value to exact one and add contribution to error in element
+                            error[ie1, ie2, ie3] += wvol * (bi - mat_f1[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3]) * (bj - mat_f2[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3])

@@ -26,8 +26,8 @@ import hylife.interface as inter
 
 
 # ======================== load parameters ============================
-import hylife.simulation_06042020_2.parameters as pa    # name input folder here!
-identifier = 'simulation_06042020_2'                    # name input folder here!
+import simulation_06042020_2.parameters as pa    # name input folder here!
+identifier = 'simulation_06042020_2'             # name input folder here!
 
 params = pa.parameters()
 
@@ -68,17 +68,21 @@ loading      = params.loading
 # restart function
 restart        = params.restart  
 
-name_particles = 'hylife/' + identifier + '/restart_files/' + 'restart=particles1.npy'
-name_rho_coeff = 'hylife/' + identifier + '/restart_files/' + 'restart=rho_coeff1.npy'
-name_u_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=u_coeff1.npy'
-name_b_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=b_coeff1.npy'
-name_p_coeff   = 'hylife/' + identifier + '/restart_files/' + 'restart=p_coeff1.npy'
-name_control   = 'hylife/' + identifier + '/restart_files/' + 'restart=CV1.npy'
-name_time_step = 'hylife/' + identifier + '/restart_files/' + 'restart=time1.npy'
+name_particles = identifier + '/restart_files/' + 'restart=particles1.npy'
+name_rho_coeff = identifier + '/restart_files/' + 'restart=rho_coeff1.npy'
+name_u1_coeff  = identifier + '/restart_files/' + 'restart=u1_coeff1.npy'
+name_u2_coeff  = identifier + '/restart_files/' + 'restart=u2_coeff1.npy'
+name_u3_coeff  = identifier + '/restart_files/' + 'restart=u3_coeff1.npy'
+name_b1_coeff  = identifier + '/restart_files/' + 'restart=b1_coeff1.npy'
+name_b2_coeff  = identifier + '/restart_files/' + 'restart=b2_coeff1.npy'
+name_b3_coeff  = identifier + '/restart_files/' + 'restart=b3_coeff1.npy'
+name_p_coeff   = identifier + '/restart_files/' + 'restart=p_coeff1.npy'
+name_control   = identifier + '/restart_files/' + 'restart=CV1.npy'
+name_time_step = identifier + '/restart_files/' + 'restart=time1.npy'
 
 
 create_restart = params.create_restart
-dir_restart    = 'hylife/' + identifier + '/restart_files/'
+dir_restart    = identifier + '/restart_files/'
 # ========================================================================
 
 
@@ -104,6 +108,7 @@ Ntot_3form  =  NbaseD[0]*NbaseD[1]*NbaseD[2]
 
 
 if add_PIC == True:
+    
     # delta-f corrections
     if control == True:
         cont = cv.terms_control_variate(T, p, bc, kind_map, params_map)
@@ -171,7 +176,7 @@ if params.ic_from_params == True:
     pr[:, :, :]                           = pro.PI_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
     u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.PI_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
     b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.PI_2([lambda xi1, xi2, xi3 : params.b1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b3_ini(xi1, xi2, xi3)])
-    rho[:, :, :]                          = pro.PI_3(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
+    rho[:, :, :]                          = pro.PI_3(lambda xi1, xi2, xi3 : params.rho_ini(xi1, xi2, xi3))
     
 else:
     pr[:, :, :]                           = pro.PI_0( None,               1,        kind_map, params_map)
@@ -210,7 +215,7 @@ Q   = MHD.projection_Q(kind_map, params_map)
 W   = MHD.projection_W(kind_map, params_map)
 TAU = MHD.projection_T(kind_map, params_map)
 S   = MHD.projection_S(kind_map, params_map)
-K   = MHD.projection_K(kind_map, params_map).tocsc()
+K   = MHD.projection_K(kind_map, params_map)
 
 # compute matrix A
 A = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
@@ -229,8 +234,8 @@ MAT = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
 
 del S, K
 
-LHS_LU = sparse.linalg.splu((sparse.bmat([[sparse.identity(Ntot),  dt/2*DIV.dot(Q), None], [None, A,  dt/2*M1.dot(GRAD)], [None, -dt/2*MAT, M0]])).tocsc())
-RHS    =                     sparse.bmat([[sparse.identity(Ntot), -dt/2*DIV.dot(Q), None], [None, A, -dt/2*M1.dot(GRAD)], [None,  dt/2*MAT, M0]], format='csc')
+LHS_LU = sparse.linalg.splu(sparse.bmat([[sparse.identity(Ntot),  dt/2*DIV.dot(Q), None], [None, A,  dt/2*M1.dot(GRAD)], [None, -dt/2*MAT, M0]]).tocsc())
+RHS    =                    sparse.bmat([[sparse.identity(Ntot), -dt/2*DIV.dot(Q), None], [None, A, -dt/2*M1.dot(GRAD)], [None,  dt/2*MAT, M0]]).tocsc()
 
 # delete everything which is not needed to save memory
 del MHD, M0, GRAD, DIV, Q, MAT
@@ -370,7 +375,7 @@ def update():
 
         pic_pusher.pusher_step3(particles, dt, B_part, U_part, kind_map, params_map)
 
-        # step 4 (1 : update particles positions (Xi))
+        # step 4 (1 : update particle positions (Xi))
         pic_pusher.pusher_step4(particles, dt, kind_map, params_map)
 
         # step 5 (1 : update particle veclocities (V), 2 : update particle weights (W))
@@ -407,7 +412,7 @@ def update():
 if time_int == True:
     
     if restart == False:
-        title = 'hylife/' + identifier + '/output.txt'
+        title = identifier + '/output_' + identifier + '.txt'
         file  = open(title, 'ab')
         
         
@@ -425,14 +430,18 @@ if time_int == True:
         counter   = 0
         
     else:
-        title = 'hylife/' + identifier + '/output.txt'
+        title = identifier + '/output_' + identifier + '.txt'
         file  = open(title, 'ab')
         
         particles[:, :]    = np.load(name_particles)
-        rho[:]             = np.load(name_rho_coeff)
-        u[:]               = np.load(name_u_coeff)
-        b[:]               = np.load(name_b_coeff)
-        pr[:]              = np.load(name_p_coeff)
+        rho[:, :, :]       = np.load(name_rho_coeff)
+        u1[:, :, :]        = np.load(name_u1_coeff)
+        u2[:, :, :]        = np.load(name_u2_coeff)
+        u3[:, :, :]        = np.load(name_u3_coeff)
+        b1[:, :, :]        = np.load(name_b1_coeff)
+        b2[:, :, :]        = np.load(name_b2_coeff)
+        b3[:, :, :]        = np.load(name_b3_coeff)
+        pr[:, :, :]        = np.load(name_p_coeff)
         w0                 = np.load(name_control)[0]
         g0                 = np.load(name_control)[1]
         time_step, counter = np.load(name_time_step)
@@ -440,7 +449,7 @@ if time_int == True:
         pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
         pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
         
-        pic_sample.compute_weights(particles, control, kind_map, params_map)
+        pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
 
         
     print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
@@ -458,8 +467,12 @@ if time_int == True:
 
                 np.save(dir_restart + 'restart=particles' + str(counter), particles)
                 np.save(dir_restart + 'restart=rho_coeff' + str(counter), rho)
-                np.save(dir_restart + 'restart=u_coeff'   + str(counter), u)
-                np.save(dir_restart + 'restart=b_coeff'   + str(counter), b)
+                np.save(dir_restart + 'restart=u1_coeff'  + str(counter), u1)
+                np.save(dir_restart + 'restart=u2_coeff'  + str(counter), u2)
+                np.save(dir_restart + 'restart=u3_coeff'  + str(counter), u3)
+                np.save(dir_restart + 'restart=b1_coeff'  + str(counter), b1)
+                np.save(dir_restart + 'restart=b2_coeff'  + str(counter), b2)
+                np.save(dir_restart + 'restart=b3_coeff'  + str(counter), b3)
                 np.save(dir_restart + 'restart=p_coeff'   + str(counter), pr)
                 np.save(dir_restart + 'restart=CV'        + str(counter), np.vstack((w0, g0)))
                 np.save(dir_restart + 'restart=time'      + str(counter), np.array([time_step, counter]))

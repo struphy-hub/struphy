@@ -12,10 +12,10 @@ FLAGS   :=
 
 MA  := hylife/geometry/mappings_analytical
 LA  := hylife/linear_algebra/core
-EQM := hylife/simulation_06042020_2/equilibrium_MHD
-EQP := hylife/simulation_06042020_2/equilibrium_PIC
-ICM := hylife/simulation_06042020_2/initial_conditions_MHD
-ICP := hylife/simulation_06042020_2/initial_conditions_PIC
+EQM := simulation_06042020_2/equilibrium_MHD
+EQP := simulation_06042020_2/equilibrium_PIC
+ICM := simulation_06042020_2/initial_conditions_MHD
+ICP := simulation_06042020_2/initial_conditions_PIC
 INT := hylife/interface
 SRC_BASE := $(MA).py $(LA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py
 OBJ_BASE := $(SRC_BASE:.py=$(SO_EXT))
