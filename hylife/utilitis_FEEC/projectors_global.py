@@ -145,9 +145,19 @@ class projectors_3d:
         # Collocation matrices for N-splines in each direction
         self.N = [sparse.csc_matrix(bsp.collocation_matrix(T_i, p_i, greville_i, bc_i)) 
                   for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.greville, self.bc)]
+        
+        # evaluation of basis at quadrature points pts
+        #self.Nq = [sparse.csc_matrix(bsp.collocation_matrix(T_i, p_i, pts_i.flatten(), bc_i)) 
+        #          for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.pts, self.bc)]
+        
         # Histopolation matrices for D-splines in each direction
         self.D = [sparse.csc_matrix(bsp.histopolation_matrix(T_i[1:-1], p_i-1, greville_i, bc_i, True)) 
                   for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.greville, self.bc)]
+        
+        # Histopolation basis evaluated at quadrature points pts
+        #self.Dq = [sparse.csc_matrix(bsp.histopolation_matrix(T_i[1:-1], p_i-1, pts_i.flatten(), bc_i, True))  #
+        #          for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.pts, self.bc)]
+        
          
     # ======================================
     def NNN_LU(self):
