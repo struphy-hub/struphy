@@ -5,17 +5,35 @@ from numpy             import sin, cos, pi
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def f(xi1, xi2, xi3, kind, params, component):
-    '''
-    defines an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Defines an analytical mapping x = f(xi) from a logical domain xi = [0,1] x [0,1] x [0,1] to a physical cartesian domain.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        physical coordinate (1 = x, 2 = y, 3 = z)
+        
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 1 (x), 2 (y), 3 (z)
-    '''
+    Returns
+    -------
+    value : double
+        the physical cooordinate corresponding to the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -66,19 +84,35 @@ def f(xi1, xi2, xi3, kind, params, component):
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def df(xi1, xi2, xi3, kind, params, component):
-    '''
-    returns the components of the Jacobian matrix of an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Returns the Jacobian matrix df/dxi corresponding to the mapping f.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of Jacobian matrix (11 = df1/dxi1, 12 = df1/dxi2, 13 = df1/dxi3, 21 = df2/dxi1, 22 = df2/dxi2, 23 = df2/dxi3, 31 = df3/dxi1, 32 = df3/dxi2, 33 = df3/dxi3)
+        
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 11 (dfx/dxi1), 12 (dfx/dxi2), 13 (dfx/dxi3)
-                21 (dfy/dxi1), 22 (dfy/dxi2), 23 (dfy/dxi3)
-                31 (dfz/dxi1), 32 (dfz/dxi2), 33 (dfz/dxi3)
-    '''
+    Returns
+    -------
+    value : double
+        the component of the Jacobian matrix evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -167,15 +201,32 @@ def df(xi1, xi2, xi3, kind, params, component):
 # =======================================================================
 @types('double','double','double','int','double[:]')
 def det_df(xi1, xi2, xi3, kind, params):
-    '''
-    returns the jacobian determinant of an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Returns the determinant of the Jacobian matrix df/dxi corresponding to the mapping f.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
-    
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-    '''
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+        
+    Returns
+    -------
+    value : double
+        the Jacobian determinant evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -212,19 +263,35 @@ def det_df(xi1, xi2, xi3, kind, params):
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def df_inv(xi1, xi2, xi3, kind, params, component):
-    '''
-    returns the components of the Jacobian matrix of an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Returns the inverse Jacobian matrix (df/dxi)^(-1) corresponding to the mapping f.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of the inverse Jacobian matrix
+        
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 11 (dfx/dxi1), 12 (dfx/dxi2), 13 (dfx/dxi3)
-                21 (dfy/dxi1), 22 (dfy/dxi2), 23 (dfy/dxi3)
-                31 (dfz/dxi1), 32 (dfz/dxi2), 33 (dfz/dxi3)
-    '''
+    Returns
+    -------
+    value : double
+        the component of the inverse Jacobian matrix evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -311,19 +378,35 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def g(xi1, xi2, xi3, kind, params, component):
-    '''
-    returns the components of the metric tensor (df)^T*df of an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Returns the metric tensor (Df)^T * DF corresponding to the mapping f.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of the metric tensor
+        
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 11 (dfx/dxi1), 12 (dfx/dxi2), 13 (dfx/dxi3)
-                21 (dfy/dxi1), 22 (dfy/dxi2), 23 (dfy/dxi3)
-                31 (dfz/dxi1), 32 (dfz/dxi2), 33 (dfz/dxi3)
-    '''
+    Returns
+    -------
+    value : double
+        the component of the metric tensor evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -411,19 +494,35 @@ def g(xi1, xi2, xi3, kind, params, component):
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def g_inv(xi1, xi2, xi3, kind, params, component):
-    '''
-    returns the components of the inverse metric tensor (df)^(-1)*df^(-T) of an analytical mapping x = f(xi) in three dimensions. 
+    """
+    Returns the inverse metric tensor (Df)^(-1) * DF^(-T) corresponding to the mapping f.
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of the inverse metric tensor
+        
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 11 (dfx/dxi1), 12 (dfx/dxi2), 13 (dfx/dxi3)
-                21 (dfy/dxi1), 22 (dfy/dxi2), 23 (dfy/dxi3)
-                31 (dfz/dxi1), 32 (dfz/dxi2), 33 (dfz/dxi3)
-    '''
+    Returns
+    -------
+    value : double
+        the component of the inverse metric tensor evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
