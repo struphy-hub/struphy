@@ -1,40 +1,78 @@
+# coding: utf-8
+#
+# Copyright 2020 Florian Holderied
+
+"""
+Basic modules to compute charge and current densities from particles
+"""
+
+
 import numpy as np
 import scipy.sparse as spa
 
-import hylife.utilitis_FEEC.bsplines                as bsp
+import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_PIC_April2020.STRUPHY_accumulation_kernels as ker
 
 #import bsplines as bsp
 #import STRUPHY_accumulation_kernels as ker
 
 
-
 class accumulation:
+    """
+    Class for computing charge and current densities from particles.
     
-    def __init__(self, T, p, bc):
+    Parameters
+    ---------
+    tensor_space : tensor_spline_space
+        tensor product B-spline space
+    """
         
-        self.T        = T
-        self.p        = p
-        self.bc       = bc
+    
+    def __init__(self, tensor_space):
+         
+        self.T        = tensor_space.T           # knot vectors
+        self.p        = tensor_space.p           # spline degrees
+        self.bc       = tensor_space.bc          # boundary conditions (True : periodic, False : clamped)
         
-        self.t        = [T[1:-1] for T in self.T]
-        self.el_b     = [bsp.breakpoints(T, p) for T, p in zip(self.T, self.p)]
-        self.Nel      = [len(el_b) - 1 for el_b in self.el_b]
-        self.NbaseN   = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, self.p, self.bc)]
-        self.NbaseD   = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, self.bc)]
-           
-    
-    
-    
+        self.t        = tensor_space.t           # reduced knot vectors
+        self.el_b     = tensor_space.el_b        # element boundaries
+        self.Nel      = tensor_space.Nel         # number of elements
+        self.NbaseN   = tensor_space.NbaseN      # number of basis functions (N)
+        self.NbaseD   = tensor_space.NbaseD      # number of basis functions (D)
+        
+        
     def accumulation_step1(self, particles, b_part, kind_map, params_map):
+        """
+        Computes the term sum_{ip=1}^Np [lambda^1_i(ip) * g_inv(ip) * B(ip) x g_inv(ip) * lambda^1_j(ip)]
         
+        Paramters
+        ---------
+        particles : array_like
+            particles in format (Np, 7) from which the term is computed
+            
+        b_part : array_like
+            magnetic field at particle positions in format (Np, 3)
+        
+        kind_map : int
+            type of mapping
+            
+        params_map : list of doubles
+            paramters for the mapping
+        
+        Returns
+        -------
+        mat : sparse matrix in csc-format
+            Accumulated term of above expression
+        """
+        
+        # only distinctive non-vanishing blocks
         mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
         mat13 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
         mat23 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
         
         # perform accumulation
         ker.kernel_step1(particles, self.p, self.Nel, [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]], self.T[0], self.T[1], self.T[2], self.t[0], self.t[1], self.t[2], b_part, kind_map, params_map, mat12, mat13, mat23)
-       
+        
         # conversion to sparse matrices
         indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
         
@@ -90,9 +128,35 @@ class accumulation:
         mat = spa.bmat([[None, mat12, mat13], [-mat12.T, None, mat23], [-mat13.T, -mat23.T, None]], format='csc')
         
         return mat
-        
-        
+    
+    
     def accumulation_step3(self, particles, b_part, kind_map, params_map):
+        """
+        Computes the term sum_{ip=1}^Np [lambda^1_i(ip) * g_inv(ip) * B(ip) x g_inv(ip) * B(ip) x g_inv(ip) * lambda^1_j(ip)].
+        Computes the term sum_{ip=1}^Np [lambda^1_i(ip) * g_inv(ip) * DF_inv(ip) * V(ip)].
+        
+        Paramters
+        ---------
+        particles : array_like
+            particles in format (Np, 7) from which the term is computed
+            
+        b_part : array_like
+            magnetic field at particle positions in format (Np, 3)
+        
+        kind_map : int
+            type of mapping
+            
+        params_map : list of doubles
+            paramters for the mapping
+        
+        Returns
+        -------
+        mat : sparse matrix in csc-format
+            Accumulated term of first above expression 
+            
+        vec : array_like
+            Accumulated term of second above expression
+        """
 
         mat11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
         mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
@@ -104,11 +168,11 @@ class accumulation:
         vec1  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float, order='F')
         vec2  = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float, order='F')
         vec3  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float, order='F')
-
+        
         # perform accumulation
         ker.kernel_step3(particles, self.p, self.Nel, [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]], self.T[0], self.T[1], self.T[2], self.t[0], self.t[1], self.t[2], b_part, kind_map, params_map, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-
-
+        
+        
         # conversion to sparse matrices
         indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
         
