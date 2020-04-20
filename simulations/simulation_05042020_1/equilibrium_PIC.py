@@ -1,5 +1,5 @@
 from pyccel.decorators import types
-#import ..geometry.mappings_analytical as mapping
+
 import hylife.geometry.mappings_analytical as mapping
 from numpy import exp, pi
 
