@@ -11,16 +11,16 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-EQM := simulation_06042020_2/equilibrium_MHD
-EQP := simulation_06042020_2/equilibrium_PIC
-ICM := simulation_06042020_2/initial_conditions_MHD
-ICP := simulation_06042020_2/initial_conditions_PIC
+EQM := simulations/simulation_05042020_1/equilibrium_MHD
+EQP := simulations/simulation_05042020_1/equilibrium_PIC
+ICM := simulations/simulation_05042020_1/initial_conditions_MHD
+ICP := simulations/simulation_05042020_1/initial_conditions_PIC
 INT := hylife/interface
 KCV := hylife/utilitis_FEEC/kernels_control_variate
-KM  := hylife/utilitis_FEEC/kernels_mass
-KPL := hylife/utilitis_FEEC/kernels_projectors_local
-KPI := hylife/utilitis_FEEC/kernels_projectors_local_ini
-KPM := hylife/utilitis_FEEC/kernels_projectors_local_mhd
+KM  := hylife/utilitis_FEEC/basics/kernels_3d
+KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
+KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva
+KPM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
 LA  := hylife/linear_algebra/core
 PF  := hylife/utilitis_PIC_April2020/STRUPHY_fields
 PP  := hylife/utilitis_PIC_April2020/STRUPHY_pusher
@@ -95,7 +95,8 @@ clean:
 	rm -rf $(OUTPUTS)
 	rm -rf hylife/__pycache__ hylife/__pyccel__
 	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
-	rm -rf hylife/simulation/__pyccel__ hylife/simulation/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
 	rm -rf hylife/utilities_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
+	rm -rf hylife/utilities_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
+	rm -rf hylife/utilities_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
 	rm -rf hylife/utilities_PIC_April2020/__pyccel__ hylife/utilities_PIC_April2020/__pycache__
