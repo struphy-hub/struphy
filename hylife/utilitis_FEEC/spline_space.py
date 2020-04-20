@@ -62,7 +62,7 @@ class spline_space_1d:
         self.basisN  = np.asfortranarray(bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False))
         self.basisD  = np.asfortranarray(bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True))
         
-        
+            
     def evaluate_0form(self, coeff, xi):
         """
         Evaluates the spline space (N) at the points xi for the coefficients coeff.
