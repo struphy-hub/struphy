@@ -122,13 +122,20 @@ class projectors_local_1d:
                 
                 
         # set interpolation points
-        n_lambda_int        = np.copy(self.NbaseN)
+        n_lambda_int = np.copy(self.NbaseN)     # number of coefficients in space V0 
+        self.n_int   = 2*self.p - 1             # number of local interpolation points (1, 3, 5, 7, ...)
         
-        self.n_int          = 2*self.p - 1       # number of local interpolation points
-        self.n_int_locbf_N  = 2*self.p - 1       # number of non-vanishing N bf in interpolation interval
-        self.n_int_locbf_D  = 2*self.p - 2       # number of non-vanishing D bf in interpolation interval
         
-        self.x_int          = np.zeros((n_lambda_int, self.n_int)        , dtype=float) # interpolation points
+        if self.p == 1:
+            self.n_int_locbf_N = 2              # number of non-vanishing N bf in interpolation interval (2, 3, 5, 7, ...)
+            self.n_int_locbf_D = 1              # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6, ...)
+            
+        else:
+            self.n_int_locbf_N = 2*self.p - 1   # number of non-vanishing N bf in interpolation interval (2, 3, 5, 7, ...)
+            self.n_int_locbf_D = 2*self.p - 2   # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6, ...)
+        
+        
+        self.x_int          = np.zeros((n_lambda_int, self.n_int)        , dtype=float) # interpolation points for each coeff.
         
         self.int_global_N   = np.zeros((n_lambda_int, self.n_int_locbf_N), dtype=int)   # global indices of non-vanishing N bf
         self.int_global_D   = np.zeros((n_lambda_int, self.n_int_locbf_D), dtype=int)   # global indices of non-vanishing D bf
@@ -144,8 +151,12 @@ class projectors_local_1d:
         if self.bc == False:
             
             # maximum number of non-vanishing coefficients
-            self.n_int_nvcof_D = 3*self.p - 3
-            self.n_int_nvcof_N = 3*self.p - 2
+            if self.p == 1:
+                self.n_int_nvcof_D = 2
+                self.n_int_nvcof_N = 2
+            else:
+                self.n_int_nvcof_D = 3*self.p - 3
+                self.n_int_nvcof_N = 3*self.p - 2
             
             # shift in local coefficient indices at right boundary (only for non-periodic boundary conditions)
             self.int_add_D = np.arange(self.n_int - 2) + 1
@@ -155,14 +166,22 @@ class projectors_local_1d:
             counter_N = 0
             
             # shift local coefficients --> global coefficients (D)
-            self.int_shift_D = np.arange(self.NbaseD) - (self.p - 2)
-            self.int_shift_D[:2*self.p - 2] = 0
-            self.int_shift_D[-(2*self.p - 2):] = self.int_shift_D[-(2*self.p - 2)]
+            if self.p == 1:
+                self.int_shift_D = np.arange(self.NbaseD)
+            else:
+                self.int_shift_D = np.arange(self.NbaseD) - (self.p - 2)
+                self.int_shift_D[:2*self.p - 2] = 0
+                self.int_shift_D[-(2*self.p - 2):] = self.int_shift_D[-(2*self.p - 2)]
             
             # shift local coefficients --> global coefficients (N)
-            self.int_shift_N = np.arange(self.NbaseN) - (self.p - 1)
-            self.int_shift_N[:2*self.p - 1]  = 0
-            self.int_shift_N[-(2*self.p - 1):] = self.int_shift_N[-(2*self.p - 1)]
+            if self.p == 1:
+                self.int_shift_N = np.arange(self.NbaseN)
+                self.int_shift_N[-1] = self.int_shift_N[-2]
+                
+            else:
+                self.int_shift_N = np.arange(self.NbaseN) - (self.p - 1)
+                self.int_shift_N[:2*self.p - 1]  = 0
+                self.int_shift_N[-(2*self.p - 1):] = self.int_shift_N[-(2*self.p - 1)]
             
             counter_coeffi = np.copy(self.p)
             
@@ -175,10 +194,7 @@ class projectors_local_1d:
                     self.int_global_N[i] = np.arange(self.n_int_locbf_N)
                     self.int_global_D[i] = np.arange(self.n_int_locbf_D)
                     
-                    
                     self.x_int_indices[i] = np.arange(self.n_int)
-                    
-                    
                     self.coeffi_indices[i] = i
                     for j in range(2*(self.p - 1) + 1):
                         xi                =  self.p - 1
@@ -198,8 +214,16 @@ class projectors_local_1d:
 
                 # interior
                 else:
-                    self.int_global_N[i] = np.arange(self.n_int_locbf_N) + i - (self.p - 1)
-                    self.int_global_D[i] = np.arange(self.n_int_locbf_D) + i - (self.p - 1)
+                    if self.p == 1:
+                        self.int_global_N[i] = np.arange(self.n_int_locbf_N) + i
+                        self.int_global_D[i] = np.arange(self.n_int_locbf_D) + i
+                        
+                        self.int_global_N[-1] = self.int_global_N[-2]
+                        self.int_global_D[-1] = self.int_global_D[-2]
+                        
+                    else:
+                        self.int_global_N[i] = np.arange(self.n_int_locbf_N) + i - (self.p - 1)
+                        self.int_global_D[i] = np.arange(self.n_int_locbf_D) + i - (self.p - 1)
                     
                     
                     if self.p == 1:
@@ -213,49 +237,68 @@ class projectors_local_1d:
                         self.x_int[i, j]  = (self.T[i + 1 + int(j/2)] + self.T[i + 1 + int((j + 1)/2)])/2
 
                 
+                
                 # local coefficient index
-                if i > 0:
-                    for il in range(self.n_int_locbf_D):
-                        k_glob_new = self.int_global_D[i, il]
-                        bol = (k_glob_new == self.int_global_D[i - 1])
+                if self.p == 1:
+                    self.int_loccof_N[i]  = np.array([0, 1])
+                    self.int_loccof_D[-1] = np.array([1])
+                
+                else:
+                
+                    if i > 0:
+                        for il in range(self.n_int_locbf_D):
+                            k_glob_new = self.int_global_D[i, il]
+                            bol = (k_glob_new == self.int_global_D[i - 1])
 
-                        if np.any(bol):
-                            self.int_loccof_D[i, il] = self.int_loccof_D[i - 1, np.where(bol)[0][0]] + 1
-                            
-                        if (k_glob_new >= n_lambda_int - self.p - (self.p - 2)) and (self.int_loccof_D[i, il] == 0):
-                            self.int_loccof_D[i, il] = self.int_add_D[counter_D]
-                            counter_D += 1
-                            
-                    for il in range(self.n_int_locbf_N):
-                        k_glob_new = self.int_global_N[i, il]
-                        bol = (k_glob_new == self.int_global_N[i - 1])
+                            if np.any(bol):
+                                self.int_loccof_D[i, il] = self.int_loccof_D[i - 1, np.where(bol)[0][0]] + 1
 
-                        if np.any(bol):
-                            self.int_loccof_N[i, il] = self.int_loccof_N[i - 1, np.where(bol)[0][0]] + 1
+                            if (k_glob_new >= n_lambda_int - self.p - (self.p - 2)) and (self.int_loccof_D[i, il] == 0):
+                                self.int_loccof_D[i, il] = self.int_add_D[counter_D]
+                                counter_D += 1
 
-                        if (k_glob_new >= n_lambda_int - self.p - (self.p - 2)) and (self.int_loccof_N[i, il] == 0):
-                            self.int_loccof_N[i, il] = self.int_add_N[counter_N]
-                            counter_N += 1
+                        for il in range(self.n_int_locbf_N):
+                            k_glob_new = self.int_global_N[i, il]
+                            bol = (k_glob_new == self.int_global_N[i - 1])
+
+                            if np.any(bol):
+                                self.int_loccof_N[i, il] = self.int_loccof_N[i - 1, np.where(bol)[0][0]] + 1
+
+                            if (k_glob_new >= n_lambda_int - self.p - (self.p - 2)) and (self.int_loccof_N[i, il] == 0):
+                                self.int_loccof_N[i, il] = self.int_add_N[counter_N]
+                                counter_N += 1
+                
                     
             
               
         else:
-            for i in range(n_lambda_int):
-                
-                # maximum number of non-vanishing coefficients
+            
+            # maximum number of non-vanishing coefficients
+            if self.p == 1:
+                self.n_int_nvcof_D = 2*self.p - 1
+                self.n_int_nvcof_N = 2*self.p
+
+            else:
                 self.n_int_nvcof_D = 2*self.p - 2
                 self.n_int_nvcof_N = 2*self.p - 1
-                
-                # shift local coefficients --> global coefficients (D)
+
+            # shift local coefficients --> global coefficients
+            if self.p == 1:
+                self.int_shift_D = np.arange(self.NbaseN) - (self.p - 1)
+                self.int_shift_N = np.arange(self.NbaseN) - (self.p)
+            else:
                 self.int_shift_D = np.arange(self.NbaseN) - (self.p - 2)
-                
-                # shift local coefficients --> global coefficients (N)
                 self.int_shift_N = np.arange(self.NbaseN) - (self.p - 1)
+            
+            
+            for i in range(n_lambda_int):
+                
+                # global indices of non-vanishing basis functions and position of coefficients in final matrix
+                self.int_global_D[i] = (np.arange(self.n_int_locbf_D) + i - (self.p - 1))%self.NbaseD 
+                self.int_loccof_D[i] =  np.arange(self.n_int_locbf_D - 1, -1, -1)
                 
                 self.int_global_N[i] = (np.arange(self.n_int_locbf_N) + i - (self.p - 1))%self.NbaseN
-                self.int_global_D[i] = (np.arange(self.n_int_locbf_D) + i - (self.p - 1))%self.NbaseD 
                 self.int_loccof_N[i] =  np.arange(self.n_int_locbf_N - 1, -1, -1)
-                self.int_loccof_D[i] =  np.arange(self.n_int_locbf_D - 1, -1, -1)
                 
                 if self.p == 1:
                     self.x_int_indices[i] = i
@@ -269,13 +312,13 @@ class projectors_local_1d:
                     
                     
         # set histopolation points, quadrature points and weights
-        n_lambda_his        = np.copy(self.NbaseD)
+        n_lambda_his        = np.copy(self.NbaseD) # number of coefficients in space V1
         
-        self.n_his          = 2*self.p           # number of histopolation intervals
-        self.n_his_locbf_N  = 2*self.p           # number of non-vanishing N bf in histopolation interval
-        self.n_his_locbf_D  = 2*self.p - 1       # number of non-vanishing D bf in histopolation interval
+        self.n_his          = 2*self.p             # number of histopolation intervals (2, 4, 6, 8, ...)
+        self.n_his_locbf_N  = 2*self.p             # number of non-vanishing N bf in histopolation interval (2, 4, 6, 8, ...)
+        self.n_his_locbf_D  = 2*self.p - 1         # number of non-vanishing D bf in histopolation interval (2, 4, 6, 8, ...)
         
-        self.x_his          = np.zeros((n_lambda_his, self.n_his + 1)    , dtype=float)    # histopolation points
+        self.x_his          = np.zeros((n_lambda_his, self.n_his + 1)    , dtype=float)  # histopolation boundaries
         
         self.his_global_N   = np.zeros((n_lambda_his, self.n_his_locbf_N), dtype=int)
         self.his_global_D   = np.zeros((n_lambda_his, self.n_his_locbf_D), dtype=int)
@@ -377,17 +420,17 @@ class projectors_local_1d:
             self.pts, self.wts = bsp.quadrature_grid(np.unique(self.x_his.flatten()), self.pts_loc, self.wts_loc)
         
         else:
+            
+            # maximum number of non-vanishing coefficients
+            self.n_his_nvcof_D = 2*self.p - 1
+            self.n_his_nvcof_N = 2*self.p
+
+            # shift local coefficients --> global coefficients
+            self.his_shift_D = np.arange(self.NbaseD) - (self.p - 1)
+            self.his_shift_N = np.arange(self.NbaseD) -  self.p
+            
+            
             for i in range(n_lambda_his):
-                
-                # maximum number of non-vanishing coefficients
-                self.n_his_nvcof_D = 2*self.p - 1
-                self.n_his_nvcof_N = 2*self.p
-                
-                # shift local coefficients --> global coefficients (D)
-                self.his_shift_D = np.arange(self.NbaseD) - (self.p - 1)
-                
-                # shift local coefficients --> global coefficients (N)
-                self.his_shift_N = np.arange(self.NbaseD) -  self.p
                 
                 self.his_global_N[i] = (np.arange(self.n_his_locbf_N) + i - (self.p - 1))%self.NbaseN
                 self.his_global_D[i] = (np.arange(self.n_his_locbf_D) + i - (self.p - 1))%self.NbaseD 
@@ -551,13 +594,24 @@ class projectors_local_3d:
                     print('degree > 4 not implemented!')
                     
                     
-                    
-        # set interpolation points
-        n_lambda_int        = [NbaseN for NbaseN in self.NbaseN]
+        # set interpolation points            
+        n_lambda_int        = [NbaseN for NbaseN in self.NbaseN] # number of coefficients in space V0 
+        self.n_int          = [2*p - 1 for p in self.p]          # number of interpolation points (1, 3, 5, 7, ...)
         
-        self.n_int          = [2*p - 1 for p in self.p]      # number of interpolation points
-        self.n_int_locbf_N  = [2*p - 1 for p in self.p]      # number of non-vanishing N bf in interpolation interval
-        self.n_int_locbf_D  = [2*p - 2 for p in self.p]      # number of non-vanishing D bf in interpolation interval
+        
+        self.n_int_locbf_N = [0, 0, 0]
+        self.n_int_locbf_D = [0, 0, 0]
+        
+        for a in range(3):
+        
+            if self.p[a] == 1:
+                self.n_int_locbf_N[a]  = 2                # number of non-vanishing N bf in interpolation interval (2, 3, 5, 7)
+                self.n_int_locbf_D[a]  = 1                # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6)
+
+            else:
+                self.n_int_locbf_N[a]  = 2*self.p[a] - 1  # number of non-vanishing N bf in interpolation interval (2, 3, 5, 7)
+                self.n_int_locbf_D[a]  = 2*self.p[a] - 2  # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6)
+        
         
         self.x_int = [np.zeros((n_lambda_int, n_int), dtype=float, order='F') for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
         
@@ -581,12 +635,18 @@ class projectors_local_3d:
         self.int_shift_N    = [0, 0, 0]
         
         
+        
         for a in range(3):
             if self.bc[a] == False:
                 
                 # maximum number of non-vanishing coefficients
-                self.n_int_nvcof_D[a] = 3*self.p[a] - 3
-                self.n_int_nvcof_N[a] = 3*self.p[a] - 2
+                if self.p[a] == 1:
+                    self.n_int_nvcof_D[a] = 2
+                    self.n_int_nvcof_N[a] = 2
+                    
+                else:
+                    self.n_int_nvcof_D[a] = 3*self.p[a] - 3
+                    self.n_int_nvcof_N[a] = 3*self.p[a] - 2
                 
                 # shift in local coefficient indices at right boundary (only for non-periodic boundary conditions)
                 self.int_add_D[a] = np.arange(self.n_int[a] - 2) + 1
@@ -596,14 +656,22 @@ class projectors_local_3d:
                 counter_N = 0
                 
                 # shift local coefficients --> global coefficients (D)
-                self.int_shift_D[a] = np.arange(self.NbaseD[a]) - (self.p[a] - 2)
-                self.int_shift_D[a][:2*self.p[a] - 2] = 0
-                self.int_shift_D[a][-(2*self.p[a] - 2):] = self.int_shift_D[a][-(2*self.p[a] - 2)]
+                if self.p[a] == 1:
+                    self.int_shift_D[a] = np.arange(self.NbaseD[a])
+                else:
+                    self.int_shift_D[a] = np.arange(self.NbaseD[a]) - (self.p[a] - 2)
+                    self.int_shift_D[a][:2*self.p[a] - 2] = 0
+                    self.int_shift_D[a][-(2*self.p[a] - 2):] = self.int_shift_D[a][-(2*self.p[a] - 2)]
 
                 # shift local coefficients --> global coefficients (N)
-                self.int_shift_N[a] = np.arange(self.NbaseN[a]) - (self.p[a] - 1)
-                self.int_shift_N[a][:2*self.p[a] - 1]  = 0
-                self.int_shift_N[a][-(2*self.p[a] - 1):] = self.int_shift_N[a][-(2*self.p[a] - 1)]
+                if self.p[a] == 1:
+                    self.int_shift_N[a]     = np.arange(self.NbaseN[a])
+                    self.int_shift_N[a][-1] = self.int_shift_N[a][-2]
+                    
+                else:
+                    self.int_shift_N[a] = np.arange(self.NbaseN[a]) - (self.p[a] - 1)
+                    self.int_shift_N[a][:2*self.p[a] - 1]  = 0
+                    self.int_shift_N[a][-(2*self.p[a] - 1):] = self.int_shift_N[a][-(2*self.p[a] - 1)]
                 
                 counter_coeffi = np.copy(self.p[a])
                 
@@ -634,59 +702,85 @@ class projectors_local_3d:
 
                     # interior
                     else:
-                        self.int_global_N[a][i] = np.arange(self.n_int_locbf_N[a]) + i - (self.p[a] - 1)
-                        self.int_global_D[a][i] = np.arange(self.n_int_locbf_D[a]) + i - (self.p[a] - 1)
+                        if self.p[a] == 1:
+                            self.int_global_N[a][i] = np.arange(self.n_int_locbf_N[a]) + i
+                            self.int_global_D[a][i] = np.arange(self.n_int_locbf_D[a]) + i
+
+                            self.int_global_N[a][-1] = self.int_global_N[a][-2]
+                            self.int_global_D[a][-1] = self.int_global_D[a][-2]
+                            
+                        else:
+                            self.int_global_N[a][i] = np.arange(self.n_int_locbf_N[a]) + i - (self.p[a] - 1)
+                            self.int_global_D[a][i] = np.arange(self.n_int_locbf_D[a]) + i - (self.p[a] - 1)
+                        
                         
                         if self.p[a] == 1:
                             self.x_int_indices[a][i] = i
                         else:
                             self.x_int_indices[a][i] = np.arange(self.n_int[a]) + 2*(i - (self.p[a] - 1))
                         
-                        
                         self.coeffi_indices[a][i] = self.p[a] - 1
+                        
                         for j in range(2*(self.p[a] - 1) + 1):
                             self.x_int[a][i, j]  = (self.T[a][i + 1 + int(j/2)] + self.T[a][i + 1 + int((j + 1)/2)])/2
                             
                             
                     # local coefficient index
-                    if i > 0:
-                        for il in range(self.n_int_locbf_D[a]):
-                            k_glob_new = self.int_global_D[a][i, il]
-                            bol = (k_glob_new == self.int_global_D[a][i - 1])
+                    if self.p[a] == 1:
+                        self.int_loccof_N[a][i]  = np.array([0, 1])
+                        self.int_loccof_D[a][-1] = np.array([1])
+                
+                    else:
+                    
+                        if i > 0:
+                            for il in range(self.n_int_locbf_D[a]):
+                                k_glob_new = self.int_global_D[a][i, il]
+                                bol = (k_glob_new == self.int_global_D[a][i - 1])
 
-                            if np.any(bol):
-                                self.int_loccof_D[a][i, il] = self.int_loccof_D[a][i - 1, np.where(bol)[0][0]] + 1
+                                if np.any(bol):
+                                    self.int_loccof_D[a][i, il] = self.int_loccof_D[a][i - 1, np.where(bol)[0][0]] + 1
 
-                            if (k_glob_new >= n_lambda_int[a] - self.p[a] - (self.p[a] - 2)) and (self.int_loccof_D[a][i, il] == 0):
-                                self.int_loccof_D[a][i, il] = self.int_add_D[a][counter_D]
-                                counter_D += 1
+                                if (k_glob_new >= n_lambda_int[a] - self.p[a] - (self.p[a] - 2)) and (self.int_loccof_D[a][i, il] == 0):
+                                    self.int_loccof_D[a][i, il] = self.int_add_D[a][counter_D]
+                                    counter_D += 1
 
-                        for il in range(self.n_int_locbf_N[a]):
-                            k_glob_new = self.int_global_N[a][i, il]
-                            bol = (k_glob_new == self.int_global_N[a][i - 1])
+                            for il in range(self.n_int_locbf_N[a]):
+                                k_glob_new = self.int_global_N[a][i, il]
+                                bol = (k_glob_new == self.int_global_N[a][i - 1])
 
-                            if np.any(bol):
-                                self.int_loccof_N[a][i, il] = self.int_loccof_N[a][i - 1, np.where(bol)[0][0]] + 1
+                                if np.any(bol):
+                                    self.int_loccof_N[a][i, il] = self.int_loccof_N[a][i - 1, np.where(bol)[0][0]] + 1
 
-                            if (k_glob_new >= n_lambda_int[a] - self.p[a] - (self.p[a] - 2)) and (self.int_loccof_N[a][i, il] == 0):
-                                self.int_loccof_N[a][i, il] = self.int_add_N[a][counter_N]
-                                counter_N += 1
+                                if (k_glob_new >= n_lambda_int[a] - self.p[a] - (self.p[a] - 2)) and (self.int_loccof_N[a][i, il] == 0):
+                                    self.int_loccof_N[a][i, il] = self.int_add_N[a][counter_N]
+                                    counter_N += 1
                                 
             else:
-                for i in range(n_lambda_int[a]):
+                
+                # maximum number of non-vanishing coefficients
+                if self.p[a] == 1:
+                    self.n_int_nvcof_D[a] = 2*self.p[a] - 1
+                    self.n_int_nvcof_N[a] = 2*self.p[a]
 
-                    # maximum number of non-vanishing coefficients
+                else:
                     self.n_int_nvcof_D[a] = 2*self.p[a] - 2
                     self.n_int_nvcof_N[a] = 2*self.p[a] - 1
 
-                    # shift local coefficients --> global coefficients (D)
+                # shift local coefficients --> global coefficients
+                if self.p[a] == 1:
+                    self.int_shift_D[a] = np.arange(self.NbaseN[a]) - (self.p[a] - 1)
+                    self.int_shift_N[a] = np.arange(self.NbaseN[a]) - (self.p[a])
+                else:
                     self.int_shift_D[a] = np.arange(self.NbaseN[a]) - (self.p[a] - 2)
-
-                    # shift local coefficients --> global coefficients (N)
                     self.int_shift_N[a] = np.arange(self.NbaseN[a]) - (self.p[a] - 1)
+                
+                
+                for i in range(n_lambda_int[a]):
 
+                    # global indices of non-vanishing basis functions and position of coefficients in final matrix
                     self.int_global_N[a][i] = (np.arange(self.n_int_locbf_N[a]) + i - (self.p[a] - 1))%self.NbaseN[a]
                     self.int_global_D[a][i] = (np.arange(self.n_int_locbf_D[a]) + i - (self.p[a] - 1))%self.NbaseD[a] 
+                    
                     self.int_loccof_N[a][i] =  np.arange(self.n_int_locbf_N[a] - 1, -1, -1)
                     self.int_loccof_D[a][i] =  np.arange(self.n_int_locbf_D[a] - 1, -1, -1)
                     
@@ -695,16 +789,15 @@ class projectors_local_3d:
                         self.x_int_indices[a][i] = i
                     else:
                         self.x_int_indices[a][i] = (np.arange(self.n_int[a]) + 2*(i - (self.p[a] - 1)))%(2*self.Nel[a])
-                    
-                    
+                     
                     self.coeffi_indices[a][i] = 0
 
                     for j in range(2*(self.p[a] - 1) + 1):
                         self.x_int[a][i, j] = ((self.T[a][i + 1 + int(j/2)] + self.T[a][i + 1 + int((j + 1)/2)])/2)%1.
-                        
-                        
+        
+        
         # set histopolation points, quadrature points and weights
-        n_lambda_his = [NbaseD for NbaseD in self.NbaseD]
+        n_lambda_his = [np.copy(NbaseD) for NbaseD in self.NbaseD] # number of coefficients in space V1
         
         self.n_his         = [2*p     for p in self.p]     # number of histopolation intervals
         self.n_his_locbf_N = [2*p     for p in self.p]     # number of non-vanishing N bf in histopolation interval
@@ -733,6 +826,7 @@ class projectors_local_3d:
         
         self.his_shift_D   = [0, 0, 0]
         self.his_shift_N   = [0, 0, 0]
+        
         
         for a in range(3):
             if self.bc[a] == False:
@@ -827,17 +921,18 @@ class projectors_local_3d:
                                 
                                 
             else:
+                
+                # maximum number of non-vanishing coefficients
+                self.n_his_nvcof_D[a] = 2*self.p[a] - 1
+                self.n_his_nvcof_N[a] = 2*self.p[a]
+
+                # shift local coefficients --> global coefficients (D)
+                self.his_shift_D[a] = np.arange(self.NbaseD[a]) - (self.p[a] - 1)
+
+                # shift local coefficients --> global coefficients (N)
+                self.his_shift_N[a] = np.arange(self.NbaseD[a]) -  self.p[a]
+                                
                 for i in range(n_lambda_his[a]):
-
-                    # maximum number of non-vanishing coefficients
-                    self.n_his_nvcof_D[a] = 2*self.p[a] - 1
-                    self.n_his_nvcof_N[a] = 2*self.p[a]
-
-                    # shift local coefficients --> global coefficients (D)
-                    self.his_shift_D[a] = np.arange(self.NbaseD[a]) - (self.p[a] - 1)
-
-                    # shift local coefficients --> global coefficients (N)
-                    self.his_shift_N[a] = np.arange(self.NbaseD[a]) -  self.p[a]
 
                     self.his_global_N[a][i] = (np.arange(self.n_his_locbf_N[a]) + i - (self.p[a] - 1))%self.NbaseN[a]
                     self.his_global_D[a][i] = (np.arange(self.n_his_locbf_D[a]) + i - (self.p[a] - 1))%self.NbaseD[a] 
