@@ -98,7 +98,6 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
     
     
 # ==========================================================================================================
-@external_call
 @types('double[:,:](order=F)','double','int','double[:]')
 def pusher_step4(particles, dt, kind_map, params_map):
     
