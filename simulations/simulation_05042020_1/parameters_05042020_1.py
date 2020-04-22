@@ -7,14 +7,14 @@ class parameters():
         
         self.Nel          = [16, 2, 2]             # mesh generation on logical domain
         self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
-        self.p            = [3, 1, 1]              # spline degrees  
+        self.p            = [2, 1, 1]              # spline degrees  
         
-        self.nq_el        = [4, 2, 2] # number of quadrature points per element for integrations over whole domain
+        self.nq_el        = [3, 2, 2] # number of quadrature points per element for integrations over whole domain
         self.nq_pr        = [6, 6, 6] # number of quadrature points per integration interval of projectors
 
         self.time_int     = True     # do time integration?
-        self.dt           = 0.06     # time step
-        self.Tend         = 1.2     # simulation time
+        self.dt           = 0.05     # time step
+        self.Tend         = 5.0      # simulation time
         self.max_time     = 60*60    # maximum runtime of program in minutes
         self.add_pressure = False    # add non-Hamiltonian terms to simulation?
 
@@ -32,29 +32,38 @@ class parameters():
         self.Np           = 128000              # total number of particles
         self.control      = True                # control variate for noise resuction? (delta-f method)
 
-        self.v0x = 2.5                      # shift of Maxwellian in vx-direction
-        self.v0y = 0.                       # shift of Maxwellian in vy-direction
-        self.v0z = 0.                       # shift of Maxwellian in vz-direction
+        self.v0x = 2.5                          # shift of Maxwellian in vx-direction
+        self.v0y = 0.                           # shift of Maxwellian in vy-direction
+        self.v0z = 0.                           # shift of Maxwellian in vz-direction
         
-        self.vth = 1.                       # hot ion thermal velocity
+        self.vth = 1.                           # hot ion thermal velocity
 
+        
         # particle loading
-        '''
-        pseudo-random: particles[:, :6] = np.random.rand(Np, 6)
-        sobol_standard: particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000)
-        sobol_antithetic: sobol.i4_sobol_generate(6, int(Np/64), 1000) --> 64 symmetric particles
-        pr_space_uni_velocity: pseudo-random in space, uniform in velocity space
-        external: particles[:, :6] = np.load('name_of_file.npy') 
-        '''
+        """
+        1. pseudo-random: particles[:, :6] = np.random.rand(Np, 6)
+            particles logical coordinates and physical velocities are drawn randomly.
+        
+        2. sobol_standard: particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000)
+            particles logical coordinates and physical velocities are drawn from a Sobol sequence, where the first 1000 numbers             are skipped.
+        
+        3. sobol_antithetic: sobol.i4_sobol_generate(6, int(Np/64), 1000) --> 64 symmetric particles
+            particles logical coordinates and physical velocities are drawn from a Sobol sequence, where the first 1000 numbers             are skipped. Additionally, for every particle which is drawn, the 63 next particles are drawn mirrored in all other             coordinates: e.g. (1 - xi1, xi2, xi3, vx, vy, vz), (xi1, 1 - xi2, xi3, vx, vy, vz), ...
+        
+        4. pr_space_uni_velocity: pseudo-random in space, uniform in velocity space
+        
+        5. external: particles[:, :6] = np.load('name_of_file.npy') 
+        """
+        
         self.loading    = 'sobol_antithetic'
 
 
-        # Is this run a restart?
+        # Is this run a restart? If yes, select restart data with num_restart
         self.restart = False 
         self.num_restart = 0
 
         # Create restart files at the end of the simulation?
-        self.create_restart = True
+        self.create_restart = False
         
         # initial conditions 
         self.ic_from_params = False
