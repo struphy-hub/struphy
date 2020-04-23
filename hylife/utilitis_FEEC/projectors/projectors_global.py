@@ -1,7 +1,7 @@
 import numpy              as np
 import scipy.sparse       as sparse
 import hylife.utilitis_FEEC.bsplines as bsp
-import hylife.utilitis_FEEC.kernels_projectors_global as kernels
+import hylife.utilitis_FEEC.projectors.kernels_projectors_global as kernels
 
 from scipy.sparse.linalg import splu
 
