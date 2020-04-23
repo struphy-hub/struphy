@@ -72,12 +72,13 @@ class terms_control_variate:
         self.mat_g32 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
         self.mat_g33 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
         
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, kind_map, params_map)
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g21, 22, kind_map, params_map)
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g22, 23, kind_map, params_map)
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g31, 24, kind_map, params_map)
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g32, 25, kind_map, params_map)
-        ker.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g33, 26, kind_map, params_map)
+        
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, kind_map, params_map)
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g21, 22, kind_map, params_map)
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g22, 23, kind_map, params_map)
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g31, 24, kind_map, params_map)
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g32, 25, kind_map, params_map)
+        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g33, 26, kind_map, params_map)
     
         
     # ===== inner product in V1 (3d) of (B x jh_eq) - term =======
@@ -109,7 +110,7 @@ class terms_control_variate:
         # computation of 1 - component
         F1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), order='F')
         
-        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[1], F1, np.asfortranarray(self.mat_jh3*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3) - self.mat_jh2*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3)))
+        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], F1, np.asfortranarray(self.mat_jh3*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3) - self.mat_jh2*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3)))
         
         # computation of 2 - component
         F2 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), order='F')
