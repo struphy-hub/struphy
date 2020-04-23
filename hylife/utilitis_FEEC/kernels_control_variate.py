@@ -75,6 +75,19 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
         value = inter.b2_eq(xi1, xi2, xi3, kind_map, params_map)
     elif kind_fun == 13:
         value = inter.b3_eq(xi1, xi2, xi3, kind_map, params_map)
+        
+    elif kind_fun == 21:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 11) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    elif kind_fun == 22:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 21) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    elif kind_fun == 23:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 22) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    elif kind_fun == 24:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 31) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    elif kind_fun == 25:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 32) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    elif kind_fun == 26:
+        value = mapping.g(xi1, xi2, xi3, kind_map, params_map, 33) / mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
     
     return value
 
