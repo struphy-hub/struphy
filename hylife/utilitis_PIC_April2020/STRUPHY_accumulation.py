@@ -7,14 +7,10 @@ Basic modules to compute charge and current densities from particles
 """
 
 
-import numpy as np
+import numpy        as np
 import scipy.sparse as spa
 
-import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_PIC_April2020.STRUPHY_accumulation_kernels as ker
-
-#import bsplines as bsp
-#import STRUPHY_accumulation_kernels as ker
 
 
 class accumulation:
@@ -122,7 +118,7 @@ class accumulation:
 
         col     = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
         
-        mat23   = spa.csr_matrix((mat23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))
+        mat23   = spa.csr_matrix((mat23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))
         mat23.eliminate_zeros()
         
         mat = spa.bmat([[None, mat12, mat13], [-mat12.T, None, mat23], [-mat13.T, -mat23.T, None]], format='csc')
