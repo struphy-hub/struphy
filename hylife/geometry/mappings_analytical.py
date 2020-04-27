@@ -20,10 +20,10 @@ def f(xi1, xi2, xi3, kind, params, component):
         3rd logical coordinate in [0, 1]
         
     kind : int
-        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella, 4 = orthogonal)
         
     params : list of doubles
-        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
         
     component : int
         physical coordinate (1 = x, 2 = y, 3 = z)
@@ -78,6 +78,20 @@ def f(xi1, xi2, xi3, kind, params, component):
         elif component == 3:
             value = Lz * xi3
             
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 1:
+            value = Lx * (xi1 + alpha * sin(2*pi*xi1))
+        elif component == 2:
+            value = Ly * (xi2 + alpha * sin(2*pi*xi2))
+        elif component == 3:
+            value = Lz * xi3
+                 
     return value
 
 
@@ -102,7 +116,7 @@ def df(xi1, xi2, xi3, kind, params, component):
         type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
         
     params : list of doubles
-        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
         
     component : int
         component of Jacobian matrix (11 = df1/dxi1, 12 = df1/dxi2, 13 = df1/dxi3, 21 = df2/dxi1, 22 = df2/dxi2, 23 = df2/dxi3, 31 = df3/dxi1, 32 = df3/dxi2, 33 = df3/dxi3)
@@ -193,6 +207,33 @@ def df(xi1, xi2, xi3, kind, params, component):
         elif component == 33:
             value = Lz
             
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            value = Lx * (1 + alpha * cos(2*pi*xi1) * 2*pi)
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = Ly * (1 + alpha * cos(2*pi*xi2) * 2*pi)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lz
+            
     return value
 
 
@@ -219,7 +260,7 @@ def det_df(xi1, xi2, xi3, kind, params):
         type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
         
     params : list of doubles
-        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
         
         
     Returns
@@ -254,7 +295,16 @@ def det_df(xi1, xi2, xi3, kind, params):
         alpha = params[2]
         Lz    = params[3]
         
-        value = Lx*Ly*Lz * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+        value = Lx*Ly*Lz * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+        
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        value = Lx*Ly*Lz * (1. + alpha * cos(2*pi*xi1) * 2*pi) * (1. + alpha * cos(2*pi*xi2) * 2*pi)
             
     return value
 
@@ -281,7 +331,7 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
         
     params : list of doubles
-        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
         
     component : int
         component of the inverse Jacobian matrix
@@ -354,7 +404,7 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Ly * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi) * Lz
+            value = Ly * (1. + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi) * Lz
         elif component == 12:
             value = -Lx * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi * Lz
         elif component == 13:
@@ -362,7 +412,7 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 21:
             value = -Ly * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi * Lz
         elif component == 22:
-            value = Lx * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi) * Lz
+            value = Lx * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi) * Lz
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -370,7 +420,33 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = Lx*Ly * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            value = Lx*Ly * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            value = Ly * (1. + alpha * cos(2*pi*xi2) * 2*pi) * Lz
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = Lx * (1. + alpha * cos(2*pi*xi1)  * 2*pi) * Lz
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lx*Ly * (1. + alpha * cos(2*pi*xi1) * 2*pi) * (1. + alpha * cos(2*pi*xi2) * 2*pi)
             
     return value/det_df(xi1, xi2, xi3, kind, params)
 
@@ -396,7 +472,7 @@ def g(xi1, xi2, xi3, kind, params, component):
         type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
         
     params : list of doubles
-        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz])
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
         
     component : int
         component of the metric tensor
@@ -478,6 +554,32 @@ def g(xi1, xi2, xi3, kind, params, component):
             value = (Lx**2 + Ly**2) * alpha**2 * cos(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi1) * cos(2*pi*xi2)* (2*pi)**2 + Lx**2 * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi + Ly**2 * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi
         elif component == 22:
             value = Ly**2 * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)**2 + Lx**2 * alpha**2 * sin(2*pi*xi1)**2 * cos(2*pi*xi2)**2 * (2*pi)**2
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lz**2
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            value = Lx**2 * (1 + alpha * cos(2*pi*xi1) * 2*pi)**2
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = Ly**2 * (1 + alpha * cos(2*pi*xi2) * 2*pi)**2
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -602,6 +704,33 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = (Lx*Ly * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi))**2
+            
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            value = Ly**2 * (1. + alpha * cos(2*pi*xi2) * 2*pi)**2 * Lz**2
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = Lx**2 * (1. + alpha * cos(2*pi*xi1)  * 2*pi)**2 * Lz**2
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lx**2*Ly**2 * (1. + alpha * cos(2*pi*xi1) * 2*pi)**2 * (1. + alpha * cos(2*pi*xi2) * 2*pi)**2
           
     return value/det_df(xi1, xi2, xi3, kind, params)**2
 
