@@ -3,9 +3,9 @@ start_simulation = time.time()
 
 import h5py
 
-import numpy             as np
-import scipy.sparse      as spa
-import scipy.special     as sp
+import numpy         as np
+import scipy.sparse  as spa
+import scipy.special as sp
 
 import hylife.utilitis_FEEC.bsplines        as bsp
 import hylife.utilitis_FEEC.spline_space    as spl
@@ -76,7 +76,6 @@ restart        = params.restart         # is this run a restart?
 num_restart    = params.num_restart     # if yes, locate restart data
 create_restart = params.create_restart  # create restart data at the end of the run?
 # ========================================================================
-
 
 
 # ================== basics ==============================================
@@ -184,6 +183,7 @@ energies = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
 
 
 
+
 # ============= projection of initial conditions ==========================
 
 # create object for projecting initial conditions
@@ -191,6 +191,7 @@ pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
 # projection of initial conditions
 if params.ic_from_params == True:
+    
     pr[:, :, :]                           = pro.pi_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
     u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
     b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([lambda xi1, xi2, xi3 : params.b1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b3_ini(xi1, xi2, xi3)])
@@ -219,8 +220,9 @@ M0 = mass.mass_V0(tensor_space, kind_map, params_map)
 M1 = mass.mass_V1(tensor_space, kind_map, params_map)
 M2 = mass.mass_V2(tensor_space, kind_map, params_map)
 
-# normalization vector in V0
-norm = inner.inner_prod_V0(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
+# normalization vectors in V0 and V3
+norm_0form = inner.inner_prod_V0(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
+norm_3form = inner.inner_prod_V3(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
 
 # discrete grad, curl and div matrices
 derivatives = der.discrete_derivatives(tensor_space)
@@ -230,11 +232,12 @@ CURL = derivatives.curl_3d()
 DIV  = derivatives.div_3d()
 
 # projection matrices
-Q   = MHD.projection_Q(kind_map, params_map)
-W   = MHD.projection_W(kind_map, params_map)
-TAU = MHD.projection_T(kind_map, params_map)
-S   = MHD.projection_S(kind_map, params_map)
-K   = MHD.projection_K(kind_map, params_map)
+Q   = MHD.projection_Q(kind_map, params_map)         # pi_2[rho_eq * g_inv * lambda^1]
+W   = MHD.projection_W(kind_map, params_map)         # pi_1[rho_eq/g_sqrt * lambda^1]
+TAU = MHD.projection_T(kind_map, params_map)         # pi_1[b_eq * g_inv * lambda^1]
+S   = MHD.projection_S(kind_map, params_map)         # pi_1[p_eq * lambda^1]
+K   = MHD.projection_K(kind_map, params_map)         # pi_0[p_eq * lambda^0]  
+P   = MHD.projection_P(kind_map, params_map)         # pi_1[curl(b_eq) * lambda^2]
 
 
 # compute matrix A
@@ -324,7 +327,7 @@ if add_PIC == True:
 # initial energies
 energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
 energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
-energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm)
+energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
 energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
 # =====================================================================================================================
 
@@ -483,10 +486,10 @@ def update():
     # =======================================================================================================
     
     
-    # ============== step 6 (1 : update rho, u and pr from non - Hamiltonian terms) ================
+    # ============== step 6 (1 : update rho, u and pr from non - Hamiltonian MHD terms) ================
     if add_pressure == True:
         timea = time.time()
-        temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten())))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten()))) + dt*np.concatenate((np.zeros(Ntot_3form), spa.linalg.spsolve(A, M1.dot(P.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))), np.zeros(Ntot_0form)))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea
         
@@ -495,7 +498,7 @@ def update():
         u2[:, :, :]  = temp22.reshape(Nbase_1form[1])
         u3[:, :, :]  = temp23.reshape(Nbase_1form[2])
         pr[:, :, :]  = temp3.reshape(Nbase_0form)
-    # =============================================================================================
+    # ==================================================================================================
         
     time_totb = time.time()
     times_elapsed['total'] = time_totb - time_tota                                  
@@ -504,7 +507,7 @@ def update():
     # diagnostics (compute energies)
     energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
     energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
-    energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm)
+    energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
     energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
 # ============================================================================
 
@@ -753,12 +756,12 @@ if time_int == True:
         #file['density'].resize(file['density'].shape[0] + 1, axis = 0)
         #file['density'][-1] = rho
         
-        file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
-        file['magnetic_field/divergence'][-1] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
+        #file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
+        #file['magnetic_field/divergence'][-1] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
         
-        if time_steps_done%10 == 0:
-            file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
-            file['particles'][-1] = particles
+        #if time_steps_done%10 == 0:
+         #   file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
+          #  file['particles'][-1] = particles
         # ==========================
 
     file.close()
