@@ -179,6 +179,13 @@ U_part = np.empty((Np, 3), dtype=float, order='F')
 
 # energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
 energies = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
+
+# snapshots of distribution function via particle binning
+n_bins    = [32, 64]
+bin_edges = [np.linspace(0., 1., n_bins[0] + 1), np.linspace(0., 5., n_bins[1] + 1)]
+dbin      = [bin_edges[0][1] - bin_edges[0][0], bin_edges[1][1] - bin_edges[1][0]]
+
+fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 # =========================================================================
 
 
@@ -329,6 +336,9 @@ energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatt
 energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
 energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
 energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
+
+# initial distribution function
+fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
 # =====================================================================================================================
 
 
@@ -509,6 +519,9 @@ def update():
     energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
     energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
     energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
+
+    # diagnostics (distribution function via particle binning)
+    fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
 # ============================================================================
 
 
@@ -562,6 +575,7 @@ if time_int == True:
         file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    maxshape=(None, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    dtype=float, chunks=True)
         
         file.create_dataset('particles', (1, Np, 7), maxshape=(None, Np, 7), dtype=float, chunks=True)
+        file.create_dataset('distribution_function/xi1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
         
         
         # datasets for restart function
@@ -602,6 +616,7 @@ if time_int == True:
         file['magnetic_field/divergence'][0] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
     
         file['particles'][0] = particles
+        file['distribution_function/xi1_vx'][0] = fh['fh_xi1_vx']
         
         file['restart/control_w0'][:] = w0
         file['restart/control_g0'][:] = g0
@@ -629,8 +644,8 @@ if time_int == True:
         rho[:, :, :]    = file['restart/density'][num_restart]
         
         particles[:, :] = file['restart/particles'][num_restart]
-        w0[:]           = file['restart/control_w0'][num_restart]
-        g0[:]           = file['restart/control_g0'][num_restart]
+        w0[:]           = file['restart/control_w0'][:]
+        g0[:]           = file['restart/control_g0'][:]
         
         # perform initialization for next time step
         pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
@@ -762,6 +777,9 @@ if time_int == True:
         #if time_steps_done%10 == 0:
          #   file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
           #  file['particles'][-1] = particles
+        
+        file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
+        file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
         # ==========================
 
     file.close()
