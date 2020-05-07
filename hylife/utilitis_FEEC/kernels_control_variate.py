@@ -120,7 +120,7 @@ def kernel_evaluate_2form(nel, p, ns, nq, pts1, pts2, pts3, b_coeff, nbase, bi1,
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
                             
-                            b_eva[ie1, ie2, ie3, q1, q2, q3] = fun(pts1[ie1, q2], pts2[ie2, q2], pts3[ie3, q3], component, kind_map, params_map)
+                            b_eva[ie1, ie2, ie3, q1, q2, q3] = fun(pts1[ie1, q1], pts2[ie2, q2], pts3[ie3, q3], component, kind_map, params_map)
                 
                             for il1 in range(p[0] + 1 - ns[0]):
                                 for il2 in range(p[1] + 1 - ns[1]):
