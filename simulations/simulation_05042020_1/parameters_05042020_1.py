@@ -6,7 +6,7 @@ class parameters():
     
     def __init__(self):
         
-        self.Nel          = [16, 16, 2]             # mesh generation on logical domain
+        self.Nel          = [20, 20, 2]             # mesh generation on logical domain
         self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
         self.p            = [2, 2, 1]              # spline degrees  
         
@@ -20,17 +20,17 @@ class parameters():
         self.add_pressure = False    # add non-Hamiltonian terms to simulation?
 
         # geometry
-        self.kind_map     =  4                         # 1 : slab, 2 : hollow cylinder, 3 : colella
+        self.kind_map     = 3                         # 1 : slab, 2 : hollow cylinder, 3 : colella
         
-        #self.params_map   = [2*np.pi/0.75, 1., 1.]     # parameters for mapping  
-        self.params_map   = [2*np.pi/0.75, 1., 0.05, 1.]     # parameters for mapping  
+        #self.params_map   = [2*np.pi/0.75, 2*np.pi, 1.]     # parameters for mapping  
+        self.params_map   = [2*np.pi/0.75, 2*np.pi, 0.05, 1.]     # parameters for mapping  
         
         # physical constants
         self.gamma        = 5/3                        # adiabatic exponent
 
         # particle parameters
         self.add_PIC      = True                # add kinetic terms to simulation?
-        self.Np           = 819200              # total number of particles
+        self.Np           = 128000              # total number of particles
         self.control      = True                # control variate for noise resuction? (delta-f method)
 
         self.v0x = 2.5                          # shift of Maxwellian in vx-direction
@@ -67,7 +67,7 @@ class parameters():
         self.create_restart = False
         
         # ======================== initial conditions ===========================================
-        self.ic_from_params = False
+        self.ic_from_params = True
         
         
         # some parameters
@@ -93,8 +93,11 @@ class parameters():
 
     # initial bulk velocity (y - component)
     def uy_ini(self, x, y, z):
+        
+        kx = 0.75
+        ky = 1.
 
-        uy = 0.
+        uy = np.cos(kx * x + ky * y)
 
         return uy
 
@@ -115,17 +118,23 @@ class parameters():
     # initial magnetic field (y - component)
     def by_ini(self, x, y, z):
 
-        by = 0.
+        amp = 1e-4
+
+        kx  = 0.75
+        ky  = 1.
+        kz  = 0.
+        
+        by  = amp * np.cos(kx * x + ky * y)*0
 
         return by
 
     # initial magnetic field (z - component)
     def bz_ini(self, x, y, z):
 
-        amp = 1e-3
+        amp = 1e-4
 
         kx  = 0.75
-        ky  = 0.
+        ky  = 1.
         kz  = 0.
 
         bz  = amp * np.sin(kx * x + ky * y)
