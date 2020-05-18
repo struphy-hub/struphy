@@ -5,32 +5,34 @@ import hylife.geometry.mappings_analytical as mapping
 class parameters():
     
     def __init__(self):
+
+        # cores used : 8 on Cobra in interactive mode
         
-        self.Nel          = [20, 20, 2]             # mesh generation on logical domain
+        self.Nel          = [32, 2, 2]             # mesh generation on logical domain
         self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
-        self.p            = [2, 2, 1]              # spline degrees  
+        self.p            = [3, 1, 1]              # spline degrees  
         
         self.nq_el        = [6, 6, 6] # number of quadrature points per element for integrations over whole domain
         self.nq_pr        = [6, 6, 6] # number of quadrature points per integration interval of projectors
 
         self.time_int     = True     # do time integration?
         self.dt           = 0.05     # time step
-        self.Tend         = 5.0      # simulation time
+        self.Tend         = 200.0      # simulation time
         self.max_time     = 60*60    # maximum runtime of program in minutes
         self.add_pressure = False    # add non-Hamiltonian terms to simulation?
 
         # geometry
-        self.kind_map     = 3                         # 1 : slab, 2 : hollow cylinder, 3 : colella
+        self.kind_map     =  1                         # 1 : slab, 2 : hollow cylinder, 3 : colella
         
-        #self.params_map   = [2*np.pi/0.75, 2*np.pi, 1.]     # parameters for mapping  
-        self.params_map   = [2*np.pi/0.75, 2*np.pi, 0.05, 1.]     # parameters for mapping  
+        self.params_map   = [2*np.pi/0.6, 1., 1.]     # parameters for mapping  
+        #self.params_map   = [2*np.pi/0.75, 2*np.pi/1., 0.1, 0.1]     # parameters for mapping  
         
         # physical constants
         self.gamma        = 5/3                        # adiabatic exponent
 
         # particle parameters
         self.add_PIC      = True                # add kinetic terms to simulation?
-        self.Np           = 128000              # total number of particles
+        self.Np           = 512000              # total number of particles
         self.control      = True                # control variate for noise resuction? (delta-f method)
 
         self.v0x = 2.5                          # shift of Maxwellian in vx-direction
@@ -56,7 +58,7 @@ class parameters():
         5. external: particles[:, :6] = np.load('name_of_file.npy') 
         """
         
-        self.loading    = 'sobol_antithetic'
+        self.loading = 'pseudo-random'
 
 
         # Is this run a restart? If yes, select restart data with num_restart
@@ -64,7 +66,7 @@ class parameters():
         self.num_restart = 0
 
         # Create restart files at the end of the simulation?
-        self.create_restart = False
+        self.create_restart = True
         
         # ======================== initial conditions ===========================================
         self.ic_from_params = True
@@ -93,11 +95,8 @@ class parameters():
 
     # initial bulk velocity (y - component)
     def uy_ini(self, x, y, z):
-        
-        kx = 0.75
-        ky = 1.
 
-        uy = np.cos(kx * x + ky * y)
+        uy = 0.
 
         return uy
 
@@ -117,14 +116,8 @@ class parameters():
 
     # initial magnetic field (y - component)
     def by_ini(self, x, y, z):
-
-        amp = 1e-4
-
-        kx  = 0.75
-        ky  = 1.
-        kz  = 0.
         
-        by  = amp * np.cos(kx * x + ky * y)*0
+        by  = 0.
 
         return by
 
@@ -133,8 +126,8 @@ class parameters():
 
         amp = 1e-4
 
-        kx  = 0.75
-        ky  = 1.
+        kx  = 0.6
+        ky  = 0.
         kz  = 0.
 
         bz  = amp * np.sin(kx * x + ky * y)
