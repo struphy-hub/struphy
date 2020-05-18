@@ -18,19 +18,20 @@ import hylife.utilitis_FEEC.basics.inner_products_3d as inner
 import hylife.utilitis_FEEC.projectors.projectors_local     as proj
 import hylife.utilitis_FEEC.projectors.projectors_local_mhd as mhd
 
-import hylife.utilitis_PIC_April2020.STRUPHY_fields       as pic_fields
-import hylife.utilitis_PIC_April2020.STRUPHY_pusher       as pic_pusher
-import hylife.utilitis_PIC_April2020.STRUPHY_accumulation as pic_accumu
-import hylife.utilitis_PIC_April2020.STRUPHY_sampling     as pic_sample
-import hylife.utilitis_PIC_April2020.sobol_seq            as sobol
+import hylife.utilitis_PIC.STRUPHY_fields       as pic_fields
+import hylife.utilitis_PIC.STRUPHY_pusher       as pic_pusher
+import hylife.utilitis_PIC.STRUPHY_accumulation as pic_accumu
+import hylife.utilitis_PIC.STRUPHY_sampling     as pic_sample
+import hylife.utilitis_PIC.sobol_seq            as sobol
 
 import hylife.interface as inter
 
 
 
 # ======================== load parameters ============================
+
 import simulations.simulation_05042020_1.parameters_05042020_1 as pa    # name input folder here!
-identifier = 'simulation_05042020_1'             # name input folder here!
+identifier = 'simulation_05042020_1'                                    # name input folder here!
 
 params = pa.parameters()
 
@@ -165,13 +166,13 @@ b1     = np.empty(Nbase_2form[0], dtype=float, order='F')     # magnetic field F
 b2     = np.empty(Nbase_2form[1], dtype=float, order='F')     # magnetic field FEM coefficients (2 - component)
 b3     = np.empty(Nbase_2form[2], dtype=float, order='F')     # magnetic field FEM coefficients (3 - component)
 
-rho    = np.empty(Nbase_3form,    dtype=float, order='F')     # bulkmass density FEM coefficients
+rho    = np.empty(Nbase_3form,    dtype=float, order='F')     # bulk mass density FEM coefficients
 
 
 # particles
 particles = np.empty((Np, 7), dtype=float, order='F')
 w0        = np.empty(Np, dtype=float)
-g0        = np.empty(Np, dtype=float)
+s0        = np.empty(Np, dtype=float)
 
 # fields at particle positions (U and B)
 B_part = np.empty((Np, 3), dtype=float, order='F')
@@ -311,10 +312,10 @@ particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
 particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
 
 # compute initial weights
-pic_sample.compute_weights_ini(particles, w0, g0, kind_map, params_map)
+pic_sample.compute_weights_ini(particles, w0, s0, kind_map, params_map)
 
 if control == True:
-    pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
+    pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
 else:
     particles[:, 6] = w0
 
@@ -490,7 +491,7 @@ def update():
 
         if control == True:
             timea = time.time()
-            pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
+            pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
             timeb = time.time()
             times_elapsed['control_weights'] = timeb - timea
     # =======================================================================================================
@@ -593,7 +594,7 @@ if time_int == True:
         file.create_dataset('restart/particles', (1, Np, 7), maxshape=(None, Np, 7), dtype=float, chunks=True)
         
         file.create_dataset('restart/control_w0', (Np,), dtype=float)
-        file.create_dataset('restart/control_g0', (Np,), dtype=float)
+        file.create_dataset('restart/control_s0', (Np,), dtype=float)
         
         
         # == save initial data ============
@@ -619,7 +620,7 @@ if time_int == True:
         file['distribution_function/xi1_vx'][0] = fh['fh_xi1_vx']
         
         file['restart/control_w0'][:] = w0
-        file['restart/control_g0'][:] = g0
+        file['restart/control_s0'][:] = s0
         # =================================
 
         print('initial energies : ', energies)
@@ -645,13 +646,13 @@ if time_int == True:
         
         particles[:, :] = file['restart/particles'][num_restart]
         w0[:]           = file['restart/control_w0'][:]
-        g0[:]           = file['restart/control_g0'][:]
+        s0[:]           = file['restart/control_s0'][:]
         
         # perform initialization for next time step
         pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
         pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
         
-        pic_sample.update_weights(particles, w0, g0, kind_map, params_map)
+        pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
 
     
     
@@ -778,8 +779,8 @@ if time_int == True:
          #   file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
           #  file['particles'][-1] = particles
         
-        file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
-        file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
+        #file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
+        #file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
         # ==========================
 
     file.close()
