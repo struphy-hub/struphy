@@ -85,14 +85,9 @@ def solveDispersionFullOrbit(k, pol, wch, vA, vth, v0, nuh, Ah, Zh, AMHD, initia
     w = initial_guess
     counter = 0
     
-    while True:
-        wnew = w - D(k, w, pol)/Dprime(k, w, pol)
+    while np.abs(D(k, w, pol)) > tol or counter == max_it:
         
-        if np.abs(wnew - w) < tol or counter == max_it:
-            w = wnew
-            break
-
-        w = wnew
+        w = w - D(k, w, pol)/Dprime(k, w, pol)
         counter += 1
 
     return w, counter
