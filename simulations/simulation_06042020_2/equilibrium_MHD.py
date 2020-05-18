@@ -1,8 +1,6 @@
 from pyccel.decorators import types
 
-#import ..geometry.mappings_analytical as mapping
 import hylife.geometry.mappings_analytical as mapping
-
 
 
 
@@ -56,7 +54,7 @@ def bx_eq(x, y, z):
 @types('double','double','double')
 def by_eq(x, y, z):
     
-    by = 1.
+    by = 0.
     #by = cos(2*pi*xi1) * sin(2*pi*xi2) * cos(2*pi*xi3) * (2*pi)**2
     
     return by
