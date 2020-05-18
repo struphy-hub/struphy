@@ -90,7 +90,7 @@ def jhy_eq(x, y, z):
 def jhz_eq(x, y, z):
     return eq_pic.jhz_eq(x, y, z)
 
-# equilibrium energetic ion distribution function (3-form on logical domain)
+# equilibrium energetic ion distribution function (0-form on logical domain)
 @types('double','double','double','double','double','double','int','double[:]')
 def fh_eq(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     return eq_pic.fh_eq(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)
@@ -144,13 +144,13 @@ def rho_ini(xi1, xi2, xi3, kind, params):
 
 
 # ==================================== initial conditions PIC ================================================
-# initial energetic ion distribution function (3-form on logical domain)
+# initial energetic ion distribution function (0-form on logical domain)
 @types('double','double','double','double','double','double','int','double[:]')
 def fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     return ini_pic.fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)
 
 
 # ===== sampling distribution of initial markers on logical domain =====
-@types('double','double','double','double','double','double')
-def g_sampling(xi1, xi2, xi3, vx, vy, vz):
-    return ini_pic.g_sampling(xi1, xi2, xi3, vx, vy, vz)
+@types('double','double','double','double','double','double','int','double[:]')
+def sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
+    return ini_pic.sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)
