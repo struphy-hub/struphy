@@ -10,7 +10,7 @@ Basic modules to compute charge and current densities from particles
 import numpy        as np
 import scipy.sparse as spa
 
-import hylife.utilitis_PIC_April2020.STRUPHY_accumulation_kernels as ker
+import hylife.utilitis_PIC.STRUPHY_accumulation_kernels as ker
 
 
 class accumulation:
