@@ -16,7 +16,9 @@ def fh_ini_phys(x, y, z, vx, vy, vz):
     
     nh0 = 0.06
     
-    value = nh0/(pi**(3/2)*vth**3) * exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
+    
+    value = nh0/(pi**(3/2)*vth**3) * exp(arg)
     
     return value
 
@@ -44,4 +46,6 @@ def sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     
     det_df = mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
     
-    return 1/(pi**(3/2)*vth**3*det_df)*exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
+    
+    return 1/(pi**(3/2)*vth**3*det_df)*exp(arg)

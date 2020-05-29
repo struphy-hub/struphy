@@ -17,7 +17,9 @@ def fh_eq_phys(x, y, z, vx, vy, vz):
     
     nh0 = 0.06
     
-    value = nh0/(pi**(3/2)*vth**3) * exp(-(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2)
+    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
+    
+    value = nh0/(pi**(3/2)*vth**3) * exp(arg)
     
     return value
 

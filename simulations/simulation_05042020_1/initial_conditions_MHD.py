@@ -68,7 +68,9 @@ def bz_ini(x, y, z):
     ky  = 0.
     kz  = 0.
     
-    bz  = amp * sin(kx * x + ky * y)
+    arg = kx * x + ky * y
+    
+    bz  = amp * sin(arg)
     
     #bz = cos(2*pi*xi1) * cos(2*pi*xi2) * sin(2*pi*xi3) * (2*pi)**2
     

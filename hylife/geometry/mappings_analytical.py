@@ -58,9 +58,11 @@ def f(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 1:
-            value = (xi1 * dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * cos(arg)
         elif component == 2:
-            value = (xi1 * dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * sin(arg)
         elif component == 3:
             value = Lz * xi3
             
@@ -72,9 +74,13 @@ def f(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 1:
-            value = Lx * (xi1 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (xi1 + alpha * sin(arg1) * sin(arg2))
         elif component == 2:
-            value = Ly * (xi2 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg1) * sin(arg2))
         elif component == 3:
             value = Lz * xi3
             
@@ -86,13 +92,16 @@ def f(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 1:
-            value = Lx * (xi1 + alpha * sin(2*pi*xi1))
+            arg   = 2*pi*xi1
+            value = Lx * (xi1 + alpha * sin(arg))
         elif component == 2:
-            value = Ly * (xi2 + alpha * sin(2*pi*xi2))
+            arg   = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg))
         elif component == 3:
             value = Lz * xi3
                  
     return value
+
 
 
 # =======================================================================
@@ -163,15 +172,19 @@ def df(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 11:
-            value = dR * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * cos(arg)
         elif component == 12:
-            value = -2*pi * (xi1*dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = -2*pi * (xi1*dR + R1) * sin(arg)
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = dR * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * sin(arg)
         elif component == 22:
-            value =  2*pi * (xi1*dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value =  2*pi * (xi1*dR + R1) * cos(arg)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -189,15 +202,23 @@ def df(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi)
         elif component == 12:
-            value = Lx * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * alpha * sin(arg1) * cos(arg2) * 2*pi
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = Ly * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * alpha * cos(arg1) * sin(arg2) * 2*pi
         elif component == 22:
-            value = Ly * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (1 + alpha * sin(arg1) * cos(arg2) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -216,7 +237,8 @@ def df(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*xi1) * 2*pi)
+            arg   = 2*pi*xi1
+            value = Lx * (1 + alpha * cos(arg) * 2*pi)
         elif component == 12:
             value = 0.
         elif component == 13:
@@ -224,7 +246,8 @@ def df(xi1, xi2, xi3, kind, params, component):
         elif component == 21:
             value = 0.
         elif component == 22:
-            value = Ly * (1 + alpha * cos(2*pi*xi2) * 2*pi)
+            arg   = 2*pi*xi2
+            value = Ly * (1 + alpha * cos(arg) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -235,7 +258,6 @@ def df(xi1, xi2, xi3, kind, params, component):
             value = Lz
             
     return value
-
 
 
 
@@ -295,7 +317,10 @@ def det_df(xi1, xi2, xi3, kind, params):
         alpha = params[2]
         Lz    = params[3]
         
-        value = Lx*Ly*Lz * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+        arg1  = 2*pi*xi1
+        arg2  = 2*pi*xi2
+        
+        value = Lx*Ly*Lz * (1. + alpha * cos(arg1) * sin(arg2) * 2*pi + alpha * sin(arg1) * cos(arg2) * 2*pi)
         
     elif kind == 4:
         
@@ -304,9 +329,13 @@ def det_df(xi1, xi2, xi3, kind, params):
         alpha = params[2]
         Lz    = params[3]
         
-        value = Lx*Ly*Lz * (1. + alpha * cos(2*pi*xi1) * 2*pi) * (1. + alpha * cos(2*pi*xi2) * 2*pi)
+        arg1  = 2*pi*xi1
+        arg2  = 2*pi*xi2
+        
+        value = Lx*Ly*Lz * (1. + alpha * cos(arg1) * 2*pi) * (1. + alpha * cos(arg2) * 2*pi)
             
     return value
+
 
 
 
@@ -378,15 +407,19 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 11:
-            value = 2*pi * (xi1*dR + R1) * cos(2*pi*xi2) * Lz
+            arg   = 2*pi*xi2
+            value = 2*pi * (xi1*dR + R1) * cos(arg) * Lz
         elif component == 12:
-            value = 2*pi * (xi1*dR + R1) * sin(2*pi*xi2) * Lz
+            arg   = 2*pi*xi2
+            value = 2*pi * (xi1*dR + R1) * sin(arg) * Lz
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = -dR * sin(2*pi*xi2) * Lz
+            arg   = 2*pi*xi2
+            value = -dR * sin(arg) * Lz
         elif component == 22:
-            value =  dR * cos(2*pi*xi2) * Lz
+            arg   = 2*pi*xi2
+            value =  dR * cos(arg) * Lz
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -404,15 +437,23 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Ly * (1. + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi) * Lz
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (1. + alpha * sin(arg1) * cos(arg2) * 2*pi) * Lz
         elif component == 12:
-            value = -Lx * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi * Lz
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = -Lx * alpha * sin(arg1) * cos(arg2) * 2*pi * Lz
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = -Ly * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi * Lz
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = -Ly * alpha * cos(arg1) * sin(arg2) * 2*pi * Lz
         elif component == 22:
-            value = Lx * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi) * Lz
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (1. + alpha * cos(arg1) * sin(arg2) * 2*pi) * Lz
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -420,7 +461,9 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = Lx*Ly * (1. + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx*Ly * (1. + alpha * cos(arg1) * sin(arg2) * 2*pi + alpha * sin(arg1) * cos(arg2) * 2*pi)
             
     elif kind == 4:
         
@@ -430,7 +473,8 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Ly * (1. + alpha * cos(2*pi*xi2) * 2*pi) * Lz
+            arg   = 2*pi*xi2
+            value = Ly * (1. + alpha * cos(arg) * 2*pi) * Lz
         elif component == 12:
             value = 0.
         elif component == 13:
@@ -438,7 +482,8 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 21:
             value = 0.
         elif component == 22:
-            value = Lx * (1. + alpha * cos(2*pi*xi1)  * 2*pi) * Lz
+            arg   = 2*pi*xi1
+            value = Lx * (1. + alpha * cos(arg)  * 2*pi) * Lz
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -446,9 +491,13 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = Lx*Ly * (1. + alpha * cos(2*pi*xi1) * 2*pi) * (1. + alpha * cos(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx*Ly * (1. + alpha * cos(arg1) * 2*pi) * (1. + alpha * cos(arg2) * 2*pi)
             
     return value/det_df(xi1, xi2, xi3, kind, params)
+
+
 
 
 # =======================================================================
@@ -545,15 +594,23 @@ def g(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx**2 * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi)**2 + Ly**2 * alpha**2 * cos(2*pi*xi1)**2 * sin(2*pi*xi2)**2 * (2*pi)**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx**2 * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi)**2 + Ly**2 * alpha**2 * cos(arg1)**2 * sin(arg2)**2 * (2*pi)**2
         elif component == 12:
-            value = (Lx**2 + Ly**2) * alpha**2 * cos(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi1) * cos(2*pi*xi2)* (2*pi)**2 + Lx**2 * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi + Ly**2 * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi 
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = (Lx**2 + Ly**2) * alpha**2 * cos(arg1) * sin(arg2) * sin(arg1) * cos(arg2)* (2*pi)**2 + Lx**2 * alpha * sin(arg1) * cos(arg2) * 2*pi + Ly**2 * alpha * cos(arg1) * sin(arg2) * 2*pi 
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = (Lx**2 + Ly**2) * alpha**2 * cos(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi1) * cos(2*pi*xi2)* (2*pi)**2 + Lx**2 * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi + Ly**2 * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = (Lx**2 + Ly**2) * alpha**2 * cos(arg1) * sin(arg2) * sin(arg1) * cos(arg2)* (2*pi)**2 + Lx**2 * alpha * sin(arg1) * cos(arg2) * 2*pi + Ly**2 * alpha * cos(arg1) * sin(arg2) * 2*pi
         elif component == 22:
-            value = Ly**2 * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)**2 + Lx**2 * alpha**2 * sin(2*pi*xi1)**2 * cos(2*pi*xi2)**2 * (2*pi)**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly**2 * (1 + alpha * sin(arg1) * cos(arg2) * 2*pi)**2 + Lx**2 * alpha**2 * sin(arg1)**2 * cos(arg2)**2 * (2*pi)**2
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -571,7 +628,8 @@ def g(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx**2 * (1 + alpha * cos(2*pi*xi1) * 2*pi)**2
+            arg   = 2*pi*xi1
+            value = Lx**2 * (1 + alpha * cos(arg) * 2*pi)**2
         elif component == 12:
             value = 0.
         elif component == 13:
@@ -579,7 +637,8 @@ def g(xi1, xi2, xi3, kind, params, component):
         elif component == 21:
             value = 0.
         elif component == 22:
-            value = Ly**2 * (1 + alpha * cos(2*pi*xi2) * 2*pi)**2
+            arg   = 2*pi*xi2
+            value = Ly**2 * (1 + alpha * cos(arg) * 2*pi)**2
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -687,15 +746,23 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Ly**2 * Lz**2 * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)**2 + Lx**2 * Lz**2 * alpha**2 * sin(2*pi*xi1)**2 * cos(2*pi*xi2)**2 * (2*pi)**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly**2 * Lz**2 * (1 + alpha * sin(arg1) * cos(arg2) * 2*pi)**2 + Lx**2 * Lz**2 * alpha**2 * sin(arg1)**2 * cos(arg2)**2 * (2*pi)**2
         elif component == 12:
-            value = -((Lx**2 + Ly**2) * alpha**2 * cos(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi1) * cos(2*pi*xi2)* (2*pi)**2 + Lx**2 * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi + Ly**2 * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi) * Lz**2 
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = -((Lx**2 + Ly**2) * alpha**2 * cos(arg1) * sin(arg2) * sin(arg1) * cos(arg2)* (2*pi)**2 + Lx**2 * alpha * sin(arg1) * cos(arg2) * 2*pi + Ly**2 * alpha * cos(arg1) * sin(arg2) * 2*pi) * Lz**2 
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = -((Lx**2 + Ly**2) * alpha**2 * cos(2*pi*xi1) * sin(2*pi*xi2) * sin(2*pi*xi1) * cos(2*pi*xi2)* (2*pi)**2 + Lx**2 * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi + Ly**2 * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi) * Lz**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = -((Lx**2 + Ly**2) * alpha**2 * cos(arg1) * sin(arg2) * sin(arg1) * cos(arg2)* (2*pi)**2 + Lx**2 * alpha * sin(arg1) * cos(arg2) * 2*pi + Ly**2 * alpha * cos(arg1) * sin(arg2) * 2*pi) * Lz**2
         elif component == 22:
-            value = Lx**2 * Lz**2 * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi)**2 + Ly**2 * Lz**2 * alpha**2 * cos(2*pi*xi1)**2 * sin(2*pi*xi2)**2 * (2*pi)**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx**2 * Lz**2 * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi)**2 + Ly**2 * Lz**2 * alpha**2 * cos(arg1)**2 * sin(arg2)**2 * (2*pi)**2
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -703,7 +770,9 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = (Lx*Ly * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi))**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = (Lx*Ly * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi + alpha * sin(arg1) * cos(arg2) * 2*pi))**2
             
             
     elif kind == 4:
@@ -714,7 +783,8 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Ly**2 * (1. + alpha * cos(2*pi*xi2) * 2*pi)**2 * Lz**2
+            arg   = 2*pi*xi2
+            value = Ly**2 * (1. + alpha * cos(arg) * 2*pi)**2 * Lz**2
         elif component == 12:
             value = 0.
         elif component == 13:
@@ -722,7 +792,8 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 21:
             value = 0.
         elif component == 22:
-            value = Lx**2 * (1. + alpha * cos(2*pi*xi1)  * 2*pi)**2 * Lz**2
+            arg   = 2*pi*xi1
+            value = Lx**2 * (1. + alpha * cos(arg)  * 2*pi)**2 * Lz**2
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -730,7 +801,9 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = Lx**2*Ly**2 * (1. + alpha * cos(2*pi*xi1) * 2*pi)**2 * (1. + alpha * cos(2*pi*xi2) * 2*pi)**2
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx**2*Ly**2 * (1. + alpha * cos(arg1) * 2*pi)**2 * (1. + alpha * cos(arg2) * 2*pi)**2
           
     return value/det_df(xi1, xi2, xi3, kind, params)**2
 
