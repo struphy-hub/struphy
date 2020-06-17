@@ -1,0 +1,60 @@
+\documentclass[a4paper,12pt]{article}
+%\documentclass[12pt,reqno]{amsart}
+
+\input{\string~/Desktop/from_gate/WORK/praeamble.tex}
+
+
+
+
+
+% \pagestyle{fancy}
+% \fancyhf{}
+% \rhead{S. Possanner}
+% \lhead{Notes on plasma transport models}
+% \rfoot{\thepage}
+
+
+
+
+\title{De Rham sequence of conforming finite element spaces for polar mappings}
+
+\author[2]{Florian Holderied}
+\author[1,2]{Stefan Possanner}
+%\email[]{stefan.possanner@ma.tum.de}
+%\homepage[]{http://www-m16.ma.tum.de/Allgemeines/StefanPossanner}
+%\thanks{}
+%\affiliation{Max Planck Institute for Plasma Physics, Boltzmannstraße 2, 85748 Garching, 
+%Germany}
+%\altaffiliation{Technical University of Munich, Department of Mathematics, Boltzmannstraße 3, 
+%85748 
+%Garching, Germany}
+\affil[1]{Technical University of Munich, Department of Mathematics, Boltzmannstraße 3, 
+85748 Garching, Germany}
+\affil[2]{Max Planck Institute for Plasma Physics, Boltzmannstraße 2, 85748 Garching, Germany}
+
+\date{\today}
+
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We construct the de Rham sequence of conforming tensor product B-spline spaces for mappings with a polar singularity. The sequence is exact ($\grad V_0 = \ker V_1$, $\curl V_1 = \ker V_2$) and can be fit into the commuting diagram of finite element exterior calculus (FEEC). In the mapped domain, basis functions are $C^2$ at the pole in the first space $V_0$ and are $C^0$ at the pole in the third space $V_3$. 
+\end{abstract}
+
+\tableofcontents
+
+
+\section{Introduction}
+
+\input{sections/problem}
+
+
+
+
+
+
+\bibliography{\string~/Desktop/PLASMA/WORK/mybib.bib}
+\bibliographystyle{plain}
+
+\end{document}          
