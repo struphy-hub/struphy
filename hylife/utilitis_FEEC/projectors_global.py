@@ -726,11 +726,13 @@ def integrate_1d(points, weights, fun):
         w1   = weights[ie1, :]
         #Pts1 = points[ie1, :]
         #mat_f[:] = fun(Pts)
-        mat_f[:] = fun(points[ie1])
+        #mat_f[:] = fun(points[ie1, :])
+        
+        for i in range(nq1):
+            mat_f[i] = fun(points[ie1,i])
         
         f_int[ie1] = kernels.kernel_int_1d(nq1, w1, mat_f)
-        
-        
+            
     return f_int
 # ===================================================================
 
@@ -766,8 +768,7 @@ def integrate_2d(points, weights, fun):
     
     nq1 = pts1.shape[1]
     nq2 = pts2.shape[1]
-    
-    
+        
     f_int = np.empty((n1, n2))
     mat_f = np.empty((nq1, nq2))
     
@@ -779,8 +780,12 @@ def integrate_2d(points, weights, fun):
             
             #Pts1, Pts2 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], indexing='ij')
             #mat_f[:, :] = fun(Pts1, Pts2)
-            mat_f[:, :] = fun(pts1[ie1], pts2[ie2])
+            #mat_f[:, :] = fun(pts1[ie1], pts2[ie2])
             
+            for i, xi in enumerate(pts1[ie1, :]):
+                for j, yj in enumerate(pts2[ie2, :]):
+                    mat_f[i,j] = fun(xi,yj)
+
             f_int[ie1, ie2] = kernels.kernel_int_2d(nq1, nq2, w1, w2, mat_f)
             
     return f_int
@@ -820,8 +825,7 @@ def integrate_3d(points, weights, fun):
     nq1 = pts1.shape[1]
     nq2 = pts2.shape[1]
     nq3 = pts3.shape[1]
-    
-    
+      
     f_int = np.empty((n1, n2, n3))
     mat_f = np.empty((nq1, nq2, nq3))
     
@@ -835,7 +839,12 @@ def integrate_3d(points, weights, fun):
 
                 #Pts1, Pts2, Pts3 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], pts3[ie3, :], indexing='ij')
                 #mat_f[:, :, :] = fun(Pts1, Pts2, Pts3)
-                mat_f[:, :, :] = fun(pts1[ie1], pts2[ie2], pts3[ie3])
+                #mat_f[:, :, :] = fun(pts1[ie1], pts2[ie2], pts3[ie3])
+                
+                for i, xi in enumerate(pts1[ie1, :]):
+                    for j, yj in enumerate(pts2[ie2, :]):
+                        for k, zj in enumerate(pts3[ie3, :]):
+                            mat_f[i,j,k] = fun(xi,yj,zj)
 
                 f_int[ie1, ie2, ie3] = kernels.kernel_int_3d(nq1, nq2, nq3, w1, w2, w3, mat_f)
 
