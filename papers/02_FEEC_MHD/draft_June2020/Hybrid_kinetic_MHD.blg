@@ -1,0 +1,48 @@
+This is BibTeX, Version 0.99d (TeX Live 2019/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: Hybrid_kinetic_MHD.aux
+The style file: abbrv.bst
+Database file #1: refs.bib
+Warning--I didn't find a database entry for ""
+You've used 36 entries,
+            2118 wiz_defined-function locations,
+            761 strings with 10413 characters,
+and the built_in function-call counts, 12446 in all, are:
+= -- 1183
+> -- 655
+< -- 1
++ -- 261
+- -- 222
+* -- 1016
+:= -- 2148
+add.period$ -- 108
+call.type$ -- 36
+change.case$ -- 216
+chr.to.int$ -- 0
+cite$ -- 36
+duplicate$ -- 397
+empty$ -- 930
+format.name$ -- 222
+if$ -- 2501
+int.to.chr$ -- 0
+int.to.str$ -- 36
+missing$ -- 39
+newline$ -- 183
+num.names$ -- 72
+pop$ -- 162
+preamble$ -- 1
+purify$ -- 182
+quote$ -- 0
+skip$ -- 264
+stack$ -- 0
+substring$ -- 852
+swap$ -- 37
+text.length$ -- 1
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 138
+warning$ -- 0
+while$ -- 112
+width$ -- 38
+write$ -- 397
+(There was 1 warning)
