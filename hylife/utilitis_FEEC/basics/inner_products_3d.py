@@ -253,7 +253,7 @@ def inner_prod_V3(tensor_space, kind_map, params_map, fun):
     
     # evaluation of 1 / Jacobian determinant at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float, order='F')
-    ker.kernel_evaluation(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 1, kind_map, params_map)
+    ker.kernel_evaluation(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2, kind_map, params_map)
     
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
