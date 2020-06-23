@@ -11,10 +11,10 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-EQM := simulations/simulation_05042020_1/equilibrium_MHD
-EQP := simulations/simulation_05042020_1/equilibrium_PIC
-ICM := simulations/simulation_05042020_1/initial_conditions_MHD
-ICP := simulations/simulation_05042020_1/initial_conditions_PIC
+EQM := simulations/simulation_16062020_8/equilibrium_MHD
+EQP := simulations/simulation_16062020_8/equilibrium_PIC
+ICM := simulations/simulation_16062020_8/initial_conditions_MHD
+ICP := simulations/simulation_16062020_8/initial_conditions_PIC
 INT := hylife/interface
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/basics/kernels_3d
