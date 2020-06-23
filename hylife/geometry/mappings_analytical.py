@@ -31,18 +31,39 @@ __all__ = ['f',
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def f(xi1, xi2, xi3, kind, params, component):
+
     '''
     defines an analytical mapping X = f(xi) in three dimensions. 
     X=(X1,X2,X3), xi=(xi1,xi2,xi3)
+   
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella, 4 = orthogonal)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        physical coordinate (1 = x, 2 = y, 3 = z)
+        
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+   Returns
+    -------
+    value : double
+        the physical cooordinate corresponding to the logical coordinate (xi1, xi2, xi3)
+    """
     
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 1 (x), 2 (y), 3 (z)
-    '''
+    value = 0.
                
     if kind == 1:
          
@@ -65,9 +86,11 @@ def f(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 1:
-            value = (xi1 * dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * cos(arg)
         elif component == 2:
-            value = (xi1 * dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * sin(arg)
         elif component == 3:
             value = Lz * xi3
             
@@ -79,36 +102,74 @@ def f(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 1:
-            value = Lx * (xi1 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (xi1 + alpha * sin(arg1) * sin(arg2))
         elif component == 2:
-            value = Ly * (xi2 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg1) * sin(arg2))
         elif component == 3:
             value = Lz * xi3
     else:
         #raise ValueError("kind of mapping unknown")
         value = -99999999.
             
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 1:
+            arg   = 2*pi*xi1
+            value = Lx * (xi1 + alpha * sin(arg))
+        elif component == 2:
+            arg   = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg))
+        elif component == 3:
+            value = Lz * xi3
+                 
     return value
+
 
 
 # =======================================================================
 @types('double','double','double','int','double[:]','int')
 def df(xi1, xi2, xi3, kind, params, component):
+
     '''
     returns the components of the Jacobian matrix of an analytical mapping X = F(xi) in three dimensions. 
 
     X=(X1,X2,X3), xi=(xi1,xi2,xi3)
+   
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of Jacobian matrix (11 = df1/dxi1, 12 = df1/dxi2, 13 = df1/dxi3, 21 = df2/dxi1, 22 = df2/dxi2, 23 = df2/dxi3, 31 = df3/dxi1, 32 = df3/dxi2, 33 = df3/dxi3)
+        
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
-    
-    params    : slab            --> Lx, Ly, Lz
-              : hollow cylinder --> R1, R2, Lz
-              : colella         --> Lx, Ly, alpha, Lz
-                 
-    component : 11 (dX1/dxi1), 12 (dX1/dxi2), 13 (dX1/dxi3)
-                21 (dX2/dxi1), 22 (dX2/dxi2), 23 (dX2/dxi3)
-                31 (dX3/dxi1), 32 (dX3/dxi2), 33 (dX3/dxi3)
-    '''
+   Returns
+    -------
+    value : double
+        the component of the Jacobian matrix evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     value = 0.
                
@@ -148,15 +209,19 @@ def df(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 11:
-            value = dR * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * cos(arg)
         elif component == 12:
-            value = -2*pi * (xi1*dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = -2*pi * (xi1*dR + R1) * sin(arg)
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = dR * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * sin(arg)
         elif component == 22:
-            value =  2*pi * (xi1*dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value =  2*pi * (xi1*dR + R1) * cos(arg)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -177,15 +242,52 @@ def df(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi)
         elif component == 12:
-            value = Lx * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * alpha * sin(arg1) * cos(arg2) * 2*pi
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = Ly * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * alpha * cos(arg1) * sin(arg2) * 2*pi
         elif component == 22:
-            value = Ly * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (1 + alpha * sin(arg1) * cos(arg2) * 2*pi)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lz
+            
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            arg   = 2*pi*xi1
+            value = Lx * (1 + alpha * cos(arg) * 2*pi)
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            arg   = 2*pi*xi2
+            value = Ly * (1 + alpha * cos(arg) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -205,18 +307,36 @@ def df(xi1, xi2, xi3, kind, params, component):
 
 
 
-
 # =======================================================================
 @types('double','double','double','int','double[:]')
 def det_df(xi1, xi2, xi3, kind, params):
-    '''
-    returns the jacobian determinant of an analytical mapping X = F(xi) in three dimensions.
 
-    uses df function
-
-    det_df = dX/dxi1 . ( dX/dxi2 x dX/dxi3)
+   """
+    Returns the determinant of the Jacobian matrix df/dxi corresponding to the mapping f.
     
-    '''
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
+        
+        
+    Returns
+    -------
+    value : double
+        the Jacobian determinant evaluated at the logical coordinate (xi1, xi2, xi3)
+    """
     
     dX1_dxi1=df(xi1, xi2, xi3, kind, params, 11)
     dX2_dxi1=df(xi1, xi2, xi3, kind, params, 21)
@@ -366,6 +486,22 @@ def g(xi1, xi2, xi3, kind, params, component):
         #raise ValueError("kind of mapping unknown")
         value = -99999999.
         
+        arg1  = 2*pi*xi1
+        arg2  = 2*pi*xi2
+        
+        value = Lx*Ly*Lz * (1. + alpha * cos(arg1) * sin(arg2) * 2*pi + alpha * sin(arg1) * cos(arg2) * 2*pi)
+        
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        arg1  = 2*pi*xi1
+        arg2  = 2*pi*xi2
+        
+        value = Lx*Ly*Lz * (1. + alpha * cos(arg1) * 2*pi) * (1. + alpha * cos(arg2) * 2*pi)
             
     return value
 
@@ -424,7 +560,7 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
     else:
         #raise ValueError("kind of mapping unknown")
         value = -99999999.
-        
+       
             
     return value
 
@@ -500,7 +636,7 @@ def pull_0_pw(a_phys, xi1, xi2, xi3, kind, params):
     
         xi1, xi2, xi3: float
             Coordinates in logical space.
-            
+           
     Returns
     -------
         value: float
@@ -536,7 +672,6 @@ def pull_0(a_phys, xi1_vec, xi2_vec, xi3_vec, kind, params):
     for i1, xi1 in enumerate(xi1_vec):
         for i2, xi2 in enumerate(xi2_vec):
             for i3, xi3 in enumerate(xi3_vec):
-
                 values[i1,i2,i3] = pull_0_pw(a_phys, xi1, xi2, xi3, kind, params)
 
     return values
@@ -575,7 +710,7 @@ def pull_1_pw(a1_phys, a2_phys, a3_phys, k, xi1, xi2, xi3, kind, params):
 
 #==============================================================================
 def pull_1(a1_phys, a2_phys, a3_phys, k, xi1_vec, xi2_vec, xi3_vec, kind, params):
-    
+   
     '''
     Returns k-th component of pulled-back 1-form as 3D ndarray for integration.
     See 'pull_1_pw' for other arguments.
@@ -762,7 +897,7 @@ def push_v(a1, a2, a3, k, xi1_vec, xi2_vec, xi3_vec, kind, params):
     
     if isinstance(xi1_vec, float):
         xi1_vec = array([xi1_vec])
-        
+       
     if isinstance(xi2_vec, float):
         xi2_vec = array([xi2_vec])
         
@@ -852,7 +987,7 @@ def push_1_pw(a1, a2, a3, k, xi1, xi2, xi3, kind, params):
     
     '''
     Returns k-th component of pushed-forward 1-form, point-wise, according to a_phys(x) = DF^(-T) * a(xi), and x=F(xi).
-    
+   
     Parameters
     ----------  
         a1, a2, a2: callable
@@ -1045,3 +1180,4 @@ def push_3(a, xi1_vec, xi2_vec, xi3_vec, kind, params):
                 x[i], y[i], z[i], values[i] = push_3_pw(a, xi1, xi2, xi3, kind, params)
 
     return x, y, z, values
+

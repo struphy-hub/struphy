@@ -1,186 +1,156 @@
-import numpy as np
-import hylife.utilitis_FEEC.bsplines as bsp
+# coding: utf-8
+#
+# Copyright 2020 Florian Holderied
 
-from scipy import sparse
+"""
+Modules to assemble discrete derivatives.
+"""
+
+import numpy        as np
+import scipy.sparse as spa
 
 
-
-#=============================================== discrete gradient matrix (1d) ================================================
-def GRAD_1d(T, p, bc):
+# ============== discrete gradient matrix (1d) ==============
+def grad_1d(spline_space):
     """
-    Returns the 1d discrete gradient matrix.
+    Returns the 1d discrete gradient matrix corresponding to the given B-spline space of degree p.
     
     Parameters
     ----------
-    p : int
-        spline degree
-        
-    Nbase : int
-        number of spline functions
-        
-    bc : boolean
-        boundary conditions (True = periodic, False = else)
+    spline_space : spline_space_1d
         
     Returns
     -------
-    G: 2d np.array
+    grad : array_like
         discrete gradient matrix
     """
     
-    el_b      = bsp.breakpoints(T, p)
-    Nel       = len(el_b) - 1
-    NbaseN    = Nel + p - bc*p
+    NbaseN = spline_space.NbaseN      # total number of basis functions (N)
+    bc     = spline_space.bc          # boundary conditions (True : periodic, False : clamped)
     
     
     if bc == True:
         
-        G = np.zeros((NbaseN, NbaseN))
+        grad = np.zeros((NbaseN, NbaseN), dtype=float)
         
         for i in range(NbaseN):
-            
-            G[i, i] = -1.
-            
+            grad[i, i] = -1.
             if i < NbaseN - 1:
-                G[i, i + 1] = 1.
-                
-        G[-1, 0] = 1.
+                grad[i, i + 1] = 1.
+        grad[-1, 0] = 1.
         
-        return G
-    
+        return grad
     
     else:
         
-        G = np.zeros((NbaseN - 1, NbaseN))
+        grad = np.zeros((NbaseN - 1, NbaseN))
     
-        for i in range(NbaseN - 1):
+        for i in range(NbaseN - 1):        
+            grad[i, i] = -1.
+            grad[i, i  + 1] = 1.
             
-            G[i, i] = -1.
-            G[i, i  + 1] = 1.
-            
-        return G
-#==============================================================================================================================
-
-
+        return grad
     
     
-    
-
-#=============================================== discrete derivatives in higher dimensions ====================================
+# ===== discrete derivatives in higher dimensions ============
 class discrete_derivatives:
+    """
+    Class for discrete derivatives for 2d and 3d tensor product B-spline spaces.
     
-    def __init__(self, T, p, bc):
+    Parameters
+    ----------
+    tensor_space : tensor_spline_space
+    """
+    
+    def __init__(self, tensor_space):
         
-        self.el_b    = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
-        self.Nel     = [len(el_b) - 1 for el_b in self.el_b]
+        self.NbaseN  = tensor_space.NbaseN
+        self.NbaseD  = tensor_space.NbaseD
         
-        self.NbaseN  = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, p, bc)]
-        self.NbaseD  = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, bc)]
-        
-        self.grad_1d = [sparse.csr_matrix(GRAD_1d(T, p, bc)) for T, p, bc in zip(T, p, bc)]
-        
+        self.grad_1d = [spa.csc_matrix(grad_1d(spl)) for spl in tensor_space.spaces]
         
     
-    def GRAD_2d(self):
-        '''
-        corresponds to diagram grad --> curl
-        '''
+    # ================== 2d ==================
+    def grad_2d(self):
         
-        G1 = sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1]))
-        G2 = sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1])
+        G1 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1]))
+        G2 = spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1])
         
-        G  = sparse.bmat([[G1], [G2]], format='csr')
+        G  = spa.bmat([[G1], [G2]], format='csc')
         
         return G
-        
     
     
-    def CURL_2d_vector(self):
-        '''
-        corresponds to diagram grad --> curl
-        '''
+    def curl_2d(self, kind):
+        """
+        Parameters
+        ----------
+        kind : string
+            'Hcurl' corresponds to the sequence grad --> curl
+            'Hdiv'  correpsonds to the sequence curl --> div
+        """
         
-        C1 = sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1])
-        C2 = sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1]))
-        
-        C  = sparse.bmat([[-C1, C2]], format='csr')
-        
+        if kind == 'Hcurl':
+            
+            C1 = spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1])
+            C2 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1]))
+
+            C  = spa.bmat([[-C1, C2]], format='csc')
+            
+        elif kind == 'Hdiv':
+            
+            C1 = spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1])
+            C2 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1]))
+
+            C  = spa.bmat([[C1], [-C2]], format='csc')
+            
         return C
+            
     
-    
-    
-    def CURL_2d_scalar(self):
-        '''
-        corresponds to diagram curl --> div
-        '''
+    def div_2d(self):
         
-        C1 = sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1])
-        C2 = sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1]))
+        D1 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1]))
+        D2 = spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1])
         
-        C  = sparse.bmat([[C1], [-C2]], format='csr')
-        
-        return C
-        
-        
-    
-    def DIV_2d(self):
-        '''
-        corresponds to diagram curl --> div
-        '''
-        
-        D1 = sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1]))
-        D2 = sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1])
-        
-        D  = sparse.bmat([[D1, D2]], format='csr')
+        D  = sparse.bmat([[D1, D2]], format='csc')
         
         return D
-        
     
     
-    def GRAD_3d(self):
-        '''
-        corresponds to diagram grad --> curl --> div
-        '''
+    # ================== 3d ==================
+    def grad_3d(self):
         
-        G1 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1])), sparse.identity(self.NbaseN[2]))
-        G2 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1]), sparse.identity(self.NbaseN[2]))
-        G3 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), sparse.identity(self.NbaseN[1])), self.grad_1d[2])
+        G1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseN[2]))
+        G2 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
+        G3 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
 
-        G  = sparse.bmat([[G1], [G2], [G3]], format='csr')
+        G  = spa.bmat([[G1], [G2], [G3]], format='csc')
 
         return G
     
     
-    
-    def CURL_3d(self):
-        '''
-        corresponds to diagram grad --> curl --> div
-        '''
+    def curl_3d(self):
         
-        C12 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), sparse.identity(self.NbaseD[1])), self.grad_1d[2])
-        C13 = sparse.kron(sparse.kron(sparse.identity(self.NbaseN[0]), self.grad_1d[1]), sparse.identity(self.NbaseD[2]))
+        C12 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
+        C13 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
         
-        C21 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), sparse.identity(self.NbaseN[1])), self.grad_1d[2])
-        C23 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseN[1])), sparse.identity(self.NbaseD[2]))
+        C21 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
+        C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
         
-        C31 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1]), sparse.identity(self.NbaseN[2]))
-        C32 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1])), sparse.identity(self.NbaseN[2]))
+        C31 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
+        C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
         
-        C   = sparse.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csr')
+        C   = spa.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csc')
         
         return C
-        
     
     
-    def DIV_3d(self):
-        '''
-        corresponds to diagram grad --> curl --> div
-        '''
+    def div_3d(self):
         
-        D1 = sparse.kron(sparse.kron(self.grad_1d[0], sparse.identity(self.NbaseD[1])), sparse.identity(self.NbaseD[2]))
-        D2 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), self.grad_1d[1]), sparse.identity(self.NbaseD[2]))
-        D3 = sparse.kron(sparse.kron(sparse.identity(self.NbaseD[0]), sparse.identity(self.NbaseD[1])), self.grad_1d[2])
+        D1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseD[2]))
+        D2 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
+        D3 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
 
-        D  = sparse.bmat([[D1, D2, D3]], format='csr')
+        D  = spa.bmat([[D1, D2, D3]], format='csc')
 
         return D     
-#==============================================================================================================================

@@ -18,6 +18,7 @@ References
 import numpy as np
 
 __all__ = ['find_span',
+           'scaling_vector',
            'basis_funs',
            'basis_funs_1st_der',
            'basis_funs_all_ders',
@@ -30,14 +31,14 @@ __all__ = ['find_span',
            'quadrature_grid',
            'basis_ders_on_quad_grid']
 
-#==============================================================================
-def find_span( knots, degree, x ):
+# ==============================================================================
+def find_span(knots, degree, x):
     """
     Determine the knot span index at location x, given the B-Splines' knot
     sequence and polynomial degree. See Algorithm A2.1 in [1].
 
-    For a degree p, the knot span index i identifies the indices [i-p:i] of all
-    p+1 non-zero basis functions at a given location x.
+    For a degree p, the knot span index i identifies the indices [i - p:i] of all
+    p + 1 non-zero basis functions at a given location x.
 
     Parameters
     ----------
@@ -58,25 +59,57 @@ def find_span( knots, degree, x ):
     """
     # Knot index at left/right boundary
     low  = degree
-    high = len(knots)-1-degree
+    high = len(knots) - 1 - degree
 
     # Check if point is exactly on left/right boundary, or outside domain
     if x <= knots[low ]: return low
-    if x >= knots[high]: return high-1
+    if x >= knots[high]: return high - 1
 
     # Perform binary search
-    span = (low+high)//2
-    while x < knots[span] or x >= knots[span+1]:
+    span = (low + high)//2
+    while x < knots[span] or x >= knots[span + 1]:
         if x < knots[span]:
-           high = span
+            high = span
         else:
-           low  = span
-        span = (low+high)//2
+            low  = span
+        span = (low + high)//2
 
     return span
 
-#==============================================================================
-def basis_funs( knots, degree, x, span, normalize=False ):
+
+# ==============================================================================
+def scaling_vector(knots, degree, span):
+    """
+    Returns the scaling array for M-splines.
+    
+    Parameters
+    ----------
+    knots : array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+        
+    span : int
+        Knot span index.
+        
+    Returns
+    -------
+    x : array_like
+        Scaling vector with elements (p + 1)/(t[i + p + 1] - t[i])
+    """
+
+    x = np.zeros(degree + 1, dtype=float)
+    
+    for il in range(degree + 1):
+        i = span - il
+        x[degree - il] = (degree + 1)/(knots[i + degree + 1] - knots[i])
+    
+    return x
+
+
+# =============================================================================
+def basis_funs(knots, degree, x, span, normalize=False):
     """
     Compute the non-vanishing B-splines at location x, given the knot sequence,
     polynomial degree and knot span. See Algorithm A2.2 in [1].
@@ -94,8 +127,11 @@ def basis_funs( knots, degree, x, span, normalize=False ):
 
     span : int
         Knot span index.
+        
+    normalize : boolean
+        Scaling for M-splines.
 
-    Results
+    Returns
     -------
     values : numpy.ndarray
         Values of p+1 non-vanishing B-Splines at location x.
@@ -106,30 +142,29 @@ def basis_funs( knots, degree, x, span, normalize=False ):
     by using 'left' and 'right' temporary arrays that are one element shorter.
 
     """
-    left   = np.empty( degree  , dtype=float )
-    right  = np.empty( degree  , dtype=float )
-    values = np.empty( degree+1, dtype=float )
+    left   = np.empty(degree    , dtype=float)
+    right  = np.empty(degree    , dtype=float)
+    values = np.empty(degree + 1, dtype=float)
 
     values[0] = 1.0
-    for j in range(0,degree):
-        left [j] = x - knots[span-j]
-        right[j] = knots[span+1+j] - x
-        saved    = 0.0
-        for r in range(0,j+1):
-            temp      = values[r] / (right[r] + left[j-r])
+    
+    for j in range(degree):
+        left [j] = x - knots[span - j]
+        right[j] = knots[span + 1 + j] - x
+        saved    = 0.
+        for r in range(j + 1):
+            temp      = values[r]/(right[r] + left[j - r])
             values[r] = saved + right[r] * temp
-            saved     = left[j-r] * temp
-        values[j+1] = saved
+            saved     = left[j - r] * temp
+        values[j + 1] = saved
         
     if normalize == True:
-        for il in range(degree + 1):
-            i = span - il
-            values[degree - il] = (degree + 1)*values[degree - il]/(knots[i + degree + 1] - knots[i])
+        values = values*scaling_vector(knots, degree, span)
 
     return values
 
 #==============================================================================
-def basis_funs_1st_der( knots, degree, x, span ):
+def basis_funs_1st_der(knots, degree, x, span):
     """
     Compute the first derivative of the non-vanishing B-splines at location x,
     given the knot sequence, polynomial degree and knot span.
@@ -154,32 +189,32 @@ def basis_funs_1st_der( knots, degree, x, span ):
     Results
     -------
     ders : numpy.ndarray
-        Derivatives of p+1 non-vanishing B-Splines at location x.
+        Derivatives of p + 1 non-vanishing B-Splines at location x.
 
     """
-    # Compute nonzero basis functions and knot differences for splines
-    # up to degree deg-1
-    values = basis_funs( knots, degree-1, x, span )
+    # Compute nonzero basis functions and knot differences for splines up to degree deg - 1
+    values = basis_funs(knots, degree - 1, x, span)
 
-    # Compute derivatives at x using formula based on difference of splines of
-    # degree deg-1
+    # Compute derivatives at x using formula based on difference of splines of degree deg - 1
     # -------
     # j = 0
-    ders  = np.empty( degree+1, dtype=float )
-    saved = degree * values[0] / (knots[span+1]-knots[span+1-degree])
+    ders  = np.empty(degree + 1, dtype=float)
+    saved = degree * values[0] / (knots[span + 1] - knots[span + 1 - degree])
     ders[0] = -saved
+    
     # j = 1,...,degree-1
-    for j in range(1,degree):
+    for j in range(1, degree):
         temp    = saved
-        saved   = degree * values[j] / (knots[span+j+1]-knots[span+j+1-degree])
+        saved   = degree * values[j] / (knots[span + j + 1] - knots[span + j + 1 - degree])
         ders[j] = temp - saved
+    
     # j = degree
     ders[degree] = saved
 
     return ders
 
 #==============================================================================
-def basis_funs_all_ders( knots, degree, x, span, n ):
+def basis_funs_all_ders(knots, degree, x, span, n):
     """
     Evaluate value and n derivatives at x of all basis functions with
     support in interval [x_{span-1}, x_{span}].
@@ -256,15 +291,15 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
             rk = r-k
             pk = degree-k
             if r >= k:
-               a[s2,0] = a[s1,0] * ndu[pk+1,rk]
-               d = a[s2,0] * ndu[rk,pk]
+                a[s2,0] = a[s1,0] * ndu[pk+1,rk]
+                d = a[s2,0] * ndu[rk,pk]
             j1 = 1   if (rk  > -1 ) else -rk
             j2 = k-1 if (r-1 <= pk) else degree-r
             a[s2,j1:j2+1] = (a[s1,j1:j2+1] - a[s1,j1-1:j2]) * ndu[pk+1,rk+j1:rk+j2+1]
             d += np.dot( a[s2,j1:j2+1], ndu[rk+j1:rk+j2+1,pk] )
             if r <= pk:
-               a[s2,k] = - a[s1,k-1] * ndu[pk+1,r]
-               d += a[s2,k] * ndu[r,pk]
+                a[s2,k] = - a[s1,k-1] * ndu[pk+1,r]
+                d += a[s2,k] * ndu[r,pk]
             ders[k,r] = d
             j  = s1
             s1 = s2
@@ -278,10 +313,10 @@ def basis_funs_all_ders( knots, degree, x, span, n ):
 
     return ders
 
-#==============================================================================
-def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
+# ==============================================================================
+def collocation_matrix(knots, degree, xgrid, periodic, normalize=False):
     """
-    Compute the collocation matrix $C_ij = B_j(x_i)$, which contains the
+    Computes the collocation matrix $C_ij = B_j(x_i)$, which contains the
     values of each B-spline basis function $B_j$ at all locations $x_i$.
 
     Parameters
@@ -295,8 +330,12 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
     xgrid : 1D array_like
         Evaluation points.
 
-    periodic : bool
+    periodic : boolean
         True if domain is periodic, False otherwise.
+        
+    normalize : boolean
+        Scaling for M-splines.
+        
 
     Returns
     -------
@@ -305,23 +344,8 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
 
     """
     
-    el_b = breakpoints(knots, degree)
-    ne = len(el_b) - 1 
-    
-    if normalize == True:
-        x_norm = np.zeros((ne, degree + 1))
-        
-        for ie in range(ne):
-            
-            loc = ie + np.arange(degree + 1)
-            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
-            
-    else:
-        x_norm = np.ones((ne, degree + 1))
-    
-    
     # Number of basis functions (in periodic case remove degree repeated elements)
-    nb = len(knots)-degree-1
+    nb = len(knots) - degree - 1
     if periodic:
         nb -= degree
 
@@ -329,19 +353,19 @@ def collocation_matrix( knots, degree, xgrid, periodic, normalize=False ):
     nx = len(xgrid)
 
     # Collocation matrix as 2D Numpy array (dense storage)
-    mat = np.zeros( (nx,nb) )
+    mat = np.zeros((nx, nb), dtype=float)
 
     # Indexing of basis functions (periodic or not) for a given span
     if periodic:
-        js = lambda span: [(span-degree+s) % nb for s in range( degree+1 )]
+        js = lambda span: [(span - degree + s)%nb for s in range(degree + 1)]
     else:
-        js = lambda span: slice( span-degree, span+1 )
+        js = lambda span: slice(span - degree, span + 1)
 
     # Fill in non-zero matrix values
-    for i,x in enumerate( xgrid ):
-        span  =  find_span( knots, degree, x )
-        basis = basis_funs( knots, degree, x, span )*x_norm[span - degree]
-        mat[i,js(span)] = basis
+    for i in range(nx):
+        span  = find_span(knots, degree, xgrid[i])
+        basis = basis_funs(knots, degree, xgrid[i], span, normalize)
+        mat[i, js(span)] = basis
 
     return mat
 
@@ -482,6 +506,7 @@ def x_in_ab( x, a, b ):
     
 #==============================================================================
 def breakpoints( knots, degree ):
+
     """
     Determine breakpoints' coordinates.
 
@@ -507,8 +532,8 @@ def breakpoints( knots, degree ):
     
     return np.unique( knots[slice(degree, endsl)] )
 
-#==============================================================================
-def greville( knots, degree, periodic ):
+# ==============================================================================
+def greville(knots, degree, periodic):
     """
     Compute coordinates of all Greville points.
 
@@ -546,7 +571,7 @@ def greville( knots, degree, periodic ):
     return xg
 
 #===============================================================================
-def elements_spans( knots, degree ):
+def elements_spans(knots, degree):
     """
     Compute the index of the last non-vanishing spline on each grid element
     (cell). The length of the returned array is the number of cells.
@@ -601,7 +626,7 @@ def elements_spans( knots, degree ):
     return spans
 
 #===============================================================================
-def make_knots( breaks, degree, periodic ):
+def make_knots(breaks, degree, periodic):
     """
     Create spline knots from breakpoints, with appropriate boundary conditions.
     Let p be spline degree. If domain is periodic, knot sequence is extended
@@ -627,22 +652,22 @@ def make_knots( breaks, degree, periodic ):
 
     """
     # Type checking
-    assert isinstance( degree  , int  )
-    assert isinstance( periodic, bool )
+    assert isinstance(degree  , int )
+    assert isinstance(periodic, bool)
 
     # Consistency checks
     assert len(breaks) > 1
-    assert all( np.diff(breaks) > 0 )
+    assert all(np.diff(breaks) > 0)
     assert degree > 0
     if periodic:
         assert len(breaks) > degree
 
     p = degree
-    T = np.zeros( len(breaks)+2*p )
+    T = np.zeros(len(breaks)+ 2*p, dtype=float)
     T[p:-p] = breaks
 
     if periodic:
-        period = breaks[-1]-breaks[0]
+        period = breaks[-1] - breaks[0]
         T[0:p] = [xi-period for xi in breaks[-p-1:-1 ]]
         T[-p:] = [xi+period for xi in breaks[   1:p+1]]
     else:
@@ -651,8 +676,8 @@ def make_knots( breaks, degree, periodic ):
 
     return T
 
-#==============================================================================
-def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
+# ==============================================================================
+def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     """
     Compute the quadrature points and weights for performing integrals over
     each element (interval) of the 1D domain, given a certain Gaussian
@@ -702,25 +727,25 @@ def quadrature_grid( breaks, quad_rule_x, quad_rule_w ):
     assert min(quad_rule_x) >= -1
     assert max(quad_rule_x) <= +1
 
-    quad_rule_x = np.asarray( quad_rule_x )
-    quad_rule_w = np.asarray( quad_rule_w )
+    quad_rule_x = np.asarray(quad_rule_x)
+    quad_rule_w = np.asarray(quad_rule_w)
 
-    ne     = len(breaks)-1
+    ne     = len(breaks) - 1
     nq     = len(quad_rule_x)
-    quad_x = np.zeros( (ne,nq) )
-    quad_w = np.zeros( (ne,nq) )
+    quad_x = np.zeros((ne, nq), dtype=float)
+    quad_w = np.zeros((ne, nq), dtype=float)
 
     # Compute location and weight of quadrature points from basic rule
-    for ie,(a,b) in enumerate(zip(breaks[:-1],breaks[1:])):
-        c0 = 0.5*(a+b)
-        c1 = 0.5*(b-a)
-        quad_x[ie,:] = c1*quad_rule_x[:] + c0
-        quad_w[ie,:] = c1*quad_rule_w[:]
+    for ie,(a,b) in enumerate(zip(breaks[:-1], breaks[1:])):
+        c0 = 0.5*(a + b)
+        c1 = 0.5*(b - a)
+        quad_x[ie, :] = c1*quad_rule_x[:] + c0
+        quad_w[ie, :] = c1*quad_rule_w[:]
 
     return quad_x, quad_w
 
-#==============================================================================
-def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
+# ==============================================================================
+def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalize=False):
     """
     Evaluate B-Splines and their derivatives on the quadrature grid.
 
@@ -732,7 +757,7 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
     degree : int
         Polynomial degree of B-splines.
 
-    quad_grid: 2D numpy.ndarray (ne,nq)
+    quad_grid: 2D numpy.ndarray (ne, nq)
         Coordinates of quadrature points of each element in 1D domain,
         given by quadrature_grid() function.
 
@@ -752,44 +777,22 @@ def basis_ders_on_quad_grid( knots, degree, quad_grid, nders, normalize=False ):
     """
     # TODO: add example to docstring
     # TODO: check if it is safe to compute span only once for each element
-    
-    el_b = breakpoints(knots, degree)
-    ne = len(el_b) - 1 
-    
-    if normalize == True:
-        x_norm = np.zeros((ne, degree + 1))
-        
-        for ie in range(ne):
-            
-            loc = ie + np.arange(degree + 1)
-            x_norm[ie] = (degree + 1)/(knots[loc + degree + 1] - knots[loc])
-            
-    else:
-        x_norm = np.ones((ne, degree + 1))
 
-    ne,nq = quad_grid.shape
-    basis = np.zeros( (ne,degree+1,nders+1,nq) )
-
+    ne, nq = quad_grid.shape
+    basis  = np.zeros((ne, degree + 1, nders + 1, nq), dtype=float)
+    
+    # Loop over elements
     for ie in range(ne):
-        xx = quad_grid[ie,:]
+        xx = quad_grid[ie, :]
         
-        
-        for iq,xq in enumerate(xx):
-            span = find_span( knots, degree, xq )
-            ders = basis_funs_all_ders( knots, degree, xq, span, nders )*x_norm[span - degree]
-            basis[ie,:,:,iq] = ders.transpose()
+        # Loop over quadrature points in element
+        for iq, xq in enumerate(xx):
+            span = find_span(knots, degree, xq)
+            ders = basis_funs_all_ders(knots, degree, xq, span, nders)
+            
+            if normalize == True:
+                ders = ders*scaling_vector(knots, degree, span)
+            
+            basis[ie, :, :, iq] = ders.transpose()
 
     return basis
-
-#==============================================================================
-def scaling_vector(p, n, T):
-    """Returns the scaling array for M-splines.
-    It is an array whose elements are (p+1)/(T[i+p+1]-T[i])
-
-
-    """
-
-    x = np.zeros(n)
-    for i in range(0, n):
-        x[i] = (p+1)/(T[i+p+1]-T[i])
-    return x
