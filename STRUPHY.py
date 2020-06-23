@@ -30,8 +30,8 @@ import hylife.interface as inter
 
 # ======================== load parameters ============================
 
-import simulations.simulation_05042020_1.parameters_05042020_1 as pa    # name input folder here!
-identifier = 'simulation_05042020_1'                                    # name input folder here!
+import simulations.simulation_16062020_8.parameters_16062020_8 as pa    # name input folder here!
+identifier = 'simulation_16062020_8'                                    # name input folder here!
 
 params = pa.parameters()
 
@@ -168,7 +168,6 @@ b3     = np.empty(Nbase_2form[2], dtype=float, order='F')     # magnetic field F
 
 rho    = np.empty(Nbase_3form,    dtype=float, order='F')     # bulk mass density FEM coefficients
 
-
 # particles
 particles = np.empty((Np, 7), dtype=float, order='F')
 w0        = np.empty(Np, dtype=float)
@@ -217,6 +216,22 @@ print('projection of initial conditions done!')
 # ==========================================================================
 
 
+"""
+amps = np.random.rand(8, pr.shape[0], pr.shape[1])
+
+for k in range(pr.shape[2]):
+    pr[:, :, k]  = amps[0]
+
+    u1[:, :, k]  = amps[1]
+    u2[:, :, k]  = amps[2]
+    u3[:, :, k]  = amps[3]
+
+    b1[:, :, :]  = 0.
+    b2[:, :, :]  = 0.
+    b3[:, :, k]  = amps[6]
+
+    rho[:, :, k] = amps[7]
+"""
 
 # ==================== matrices ========================================
 
@@ -228,9 +243,10 @@ M0 = mass.mass_V0(tensor_space, kind_map, params_map)
 M1 = mass.mass_V1(tensor_space, kind_map, params_map)
 M2 = mass.mass_V2(tensor_space, kind_map, params_map)
 
-# normalization vectors in V0 and V3
+print('mass matrices done!')
+
+# normalization vector in V0 (for bulk thermal energy)
 norm_0form = inner.inner_prod_V0(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
-norm_3form = inner.inner_prod_V3(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
 
 # discrete grad, curl and div matrices
 derivatives = der.discrete_derivatives(tensor_space)
@@ -239,37 +255,42 @@ GRAD = derivatives.grad_3d()
 CURL = derivatives.curl_3d()
 DIV  = derivatives.div_3d()
 
-# projection matrices
-Q   = MHD.projection_Q(kind_map, params_map)         # pi_2[rho_eq * g_inv * lambda^1]
-W   = MHD.projection_W(kind_map, params_map)         # pi_1[rho_eq/g_sqrt * lambda^1]
-TAU = MHD.projection_T(kind_map, params_map)         # pi_1[b_eq * g_inv * lambda^1]
-S   = MHD.projection_S(kind_map, params_map)         # pi_1[p_eq * lambda^1]
-K   = MHD.projection_K(kind_map, params_map)         # pi_0[p_eq * lambda^0]  
-P   = MHD.projection_P(kind_map, params_map)         # pi_1[curl(b_eq) * lambda^2]
+print('discrete derivatives done!')
 
+# projection matrices
+Q   = MHD.projection_Q(kind_map, params_map)     # pi_2[rho_eq * g_inv * lambda^1]
+W   = MHD.projection_W(kind_map, params_map)     # pi_1[rho_eq/g_sqrt * lambda^1]
+TAU = MHD.projection_T(kind_map, params_map)     # pi_1[b_eq * g_inv * lambda^1]
+S   = MHD.projection_S(kind_map, params_map)     # pi_1[p_eq * lambda^1]
+K   = MHD.projection_K(kind_map, params_map)     # pi_0[p_eq * lambda^0]  
+P   = MHD.projection_P(kind_map, params_map)     # pi_1[curl(b_eq) * lambda^2]
+
+print('projection matrices done!')
 
 # compute matrix A
 A = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
 
 del W
 
-# LU decompostion of Schur complement in step 2
-STEP2_schur_LU = spa.linalg.splu((A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc())
-
-# other matrices needed in step 2
+# matrices for step 2
+S2      = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
 STEP2_1 = (A - dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
 STEP2_2 = dt*TAU.T.dot(CURL.T.dot(M2)).tocsc()
 
-# matrices for non-Hamiltonian part
-MAT = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
+S2_ILU = spa.linalg.spilu(S2)
+
+
+# matrices for step 6
+L = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
 
 del S, K
 
-LHS_LU = spa.linalg.splu(spa.bmat([[spa.identity(Ntot_3form),  dt/2*DIV.dot(Q), None], [None, A,  dt/2*M1.dot(GRAD)], [None, -dt/2*MAT, M0]]).tocsc())
-RHS    =                 spa.bmat([[spa.identity(Ntot_3form), -dt/2*DIV.dot(Q), None], [None, A, -dt/2*M1.dot(GRAD)], [None,  dt/2*MAT, M0]]).tocsc()
+S6     = spa.bmat([[A,  dt/2*M1.dot(GRAD)], [-dt/2*L, M0]]).tocsc()
+STEP6  = spa.bmat([[A, -dt/2*M1.dot(GRAD)], [ dt/2*L, M0]]).tocsc()
 
-# delete everything which is not needed to save memory
-del MHD, M0, GRAD, Q, MAT
+S6_ILU = spa.linalg.spilu(S6)
+
+del MHD, M0, L, GRAD
 
 print('assembly of constant matrices done!')
 # =========================================================================
@@ -399,7 +420,8 @@ def update():
     u3_old[:, :, :] = u3[:, :, :]
     
     timea = time.time()
-    temp1, temp2, temp3 = np.split(STEP2_schur_LU.solve(STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+    #temp1, temp2, temp3 = np.split(STEP2_schur_LU.solve(STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+    temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S2.shape, lambda x : S2_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
     timeb = time.time()
     times_elapsed['update_step2u'] = timeb - timea
     
@@ -499,16 +521,37 @@ def update():
     
     # ============== step 6 (1 : update rho, u and pr from non - Hamiltonian MHD terms) ================
     if add_pressure == True:
+        
         timea = time.time()
-        temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten()))) + dt*np.concatenate((np.zeros(Ntot_3form), spa.linalg.spsolve(A, M1.dot(P.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))), np.zeros(Ntot_0form)))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        
+        # update velocity with auxiliary pressure q_aux_new
+        #u1_new, u2_new, u3_new, p_new = np.split(spa.linalg.cg(S6, np.concatenate((A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), np.zeros(Ntot_0form))) + np.concatenate((np.zeros(Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]), L.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))/2)) - dt*np.concatenate((M1.dot(GRAD).dot(pr.flatten()), np.zeros(Ntot_0form))) + dt*np.concatenate((M1.dot(P).dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), np.zeros(Ntot_0form))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())), tol=1e-8), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1], Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        u1_new, u2_new, u3_new, pr_new = np.split(spa.linalg.cg(S6, STEP6.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())) + np.concatenate((dt*M1.dot(P).dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), np.zeros(Ntot_0form)))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S6.shape, lambda x : S6_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1], Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        
+        # update density
+        rho[:, :, :] = rho - dt/2*(DIV.dot(Q).dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))).reshape(Nbase_3form)
+        
+        # update pressure
+        pr[:, :, :]  = pr_new.reshape(Nbase_0form)
+        
+        # update velocity
+        u1[:, :, :]  = u1_new.reshape(Nbase_1form[0])
+        u2[:, :, :]  = u2_new.reshape(Nbase_1form[1])
+        u3[:, :, :]  = u3_new.reshape(Nbase_1form[2])
+        
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea
         
-        rho[:, :, :] = temp1.reshape(Nbase_3form)
-        u1[:, :, :]  = temp21.reshape(Nbase_1form[0])
-        u2[:, :, :]  = temp22.reshape(Nbase_1form[1])
-        u3[:, :, :]  = temp23.reshape(Nbase_1form[2])
-        pr[:, :, :]  = temp3.reshape(Nbase_0form)
+        #timea = time.time()
+        #temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten()))) + dt*np.concatenate((np.zeros(Ntot_3form), spa.linalg.spsolve(A, M1.dot(P.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))), np.zeros(Ntot_0form)))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        #timeb = time.time()
+        #times_elapsed['update_step6'] = timeb - timea
+        
+        #rho[:, :, :] = temp1.reshape(Nbase_3form)
+        #u1[:, :, :]  = temp21.reshape(Nbase_1form[0])
+        #u2[:, :, :]  = temp22.reshape(Nbase_1form[1])
+        #u3[:, :, :]  = temp23.reshape(Nbase_1form[2])
+        #pr[:, :, :]  = temp3.reshape(Nbase_0form)
     # ==================================================================================================
         
     time_totb = time.time()
@@ -573,6 +616,8 @@ if time_int == True:
         file.create_dataset('magnetic_field/3_component', (1, Nbase_2form[2][0], Nbase_2form[2][1], Nbase_2form[2][2]), maxshape=(None, Nbase_2form[2][0], Nbase_2form[2][1], Nbase_2form[2][2]), dtype=float, chunks=True)
         file.create_dataset('density',                    (1, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    maxshape=(None, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    dtype=float, chunks=True)
         
+        file.create_dataset('bulk_mass', (1,), maxshape=(None,), dtype=float, chunks=True)
+        
         file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    maxshape=(None, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    dtype=float, chunks=True)
         
         file.create_dataset('particles', (1, Np, 7), maxshape=(None, Np, 7), dtype=float, chunks=True)
@@ -605,16 +650,18 @@ if time_int == True:
         file['energies/bulk_internal'][0]    = energies['en_p']
         file['energies/energetic_deltaf'][0] = energies['en_deltaf']
         
-        #file['pressure'][0]                   = pr
-        #file['velocity_field/1_component'][0] = u1
-        #file['velocity_field/2_component'][0] = u2
-        #file['velocity_field/3_component'][0] = u3
-        #file['magnetic_field/1_component'][0] = b1
-        #file['magnetic_field/2_component'][0] = b2
-        #file['magnetic_field/3_component'][0] = b3
-        #file['density'][0]                    = rho
+        file['pressure'][0]                   = pr
+        file['velocity_field/1_component'][0] = u1
+        file['velocity_field/2_component'][0] = u2
+        file['velocity_field/3_component'][0] = u3
+        file['magnetic_field/1_component'][0] = b1
+        file['magnetic_field/2_component'][0] = b2
+        file['magnetic_field/3_component'][0] = b3
+        file['density'][0]                    = rho
         
         file['magnetic_field/divergence'][0] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
+        
+        file['bulk_mass'][0] = sum(rho.flatten())
     
         file['particles'][0] = particles
         file['distribution_function/xi1_vx'][0] = fh['fh_xi1_vx']
@@ -755,12 +802,12 @@ if time_int == True:
         #file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
         #file['pressure'][-1] = pr
         
-        #file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
-        #file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
-        #file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
-        #file['magnetic_field/1_component'][-1] = b1
-        #file['magnetic_field/2_component'][-1] = b2
-        #file['magnetic_field/3_component'][-1] = b3
+        file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
+        file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
+        file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
+        file['magnetic_field/1_component'][-1] = b1
+        file['magnetic_field/2_component'][-1] = b2
+        file['magnetic_field/3_component'][-1] = b3
         
         #file['velocity_field/1_component'].resize(file['velocity_field/1_component'].shape[0] + 1, axis = 0)
         #file['velocity_field/2_component'].resize(file['velocity_field/2_component'].shape[0] + 1, axis = 0)
@@ -775,12 +822,15 @@ if time_int == True:
         #file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
         #file['magnetic_field/divergence'][-1] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
         
+        file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
+        file['bulk_mass'][-1] = sum(rho.flatten())
+        
         #if time_steps_done%10 == 0:
          #   file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
           #  file['particles'][-1] = particles
         
-        #file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
-        #file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
+        file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
+        file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
         # ==========================
 
     file.close()
