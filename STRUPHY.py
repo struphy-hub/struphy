@@ -695,11 +695,15 @@ if time_int == True:
         w0[:]           = file['restart/control_w0'][:]
         s0[:]           = file['restart/control_s0'][:]
         
-        # perform initialization for next time step
+        # perform initialization for next time step: field evaluation at particle positions
         pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
         pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
         
-        pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
+        # perform initialization for next time step: compute partice weights
+        if control == True:
+            pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
+        else:
+            particles[:, 6] = w0
 
     
     
