@@ -101,7 +101,7 @@ Germany}}
 
 \begin{abstract}
 \noindent 
-We present a STRUcture-Preserving HYbrid code (STRUPHY) for the simulation of shear-Alfv\'en waves interacting with a small population of energetic particles far from thermal equilibrium (kinetic species). It features linearized magneto-hydrodynamic (MHD) equations, coupled nonlinearly to either full-orbit Vlasov equations via a current coupling scheme. The algorithm is based on finite element exterior calculus (FEEC) for the MHD part and particle-in-cell (PIC) methods for the kinetic part, implemented for arbitrary Riemannian metric in three space dimensions. Noise-reduction via a control variate is optional for the PIC part ($\delta f$ in contrast to full-$f$). In the full-$f$ version without control variate, STRUPHY is structure-preserving in the sense that it preserves the discrete mass, discrete energy, zero-divergence constraint \color{red} and magnetic helicity \color{black} up to machine precision, independent of metric and mesh parameters. Several numerical tests are presented that demonstrate this behavior.   
+We present a STRUcture-Preserving HYbrid code - STRUPHY - for the simulation of magneto-hydrodynamic (MHD) waves interacting with a population of energetic particles far from thermal equilibrium (kinetic species). The implemented model features linear, ideal MHD equations in curved, three-dimensional space, coupled nonlinearly to the full-orbit Vlasov equations via a current coupling scheme. The algorithm is based on finite element exterior calculus (FEEC) for MHD and particle-in-cell (PIC) methods for the kinetic part; it provably conserves mass, energy, and divergence-free magnetic field, irrespective of metric (= space curvature), mesh parameters and chosen order of the scheme. These properties enable reliable long-time simulations of energetic particle physics in complex geometries, covering the whole range of MHD waves. In STRUPHY, the finite element spaces are built from tensor products of univariate B-splines on the logical cuboid and can be made high-order by increasing the polynomial degree. Time-stepping is based on Poisson splitting with implicit sub-steps, mitigating CFL conditions from fast magneto-acoustic waves. High-order time splitting schemes can be used in this regard.  
 \end{abstract}
 
 
@@ -113,21 +113,25 @@ wave-particle interactions are observed for instance in deuterium-tritium fusion
 fluid instead of kinetic).
 \item Fully self-consistent description of nonlinear dynamics (beyond the linear phase).
 \end{enumerate}
-Examples of successful implementations of hybrid codes are MEGA \cite{Todo_MEGA1998}, 
-M3D-K \cite{Belova1997,Belova_M3D1999}, HMGC \cite{Zonca_HMGC1995} and HMGC-X \cite{XinWang2011}. The appeal of hybrid codes is three-fold: a) reduced numerical cost compared to fully kinetic simulations, b) inclusion of non-equilibrium dynamics (wave-particle resonances) compared to pure fluid simulations and c) possibility of direct comparison with analytic computations (for linear dynamics). The drawback is the increased complexity of model equations. For instance, while the geometric structure (ie. Poisson bracket and/or variational principle) of MHD equations has been 
+Examples of successful implementations of hybrid codes in Fusion research are MEGA \cite{Todo_MEGA1998}, 
+M3D-K \cite{Belova1997,Belova_M3D1999}, and HMGC \cite{Zonca_HMGC1995,XinWang2011}. The appeal of hybrid codes is three-fold: a) reduced numerical cost compared to fully kinetic simulations, b) inclusion of non-equilibrium dynamics (wave-particle resonances) compared to pure fluid simulations and c) possibility of direct comparison with analytic computations (for linear dynamics). The drawback is the increased complexity of model equations. For instance, while the geometric structure (ie. Poisson bracket and/or variational principle) of MHD equations has been 
 known for decades \cite{MorrisonGreene1980}, the underlying structure of MHD-kinetic hybrid models has been discovered only very recently \cite{Tronci2010,Tronci2017}. This shows that the proper derivation of MHD-kinetic hybrids that respect fundamental physics principles such as energy conservation is a non-trivial task. As a consequence, little attention had been paid to these issues during the design of the first generation of hybrid codes mentioned above.
 
-In parallel to the theoretical discoveries on how to construct proper hybrid models came the advent of geometric (or structure-preserving) methods for plasma equations, see \cite{Morrison2017} for a review. These obey many of the conservation properties implied by the geometric structure on the discrete level, such as energy, charge or momentum. The main idea is to discretize directly the underlying Poisson structure or variational principle, thus transferring geometric properties to a finite-dimensional setting. The very first structure-preserving geometric PIC algorithm was designed and implemented by Squire et al. in 2012 \cite{Squire2012}. Similar methods have later been successfully applied to Vlasov-Maxwell \cite{He_splitting2015,Qin2015,Xiao2017,Xiao2018}, Vlasov-Darwin \cite{Chacon2014} and Vlasov-Poisson equations \cite{Shadwick2013,Xiao_Qin2019}. The first structure-preserving geometric PIC algorithm using finite element exterior calculus (FEEC) was designed by He et al. in 2016 \cite{He_FEEC2016}. The same approach has later been taken by Kraus et al. \cite{GEMPIC2017} who used B-spline basis functions to efficiently build the discrete deRham complex, which contains N\'ed\'elec and 
+In parallel to the theoretical discoveries regarding hybrid models came the advent of geometric (or structure-preserving) methods for plasma equations, see \cite{Morrison2017} for a review. These methods obey many conservation properties implied by the geometric structure, such as conservation of energy, charge or momentum on the discrete level. The main idea is to discretize directly the underlying Poisson structure or variational principle, thus transferring geometric properties to a finite-dimensional setting. The very first structure-preserving geometric PIC algorithm was designed and implemented by Squire et al. in 2012 \cite{Squire2012}. Similar methods have later been successfully applied to Vlasov-Maxwell \cite{He_splitting2015,Qin2015,Xiao2017,Xiao2018}, Vlasov-Darwin \cite{Chacon2014} and Vlasov-Poisson equations \cite{Shadwick2013,Xiao_Qin2019}. The first structure-preserving geometric PIC algorithm using finite element exterior calculus (FEEC) was designed by He et al. in 2016 \cite{He_FEEC2016}. The same approach has later been taken by Kraus et al. \cite{GEMPIC2017} who used B-spline basis functions to efficiently build the discrete deRham complex, which contains N\'ed\'elec and 
 Raviart-Thomas spaces. The theoretical foundation of FEEC has been laid by Arnold et al. \cite{ArnoldFalkWinther2006, ArnoldFalkWinther2010}; the interested reader may consult the recent book of Arnold \cite{Arnold_FEEC2018} for a comprehensive overview.  
 
-In this work we apply the ideas of structure-preserving integration to a MHD-kinetic hybrid model, namely the Hamiltonian current-coupling (CC) scheme \cite{Tronci2010} In the version of the code presented here, we linearize the MHD part and focus on the nonlinear coupling to the kinetic species, which acts back on the bulk plasma via charge and current densities (CC). FEEC is used for the discretization of the MHD part in three space dimensions and PIC for the kinetic part. We discretize the equations rather than the variational principle or the Poisson bracket, in order to avoid unnecessary abstraction. Moreover, the linearized MHD equations might lose their Hamiltonian structure if the magnetic background field is not chosen properly. In this case there is no such thing as a Poisson bracket or variational formulation, but our method of discretization still applies. In the semi-discrete setting with continuous time variable, we arrive at a non-canonical Hamiltonian system of ordinary differential equations with skew-symmetric Poisson matrix, which directly implies conservation of energy. The conservation of zero-divergence and helicity follow from the proper choice of FEEC spaces (N\'ed\'elec and Raviart-Thomas). The conservation laws are satisfied independent of the chosen metric and mesh parameters thanks to the separation between topological and metric properties in the theory of differential forms, upon which FEEC is built. We then use Poisson splitting and show that the described conservation laws translate to the fully discrete setting. 
+In this work we apply the ideas of structure-preserving integration to a MHD-kinetic hybrid model, namely the Hamiltonian current-coupling (CC) scheme \cite{Tronci2010}. The equations consist of the three-dimensional, ideal MHD equations coupled to the collision-less, full-orbit Vlasov equation with three velocity degrees of freedom. The MHD part thus covers the entire set of MHD waves, namely shear Alfv\'en, slow- and fast magneto-acoustic waves. The kinetic equation contains the cyclotron motion of the energetic species, enabling the description of wave-particle resonances in this regime. The motivation for this work stems from the need of stable and reliable long-time simulations of energetic particle physics in tokamaks, stellarators and also space plasmas. In that regard, the version of STRUPHY presented in this paper can be viewed as the beginning of our quest to reach this goal by using the most modern numerical tools available, which ultimately will provide the necessary stability in nonlinear simulations. Future extensions of the code will feature also drift-kinetic or gyro-kinetic species, allowing for the efficient simulation of low-frequency phenomena.  
+\color{black}
 
-This article is organized as follows. Section \ref{sec_model} first introduces the basic model equations along with some of its properties on the continuous level, followed by a derivation of a coordinate-free representation of the model in terms of differential forms to prepare the application of FEEC. Based on this result, Section \ref{sec_discrete} describes in detail the spatial discretization of a proper weak formulation using FEEC, followed by a discussion of some properties of the resulting semi-discrete system of ordinary differential equations with continuous time variable. We also review the realization of the compatible finite element spaces along with projection operators on these spaces using B-spline basis functions, which are used in this work. Section \ref{sec_time} is devoted to the proposed time integration scheme based on Poisson splitting. Numerical results are shown in Section \ref{sec_experiments} before we summarize and conclude in Section \ref{sec_summary}. Additionally, this article contains two appendices. Appendix \ref{sec_appendix1} contains formulae for the exterior calculus of differential forms including transformation formulae to vector and scalar fields, respectively. While we focus on the full-$f$ method in the main text, Appendix \ref{sec_appendix2} outlines the modifications that have to be made if the $\delta f$ method is used.
+In the current version of the code, we linearize the MHD part and focus on the nonlinear coupling to the kinetic species, which acts back on the bulk plasma via charge and current densities (CC). FEEC is used for the discretization of the MHD part and PIC for the kinetic part. The concept is similar to the GEMPIC-approach in \cite{GEMPIC2017}, only that the role of the Maxwell equations is taken by the linear MHD equations. Another difference w.r.t. GEMPIC is that we discretize directly the equations rather than the variational principle or the Poisson bracket. There are three reasons for this: 1) linearized MHD equations lose their Hamiltonian structure if the magnetic background field is not chosen properly. In this case there is no such thing as a Poisson bracket or variational formulation, but our method of discretization still applies, 2) Poisson structures of extended hybrid models with two-fluid MHD, drift-kinetic or gyro-kinetic models are either not known or very cumbersome, such that pure "geometric" discretisation is not possible, and 3) we avoid a high level of abstraction in the presentation of the scheme. In fact, the mere existence of a Poisson structure on the continuous level is sufficient to translate several important conservation properties to the discrete level by applying FEEC to the equations directly. Our discretization of the CC hybrid models provably conserves energy, mass and the divergence-free magnetic field, irrespective of the metric, mesh parameters and chosen order of the scheme. This is thanks to the separation between topological and metric properties in the theory of differential forms, upon which FEEC is built, and due to the coupling with a particle-based kinetic solver. In STRUPHY, the FE spaces are built from tensor products of univariate B-splines of arbitrary order, either periodic or clamped, on the logical cuboid. Position space is expressed in logical coordinates, also for the kinetic species, during the entire simulation. Results in physical space are obtained in post-processing by a push-forward operation. The time stepping is implicit and based on Poison-splitting of a skew-symmetric matrix. Most of the sub-steps are solved via the Crank-Nicolson method (average vector-field). Lie-Trotter ans Strang splitting methods have been implemented, but higher-order methods would be in principle available \cite{McLachlanetal2012}.
+\color{black}
+
+This article is organized as follows. Section \ref{sec_model} first introduces the basic model equations, the MHD linearisation and the corresponding conservation laws. Model equations are presented in curvilinear coordinates and in terms of differential forms to prepare the application of FEEC. Based on this result, Section \ref{sec_discrete} describes in detail the spatial discretization, followed by a discussion of some properties of the resulting semi-discrete system of ordinary differential equations with continuous time variable. We also review the realization of the compatible finite element spaces along with projection operators on these spaces using B-spline basis functions, which are used in this work. Section \ref{sec_time} is devoted to the proposed time integration scheme based on Poisson splitting. Numerical results are shown in Section \ref{sec_experiments} before we summarize and conclude in Section \ref{sec_summary}. Additionally, this article contains three appendices. Appendix \ref{sec_appendix1} contains formulae for the exterior calculus of differential forms including transformation formulae to vector and scalar fields, respectively. While we focus on the full-$f$ method in the main text, Appendix \ref{sec_appendix2} outlines the modifications that have to be made if the $\delta f$ method is used. Finally, appendix \ref{sec_appendix3} contains two tables to which we refer in Section \ref{sec_projectors}. 
 
 \section{Model equations}
 \label{sec_model}
 \subsection{Hamiltonian current coupling}
-Our target model is a MHD-kinetic hybrid model in which the coupling between fluid bulk and kinetic species (subscript "h" for "hot") appears through the Lorentz force terms. This is called current-coupling (CC) and involves the first two moments of the kinetic species' distribution function $f_\text{h}$, namely the charge density $\rho_\text{ch}=\rho_\text{h}(t,\bo{x})$ and the current density $\bo{J}_\text{h}=\bo{J}_\text{h}(t, \bo{x})$. Denoting by $\nabla=(\pa_x,\pa_y,\pa_z)^\top$ and $\nabla_{\bo{v}}=(\pa_{v_x},\pa_{v_y},\pa_{v_z})^\top$ the nabla-operator acting on spatial and velocity coordinates, respectively, the Hamiltonian CC in SI-units reads
+Our target model is a MHD-kinetic hybrid model in which the coupling between fluid bulk and kinetic species (subscript "h" for "hot") appears through the Lorentz force terms. This is called current-coupling (CC) and involves the first two moments of the kinetic species' distribution function $f_\text{h}$, namely the charge density $\rho_\text{h}=\rho_\text{h}(t,\bo{x})$ and the current density $\bo{J}_\text{h}=\bo{J}_\text{h}(t, \bo{x})$. Denoting by $\nabla=(\pa_x,\pa_y,\pa_z)^\top$ and $\nabla_{\bo{v}}=(\pa_{v_x},\pa_{v_y},\pa_{v_z})^\top$ the nabla-operator acting on spatial and velocity coordinates, respectively, the Hamiltonian CC in SI-units reads
 \begin{subequations}
 \label{eq_model_full}
 \begin{align}
@@ -156,7 +160,7 @@ The system (\ref{eq_model_full}) possesses a noncanonical Hamiltonian structure,
 \begin{align}
 \mathcal{H}_0(t)=\frac{1}{2}\int_\Omega\rho\,\bo{U}^2\,\text{d}^3x+\frac{1}{\gamma-1}\int_\Omega p\,\text{d}^3x+\frac{1}{2}\int_\Omega\bo{B}^2\,\text{d}^3x+\frac{1}{2}\int_\Omega\int_{\mathbb{R}^3}\bo{v}^2f_\text{h}\,\text{d}^3v\,\text{d}^3x,\label{eq_Hamiltonian1}
 \end{align}
-which is equal to the total energy of the system \cite{Tronci2010}. Other conserved quantities are the total mass, momentum and the magnetic helicity
+which is equal to the total energy of the system. Other conserved quantities are the total mass, momentum and the magnetic helicity
 \begin{align}
 M(t)&=\int_\Omega\rho\,\text{d}^3x+\int_\Omega\int_{\mathbb{R}^3}f_\text{h}\,\text{d}^3v\,\text{d}^3x,\\
 \bo{P}(t)&=\int_\Omega\rho\,\bo{U}\,\text{d}^3x+\int_\Omega\int_{\mathbb{R}^3}\bo{v}f_\text{h}\,\text{d}^3v\,\text{d}^3x,\\
@@ -165,7 +169,7 @@ H_m(t)&=\int_\Omega\bo{A}\cdot\bo{B}\,\text{d}^3x,
 where $\bo{A}$ is the magnetic vector potential from which the magnetic field can be obtained via $\bo{B}=\nabla\times\bo{A}$.
 
 \subsection{Linearization of the MHD part}
-In this work we shall consider CC with linearized MHD. This is sufficient for describing the three fundamental types of waves in ideal MHD, that are, the slow and fast magnetosonic wave and the shear Alfv\'{e}n wave. Consequently, the present work cannot capture MHD turbulence, which will be the topic of future studies within this framework. Assuming that MHD waves are small perturbations (denoted by tildes) with respect to a pre-defined equilibrium state (denoted by the subscript "eq") satisfying $\nabla p_\text{eq}=(\nabla\times \bo{B}_\text{eq}-\bo{J}_\text{h,eq})\times \bo{B}_\text{eq}$, we make the ansatzes $\rho=\rho_\text{eq} + \tilde{\rho}$, $\bo{U}=\tilde{\bo{U}}$ (zero-flow equilibrium), $p=p_\text{eq}+\tilde{p}$ and $\bo{B}=\bo{B}_\text{eq}+\tilde{\bo{B}}$ for the MHD variables, plug it in (\ref{eq_MHD}) and neglect all nonlinear terms expect for the ones involving the kinetic particles. The partially linearized model then reads
+In this work we shall consider CC with linearized MHD. This is sufficient for describing the three fundamental types of waves in ideal MHD, that are, the slow and fast magnetosonic wave and the shear Alfv\'{e}n wave. Assuming that MHD waves are small perturbations (denoted by tildes) with respect to a pre-defined equilibrium state (denoted by the subscript "eq") satisfying $\nabla p_\text{eq}=(\nabla\times \bo{B}_\text{eq}-\bo{J}_\text{h,eq})\times \bo{B}_\text{eq}$, we make the ansatzes $\rho=\rho_\text{eq} + \tilde{\rho}$, $\bo{U}=\tilde{\bo{U}}$ (zero-flow equilibrium), $p=p_\text{eq}+\tilde{p}$ and $\bo{B}=\bo{B}_\text{eq}+\tilde{\bo{B}}$ for the MHD variables, plug it in (\ref{eq_MHD}) and neglect all nonlinear terms expect for the ones involving the kinetic particles. The partially linearized model then reads
 \begin{subequations}
 \label{eq_model_linear}
 \begin{align}
@@ -182,21 +186,20 @@ In this work we shall consider CC with linearized MHD. This is sufficient for de
 \end{align}
 \end{subequations}
 
-The linearization of MHD part has the consequence that the original Hamiltonian (\ref{eq_Hamiltonian1}) is no longer conserved. However, the quantity
+The linearization of the MHD part has the consequence that the original Hamiltonian (\ref{eq_Hamiltonian1}) is no longer conserved. However, the quantity
 \begin{align}
 \mathcal{H}_1(t)=\frac{1}{2}\int_\Omega\rho_\text{eq}\tilde{\bo{U}}^2\,\text{d}^3x+\frac{1}{\gamma-1}\int_\Omega \tilde{p}\,\text{d}^3x+\frac{1}{2}\int_\Omega\tilde{\bo{B}}^2\,\text{d}^3x+\frac{1}{2}\int_\Omega\int_{\mathbb{R}^3}\bo{v}^2f_\text{h}\,\text{d}^3v\,\text{d}^3x,\label{eq_Hamiltonian1_linear}
 \end{align} 
 evolves in time as
 \begin{align}
 \begin{split}
-\frac{\text{d}\mathcal{H}_1}{\text{d}t}&=\int_\Omega\tilde{\bo{U}}\cdot\left[(\nabla\times\bo{B}_\text{eq})\times\tilde{\bo{B}}\right]\,\text{d}^3x-\int_\Omega\tilde{\bo{U}}\cdot\nabla\tilde{p}\,\text{d}^3x-\int_\Omega p_\text{eq}\nabla\cdot\tilde{\bo{U}}\,\text{d}^3x\\
-&=\int_\Omega\tilde{\bo{U}}\cdot\left[(\nabla\times\bo{B}_\text{eq})\times\tilde{\bo{B}}\right]\,\text{d}^3x-\int_\Omega (p_\text{eq}-\tilde{p})\nabla\cdot\tilde{\bo{U}}\,\text{d}^3x,\label{eq_Hamiltonian1_linear_evo}
+\frac{\text{d}\mathcal{H}_1}{\text{d}t}=\int_\Omega\tilde{\bo{U}}\cdot\left[(\nabla\times\bo{B}_\text{eq})\times\tilde{\bo{B}}\right]\,\text{d}^3x-\int_\Omega (p_\text{eq}-\tilde{p})\nabla\cdot\tilde{\bo{U}}\,\text{d}^3x,\label{eq_Hamiltonian1_linear_evo}
 \end{split}
 \end{align}
-if we assume that nothing flows in or out at the boundary $\pa\Omega$. Consequently, $\mathcal{H}_1$ is conserved for incompressible waves ($\nabla\cdot\tilde{\bo{U}}=0$) and if additionally $\nabla\times\boldsymbol{B}_\text{eq}=0$. The former is particularly true for shear Alfv\'{e}n waves.
+if we assume that nothing flows in or out at the boundary $\pa\Omega$. Consequently, $\mathcal{H}_1$ is conserved for incompressible waves ($\nabla\cdot\tilde{\bo{U}}=0$) and if additionally $\nabla\times\boldsymbol{B}_\text{eq}=0$. The former is particularly true for shear Alfv\'{e}n waves. Moreover, the conservation of the total mass and divergence-free magnetic field are still intact after linearization.
 
 \subsection{MHD equations in curvilinear coordinates}
-As a preparation for the application of the framework of \textit{finite element exterior calculus} (FEEC), we reformulate (\ref{eq_MHD_linear}) in terms of differential forms upon which FEEC is built. For this, we first introduce a smooth, invertible coordinate transformation (to which we refer to as mapping) $\bo{F}:\hat{\Omega}\rightarrow\Omega,\,\bo{\eta}\mapsto\bo{F}(\bo{\eta})=\bo{x}$, from a box-shaped logical domain $\hat{\Omega}=[0,1]^3$ to the physical domain $\Omega\subset\mathbb{R}^3$. Moreover, we denote by $\bo{\eta}=(\eta_1,\eta_2,\eta_3)\in\hat{\Omega}$ and $\bo{x}=(x,y,z)\in\Omega$ the logical and Cartesian coordinates, respectively. This coordinate transformation induces the Jacobian matrix
+As a preparation for the application of the framework of \textit{finite element exterior calculus} (FEEC), we reformulate (\ref{eq_MHD_linear}) in terms of differential forms upon which FEEC is built. For this, we first introduce a smooth, invertible coordinate transformation (to which we refer to as mapping) $\bo{F}:\hat{\Omega}\rightarrow\Omega,\,\bo{\eta}\mapsto\bo{F}(\bo{\eta})=\bo{x}$, from the logical cuboid $\hat{\Omega}=[0,1]^3$ to the physical domain $\Omega\subset\mathbb{R}^3$. Moreover, we denote by $\bo{\eta}=(\eta_1,\eta_2,\eta_3)\in\hat{\Omega}$ and $\bo{x}=(x,y,z)\in\Omega$ the logical and Cartesian coordinates, respectively. This coordinate transformation induces the Jacobian matrix
 \begin{align}
 DF:\hat{\Omega}\rightarrow\mathbb{R}^{3\times 3},\qquad (DF)_{ij}=\frac{\pa F_i}{\pa \eta_j}.\label{eq_Jacobian_matrix}
 \end{align}
@@ -316,9 +319,9 @@ where the action of the exterior derivative $\text{d}$ is summarized in Table \r
 \includegraphics[scale=0.55]{deRham3d_components.pdf}
 \caption{Commuting diagram for function spaces in three space dimensions. The upper line represents the continuous, infinite-dimensional function spaces for components of $p$-forms (\ref{eq_spaces_components}) and the lower line finite-dimensional sub-spaces $V_0,\cdots,V_3$. Due to the properties $\text{curl(grad)}=0$ and $\text{div(curl)}=0$, both lines form an exact de Rham sequence. The link between the two sequences is made by the projection operators $\Pi_0:H^1(\hat{\Omega})\rightarrow V_0$, $\bo{\Pi}_1:H(\text{curl},\hat{\Omega})\rightarrow V_1$, $\bo{\Pi}_2:H(\text{div},\hat{\Omega})\rightarrow V_2$ and $\Pi_3:L^2(\hat{\Omega})\rightarrow V_3$ onto the finite element spaces, which must be chosen such that the diagram becomes commuting.}\label{fig_diagram}
 \end{figure}
-The first property is a consequence of the operator identities $\text{curl(grad)}=0$ and $\text{div(curl)}=0$. 
+The first property mimics the operator identities $\text{curl(grad)}=0$ and $\text{div(curl)}=0$ from the continuous level. 
 
-There are multiple ways how to construct the sequence of finite element spaces $V_0,\cdots,V_3$ forming an exact de Rham sequence. In this work, we shall do this by means of tensor-products of one-dimensional B-spline basis functions introduced in \cite{Buffa2010}. We recall the construction of the spaces along with commuting projection operators in Section \ref{sec_Bsplines}. We denote the total number of basis functions in each space by $N^n$ with $n\in\{0,1,2,3\}$ and the number of basis functions for each component of the two vector-valued spaces by $N^n_\mu$ for $n\in\{1,2\}$ and $\mu=\{1,2,3\}$ such that $N^n=N^n_1+N^n_2+N^n_3$ for $n\in\{1,2\}$. This yields the following finite element spaces and approximate components of forms denoted by the subscript $h$:
+There are multiple ways how to construct the sequence of finite element spaces $V_0,\cdots,V_3$ forming an exact de Rham sequence. In this work, we shall do this by means of tensor-products of univariate B-spline basis functions introduced in \cite{Buffa2010}. We recall the construction of the spaces along with commuting projection operators in Section \ref{sec_Bsplines}. We denote the total number of basis functions in each space by $N^n$ with $n\in\{0,1,2,3\}$ and the number of basis functions for each component of the two vector-valued spaces by $N^n_\mu$ for $n\in\{1,2\}$ and $\mu=\{1,2,3\}$ such that $N^n=N^n_1+N^n_2+N^n_3$ for $n\in\{1,2\}$. This yields the following finite element spaces and approximate components of forms denoted by the subscript $h$:
 \begin{subequations}
 \label{eq_discrete_forms1}
 \begin{alignat}{2}
@@ -384,9 +387,9 @@ Moreover, in the last line, we introduced the projection matrix $\mathcal{Q}\in\
 \end{pmatrix}\right]_{0\leq i <N^1_2}\hspace{-3mm},\tilde{\bo{\Pi}}_2\hspace{-1mm}\left[\hat{\rho}_\text{eq}^3G^{-1}\hspace{-1mm}\begin{pmatrix} 0 \\ 0 \\ \Lambda^1_{3,i}
 \end{pmatrix}\right]_{0\leq i <N^1_3}\right).\label{eq_projection_matrix}
 \end{align}
-We place a tilde over the projectors, e.g. $\tilde{\Pi}_3$, to indicate the restriction to the coefficients of a projection, excluding the basis functions, e.g. $\Pi_3\hat{\rho}^3=\hat{\rho}^3_h=(\bo{\Lambda}^3)^\top\bo{\rho}\in V_3$ but $\tilde{\Pi}_3\hat{\rho}^3=\bo{\rho}\in\mathbb{R}^{N^3}$. Regarding conservation of the discrete mass $M_h$, we note that
+We place a tilde over the projectors, e.g. $\tilde{\Pi}_3$, to indicate the restriction to the coefficients of a projection, excluding the basis functions, e.g. $\Pi_3\hat{\rho}^3=\hat{\rho}^3_h=(\bo{\Lambda}^3)^\top\bo{\rho}\in V_3$ but $\tilde{\Pi}_3\hat{\rho}^3=\bo{\rho}\in\mathbb{R}^{N^3}$. Regarding conservation of the discrete mass we note that
 \begin{align}
-\frac{\text{d}M_h}{\text{d}t}=\int_{\hat{\Omega}}\hat{\rho}_h^3\,\text{d}^3\eta=\left(\frac{\text{d}\bo{\rho}}{\text{d}t}\right)^\top\int_{\hat{\Omega}}\bo{\Lambda}^3\,\text{d}^3\eta=-\mb{u}^\top\mathcal{Q}^\top\mathbb{D}^\top\int_{\hat{\Omega}}\bo{\Lambda}^3\,\text{d}^3\eta=0,\label{eq_mass_coservation_semi}
+\frac{\text{d}}{\text{d} t}\int_{\hat{\Omega}}\hat{\rho}_h^3\,\text{d}^3\eta=\left(\frac{\text{d}\bo{\rho}}{\text{d}t}\right)^\top\int_{\hat{\Omega}}\bo{\Lambda}^3\,\text{d}^3\eta=-\mb{u}^\top\mathcal{Q}^\top\mathbb{D}^\top\int_{\hat{\Omega}}\bo{\Lambda}^3\,\text{d}^3\eta=0,\label{eq_mass_coservation_semi}
 \end{align}
 since the basis functions in $V_3$ are all normalized to one in case of the B-spline construction shown in Section \ref{sec_Bsplines} and the corresponding discrete divergence matrix $\mathbb{D}$ takes the difference of two neighboring values of the vector it is applied to.
 
@@ -640,6 +643,7 @@ with $i=(i_1,i_2,i_3)$ being a 3d multi-index and $\hat{n}^\mu_{N/D}$ for $\mu\i
 It can easily be verified that $\mathbb{C}\mathbb{G}=0$ and $\mathbb{D}\mathbb{C}=0$.
 
 \subsubsection{Commuting projectors}
+\label{sec_projectors}
 To ensure the commutativity of the diagram shown in Figure \ref{fig_diagram}, we start from a one-dimensional quasi-interpolation method denoted by $I^p$ onto the family of univariate B-splines of degree $p$ defined by (\ref{eq_definition_Bsplines}) and construct the corresponding commuting projector $H^{p-1}$ according to
 \begin{align}
 H^{p-1} f:=\frac{\text{d}}{\text{d}\eta}I^p\left[\eta\mapsto\int_\tau^\eta f(t)\text{d}t\right],\label{eq_histopolator}
@@ -705,7 +709,7 @@ with new weights given in Table \ref{tab_weights_histo} once more for generic de
 The three-dimensional projectors $\Pi_0,\cdots,\Pi_3$ can now be constructed via compositions of the 1d operators $I^p$ and $H^{p-1}$, respectively:
 \begin{subequations}
 \begin{alignat}{2}
-&\Pi_0=\hspace{7mm}I^{p_1}\odot I^{p_2}\odot I^{p_3}&&=\hspace{7mm}I^{p_1}(\eta_1\mapsto I^{p_2}(\eta_2\mapsto  I^{p_3}(\eta_3\mapsto f(\eta_1, \eta_2,\eta_3)))),\label{eq_proj0}\\[1mm]
+&\Pi_0=\hspace{7mm}I^{p_1}\odot I^{p_2}\odot I^{p_3}&&:=\hspace{7mm}I^{p_1}(\eta_1\mapsto I^{p_2}(\eta_2\mapsto  I^{p_3}(\eta_3\mapsto f(\eta_1, \eta_2,\eta_3)))),\label{eq_proj0}\\[1mm]
 &\bo{\Pi}_1=\hspace{2.0mm}\begin{pmatrix}
 H^{p_1-1}\odot I^{p_2}\odot I^{p_3}\\
 I^{p_1}\odot H^{p_2-1}\odot I^{p_3}\\
@@ -719,11 +723,6 @@ H^{p_1-1}\odot H^{p_2-1}\odot I^{p_3}
 &\Pi_3=\hspace{1.5mm}H^{p_1-1}\odot H^{p_2-1}\odot H^{p_3-1}.\label{eq_proj3}
 \end{alignat}
 \end{subequations}
-\begin{figure}
-\centering
-\includegraphics[scale=1.0]{projector_pi2.pdf}
-\caption{Projection of the components (\ref{eq_components_projection_example}) using the projector (\ref{eq_proj2}) on an annulus defined by the mapping (\ref{eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text{el}=(128,256,2)$, number of quadrature points per integration interval $n_\text{q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref{eq_L2error_V2}) $n_\text{q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\label{fig_projection_2form}}
-\end{figure}
 
 As an example, we project the components of a given 2-form $\hat{\bo{B}}^2$ satisfying $\hat{\nabla}\cdot \hat{\bo{B}}^2=0$. For the geometry, we choose an annulus in the $xy$-plane with inner radius $R_1$ and outer radius $R_2$, such that $\Delta R=R_2-R_1$. For completeness, we prescribe an extent of length $L_z$ in $z$-direction. This geometry can be described by the mapping
 \begin{align}
@@ -735,6 +734,11 @@ L_z\eta_3
 x\\y\\z
 \end{pmatrix}.\label{eq_mapping_example}
 \end{align}
+\begin{figure}
+\centering
+\includegraphics[scale=1.0]{projector_pi2.pdf}
+\caption{Projection of the components (\ref{eq_components_projection_example}) using the projector (\ref{eq_proj2}) on an annulus defined by the mapping (\ref{eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text{el}=(128,256,2)$, number of quadrature points per integration interval $n_\text{q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref{eq_L2error_V2}) $n_\text{q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\label{fig_projection_2form}}
+\end{figure}
 We choose the components
 \begin{align}
 \hat{\bo{B}}^2(\bo{\eta})=\begin{pmatrix}
@@ -751,7 +755,7 @@ as we refine the mesh (that is, as we increase the number of elements), computed
 \begin{align}
 ||\hat{\nabla}\cdot\bo{\Pi}_2\hat{\bo{B}}^2||_{L^\infty}:=\underset{(\eta_1,\eta_2,\eta_3)\in\hat{\Omega}}{\text{max}}|\hat{\nabla}\cdot\bo{\Pi}_2\hat{\bo{B}}^2|,
 \end{align}
-at the Greville points \cite{Farin1993}. The resulting projected components are shown in Figure \ref{fig_projection_2form} for typical parameters. Table \ref{tab_convergence_pi2} shows the convergence of the projector while increasing the number of elements using quadratic and cubic splines. It can be seen that the divergence of the projected field is close to zero ($\approx10^{-13}$= for any spline degree and resolution. This shows that the commuting diagram property is satisfied exactly.
+at the Greville points \cite{Farin1993}. The resulting projected components are shown in Figure \ref{fig_projection_2form} for typical parameters. Table \ref{tab_convergence_pi2} shows the convergence of the projector while increasing the number of elements using quadratic and cubic splines. It can be seen that the divergence of the projected field is close to zero ($\approx10^{-13}$) for any spline degree and resolution. This shows that the commuting diagram property is satisfied exactly.
 \begin{table}[H]
 \renewcommand*{\arraystretch}{1.6}
 \centering
@@ -936,7 +940,7 @@ In order to keep the energy conservation property, we propose two splitting step
 \mathbb{M}^2\mb{b}\\
 0 \\
 \mathbb{W}\bo{V}
-\end{pmatrix}.
+\end{pmatrix}.\label{eq_Poissonmatrix}
 \end{align}
 Introducing a temporal grid $t_n=n\Delta t$ with $n\in\mathbb{N}_0$ yields to following sub-steps:
 \paragraph{Sub-step 1}
@@ -967,7 +971,7 @@ As before, we solve this system with the Crank-Nicolson method,\label{eq_timeste
 ans solve for $\mb{u}^{n+1}$ by plugging the second into the first equation. After some straightforward manipulations this results in
 \begin{align}
 &\mb{u}^{n+1}=S_2^{-1}\left[\left(\mathcal{A}-\frac{\Delta t^2}{4}\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}\right)\mb{u}^{n}+\Delta t\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mb{b}^n\right],\\
-&\mb{b}^{n+1}=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}(\mb{u}^n+\mb{u}^{n+1}),
+&\mb{b}^{n+1}=\mb{b}^n-\frac{\Delta t}{2}\mathbb{C}\mathcal{T}(\mb{u}^n+\mb{u}^{n+1}),\label{eq_updateb}
 \end{align}
 where $S_2:=\mathcal{A}+\Delta t^2\mathcal{T}^\top\mathbb{C}^\top\mathbb{M}^2\mathbb{C}\mathcal{T}/4$. Particularly, we note the explicit update rule for $\mb{b}$ which preserves the divergence-free constraint, i.e. $\mathbb{D}\mb{b}^{n+1}=\mathbb{D}\mb{b}^{n}$ due to $\mathbb{D}\mathbb{C}=0$. We denote the corresponding integrator by $\Phi_{\Delta t}^2:\mathbb{R}^{N^1}\times\mathbb{R}^{N^2}\rightarrow\mathbb{R}^{N^1}\times\mathbb{R}^{N^2},\,\mb{u}^n,\mb{b}^n\mapsto\mb{u}^{n+1},\mb{b}^{n+1}$.
 \paragraph{Sub-step 3}
@@ -1026,7 +1030,7 @@ Defining $\mathbb{L}:=\mathbb{G}^\top\mathbb{M}^1\mathcal{S}+(\gamma - 1)\mathca
 \end{align}
 Hence, we first compute $\mb{u}^{n+1}$ and $\mb{p}^{n+1}$ from (\ref{eq_timestep6_up}) and then $\bo{\rho}^{n+1}$ from (\ref{eq_timestep6_rho}). Note that (\ref{eq_timestep6_rho}) implies exact conservation of mass due to the same argument as in (\ref{eq_mass_coservation_semi}), namely that the basis functions in $V_3$ are all normalized to one on the logical domain $\hat{\Omega}$. Consequently, the discrete mass is just the sum of the coefficients $\bo{\rho}$ and from (\ref{eq_timestep6_rho}) it follows that
 \begin{align}
-M_h^{n+1}=\sum_{i=0}^{N^3-1}\rho_i^{n+1}=\sum_{i=0}^{N^3-1}\rho_i^{n}=M_h^{n},
+\sum_{i=0}^{N^3-1}\rho_i^{n+1}=\sum_{i=0}^{N^3-1}\rho_i^{n},
 \end{align}
 due to the form of $\mathbb{D}$ containing only $1$, $-1$ and $0$. We denote the corresponding integrator by $\Phi_{\Delta t}^6:\mathbb{R}^{N^3}\times\mathbb{R}^{N^1}\times\mathbb{R}^{N^0}\rightarrow\mathbb{R}^{N^3}\times\mathbb{R}^{N^1}\times\mathbb{R}^{N^0},\,\bo{\rho}^n,\mb{u}^n,\mb{p}^n\mapsto\bo{\rho}^{n+1},\mb{u}^{n+1},\mb{p}^{n+1}$. 
 
@@ -1056,7 +1060,7 @@ L_y(\eta_2+\alpha\sin(2\pi\eta_2)\sin(2\pi\eta_3))\\
 L_z\eta_3
 \end{pmatrix}=\bo{x}.\label{eq_mappings_exp}
 \end{align}
-Here, $L_x,L_y,L_z>0$ are the side lengths of the rectangular physical domain $\Omega$ and $0\leq\alpha<1/(2\pi)$ is a parameter describing the distortion of the mesh. The upper limit for $\alpha$ is chosen such that the mapping does not becomes singular anywhere in the domain $\Omega$. Note that all quantities related to the mapping, such as the Jacobian determinant or the metric tensor, are constant and diagonal in case of the Cartesian mapping. Both is not true anymore in case of the Colella mapping. Figure \ref{fig_meshes} displays the resulting coordinate lines in the $xy$-plane and we note that the Colella mapping collapses to the Cartesian mapping for $\alpha=0$.
+Here, $L_x,L_y,L_z>0$ are the side lengths of the rectangular physical domain $\Omega$ and $0\leq\alpha<1/(2\pi)$ is a parameter describing the distortion of the mesh. The upper limit for $\alpha$ is chosen such that the mapping does not become singular anywhere in the domain $\Omega$. Note that all quantities related to the mapping, such as the Jacobian determinant or the metric tensor, are constant and diagonal in case of the Cartesian mapping. Both is not true anymore in case of the Colella mapping. Figure \ref{fig_meshes} displays the resulting coordinate lines in the $xy$-plane and we note that the Colella mapping collapses to the Cartesian mapping for $\alpha=0$.
 
 Furthermore, in all simulations shown, we assume a uniform equilibrium bulk plasma in physical space\footnote{Note that in case of the Colella mapping this is not true for the components of the corresponding differential forms on the logical domain.}. The first two subsections focus on linear MHD waves and linear wave-particle interactions. In contrast to that, the third subsection focuses on longer simulations deep into the nonlinear phase.
 \subsection{Pure MHD}
@@ -1068,19 +1072,29 @@ where the first term in the rounds brackets represents the shear Alfvén wave an
 \begin{figure}
 \centering
 \includegraphics[scale=1.0]{pure_MHD_timestep.pdf}
-\caption{Normalized MHD power spectra in the $\omega-k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text{el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text{A}/\Omega_\text{ci}$, $L_y=40 \,v_\text{A}/\Omega_\text{ci}$, $L_z=5 \,v_\text{A}/\Omega_\text{ci}$, periodic boundary conditions everywhere, $n_\text{q,el}=(3,3,2)$ and $n_\text{pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\label{fig_power_spectra_time}}
+\caption{Normalized MHD power spectra in the $\omega-k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text{el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \,v_\text{A}/\Omega_\text{ci}$, $L_z=5 \,v_\text{A}/\Omega_\text{ci}$, periodic boundary conditions everywhere, $n_\text{q,el}=(6,6,2)$ and $n_\text{pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations.  a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text{div}(\bo{B})$.\label{fig_power_spectra_time}}
 \end{figure}
 
 To compare simulated waves to the analytical dispersion relation, we initalize STRUPHY with random noise in $x$-direction, meaning that we do not compute the initial finite element coefficients from some prescribed initial condition, but we load the finite element coefficients randomly in physical $x$-direction. Moreover, we set $\beta=2\mu_0p_\text{eq}/(B_{0x}^2+B_{0y}^2)=1$ and $B_{0x}=B_{0y}$ which results in $c_\text{S}=\sqrt{\gamma/2}\,v_\text{A}$. We normalize frequencies to the ion cyclotron frequency $\Omega_\text{ci}$ and velocities to the Alfvén velocity. This results in a normalization of spatial scales to $v_\text{A}/\Omega_\text{ci}$.
 
-We perform to tests: First, we increase the time step $\Delta t$ time integration scheme for the Cartesian mapping and second, we increase the parameter $\alpha$ for a fixed time step in order to check the impact of the mapping on the MHD spectra. Figure \ref{fig_power_spectra_time} shows the resulting spectra for times steps $\Delta t=4\,\Omega_\text{ci}$, $\Delta t=16\,\Omega_\text{ci}$ and $\Delta t=32\,\Omega_\text{ci}$.
+We perform to tests: First, we increase the time step $\Delta t$ time integration scheme for the Cartesian mapping and second, we increase the parameter $\alpha$ for a fixed time step in order to check the impact of the mapping on the MHD spectra. Figure \ref{fig_power_spectra_time} shows the resulting spectra for times steps $\Delta t=2/\Omega_\text{ci}$, $\Delta t=4/\Omega_\text{ci}$, $\Delta t=16/\Omega_\text{ci}$ and $\Delta t=32/\Omega_\text{ci}$. \color{red}Discussion \color{black}
 \begin{figure}
 \centering
 \includegraphics[scale=1.0]{pure_MHD_mapping.pdf}
-\caption{Normalized MHD power spectra in the $\omega-k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text{el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text{A}/\Omega_\text{ci}$, $L_y=40 \,v_\text{A}/\Omega_\text{ci}$, $L_z=5 \,v_\text{A}/\Omega_\text{ci}$, periodic boundary conditions everywhere, $n_\text{q,el}=(3,3,2)$ and $n_\text{pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\label{fig_power_spectra_mapping}}
+\caption{Normalized MHD power spectra in the $\omega-k_x$-plane for different mesh distortions obtained by initialization with white noise. Parameters are $N_\text{el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \,v_\text{A}/\Omega_\text{ci}$, $L_z=5 \,v_\text{A}/\Omega_\text{ci}$, periodic boundary conditions everywhere, $n_\text{q,el}=(6,6,2)$ and $n_\text{pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations.  a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text{div}(\bo{B})$.\label{fig_power_spectra_mapping}}
 \end{figure}
 
 \subsection{Wave-particle resonance}
+\begin{figure}
+\centering
+\includegraphics[scale=1.0]{wave_particle_timestep.pdf}
+\caption{a) Time evolution of the normalized magnetic field energy for different time steps. b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text{el}=(16,16,2)$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi/k$, $n_\text{q,el}=(6,6,2)$, $n_\text{q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\label{fig_timestep_waveparticle}}
+\end{figure}
+\begin{figure}
+\centering
+\includegraphics[scale=1.0]{phase_space.pdf}
+\caption{Hot ion distribution function in the $x-v_x$-plane at different times. Dashed black line is the resonant velocity. a) initial condition, b) linear growth phase, c) - d) saturation phase. \label{fig_phase_space}}
+\end{figure}
 In this section, we include an additional species of kinetic ions with an initial ($t=0$) isotropic, shifted Maxwellian distribution function of the form
 \begin{align}
 f_\text{h}(\bo{x},\bo{v},t=0)=\frac{n_\text{h}}{\pi^{3/2}v_\text{th}^{3/2}}\exp\left(-\frac{(v_x-v_0)^2+v_y^2+v_z^2}{v_\text{th}^2}\right).
@@ -1098,21 +1112,40 @@ Note that in the absence of energetic ions ($\nu_\text{h}=0$) the dispersion rel
 \bar{s}^0_\text{h}(\bo{\eta},\bo{v})=\frac{1}{\pi^{3/2}v_\text{th}^{3/2}}\exp\left(-\frac{(v_x-v_0)^2+v_y^2+v_z^2}{v_\text{th}^2}\right)\Rightarrow w_k=\frac{\hat{f}_\text{h}^0(\bo{\eta}^0_k,\bo{v}^0_k)\sqrt{g}(\bo{\eta}^0_k)}{N_\text{p}\bar{s}_\text{h}^0(\bo{\eta}^0_k,\bo{v}^0_k)}=\frac{n_\text{h}\sqrt{g}(\bo{\eta}^0_k)}{N_\text{p}}.
 \end{align}
 Therefore, the particle weights are all the same in case of the Cartesian mapping but not in case of the Colella mapping with $\alpha\neq 0$ due to the Jacobian determinant $\sqrt{g}$.
+\begin{figure}
+\centering
+\includegraphics[scale=1.0]{wave_particle_mesh_metric.pdf}
+\caption{a) Time evolution of the normalized magnetic field energy for different mesh parameters (= number of elements) and metric ($\alpha\neq 0$). b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $\Delta t=0.10/\Omega_\text{ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi/k$, $n_\text{q,el}=(6,6,2)$, $n_\text{q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\label{fig_mesh_metric}}
+\end{figure}
+\begin{figure}
+\centering
+\includegraphics[scale=1.0]{wave_particle_nonHamiltonian.pdf}
+\caption{a) Time evolution of the normalized magnetic field energy for different particle numbers including the time integrator $\Phi^6_{\Delta t}$. c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text{el}=(16,16,2)$, $\Delta t=0.05/\Omega_\text{ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi/k$, $n_\text{q,el}=(6,6,2)$ and $n_\text{q,pr}=(6,6,2)$.\label{fig_nonHamiltonian_waveparticle}}
+\end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[scale=1.0]{wave_particle_timestep.pdf}
-\caption{Normalized MHD power spectra in the $\omega-k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text{el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text{A}/\Omega_\text{ci}$, $L_y=40 \,v_\text{A}/\Omega_\text{ci}$, $L_z=5 \,v_\text{A}/\Omega_\text{ci}$, periodic boundary conditions everywhere, $n_\text{q,el}=(3,3,2)$ and $n_\text{pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\label{fig_timestep_waveparticle}}
+\includegraphics[scale=1.0]{scaling.pdf}
+\caption{Run times of different parts of the time integration scheme which are related to PIC dependent on the number of OpenMP threads. Here the number of particles $K=100000$ a) For the Cartesian mapping. b) For the Colella mapping.\label{fig_scaling}}
 \end{figure}
 
-\section{Summary}
-We presented a new hybrid kinetic MHD-kinetic code which solves linearized, ideal magnetohydrodynamics, coupled nonlinearly to fully kinetic 6d Vlasov equations. For this, we first derived the appropriate model equations by means of differential forms, valid in arbitrary Riemannian metric, in order to apply the framework of finite element exterior calculus for the spatial discretization. Choosing compatible finite element spaces and projectors onto them satisfying a commuting diagram with an exact de Rham sequence and applying classical particle-in-cell techniques for the Vlasov equation, we ended up with a system of equations in time with the following properties:
+\section{Conclusion}
+We presented the new hybrid MHD-kinetic code STRUPHY which solves linearized, ideal MHD equations, coupled nonlinearly to fully kinetic 6d Vlasov equations in curved geometries. The algorithm provably conserves mass, energy and $\nabla\cdot\bo{B}=0$ irrespective of metric, grid spacing, chosen spline degree and degree of time splitting, c.f. the update rules \eqref{eq_timestep6_rho} for the mass, (\ref{eq_updateb}) for the magnetic field, and the skew-symmetry of the matrix in (\ref{eq_Poissonmatrix}) which is subjected to Poisson splitting. We demonstrated this behaviour for a Cartesian mapping and the Colella mapping, depicted in Figure \ref{fig_meshes}, by verifying dispersion relations for MHD (no kinetic species) and resonant MHD (current coupling) test cases. The current version of STRUPHY features an OpenMp parallelisation of the kinetic PIC part, which allowed the distribution of particles on up to 40 threads on a single node on the available computing cluster. However, no considerable effort has been put into performance optimisation yet. Having proved in this work the feasibility of our approach, further development steps include:
 \begin{enumerate}
-\item exact conservation of mass
-\item exact conservation of the zero-divergence constraint $\nabla\cdot\bo{B}=0$
-\item exact conservation of energy for the energy corresponding to shear Alfvén waves
+\item Implementation of an OpenMp/MPI hybrid parallelisation: linear systems in the splitting steps 1-6 of Section \ref{sec_time} will be solved by iterative methods with single-node parallelisation (up to 40 threads). Particle equations will be subjected to MPI for multi-node communication. 
+\item Implementation of a drift-kinetic particle pusher for the simulation of low-frequency phenomena. The suitable Hamiltonian model has been developed in \cite{Tronci2017}.
+\item Creation of an interface to MHD equilibrium codes such as VMEC \cite{VMEC} for the purpose of loading realistic tokamak and stellarator equilibria.
+\item Extension to nonlinear MHD and implementation of a pressure coupling scheme.
 \end{enumerate}
-To translate the energy conservation property to the fully discrete level, we first split apart the non-Hamiltonian terms followed by Poisson splitting of the Hamiltonian part and solving each sub-step in an energy-conserving way. By performing numerical experiment for various parameters and two kind of coordinate transformation, we showed that the energy conservation properties indeed hold and that we can reproduce analytical dispersion relations for linear simulations.
+Some of these efforts are already on the way. Once the OpenMp/MPI hybrid parallelisation is in place we aim to perform benchmark studies with other hybrid codes mentioned in the introduction. Ultimately, we believe that STRUPHY brings several new qualities to the already existing arsenal of hybrid codes, in particular:
+\begin{itemize}
+\item the exact conservation properties guarantee long-time stability,
+\item the high-order methods guarantee accuracy,
+\item the implicitness enables large time steps in the MHD part, jumping over high-frequencies,
+\item the use of full MHD provides the possibility of exploring the whole range of MHD waves. 
+\end{itemize} 
+In the future, these features can make STRUPHY an attractive alternative also to fully kinetic simulations of energetic particle effects.
+
 \label{sec_summary}
 
 \newpage

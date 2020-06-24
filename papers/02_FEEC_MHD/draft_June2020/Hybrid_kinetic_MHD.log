@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/Debian) (preloaded format=pdflatex 2020.5.22)  23 JUN 2020 13:58
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019/Debian) (preloaded format=pdflatex 2020.5.22)  24 JUN 2020 17:50
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1191,120 +1191,160 @@ LaTeX Font Info:    Trying to load font information for U+bbold on input line 9
 
 (/usr/share/texlive/texmf-dist/tex/latex/bbold/Ubbold.fd) [1
 
-{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
+{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2]
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <8> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 130.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 134.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <6> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 130.
- [2] [3]
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 134.
+ [3] [4]
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <9> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 203.
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 206.
 LaTeX Font Info:    Font shape `U/lasy/b/n' in size <5> not available
-(Font)              Font shape `U/lasy/m/n' tried instead on input line 203.
- [4]
+(Font)              Font shape `U/lasy/m/n' tried instead on input line 206.
+
 
 Package amsmath Warning: Cannot use `split' here;
-(amsmath)                trying to recover with `aligned' on input line 219.
+(amsmath)                trying to recover with `aligned' on input line 222.
 
 [5]
 LaTeX Font Info:    Trying to load font information for TS1+aer on input line 2
-49.
-LaTeX Font Info:    No file TS1aer.fd. on input line 249.
+52.
+LaTeX Font Info:    No file TS1aer.fd. on input line 252.
 
 
 LaTeX Font Warning: Font shape `TS1/aer/m/n' undefined
 (Font)              using `TS1/cmr/m/n' instead
-(Font)              for symbol `textbullet' on input line 249.
+(Font)              for symbol `textbullet' on input line 252.
 
 
 Package amsmath Warning: Cannot use `split' here;
-(amsmath)                trying to recover with `aligned' on input line 269.
+(amsmath)                trying to recover with `aligned' on input line 272.
 
-[6]
-<deRham3d_components.pdf, id=326, 739.77165pt x 170.71654pt>
+[6] [7]
+<deRham3d_components.pdf, id=347, 739.77165pt x 170.71654pt>
 File: deRham3d_components.pdf Graphic file (type pdf)
 <use deRham3d_components.pdf>
-Package pdftex.def Info: deRham3d_components.pdf  used on input line 316.
+Package pdftex.def Info: deRham3d_components.pdf  used on input line 319.
 (pdftex.def)             Requested size: 406.87566pt x 93.89438pt.
- [7] [8 <./deRham3d_components.pdf>] [9] [10] [11] [12] [13] [14] [15]
-[16]
-<projector_pi2.pdf, id=595, 424.68825pt x 339.51797pt>
+ [8 <./deRham3d_components.pdf>] [9] [10] [11] [12] [13] [14] [15]
+[16] [17]
+<projector_pi2.pdf, id=609, 424.68825pt x 339.51797pt>
 File: projector_pi2.pdf Graphic file (type pdf)
 <use projector_pi2.pdf>
-Package pdftex.def Info: projector_pi2.pdf  used on input line 724.
+Package pdftex.def Info: projector_pi2.pdf  used on input line 739.
 (pdftex.def)             Requested size: 424.68721pt x 339.51715pt.
- [17 <./projector_pi2.pdf>] [18] [19] [20] [21] [22]
+ [18 <./projector_pi2.pdf>] [19] [20] [21] [22] [23]
 LaTeX Info: Symbol \textasciiacute not provided by
             font family aer in TS1 encoding.
-            Default family used instead on input line 1037.
-<Cartesian_mesh.pdf, id=819, 166.94981pt x 168.53433pt>
+            Default family used instead on input line 1041.
+<Cartesian_mesh.pdf, id=830, 166.94981pt x 168.53433pt>
 File: Cartesian_mesh.pdf Graphic file (type pdf)
 <use Cartesian_mesh.pdf>
-Package pdftex.def Info: Cartesian_mesh.pdf  used on input line 1043.
+Package pdftex.def Info: Cartesian_mesh.pdf  used on input line 1047.
 (pdftex.def)             Requested size: 166.9494pt x 168.53392pt.
-<Colella_mesh.pdf, id=820, 166.94981pt x 168.53433pt>
+<Colella_mesh.pdf, id=831, 166.94981pt x 168.53433pt>
 File: Colella_mesh.pdf Graphic file (type pdf)
 <use Colella_mesh.pdf>
-Package pdftex.def Info: Colella_mesh.pdf  used on input line 1044.
+Package pdftex.def Info: Colella_mesh.pdf  used on input line 1048.
 (pdftex.def)             Requested size: 166.9494pt x 168.53392pt.
- [23]
-<pure_MHD_timestep.pdf, id=848, 375.54622pt x 274.49536pt>
+ [24]
+<pure_MHD_timestep.pdf, id=857, 470.76196pt x 275.60648pt>
 File: pure_MHD_timestep.pdf Graphic file (type pdf)
 <use pure_MHD_timestep.pdf>
-Package pdftex.def Info: pure_MHD_timestep.pdf  used on input line 1070.
-(pdftex.def)             Requested size: 375.5453pt x 274.49467pt.
- [24 <./Cartesian_mesh.pdf> <./Colella_mesh.pdf
+Package pdftex.def Info: pure_MHD_timestep.pdf  used on input line 1074.
+(pdftex.def)             Requested size: 470.7608pt x 275.60579pt.
+<pure_MHD_mapping.pdf, id=859, 470.76196pt x 274.49536pt>
+File: pure_MHD_mapping.pdf Graphic file (type pdf)
+<use pure_MHD_mapping.pdf>
+Package pdftex.def Info: pure_MHD_mapping.pdf  used on input line 1083.
+(pdftex.def)             Requested size: 470.7608pt x 274.49467pt.
+<wave_particle_timestep.pdf, id=860, 457.8869pt x 172.2421pt>
+File: wave_particle_timestep.pdf Graphic file (type pdf)
+<use wave_particle_timestep.pdf>
+Package pdftex.def Info: wave_particle_timestep.pdf  used on input line 1090.
+(pdftex.def)             Requested size: 457.88577pt x 172.24165pt.
+<phase_space.pdf, id=861, 485.04068pt x 140.58572pt>
+File: phase_space.pdf Graphic file (type pdf)
+<use phase_space.pdf>
+Package pdftex.def Info: phase_space.pdf  used on input line 1095.
+(pdftex.def)             Requested size: 485.03949pt x 140.58537pt.
+
+Overfull \hbox (1.34262pt too wide) in paragraph at lines 1095--1096
+ [][] 
+ []
+
+[25 <./Cartesian_mesh.pdf> <./Colella_mesh.pdf
 
 pdfTeX warning: /usr/bin/pdflatex (file ./Colella_mesh.pdf): PDF inclusion: mul
 tiple pdfs with page group included in a single page
+>] [26 <./pure_MHD_timestep.pdf>] [27 <./pure_MHD_mapping.pdf> <./wave_particle
+_timestep.pdf
+
+pdfTeX warning: /usr/bin/pdflatex (file ./wave_particle_timestep.pdf): PDF incl
+usion: multiple pdfs with page group included in a single page
 >]
-<pure_MHD_mapping.pdf, id=893, 375.54622pt x 274.49536pt>
-File: pure_MHD_mapping.pdf Graphic file (type pdf)
-<use pure_MHD_mapping.pdf>
-Package pdftex.def Info: pure_MHD_mapping.pdf  used on input line 1079.
-(pdftex.def)             Requested size: 375.5453pt x 274.49467pt.
- [25 <./pure_MHD_timestep.pdf>]
-<wave_particle_timestep.pdf, id=924, 446.68504pt x 172.2421pt>
-File: wave_particle_timestep.pdf Graphic file (type pdf)
-<use wave_particle_timestep.pdf>
-Package pdftex.def Info: wave_particle_timestep.pdf  used on input line 1104.
-(pdftex.def)             Requested size: 446.68394pt x 172.24165pt.
- [26 <./pure_MHD_mapping.pdf>] [27 <./wave_particle_timestep.pdf>]
-Underfull \hbox (badness 10000) in paragraph at lines 1147--1148
+<wave_particle_mesh_metric.pdf, id=974, 457.8869pt x 159.11478pt>
+File: wave_particle_mesh_metric.pdf Graphic file (type pdf)
+<use wave_particle_mesh_metric.pdf>
+Package pdftex.def Info: wave_particle_mesh_metric.pdf  used on input line 1117
+.
+(pdftex.def)             Requested size: 457.88577pt x 159.11436pt.
+<wave_particle_nonHamiltonian.pdf, id=975, 457.8869pt x 177.69849pt>
+File: wave_particle_nonHamiltonian.pdf Graphic file (type pdf)
+<use wave_particle_nonHamiltonian.pdf>
+Package pdftex.def Info: wave_particle_nonHamiltonian.pdf  used on input line 1
+122.
+(pdftex.def)             Requested size: 457.88577pt x 177.69803pt.
+<scaling.pdf, id=976, 455.67227pt x 166.75653pt>
+File: scaling.pdf Graphic file (type pdf)
+<use scaling.pdf>
+Package pdftex.def Info: scaling.pdf  used on input line 1128.
+(pdftex.def)             Requested size: 455.67116pt x 166.7561pt.
+ [28 <./phase_space.pdf>] [29 <./wave_particle_mesh_metric.pdf> <./wave_particl
+e_nonHamiltonian.pdf
+
+pdfTeX warning: /usr/bin/pdflatex (file ./wave_particle_nonHamiltonian.pdf): PD
+F inclusion: multiple pdfs with page group included in a single page
+> <./scaling.pdf
+
+pdfTeX warning: /usr/bin/pdflatex (file ./scaling.pdf): PDF inclusion: multiple
+ pdfs with page group included in a single page
+>] [30]
+Underfull \hbox (badness 10000) in paragraph at lines 1180--1181
 
  []
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 1184.
+(hyperref)                removing `math shift' on input line 1217.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 1184.
+(hyperref)                removing `math shift' on input line 1217.
 
-[28]
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 1228.
-
+[31]
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `\delta' on input line 1228.
+(hyperref)                removing `math shift' on input line 1261.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `math shift' on input line 1228.
+(hyperref)                removing `\delta' on input line 1261.
 
-[29] [30] (./Hybrid_kinetic_MHD.bbl [31] [32]) [33]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1294.
-Package atveryend Info: Executing hook `AfterLastShipout' on input line 1294.
+
+Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
+(hyperref)                removing `math shift' on input line 1261.
+
+[32] [33] (./Hybrid_kinetic_MHD.bbl [34] [35]) [36]
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 1327.
+Package atveryend Info: Executing hook `AfterLastShipout' on input line 1327.
  (./Hybrid_kinetic_MHD.xwm)
 (./Hybrid_kinetic_MHD.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1294.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1294.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 1327.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 1327.
 
 Package rerunfilecheck Info: File `Hybrid_kinetic_MHD.out' has not changed.
-(rerunfilecheck)             Checksum: 27343B65549FE4B137B932751467177F;2169.
+(rerunfilecheck)             Checksum: 92220FCF80266B1C258B90B947FF58E3;2172.
 
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
@@ -1312,16 +1352,16 @@ LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 LaTeX Warning: There were multiply-defined labels.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1294.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 1327.
  ) 
 Here is how much of TeX's memory you used:
- 30023 strings out of 481239
- 574189 string characters out of 5920377
- 1038123 words of memory out of 5000000
- 44181 multiletter control sequences out of 15000+600000
+ 30066 strings out of 481239
+ 575115 string characters out of 5920377
+ 1035947 words of memory out of 5000000
+ 44211 multiletter control sequences out of 15000+600000
  594856 words of font info for 180 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 57i,30n,106p,1612b,997s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 57i,30n,106p,2455b,997s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texmf/fonts/enc/dvips/cm-super/cm-super-ts1.enc}</usr/share/texli
 ve/texmf-dist/fonts/type1/public/bbold-type1/bbold10.pfb></usr/share/texlive/te
 xmf-dist/fonts/type1/public/bbold-type1/bbold7.pfb></usr/share/texlive/texmf-di
@@ -1350,12 +1390,13 @@ texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb></usr/share/texlive/texmf-d
 ist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fon
 ts/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type
 1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmti10.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1000
-.pfb>
-Output written on Hybrid_kinetic_MHD.pdf (33 pages, 11751860 bytes).
+c/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsf
+onts/symbols/msbm10.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1000.
+pfb>
+Output written on Hybrid_kinetic_MHD.pdf (36 pages, 13641288 bytes).
 PDF statistics:
- 1230 PDF objects out of 1440 (max. 8388607)
- 1131 compressed objects within 12 object streams
- 462 named destinations out of 1000 (max. 500000)
- 280 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1388 PDF objects out of 1440 (max. 8388607)
+ 1256 compressed objects within 13 object streams
+ 471 named destinations out of 1000 (max. 500000)
+ 300 words of extra memory for PDF output out of 10000 (max. 10000000)
 

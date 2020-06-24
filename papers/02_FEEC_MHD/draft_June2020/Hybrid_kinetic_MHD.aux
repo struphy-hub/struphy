@@ -22,8 +22,7 @@
 \citation{Konies_benchmark2018}
 \citation{Todo_MEGA1998}
 \citation{Belova1997,Belova_M3D1999}
-\citation{Zonca_HMGC1995}
-\citation{XinWang2011}
+\citation{Zonca_HMGC1995,XinWang2011}
 \citation{MorrisonGreene1980}
 \citation{Tronci2010,Tronci2017}
 \babel@aux{english}{}
@@ -38,23 +37,24 @@
 \citation{ArnoldFalkWinther2006,ArnoldFalkWinther2010}
 \citation{Arnold_FEEC2018}
 \citation{Tronci2010}
-\citation{Tronci2010}
+\citation{GEMPIC2017}
+\citation{McLachlanetal2012}
 \@writefile{toc}{\contentsline {section}{\numberline {2}Model equations}{3}{section.2}\protected@file@percent }
 \newlabel{sec_model}{{2}{3}{Model equations}{section.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Hamiltonian current coupling}{3}{subsection.2.1}\protected@file@percent }
 \newlabel{eq_model_full}{{2.1}{3}{Hamiltonian current coupling}{equation.2.1}{}}
 \newlabel{eq_MHD}{{2.1a}{3}{Hamiltonian current coupling}{equation.2.1a}{}}
 \newlabel{eq_kinetics}{{2.1b}{3}{Hamiltonian current coupling}{equation.2.1b}{}}
-\newlabel{eq_Hamiltonian1}{{2.2}{3}{Hamiltonian current coupling}{equation.2.2}{}}
+\newlabel{eq_Hamiltonian1}{{2.2}{4}{Hamiltonian current coupling}{equation.2.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Linearization of the MHD part}{4}{subsection.2.2}\protected@file@percent }
 \newlabel{eq_model_linear}{{2.6}{4}{Linearization of the MHD part}{equation.2.6}{}}
 \newlabel{eq_MHD_linear}{{2.6a}{4}{Linearization of the MHD part}{equation.2.6a}{}}
 \newlabel{eq_kinetics_linear}{{2.6b}{4}{Linearization of the MHD part}{equation.2.6b}{}}
 \newlabel{eq_Hamiltonian1_linear}{{2.7}{4}{Linearization of the MHD part}{equation.2.7}{}}
 \newlabel{eq_Hamiltonian1_linear_evo}{{2.8}{4}{Linearization of the MHD part}{equation.2.8}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}MHD equations in curvilinear coordinates}{4}{subsection.2.3}\protected@file@percent }
-\newlabel{eq_Jacobian_matrix}{{2.9}{4}{MHD equations in curvilinear coordinates}{equation.2.9}{}}
 \citation{Frankel2011,Arnold_FEEC2018}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}MHD equations in curvilinear coordinates}{5}{subsection.2.3}\protected@file@percent }
+\newlabel{eq_Jacobian_matrix}{{2.9}{5}{MHD equations in curvilinear coordinates}{equation.2.9}{}}
 \newlabel{eq_diff_operators_curvilinear}{{2.10}{5}{MHD equations in curvilinear coordinates}{equation.2.10}{}}
 \newlabel{eq_metric_tensor}{{2.11}{5}{MHD equations in curvilinear coordinates}{equation.2.11}{}}
 \newlabel{eq_MHD_linear_curvilinear}{{2.12}{5}{MHD equations in curvilinear coordinates}{AMS.9}{}}
@@ -64,157 +64,170 @@
 \newlabel{eq_MHD_linear_curvilinear4}{{2.12d}{5}{MHD equations in curvilinear coordinates}{equation.2.12}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {2.4}MHD in terms of differential forms}{5}{subsection.2.4}\protected@file@percent }
 \newlabel{sec_MHD_forms}{{2.4}{5}{MHD in terms of differential forms}{subsection.2.4}{}}
-\newlabel{eq_transformation_diffforms}{{2.13}{5}{MHD in terms of differential forms}{equation.2.13}{}}
-\newlabel{eq_transformation_diffforms0}{{2.13a}{5}{MHD in terms of differential forms}{equation.2.13a}{}}
-\newlabel{eq_transformation_diffforms1}{{2.13b}{5}{MHD in terms of differential forms}{equation.2.13b}{}}
-\newlabel{eq_transformation_diffforms2}{{2.13c}{5}{MHD in terms of differential forms}{equation.2.13c}{}}
-\newlabel{eq_transformation_diffforms3}{{2.13d}{5}{MHD in terms of differential forms}{equation.2.13d}{}}
-\newlabel{eq_sharp}{{2.14}{5}{MHD in terms of differential forms}{equation.2.14}{}}
-\newlabel{eq_MHD_linear_forms}{{2.15}{6}{MHD in terms of differential forms}{Item.8}{}}
-\newlabel{eq_continuity_forms_components}{{2.15a}{6}{MHD in terms of differential forms}{equation.2.15}{}}
-\newlabel{eq_momentum_forms_components}{{2.15b}{6}{MHD in terms of differential forms}{equation.2.15}{}}
-\newlabel{eq_pressure_forms_components}{{2.15c}{6}{MHD in terms of differential forms}{equation.2.15}{}}
-\newlabel{eq_induction_forms_components}{{2.15d}{6}{MHD in terms of differential forms}{equation.2.15}{}}
-\citation{Buffa2010}
+\newlabel{eq_transformation_diffforms}{{2.13}{6}{MHD in terms of differential forms}{equation.2.13}{}}
+\newlabel{eq_transformation_diffforms0}{{2.13a}{6}{MHD in terms of differential forms}{equation.2.13a}{}}
+\newlabel{eq_transformation_diffforms1}{{2.13b}{6}{MHD in terms of differential forms}{equation.2.13b}{}}
+\newlabel{eq_transformation_diffforms2}{{2.13c}{6}{MHD in terms of differential forms}{equation.2.13c}{}}
+\newlabel{eq_transformation_diffforms3}{{2.13d}{6}{MHD in terms of differential forms}{equation.2.13d}{}}
+\newlabel{eq_sharp}{{2.14}{6}{MHD in terms of differential forms}{equation.2.14}{}}
+\newlabel{eq_MHD_linear_forms}{{2.15}{7}{MHD in terms of differential forms}{Item.8}{}}
+\newlabel{eq_continuity_forms_components}{{2.15a}{7}{MHD in terms of differential forms}{equation.2.15}{}}
+\newlabel{eq_momentum_forms_components}{{2.15b}{7}{MHD in terms of differential forms}{equation.2.15}{}}
+\newlabel{eq_pressure_forms_components}{{2.15c}{7}{MHD in terms of differential forms}{equation.2.15}{}}
+\newlabel{eq_induction_forms_components}{{2.15d}{7}{MHD in terms of differential forms}{equation.2.15}{}}
 \newlabel{eq_energy_MHD_forms}{{2.16}{7}{MHD in terms of differential forms}{equation.2.16}{}}
 \newlabel{eq_coordinate-free}{{2.17}{7}{MHD in terms of differential forms}{equation.2.17}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Semi-discretization in space}{7}{section.3}\protected@file@percent }
 \newlabel{sec_discrete}{{3}{7}{Semi-discretization in space}{section.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Commuting diagram and finite element spaces}{7}{subsection.3.1}\protected@file@percent }
-\newlabel{eq_spaces_components}{{3.1}{7}{Commuting diagram and finite element spaces}{equation.3.1}{}}
-\newlabel{eq_commutativity}{{3.3}{7}{Commuting diagram and finite element spaces}{equation.3.3}{}}
+\citation{Buffa2010}
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Commuting diagram for function spaces in three space dimensions. The upper line represents the continuous, infinite-dimensional function spaces for components of $p$-forms (\ref  {eq_spaces_components}) and the lower line finite-dimensional sub-spaces $V_0,\cdots  ,V_3$. Due to the properties $\text  {curl(grad)}=0$ and $\text  {div(curl)}=0$, both lines form an exact de Rham sequence. The link between the two sequences is made by the projection operators $\Pi _0:H^1(\hat  {\Omega })\rightarrow V_0$, $\boldsymbol  {\Pi }_1:H(\text  {curl},\hat  {\Omega })\rightarrow V_1$, $\boldsymbol  {\Pi }_2:H(\text  {div},\hat  {\Omega })\rightarrow V_2$ and $\Pi _3:L^2(\hat  {\Omega })\rightarrow V_3$ onto the finite element spaces, which must be chosen such that the diagram becomes commuting.\relax }}{8}{figure.1}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
 \newlabel{fig_diagram}{{1}{8}{Commuting diagram for function spaces in three space dimensions. The upper line represents the continuous, infinite-dimensional function spaces for components of $p$-forms (\ref {eq_spaces_components}) and the lower line finite-dimensional sub-spaces $V_0,\cdots ,V_3$. Due to the properties $\text {curl(grad)}=0$ and $\text {div(curl)}=0$, both lines form an exact de Rham sequence. The link between the two sequences is made by the projection operators $\Pi _0:H^1(\hat {\Omega })\rightarrow V_0$, $\bo {\Pi }_1:H(\text {curl},\hat {\Omega })\rightarrow V_1$, $\bo {\Pi }_2:H(\text {div},\hat {\Omega })\rightarrow V_2$ and $\Pi _3:L^2(\hat {\Omega })\rightarrow V_3$ onto the finite element spaces, which must be chosen such that the diagram becomes commuting.\relax }{figure.1}{}}
-\newlabel{eq_discrete_forms1}{{3.4}{8}{Commuting diagram and finite element spaces}{equation.3.4}{}}
-\newlabel{eq_discrete_p}{{3.4a}{8}{Commuting diagram and finite element spaces}{equation.3.4a}{}}
-\newlabel{eq_discrete_U}{{3.4b}{8}{Commuting diagram and finite element spaces}{equation.3.4b}{}}
-\newlabel{eq_discrete_B}{{3.4c}{8}{Commuting diagram and finite element spaces}{equation.3.4c}{}}
-\newlabel{eq_discrete_rho}{{3.4d}{8}{Commuting diagram and finite element spaces}{equation.3.4d}{}}
-\newlabel{eq_discrete_forms2}{{3.5}{8}{Commuting diagram and finite element spaces}{equation.3.5}{}}
-\newlabel{eq_discrete_p_compact}{{3.5a}{8}{Commuting diagram and finite element spaces}{equation.3.5a}{}}
-\newlabel{eq_discrete_U_compact}{{3.5b}{8}{Commuting diagram and finite element spaces}{equation.3.5b}{}}
-\newlabel{eq_discrete_B_compact}{{3.5c}{8}{Commuting diagram and finite element spaces}{equation.3.5c}{}}
-\newlabel{eq_discrete_rho_compact}{{3.5d}{8}{Commuting diagram and finite element spaces}{equation.3.5d}{}}
+\newlabel{eq_spaces_components}{{3.1}{8}{Commuting diagram and finite element spaces}{equation.3.1}{}}
+\newlabel{eq_commutativity}{{3.3}{8}{Commuting diagram and finite element spaces}{equation.3.3}{}}
+\newlabel{eq_discrete_forms1}{{3.4}{9}{Commuting diagram and finite element spaces}{equation.3.4}{}}
+\newlabel{eq_discrete_p}{{3.4a}{9}{Commuting diagram and finite element spaces}{equation.3.4a}{}}
+\newlabel{eq_discrete_U}{{3.4b}{9}{Commuting diagram and finite element spaces}{equation.3.4b}{}}
+\newlabel{eq_discrete_B}{{3.4c}{9}{Commuting diagram and finite element spaces}{equation.3.4c}{}}
+\newlabel{eq_discrete_rho}{{3.4d}{9}{Commuting diagram and finite element spaces}{equation.3.4d}{}}
+\newlabel{eq_discrete_forms2}{{3.5}{9}{Commuting diagram and finite element spaces}{equation.3.5}{}}
+\newlabel{eq_discrete_p_compact}{{3.5a}{9}{Commuting diagram and finite element spaces}{equation.3.5a}{}}
+\newlabel{eq_discrete_U_compact}{{3.5b}{9}{Commuting diagram and finite element spaces}{equation.3.5b}{}}
+\newlabel{eq_discrete_B_compact}{{3.5c}{9}{Commuting diagram and finite element spaces}{equation.3.5c}{}}
+\newlabel{eq_discrete_rho_compact}{{3.5d}{9}{Commuting diagram and finite element spaces}{equation.3.5d}{}}
 \newlabel{eq_discrete_derivatives_3d}{{3.6}{9}{Commuting diagram and finite element spaces}{equation.3.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Strong equations: mass continuity and induction equation}{9}{subsection.3.2}\protected@file@percent }
-\newlabel{eq_continuity_semi}{{3.10}{9}{Strong equations: mass continuity and induction equation}{equation.3.10}{}}
-\newlabel{eq_projection_matrix}{{3.11}{9}{Strong equations: mass continuity and induction equation}{equation.3.11}{}}
-\newlabel{eq_mass_coservation_semi}{{3.12}{9}{Strong equations: mass continuity and induction equation}{equation.3.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Strong equations: mass continuity and induction equation}{10}{subsection.3.2}\protected@file@percent }
+\newlabel{eq_continuity_semi}{{3.10}{10}{Strong equations: mass continuity and induction equation}{equation.3.10}{}}
+\newlabel{eq_projection_matrix}{{3.11}{10}{Strong equations: mass continuity and induction equation}{equation.3.11}{}}
+\newlabel{eq_mass_coservation_semi}{{3.12}{10}{Strong equations: mass continuity and induction equation}{equation.3.12}{}}
 \newlabel{eq_induction_discrete2}{{3.15}{10}{Strong equations: mass continuity and induction equation}{equation.3.15}{}}
 \newlabel{eq_matrix_cross}{{3.16}{10}{Strong equations: mass continuity and induction equation}{equation.3.16}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Weak equations: momentum conservation and pressure}{10}{subsection.3.3}\protected@file@percent }
-\newlabel{eq_momentum_weak}{{3.20}{10}{Weak equations: momentum conservation and pressure}{equation.3.20}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Weak equations: momentum conservation and pressure}{11}{subsection.3.3}\protected@file@percent }
+\newlabel{eq_momentum_weak}{{3.20}{11}{Weak equations: momentum conservation and pressure}{equation.3.20}{}}
 \newlabel{eq_Lorentz_weak}{{3.21}{11}{Weak equations: momentum conservation and pressure}{equation.3.21}{}}
 \newlabel{eq_approx_scalar1}{{3.22}{11}{Weak equations: momentum conservation and pressure}{equation.3.22}{}}
 \newlabel{eq_approx_scalar2}{{3.23}{11}{Weak equations: momentum conservation and pressure}{equation.3.23}{}}
-\newlabel{eq_split_inertia}{{3.24}{11}{Weak equations: momentum conservation and pressure}{equation.3.24}{}}
-\newlabel{eq_matrix_momentum1}{{3.27}{11}{Weak equations: momentum conservation and pressure}{equation.3.27}{}}
-\newlabel{eq_matrix_momentum4}{{3.28}{11}{Weak equations: momentum conservation and pressure}{equation.3.28}{}}
+\newlabel{eq_split_inertia}{{3.24}{12}{Weak equations: momentum conservation and pressure}{equation.3.24}{}}
+\newlabel{eq_matrix_momentum1}{{3.27}{12}{Weak equations: momentum conservation and pressure}{equation.3.27}{}}
+\newlabel{eq_matrix_momentum4}{{3.28}{12}{Weak equations: momentum conservation and pressure}{equation.3.28}{}}
 \newlabel{eq_curl_background}{{3.29}{12}{Weak equations: momentum conservation and pressure}{equation.3.29}{}}
 \newlabel{eq_matrix_momentum2}{{3.30}{12}{Weak equations: momentum conservation and pressure}{equation.3.30}{}}
-\newlabel{eq_pressure_weak}{{3.33}{12}{Weak equations: momentum conservation and pressure}{equation.3.33}{}}
+\newlabel{eq_pressure_weak}{{3.33}{13}{Weak equations: momentum conservation and pressure}{equation.3.33}{}}
 \newlabel{eq_pressure_semi}{{3.39}{13}{Weak equations: momentum conservation and pressure}{equation.3.39}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Example: commuting diagram with B-splines and quasi-interpolation}{13}{subsection.3.4}\protected@file@percent }
 \newlabel{sec_Bsplines}{{3.4}{13}{Example: commuting diagram with B-splines and quasi-interpolation}{subsection.3.4}{}}
 \@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.1}B-splines and discrete derivatives}{13}{subsubsection.3.4.1}\protected@file@percent }
-\newlabel{eq_definition_Bsplines}{{3.40}{13}{B-splines and discrete derivatives}{equation.3.40}{}}
-\newlabel{eq_Bsplines_derivative}{{3.45}{13}{B-splines and discrete derivatives}{equation.3.45}{}}
-\newlabel{eq_derivative_Bspline}{{3.49}{14}{B-splines and discrete derivatives}{equation.3.49}{}}
-\newlabel{eq_discrete_derivative}{{3.50}{14}{B-splines and discrete derivatives}{equation.3.50}{}}
-\newlabel{eq_basis_functions_3d}{{3.51}{14}{B-splines and discrete derivatives}{equation.3.51}{}}
+\newlabel{eq_definition_Bsplines}{{3.40}{14}{B-splines and discrete derivatives}{equation.3.40}{}}
+\newlabel{eq_Bsplines_derivative}{{3.45}{14}{B-splines and discrete derivatives}{equation.3.45}{}}
+\newlabel{eq_derivative_Bspline}{{3.49}{15}{B-splines and discrete derivatives}{equation.3.49}{}}
+\newlabel{eq_discrete_derivative}{{3.50}{15}{B-splines and discrete derivatives}{equation.3.50}{}}
+\newlabel{eq_basis_functions_3d}{{3.51}{15}{B-splines and discrete derivatives}{equation.3.51}{}}
 \citation{deBoor1973}
-\newlabel{eq_discrete_derivatives_3d}{{3.52}{15}{B-splines and discrete derivatives}{equation.3.52}{}}
-\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}Commuting projectors}{15}{subsubsection.3.4.2}\protected@file@percent }
-\newlabel{eq_histopolator}{{3.53}{15}{Commuting projectors}{equation.3.53}{}}
-\newlabel{eq_quasi_interpolant}{{3.54}{15}{Commuting projectors}{equation.3.54}{}}
+\newlabel{eq_discrete_derivatives_3d}{{3.52}{16}{B-splines and discrete derivatives}{equation.3.52}{}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {3.4.2}Commuting projectors}{16}{subsubsection.3.4.2}\protected@file@percent }
+\newlabel{sec_projectors}{{3.4.2}{16}{Commuting projectors}{subsubsection.3.4.2}{}}
+\newlabel{eq_histopolator}{{3.53}{16}{Commuting projectors}{equation.3.53}{}}
+\newlabel{eq_quasi_interpolant}{{3.54}{16}{Commuting projectors}{equation.3.54}{}}
 \newlabel{eq_projector_local}{{3.57}{16}{Commuting projectors}{equation.3.57}{}}
-\newlabel{eq_projector_global_coefficients}{{3.58}{16}{Commuting projectors}{equation.3.58}{}}
-\newlabel{eq_histopolator_global_coefficients}{{3.62}{16}{Commuting projectors}{equation.3.62}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Projection of the components (\ref  {eq_components_projection_example}) using the projector (\ref  {eq_proj2}) on an annulus defined by the mapping (\ref  {eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text  {el}=(128,256,2)$, number of quadrature points per integration interval $n_\text  {q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref  {eq_L2error_V2}) $n_\text  {q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\relax }}{17}{figure.2}\protected@file@percent }
-\newlabel{fig_projection_2form}{{2}{17}{Projection of the components (\ref {eq_components_projection_example}) using the projector (\ref {eq_proj2}) on an annulus defined by the mapping (\ref {eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text {el}=(128,256,2)$, number of quadrature points per integration interval $n_\text {q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref {eq_L2error_V2}) $n_\text {q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\relax }{figure.2}{}}
+\newlabel{eq_projector_global_coefficients}{{3.58}{17}{Commuting projectors}{equation.3.58}{}}
+\newlabel{eq_histopolator_global_coefficients}{{3.62}{17}{Commuting projectors}{equation.3.62}{}}
 \newlabel{eq_proj0}{{3.63a}{17}{Commuting projectors}{equation.3.63a}{}}
 \newlabel{eq_proj1}{{3.63b}{17}{Commuting projectors}{equation.3.63b}{}}
 \newlabel{eq_proj2}{{3.63c}{17}{Commuting projectors}{equation.3.63c}{}}
 \newlabel{eq_proj3}{{3.63d}{17}{Commuting projectors}{equation.3.63d}{}}
-\newlabel{eq_mapping_example}{{3.64}{17}{Commuting projectors}{equation.3.64}{}}
-\citation{Farin1993}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Projection of the components (\ref  {eq_components_projection_example}) using the projector (\ref  {eq_proj2}) on an annulus defined by the mapping (\ref  {eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text  {el}=(128,256,2)$, number of quadrature points per integration interval $n_\text  {q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref  {eq_L2error_V2}) $n_\text  {q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\relax }}{18}{figure.2}\protected@file@percent }
+\newlabel{fig_projection_2form}{{2}{18}{Projection of the components (\ref {eq_components_projection_example}) using the projector (\ref {eq_proj2}) on an annulus defined by the mapping (\ref {eq_mapping_example}) obtained with B-splines of degree $p=(3,3,1)$. The number of elements $N_\text {el}=(128,256,2)$, number of quadrature points per integration interval $n_\text {q,pr}=(4,2,2)$ and number of quadrature points per element for the computation of (\ref {eq_L2error_V2}) $n_\text {q,el}=(4,2,2)$. Top: contour plots at $z=0.5L_z$ of the numerical 1-component (left) and error (right). Bottom: contour plots at $z=0.5L_z$ of the numerical 2-component (left) and error (right).\relax }{figure.2}{}}
+\newlabel{eq_mapping_example}{{3.64}{18}{Commuting projectors}{equation.3.64}{}}
 \newlabel{eq_components_projection_example}{{3.65}{18}{Commuting projectors}{equation.3.65}{}}
 \newlabel{eq_L2error_V2}{{3.66}{18}{Commuting projectors}{equation.3.66}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Projection of the components (\ref  {eq_components_projection_example}) using the projector (\ref  {eq_proj2}) on an annulus defined by the mapping (\ref  {eq_mapping_example}): $p$-th order convergence of the projector and divergence close to machine precision.\relax }}{18}{table.caption.66}\protected@file@percent }
-\newlabel{tab_convergence_pi2}{{1}{18}{Projection of the components (\ref {eq_components_projection_example}) using the projector (\ref {eq_proj2}) on an annulus defined by the mapping (\ref {eq_mapping_example}): $p$-th order convergence of the projector and divergence close to machine precision.\relax }{table.caption.66}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}PIC coupling terms}{18}{subsection.3.5}\protected@file@percent }
-\newlabel{sec_PIC}{{3.5}{18}{PIC coupling terms}{subsection.3.5}{}}
-\newlabel{eq_discrete_fh}{{3.68}{18}{PIC coupling terms}{equation.3.68}{}}
-\newlabel{eq_PICmotion}{{3.69}{18}{PIC coupling terms}{equation.3.69}{}}
+\citation{Farin1993}
 \citation{Aydemir1993}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Projection of the components (\ref  {eq_components_projection_example}) using the projector (\ref  {eq_proj2}) on an annulus defined by the mapping (\ref  {eq_mapping_example}): $p$-th order convergence of the projector and divergence close to machine precision.\relax }}{19}{table.caption.66}\protected@file@percent }
+\newlabel{tab_convergence_pi2}{{1}{19}{Projection of the components (\ref {eq_components_projection_example}) using the projector (\ref {eq_proj2}) on an annulus defined by the mapping (\ref {eq_mapping_example}): $p$-th order convergence of the projector and divergence close to machine precision.\relax }{table.caption.66}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}PIC coupling terms}{19}{subsection.3.5}\protected@file@percent }
+\newlabel{sec_PIC}{{3.5}{19}{PIC coupling terms}{subsection.3.5}{}}
+\newlabel{eq_discrete_fh}{{3.68}{19}{PIC coupling terms}{equation.3.68}{}}
+\newlabel{eq_PICmotion}{{3.69}{19}{PIC coupling terms}{equation.3.69}{}}
 \newlabel{eq_PICmotion_curv}{{3.70}{19}{PIC coupling terms}{equation.3.70}{}}
-\newlabel{eq_PIC_term1}{{3.71}{19}{PIC coupling terms}{equation.3.71}{}}
-\newlabel{eq_PIC_randomvariable}{{3.72}{19}{PIC coupling terms}{equation.3.72}{}}
-\newlabel{eq_PIC_estimator}{{3.73}{19}{PIC coupling terms}{equation.3.73}{}}
-\newlabel{eq_momentum_semi}{{3.81}{20}{PIC coupling terms}{equation.3.81}{}}
-\newlabel{eq_PICmotion_matrix}{{3.82}{20}{PIC coupling terms}{equation.3.82}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Energy and Hamiltonian system}{20}{subsection.3.6}\protected@file@percent }
+\newlabel{eq_PIC_term1}{{3.71}{20}{PIC coupling terms}{equation.3.71}{}}
+\newlabel{eq_PIC_randomvariable}{{3.72}{20}{PIC coupling terms}{equation.3.72}{}}
+\newlabel{eq_PIC_estimator}{{3.73}{20}{PIC coupling terms}{equation.3.73}{}}
+\newlabel{eq_momentum_semi}{{3.81}{21}{PIC coupling terms}{equation.3.81}{}}
+\newlabel{eq_PICmotion_matrix}{{3.82}{21}{PIC coupling terms}{equation.3.82}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Energy and Hamiltonian system}{21}{subsection.3.6}\protected@file@percent }
 \citation{Cranketal1947}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Time discretization}{21}{section.4}\protected@file@percent }
-\newlabel{sec_time}{{4}{21}{Time discretization}{section.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Time discretization}{22}{section.4}\protected@file@percent }
+\newlabel{sec_time}{{4}{22}{Time discretization}{section.4}{}}
+\newlabel{eq_Poissonmatrix}{{4.1}{22}{Time discretization}{equation.4.1}{}}
 \@writefile{toc}{\contentsline {paragraph}{Sub-step 1}{22}{section*.82}\protected@file@percent }
 \newlabel{eq_timestep1}{{4.2}{22}{Sub-step 1}{equation.4.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{Sub-step 2}{22}{section*.86}\protected@file@percent }
-\newlabel{eq_timestep2}{{4}{22}{Sub-step 2}{AMS.87}{}}
-\@writefile{toc}{\contentsline {paragraph}{Sub-step 3}{22}{section*.90}\protected@file@percent }
-\newlabel{eq_timestep3}{{4.11}{22}{Sub-step 3}{equation.4.11}{}}
-\citation{}
-\citation{McLachlanetal2012}
+\@writefile{toc}{\contentsline {paragraph}{Sub-step 2}{23}{section*.86}\protected@file@percent }
+\newlabel{eq_timestep2}{{4}{23}{Sub-step 2}{AMS.87}{}}
+\newlabel{eq_updateb}{{4.10}{23}{Sub-step 2}{equation.4.10}{}}
+\@writefile{toc}{\contentsline {paragraph}{Sub-step 3}{23}{section*.90}\protected@file@percent }
+\newlabel{eq_timestep3}{{4.11}{23}{Sub-step 3}{equation.4.11}{}}
 \@writefile{toc}{\contentsline {paragraph}{Sub-step 4}{23}{section*.93}\protected@file@percent }
 \newlabel{eq_timestep4}{{4.16}{23}{Sub-step 4}{equation.4.16}{}}
-\@writefile{toc}{\contentsline {paragraph}{Sub-step 5}{23}{section*.95}\protected@file@percent }
-\newlabel{eq_timestep5}{{4.17}{23}{Sub-step 5}{equation.4.17}{}}
-\@writefile{toc}{\contentsline {paragraph}{Sub-step 6 (Non-Hamiltonian part)}{23}{section*.98}\protected@file@percent }
-\newlabel{eq_timestep6}{{4.19}{23}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.19}{}}
-\newlabel{eq_timestep6_rho}{{4.20}{23}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.20}{}}
-\newlabel{eq_timestep6_up}{{4.21}{23}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.21}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Exemplary meshes in the $xy-$ plane corresponding to the two mappings defined in (\ref  {eq_mappings_exp}). For the Colella mapping (right) the parameter $\alpha =0.06$.\relax }}{24}{figure.3}\protected@file@percent }
-\newlabel{fig_meshes}{{3}{24}{Exemplary meshes in the $xy-$ plane corresponding to the two mappings defined in (\ref {eq_mappings_exp}). For the Colella mapping (right) the parameter $\alpha =0.06$.\relax }{figure.3}{}}
+\citation{}
+\citation{McLachlanetal2012}
+\@writefile{toc}{\contentsline {paragraph}{Sub-step 5}{24}{section*.95}\protected@file@percent }
+\newlabel{eq_timestep5}{{4.17}{24}{Sub-step 5}{equation.4.17}{}}
+\@writefile{toc}{\contentsline {paragraph}{Sub-step 6 (Non-Hamiltonian part)}{24}{section*.98}\protected@file@percent }
+\newlabel{eq_timestep6}{{4.19}{24}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.19}{}}
+\newlabel{eq_timestep6_rho}{{4.20}{24}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.20}{}}
+\newlabel{eq_timestep6_up}{{4.21}{24}{Sub-step 6 (Non-Hamiltonian part)}{equation.4.21}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {5}Numerical experiments}{24}{section.5}\protected@file@percent }
 \newlabel{sec_experiments}{{5}{24}{Numerical experiments}{section.5}{}}
 \newlabel{eq_mappings_exp}{{5.1}{24}{Numerical experiments}{equation.5.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Pure MHD}{24}{subsection.5.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text  {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_y=40 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_z=5 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, periodic boundary conditions everywhere, $n_\text  {q,el}=(3,3,2)$ and $n_\text  {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }}{25}{figure.4}\protected@file@percent }
-\newlabel{fig_power_spectra_time}{{4}{25}{Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text {A}/\Omega _\text {ci}$, $L_y=40 \,v_\text {A}/\Omega _\text {ci}$, $L_z=5 \,v_\text {A}/\Omega _\text {ci}$, periodic boundary conditions everywhere, $n_\text {q,el}=(3,3,2)$ and $n_\text {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }{figure.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Wave-particle resonance}{25}{subsection.5.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text  {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_y=40 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_z=5 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, periodic boundary conditions everywhere, $n_\text  {q,el}=(3,3,2)$ and $n_\text  {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }}{26}{figure.5}\protected@file@percent }
-\newlabel{fig_power_spectra_mapping}{{5}{26}{Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text {A}/\Omega _\text {ci}$, $L_y=40 \,v_\text {A}/\Omega _\text {ci}$, $L_z=5 \,v_\text {A}/\Omega _\text {ci}$, periodic boundary conditions everywhere, $n_\text {q,el}=(3,3,2)$ and $n_\text {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }{figure.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text  {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_y=40 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_z=5 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, periodic boundary conditions everywhere, $n_\text  {q,el}=(3,3,2)$ and $n_\text  {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }}{27}{figure.6}\protected@file@percent }
-\newlabel{fig_timestep_waveparticle}{{6}{27}{Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text {el}=(128,16,2)$, $p=(2,2,1)$, $L_x=3200 \,v_\text {A}/\Omega _\text {ci}$, $L_y=40 \,v_\text {A}/\Omega _\text {ci}$, $L_z=5 \,v_\text {A}/\Omega _\text {ci}$, periodic boundary conditions everywhere, $n_\text {q,el}=(3,3,2)$ and $n_\text {pr,el}=(3,3,2)$. Top: $U_z$-spectra (shear Alfvén waves), bottom: $p$-spectra (magnetosonic waves).\relax }{figure.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Summary}{27}{section.6}\protected@file@percent }
-\newlabel{sec_summary}{{6}{27}{Summary}{Item.19}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A}Formulae for exterior calculus of differential forms}{28}{appendix.a.A}\protected@file@percent }
-\newlabel{sec_appendix1}{{A}{28}{Formulae for exterior calculus of differential forms}{appendix.a.A}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Exterior product}{28}{subsection.a.A.1}\protected@file@percent }
-\newlabel{ap_wedge}{{A.1}{28}{Exterior product}{equation.a.A.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Interior product}{28}{subsection.a.A.2}\protected@file@percent }
-\newlabel{ap_interior}{{A.2}{28}{Interior product}{equation.a.A.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Hodge-star operator}{28}{subsection.a.A.3}\protected@file@percent }
-\newlabel{ap_hodge}{{A.3}{28}{Hodge-star operator}{equation.a.A.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Exterior derivative}{28}{subsection.a.A.4}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Exterior derivative in terms of the components $\hat  {\boldsymbol  {a}}^p$.\relax }}{28}{table.caption.112}\protected@file@percent }
-\newlabel{tab_exteriorderivative}{{2}{28}{Exterior derivative in terms of the components $\hat {\bo {a}}^p$.\relax }{table.caption.112}{}}
-\newlabel{ap_Leibniz}{{A.4b}{28}{Exterior derivative}{equation.a.A.4b}{}}
-\newlabel{eq_derivative_twice}{{A.4c}{28}{Exterior derivative}{equation.a.A.4c}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.5}Hilbert spaces of $p$-forms}{29}{subsection.a.A.5}\protected@file@percent }
-\newlabel{ap_Hilbertspaces}{{A.5}{29}{Hilbert spaces of $p$-forms}{AMS.114}{}}
-\newlabel{ap_scalarproducts}{{A.6}{29}{Hilbert spaces of $p$-forms}{equation.a.A.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A.6}Co-differential operator}{29}{subsection.a.A.6}\protected@file@percent }
-\newlabel{ap_Green}{{A.9}{29}{Co-differential operator}{equation.a.A.9}{}}
-\newlabel{ap_codifferential}{{A.10}{29}{Co-differential operator}{equation.a.A.10}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {B}$\delta f$-method}{29}{appendix.a.B}\protected@file@percent }
-\newlabel{sec_appendix2}{{B}{29}{$\delta f$-method}{appendix.a.B}{}}
-\newlabel{ap_weightsdelta}{{B.4}{30}{$\delta f$-method}{equation.a.B.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {C}Weights in quasi spline interpolation}{30}{appendix.a.C}\protected@file@percent }
-\newlabel{sec_appendix3}{{C}{30}{Weights in quasi spline interpolation}{appendix.a.C}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces The weights in (\ref  {eq_projector_global_coefficients}) for the interpolator $I^p$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }}{30}{table.caption.123}\protected@file@percent }
-\newlabel{tab_weights_inter}{{3}{30}{The weights in (\ref {eq_projector_global_coefficients}) for the interpolator $I^p$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }{table.caption.123}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Exemplary meshes in the $xy-$ plane corresponding to the two mappings defined in (\ref  {eq_mappings_exp}). For the Colella mapping (right) the parameter $\alpha =0.06$.\relax }}{25}{figure.3}\protected@file@percent }
+\newlabel{fig_meshes}{{3}{25}{Exemplary meshes in the $xy-$ plane corresponding to the two mappings defined in (\ref {eq_mappings_exp}). For the Colella mapping (right) the parameter $\alpha =0.06$.\relax }{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Pure MHD}{25}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text  {el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_z=5 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, periodic boundary conditions everywhere, $n_\text  {q,el}=(6,6,2)$ and $n_\text  {pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations. a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text  {div}(\boldsymbol  {B})$.\relax }}{26}{figure.4}\protected@file@percent }
+\newlabel{fig_power_spectra_time}{{4}{26}{Normalized MHD power spectra in the $\omega -k_x$-plane for different time steps obtained by initialization with white noise. Parameters are $N_\text {el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \,v_\text {A}/\Omega _\text {ci}$, $L_z=5 \,v_\text {A}/\Omega _\text {ci}$, periodic boundary conditions everywhere, $n_\text {q,el}=(6,6,2)$ and $n_\text {pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations. a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text {div}(\bo {B})$.\relax }{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Normalized MHD power spectra in the $\omega -k_x$-plane for different mesh distortions obtained by initialization with white noise. Parameters are $N_\text  {el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, $L_z=5 \tmspace  +\thinmuskip {.1667em}v_\text  {A}/\Omega _\text  {ci}$, periodic boundary conditions everywhere, $n_\text  {q,el}=(6,6,2)$ and $n_\text  {pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations. a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text  {div}(\boldsymbol  {B})$.\relax }}{27}{figure.5}\protected@file@percent }
+\newlabel{fig_power_spectra_mapping}{{5}{27}{Normalized MHD power spectra in the $\omega -k_x$-plane for different mesh distortions obtained by initialization with white noise. Parameters are $N_\text {el}=(80,80,2)$, $p=(3,3,1)$, $L_x=L_y=2000 \,v_\text {A}/\Omega _\text {ci}$, $L_z=5 \,v_\text {A}/\Omega _\text {ci}$, periodic boundary conditions everywhere, $n_\text {q,el}=(6,6,2)$ and $n_\text {pr,el}=(6,6,2)$. Dashed black lines are the analytical dispersion relations. a) - d) Spectra of the perpendicular velocity component (shear Alfvén waves), e) - h) Spectra of the pressure (magnetosonic waves). i) - l) Time evolution of the total energy (kinetic energy, magnetic energy and internal energy), mass and $\text {div}(\bo {B})$.\relax }{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces a) Time evolution of the normalized magnetic field energy for different time steps. b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text  {el}=(16,16,2)$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text  {q,el}=(6,6,2)$, $n_\text  {q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\relax }}{27}{figure.6}\protected@file@percent }
+\newlabel{fig_timestep_waveparticle}{{6}{27}{a) Time evolution of the normalized magnetic field energy for different time steps. b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text {el}=(16,16,2)$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text {q,el}=(6,6,2)$, $n_\text {q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\relax }{figure.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Hot ion distribution function in the $x-v_x$-plane at different times. Dashed black line is the resonant velocity. a) initial condition, b) linear growth phase, c) - d) saturation phase. \relax }}{28}{figure.7}\protected@file@percent }
+\newlabel{fig_phase_space}{{7}{28}{Hot ion distribution function in the $x-v_x$-plane at different times. Dashed black line is the resonant velocity. a) initial condition, b) linear growth phase, c) - d) saturation phase. \relax }{figure.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Wave-particle resonance}{28}{subsection.5.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces a) Time evolution of the normalized magnetic field energy for different mesh parameters (= number of elements) and metric ($\alpha \neq  0$). b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $\Delta t=0.10/\Omega _\text  {ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text  {q,el}=(6,6,2)$, $n_\text  {q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\relax }}{29}{figure.8}\protected@file@percent }
+\newlabel{fig_mesh_metric}{{8}{29}{a) Time evolution of the normalized magnetic field energy for different mesh parameters (= number of elements) and metric ($\alpha \neq 0$). b) Evolution of the total energy (bulk kinetic, magnetic, bulk internal and hot ion kinetic and internal energy). c) Evolution of the divergence of the magnetic field. Fixed parameters are $\Delta t=0.10/\Omega _\text {ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text {q,el}=(6,6,2)$, $n_\text {q,pr}=(6,6,2)$ and $K=8\cdot 10^6$.\relax }{figure.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces a) Time evolution of the normalized magnetic field energy for different particle numbers including the time integrator $\Phi ^6_{\Delta t}$. c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text  {el}=(16,16,2)$, $\Delta t=0.05/\Omega _\text  {ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text  {q,el}=(6,6,2)$ and $n_\text  {q,pr}=(6,6,2)$.\relax }}{29}{figure.9}\protected@file@percent }
+\newlabel{fig_nonHamiltonian_waveparticle}{{9}{29}{a) Time evolution of the normalized magnetic field energy for different particle numbers including the time integrator $\Phi ^6_{\Delta t}$. c) Evolution of the divergence of the magnetic field. Fixed parameters are $N_\text {el}=(16,16,2)$, $\Delta t=0.05/\Omega _\text {ci}$, $p=(2,2,1)$, $L_x=L_y=L_z=2\pi /k$, $n_\text {q,el}=(6,6,2)$ and $n_\text {q,pr}=(6,6,2)$.\relax }{figure.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Run times of different parts of the time integration scheme which are related to PIC dependent on the number of OpenMP threads. Here the number of particles $K=100000$ a) For the Cartesian mapping. b) For the Colella mapping.\relax }}{29}{figure.10}\protected@file@percent }
+\newlabel{fig_scaling}{{10}{29}{Run times of different parts of the time integration scheme which are related to PIC dependent on the number of OpenMP threads. Here the number of particles $K=100000$ a) For the Cartesian mapping. b) For the Colella mapping.\relax }{figure.10}{}}
+\citation{Tronci2017}
+\citation{VMEC}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{30}{section.6}\protected@file@percent }
+\newlabel{sec_summary}{{6}{30}{Conclusion}{Item.20}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Formulae for exterior calculus of differential forms}{31}{appendix.a.A}\protected@file@percent }
+\newlabel{sec_appendix1}{{A}{31}{Formulae for exterior calculus of differential forms}{appendix.a.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}Exterior product}{31}{subsection.a.A.1}\protected@file@percent }
+\newlabel{ap_wedge}{{A.1}{31}{Exterior product}{equation.a.A.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}Interior product}{31}{subsection.a.A.2}\protected@file@percent }
+\newlabel{ap_interior}{{A.2}{31}{Interior product}{equation.a.A.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Hodge-star operator}{31}{subsection.a.A.3}\protected@file@percent }
+\newlabel{ap_hodge}{{A.3}{31}{Hodge-star operator}{equation.a.A.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.4}Exterior derivative}{31}{subsection.a.A.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Exterior derivative in terms of the components $\hat  {\boldsymbol  {a}}^p$.\relax }}{31}{table.caption.112}\protected@file@percent }
+\newlabel{tab_exteriorderivative}{{2}{31}{Exterior derivative in terms of the components $\hat {\bo {a}}^p$.\relax }{table.caption.112}{}}
+\newlabel{ap_Leibniz}{{A.4b}{31}{Exterior derivative}{equation.a.A.4b}{}}
+\newlabel{eq_derivative_twice}{{A.4c}{31}{Exterior derivative}{equation.a.A.4c}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.5}Hilbert spaces of $p$-forms}{32}{subsection.a.A.5}\protected@file@percent }
+\newlabel{ap_Hilbertspaces}{{A.5}{32}{Hilbert spaces of $p$-forms}{AMS.114}{}}
+\newlabel{ap_scalarproducts}{{A.6}{32}{Hilbert spaces of $p$-forms}{equation.a.A.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.6}Co-differential operator}{32}{subsection.a.A.6}\protected@file@percent }
+\newlabel{ap_Green}{{A.9}{32}{Co-differential operator}{equation.a.A.9}{}}
+\newlabel{ap_codifferential}{{A.10}{32}{Co-differential operator}{equation.a.A.10}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}$\delta f$-method}{32}{appendix.a.B}\protected@file@percent }
+\newlabel{sec_appendix2}{{B}{32}{$\delta f$-method}{appendix.a.B}{}}
+\newlabel{ap_weightsdelta}{{B.4}{33}{$\delta f$-method}{equation.a.B.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Weights in quasi spline interpolation}{33}{appendix.a.C}\protected@file@percent }
+\newlabel{sec_appendix3}{{C}{33}{Weights in quasi spline interpolation}{appendix.a.C}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces The weights in (\ref  {eq_projector_global_coefficients}) for the interpolator $I^p$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }}{33}{table.caption.123}\protected@file@percent }
+\newlabel{tab_weights_inter}{{3}{33}{The weights in (\ref {eq_projector_global_coefficients}) for the interpolator $I^p$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }{table.caption.123}{}}
 \bibstyle{abbrv}
 \bibdata{refs}
 \bibcite{ArnoldFalkWinther2010}{{1}{}{{}}{{}}}
@@ -231,30 +244,31 @@
 \bibcite{Cranketal1947}{{12}{}{{}}{{}}}
 \bibcite{deBoor1973}{{13}{}{{}}{{}}}
 \bibcite{Shadwick2013}{{14}{}{{}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces The weights in (\ref  {eq_histopolator_global_coefficients}) for the histopolator $H^{p-1}$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }}{31}{table.caption.124}\protected@file@percent }
-\newlabel{tab_weights_histo}{{4}{31}{The weights in (\ref {eq_histopolator_global_coefficients}) for the histopolator $H^{p-1}$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }{table.caption.124}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces The weights in (\ref  {eq_histopolator_global_coefficients}) for the histopolator $H^{p-1}$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }}{34}{table.caption.124}\protected@file@percent }
+\newlabel{tab_weights_histo}{{4}{34}{The weights in (\ref {eq_histopolator_global_coefficients}) for the histopolator $H^{p-1}$ for quadratic ($p=2$) and cubic ($p=3$) B-splines, respectively.\relax }{table.caption.124}{}}
 \bibcite{Farin1993}{{15}{}{{}}{{}}}
 \bibcite{Frankel2011}{{16}{}{{}}{{}}}
 \bibcite{He_splitting2015}{{17}{}{{}}{{}}}
 \bibcite{He_FEEC2016}{{18}{}{{}}{{}}}
 \bibcite{Heidbrink_basics2008}{{19}{}{{}}{{}}}
-\bibcite{Konies_benchmark2018}{{20}{}{{}}{{}}}
-\bibcite{GEMPIC2017}{{21}{}{{}}{{}}}
-\bibcite{Lauber2013}{{22}{}{{}}{{}}}
-\bibcite{McLachlanetal2012}{{23}{}{{}}{{}}}
-\bibcite{Morrison2017}{{24}{}{{}}{{}}}
-\bibcite{MorrisonGreene1980}{{25}{}{{}}{{}}}
-\bibcite{Belova_M3D1999}{{26}{}{{}}{{}}}
-\bibcite{Qin2015}{{27}{}{{}}{{}}}
-\bibcite{Santoliketal2004}{{28}{}{{}}{{}}}
-\bibcite{Squire2012}{{29}{}{{}}{{}}}
-\bibcite{Todo_MEGA1998}{{30}{}{{}}{{}}}
-\bibcite{Tronci2010}{{31}{}{{}}{{}}}
-\bibcite{Tsurutaniatal1974}{{32}{}{{}}{{}}}
-\bibcite{XinWang2011}{{33}{}{{}}{{}}}
-\bibcite{Xiao_Qin2019}{{34}{}{{}}{{}}}
-\bibcite{Xiao2018}{{35}{}{{}}{{}}}
-\bibcite{Xiao2017}{{36}{}{{}}{{}}}
+\bibcite{VMEC}{{20}{}{{}}{{}}}
+\bibcite{Konies_benchmark2018}{{21}{}{{}}{{}}}
+\bibcite{GEMPIC2017}{{22}{}{{}}{{}}}
+\bibcite{Lauber2013}{{23}{}{{}}{{}}}
+\bibcite{McLachlanetal2012}{{24}{}{{}}{{}}}
+\bibcite{Morrison2017}{{25}{}{{}}{{}}}
+\bibcite{MorrisonGreene1980}{{26}{}{{}}{{}}}
+\bibcite{Belova_M3D1999}{{27}{}{{}}{{}}}
+\bibcite{Qin2015}{{28}{}{{}}{{}}}
+\bibcite{Santoliketal2004}{{29}{}{{}}{{}}}
+\bibcite{Squire2012}{{30}{}{{}}{{}}}
+\bibcite{Todo_MEGA1998}{{31}{}{{}}{{}}}
+\bibcite{Tronci2010}{{32}{}{{}}{{}}}
+\bibcite{Tsurutaniatal1974}{{33}{}{{}}{{}}}
+\bibcite{XinWang2011}{{34}{}{{}}{{}}}
+\bibcite{Xiao_Qin2019}{{35}{}{{}}{{}}}
+\bibcite{Xiao2018}{{36}{}{{}}{{}}}
+\bibcite{Xiao2017}{{37}{}{{}}{{}}}
 \providecommand\NAT@force@numbers{}\NAT@force@numbers
-\xwm@secstopagerange{{1}{1},{2}{2},{2}{2},{2}{3},{2}{4},{2}{5},{3}{7},{3}{7},{3}{9},{3}{10},{3}{13},{3}{13},{3}{15},{3}{18},{3}{20},{4}{21},{5}{23},{5}{24},{5}{25},{6}{26},{10000}{33}}
-\newlabel{xwmlastpage}{{6}{33}{Summary\relax }{section*.125}{}}
+\xwm@secstopagerange{{1}{1},{2}{3},{2}{3},{2}{4},{2}{5},{2}{5},{3}{7},{3}{7},{3}{9},{3}{11},{3}{13},{3}{13},{3}{16},{3}{19},{3}{21},{4}{22},{5}{24},{5}{25},{5}{25},{6}{28},{10000}{36}}
+\newlabel{xwmlastpage}{{6}{36}{Conclusion\relax }{section*.125}{}}
