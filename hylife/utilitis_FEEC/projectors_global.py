@@ -778,15 +778,15 @@ def integrate_2d(points, weights, fun):
             w1 = wts1[ie1, :]
             w2 = wts2[ie2, :]
             
-            #Pts1, Pts2 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], indexing='ij')
-            #mat_f[:, :] = fun(Pts1, Pts2)
+            Pts1, Pts2 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], indexing='ij')
+            mat_f[:, :] = fun(Pts1, Pts2)
             #mat_f[:, :] = fun(pts1[ie1], pts2[ie2])
-            
-            for i, xi in enumerate(pts1[ie1, :]):
-                for j, yj in enumerate(pts2[ie2, :]):
-                    mat_f[i,j] = fun(xi,yj)
+            print('hi')
+            #for i, xi in enumerate(pts1[ie1, :]):
+            #    for j, yj in enumerate(pts2[ie2, :]):
+            #        mat_f[i,j] = fun(xi,yj)
 
-            f_int[ie1, ie2] = kernels.kernel_int_2d(nq1, nq2, w1, w2, mat_f)
+            f_int[ie1, ie2] = kernels.kernel_int_2d_NEW(nq1, nq2, w1, w2, mat_f)
             
     return f_int
 # ===================================================================
