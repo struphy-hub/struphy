@@ -36,7 +36,7 @@ SRC_PIC := $(PF).py $(PP).py $(PA).py $(PS).py
 OBJ_PIC  := $(SRC_PIC:.py=$(SO_EXT))
 
 KPG := hylife/utilitis_FEEC/kernels_projectors_global
-SRC_PROJ := $(KPG).py
+SRC_PROJ := $(MA).py $(KPG).py
 OBJ_PROJ := $(SRC_PROJ:.py=$(SO_EXT))
 
 SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
