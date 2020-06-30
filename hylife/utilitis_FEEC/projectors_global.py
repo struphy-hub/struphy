@@ -14,13 +14,6 @@ import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.kernels_projectors_global as kernels
 
 
-__all__ = ['projectors_3d',
-           'projectors_1d',
-           'integrate_1d',
-           'integrate_2d',
-           'integrate_3d']
-
-
 # ===================================================================
 class projectors_3d:
     
@@ -771,6 +764,7 @@ def integrate_2d(points, weights, fun):
         
     f_int = np.empty((n1, n2))
     mat_f = np.empty((nq1, nq2))
+    f_loc = np.array([0.])
     
     for ie1 in range(n1):
         for ie2 in range(n2):
@@ -781,12 +775,13 @@ def integrate_2d(points, weights, fun):
             Pts1, Pts2 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], indexing='ij')
             mat_f[:, :] = fun(Pts1, Pts2)
             #mat_f[:, :] = fun(pts1[ie1], pts2[ie2])
-            print('hi')
             #for i, xi in enumerate(pts1[ie1, :]):
-            #    for j, yj in enumerate(pts2[ie2, :]):
-            #        mat_f[i,j] = fun(xi,yj)
+                #for j, yj in enumerate(pts2[ie2, :]):
+                    #mat_f[i,j] = fun(xi,yj)
 
-            f_int[ie1, ie2] = kernels.kernel_int_2d_NEW(nq1, nq2, w1, w2, mat_f)
+            #kernels.kernel_int_2d_new(nq1, nq2, w1, w2, mat_f, f_loc)
+            #f_int[ie1, ie2] = f_loc
+            f_int[ie1, ie2] = kernels.kernel_int_2d(nq1, nq2, w1, w2, mat_f)
             
     return f_int
 # ===================================================================
