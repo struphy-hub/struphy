@@ -1,6 +1,6 @@
 '''
  Module that provides projectors for commuting diagrams in the de Rham sequence, based on
- inter-/histopolation of b-splines at Greville points. 
+ inter-/histopolation of B-splines at Greville points. 
  Periodic and Dirichlet boundary conditions are available.
  
  Written 2019/20 by Florian Holderied and Stefan Possanner
@@ -256,268 +256,460 @@ class projectors_3d:
         
         self.DDD_LU()
 
+        
     # ======================================        
-    def PI_0(self, fun):
-        
+    def eval_for_PI_0(self, fun):
         '''
-        Projection on the space V0 via inter-inter-inter-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the 0-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
+        Evaluates the callable "fun" at the Greville points and returns the result as 3d nparray "mat_f".
+            
         '''
         
         n = [greville.size for greville in self.greville]
         
-        rhs = np.empty( (n[0], n[1], n[2]) )
+        mat_f = np.empty( (n[0], n[1], n[2]) )
         
         for i in range(n[0]):
             for j in range(n[1]):
                 for k in range(n[2]):
-                    rhs[i, j, k] = fun( self.greville[0][i], self.greville[1][j], self.greville[2][k] )
-                               
-        coeffs = self.NNN_LU.solve(rhs.flatten())
-        
-        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseN[2] )
+                    mat_f[i, j, k] = fun( self.greville[0][i], self.greville[1][j], self.greville[2][k] )
+                    
+        return mat_f
     
-    # ======================================
-    def PI_11(self, fun):
+        
+    # ======================================        
+    def PI_0_mat(self, mat_f):
         
         '''
-        FIRST component of projection on the space V1 via histo-inter-inter-polation in x1-x2-x3.
+        Projection on the space V0 via inter(xi1)-inter(xi2)-inter(xi2)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the FIRST component of the 1-form to be projected.
+        mat_f : 3d array_like
+            Right-hand side of the linear system. shape(mat_f)=(n1,n2,n3) with n_i=size(greville_i). 
 
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
+            Finite element coefficients obtained by projection.
+        '''
+                   
+        coeffs = self.NNN_LU.solve(mat_f.flatten())
+        
+        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseN[2] )
+
+    
+    # ======================================        
+    def eval_for_PI_11(self, fun):
+        
+        '''
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_11 and returns the result as 4d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne1 = self.pts[0].shape[0]
+        nq1 = self.pts[0].shape[1]
+        
+        mat_f = np.empty( (ne1, n[1], n[2], nq1) )
+        
+        for i in range(ne1):
+            for j in range(n[1]):
+                for k in range(n[2]):
+                        
+                        mat_f[i,j,k,:] = fun( self.pts[0][i,:], self.greville[1][j], self.greville[2][k] )
+                        
+        return mat_f
+        
+    
+    # ======================================
+    def PI_11_mat(self, mat_f):
+        
+        '''
+        FIRST component of projection on the space V1 via histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        
+        Parameters
+        ----------
+        mat_f : 4d array_like
+            Right-hand side of the linear system. shape(mat_f)=(ne1,n2,n3,nq1) with
+            ne1=number of elements in 1-direction 
+            n2=size(greville_2)
+            n3=size(greville_3)
+            nq1=quadrature point per element in 1-direction
+            
+
+        Returns
+        -------
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-            
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2]) )
-                    
-        for j in range(n[1]):
-            for k in range(n[2]):
-
-                integrand = lambda xi1 : fun( xi1, self.greville[1][j], self.greville[2][k] )
-
-                rhs[:, j, k] = integrate_1d(self.pts[0], self.wts[0], integrand)
-
-
-        ## alternative, using a 3D kernel
-        #
-        #integrand = np.empty((self.pts[0].shape[0], n[1], n[2],self.pts[0].shape[1]))
-        #for i in range(self.pts[0].shape[0]):
-        #    for j in range(n[1]):
-        #        for k in range(n[2]):
-        #            for p in range(self.pts[0].shape[1]):
-        #               integrand[i,j,k,p]=fun[0](self.pts[0,i,p],self.greville[1][j], self.greville[2][k])
-        #
-        #kernel_int_1d_ext_xi1(self.wts[0], integrand, rhs[0][:, :, :]  )
-                
+        
+        kernels.kernel_int_1d_ext_xi1(self.wts[0], mat_f, rhs[:, :, :]  )
+            
         coeffs = self.DNN_LU.solve(rhs.flatten()) 
         
         return coeffs.reshape( self.NbaseD[0], self.NbaseN[1], self.NbaseN[2] )
     
-    # ======================================
-    def PI_12(self, fun):
+    
+    # ======================================        
+    def eval_for_PI_12(self, fun):
         
         '''
-        SECOND component of projection on the space V1 via inter-histo-inter-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_12 and returns the result as 4d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne2 = self.pts[1].shape[0]
+        nq2 = self.pts[1].shape[1]
+        
+        mat_f = np.empty( (n[0], ne2, n[2], nq2) )
+        
+        for i in range(n[0]):
+            for j in range(ne2):
+                for k in range(n[2]):
+                        
+                        mat_f[i,j,k,:] = fun( self.greville[0][i], self.pts[1][j,:], self.greville[2][k] )
+                        
+        return mat_f
+        
+    
+    # ======================================
+    def PI_12_mat(self, mat_f):
+        
+        '''
+        SECOND component of projection on the space V1 via inter(xi1)-histo(xi2)-inter(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the SECOND component of the 1-form to be projected.
+        mat_f : 4d array_like
+            Right-hand side of the linear system. shape(mat_f)=(n1,ne2,n3,nq2) with
+            n1=size(greville_1)
+            ne2=number of elements in 2-direction 
+            n3=size(greville_3)
+            nq2=quadrature point per element in 2-direction
+            
 
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-            
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2]) )
-
-        for i in range(n[0]):
-            for k in range(n[2]):
-
-                integrand = lambda xi2 : fun( self.greville[0][i], xi2, self.greville[2][k] )
-
-                rhs[i, :, k] = integrate_1d(self.pts[1], self.wts[1], integrand)
-                
+        
+        kernels.kernel_int_1d_ext_xi2(self.wts[1], mat_f, rhs[:, :, :]  )
+            
         coeffs = self.NDN_LU.solve(rhs.flatten()) 
         
         return  coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseN[2] )
     
-    # ======================================
-    def PI_13(self, fun):
+    
+    # ======================================        
+    def eval_for_PI_13(self, fun):
         
         '''
-        THIRD component of projection on the space V1 via inter-inter-histo-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_13 and returns the result as 4d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne3 = self.pts[2].shape[0]
+        nq3 = self.pts[2].shape[1]
+        
+        mat_f = np.empty( (n[0], n[1], ne3, nq3) )
+        
+        for i in range(n[0]):
+            for j in range(n[1]):
+                for k in range(ne3):
+                        
+                        mat_f[i,j,k,:] = fun( self.greville[0][i], self.greville[1][j], self.pts[2][k,:] )
+                        
+        return mat_f
+        
+    
+    # ======================================
+    def PI_13_mat(self, mat_f):
+        
+        '''
+        THIRD component of projection on the space V1 via inter(xi1)-inter(xi2)-histo(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the THIRD component of the 1-form to be projected.
+        mat_f : 4d array_like
+            Right-hand side of the linear system. shape(mat_f)=(n1,ne2,n3,nq2) with
+            n1=size(greville_1)
+            ne2=number of elements in 2-direction 
+            n3=size(greville_3)
+            nq2=quadrature point per element in 2-direction
+            
 
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-            
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty( (n[0], n[1], n[2] - 1 + self.bc[2]) )
-                    
-        for i in range(n[0]):
-            for j in range(n[1]):
-
-                integrand = lambda xi3 : fun( self.greville[0][i], self.greville[1][j], xi3 )
-
-                rhs[i, j, :] = integrate_1d(self.pts[2], self.wts[2], integrand)
-                
+        
+        kernels.kernel_int_1d_ext_xi3(self.wts[2], mat_f, rhs[:, :, :]  )
+            
         coeffs = self.NND_LU.solve(rhs.flatten()) 
         
         return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseD[2] )
     
-    # ======================================
-    def PI_21(self, fun):
+    
+    # ======================================        
+    def eval_for_PI_21(self, fun):
         
         '''
-        FIRST component of projection on the space V2 via inter-histo-histo-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_21 and returns the result as 5d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne2 = self.pts[1].shape[0]
+        nq2 = self.pts[1].shape[1]
+        ne3 = self.pts[2].shape[0]
+        nq3 = self.pts[2].shape[1]
+        
+        mat_f = np.empty( (n[0], ne2, ne3, nq2, nq3) )
+        
+        for i in range(n[0]):
+            for j in range(ne2):
+                for k in range(ne3):
+                        
+                            m2, m3 = np.meshgrid( self.pts[1][j,:], self.pts[2][k,:], indexing='ij' )
+                            mat_f[i,j,k,:,:] = fun( self.greville[0][i], m2, m3 )
+                            
+        return mat_f
+        
+    
+    # ======================================
+    def PI_21_mat(self, mat_f):
+        
+        '''
+        FIRST component of projection on the space V2 via inter(xi1)-histo(xi2)-histo(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the FIRST component of the 2-form to be projected.
-
+        mat_f : 5d array_like
+            Right-hand side of the linear system. shape(mat_f)=(n1,ne2,ne3,nq2,nq3) with
+            n1=size(greville_1)
+            ne2=number of elements in 2-direction 
+            ne3=number of elements in 3-direction 
+            nq2=quadrature point per element in 2-direction
+            nq3=quadrature point per element in 3-direction
+            
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-        
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]) )
         
-        for i in range(n[0]):
-            
-            integrand = lambda xi2, xi3 : fun( self.greville[0][i], xi2, xi3 )
-            
-            rhs[i, :, :] = integrate_2d([self.pts[1], self.pts[2]], 
-                                        [self.wts[1], self.wts[2]], integrand )
+        kernels.kernel_int_2d_ext_xi2_xi3( self.wts[1], self.wts[2], mat_f, rhs[:, :, :]  )
             
         coeffs = self.NDD_LU.solve(rhs.flatten()) 
         
         return coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseD[2] )
     
-    # ======================================
-    def PI_22(self, fun):
+   
+    # ======================================        
+    def eval_for_PI_22(self, fun):
         
         '''
-        SECOND component of projection on the space V2 via histo-inter-histo-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_22 and returns the result as 5d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne1 = self.pts[0].shape[0]
+        nq1 = self.pts[0].shape[1]
+        ne3 = self.pts[2].shape[0]
+        nq3 = self.pts[2].shape[1]
+        
+        mat_f = np.empty( (ne1, n[1], ne3, nq1, nq3) )
+        
+        for i in range(ne1):
+            for j in range(n[1]):
+                for k in range(ne3):
+                    #for q1 in range(nq1):
+                        #for q3 in range(nq3):
+                        
+                            m1, m3 = np.meshgrid( self.pts[0][i,:], self.pts[2][k,:], indexing='ij' )
+                            mat_f[i,j,k,:,:] = fun( m1, self.greville[1][j], m3 )
+                            
+        return mat_f
+        
+    
+    # ======================================
+    def PI_22_mat(self, mat_f):
+        
+        '''
+        SECOND component of projection on the space V2 via histo(xi1)-inter(xi2)-histo(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the SECOND component of the 2-form to be projected.
-
+        mat_f : 5d array_like
+            Right-hand side of the linear system. shape(mat_f)=(ne1,n2,ne3,nq1,nq3) with
+            n2=size(greville_2)
+            ne1=number of elements in 1-direction 
+            ne3=number of elements in 3-direction 
+            nq1=quadrature point per element in 1-direction
+            nq3=quadrature point per element in 3-direction
+            
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-        
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2] - 1 + self.bc[2]) )
-            
-        for j in range(n[1]):
-            
-            integrand = lambda xi1, xi3 : fun(xi1, self.greville[1][j], xi3)
-            
-            rhs[:, j, :] = integrate_2d([self.pts[0], self.pts[2]], 
-                                        [self.wts[0], self.wts[2]], integrand)
         
+        kernels.kernel_int_2d_ext_xi1_xi3( self.wts[0], self.wts[2], mat_f, rhs[:, :, :]  )
+            
         coeffs = self.DND_LU.solve(rhs.flatten())
         
         return coeffs.reshape(self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
     
-    # ======================================
-    def PI_23(self, fun):
+    
+    # ======================================        
+    def eval_for_PI_23(self, fun):
         
         '''
-        THIRD component of projection on the space V2 via histo-histo-inter-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the Greville- and quadrature-points
+        for the projector PI_23 and returns the result as 5d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne1 = self.pts[0].shape[0]
+        nq1 = self.pts[0].shape[1]
+        ne2 = self.pts[1].shape[0]
+        nq2 = self.pts[1].shape[1]
+        
+        mat_f = np.empty( (ne1, ne2, n[2], nq1, nq2) )
+        
+        for i in range(ne1):
+            for j in range(ne2):
+                for k in range(n[2]):
+                    #for q1 in range(nq1):
+                        #for q2 in range(nq2):
+                        
+                            m1, m2 = np.meshgrid( self.pts[0][i,:], self.pts[1][j,:], indexing='ij' )
+                            mat_f[i,j,k,:,:] = fun( m1, m2, self.greville[2][k] )
+                            
+        return mat_f
+        
+    
+    # ======================================
+    def PI_23_mat(self, mat_f):
+        
+        '''
+        THIRD component of projection on the space V2 via histo(xi1)-histo(xi2)-inter(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the THIRD component of the 2-form to be projected.
-
+        mat_f : 5d array_like
+            Right-hand side of the linear system. shape(mat_f)=(ne1,ne2,n3,nq1,nq2) with
+            n3=size(greville_3)
+            ne1=number of elements in 1-direction 
+            ne2=number of elements in 2-direction 
+            nq1=quadrature point per element in 1-direction
+            nq2=quadrature point per element in 2-direction
+            
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
         
-        n = [greville.size for greville in self.greville]
-        
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2]))
-            
-        for k in range(n[2]):
-            
-            integrand = lambda xi1, xi2 : fun(xi1, xi2, self.greville[2][k])
-            
-            rhs[:, :, k] = integrate_2d([self.pts[0], self.pts[1]], 
-                                        [self.wts[0], self.wts[1]], integrand)
+        
+        kernels.kernel_int_2d_ext_xi1_xi2( self.wts[0], self.wts[1], mat_f, rhs[:, :, :]  )
             
         coeffs = self.DDN_LU.solve(rhs.flatten())
         
         return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
     
-    # ======================================
-    def PI_3(self, fun):
+    
+    # ======================================        
+    def eval_for_PI_3(self, fun):
         
         '''
-        Projection on the space V3 via histo-histo-histo-polation in x1-x2-x3.
+        Evaluates the callable "fun" at the quadrature-points
+        for the projector PI_3 and returns the result as 6d nparray "mat_f".
+            
+        '''
+        
+        n   = [greville.size for greville in self.greville]
+        ne1 = self.pts[0].shape[0]
+        nq1 = self.pts[0].shape[1]
+        ne2 = self.pts[1].shape[0]
+        nq2 = self.pts[1].shape[1]
+        ne3 = self.pts[2].shape[0]
+        nq3 = self.pts[2].shape[1]
+        
+        mat_f = np.empty( (ne1, ne2, ne3, nq1, nq2, nq3) )
+        
+        for i in range(ne1):
+            for j in range(ne2):
+                for k in range(ne3):
+                    #for q1 in range(nq1):
+                        #for q2 in range(nq2):
+                            #for q3 in range(nq3):
+                        
+                                m1, m2, m3 = np.meshgrid( self.pts[0][i,:], self.pts[1][j,:], self.pts[2][k,:], indexing='ij' )
+                                mat_f[i,j,k,:,:,:] = fun( m1, m2, m3 )
+                            
+        return mat_f
+        
+    
+    # ======================================
+    def PI_3_mat(self, mat_f):
+        
+        '''
+        Projection on the space V3 via histo(xi1)-histo(xi2)-histo(xi3)-polation.
         
         Parameters
         ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the 3-form to be projected.
-
+        mat_f : 6d array_like
+            shape(mat_f)=(ne1,ne2,n3,nq1,nq2,nq3) with
+            ne1=number of elements in 1-direction 
+            ne2=number of elements in 2-direction 
+            ne3=number of elements in 3-direction
+            nq1=quadrature point per element in 1-direction
+            nq2=quadrature point per element in 2-direction
+            nq3=quadrature point per element in 3-direction
+            
         Returns
         -------
-        coeffs : 3D array_like
+        coeffs : 3d array_like
             Finite element coefficients obtained by projection.
         '''
-
-        n = [greville.size for greville in self.greville]
-
+        
+        n   = [greville.size for greville in self.greville]  
         rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]))
-
-        rhs[:, :, :] = integrate_3d([self.pts[0], self.pts[1], self.pts[2]],
-                                    [self.wts[0], self.wts[1], self.wts[2]], fun)
-
+        
+        kernels.kernel_int_3d_ext( self.wts[0], self.wts[1], self.wts[2], mat_f, rhs[:, :, :]  )
+            
         coeffs = self.DDD_LU.solve(rhs.flatten())
 
         return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
-# ===================================================================
 
 
 
