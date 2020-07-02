@@ -8,6 +8,7 @@
 import numpy        as np
 import scipy.sparse as sparse
 import hylife.utilitis_FEEC.bsplines as bsp
+from hylife.utilitis_FEEC.linalg_kron import kron_matvec_3d
 
 
 __all__ = ['FEM_field_1d',
@@ -222,6 +223,76 @@ def FEM_field_V2_2d(coeff, q, T, p, bc):
 
 
 #==============================================================================================================================
+def FEM_evalbase_3d(basis, q, T, p, bc):
+    """
+    Evaluates the 3d FEM suitable basis at the tensor-grid given by q = [q1, q2, q3].
+    
+    Parameters
+    ----------
+    basis : int
+        The basis in which the FEM field is expandend.
+             0: V0
+            11: first  component of V1
+            12: second component of V1
+            13: third  component of V1
+            21: first  component of V2
+            22: second component of V2
+            23: third  component of V2
+             3: V3
+        
+    q : list of ndarrays
+        1d evaluation points in each direction
+        
+    T : list of ndarrays
+        1d knot vectors defining the spline basis
+    
+    p : list of ints
+        spline degrees 
+        
+    bc : list of booleans
+        boundary conditions (True = periodic, False = else)
+        
+    Returns
+    -------
+    basemat : list of 3 sparse 1d matrices for each direction 
+    """
+    
+    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i))
+         for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    D = [sparse.csr_matrix(bsp.collocation_matrix(T_i[1:-1], p_i - 1, q_i, bc_i, normalize=True)) 
+         for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
+    
+    if basis==0:
+        basemat = [N[0], N[1], N[2]]
+                                                        
+    elif basis==11:
+        basemat = [D[0], N[1], N[2]]
+                                                        
+    elif basis==12:
+        basemat = [N[0], D[1], N[2]]
+                                                        
+    elif basis==13:
+        basemat = [N[0], N[1], D[2]]
+                                                        
+    elif basis==21:
+        basemat = [N[0], D[1], D[2]]
+                                                        
+    elif basis==22:
+        basemat = [D[0], N[1], D[2]]
+                                                        
+    elif basis==23:
+        basemat = [D[0], D[1], N[2]]
+                                                        
+    elif basis==3:
+        basemat = [D[0], D[1], D[2]]
+                                                        
+    else:
+        print('WARNING: no basis matched.')
+    
+    return basemat
+
+
+
 def FEM_field_3d(coeff, basis, q, T, p, bc):
     """
     Evaluates the 3d FEM field in the suitable basis at the tensor-grid given by q = [q1, q2, q3].
@@ -259,38 +330,10 @@ def FEM_field_3d(coeff, basis, q, T, p, bc):
     eva : list of ndarrays
         evaluated values at the points q for each component (flattened)
     """
-    
-    N = [sparse.csr_matrix(bsp.collocation_matrix(T_i, p_i, q_i, bc_i))
-         for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
-    D = [sparse.csr_matrix(bsp.collocation_matrix(T_i[1:-1], p_i - 1, q_i, bc_i, normalize=True)) 
-         for T_i, p_i, q_i, bc_i in zip(T, p, q, bc)]
-    
-    if basis==0:
-        eva = sparse.kron(sparse.kron(N[0], N[1]), N[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==11:
-        eva = sparse.kron(sparse.kron(D[0], N[1]), N[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==12:
-        eva = sparse.kron(sparse.kron(N[0], D[1]), N[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==13:
-        eva = sparse.kron(sparse.kron(N[0], N[1]), D[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==21:
-        eva = sparse.kron(sparse.kron(N[0], D[1]), D[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==22:
-        eva = sparse.kron(sparse.kron(D[0], N[1]), D[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==23:
-        eva = sparse.kron(sparse.kron(D[0], D[1]), N[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    elif basis==3:
-        eva = sparse.kron(sparse.kron(D[0], D[1]), D[2]).dot(coeff.flatten()).reshape(
-                                                                    len(q[0]), len(q[1]), len(q[2]))
-    else:
-        print('WARNING: no basis matched.')
-    
+    basemat = FEM_evalbase_3d(basis, q, T, p, bc)
+
+    eva     = kron_matvec_3d(basemat,coeff)
+
     return eva
+
 #==============================================================================================================================
