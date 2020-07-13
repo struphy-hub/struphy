@@ -11,34 +11,24 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-LA  := hylife/linear_algebra/core
-EQM := simulation_06042020_2/equilibrium_MHD
-EQP := simulation_06042020_2/equilibrium_PIC
-ICM := simulation_06042020_2/initial_conditions_MHD
-ICP := simulation_06042020_2/initial_conditions_PIC
+EQM := simulations/simulation_16062020_8/equilibrium_MHD
+EQP := simulations/simulation_16062020_8/equilibrium_PIC
+ICM := simulations/simulation_16062020_8/initial_conditions_MHD
+ICP := simulations/simulation_16062020_8/initial_conditions_PIC
 INT := hylife/interface
 SRC_BASE := $(MA).py $(LA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py
 OBJ_BASE := $(SRC_BASE:.py=$(SO_EXT))
 
 KCV := hylife/utilitis_FEEC/kernels_control_variate
-KM  := hylife/utilitis_FEEC/kernels_mass
-KPL := hylife/utilitis_FEEC/kernels_projectors_local
-KPI := hylife/utilitis_FEEC/kernels_projectors_local_ini
-KPM := hylife/utilitis_FEEC/kernels_projectors_local_mhd
-SRC_FEEC := $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py 
-OBJ_FEEC := $(SRC_FEEC:.py=$(SO_EXT))
-
-PF  := hylife/utilitis_PIC_April2020/STRUPHY_fields
-PP  := hylife/utilitis_PIC_April2020/STRUPHY_pusher
-PA  := hylife/utilitis_PIC_April2020/STRUPHY_accumulation_kernels
-PS  := hylife/utilitis_PIC_April2020/STRUPHY_sampling
-SRC_PIC := $(PF).py $(PP).py $(PA).py $(PS).py
-OBJ_PIC  := $(SRC_PIC:.py=$(SO_EXT))
-
-KPG := hylife/utilitis_FEEC/kernels_projectors_global
-KPGx := hylife/utilitis_FEEC/kernels_projectors_global_V2
-SRC_PROJ := $(KPG).py $(KPGx).py
-OBJ_PROJ := $(SRC_PROJ:.py=$(SO_EXT))
+KM  := hylife/utilitis_FEEC/basics/kernels_3d
+KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
+KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva
+KPM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
+LA  := hylife/linear_algebra/core
+PF  := hylife/utilitis_PIC/STRUPHY_fields
+PP  := hylife/utilitis_PIC/STRUPHY_pusher
+PA  := hylife/utilitis_PIC/STRUPHY_accumulation_kernels
+PS  := hylife/utilitis_PIC/STRUPHY_sampling
 
 SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -128,34 +118,13 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 # CLEAN UP
 #--------------------------------------
 
-.PHONY: clean cleanproj cleanbase cleanfeec cleanpic
-#clean: cleanproj cleanbase cleanfeec cleanpic
-clean: cleanproj
-
-veryclean:
-	rm -rf hylife/*.so hylife/*/*.so
-	rm -rf hylife/__pyc*__ hylife/*/__pyc*__
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ VERYCLEAN DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-cleanproj:
-	rm -rf $(OBJ_PROJ)
-	rm -rf hylife/utilitis_FEEC/__pyc*__
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN PROJ DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-cleanbase:
-	rm -rf $(OBJ_BASE)
-	rm -rf hylife/__pyc*__
-	rm -rf hylife/geometry/__pyc*__
-	rm -rf hylife/linear_algebra/__pyc*__
-	rm -rf hylife/simulation_06042020_2/__pyc*__
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN BASE DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-cleanfeec:
-	rm -rf $(OBJ_FEEC)
-	rm -rf hylife/utilitis_FEEC/__pyc*__
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN FEEC DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-cleanpic:
-	rm -rf $(OBJ_PIC)
-	rm -rf hylife/utilitis_PIC_April2020/__pyc*__
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ CLEAN PIC DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+.PHONY: clean
+clean:
+	rm -rf $(OUTPUTS)
+	rm -rf hylife/__pycache__ hylife/__pyccel__
+	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
+	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
+	rm -rf hylife/utilities_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
+	rm -rf hylife/utilities_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
+	rm -rf hylife/utilities_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
+	rm -rf hylife/utilities_PIC_April2020/__pyccel__ hylife/utilities_PIC_April2020/__pycache__

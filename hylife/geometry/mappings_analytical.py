@@ -8,7 +8,26 @@ def f(xi1, xi2, xi3, kind, params, component):
     defines an analytical mapping X = f(xi) in three dimensions. 
     X=(X1,X2,X3), xi=(xi1,xi2,xi3)
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella, 4 = orthogonal)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        physical coordinate (1 = x, 2 = y, 3 = z)
+        
     
     params    : slab            --> Lx, Ly, Lz
               : hollow cylinder --> R1, R2, Lz
@@ -38,9 +57,11 @@ def f(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 1:
-            value = (xi1 * dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * cos(arg)
         elif component == 2:
-            value = (xi1 * dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = (xi1 * dR + R1) * sin(arg)
         elif component == 3:
             value = Lz * xi3
             
@@ -52,16 +73,37 @@ def f(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 1:
-            value = Lx * (xi1 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (xi1 + alpha * sin(arg1) * sin(arg2))
         elif component == 2:
-            value = Ly * (xi2 + alpha * sin(2*pi*xi1) * sin(2*pi*xi2))
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg1) * sin(arg2))
         elif component == 3:
             value = Lz * xi3
     else:
         #raise ValueError("kind of mapping unknown")
         value = -99999999.
             
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 1:
+            arg   = 2*pi*xi1
+            value = Lx * (xi1 + alpha * sin(arg))
+        elif component == 2:
+            arg   = 2*pi*xi2
+            value = Ly * (xi2 + alpha * sin(arg))
+        elif component == 3:
+            value = Lz * xi3
+                 
     return value
+
 
 
 # =======================================================================
@@ -72,7 +114,26 @@ def df(xi1, xi2, xi3, kind, params, component):
 
     X=(X1,X2,X3), xi=(xi1,xi2,xi3)
     
-    kind      : 1 (slab), 2 (hollow cylinder), 3 (colella) 
+    Parameters
+    ----------
+    xi1 : double
+        1st logical coordinate in [0, 1]
+        
+    xi2 : double
+        2nd logical coordinate in [0, 1]
+        
+    xi3 : double
+        3rd logical coordinate in [0, 1]
+        
+    kind : int
+        type of mapping (1 = slab, 2 = hollow cylinder, 3 = colella)
+        
+    params : list of doubles
+        parameters for the mapping (slab : [Lx, Ly, Lz], hollow cylinder : [R1, R2, Lz], colella : [Lx, Ly, alpha, Lz], orthogonal : [Lx, Ly, alpha, Lz])
+        
+    component : int
+        component of Jacobian matrix (11 = df1/dxi1, 12 = df1/dxi2, 13 = df1/dxi3, 21 = df2/dxi1, 22 = df2/dxi2, 23 = df2/dxi3, 31 = df3/dxi1, 32 = df3/dxi2, 33 = df3/dxi3)
+        
     
     params    : slab            --> Lx, Ly, Lz
               : hollow cylinder --> R1, R2, Lz
@@ -121,15 +182,19 @@ def df(xi1, xi2, xi3, kind, params, component):
         dR = R2 - R1
         
         if   component == 11:
-            value = dR * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * cos(arg)
         elif component == 12:
-            value = -2*pi * (xi1*dR + R1) * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = -2*pi * (xi1*dR + R1) * sin(arg)
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = dR * sin(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value = dR * sin(arg)
         elif component == 22:
-            value =  2*pi * (xi1*dR + R1) * cos(2*pi*xi2)
+            arg   = 2*pi*xi2
+            value =  2*pi * (xi1*dR + R1) * cos(arg)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -150,15 +215,52 @@ def df(xi1, xi2, xi3, kind, params, component):
         Lz    = params[3]
         
         if   component == 11:
-            value = Lx * (1 + alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * (1 + alpha * cos(arg1) * sin(arg2) * 2*pi)
         elif component == 12:
-            value = Lx * alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Lx * alpha * sin(arg1) * cos(arg2) * 2*pi
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = Ly * alpha * cos(2*pi*xi1) * sin(2*pi*xi2) * 2*pi
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * alpha * cos(arg1) * sin(arg2) * 2*pi
         elif component == 22:
-            value = Ly * (1 + alpha * sin(2*pi*xi1) * cos(2*pi*xi2) * 2*pi)
+            arg1  = 2*pi*xi1
+            arg2  = 2*pi*xi2
+            value = Ly * (1 + alpha * sin(arg1) * cos(arg2) * 2*pi)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.    
+        elif component == 33:
+            value = Lz
+            
+            
+    elif kind == 4:
+        
+        Lx    = params[0]
+        Ly    = params[1]
+        alpha = params[2]
+        Lz    = params[3]
+        
+        if   component == 11:
+            arg   = 2*pi*xi1
+            value = Lx * (1 + alpha * cos(arg) * 2*pi)
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            arg   = 2*pi*xi2
+            value = Ly * (1 + alpha * cos(arg) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -175,7 +277,6 @@ def df(xi1, xi2, xi3, kind, params, component):
         value = -99999999.
             
     return value
-
 
 
 
@@ -206,6 +307,7 @@ def det_df(xi1, xi2, xi3, kind, params):
               +dX3_dxi1*(dX1_dxi2*dX2_dxi3 - dX2_dxi2* dX1_dxi3 ) )
             
     return value
+
 
 
 
@@ -282,6 +384,8 @@ def df_inv(xi1, xi2, xi3, kind, params, component):
     value=value/det_df_loc
             
     return value
+
+
 
 
 # =======================================================================
@@ -401,3 +505,117 @@ def g_inv(xi1, xi2, xi3, kind, params, component):
             
     return value
 
+
+
+# ==========================================================================================
+@types('double','double','double','int','int','double[:]')        
+def fun(xi1, xi2, xi3, kind_fun, kind_map, params):
+    
+    value = 0.
+    
+    # mapping f
+    if   kind_fun == 1:
+        value = f(xi1, xi2, xi3, kind_map, params, 1)
+    elif kind_fun == 2:
+        value = f(xi1, xi2, xi3, kind_map, params, 2)
+    elif kind_fun == 3:
+        value = f(xi1, xi2, xi3, kind_map, params, 3)
+    
+    # Jacobian matrix df
+    elif kind_fun == 11:
+        value = df(xi1, xi2, xi3, kind_map, params, 11)
+    elif kind_fun == 12:
+        value = df(xi1, xi2, xi3, kind_map, params, 12)
+    elif kind_fun == 13:
+        value = df(xi1, xi2, xi3, kind_map, params, 13)
+    elif kind_fun == 14:
+        value = df(xi1, xi2, xi3, kind_map, params, 21)
+    elif kind_fun == 15:
+        value = df(xi1, xi2, xi3, kind_map, params, 22)
+    elif kind_fun == 16:
+        value = df(xi1, xi2, xi3, kind_map, params, 23)
+    elif kind_fun == 17:
+        value = df(xi1, xi2, xi3, kind_map, params, 31)
+    elif kind_fun == 18:
+        value = df(xi1, xi2, xi3, kind_map, params, 32)
+    elif kind_fun == 19:
+        value = df(xi1, xi2, xi3, kind_map, params, 33)
+        
+    # Jacobian determinant det_df
+    elif kind_fun == 4:
+        value = det_df(xi1, xi2, xi3, kind_map, params)
+        
+    # inverse Jacobian matrix df_inv
+    elif kind_fun == 21:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 11)
+    elif kind_fun == 22:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 12)
+    elif kind_fun == 23:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 13)
+    elif kind_fun == 24:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 21)
+    elif kind_fun == 25:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 22)
+    elif kind_fun == 26:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 23)
+    elif kind_fun == 27:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 31)
+    elif kind_fun == 28:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 32)
+    elif kind_fun == 29:
+        value = df_inv(xi1, xi2, xi3, kind_map, params, 33)
+        
+    # metric tensor g
+    elif kind_fun == 31:
+        value = g(xi1, xi2, xi3, kind_map, params, 11)
+    elif kind_fun == 32:
+        value = g(xi1, xi2, xi3, kind_map, params, 12)
+    elif kind_fun == 33:
+        value = g(xi1, xi2, xi3, kind_map, params, 13)
+    elif kind_fun == 34:
+        value = g(xi1, xi2, xi3, kind_map, params, 21)
+    elif kind_fun == 35:
+        value = g(xi1, xi2, xi3, kind_map, params, 22)
+    elif kind_fun == 36:
+        value = g(xi1, xi2, xi3, kind_map, params, 23)
+    elif kind_fun == 37:
+        value = g(xi1, xi2, xi3, kind_map, params, 31)
+    elif kind_fun == 38:
+        value = g(xi1, xi2, xi3, kind_map, params, 32)
+    elif kind_fun == 39:
+        value = g(xi1, xi2, xi3, kind_map, params, 33)
+        
+    # metric tensor g_inv
+    elif kind_fun == 41:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 11)
+    elif kind_fun == 42:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 12)
+    elif kind_fun == 43:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 13)
+    elif kind_fun == 44:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 21)
+    elif kind_fun == 45:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 22)
+    elif kind_fun == 46:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 23)
+    elif kind_fun == 47:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 31)
+    elif kind_fun == 48:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 32)
+    elif kind_fun == 49:
+        value = g_inv(xi1, xi2, xi3, kind_map, params, 33)
+    
+    return value
+
+
+
+
+
+# ==========================================================================================
+@types('int[:]','double[:]','double[:]','double[:]','double[:,:,:](order=F)','int','int','double[:]')        
+def kernel_eva(n, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
+    
+    for i1 in range(n[0]):
+        for i2 in range(n[1]):
+            for i3 in range(n[2]):
+                mat_f[i1, i2, i3] = fun(xi1[i1], xi2[i2], xi3[i3], kind_fun, kind_map, params)
