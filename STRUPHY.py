@@ -30,8 +30,8 @@ import hylife.interface as inter
 
 # ======================== load parameters ============================
 
-import simulations.simulation_19062020_9.parameters_19062020_9 as pa    # name input folder here!
-identifier = 'simulation_19062020_9'                                    # name input folder here!
+import simulations.simulation_13072020_1.parameters_13072020_1 as pa    # name input folder here!
+identifier = 'simulation_13072020_1'                                    # name input folder here!
 
 params = pa.parameters()
 
@@ -190,7 +190,6 @@ fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 
 
 
-
 # ============= projection of initial conditions ==========================
 
 # create object for projecting initial conditions
@@ -212,10 +211,6 @@ else:
 
 del pro
 
-print('projection of initial conditions done!')
-# ==========================================================================
-
-
 """
 amps = np.random.rand(8, pr.shape[0], pr.shape[1])
 
@@ -232,6 +227,13 @@ for k in range(pr.shape[2]):
 
     rho[:, :, k] = amps[7]
 """
+
+
+print('projection of initial conditions done!')
+# ==========================================================================
+
+
+
 
 # ==================== matrices ========================================
 
@@ -277,11 +279,10 @@ S2      = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
 STEP2_1 = (A - dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
 STEP2_2 = dt*TAU.T.dot(CURL.T.dot(M2)).tocsc()
 
-S2_ILU = spa.linalg.spilu(S2)
-
+S2_ILU  = spa.linalg.spilu(S2)
 
 # matrices for step 6
-L = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
+L      = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
 
 del S, K
 
@@ -322,7 +323,7 @@ elif loading == 'pr_space_uni_velocity':
     
 elif loading == 'external':
     # load numbers between (0, 1) from an external file
-    particles[:, :6] = np.load('test_particles.npy')
+    particles[:, :6] = np.load('particles.npy')
     
 else:
     print('particle loading not specified')
@@ -420,7 +421,7 @@ def update():
     u3_old[:, :, :] = u3[:, :, :]
     
     timea = time.time()
-    #temp1, temp2, temp3 = np.split(STEP2_schur_LU.solve(STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+    # solve linear system with conjugate gradient method with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
     temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S2.shape, lambda x : S2_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
     timeb = time.time()
     times_elapsed['update_step2u'] = timeb - timea
@@ -524,8 +525,7 @@ def update():
         
         timea = time.time()
         
-        # update velocity with auxiliary pressure q_aux_new
-        #u1_new, u2_new, u3_new, p_new = np.split(spa.linalg.cg(S6, np.concatenate((A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), np.zeros(Ntot_0form))) + np.concatenate((np.zeros(Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]), L.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))/2)) - dt*np.concatenate((M1.dot(GRAD).dot(pr.flatten()), np.zeros(Ntot_0form))) + dt*np.concatenate((M1.dot(P).dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), np.zeros(Ntot_0form))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())), tol=1e-8), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1], Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        # solve linear system with conjugate gradient method with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
         u1_new, u2_new, u3_new, pr_new = np.split(spa.linalg.cg(S6, STEP6.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())) + np.concatenate((dt*M1.dot(P).dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), np.zeros(Ntot_0form)))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S6.shape, lambda x : S6_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1], Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
         
         # update density
@@ -541,18 +541,8 @@ def update():
         
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea
-        
-        #timea = time.time()
-        #temp1, temp21, temp22, temp23, temp3 = np.split(LHS_LU.solve(RHS.dot(np.concatenate((rho.flatten(), np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), pr.flatten()))) + dt*np.concatenate((np.zeros(Ntot_3form), spa.linalg.spsolve(A, M1.dot(P.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))), np.zeros(Ntot_0form)))), [Ntot_3form, Ntot_3form + Ntot_1form[0], Ntot_3form + Ntot_1form[0] + Ntot_1form[1], Ntot_3form + Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
-        #timeb = time.time()
-        #times_elapsed['update_step6'] = timeb - timea
-        
-        #rho[:, :, :] = temp1.reshape(Nbase_3form)
-        #u1[:, :, :]  = temp21.reshape(Nbase_1form[0])
-        #u2[:, :, :]  = temp22.reshape(Nbase_1form[1])
-        #u3[:, :, :]  = temp23.reshape(Nbase_1form[2])
-        #pr[:, :, :]  = temp3.reshape(Nbase_0form)
     # ==================================================================================================
+    
         
     time_totb = time.time()
     times_elapsed['total'] = time_totb - time_tota                                  
@@ -567,8 +557,6 @@ def update():
     # diagnostics (distribution function via particle binning)
     fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
 # ============================================================================
-
-
 
 
 
