@@ -82,10 +82,7 @@ def f(xi1, xi2, xi3, kind, params, component):
             value = Ly * (xi2 + alpha * sin(arg1) * sin(arg2))
         elif component == 3:
             value = Lz * xi3
-    else:
-        #raise ValueError("kind of mapping unknown")
-        value = -99999999.
-            
+    
     elif kind == 4:
         
         Lx    = params[0]
@@ -101,7 +98,11 @@ def f(xi1, xi2, xi3, kind, params, component):
             value = Ly * (xi2 + alpha * sin(arg))
         elif component == 3:
             value = Lz * xi3
-                 
+    
+    else:
+        #raise ValueError("kind of mapping unknown")
+        value = -99999999.
+                  
     return value
 
 
@@ -240,8 +241,10 @@ def df(xi1, xi2, xi3, kind, params, component):
             value = 0.    
         elif component == 33:
             value = Lz
-            
-            
+        else:
+            #raise ValueError("df component not correct")
+            value = -99999999.
+                   
     elif kind == 4:
         
         Lx    = params[0]

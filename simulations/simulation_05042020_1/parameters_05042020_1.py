@@ -6,34 +6,34 @@ class parameters():
     
     def __init__(self):
 
-        # cores used : 8 on Cobra in interactive mode
+        # Simulation run via interactive on Draco (export OMP_NUM_THREADS=8)
         
-        self.Nel          = [32, 2, 2]             # mesh generation on logical domain
-        self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
-        self.p            = [3, 1, 1]              # spline degrees  
+        self.Nel          = [16, 16, 2]             # mesh generation on logical domain
+        self.bc           = [True, True, True]      # boundary conditions (True: periodic, False: else)
+        self.p            = [2, 2, 1]               # spline degrees  
         
-        self.nq_el        = [6, 6, 6] # number of quadrature points per element for integrations over whole domain
-        self.nq_pr        = [6, 6, 6] # number of quadrature points per integration interval of projectors
+        self.nq_el        = [6, 6, 2] # number of quadrature points per element for integrations over whole domain
+        self.nq_pr        = [6, 6, 2] # number of quadrature points per integration interval of projectors
 
-        self.time_int     = True     # do time integration?
-        self.dt           = 0.05     # time step
-        self.Tend         = 200.0      # simulation time
-        self.max_time     = 60*60    # maximum runtime of program in minutes
-        self.add_pressure = False    # add non-Hamiltonian terms to simulation?
+        self.time_int     = True       # do time integration?
+        self.dt           = 0.05       # time step
+        self.Tend         = 10.0      # simulation time
+        self.max_time     = 23.5*60    # maximum runtime of program in minutes
+        self.add_pressure = False      # add non-Hamiltonian terms to simulation?
 
         # geometry
-        self.kind_map     =  1                         # 1 : slab, 2 : hollow cylinder, 3 : colella
+        self.kind_map     = 1                         # 1 : slab, 2 : hollow cylinder, 3 : colella
         
-        self.params_map   = [2*np.pi/0.6, 1., 1.]     # parameters for mapping  
-        #self.params_map   = [2*np.pi/0.75, 2*np.pi/1., 0.1, 0.1]     # parameters for mapping  
+        self.params_map   = [2*np.pi/0.8, 2*np.pi/0.8, 1.]      # parameters for mapping  
+        #self.params_map   = [2*np.pi/0.8, 2*np.pi/0.8, 0.1, 1.]     # parameters for mapping  
         
         # physical constants
         self.gamma        = 5/3                        # adiabatic exponent
 
         # particle parameters
         self.add_PIC      = True                # add kinetic terms to simulation?
-        self.Np           = 512000              # total number of particles
-        self.control      = True                # control variate for noise resuction? (delta-f method)
+        self.Np           = int(125000)            # total number of particles
+        self.control      = False               # control variate for noise resuction? (delta-f method)
 
         self.v0x = 2.5                          # shift of Maxwellian in vx-direction
         self.v0y = 0.                           # shift of Maxwellian in vy-direction
@@ -124,9 +124,9 @@ class parameters():
     # initial magnetic field (z - component)
     def bz_ini(self, x, y, z):
 
-        amp = 1e-4
+        amp = 1e-3
 
-        kx  = 0.6
+        kx  = 0.8
         ky  = 0.
         kz  = 0.
 

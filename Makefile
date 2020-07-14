@@ -11,14 +11,11 @@ FLAGS   :=
 #--------------------------------------
 
 MA  := hylife/geometry/mappings_analytical
-EQM := simulations/simulation_16062020_8/equilibrium_MHD
-EQP := simulations/simulation_16062020_8/equilibrium_PIC
-ICM := simulations/simulation_16062020_8/initial_conditions_MHD
-ICP := simulations/simulation_16062020_8/initial_conditions_PIC
+EQM := simulations/simulation_05042020_1/equilibrium_MHD
+EQP := simulations/simulation_05042020_1/equilibrium_PIC
+ICM := simulations/simulation_05042020_1/initial_conditions_MHD
+ICP := simulations/simulation_05042020_1/initial_conditions_PIC
 INT := hylife/interface
-SRC_BASE := $(MA).py $(LA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py
-OBJ_BASE := $(SRC_BASE:.py=$(SO_EXT))
-
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/basics/kernels_3d
 KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
@@ -34,36 +31,11 @@ SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
-# Main targets and general rules 
+# PYCCELIZE
 #--------------------------------------
 
-.PHONY: all proj base feec pic
-#all: proj base feec pic
-all: proj
-
-# only projectors
-proj: $(OBJ_PROJ)
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE PROJ DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-base: $(OBJ_BASE)
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE BASE DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-
-feec: base $(OBJ_FEEC)
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE FEEC DONE. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-pic: base $(OBJ_PIC)
-	@echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~ PYCCELIZE PIC DONE.  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-
-#--------------------------------------
-# dependencies and pyccelize 
-#--------------------------------------
-
-$(KPG)$(SO_EXT) : $(KPG).py
-	pyccel $< $(FLAGS)
-
-$(KPGx)$(SO_EXT) : $(KPGx).py
-	pyccel $< $(FLAGS)
+.PHONY: all
+all: $(OUTPUTS)
 
 $(MA)$(SO_EXT) : $(MA).py
 	pyccel $< $(FLAGS)

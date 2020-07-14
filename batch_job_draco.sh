@@ -11,15 +11,15 @@
 # Number of nodes and MPI tasks per node:
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --ntasks-per-core=2
+#SBATCH --ntasks-per-core=1
 # for OpenMP:
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=32
 #
 # Request 80 GB of main memory per node in units of MB:
 #SBATCH --mem=81920
 #
 #SBATCH --mail-type=all
-#SBATCH --mail-user=floho@rzg.mpg.de
+#SBATCH --mail-user=username@rzg.mpg.de
 # Wall clock limit:
 #SBATCH --time=24:00:00
 

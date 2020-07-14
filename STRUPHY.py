@@ -30,8 +30,8 @@ import hylife.interface as inter
 
 # ======================== load parameters ============================
 
-import simulations.simulation_13072020_1.parameters_13072020_1 as pa    # name input folder here!
-identifier = 'simulation_13072020_1'                                    # name input folder here!
+import simulations.simulation_05042020_1.parameters_05042020_1 as pa    # name input folder here!
+identifier = 'simulation_05042020_1'                                    # name input folder here!
 
 params = pa.parameters()
 

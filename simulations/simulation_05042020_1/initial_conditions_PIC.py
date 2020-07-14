@@ -8,13 +8,13 @@ from numpy import exp, pi
 @types('double','double','double','double','double','double')
 def fh_ini_phys(x, y, z, vx, vy, vz):
     
-    v0x = 2.0
+    v0x = 2.5
     v0y = 0.
     v0z = 0.
     
     vth = 1.
     
-    nh0 = 0.06
+    nh0 = 0.05
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     
@@ -38,7 +38,7 @@ def fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
 @types('double','double','double','double','double','double','int','double[:]')
 def sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     
-    v0x = 2.0
+    v0x = 2.5
     v0y = 0.
     v0z = 0.
     

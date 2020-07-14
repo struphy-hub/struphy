@@ -19,7 +19,7 @@
 #SBATCH --mem=40960
 #
 #SBATCH --mail-type=all
-#SBATCH --mail-user=floho@rzg.mpg.de
+#SBATCH --mail-user=username@rzg.mpg.de
 # Wall clock limit:
 #SBATCH --time=24:00:00
 
@@ -29,9 +29,6 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export SLURM_HINT=multithread
 
 # Run the program
-module purge
-
 module load anaconda/3/5.1
-module load gcc/9
 
 python3 STRUPHY.py
