@@ -1,0 +1,157 @@
+\begin{thebibliography}{10}
+
+\bibitem{ArnoldFalkWinther2010}
+D.~Arnold, R.~Falk, and R.~Winther.
+\newblock {Finite element exterior calculus: from Hodge theory to numerical
+  stability}.
+\newblock {\em Bulletin of the American mathematical society}, 47(2):281--354,
+  2010.
+
+\bibitem{Arnold_FEEC2018}
+D.~N. Arnold.
+\newblock {\em {Finite element exterior calculus}}, volume~93.
+\newblock SIAM, 2018.
+
+\bibitem{ArnoldFalkWinther2006}
+D.~N. Arnold, R.~S. Falk, and R.~Winther.
+\newblock {Finite element exterior calculus, homological techniques, and
+  applications}.
+\newblock {\em Acta numerica}, 15:1--155, 2006.
+
+\bibitem{Belova1997}
+E.~Belova, R.~Denton, and A.~Chan.
+\newblock {Hybrid simulations of the effects of energetic particles on
+  low-frequency MHD waves}.
+\newblock {\em Journal of Computational Physics}, 136(2):324--336, 1997.
+
+\bibitem{Zonca_HMGC1995}
+S.~Briguglio, G.~Vlad, F.~Zonca, and C.~Kar.
+\newblock {Hybrid magnetohydrodynamic-gyrokinetic simulation of toroidal
+  Alfv{\'e}n modes}.
+\newblock {\em Physics of Plasmas}, 2(10):3711--3723, 1995.
+
+\bibitem{Tronci2017}
+J.~W. Burby and C.~Tronci.
+\newblock {Variational approach to low-frequency kinetic-MHD in the current
+  coupling scheme}.
+\newblock {\em Plasma Physics and Controlled Fusion}, 59(4):045013, 2017.
+
+\bibitem{Chacon2014}
+G.~Chen and L.~Chac{\'o}n.
+\newblock {An energy-and charge-conserving, nonlinearly implicit,
+  electromagnetic 1D-3V Vlasov--Darwin particle-in-cell algorithm}.
+\newblock {\em Computer Physics Communications}, 185(10):2391--2402, 2014.
+
+\bibitem{Chen_Zonca_review2016}
+L.~Chen and F.~Zonca.
+\newblock {Physics of Alfv{\'e}n waves and energetic particles in burning
+  plasmas}.
+\newblock {\em Reviews of Modern Physics}, 88(1):015008, 2016.
+
+\bibitem{Shadwick2013}
+E.~Evstatiev and B.~Shadwick.
+\newblock {Variational formulation of particle algorithms for kinetic plasma
+  simulations}.
+\newblock {\em Journal of Computational Physics}, 245:376--398, 2013.
+
+\bibitem{He_splitting2015}
+Y.~He, H.~Qin, Y.~Sun, J.~Xiao, R.~Zhang, and J.~Liu.
+\newblock {Hamiltonian time integrators for Vlasov-Maxwell equations}.
+\newblock {\em Physics of Plasmas}, 22(12):124503, 2015.
+
+\bibitem{He_FEEC2016}
+Y.~He, Y.~Sun, H.~Qin, and J.~Liu.
+\newblock {Hamiltonian particle-in-cell methods for Vlasov-Maxwell equations}.
+\newblock {\em Physics of Plasmas}, 23(9):092108, 2016.
+
+\bibitem{Heidbrink_basics2008}
+W.~Heidbrink.
+\newblock {Basic physics of Alfv{\'e}n instabilities driven by energetic
+  particles in toroidally confined plasmas}.
+\newblock {\em Physics of Plasmas}, 15(5):055501, 2008.
+
+\bibitem{Konies_benchmark2018}
+A.~K{\"o}nies, S.~Briguglio, N.~Gorelenkov, T.~Feh{\'e}r, M.~Isaev, P.~Lauber,
+  A.~Mishchenko, D.~Spong, Y.~Todo, W.~Cooper, et~al.
+\newblock {Benchmark of gyrokinetic, kinetic MHD and gyrofluid codes for the
+  linear calculation of fast particle driven TAE dynamics}.
+\newblock {\em Nuclear Fusion}, 58(12):126027, 2018.
+
+\bibitem{GEMPIC2017}
+M.~Kraus, K.~Kormann, P.~J. Morrison, and E.~Sonnendr{\"u}cker.
+\newblock {GEMPIC: Geometric electromagnetic particle-in-cell methods}.
+\newblock {\em Journal of Plasma Physics}, 83(4), 2017.
+
+\bibitem{Lauber2013}
+P.~Lauber.
+\newblock {Super-thermal particles in hot plasmas---Kinetic models, numerical
+  solution strategies, and comparison to tokamak experiments}.
+\newblock {\em Physics Reports}, 533(2):33--68, 2013.
+
+\bibitem{Morrison2017}
+P.~J. Morrison.
+\newblock {Structure and structure-preserving algorithms for plasma physics}.
+\newblock {\em Physics of Plasmas}, 24(5):055502, 2017.
+
+\bibitem{MorrisonGreene1980}
+P.~J. Morrison and J.~M. Greene.
+\newblock {Noncanonical Hamiltonian density formulation of hydrodynamics and
+  ideal magnetohydrodynamics}.
+\newblock {\em Physical Review Letters}, 45(10):790, 1980.
+
+\bibitem{Belova_M3D1999}
+W.~Park, E.~Belova, G.~Fu, X.~Tang, H.~Strauss, and L.~Sugiyama.
+\newblock {Plasma simulation studies using multilevel physics models}.
+\newblock {\em Physics of Plasmas}, 6(5):1796--1803, 1999.
+
+\bibitem{Qin2015}
+H.~Qin, J.~Liu, J.~Xiao, R.~Zhang, Y.~He, Y.~Wang, Y.~Sun, J.~W. Burby,
+  L.~Ellison, and Y.~Zhou.
+\newblock {Canonical symplectic particle-in-cell method for long-term
+  large-scale simulations of the Vlasov--Maxwell equations}.
+\newblock {\em Nuclear Fusion}, 56(1):014001, 2015.
+
+\bibitem{Squire2012}
+J.~Squire, H.~Qin, and W.~M. Tang.
+\newblock {Geometric integration of the Vlasov-Maxwell system with a
+  variational particle-in-cell scheme}.
+\newblock {\em Physics of Plasmas}, 19(8):084501, 2012.
+
+\bibitem{Todo_MEGA1998}
+Y.~Todo and T.~Sato.
+\newblock {Linear and nonlinear particle-magnetohydrodynamic simulations of the
+  toroidal Alfv{\'e}n eigenmode}.
+\newblock {\em Physics of plasmas}, 5(5):1321--1327, 1998.
+
+\bibitem{Tronci2010}
+C.~Tronci.
+\newblock {Hamiltonian approach to hybrid plasma models}.
+\newblock {\em Journal of Physics A: Mathematical and Theoretical},
+  43(37):375501, 2010.
+
+\bibitem{XinWang2011}
+X.~Wang, S.~Briguglio, L.~Chen, C.~{Di Troia}, G.~Fogaccia, G.~Vlad, and
+  F.~Zonca.
+\newblock {An extended hybrid magnetohydrodynamics gyrokinetic model for
+  numerical simulation of shear Alfv{\'e}n waves in burning plasmas}.
+\newblock {\em Physics of Plasmas}, 18(5):052504, 2011.
+
+\bibitem{Xiao_Qin2019}
+J.~Xiao and H.~Qin.
+\newblock {Field theory and a structure-preserving geometric particle-in-cell
+  algorithm for drift wave instability and turbulence}.
+\newblock {\em Nuclear Fusion}, 59(10):106044, 2019.
+
+\bibitem{Xiao2018}
+J.~XIAO, H.~QIN, and J.~LIU.
+\newblock {Structure-preserving geometric particle-in-cell methods for
+  Vlasov-Maxwell systems}.
+\newblock {\em Plasma Science and Technology}, 20(11):110501, sep 2018.
+
+\bibitem{Xiao2017}
+J.~Xiao, H.~Qin, J.~Liu, and R.~Zhang.
+\newblock {Local energy conservation law for a spatially-discretized
+  Hamiltonian Vlasov-Maxwell system}.
+\newblock {\em Physics of Plasmas}, 24(6):062112, 2017.
+
+\end{thebibliography}

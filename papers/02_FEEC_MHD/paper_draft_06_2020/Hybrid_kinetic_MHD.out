@@ -1,0 +1,30 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Model equations}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Hamiltonian current coupling}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Linearization of the MHD part}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{MHD equations in curvilinear coordinates}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.4}{MHD in terms of differential forms}{section.2}% 6
+\BOOKMARK [1][-]{section.3}{Semi-discretization in space}{}% 7
+\BOOKMARK [2][-]{subsection.3.1}{Commuting diagram and finite element spaces}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.2}{Strong equations: mass continuity and induction equation}{section.3}% 9
+\BOOKMARK [2][-]{subsection.3.3}{Weak equations: momentum balance and pressure equation}{section.3}% 10
+\BOOKMARK [2][-]{subsection.3.4}{Commuting diagram with B-splines and quasi-interpolation}{section.3}% 11
+\BOOKMARK [3][-]{subsubsection.3.4.1}{B-splines and discrete derivatives}{subsection.3.4}% 12
+\BOOKMARK [3][-]{subsubsection.3.4.2}{Commuting projectors}{subsection.3.4}% 13
+\BOOKMARK [2][-]{subsection.3.5}{PIC coupling terms}{section.3}% 14
+\BOOKMARK [2][-]{subsection.3.6}{Energy and Hamiltonian system}{section.3}% 15
+\BOOKMARK [1][-]{section.4}{Time discretization}{}% 16
+\BOOKMARK [1][-]{section.5}{Numerical experiments}{}% 17
+\BOOKMARK [2][-]{subsection.5.1}{Pure MHD}{section.5}% 18
+\BOOKMARK [2][-]{subsection.5.2}{Wave-particle resonance}{section.5}% 19
+\BOOKMARK [2][-]{subsection.5.3}{Runtime of PIC routines}{section.5}% 20
+\BOOKMARK [1][-]{section.6}{Conclusion}{}% 21
+\BOOKMARK [1][-]{appendix.a.A}{Formulae for exterior calculus of differential forms}{}% 22
+\BOOKMARK [2][-]{subsection.a.A.1}{Exterior product}{appendix.a.A}% 23
+\BOOKMARK [2][-]{subsection.a.A.2}{Interior product}{appendix.a.A}% 24
+\BOOKMARK [2][-]{subsection.a.A.3}{Hodge-star operator}{appendix.a.A}% 25
+\BOOKMARK [2][-]{subsection.a.A.4}{Exterior derivative}{appendix.a.A}% 26
+\BOOKMARK [2][-]{subsection.a.A.5}{Hilbert spaces of p-forms}{appendix.a.A}% 27
+\BOOKMARK [2][-]{subsection.a.A.6}{Co-differential operator}{appendix.a.A}% 28
+\BOOKMARK [1][-]{appendix.a.B}{f-method}{}% 29
+\BOOKMARK [1][-]{appendix.a.C}{Weights in quasi spline interpolation}{}% 30

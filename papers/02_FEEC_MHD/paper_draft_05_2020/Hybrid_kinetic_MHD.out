@@ -1,0 +1,15 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Full model and model reduction}{}% 2
+\BOOKMARK [1][-]{section.3}{Variational formulation with differential forms}{}% 3
+\BOOKMARK [1][-]{section.4}{Semi-discretization in space}{}% 4
+\BOOKMARK [1][-]{section.5}{Commuting diagram with B-splines and local projectors}{}% 5
+\BOOKMARK [2][-]{subsection.5.1}{B-splines}{section.5}% 6
+\BOOKMARK [2][-]{subsection.5.2}{Discrete derivatives}{section.5}% 7
+\BOOKMARK [2][-]{subsection.5.3}{Projectors}{section.5}% 8
+\BOOKMARK [1][-]{section.6}{Time discretization}{}% 9
+\BOOKMARK [1][-]{section.7}{Numerical experiments}{}% 10
+\BOOKMARK [2][-]{subsection.7.1}{Pure MHD}{section.7}% 11
+\BOOKMARK [2][-]{subsection.7.2}{With kinetic ions}{section.7}% 12
+\BOOKMARK [1][-]{section.8}{Summary}{}% 13
+\BOOKMARK [1][-]{appendix.a.A}{Formulae for exterior calculus of differential forms}{}% 14
+\BOOKMARK [1][-]{appendix.a.B}{f-method}{}% 15
