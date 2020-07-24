@@ -1,0 +1,248 @@
+\section{Preliminaries}
+
+\subsection{Polar mappings}
+
+In what follows we distinguish between the logical domain $\hat \Omega$ and the "mapped domain" or "physical domain" $\Omega$. The logical domain will be assumed a rectangular cuboid and the mapped domain is the image of $\hat\Omega \subset \RR^3$ under the map $\Fb:\RR^3 \to \RR^3$. We focus on the three-dimensional case because of its practical importance. Specifically, 
+\be
+ \Fb = \Fb(\eta,\theta,\vphi) = \begin{bmatrix}
+                                 F_1(\etab)
+                                 \\
+                                 F_2(\etab)
+                                 \\
+                                 F_3(\etab)
+                                \end{bmatrix} =
+                                \begin{bmatrix}
+                                 x \\ y \\ z
+                                \end{bmatrix} = \xb \in \Omega\,,                        
+\ee
+where $\etab = (\eta,\theta,\vphi) \in \hat\Omega_\eta \times \hat\Omega_\theta \times \hat\Omega_\vphi = \hat\Omega$ denote the logical coordinates and $\xb = (x,y,z) \in \Omega$ are the mapped (Cartesian) coordinates. $\Fb$ is assumed to have a pole in the plane spanned by the first two logical coordinates. The planar pole is located along the line $\vphi \mapsto (x_0(\vphi), y_0(\vphi), z_0(\vphi))$, characterized by
+\be
+ \Fb(0,\theta,\vphi) =     \begin{bmatrix}
+                        x_0(\vphi) \\[1mm] y_0(\vphi) \\[1mm] z_0(\vphi)
+                       \end{bmatrix} \qquad \forall \,\theta.
+\ee
+This means in particular that
+\be
+ \pder{^n\Fb}{\theta^n} \Big |_{\eta=0} = \begin{bmatrix}
+                        0 \\ 0 \\ 0
+                       \end{bmatrix} \qquad \tn{for}\quad n\geq 1 \,.
+\ee
+The Jacobian matrix at the pole reads
+\be \label{DF0}
+ D\Fb \big|_{\eta=0} = \begin{bmatrix}
+         F_{1,\eta} \big|_{\eta=0} & 0 & x_0'
+         \\[1mm]
+         F_{2,\eta} \big|_{\eta=0} & 0 & y_0'
+         \\[1mm]
+         F_{3,\eta} \big|_{\eta=0} & 0 & z_0'
+        \end{bmatrix}\,,
+\ee
+which shows the singularity at $\eta = 0$. In practical applications the mapping $\Fb$ can be quite complicated, sometimes given as the result of a computer simulation which has to be interpolated to obtain a continuous mapping. In order to introduce the polar PIC method we decompose $\Fb = \Fb_2 \circ \hat \Fb$ where $\hat \Fb: \hat\Omega \to \hat \Omega_\tn{cyl}$ is a simple square-to-disc mapping given by
+\be \label{Fmap}
+ \hat \Fb(\eta,\theta,\vphi) = 
+ \begin{bmatrix} f(\eta) \cos\theta \\[1mm] f(\eta)\sin\theta \\[1mm] \vphi \end{bmatrix}
+  = \begin{bmatrix} \hat x \\ \hat y \\ \hat z \end{bmatrix} = \hat \xb \in \hat \Omega_\tn{cyl}\,,
+\ee
+where $\hat \xb$ are called the \emph{pseudo-Cartesian} coordinates in the cylinder $\hat \Omega_\tn{cyl}$. The function $f$ is such that
+\be
+ f:\hat\Omega_\eta \to \RR\,,\qquad f(0) = 0\,.
+\ee
+Moreover, $f$ should be chosen such that $\Fb_2 = \Fb \circ \hat \Fb^{-1}: \hat\Omega_\tn{cyl} \to \Omega$ is continuously differentiable and invertible in $\hat \Omega_\tn{cyl}$. If that is the case, the problem of the singularity at the pole $\eta=0$ occurs entirely in the square-to-disc mapping $\hat \Fb$. We shall thus focus on this mapping and leave $\Fb_2$ out of the analysis. The Jacobian $D\hat \Fb$ and its inverse are given by
+\be
+ D\hat \Fb  =
+ \begin{bmatrix}
+  f'\cos\theta & -f\sin\theta & 0
+  \\
+  f'\sin\theta & f \cos\theta & 0
+  \\
+  0 & 0 & 1 
+ \end{bmatrix}\,, \qquad
+ (D\hat \Fb)^{-1} = \begin{bmatrix}
+  1/f'\cos\theta & 1/f'\sin\theta & 0
+  \\
+  - 1/f\sin\theta & 1/f\cos\theta & 0
+  \\
+  0 & 0 & 1
+ \end{bmatrix} \,.
+\ee
+The Jacobian is $J = \det D\hat\Fb = ff'$. The square-to-disc mapping is illustrated in Figure~\ref{fig:map}.
+
+\begin{figure}[htb]
+\includegraphics[width=\textwidth]{pics/mapping2.png}
+\caption{Cylindrical coordinates.} \label{fig:map}
+\end{figure}
+
+
+
+In the physical domain $\hat \Omega$, the trajectory $\xb(t)$ of a charged particle is obtained from the equations of motion
+\be
+\left\{
+\begin{aligned}
+ \dt{\xb} &= \vb\,,
+ \\[1mm]
+ \dt{\vb} &= \Eb(\xb) + \vb \times \Bb(\xb)\,,
+\end{aligned}
+\right.
+\ee
+where $\vb(t) \in \RR^3$ stands for the velocity and $\Eb,\Bb: \Omega\to \RR^3$ are the electromagnetic fields. In the logical space, these equations read
+\be
+\left\{
+\begin{aligned}
+ (D\Fb)\dt{\etab} &=  \vb\,,
+ \\[1mm]
+ \dt{\vb} &= (D\Fb)\hat \Eb + \vb \times (D\Fb) \hat \Bb\,.
+\end{aligned}
+\right.
+\ee
+Here, $\hat\Eb$ and $\hat \Bb$ stand for the contra-variant components of the vector fields. These can be transformed to 1- respectively 2-forms as follows:
+\be
+ \hat \Eb^1 = (D\Fb^\top D\Fb) \hat\Eb\,,\qquad \hat \Bb^2 = J\,\hat\Bb\,,
+\ee
+where $J = \det D\Fb$ denotes the Jacobian determinant. For $\eta\neq 0$ the logical equations of motion can be written as
+\be
+\left\{
+\begin{aligned}
+ \dt{\etab} &= (D\Fb)^{-1} \vb\,,
+ \\[1mm]
+ \dt{\vb} &= (D\Fb)^{-\top} \left[ \hat \Eb^1 + (D\Fb)^{-1}\vb \times \hat \Bb^2 \right]\,,
+\end{aligned}
+\right.
+\ee
+where we used $(D\Fb) \ab \times (D\Fb) \bb = J\,D\Fb^{-\top}(\ab \times \bb)$.
+
+
+\subsection{Tensor product B-splines} 
+
+The mapping $\Fb: \hat\Omega \to \Omega$ as well as the forms $\hat \Eb^1: \hat \Omega \to \RR^3$ and $\hat \Bb^2 : \hat \Omega \to \RR^3$ will be projected into finite-dimensional spline spaces denoted by $\cR^\Fb_{ijk}$ and $\cR_{ijk}$. 
+
+
+
+
+%%%%%%%%%%%%%%%%%%%
+\subsection{Hilbert spaces of differential forms}
+
+\begin{figure}[htb]
+\includegraphics[width=\textwidth]{pics/deRham3D.png}
+\caption{Commuting diagram for the logical domain $\hat \Omega$.} \label{fig:diag}
+\end{figure}
+Conforming FE methods in three dimensions can be built upon the commuting diagram depicted in Figure \ref{fig:diag}. All spaces in this diagram refer to functions on the logical domain $\hat\Omega$. The upper line contains the continuous spaces well-known in FE analysis. In the framework of FEEC, these spaces refer to the components of differentiable $n$-forms, with $0\leq n \leq 3$. We use the symbol
+\begin{alignat}{2}
+ H^1(\hat\Omega) &= \left\{ a :\hat\Omega \to \RR\ s.t.\ |a|_0 + |\grad\, a|_1 < \infty \right\} \qquad &&\tn{(0-forms)}\,,
+ \\[1mm]
+ H(\curl,\hat\Omega) &= \left\{ \ab :\hat\Omega \to \RR^3\ s.t.\ |\ab|_1 + |\curl\, \ab|_2 < \infty \right\}\qquad &&\tn{(1-forms)}\,,
+ \\[1mm]
+ H(\div,\hat\Omega) &= \left\{ \ab :\hat\Omega \to \RR^3\ s.t.\ |\ab|_2 + |\div\, \ab|_3 < \infty \right\}\qquad &&\tn{(2-forms)}\,,
+ \\[1mm]
+ L^2(\hat\Omega) &= \left\{ a :\hat\Omega \to \RR\ s.t.\ |a|_3 < \infty \right\}\qquad &&\tn{(3-forms)}\,,
+\end{alignat}
+where the seminorms $|\cdot|_{0\leq n\leq 3}$ are given by
+\begin{align}
+ |a|_0^2 &:= \int_{\hat\Omega} a^2\,\sqrt g\,\tn d\etab\,,
+ \\[1mm]
+ |\ab|_1^2 &:= \int_{\hat\Omega} \ab\, G^{-1} \ab\,\sqrt g\,\tn d\etab\,,
+ \\[1mm]
+ |\ab|_2^2 &:= \int_{\hat\Omega} \ab\, G\, \ab\,\frac{1}{\sqrt g}\,\tn d\etab\,,
+ \\[1mm]
+ |a|_3^2 &:= \int_{\hat\Omega} a^2\,\frac{1}{\sqrt g}\,\tn d\etab\,.
+\end{align}
+Denoting $\hat\nabla=(\pa_\eta,\pa_\theta,\pa_{z'})$ in logical coordinates, the differential operators can be written as
+\be
+ \grad = \hat \nabla\,,\qquad \curl = (\hat\nabla \times)\,,\qquad \div = (\hat\nabla \cdot)\,.
+\ee
+% In cylindrical coordinates, the above Hilbert spaces are defined as follows:
+% \begin{align}
+%  a \in H^1(\hat\Omega): &\ \int_{\hat\Omega} a^2\,ff'\,\tn d \etab + \int_{\hat\Omega} \left[ (\pa_\eta a)^2 \frac{f}{f'} + (\pa_\theta a)^2 \frac{f'}{f} + (\pa_{z'} a)^2 \,ff' \right]\tn d \etab < \infty\,,
+%  \\[3mm]
+%  \ab \in H(\curl,\hat\Omega) : &\ \int_{\hat\Omega} \left[ a_\eta^2 \frac{f}{f'} + a_\theta^2 \frac{f'}{f} + a_{z'}^2 \,ff' \right]\tn d \etab 
+%  \\[1mm]
+%   +&\ \int_{\hat\Omega} \left[ (\pa_\theta a_{z'} - \pa_{z'} a_\theta)^2 \frac{f'}{f} + (\pa_{z'} a_\eta - \pa_\eta a_{z'})^2 \frac{f}{f'} + (\pa_\eta a_\theta - \pa_\theta a_\eta)^2 \,\frac{1}{ff'}\right]\tn d \etab < \infty\,,  \nonumber
+%  \\[3mm]
+%  \ab \in H(\div,\hat\Omega) : &\ \int_{\hat\Omega} \left[ a_\eta^2 \frac{f'}{f} + a_\theta^2 \frac{f}{f'} + a_{z'}^2 \,\frac{1}{ff'} \right]\tn d \etab 
+%  \\[1mm]
+%  +&\ \int_{\hat\Omega} \left[ (\pa_\eta a_\eta)^2 + (\pa_\theta a_\theta)^2  + (\pa_{z'}a_{z'})^2 \right]\frac{1}{ff'}\, \tn d \etab < \infty\,, \nonumber
+%  \\[3mm]
+%  a \in L^2(\hat\Omega): &\ \int_{\hat\Omega} a^2\,\frac{1}{ff'}\,\tn d \etab< \infty\,.
+% \end{align}
+% For $f(\eta) = \eta^q$ with $q>0$ we have $f/f' = \eta/q$ and $ff' = q \eta^{2q-1}$. Then $q=1/2$ yields $f/f' = 2\eta$ and $ff' = 1/2$ such that integrals featuring the factor $f'/f$ must be handled with care on the discrete level. The Hilbert spaces form an exact sequence, meaning that
+% \be \label{sequence}
+%  \grad\,H^1 = \ker(\curl\,H(\curl))\,,\qquad \curl\,H(\curl) = \ker(\div\, H(\div))\,.
+% \ee
+
+The operators $\Pi_j$, $0\leq j\leq 3$ project onto the finite-dimensional subspaces $V_j$, $0\leq j \leq 3$, which will be spanned by tensor product basis functions, constructed from univariate B-splines of degree $p$, denoted by $\hat N^p_i(\eta)$, $0\leq i\leq \hat n_N-1$.  The sequence of $\hat n_N$ splines $(\hat N^p_i)_i$ is constructed from the knot vector $\cT_p = \{\eta_i\}_{0\leq i\leq n+2p}$, composed of $n+2p+1$ non-decreasing points $\eta_i$ in a logical interval $\hat I\subset \RR$. Here, $n$ is the number of cells partitioning the interval $\hat I$ to define the 1D space grid. Each spline $\hat N^p_i$ is defined by $p+2$ neighbouring knots, such that we can fit $n+p$ spline functions into the knot vector $\cT_p$. The ensuing spline basis $(\hat N^p_i)_i$ can be either periodic or "clamped". In the periodic case we relate the first $p$ and the last $p$ splines to obtain $\hat n_N = n$ basis functions. In the clamped case we have $\hat n_N = n+p$ basis functions. Moreover, for clamped splines $\hat N^p_0(\eta_0) = \hat N^p_{\hat n_N-1}(\eta_{n+2p}) = 1$, where $\eta_0$ is the left and $\eta_{n+2p}$ is the right boundary of $\hat I$.  Because of partition of unity we have
+\be \label{Nto0}
+ \tn{clamped:}\qquad \hat N^p_i(\eta_0) = \hat N^p_i(\eta_{n+2p}) = 0\,,\qquad 1\leq i\leq \hat n_N -2\,.
+\ee
+The derivative of $\hat N^p_i(\eta)$ can be written as
+\be \label{N'}
+ ({\hat N_i^p})'(\eta) = \hat D_{i-1}^{p-1}(\eta)-\hat D_{i}^{p-1}(\eta)\,,
+\ee
+where we introduced the "D-splines" of degree $p-1$ as
+\be \label{def:D}
+\begin{aligned}
+ \hat D_{i}^{p-1}(\eta) &= \frac{p}{\eta_{i+p+1}-\eta_{i+1}} \hat N_{i+1}^{p-1}(\eta)\,,\qquad -1\leq i \leq \hat n_N-1\,,
+% \\[1mm]
+% D_{\hat n_N-1}^{p-1}(\eta) &= \begin{cases}
+% D_{0}^{p-1}(\eta) & \tn{for periodic}
+% \\
+% 0 & \tn{for clamped}
+% \end{cases}
+% \,.
+ \end{aligned}
+\ee
+It is convenient to view D-splines as usual B-splines of degree $p-1$ created from the same knot vector $\cT_p$ as the $\hat N^p_i$, and multiplied by the factor $p/(\eta_{i+p+1}-\eta_{i+1})$. We can fit $n+p+1$ basis splines of degree $p-1$ into the knot vector $\cT_p$. In the periodic case we relate the first $p+1$ D-splines with the last $p+1$ D-splines. In the clamped case we have $\hat D_{-1}^{p-1}(\eta) = \hat D_{\hat n_N-1}^{p-1}(\eta) = 0$. Thus, we finally end up with the D-spline sequence $(\hat D^{p-1}_i)_i$, $0\leq i \leq \hat n_D-1$, where $\hat n_D = \hat n_N$ for periodic and $\hat n_D = \hat n_N-1$ for clamped splines.
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%
+\subsection{Construction of polar basis functions}
+
+We start from the tensor product space $V_0$ defined by
+\be
+ V_0 = \tn{span} (\hat \Lambda^0_i)\,,\qquad \hat \Lambda^0_i = \hat N^{p_1}_{i_1}(\eta)\,\hat N^{p_2}_{i_2}(\theta)\,\hat N^{p_3}_{i_3}(z')\,, \quad i = i_1(\hat n_{N}^2 \hat n_{N}^3) + i_2\,\hat n_{N}^3 + i_3\,,
+\ee
+for $0\leq i_j \leq \hat n_{N}^j-1$, $j=1,2,3$. We assume $\hat N^{p_1}_{i_1}(\eta)$ to be clamped splines, whereas the other two directions are periodic.
+%Moreover, we have to remove the interpolator spline $N^{p_1}_0$ from the basis, imposing homogeneous Dirichlet conditions at $\eta=0$, in order to assure $\Lambda^0_i$ to be single-valued a the pole:
+%\be
+%\lim_{\eta\to 0} \Lambda^0_i = \lim_{\eta\to 0} N^{p_1}_{i_1}(\eta)\,N^{p_2}_{i_2}(\theta)\,N^{p_3}_{i_3}(z') = 0 \quad \forall \ (\theta,z')\,,\qquad 1 \leq i_1 \leq \hat n_N^1\,.
+%\ee
+%This holds because of \eqref{Nto0}.
+ In order to maintain the exact sequence property \eqref{sequence} we construct the other spaces $V_{1\leq j \leq 3}$ as follows:
+\begin{align}
+ V_1 &:= \tn{span}\left(
+ \begin{pmatrix}
+ \pa_\eta \hat\Lambda^0_i \\ 0 \\ 0
+ \end{pmatrix},
+  \begin{pmatrix}
+ 0 \\ \pa_\theta \hat\Lambda^0_i \\ 0
+ \end{pmatrix},
+  \begin{pmatrix}
+ 0 \\ 0 \\ \pa_{z'} \hat\Lambda^0_i 
+ \end{pmatrix}
+  \right)\,,  \label{spanV1}
+  \\[3mm]
+  V_2 &:= \tn{span}\left(
+ \begin{pmatrix}
+ \pa_\theta\pa_{z'} \hat\Lambda^0_i \\ 0 \\ 0
+ \end{pmatrix},
+  \begin{pmatrix}
+ 0 \\ \pa_\eta\pa_{z'} \hat\Lambda^0_i \\ 0
+ \end{pmatrix},
+  \begin{pmatrix}
+ 0 \\ 0 \\ \pa_\eta\pa_\theta \hat\Lambda^0_i 
+ \end{pmatrix}
+  \right)\,,  \label{spanV2}
+  \\[3mm]
+  V_3 &:= \tn{span}(\pa_\eta\pa_\theta\pa_{z'} \hat\Lambda^0_i)\,.
+\end{align}
+We shall hold on to this construction even when the basis $\hat\Lambda^0$ is not a tensor product basis anymore. One problem of the tensor product basis in the case of cylindrical coordinates is immediately obvious, namely that $\hat\Lambda^0_i$ is not single-valued as $\eta\to 0$, hence at the pole. This means: 
+
+\begin{itemize}
+\item Tensor product $V_0$-basis functions $\Lambda^0_i(\xb)$ are not $C^0$ at the pole in the physical domain. 
+\item If we construct $\Lambda^0_i(\xb)$ to be $C^0$ somehow, $V_1$-basis functions are not single-valued at the pole.
+\item If we construct $\Lambda^0_i(\xb)$ to be $C^1$ somehow, the third $V_2$-basis functions and the $V_3$-basis functions (mixed derivatives $\pa_\eta\pa_\theta$) are not single-valued at the pole.
+\item Our goal is thus as follows: {\bf $\Lambda^0_i(\xb)$ must be $C^1$ at the pole and $\pa_\eta\pa_\theta \hat\Lambda^0_i$ must be single-valued at the pole. We also want an IGA-compatible basis.}
+\end{itemize}
+
