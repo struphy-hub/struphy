@@ -23,9 +23,9 @@ def df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
     b2 = empty((2, pn[1] + 1), dtype=float)
     b3 = empty((2, pn[2] + 1), dtype=float)
     
-    bsp.basis_funs_all_ders(tn1, pn[0], eta1, span_n[0], 1, b1)
-    bsp.basis_funs_all_ders(tn2, pn[1], eta2, span_n[1], 1, b2)
-    bsp.basis_funs_all_ders(tn3, pn[2], eta3, span_n[2], 1, b3)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
 
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
     mat[0, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
@@ -52,9 +52,9 @@ def det_df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3):
     b2 = empty((2, pn[1] + 1), dtype=float)
     b3 = empty((2, pn[2] + 1), dtype=float)
     
-    bsp.basis_funs_all_ders(tn1, pn[0], eta1, span_n[0], 1, b1)
-    bsp.basis_funs_all_ders(tn2, pn[1], eta2, span_n[1], 1, b2)
-    bsp.basis_funs_all_ders(tn3, pn[2], eta3, span_n[2], 1, b3)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
 
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
     df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
@@ -86,9 +86,9 @@ def df_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat
     b2 = empty((2, pn[1] + 1), dtype=float)
     b3 = empty((2, pn[2] + 1), dtype=float)
     
-    bsp.basis_funs_all_ders(tn1, pn[0], eta1, span_n[0], 1, b1)
-    bsp.basis_funs_all_ders(tn2, pn[1], eta2, span_n[1], 1, b2)
-    bsp.basis_funs_all_ders(tn3, pn[2], eta3, span_n[2], 1, b3)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
 
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
     df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
@@ -130,9 +130,9 @@ def g(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
     b2 = empty((2, pn[1] + 1), dtype=float)
     b3 = empty((2, pn[2] + 1), dtype=float)
     
-    bsp.basis_funs_all_ders(tn1, pn[0], eta1, span_n[0], 1, b1)
-    bsp.basis_funs_all_ders(tn2, pn[1], eta2, span_n[1], 1, b2)
-    bsp.basis_funs_all_ders(tn3, pn[2], eta3, span_n[2], 1, b3)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
 
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
     df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
@@ -172,9 +172,9 @@ def g_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat)
     b2 = empty((2, pn[1] + 1), dtype=float)
     b3 = empty((2, pn[2] + 1), dtype=float)
     
-    bsp.basis_funs_all_ders(tn1, pn[0], eta1, span_n[0], 1, b1)
-    bsp.basis_funs_all_ders(tn2, pn[1], eta2, span_n[1], 1, b2)
-    bsp.basis_funs_all_ders(tn3, pn[2], eta3, span_n[2], 1, b3)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
 
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
     df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)

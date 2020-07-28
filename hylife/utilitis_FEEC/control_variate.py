@@ -51,26 +51,26 @@ class terms_control_variate:
         self.basisD = tensor_space.basisD
         
         # evaluation of DF^T * jh_eq_phys at quadrature points
-        self.mat_jh1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_jh2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_jh3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
+        self.mat_jh1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_jh2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_jh3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, kind_map, params_map)
         ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, kind_map, params_map)
         ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, kind_map, params_map)
         
         # evaluation of nh_eq_phys at quadrature points
-        self.mat_nh = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
+        self.mat_nh = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, kind_map, params_map)
         
         # evaluation of G / sqrt(g) at quadrature points
-        self.mat_g11 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_g21 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_g22 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_g31 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_g32 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        self.mat_g33 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
+        self.mat_g11 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_g21 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_g22 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_g31 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_g32 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_g33 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         
         ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, kind_map, params_map)
@@ -98,9 +98,9 @@ class terms_control_variate:
         """
         
         # evaluation of total magnetic field at quadrature points (perturbed + equilibrium)
-        B1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
+        B1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[0]), [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
         ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[1]), [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)
@@ -108,17 +108,17 @@ class terms_control_variate:
         
         
         # computation of 1 - component
-        F1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), order='F')
+        F1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]))
         
         ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], F1, np.asfortranarray(self.mat_jh3*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3) - self.mat_jh2*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3)))
         
         # computation of 2 - component
-        F2 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), order='F')
+        F2 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]))
         
         ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisN[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], F2, np.asfortranarray(self.mat_jh1*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3) - self.mat_jh3*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3)))
         
         # computation of 3 - component
-        F3 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), order='F')
+        F3 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]))
         
         ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], F3, np.asfortranarray(self.mat_jh2*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3) - self.mat_jh1*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3)))
         
@@ -142,15 +142,15 @@ class terms_control_variate:
             weighted mass matrix in V1
         """
         
-        M21 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), order='F')
-        M31 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), order='F')
-        M32 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), order='F')
+        M21 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
+        M31 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
+        M32 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
         
         
         # evaluation of total magnetic field at quadrature points (perturbed + equilibrium)
-        B1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
-        B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float, order='F')
+        B1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[0]), [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
         ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[1]), [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)

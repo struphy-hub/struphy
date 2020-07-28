@@ -520,8 +520,8 @@ class projectors_local_3d:
 
         for a in range(3):
             if self.bc[a] == True:
-                self.coeff_i[a] = np.zeros((1, 2*self.p[a] - 1), dtype=float, order='F')
-                self.coeff_h[a] = np.zeros((1, 2*self.p[a])    , dtype=float, order='F')
+                self.coeff_i[a] = np.zeros((1, 2*self.p[a] - 1), dtype=float)
+                self.coeff_h[a] = np.zeros((1, 2*self.p[a])    , dtype=float)
 
 
                 if   self.p[a] == 1:
@@ -544,8 +544,8 @@ class projectors_local_3d:
                     print('degree > 4 not implemented!')
 
             else:
-                self.coeff_i[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a] - 1), dtype=float, order='F')
-                self.coeff_h[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a])    , dtype=float, order='F')
+                self.coeff_i[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a] - 1), dtype=float)
+                self.coeff_h[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a])    , dtype=float)
 
                 if   self.p[a] == 1:
                     self.coeff_i[a][0, :] = np.array([1.])
@@ -613,15 +613,15 @@ class projectors_local_3d:
                 self.n_int_locbf_D[a]  = 2*self.p[a] - 2  # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6)
         
         
-        self.x_int = [np.zeros((n_lambda_int, n_int), dtype=float, order='F') for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
+        self.x_int = [np.zeros((n_lambda_int, n_int), dtype=float) for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
         
-        self.int_global_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int, order='F') for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
-        self.int_global_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int, order='F') for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
+        self.int_global_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int) for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
+        self.int_global_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int) for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
         
-        self.int_loccof_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int, order='F') for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
-        self.int_loccof_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int, order='F') for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
+        self.int_loccof_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int) for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
+        self.int_loccof_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int) for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
         
-        self.x_int_indices  = [np.zeros((n_lambda_int, n_int), dtype=int, order='F') for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
+        self.x_int_indices  = [np.zeros((n_lambda_int, n_int), dtype=int) for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
         self.coeffi_indices = [np.zeros( n_lambda_int, dtype=int) for n_lambda_int in n_lambda_int]
         
         
@@ -805,14 +805,14 @@ class projectors_local_3d:
         
         self.x_his = [np.zeros((n_lambda_his, n_his + 1), dtype=float) for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]  
         
-        self.his_global_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int, order='F') for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
-        self.his_global_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int, order='F') for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
+        self.his_global_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int) for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
+        self.his_global_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int) for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
         
-        self.his_loccof_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int, order='F') for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
-        self.his_loccof_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int, order='F') for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
+        self.his_loccof_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int) for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
+        self.his_loccof_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int) for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
         
         
-        self.x_his_indices  = [np.zeros((n_lambda_his, n_his), dtype=int, order='F') for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]
+        self.x_his_indices  = [np.zeros((n_lambda_his, n_his), dtype=int) for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]
         self.coeffh_indices = [np.zeros( n_lambda_his, dtype=int) for n_lambda_his in n_lambda_his]
         
         self.pts = [0, 0, 0]
@@ -916,8 +916,6 @@ class projectors_local_3d:
                                 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(np.unique(self.x_his[a].flatten()), self.pts_loc[a], self.wts_loc[a])
-                self.pts[a] = np.asfortranarray(self.pts[a])
-                self.wts[a] = np.asfortranarray(self.wts[a])
                                 
                                 
             else:
@@ -947,8 +945,6 @@ class projectors_local_3d:
 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(np.append(np.unique(self.x_his[a].flatten()%1.), 1.), self.pts_loc[a], self.wts_loc[a])
-                self.pts[a] = np.asfortranarray(self.pts[a])
-                self.wts[a] = np.asfortranarray(self.wts[a])
                 
                 
     
@@ -977,14 +973,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation points
         if fun == None:
-            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
-            mat_f      = np.asfortranarray(fun(xx, yy, zz))  
+            mat_f      = fun(xx, yy, zz)
             
         # coefficients
-        lambdas  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float, order='F')
+        lambdas  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi0_3d(self.NbaseN, self.p, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], mat_f, lambdas)
                                 
@@ -1021,14 +1017,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
-            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
-            mat_f       = np.asfortranarray(fun[0](xx, yy, zz))
+            mat_f       = fun[0](xx, yy, zz)
         
         # coefficients
-        lambdas1  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float, order='F')
+        lambdas1  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi11_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]), lambdas1)
         
@@ -1037,14 +1033,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
-            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f       = np.asfortranarray(fun[1](xx, yy, zz))
+            mat_f       = fun[1](xx, yy, zz)
         
         # coefficients
-        lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float, order='F')
+        lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi12_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], mat_f.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]), lambdas2)
         
@@ -1053,14 +1049,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
-            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f       = np.asfortranarray(fun[2](xx, yy, zz))
+            mat_f       = fun[2](xx, yy, zz)
         
         # coefficients
-        lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float, order='F')
+        lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
         ker_loc.kernel_pi13_3d([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], mat_f.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas3)
         
@@ -1098,14 +1094,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
-            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f       = np.asfortranarray(fun[0](xx, yy, zz))
+            mat_f       = fun[0](xx, yy, zz)
         
         # coefficients
-        lambdas1  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float, order='F')
+        lambdas1  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
         
         ker_loc.kernel_pi21_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], mat_f.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas1)
         
@@ -1114,14 +1110,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
-            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f       = np.asfortranarray(fun[1](xx, yy, zz))
+            mat_f       = fun[1](xx, yy, zz)
         
         # coefficients
-        lambdas2  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float, order='F')
+        lambdas2  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
         ker_loc.kernel_pi22_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas2)
         
@@ -1130,14 +1126,14 @@ class projectors_local_3d:
         
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
-            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f       = np.asfortranarray(fun[2](xx, yy, zz))
+            mat_f       = fun[2](xx, yy, zz)
         
         # coefficients
-        lambdas3  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float, order='F')
+        lambdas3  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
     
         ker_loc.kernel_pi23_3d([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]), lambdas3)
         
@@ -1164,14 +1160,14 @@ class projectors_local_3d:
         
         # evaluation of function at quadrature points
         if fun == None:
-            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float, order='F')
+            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
             ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f      = np.asfortranarray(fun(xx, yy, zz))
+            mat_f      = fun(xx, yy, zz)
             
         # coefficients
-        lambdas  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float, order='F')
+        lambdas  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
             
         ker_loc.kernel_pi3_3d(self.NbaseD, self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas)
                                 

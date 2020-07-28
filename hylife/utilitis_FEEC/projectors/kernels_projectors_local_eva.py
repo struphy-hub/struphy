@@ -97,11 +97,10 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params):
 
      
 # ==========================================================================================
-@types('int[:]','double[:]','double[:]','double[:]','double[:,:,:](order=F)','int','int','double[:]')        
+@types('int[:]','double[:]','double[:]','double[:]','double[:,:,:]','int','int','double[:]')        
 def kernel_eva(n, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
     
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
                 mat_f[i1, i2, i3] = fun(xi1[i1], xi2[i2], xi3[i3], kind_fun, kind_map, params)
-                

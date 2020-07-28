@@ -8,7 +8,7 @@ Basic functions for point-wise B-spline evaluation
 
 from pyccel.decorators import types
 
-from numpy import empty
+from numpy import empty, zeros
 
 # ==============================================================================
 @types('double[:]','int','int','double[:]')
@@ -98,7 +98,7 @@ def basis_funs(T, p, eta, span, values):
     right     = empty(p, dtype=float)
     
     values[:] = 0.
-    values[0] = 1.0
+    values[0] = 1.
     
     for j in range(p):
         left[j]  = eta - T[span - j]
@@ -111,6 +111,117 @@ def basis_funs(T, p, eta, span, values):
         values[j + 1] = saved
         
         
+# =============================================================================
+@types('double[:]','int','double','int','double[:,:]','double[:]')
+def basis_funs_all(T, p, eta, span, values, diff):
+    """
+    Parameters
+    ----------
+    T : array_like
+        Knots sequence.
+
+    p : int
+        Polynomial degree of B-splines.
+
+    eta : double
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    Returns
+    -------
+    values : numpy.ndarray
+        Values of (p + 1, p + 1) non-vanishing B-Splines at location eta.
+        
+    diff : np.ndarray
+        Scaling array (p) for M-splines.
+    """
+    
+    left         = empty(p, dtype=float)
+    right        = empty(p, dtype=float)
+    
+    values[:, :] = 0.
+    values[0, 0] = 1.
+    
+    for j in range(p):
+        left[j]  = eta - T[span - j]
+        right[j] = T[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            diff[r] = 1. / (right[r] + left[j - r])
+            temp = values[j, r] * diff[r]
+            values[j + 1, r] = saved + right[r] * temp
+            saved     = left[j - r] * temp
+        values[j + 1, j + 1] = saved
+        
+    diff[:] = diff*p
+        
+               
+# =============================================================================
+@types('double[:]','int','double','int','double[:,:]','double[:]')
+def basis_funs_and_der(T, p, eta, span, values):
+    """
+    Parameters
+    ----------
+    T : array_like
+        Knots sequence.
+
+    p : int
+        Polynomial degree of B-splines.
+
+    eta : double
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    Returns
+    -------
+    values : numpy.ndarray
+        Values of (2, p + 1) non-vanishing B-Splines and derivatives at location eta.
+    """
+    
+    left       = empty(p, dtype=float)
+    right      = empty(p, dtype=float)
+    
+    vals       = zeros((p + 1, p + 1), dtype=float)
+    vals[0, 0] = 1.
+    
+    diff       = empty(p, dtype=float)
+    
+    for j in range(p):
+        left[j]  = eta - T[span - j]
+        right[j] = T[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            diff[r] = 1. / (right[r] + left[j - r])
+            temp = vals[j, r] * diff[r]
+            vals[j + 1, r] = saved + right[r] * temp
+            saved     = left[j - r] * temp
+        vals[j + 1, j + 1] = saved
+        
+    diff[:] = diff[:]*p
+    
+    
+    values[:, :] = 0.
+    values[0, :] = vals[p, :] 
+    
+    # compute derivatives
+    # j = 0
+    saved = vals[p - 1, 0]*diff[0]
+    values[1, 0] = -saved
+    
+    # j = 1, ..., p
+    for j in range(1, p):
+        temp  = saved
+        saved = vals[p - 1, j]*diff[j]
+        values[1, j] = temp - saved
+            
+    # j = p
+    values[1, p] = saved
+            
+            
 # ==============================================================================
 @types('double[:]','int','double','int','double[:]')
 def basis_funs_1st_der(T, p, eta, span, values):
@@ -153,98 +264,3 @@ def basis_funs_1st_der(T, p, eta, span, values):
     
     # j = degree
     values[p] = saved
-    
-    
-# ==============================================================================
-@types('double[:]','int','double','int','int','double[:,:]')
-def basis_funs_all_ders(T, p, eta, span, n, values):
-    """
-    Parameters
-    ----------
-    T : array_like
-        Knots sequence.
-
-    p : int
-        Polynomial degree of B-splines.
-
-    eta : double
-        Evaluation point.
-
-    span : int
-        Knot span index.
-
-    n : int
-        Max derivative of interest (maximum equal to p).
-
-    Results
-    -------
-    values : numpy.ndarray (n + 1, p + 1)
-        2D array of n + 1 (from 0-th to n-th) derivatives at eta of all (p + 1) non-vanishing basis functions in given span.
-    """
-    
-    left  = empty( p            , dtype=float)
-    right = empty( p            , dtype=float)
-    ndu   = empty((p + 1, p + 1), dtype=float)
-    a     = empty((2, p + 1)    , dtype=float)
-    
-
-    # Compute nonzero basis functions and knot differences for splines up to degree, which are needed to compute derivatives.
-    # Store values in 2D temporary array 'ndu' (square matrix).
-    ndu[0, 0] = 1.
-    
-    for j in range(p):
-        
-        left [j] = eta - T[span-j]
-        right[j] = T[span + 1 + j] - eta
-        saved    = 0.
-        
-        for r in range(j + 1):
-            
-            # compute inverse of knot differences and save them into lower triangular part of ndu
-            ndu[j + 1, r] = 1. / (right[r] + left[j - r])
-            
-            # compute basis functions and save them into upper triangular part of ndu
-            temp          = ndu[r, j] * ndu[j + 1, r]
-            ndu[r, j + 1] = saved + right[r] * temp
-            saved         = left[j - r] * temp
-            
-        ndu[j + 1, j + 1] = saved
-
-    
-    # Compute derivatives in 2D output array 'values'
-    values[0, :] = ndu[:, p]
-    
-    for r in range(p + 1):
-        s1 = 0
-        s2 = 1
-        a[0, 0] = 1.
-        
-        for k in range(1, n + 1):
-            d  = 0.
-            rk = r - k
-            pk = p - k
-            if r >= k:
-                a[s2, 0] = a[s1, 0] * ndu[pk + 1, rk]
-                d = a[s2, 0] * ndu[rk, pk]
-                
-            j1 = 1     if (rk  > -1)    else -rk
-            j2 = k - 1 if (r - 1 <= pk) else p - r
-            
-            for ii in range(j1, j2 + 1):
-                a[s2, ii] = (a[s1, ii] - a[s1, ii - 1]) * ndu[pk + 1, rk + ii]
-                d += a[s2, ii] * ndu[rk + ii, pk]
-            
-            if r <= pk:
-                a[s2, k] = - a[s1, k - 1] * ndu[pk + 1, r]
-                d += a[s2, k] * ndu[r, pk]
-                
-            values[k, r] = d
-            j  = s1
-            s1 = s2
-            s2 = j
-
-    # Multiply derivatives by correct factors
-    r = p
-    for k in range(1, n + 1):
-        values[k, :] = values[k, :] * r
-        r = r * (p - k)

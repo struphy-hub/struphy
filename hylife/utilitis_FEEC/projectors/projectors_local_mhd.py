@@ -52,8 +52,8 @@ class projectors_local_mhd:
 
         for a in range(3):
             if self.bc[a] == True:
-                self.coeff_i[a] = np.zeros((1, 2*self.p[a] - 1), dtype=float, order='F')
-                self.coeff_h[a] = np.zeros((1, 2*self.p[a])    , dtype=float, order='F')
+                self.coeff_i[a] = np.zeros((1, 2*self.p[a] - 1), dtype=float)
+                self.coeff_h[a] = np.zeros((1, 2*self.p[a])    , dtype=float)
 
 
                 if   self.p[a] == 1:
@@ -76,8 +76,8 @@ class projectors_local_mhd:
                     print('degree > 4 not implemented!')
 
             else:
-                self.coeff_i[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a] - 1), dtype=float, order='F')
-                self.coeff_h[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a])    , dtype=float, order='F')
+                self.coeff_i[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a] - 1), dtype=float)
+                self.coeff_h[a] = np.zeros((2*self.p[a] - 1, 2*self.p[a])    , dtype=float)
 
                 if   self.p[a] == 1:
                     self.coeff_i[a][0, :] = np.array([1.])
@@ -145,15 +145,15 @@ class projectors_local_mhd:
                 self.n_int_locbf_D[a]  = 2*self.p[a] - 2  # number of non-vanishing D bf in interpolation interval (1, 2, 4, 6)
         
         
-        self.x_int = [np.zeros((n_lambda_int, n_int), dtype=float, order='F') for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
+        self.x_int = [np.zeros((n_lambda_int, n_int), dtype=float) for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
         
-        self.int_global_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int, order='F') for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
-        self.int_global_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int, order='F') for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
+        self.int_global_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int) for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
+        self.int_global_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int) for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
         
-        self.int_loccof_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int, order='F') for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
-        self.int_loccof_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int, order='F') for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
+        self.int_loccof_N   = [np.zeros((n_lambda_int, n_int_locbf_N), dtype=int) for n_lambda_int, n_int_locbf_N in zip(n_lambda_int, self.n_int_locbf_N)]
+        self.int_loccof_D   = [np.zeros((n_lambda_int, n_int_locbf_D), dtype=int) for n_lambda_int, n_int_locbf_D in zip(n_lambda_int, self.n_int_locbf_D)]
         
-        self.x_int_indices  = [np.zeros((n_lambda_int, n_int), dtype=int, order='F') for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
+        self.x_int_indices  = [np.zeros((n_lambda_int, n_int), dtype=int) for n_lambda_int, n_int in zip(n_lambda_int, self.n_int)]
         self.coeffi_indices = [np.zeros( n_lambda_int, dtype=int) for n_lambda_int in n_lambda_int]
         
         
@@ -341,14 +341,14 @@ class projectors_local_mhd:
         
         self.x_his = [np.zeros((n_lambda_his, n_his + 1), dtype=float) for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]  
         
-        self.his_global_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int, order='F') for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
-        self.his_global_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int, order='F') for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
+        self.his_global_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int) for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
+        self.his_global_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int) for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
         
-        self.his_loccof_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int, order='F') for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
-        self.his_loccof_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int, order='F') for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
+        self.his_loccof_N = [np.zeros((n_lambda_his, n_his_locbf_N), dtype=int) for n_lambda_his, n_his_locbf_N in zip(n_lambda_his, self.n_his_locbf_N)]
+        self.his_loccof_D = [np.zeros((n_lambda_his, n_his_locbf_D), dtype=int) for n_lambda_his, n_his_locbf_D in zip(n_lambda_his, self.n_his_locbf_D)]
         
         
-        self.x_his_indices  = [np.zeros((n_lambda_his, n_his), dtype=int, order='F') for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]
+        self.x_his_indices  = [np.zeros((n_lambda_his, n_his), dtype=int) for n_lambda_his, n_his in zip(n_lambda_his, self.n_his)]
         self.coeffh_indices = [np.zeros( n_lambda_his, dtype=int) for n_lambda_his in n_lambda_his]
         
         self.pts = [0, 0, 0]
@@ -526,17 +526,17 @@ class projectors_local_mhd:
         """
 
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
 
-        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
 
-        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float, order='F')
+        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
 
 
         # size of interpolation/quadrature points of the 3 components
@@ -546,7 +546,7 @@ class projectors_local_mhd:
 
 
         # assembly of 1 - component (pi2_1 : int, his, his)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
 
         ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, kind_fun=11, kind_map=kind_map, params=params_map)
 
@@ -562,7 +562,7 @@ class projectors_local_mhd:
 
 
         # assembly of 2 - component (pi2_2 : his, int, his)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
 
         ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, kind_fun=14, kind_map=kind_map, params=params_map)
 
@@ -578,7 +578,7 @@ class projectors_local_mhd:
 
 
         # assembly of 3 - component (pi2_3 : his, his, int)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
 
         ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, kind_fun=17, kind_map=kind_map, params=params_map)
 
@@ -744,17 +744,17 @@ class projectors_local_mhd:
         """
         
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float, order='F')
+        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
         
-        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
-        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float, order='F')
+        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
+        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
         
-        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float, order='F')
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
+        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # unique interpolation points
         n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
@@ -763,7 +763,7 @@ class projectors_local_mhd:
         
         
         # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, kind_fun=21, kind_map=kind_map, params=params_map)
         
@@ -779,7 +779,7 @@ class projectors_local_mhd:
         
         
         # assembly of 2 - component (PI_1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, kind_fun=24, kind_map=kind_map, params=params_map)
         
@@ -795,7 +795,7 @@ class projectors_local_mhd:
         
         
         # assembly of 3 - component (PI_1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, kind_fun=27, kind_map=kind_map, params=params_map)
         
@@ -963,11 +963,11 @@ class projectors_local_mhd:
         
         
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # unique interpolation points
         n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
@@ -975,21 +975,21 @@ class projectors_local_mhd:
         n_unique3 = [self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size]
         
         # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, kind_fun=31, kind_map=kind_map, params=params_map)
         
         ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau11, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
         
         # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, kind_fun=31, kind_map=kind_map, params=params_map)
         
         ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau22, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
         
         # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, kind_fun=31, kind_map=kind_map, params=params_map)
         
@@ -1069,11 +1069,11 @@ class projectors_local_mhd:
         
         
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # unique interpolation points
         n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
@@ -1082,21 +1082,21 @@ class projectors_local_mhd:
         
         
         # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, kind_fun=91, kind_map=kind_map, params=params_map)
         
         ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau11, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
         
         # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, kind_fun=91, kind_map=kind_map, params=params_map)
         
         ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau22, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
         
         # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, kind_fun=91, kind_map=kind_map, params=params_map)
         
@@ -1172,14 +1172,14 @@ class projectors_local_mhd:
         """
         
         # non-vanishing coefficients
-        tau12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float, order='F')
-        tau13 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
+        tau13 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau21 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_D[2]), dtype=float, order='F')
-        tau23 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau21 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_D[2]), dtype=float)
+        tau23 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau31 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
-        tau32 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float, order='F')
+        tau31 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
+        tau32 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # unique interpolation points
         n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
@@ -1188,7 +1188,7 @@ class projectors_local_mhd:
         
         
         # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, kind_fun=41, kind_map=kind_map, params=params_map)
         
@@ -1199,7 +1199,7 @@ class projectors_local_mhd:
         ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
         
         # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, kind_fun=43, kind_map=kind_map, params=params_map)
         
@@ -1210,7 +1210,7 @@ class projectors_local_mhd:
         ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
         
         # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float, order='F')
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, kind_fun=45, kind_map=kind_map, params=params_map)
         
@@ -1329,12 +1329,12 @@ class projectors_local_mhd:
         """
         
         # non-vanishing coefficients
-        tau = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float, order='F')
+        tau = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
         
         # evaluation of equilibrium pressure at interpolation points
         n_unique = [self.x_int[0].size, self.x_int[1].size, self.x_int[2].size]
         
-        mat_eq   = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float, order='F')
+        mat_eq   = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
         
         ker_loc_eva.kernel_eva(n_unique, self.x_int[0], self.x_int[1], self.x_int[2], mat_eq, kind_fun=91, kind_map=kind_map, params=params_map)
         

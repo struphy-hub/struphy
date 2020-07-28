@@ -10,6 +10,8 @@ import numpy        as np
 import scipy.sparse as spa
 
 
+
+
 # ============== discrete gradient matrix (1d) ==============
 def grad_1d(spline_space):
     """
@@ -153,4 +155,48 @@ class discrete_derivatives:
 
         D  = spa.bmat([[D1, D2, D3]], format='csc')
 
-        return D     
+        return D
+    
+    
+    
+# ============== discrete gradient matrix (1d) for arbitrary number of basis functions ==============
+def grad_1d_ar(NbaseN, bc):
+    """
+    Returns the 1d discrete gradient matrix corresponding to the given B-spline space of degree p.
+    
+    Parameters
+    ----------
+    NbaseN : int 
+        number of basis functions in first space
+    
+    bc : boolean
+        True : periodic, False : clamped
+        
+    Returns
+    -------
+    grad : array_like
+        discrete gradient matrix
+    """
+    
+    
+    if bc == True:
+        
+        grad = np.zeros((NbaseN, NbaseN), dtype=float)
+        
+        for i in range(NbaseN):
+            grad[i, i] = -1.
+            if i < NbaseN - 1:
+                grad[i, i + 1] = 1.
+        grad[-1, 0] = 1.
+        
+        return grad
+    
+    else:
+        
+        grad = np.zeros((NbaseN - 1, NbaseN))
+    
+        for i in range(NbaseN - 1):        
+            grad[i, i] = -1.
+            grad[i, i  + 1] = 1.
+            
+        return grad

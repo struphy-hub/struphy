@@ -94,7 +94,7 @@ def fun(xi1, xi2, xi3, kind_fun, kind_map, params_map):
      
 
 # ==========================================================================================
-@types('int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','int','int','double[:]')        
+@types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
 def kernel_evaluation(nel, nq, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
     
     for ie1 in range(nel[0]):
@@ -109,7 +109,7 @@ def kernel_evaluation(nel, nq, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params)
                             
                 
 # ==========================================================================================
-@types('int[:]','int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:](order=F)','int[:]','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)','int','int','double[:]')        
+@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
 def kernel_evaluate_2form(nel, p, ns, nq, pts1, pts2, pts3, b_coeff, nbase, bi1, bi2, bi3, b_eva, component, kind_map, params_map):
     
     for ie1 in range(nel[0]):
@@ -131,7 +131,7 @@ def kernel_evaluate_2form(nel, p, ns, nq, pts1, pts2, pts3, b_coeff, nbase, bi1,
                                         
                                         
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, mat, mat_f):
     
     for ie1 in range(nel1):
@@ -161,7 +161,7 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
 
 
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, nbase1, nbase2, nbase3, mat, mat_f):
     
     for ie1 in range(nel1):
