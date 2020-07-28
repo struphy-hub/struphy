@@ -1,37 +1,39 @@
+# import pyccel decorators
 from pyccel.decorators import types
-#import ..linear_algebra.core as linalg
-#import ..geometry.mappings_analytical as mapping
 
-import hylife.linear_algebra.core as linalg
+# import modules for mapping related quantities
 import hylife.geometry.mappings_analytical as mapping
 
+# import module for matrix-matrix and matrix-vector multiplications
+import hylife.linear_algebra.core as linalg
+
+
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','double[:,:](order=F)','double[:,:](order=F)','int','double[:]')
+@types('double[:,:]','double','double[:,:]','double[:,:]','int','double[:]')
 def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
     
-    from numpy import empty
-    from numpy import zeros
+    from numpy import empty, zeros
     
     b          = empty( 3    , dtype=float)
     u          = empty( 3    , dtype=float)
     
-    b_prod     = zeros((3, 3), dtype=float, order='F')
+    b_prod     = zeros((3, 3), dtype=float)
     
     xi         = empty( 3    , dtype=float)
     v          = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F')
-    dfinv_t    = empty((3, 3), dtype=float, order='F')
-    ginv       = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float)
+    dfinv_t    = empty((3, 3), dtype=float)
+    ginv       = empty((3, 3), dtype=float)
     
-    temp_mat1  = empty((3, 3), dtype=float, order='F')
-    temp_mat2  = empty((3, 3), dtype=float, order='F')
+    temp_mat1  = empty((3, 3), dtype=float)
+    temp_mat2  = empty((3, 3), dtype=float)
     
     temp_vec   = empty( 3    , dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
@@ -98,7 +100,7 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
     
     
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','int','double[:]')
+@types('double[:,:]','double','int','double[:]')
 def pusher_step4(particles, dt, kind_map, params_map):
     
     from numpy import empty
@@ -106,11 +108,11 @@ def pusher_step4(particles, dt, kind_map, params_map):
     xi         = empty( 3    , dtype=float)
     v          = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
@@ -175,41 +177,40 @@ def pusher_step4(particles, dt, kind_map, params_map):
     
     
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','double[:,:](order=F)','int','double[:]')
+@types('double[:,:]','double','double[:,:]','int','double[:]')
 def pusher_step5(particles, dt, b_part, kind_map, params_map):
     
-    from numpy import empty
-    from numpy import zeros
+    from numpy import empty, zeros
     
     b          = empty( 3    , dtype=float)
     
-    b_prod     = zeros((3, 3), dtype=float, order='F')
+    b_prod     = zeros((3, 3), dtype=float)
     
     v          = empty( 3    , dtype=float)
     xi         = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F') 
-    dfinv_t    = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float) 
+    dfinv_t    = empty((3, 3), dtype=float)
     
-    temp_mat1  = empty((3, 3), dtype=float, order='F')
-    temp_mat2  = empty((3, 3), dtype=float, order='F')
+    temp_mat1  = empty((3, 3), dtype=float)
+    temp_mat2  = empty((3, 3), dtype=float)
     
     rhs        = empty( 3    , dtype=float)
     
-    identity   = zeros((3, 3), dtype=float, order='F')
+    identity   = zeros((3, 3), dtype=float)
     identity[0, 0] = 1.
     identity[1, 1] = 1.
     identity[2, 2] = 1.
     
-    lhs        = empty((3, 3), dtype=float, order='F')
+    lhs        = empty((3, 3), dtype=float)
     
-    lhs1       = empty((3, 3), dtype=float, order='F')
-    lhs2       = empty((3, 3), dtype=float, order='F')
-    lhs3       = empty((3, 3), dtype=float, order='F')
+    lhs1       = empty((3, 3), dtype=float)
+    lhs2       = empty((3, 3), dtype=float)
+    lhs3       = empty((3, 3), dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
