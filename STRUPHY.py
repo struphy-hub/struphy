@@ -18,22 +18,21 @@ import hylife.utilitis_FEEC.basics.inner_products_3d as inner
 import hylife.utilitis_FEEC.projectors.projectors_local     as proj
 import hylife.utilitis_FEEC.projectors.projectors_local_mhd as mhd
 
-import hylife.utilitis_PIC.STRUPHY_fields       as pic_fields
-import hylife.utilitis_PIC.STRUPHY_pusher       as pic_pusher
-import hylife.utilitis_PIC.STRUPHY_accumulation as pic_accumu
-import hylife.utilitis_PIC.STRUPHY_sampling     as pic_sample
-import hylife.utilitis_PIC.sobol_seq            as sobol
+import hylife.utilitis_PIC.fields       as pic_fields
+import hylife.utilitis_PIC.pusher       as pic_pusher
+import hylife.utilitis_PIC.accumulation as pic_accumu
+import hylife.utilitis_PIC.sampling     as pic_sample
+import hylife.utilitis_PIC.sobol_seq    as sobol
 
 import hylife.interface as inter
 
 
 
 # ======================== load parameters ============================
+import simulations.simulation_21072020_1.parameters_21072020_1 as pa    # name input folder here!
+identifier = 'simulation_21072020_1'                                    # name input folder here!
 
-import simulations.simulation_13072020_1.parameters_13072020_1 as pa    # name input folder here!
-identifier = 'simulation_13072020_1'                                    # name input folder here!
-
-params = pa.parameters()
+params       = pa.parameters()
 
 Nel          = params.Nel            # mesh generation on logical domain
 bc           = params.bc             # boundary conditions (True: periodic, False: else)
@@ -71,7 +70,6 @@ vth          = params.vth            # thermal velocity of Maxwellian
 loading      = params.loading        # particle loading
 
 
-
 # restart function
 restart        = params.restart         # is this run a restart?
 num_restart    = params.num_restart     # if yes, locate restart data
@@ -79,8 +77,8 @@ create_restart = params.create_restart  # create restart data at the end of the 
 # ========================================================================
 
 
-# ================== basics ==============================================
 
+# ================== basics ==============================================
 # element boundaries and spline knot vectors (N and D)
 el_b         = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                      
 T            = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]
@@ -116,66 +114,35 @@ if add_PIC == True:
 
     # particle accumulator
     acc = pic_accumu.accumulation(tensor_space)
-    
-    
 # =======================================================================
-
-
-# ==== coefficients for pp-forms in interval [0, delta] (N and D) for fast field evaluation
-pp0 = []
-pp1 = []
-
-delta = tensor_space.delta
-
-for i in range(3):
-    
-    if   p[i] == 1:
-        pp0.append(np.asfortranarray([[1., -1/delta[i]], [0., 1/delta[i]]]))
-        pp1.append(np.asfortranarray([[1/delta[i]]]))
-    
-    elif p[i] == 2:
-        pp0.append(np.asfortranarray([[1/2, -1/delta[i], 1/(2*delta[i]**2)], [1/2, 1/delta[i], -1/delta[i]**2], [0., 0., 1/(2*delta[i]**2)]]))
-        pp1.append(np.asfortranarray([[1., -1/delta[i]], [0., 1/delta[i]]])/delta[i])
-    
-    elif p[i] == 3:
-        pp0.append(np.asfortranarray([[1/6, -1/(2*delta[i]), 1/(2*delta[i]**2), -1/(6*delta[i]**3)], [2/3, 0., -1/delta[i]**2, 1/(2*delta[i]**3)], [1/6, 1/(2*delta[i]), 1/(2*delta[i]**2), -1/(2*delta[i]**3)], [0., 0., 0., 1/(6*delta[i]**3)]]))
-        pp1.append(np.asfortranarray([[1/2, -1/delta[i], 1/(2*delta[i]**2)], [1/2, 1/delta[i], -1/delta[i]**2], [0., 0., 1/(2*delta[i]**2)]])/delta[i])
-    
-    elif p[i] == 4:
-        pp0.append(np.asfortranarray([[1/24, -1/(6*delta[i]), 1/(4*delta[i]**2), -1/(6*delta[i]**3), 1/(24*delta[i]**4)], [11/24, -1/(2*delta[i]), -1/(4*delta[i]**2), 1/(2*delta[i]**3), -1/(6*delta[i]**4)], [11/24, 1/(2*delta[i]), -1/(4*delta[i]**2), -1/(2*delta[i]**3), 1/(4*delta[i]**4)], [1/24, 1/(6*delta[i]), 1/(4*delta[i]**2), 1/(6*delta[i]**3), -1/(6*delta[i]**4)], [0., 0., 0., 0., 1/(24*delta[i]**4)]]))
-        pp1.append(np.asfortranarray([[1/6, -1/(2*delta[i]), 1/(2*delta[i]**2), -1/(6*delta[i]**3)], [2/3, 0., -1/delta[i]**2, 1/(2*delta[i]**3)], [1/6, 1/(2*delta[i]), 1/(2*delta[i]**2), -1/(2*delta[i]**3)], [0., 0., 0., 1/(6*delta[i]**3)]])/delta[i])
-    
-    else:
-        print('Spline degree > 4 not yet implemented!')
-# ======================================================================
 
 
 
 # ========= reserve memory for FEM cofficients and particles ===========
-pr     = np.empty(Nbase_0form,    dtype=float, order='F')     # bulk pressure FEM coefficients
+pr     = np.empty(Nbase_0form,    dtype=float)     # bulk pressure FEM coefficients
 
-u1     = np.empty(Nbase_1form[0], dtype=float, order='F')     # bulk velocity FEM coefficients (1 - component)
-u2     = np.empty(Nbase_1form[1], dtype=float, order='F')     # bulk velocity FEM coefficients (2 - component)
-u3     = np.empty(Nbase_1form[2], dtype=float, order='F')     # bulk velocity FEM coefficients (3 - component)
+u1     = np.empty(Nbase_1form[0], dtype=float)     # bulk velocity FEM coefficients (1 - component)
+u2     = np.empty(Nbase_1form[1], dtype=float)     # bulk velocity FEM coefficients (2 - component)
+u3     = np.empty(Nbase_1form[2], dtype=float)     # bulk velocity FEM coefficients (3 - component)
 
-u1_old = np.empty(Nbase_1form[0], dtype=float, order='F')     # bulk velocity FEM coefficients from previous time step (1 - component)
-u2_old = np.empty(Nbase_1form[1], dtype=float, order='F')     # bulk velocity FEM coefficients from previous time step (2 - component)
-u3_old = np.empty(Nbase_1form[2], dtype=float, order='F')     # bulk velocity FEM coefficients from previous time step (3 - component)
+u1_old = np.empty(Nbase_1form[0], dtype=float)     # bulk velocity FEM coefficients from previous time step (1 - component)
+u2_old = np.empty(Nbase_1form[1], dtype=float)     # bulk velocity FEM coefficients from previous time step (2 - component)
+u3_old = np.empty(Nbase_1form[2], dtype=float)     # bulk velocity FEM coefficients from previous time step (3 - component)
 
-b1     = np.empty(Nbase_2form[0], dtype=float, order='F')     # magnetic field FEM coefficients (1 - component)
-b2     = np.empty(Nbase_2form[1], dtype=float, order='F')     # magnetic field FEM coefficients (2 - component)
-b3     = np.empty(Nbase_2form[2], dtype=float, order='F')     # magnetic field FEM coefficients (3 - component)
+b1     = np.empty(Nbase_2form[0], dtype=float)     # magnetic field FEM coefficients (1 - component)
+b2     = np.empty(Nbase_2form[1], dtype=float)     # magnetic field FEM coefficients (2 - component)
+b3     = np.empty(Nbase_2form[2], dtype=float)     # magnetic field FEM coefficients (3 - component)
 
-rho    = np.empty(Nbase_3form,    dtype=float, order='F')     # bulk mass density FEM coefficients
+rho    = np.empty(Nbase_3form,    dtype=float)     # bulk mass density FEM coefficients
 
 # particles
-particles = np.empty((Np, 7), dtype=float, order='F')
-w0        = np.empty(Np, dtype=float)
-s0        = np.empty(Np, dtype=float)
+particles = np.empty((Np, 7), dtype=float)
+w0        = np.empty( Np    , dtype=float)
+s0        = np.empty( Np    , dtype=float)
 
 # fields at particle positions (U and B)
-B_part = np.empty((Np, 3), dtype=float, order='F')
-U_part = np.empty((Np, 3), dtype=float, order='F')
+B_part = np.empty((Np, 3), dtype=float)
+U_part = np.empty((Np, 3), dtype=float)
 
 # energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
 energies = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
@@ -191,7 +158,6 @@ fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 
 
 # ============= projection of initial conditions ==========================
-
 # create object for projecting initial conditions
 pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
@@ -228,27 +194,24 @@ for k in range(pr.shape[2]):
     rho[:, :, k] = amps[7]
 """
 
-
 print('projection of initial conditions done!')
 # ==========================================================================
 
 
 
-
 # ==================== matrices ========================================
-
 # create object for projecting MHD matrices
 MHD = mhd.projectors_local_mhd(tensor_space, nq_pr)
 
 # mass matrices in V0, V1 and V2
-M0 = mass.mass_V0(tensor_space, kind_map, params_map)
-M1 = mass.mass_V1(tensor_space, kind_map, params_map)
-M2 = mass.mass_V2(tensor_space, kind_map, params_map)
+M0 = mass.mass_V0(tensor_space, 0, kind_map, params_map)
+M1 = mass.mass_V1(tensor_space, 0, kind_map, params_map)
+M2 = mass.mass_V2(tensor_space, 0, kind_map, params_map)
 
 print('mass matrices done!')
 
 # normalization vector in V0 (for bulk thermal energy)
-norm_0form = inner.inner_prod_V0(tensor_space, kind_map, params_map, lambda xi1, xi2, xi3 : np.ones(xi1.shape)).flatten()
+norm_0form = inner.inner_prod_V0(tensor_space, lambda xi1, xi2, xi3 : np.ones(xi1.shape), 0, kind_map, params_map).flatten()
 
 # discrete grad, curl and div matrices
 derivatives = der.discrete_derivatives(tensor_space)
@@ -282,20 +245,19 @@ STEP2_2 = dt*TAU.T.dot(CURL.T.dot(M2)).tocsc()
 S2_ILU  = spa.linalg.spilu(S2)
 
 # matrices for step 6
-L      = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
+L       = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
 
 del S, K
 
-S6     = spa.bmat([[A,  dt/2*M1.dot(GRAD)], [-dt/2*L, M0]]).tocsc()
-STEP6  = spa.bmat([[A, -dt/2*M1.dot(GRAD)], [ dt/2*L, M0]]).tocsc()
+S6      = spa.bmat([[A,  dt/2*M1.dot(GRAD)], [-dt/2*L, M0]]).tocsc()
+STEP6   = spa.bmat([[A, -dt/2*M1.dot(GRAD)], [ dt/2*L, M0]]).tocsc()
 
-S6_ILU = spa.linalg.spilu(S6)
+S6_ILU  = spa.linalg.spilu(S6)
 
 del MHD, M0, L, GRAD
 
 print('assembly of constant matrices done!')
 # =========================================================================
-
 
 
 
@@ -323,15 +285,15 @@ elif loading == 'pr_space_uni_velocity':
     
 elif loading == 'external':
     # load numbers between (0, 1) from an external file
-    particles[:, :6] = np.load('particles.npy')
+    particles[:, :6] = np.load('papers/02_FEEC_MHD/particles.npy')
     
 else:
     print('particle loading not specified')
 
 # inversion of cumulative distribution function
-particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
-particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
-particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
+#particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
+#particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
+#particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
 
 # compute initial weights
 pic_sample.compute_weights_ini(particles, w0, s0, kind_map, params_map)
@@ -348,8 +310,8 @@ print('particle initialization done!')
 # ================ compute initial fields at particle positions and initial energies ==================================
 if add_PIC == True:
     timea = time.time()
-    pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
-    pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
+    pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, u1, u2, u3, U_part, kind_map, params_map)
+    pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, b1, b2, b3, B_part, kind_map, params_map)
     timeb = time.time()
     print('initial field computation at particles done. Time : ', timeb-timea)
 
@@ -440,7 +402,7 @@ def update():
     b3[:, :, :] = temp3.reshape(Nbase_2form[2])
     
     if add_PIC == True:
-        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
+        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, b1, b2, b3, B_part, kind_map, params_map)
     # ====================================================================================================
     
     
@@ -481,7 +443,7 @@ def update():
             u3[:, :, :] = temp3.reshape(Nbase_1form[2])
 
         timea = time.time()
-        pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
+        pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, U_part, kind_map, params_map)
         timeb = time.time()
         times_elapsed['evaluation_1form'] = timeb - timea
         
@@ -503,7 +465,7 @@ def update():
     # ========= step 5 (1 : update particle veclocities (V), 2 : update particle weights (W)) ===============
     if add_PIC == True:
         timea = time.time()
-        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
+        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, b1, b2, b3, B_part, kind_map, params_map)
         timeb = time.time()
         times_elapsed['evaluation_2form'] = timeb - timea
         
@@ -684,8 +646,8 @@ if time_int == True:
         s0[:]           = file['restart/control_s0'][:]
         
         # perform initialization for next time step: field evaluation at particle positions
-        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_2form), Np, b1, b2, b3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], B_part, kind_map, params_map)
-        pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], t[0], t[1], t[2], p, Nel, np.asfortranarray(Nbase_1form), Np, u1, u2, u3, pp0[0], pp0[1], pp0[2], pp1[0], pp1[1], pp1[2], U_part, kind_map, params_map)
+        pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, u1, u2, u3, U_part, kind_map, params_map)
+        pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, b1, b2, b3, B_part, kind_map, params_map)
         
         # perform initialization for next time step: compute partice weights
         if control == True:
