@@ -159,11 +159,54 @@ When discretizing the 1-form $\hat \Eb^1$ and the 2-form $\hat \Bb^2$ on the log
 
 
 
-\subsection{Tensor product B-splines} 
+\subsection{The open question} 
 
-The mapping $\Fb: \hat\Omega \to \Omega$ as well as the forms $\hat \Eb^1: \hat \Omega \to \RR^3$ and $\hat \Bb^2 : \hat \Omega \to \RR^3$ will be projected into finite-dimensional spline spaces denoted by $\cR^\Fb_{ijk}$ and $\cR_{ijk}$. 
-
-
+We aim to create the polar de Rham complex starting from the tensor-product basis in $V_0$, created from univariate B-splines $\hat N^p_i$. Hence we start from 
+\be
+V_0 = \tn{span}\big[\, \hat N_i^{p_1}(s)\hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)\, \big]_{i=0,j=0,k=0}^{n_s-1,n_\theta-1,n_\vphi-1}\,,
+\ee
+where the B-splines $\hat N_i^{p_1}: \hat\Omega_s \to \RR$ are clamped and the B-splines in $\theta$ and $\vphi$ are periodic. The total number of basis functions is thus $n_{tot} = n_s n_\theta n_\vphi$. Let us moreover introduce the $M$-splines
+\be
+ \hat D_i^{p} := \frac{p}{\eta_{i+p} - \eta_i} \hat N_i^{p-1}\,,
+\ee
+where $(\eta_i)_i$ is the knot vector defining the B-splines $\hat N_i^p$. We have for the derivative of B-splines the formula
+\be
+ (\hat N_i^p)' = \hat D_{i-1}^p - \hat D_i^p\,.
+\ee
+For clamped B-splines we have $\hat D_{-1}^p = 0$ and, due to partition of unity in $\hat\Omega_s = [0,1]$, at the left boundary we have
+\begin{gather}
+ \hat N_0^{p_1}(0) = 1\,,\qquad \hat N_i^{p_1}(0) = 0 \quad \tn{for} \quad i\geq 1\,,
+ \\[3mm]
+ (\hat N_0^{p_1})'(0) = - \hat D_0^{p_1}(0) = - (\hat N_1^{p_1})'(0)\,,\qquad (\hat N_i^{p_1})'(0) = 0 \quad \tn{for} \quad i \geq 2\,. \label{only2}
+\end{gather}
+From \eqref{only2} we see that only the B-splines $i=0$ and $i=1$ have non-vanishing derivative at the left boundary. We thus take only these B-splines to form $n$ new polar basis functions $\hat\chi_n(s,\theta,\vphi)$ via linear combinations of $2 n_\theta n_\vphi$ tensor-product basis functions:
+\be \label{Efull}
+ \hat \chi_n(s,\theta,\vphi) = \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} \left[ E_{n,0,j,k}\,\hat N_0^{p_1}(s) + E_{n,1,j,k}\,\hat N_1^{p_1}(s) \right] \hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)\,.
+\ee
+Introducing the index $m= k + j n_\vphi + i n_\theta n_\vphi$, we write this as
+\be \label{Enm}
+ \hat \chi_n(s,\theta,\vphi) = \sum_{m=0}^{2n_\theta n_\vphi-1} E_{n,m} \hat N_m(s,\theta,\vphi)\,,
+\ee
+with $\hat N_m(s,\theta,\vphi) = \hat N_i^{p_1}(s) \hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)$ appropriately. The other tensor-product basis with $m\geq 2n_\theta n_\vphi$ remain unchanged and are taken as basis functions of the polar spline space. The $ n^* = n_{tot} - 2 n_\theta n_\vphi + 2$ new polar basis functions will be denoted by $\hat \Qb = (\hat Q_l)_{l=0}^{n^*-1}$. We have
+\be
+ \hat \Qb = \EE_{tot}\, \hat \Nb\,,
+\ee
+where $\hat \Nb = (\hat N_m)_{m=0}^{n_{tot} -1}$ and $\EE_{tot} \in \RR^{n^* \times n_{tot}}$ is the \emph{extraction operator} composed of the following blocks:
+\be
+ \EE_{tot} = \begin{bmatrix}
+        \EE & \mathbf 0
+        \\[1mm]
+        \mathbf 0 & \mathbb I_{n^*-2}
+       \end{bmatrix}\,.
+\ee
+Here, $\EE \in \RR^{2\times 2 n_s n_\theta}$ and $\mathbb I_{n^*-2} \in \RR^{(n^*-2) \times (n^*-2)}$ is the identity matrix. The entries of $\EE$ are the $E_{n,m}$ from \eqref{Enm} or \eqref{Efull}, respectively. The new polar spline space is thus 
+\be
+ V_0^* := \tn{span}(\hat \Qb)\,.
+\ee
+It remains to construct the other polar spaces $V^*_1$, $V^*_2$ and $V^*_3$ such that the exact sequence property is preserved:
+\be
+ Im(\grad) = Ker(\curl)\,,\qquad Im(\curl) = Ker(\div)\,.
+\ee
 
 
 %%%%%%%%%%%%%%%%%%%
