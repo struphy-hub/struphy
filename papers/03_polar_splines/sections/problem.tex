@@ -2,9 +2,9 @@
 
 \subsection{Polar mappings}
 
-In what follows we distinguish between the logical domain $\hat \Omega$ and the "mapped domain" or "physical domain" $\Omega$. The logical domain will be assumed a rectangular cuboid and the mapped domain is the image of $\hat\Omega \subset \RR^3$ under the map $\Fb:\RR^3 \to \RR^3$. We focus on the three-dimensional case because of its practical importance. Specifically, 
+In what follows we distinguish between the logical domain $\hat \Omega = \hat\Omega_s \times \hat\Omega_\theta \times \hat\Omega_\vphi$ and the "mapped domain" or "physical domain" $\Omega \subset \RR^3$. The logical domain is assumed a rectangular cuboid defined as the product of the three coordinate spaces $\hat\Omega_s, \hat\Omega_\theta,\hat\Omega_\vphi \subset \RR$. The mapped domain is the image of $\hat\Omega \subset \RR^3$ under the map $\Fb:\hat\Omega \to \RR^3$, that is $\Omega = \Fb(\hat\Omega)$. We focus on the three-dimensional case because of its practical importance. Specifically, 
 \be
- \Fb = \Fb(\eta,\theta,\vphi) = \begin{bmatrix}
+ \Fb(s,\theta,\vphi) = \Fb(\etab) = \begin{bmatrix}
                                  F_1(\etab)
                                  \\
                                  F_2(\etab)
@@ -15,7 +15,7 @@ In what follows we distinguish between the logical domain $\hat \Omega$ and the 
                                  x \\ y \\ z
                                 \end{bmatrix} = \xb \in \Omega\,,                        
 \ee
-where $\etab = (\eta,\theta,\vphi) \in \hat\Omega_\eta \times \hat\Omega_\theta \times \hat\Omega_\vphi = \hat\Omega$ denote the logical coordinates and $\xb = (x,y,z) \in \Omega$ are the mapped (Cartesian) coordinates. $\Fb$ is assumed to have a pole in the plane spanned by the first two logical coordinates. The planar pole is located along the line $\vphi \mapsto (x_0(\vphi), y_0(\vphi), z_0(\vphi))$, characterized by
+where $\etab = (s,\theta,\vphi) \in  \hat\Omega$ denote the logical coordinates and $\xb = (x,y,z) \in \Omega$ are the mapped (Cartesian) coordinates. $\Fb$ is assumed to have a pole in the plane spanned by the first two logical coordinates. This means that for any $\vphi \in \hat\Omega_\vphi$, the logical edge $s=0$ collapses to a single point $(x_0(\vphi), y_0(\vphi), z_0(\vphi)) $ in the physical domain. The planar pole is thus located along the line $\vphi \mapsto (x_0(\vphi), y_0(\vphi), z_0(\vphi))$, characterized by
 \be
  \Fb(0,\theta,\vphi) =     \begin{bmatrix}
                         x_0(\vphi) \\[1mm] y_0(\vphi) \\[1mm] z_0(\vphi)
@@ -23,33 +23,34 @@ where $\etab = (\eta,\theta,\vphi) \in \hat\Omega_\eta \times \hat\Omega_\theta 
 \ee
 This means in particular that
 \be
- \pder{^n\Fb}{\theta^n} \Big |_{\eta=0} = \begin{bmatrix}
+ \pder{^n\Fb}{\theta^n} \Big |_{s=0} = \begin{bmatrix}
                         0 \\ 0 \\ 0
                        \end{bmatrix} \qquad \tn{for}\quad n\geq 1 \,.
 \ee
 The Jacobian matrix at the pole reads
 \be \label{DF0}
- D\Fb \big|_{\eta=0} = \begin{bmatrix}
-         F_{1,\eta} \big|_{\eta=0} & 0 & x_0'
+ D\Fb \big|_{s=0} = \begin{bmatrix}
+         F_{1,s} \big|_{s=0} & 0 & x_0'
          \\[1mm]
-         F_{2,\eta} \big|_{\eta=0} & 0 & y_0'
+         F_{2,s} \big|_{s=0} & 0 & y_0'
          \\[1mm]
-         F_{3,\eta} \big|_{\eta=0} & 0 & z_0'
+         F_{3,s} \big|_{s=0} & 0 & z_0'
         \end{bmatrix}\,,
 \ee
-which shows the singularity at $\eta = 0$. In practical applications the mapping $\Fb$ can be quite complicated, sometimes given as the result of a computer simulation which has to be interpolated to obtain a continuous mapping. In order to introduce the polar PIC method we decompose $\Fb = \Fb_2 \circ \hat \Fb$ where $\hat \Fb: \hat\Omega \to \hat \Omega_\tn{cyl}$ is a simple square-to-disc mapping given by
-\be \label{Fmap}
- \hat \Fb(\eta,\theta,\vphi) = 
- \begin{bmatrix} f(\eta) \cos\theta \\[1mm] f(\eta)\sin\theta \\[1mm] \vphi \end{bmatrix}
-  = \begin{bmatrix} \hat x \\ \hat y \\ \hat z \end{bmatrix} = \hat \xb \in \hat \Omega_\tn{cyl}\,,
+which shows the singularity at $s = 0$. In practical applications the mapping $\Fb$ can be quite complicated, sometimes given as the result of a computer simulation. W.l.o.g. we set $\hat\Omega_s = [0,1]$, $\hat\Omega_\theta = [0,2\pi), \hat\Omega_\vphi=[0,L)$ and decompose $\Fb = \Pb \circ \Gb$, where $\Gb: \hat\Omega \to \Omega_\Pb$ is a simple cylindrical mapping given by
+\be \label{Gmap}
+ \Gb(\etab) = 
+ \begin{bmatrix} f(s) \cos\theta \\[1mm] f(s)\sin\theta \\[1mm] \vphi \end{bmatrix}
+  = \begin{bmatrix} X \\[1mm] Y \\[1mm] Z \end{bmatrix} = \Xb \in \Omega_\Pb\,,
 \ee
-where $\hat \xb$ are called the \emph{pseudo-Cartesian} coordinates in the cylinder $\hat \Omega_\tn{cyl}$. The function $f$ is such that
+In \cite{YamanEdo2019} the coordinates $\Xb$ were termed \emph{pseudo-Cartesian} coordinates, a notion we shall adopt in this work. The function $f$ is such that
 \be
- f:\hat\Omega_\eta \to \RR\,,\qquad f(0) = 0\,.
+ f: [0,1] \to \RR\,,\qquad f(0) = 0\,,\qquad 0 < f'(s) < \infty \quad \tn{for}\ s > 0 \,.
 \ee
-Moreover, $f$ should be chosen such that $\Fb_2 = \Fb \circ \hat \Fb^{-1}: \hat\Omega_\tn{cyl} \to \Omega$ is continuously differentiable and invertible in $\hat \Omega_\tn{cyl}$. If that is the case, the problem of the singularity at the pole $\eta=0$ occurs entirely in the square-to-disc mapping $\hat \Fb$. We shall thus focus on this mapping and leave $\Fb_2$ out of the analysis. The Jacobian $D\hat \Fb$ and its inverse are given by
-\be
- D\hat \Fb  =
+Moreover, $f$ should be chosen such that $\Pb = \Fb \circ \Gb^{-1}: \Omega_\Pb \to \Omega$ is continuously differentiable and invertible on $\Omega_\Pb$. In that case the problem of the singularity at the pole $s=0$ occurs entirely in the cylindrical mapping $\Gb$. The relation between the three coordinates spaces $\hat\Omega \to \Omega_\Pb \to \Omega$ is illustrated in Figure~\ref{fig:map}.
+The Jacobian $D\Gb$ and its inverse are given by
+\be \label{DG}
+ D\Gb  =
  \begin{bmatrix}
   f'\cos\theta & -f\sin\theta & 0
   \\
@@ -57,24 +58,34 @@ Moreover, $f$ should be chosen such that $\Fb_2 = \Fb \circ \hat \Fb^{-1}: \hat\
   \\
   0 & 0 & 1 
  \end{bmatrix}\,, \qquad
- (D\hat \Fb)^{-1} = \begin{bmatrix}
-  1/f'\cos\theta & 1/f'\sin\theta & 0
+ (D\Gb)^{-1} = \begin{bmatrix}
+  \frac{1}{f'}\cos\theta & \frac{1}{f'}\sin\theta & 0
   \\
-  - 1/f\sin\theta & 1/f\cos\theta & 0
+  - \frac{1}{f}\sin\theta & \frac{1}{f}\cos\theta & 0
   \\
   0 & 0 & 1
  \end{bmatrix} \,.
 \ee
-The Jacobian is $J = \det D\hat\Fb = ff'$. The square-to-disc mapping is illustrated in Figure~\ref{fig:map}.
+The Jacobian is $J_\Gb = \det D \Gb = ff'$. Choosing $f(s) = s$ for example leads to the standard cylindrical coordinates with $J_\Gb(0) = 0$, whereas choosing $f(s) = \sqrt s$ leads to $J_\Gb(0) = 1/2$. Even though $\Gb$ is singular at $s=0$, an inverse of $\Gb$ can be created via
+\be \label{Gmap:inv}
+ \Gb^{-1}(\Xb) = 
+ \begin{bmatrix} f^{-1}(\sqrt{X^2+Y^2}) \\[1mm] \tn{atan}2(Y,X) \\[1mm] Z \end{bmatrix}
+  = \begin{bmatrix} s \\[1mm] \theta \\[1mm] \vphi \end{bmatrix} = \etab \in \hat\Omega\,,
+\ee
+where $\tn{atan}2$ returns the phase angle of the complex number $X + iY$ in the range $(-\pi,\pi]$, which we then shift to $[0,2\pi)$. This assigns a unique value to the angular variable $\theta$ at the pole $ (X=0, Y=0)$.
 
-\begin{figure}[htb]
-\includegraphics[width=\textwidth]{pics/mapping2.png}
-\caption{Cylindrical coordinates.} \label{fig:map}
-\end{figure}
 
 
+% \begin{figure}[htb]
+% \includegraphics[width=\textwidth]{pics/mapping2.png}
+% \caption{Cylindrical coordinates.} \label{fig:map}
+% \end{figure}
 
-In the physical domain $\hat \Omega$, the trajectory $\xb(t)$ of a charged particle is obtained from the equations of motion
+
+\subsection{Particle equations of motion}
+
+
+In the physical domain $\Omega$, the trajectory $\xb(t)$ of a charged particle is obtained from the equations of motion
 \be
 \left\{
 \begin{aligned}
@@ -84,31 +95,68 @@ In the physical domain $\hat \Omega$, the trajectory $\xb(t)$ of a charged parti
 \end{aligned}
 \right.
 \ee
-where $\vb(t) \in \RR^3$ stands for the velocity and $\Eb,\Bb: \Omega\to \RR^3$ are the electromagnetic fields. In the logical space, these equations read
-\be
+where $\vb(t) \in \RR^3$ stands for the particle's velocity and $\Eb,\Bb: \Omega\to \RR^3$ are the electromagnetic fields. With respect to the pseudo-Cartesian position coordinate $\xb = \Pb(\Xb)$, these equations read
+\be \label{eqmos:X}
 \left\{
 \begin{aligned}
- (D\Fb)\dt{\etab} &=  \vb\,,
+ \dt{\Xb} &=  (D\Pb)^{-1}(\Xb)\,\vb\,,
  \\[1mm]
- \dt{\vb} &= (D\Fb)\hat \Eb + \vb \times (D\Fb) \hat \Bb\,.
+ \dt{\vb} &= \wt \Eb(\Xb) + \vb \times \wt \Bb(\Xb)\,,
 \end{aligned}
 \right.
 \ee
-Here, $\hat\Eb$ and $\hat \Bb$ stand for the contra-variant components of the vector fields. These can be transformed to 1- respectively 2-forms as follows:
-\be
- \hat \Eb^1 = (D\Fb^\top D\Fb) \hat\Eb\,,\qquad \hat \Bb^2 = J\,\hat\Bb\,,
+where $\wt \Eb = \Eb \circ \Pb$ and $\wt \Bb = \Bb \circ \Pb$. Remark that these equations are well-defined for all $\Xb\in\Omega_\Pb$ because $\Pb \in C^1(\Omega_\Pb)$. From our finite element solver we compute however not $\wt \Eb$ and $\wt \Bb$ on $\Omega_\Pb$ but rather the 1-form $\hat \Eb^1$ resp. the 2-form $\hat \Bb^2$ on in the logical domain $\hat\Omega$. The relation between these representations is given by
+\be \label{star_to_form}
+ \wt \Eb(\Xb) = [(D\Gb^{-\top} \hat \Eb^1) \circ \Gb^{-1} ](\Xb)\,,\qquad \wt \Bb = \left[ \left(\frac{1}{J_\Gb} D\Gb\, \hat \Bb^2 \right) \circ \Gb^{-1} \right](\Xb)\,.
 \ee
-where $J = \det D\Fb$ denotes the Jacobian determinant. For $\eta\neq 0$ the logical equations of motion can be written as
+Particle pushing in the polar GEMPIC scheme is achieved by solving the equations \eqref{eqmos:X}-\eqref{star_to_form}. The difficulty arises in the coupling to the $p$-forms via \eqref{star_to_form}, which involves singular metric coefficients. The functions
 \be
-\left\{
-\begin{aligned}
- \dt{\etab} &= (D\Fb)^{-1} \vb\,,
- \\[1mm]
- \dt{\vb} &= (D\Fb)^{-\top} \left[ \hat \Eb^1 + (D\Fb)^{-1}\vb \times \hat \Bb^2 \right]\,,
-\end{aligned}
-\right.
+ \wt \Eb = D\Gb^{-\top} \hat \Eb^1 \,,\qquad \wt \Bb = \frac{1}{J_\Gb} D\Gb\, \hat \Bb^2\,,
 \ee
-where we used $(D\Fb) \ab \times (D\Fb) \bb = J\,D\Fb^{-\top}(\ab \times \bb)$.
+are bounded on $\Omega_\Pb$; by substituting \eqref{DG} this means in terms of the components 
+\begin{subequations}
+\begin{align}
+ \begin{bmatrix}
+  \wt E_1 
+  \\[1mm]
+  \wt E_2
+  \\[1mm]
+  \wt E_3
+  \end{bmatrix} =
+  \begin{bmatrix}
+   \hat E^1_1 \frac{1}{f'} \cos \theta  - \hat E^1_2 \frac{1}{f} \sin \theta 
+   \\[1mm]
+   \hat E^1_1 \frac{1}{f'} \sin \theta  + \hat E^1_2 \frac{1}{f} \cos \theta 
+   \\[1mm]
+   \hat E^1_3
+  \end{bmatrix} \,,
+  \\[2mm]
+   \begin{bmatrix}
+  \wt B_1 
+  \\[1mm]
+  \wt B_2
+  \\[1mm]
+  \wt B_3
+  \end{bmatrix} =
+  \begin{bmatrix}
+   \hat B^2_1 \frac{1}{f} \cos \theta  - \hat B^2_2 \frac{1}{f'} \sin \theta 
+   \\[1mm]
+   \hat B^2_1 \frac{1}{f} \sin \theta  + \hat B^2_2 \frac{1}{f'} \cos \theta 
+   \\[1mm]
+   \frac{1}{ff'} \hat B^2_3
+  \end{bmatrix} \,,
+\end{align}
+\end{subequations}
+which implies
+\begin{subequations}
+\begin{alignat}{2}
+ \hat E^1_1 &= O(f')\,,\qquad \hat E^1_2 = O(f)\,,\qquad \hat E^1_3 = O(1)\,,\qquad  &\tn {as} \quad s \to 0\,,
+ \\[2mm]
+ \hat B^2_1 &= O(f)\,,\qquad \hat B^2_2 = O(f')\,,\qquad \hat B^2_3 = O(ff')\qquad &\tn{as} \quad s \to 0\,. 
+\end{alignat}
+\end{subequations}
+When discretizing the 1-form $\hat \Eb^1$ and the 2-form $\hat \Bb^2$ on the logical domain these properties must be guaranteed by the FE basis functions. We shall see that a mere tensor-product basis violates these conditions, whereas polar splines can be constructed to satisfy them.
+
 
 
 \subsection{Tensor product B-splines} 

@@ -1,0 +1,258 @@
+\usepackage[utf8]{inputenc}
+\usepackage{a4wide}
+\usepackage{amssymb,amsmath,amsthm,newlfont,enumerate}
+\usepackage{appendix}
+\usepackage{dsfont}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsbsy}
+\usepackage[dvips]{graphicx}
+%\usepackage{epstopdf}
+\usepackage{psfrag}
+%\usepackage[hang,center]{caption}
+\usepackage{verbatim} 
+\usepackage{float}
+%\usepackage{cite}
+\usepackage{upgreek}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue]{hyperref}
+
+% \hypersetup{
+%     bookmarks=true,         % show bookmarks bar?
+%     unicode=false,          % non-Latin characters in Acrobat’s bookmarks
+%     pdftoolbar=true,        % show Acrobat’s toolbar?
+%     pdfmenubar=true,        % show Acrobat’s menu?
+%     pdffitwindow=false,     % window fit to page when opened
+% %    pdfstartview={FitW},    % fits the width of the page to the window
+%     pdftitle={Certificate},    % title
+%     pdfauthor={Dr. Harish Kumar},     % author
+%     pdfsubject={TEQIP certificates},   % subject of the document
+%     pdfcreator={Dr. Harish Kumar},   % creator of the document
+%     pdfproducer={},  % producer of the document
+%     pdfkeywords={Certificates,} {TEQIP} {Participation}, % list of keywords
+%     pdfnewwindow=true,      % links in new window
+%     colorlinks=false,       % false: boxed links; true: colored links
+%     linkcolor=red,          % color of internal links
+%     citecolor=green,        % color of links to bibliography
+%     filecolor=magenta,      % color of file links
+%     urlcolor=cyan           % color of external links
+% }
+
+\pdfinfo{ /Creator ()  /Producer () /ModDate ()  /CreationDate () }
+
+%\usepackage{hyperref}
+\usepackage{color}
+\usepackage[normalem]{ulem}
+\usepackage{fancyhdr}
+\usepackage{bm}
+\usepackage{xcolor}
+\usepackage{empheq}
+\usepackage{placeins}
+%\usepackage[all,cmtip]{xy}
+%\usepackage[]{showkeys}
+\usepackage{nccmath}
+%\usepackage{mathtools}
+%\mathtoolsset{showonlyrefs}
+\usepackage{cases}
+\usepackage{authblk}
+\usepackage{tikz-cd}
+\usepackage{pdflscape}
+\usepackage{bbold}
+\usepackage{natbib}
+
+\def\NN{\mathbb{N}}
+\def\QQ{\mathbb{Q}}
+\def\RR{\mathbb{R}}
+\def\CC{\mathbb{C}}
+\def\FF{\mathbb F}
+\def\PP{\mathbb P}
+\def\MM{{\mathbb M}}
+\def\DD{{\mathbb D}}
+\def\GG{{\mathbb G}}
+\def\SS{{\mathbb S}}
+\def\TT{{\mathbb T}}
+\def\JJ{{\mathbb J}}
+\def\WW{{\mathbb W}}
+
+\def\cA{\mathcal A}
+\def\cB{\mathcal B}
+\def\cC{\mathcal C}
+\def\cD{\mathcal D}
+\def\cE{\mathcal E}
+\def\cF{\mathcal F}
+\def\cG{\mathcal G}
+\def\cH{\mathcal H}
+\def\cO{\mathcal O}
+\def\cP{\mathcal P}
+\def\cR{\mathcal R}
+\def\cQ{\mathcal Q}
+\def\cN{\mathcal N}
+\def\cX{\mathcal X}
+\def\cY{\mathcal Y}
+\def\cz{\mathcal z}
+\def\cT{\mathcal T}
+\def\cM{\mathcal M}
+\def\cS{\mathcal S}
+\def\cV{\mathcal V}
+\def\cL{\mathcal L}
+\def\cZ{\mathcal Z}
+\def\cK{\mathcal K}
+
+\def\bfu{\mathbf{u}}
+\def\bfh{\mathbf{h}}
+\def\bfv{\mathbf{v}}
+\def\bfx{\mathbf{x}}
+\def\bfk{\mathbf{k}}
+\def\bfq{\mathbf{q}}
+\def\bfE{\mathbf{E}}
+\def\bfF{\mathbf{F}}
+\def\bfB{\mathbf{B}}
+\def\bfb{\mathbf{b}}
+\def\bfe{\mathbf{e}}
+\def\bfW{\mathbf{W}}
+\def\bfA{\mathbf{A}}
+\def\bfG{\mathbf{\Gamma}}
+\def\bfU{\mathbf{U}}
+\def\bfom{\bm\omega}
+\def\bfrho{\bm\rho}
+\def\bfs{\mathbf{s}}
+\def\bfX{\mathbf{X}}
+\def\bfJ{\mathbf{J}}
+\def\bfa{\mathbf{a}}
+\def\bfc{\mathbf{c}}
+\def\bfR{\mathbf{R}}
+\def\bfkap{\bm\kappa}
+\def\bfz{\mathbf{z}}
+\def\bfz{\mathbf{z}}
+\def\bfX{\mathbf{X}}
+\def\bfV{\mathbf{V}}
+
+\newcommand{\xb}{\mathbf{x}}
+\newcommand{\rb}{\mathbf{r}}
+\newcommand{\vb}{\mathbf{v}}
+\newcommand{\zb}{\mathbf{z}}
+\newcommand{\ub}{\mathbf{u}}
+\newcommand{\eb}{\mathbf{e}}
+\newcommand{\jb}{\mathbf{j}}
+\newcommand{\ib}{\mathbf{i}}
+\newcommand{\Eb}{\mathbf{E}}
+\newcommand{\Bb}{\mathbf{B}}
+\newcommand{\ab}{\mathbf{a}}
+\newcommand{\bb}{\mathbf{b}}
+\newcommand{\cb}{\mathbf{c}}
+\newcommand{\Ab}{\mathbf{A}}
+\newcommand{\db}{\mathbf{d}}
+\newcommand{\kb}{\mathbf{k}}
+\newcommand{\Ub}{\mathbf{U}}
+\newcommand{\Cb}{\mathbf{C}}
+\newcommand{\Db}{\mathbf{D}}
+\newcommand{\Ib}{\mathbf{I}}
+\newcommand{\Jb}{\mathbf{J}}
+\newcommand{\Zb}{\mathbf{Z}}
+\newcommand{\Fb}{\mathbf{F}}
+\newcommand{\Tb}{\mathbf{T}}
+\newcommand{\pb}{\mathbf{p}}
+\newcommand{\qb}{\mathbf{q}}
+\newcommand{\Mb}{\mathbf{M}}
+\newcommand{\Pb}{\mathbf{P}}
+\newcommand{\Qb}{\mathbf{Q}}
+\newcommand{\wb}{\mathbf{w}}
+\newcommand{\Gb}{\mathbf{G}}
+\newcommand{\Sb}{\mathbf{S}}
+\newcommand{\Xb}{\mathbf{X}}
+\newcommand{\Vb}{\mathbf{V}}
+\newcommand{\Wb}{\mathbf{W}}
+\newcommand{\Rb}{\mathbf{R}}
+\newcommand{\lb}{\mathbf{\ell}}
+\newcommand{\vs}{v_{\perp}}
+\newcommand{\rhob}{\boldsymbol{\rho}}
+\newcommand{\gamb}{\boldsymbol{\gamma}}
+\newcommand{\psib}{\boldsymbol{\psi}}
+\newcommand{\etab}{\boldsymbol{\eta}}
+\newcommand{\omb}{\boldsymbol{\omega}}
+\newcommand{\sigb}{\boldsymbol{\sigma}}
+\newcommand{\vg}{\vb_\tn{g}}
+\newcommand{\uE}{\ub_{E}}
+\newcommand{\bs}[1]{{\boldsymbol #1}}
+
+\let\eps\varepsilon
+\let\wt\widetilde
+\let\tn\textnormal
+\let\vphi\varphi
+\let\pa\partial
+\let\para\parallel
+\let\wh\widehat
+\let\lra\leftrightarrow
+\let\ov\overline
+
+\newcommand\Tstrut{\rule{0pt}{2.6ex}}         % = `top' strut
+\newcommand\Bstrut{\rule[-0.9ex]{0pt}{0pt}}
+
+\def\ts{\tn s}
+\def\tA{\tn A}
+\def\tc{\tn c}
+\def\ti{\tn i}
+\def\te{\tn e}
+\def\th{\tn h}
+\def\tt{\tn t}
+\def\tg{\tn g}
+\def\tE{\tn E}
+\def\tB{\tn B}
+\def\td{\tn d}
+\def\tb{\tn b}
+
+\def\vs{\mathsf v}
+\def\ws{\mathsf w}
+\def\dd{\mathrm{d}}
+\def\pab{\bold \pa}
+\def\grad{\tn{grad}}
+\def\curl{\tn{curl}}
+\def\div{\tn{div}}
+\def\vol{\tn{vol}}
+\def\unit{\mathbb 1}
+\def\pab{\boldsymbol \pa}
+\def\Lamb{\boldsymbol \Lambda}
+
+\def\be{\begin{equation}}
+\def\ee{\end{equation}}
+\def\bes{\begin{equation*}}
+\def\ees{\end{equation*}}
+
+\DeclareMathOperator{\arctantwo}{arctan2}
+
+\newcommand{\fder}[2]{\frac{\delta #1}{\delta #2}}
+\newcommand{\pder}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\intv}[1]{\int_{\RR^3} #1\,d\bfv }
+\newcommand{\parfra}[2]{\frac{\partial #1}{\partial #2}}
+\newcommand{\paz}[2]{\frac{\partial #1}{\partial z_{#2}}}
+\newcommand{\pay}[2]{\frac{\partial #1}{\partial y_{#2}}}
+\newcommand{\dt}[1]{\frac{\mathrm d #1}{\mathrm dt}}
+\newcommand{\dtpr}[1]{\frac{\mathrm d #1}{\mathrm dt'}}
+\newcommand{\ds}[1]{\frac{\mathrm d #1}{\mathrm ds}}
+\newcommand{\dalph}[1]{\frac{d #1}{d\theta}}
+\newcommand{\dlam}[1]{\frac{d #1}{d\lambda}}
+\newcommand{\gavg}[1]{\langle #1 \rangle}
+%\newcommand{\gavg}[1]{\overline{ #1 }}
+
+\newcommand{\stef}[1]{\color{blue}#1 \color{black}}
+\newcommand{\alert}[1]{\color{red}#1 \color{black}}
+\newcommand{\delet}[1]{{\tiny \sout{#1}}}
+
+\newcommand{\bigzero}{\mbox{\normalfont\Large\bfseries 0}}
+\newcommand{\rvline}{\hspace*{-\arraycolsep}\vline\hspace*{-\arraycolsep}}
+
+\renewcommand{\div}{\tn{div}}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+\newtheorem*{example*}{Example}
+
+\theoremstyle{plain}
+\newtheorem{lemma}{Lemma}
+\newtheorem{prop}{Proposition}
+\newtheorem{theorem}{Theorem}
+\newtheorem*{theorem*}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{propT}{Proposition}
+\newtheorem{thmT}{Theorem}
