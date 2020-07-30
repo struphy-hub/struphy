@@ -152,14 +152,14 @@ which implies
 \begin{alignat}{2}
  \hat E^1_1 &= O(f')\,,\qquad \hat E^1_2 = O(f)\,,\qquad \hat E^1_3 = O(1)\,,\qquad  &\tn {as} \quad s \to 0\,,
  \\[2mm]
- \hat B^2_1 &= O(f)\,,\qquad \hat B^2_2 = O(f')\,,\qquad \hat B^2_3 = O(ff')\qquad &\tn{as} \quad s \to 0\,. 
+ \hat B^2_1 &= O(f)\,,\qquad \hat B^2_2 = O(f')\,,\qquad \hat B^2_3 = O(ff')\qquad &\tn{as} \quad s \to 0\,.  \label{conds:B} 
 \end{alignat}
 \end{subequations}
 When discretizing the 1-form $\hat \Eb^1$ and the 2-form $\hat \Bb^2$ on the logical domain these properties must be guaranteed by the FE basis functions. We shall see that a mere tensor-product basis violates these conditions, whereas polar splines can be constructed to satisfy them.
 
 
 
-\subsection{The open question} 
+\subsection{Extraction operator} 
 
 We aim to create the polar de Rham complex starting from the tensor-product basis in $V_0$, created from univariate B-splines $\hat N^p_i$. Hence we start from 
 \be
@@ -175,7 +175,7 @@ where $(\eta_i)_i$ is the knot vector defining the B-splines $\hat N_i^p$. We ha
 \ee
 For clamped B-splines we have $\hat D_{-1}^p = 0$ and, due to partition of unity in $\hat\Omega_s = [0,1]$, at the left boundary we have
 \begin{gather}
- \hat N_0^{p_1}(0) = 1\,,\qquad \hat N_i^{p_1}(0) = 0 \quad \tn{for} \quad i\geq 1\,,
+ \hat N_0^{p_1}(0) = 1\,,\qquad \hat N_i^{p_1}(0) = 0 \quad \tn{for} \quad i\geq 1\,, \label{leftborder}
  \\[3mm]
  (\hat N_0^{p_1})'(0) = - \hat D_0^{p_1}(0) = - (\hat N_1^{p_1})'(0)\,,\qquad (\hat N_i^{p_1})'(0) = 0 \quad \tn{for} \quad i \geq 2\,. \label{only2}
 \end{gather}
@@ -207,6 +207,76 @@ It remains to construct the other polar spaces $V^*_1$, $V^*_2$ and $V^*_3$ such
 \be
  Im(\grad) = Ker(\curl)\,,\qquad Im(\curl) = Ker(\div)\,.
 \ee
+Moreover, we demand the following from the polar basis $\hat \Qb$:
+\begin{enumerate}
+ \item $\hat \Qb \in C^0(\hat\Omega)$, including the pole $s = 0$,
+ \item The mixed derivative w.r.t $(s,\theta)$ must vanish at the pole:
+ \be
+  \frac{\partial^2 \hat\Qb}{\partial s \partial \theta}\bigg|_{s=0} = 0\,.
+ \ee
+ This will be encessary to fulfill the third condition in \eqref{conds:B}.
+ \item The push-forward $\hat\Omega \to \Omega^*$ of $\hat\nabla \hat\Qb$ must be single-valued at the pole:
+ \be
+  \nabla \Qb \big|_{s=0} := D\Gb^{-\top} \hat \nabla \hat \Qb \big|_{s=0} = a \in \RR \qquad \forall\, \theta\,.
+ \ee
+ \item Partition of unity: 
+ \be \label{partition}
+ \sum_n E_{n,m} = 1\,.
+ \ee
+\end{enumerate}
+Let us address these points one-by-one.
+
+\subsection{Continuity at the pole}
+
+We need only to consider the new basis functions $\hat\chi_n$, as the others remain the usual tensor product basis which are zero at the pole. Setting $s = 0$ in \eqref{Efull} and substituting \eqref{leftborder} leads to 
+\be 
+ \hat \chi_n(0,\theta,\vphi) = \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1}  E_{n,0,j,k}\, \hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)\,.
+\ee
+Form the partition of unity of $N_j^{p_2}$ and $N_k^{p_3}$ we conclude that setting \be \label{E0}
+E_{n,0,j,k} = 1/n\,,
+\ee
+leads to $\hat \chi_n(0,\theta,\vphi) = 1/n$ for all $(\theta,\vphi)$ and moreover respects the partition of unity property \eqref{partition}. The new basis functions are thus written as
+\be \label{Efull:1}
+ \hat \chi_n(s,\theta,\vphi) = \frac 1n \,\hat N_0^{p_1}(s) + \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,\hat N_1^{p_1}(s) \hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)\,.
+\ee
+
+\subsection{Mixed derivative}
+
+Let us take the gradient of \eqref{Efull:1}:
+\begin{align}
+ \pder{\hat\chi_n}{s}(s,\theta,\vphi) &= -\frac 1n \,\hat \hat D^{p_1}_0(s) + \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,\big[\hat D_0^{p_1}(s) - \hat D_1^{p_1}(s) \big] \hat N_j^{p_2}(\theta) \hat N_k^{p_3}(\vphi)\,,
+ \\[1mm]
+ \pder{\hat\chi_n}{\theta}(s,\theta,\vphi) &= \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,\hat N_1^{p_1}(s) \big[\hat D_{j-1}^{p_2}(\theta) - \hat D_j^{p_2}(\theta) \big]  \hat N_k^{p_3}(\vphi)\,,
+ \\[1mm]
+ \pder{\hat\chi_n}{\vphi}(s,\theta,\vphi) &= \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,\hat N_1^{p_1}(s) \hat N_j^{p_2}(\theta) \big[\hat D_{k-1}^{p_3}(\vphi) - \hat D_k^{p_3}(\vphi) \big] \,.
+\end{align}
+For the mixed derivative in $(s,\theta)$ we obtain
+\be
+ \frac{\partial^2 \hat\chi_n}{\pa s \pa \theta}(s,\theta,\vphi) = \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,\big[\hat D_0^{p_1}(s) - \hat D_1^{p_1}(s) \big]  \big[\hat D_{j-1}^{p_2}(\theta) - \hat D_j^{p_2}(\theta) \big]  \hat N_k^{p_3}(\vphi)\,.
+\ee
+At the pole $s=0$ this becomes
+\be
+ \frac{\partial^2 \hat\chi_n}{\pa s \pa \theta}(0,\theta,\vphi) = \hat D_0^{p_1}(0) \sum_{j=0}^{n_\theta-1} \sum_{k=0}^{n_\vphi-1} E_{n,1,j,k}\,  \big[\hat D_{j-1}^{p_2}(\theta) - \hat D_j^{p_2}(\theta) \big]  \hat N_k^{p_3}(\vphi)\,.
+\ee
+This is zero if and only if $E_{n,1,j,k}$ does not depend on $(j,k)$ and can be taken out of the sum. Hence, we set
+\be
+ E_{n,1,j,k} = \frac 1n \,,
+\ee
+which also respects the partition of unity property \eqref{partition}. The new basis functions now read
+\be \label{Efull:2}
+ \hat \chi_n(s,\theta,\vphi) = \frac 1n \,\hat N_0^{p_1}(s) + \frac 1n \,\hat N_1^{p_1}(s)\,.
+\ee
+Since this is independent of $n$ up to a constant we may set $n=1$. This means we only need one new polar basis functions $\hat\chi$, given by \eqref{Efull:2}. The $s$-derivative of this basis function is given by
+\be
+ \pder{\hat \chi}{s}(s,\theta,\vphi) = - D^{p_1}_1(s)\,.
+\ee
+This means that at the pole,
+\be
+ \pder{\hat \chi}{s}(0,\theta,\vphi) = 0 \qquad \forall \,\theta,\vphi\,.
+\ee
+
+
+\subsection{Push-forward}
 
 
 %%%%%%%%%%%%%%%%%%%
