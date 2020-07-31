@@ -10,7 +10,6 @@ Class for control variates in delta-f method for current coupling scheme.
 import numpy         as np
 import scipy.sparse  as spa
 
-import hylife.utilitis_FEEC.bsplines                as bsp
 import hylife.utilitis_FEEC.basics.kernels_3d       as ker
 import hylife.utilitis_FEEC.kernels_control_variate as ker_cv
 
@@ -102,25 +101,25 @@ class terms_control_variate:
         B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[0]), [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[1]), [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[2]), [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], B3, 13, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[0], [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[1], [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[2], [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], B3, 13, self.kind_map, self.params_map)
         
         
         # computation of 1 - component
         F1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]))
         
-        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], F1, np.asfortranarray(self.mat_jh3*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3) - self.mat_jh2*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3)))
+        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], F1, self.mat_jh3*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3) - self.mat_jh2*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3))
         
         # computation of 2 - component
         F2 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]))
         
-        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisN[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], F2, np.asfortranarray(self.mat_jh1*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3) - self.mat_jh3*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3)))
+        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisN[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], F2, self.mat_jh1*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3) - self.mat_jh3*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3))
         
         # computation of 3 - component
         F3 = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]))
         
-        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], F3, np.asfortranarray(self.mat_jh2*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3) - self.mat_jh1*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3)))
+        ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], F3, self.mat_jh2*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3) - self.mat_jh1*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3))
         
         
         return F1, F2, F3
@@ -152,17 +151,17 @@ class terms_control_variate:
         B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[0]), [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[1]), [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], np.asfortranarray(b_coeff[2]), [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], B3, 13, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[0], [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], B1, 11, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[1], [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], B2, 12, self.kind_map, self.params_map)
+        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b_coeff[2], [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], B3, 13, self.kind_map, self.params_map)
         
         
         # assembly
-        ker_cv.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 0, 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisN[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], M21, np.asfortranarray(self.mat_nh*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3)))
+        ker.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 0, 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisN[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], M21, self.mat_nh*(self.mat_g31*B1 + self.mat_g32*B2 + self.mat_g33*B3))
         
-        ker_cv.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], M31, np.asfortranarray(-self.mat_nh*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3)))
+        ker.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], M31, -self.mat_nh*(self.mat_g21*B1 + self.mat_g22*B2 + self.mat_g32*B3))
         
-        ker_cv.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, 0, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.basisN[0], self.basisD[1], self.basisN[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], M32, np.asfortranarray(self.mat_nh*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3)))
+        ker.kernel_mass(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 0, 1, 0, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisN[1], self.basisD[2], self.basisN[0], self.basisD[1], self.basisN[2], self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], M32, self.mat_nh*(self.mat_g11*B1 + self.mat_g21*B2 + self.mat_g31*B3))
         
         # conversion to sparse matrices
         indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
