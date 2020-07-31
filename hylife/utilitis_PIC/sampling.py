@@ -2,7 +2,7 @@
 from pyccel.decorators import types
 
 # import interface for simulation setup
-import hylife.interface as inter
+import hylife.interface_analytical as inter
 
 # import modules for mapping related quantities
 import hylife.geometry.mappings_analytical as mapping
@@ -22,8 +22,8 @@ def set_particles_symmetric(numbers, particles):
         ip = i_part%64
         
         if ip == 0:
-            q = numbers[int(i_part/64), 0:3]
-            v = numbers[int(i_part/64), 3:6]
+            q[:] = numbers[int(i_part/64), 0:3]
+            v[:] = numbers[int(i_part/64), 3:6]
             
         elif ip%32 == 0:
             v[2] = 1 - v[2]
@@ -46,8 +46,6 @@ def set_particles_symmetric(numbers, particles):
         particles[i_part, 0:3] = q
         particles[i_part, 3:6] = v  
         
-    
-    ierr = 0
     
 # ==============================================================================
 @types('double[:,:]','double[:]','double[:]','int','double[:]')

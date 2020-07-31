@@ -186,9 +186,7 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b_part, ki
                                 
                                 
     #$ omp end do
-    #$ omp end parallel   
-    
-    ierr = 0
+    #$ omp end parallel
     
     
     
@@ -449,5 +447,3 @@ def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b_part, ki
                                 
     #$ omp end do
     #$ omp end parallel   
-    
-    ierr = 0

@@ -2,14 +2,14 @@
 from pyccel.decorators import types
 
 # import interface for simulation setup
-import hylife.interface as inter
+import hylife.interface_analytical as inter
 
 # import modules for B-spline evaluation
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
 
 # ==========================================================================================================
-@types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]',,'double[:,:]','int','double[:]')
+@types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','int','double[:]')
 def evaluate_1form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, u1, u2, u3, u_part, kind_map, params_map):
     
     from numpy import empty
@@ -66,11 +66,9 @@ def evaluate_1form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, u1, 
     #$ omp end do
     #$ omp end parallel
     
-    ierr = 0
-    
     
 # ==========================================================================================================
-@types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]',,'double[:,:]','int','double[:]')
+@types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','int','double[:]')
 def evaluate_2form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, b_part, kind_map, params_map):
     
     from numpy import empty
@@ -126,5 +124,3 @@ def evaluate_2form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1,
     
     #$ omp end do
     #$ omp end parallel
-    
-    ierr = 0
