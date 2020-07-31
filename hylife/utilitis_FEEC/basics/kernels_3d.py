@@ -8,8 +8,6 @@ import hylife.geometry.mappings_discrete   as map_dis
 @types('double','double','double','int','int','double[:]')        
 def fun_ana(eta1, eta2, eta3, kind_fun, kind_map, params):
     
-    value = 0.
-    
     # quantities for 0-form mass matrix
     if   kind_fun == 1:
         value = abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
@@ -47,13 +45,11 @@ def fun_ana(eta1, eta2, eta3, kind_fun, kind_map, params):
         value = 1. / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     
     return value
-
+    
 
 # ==========================================================================================
 @types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','int')        
 def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
-    
-    value = 0.
     
     # quantities for 0-form mass matrix
     if   kind_fun == 1:
@@ -91,9 +87,9 @@ def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
     elif kind_fun == 2:
         value = 1. / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
     
-    return value
-
-
+    return value    
+    
+       
 # ==========================================================================================
 @types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
 def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params):
@@ -106,8 +102,9 @@ def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, 
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
                             mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_ana(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params)
-                            
-                            
+        
+        
+        
 # ==========================================================================================
 @types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int')        
 def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1, eta2, eta3, mat_f, kind_fun):
@@ -119,9 +116,9 @@ def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1,
                 for q1 in range(nq[0]):
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
-                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)
-                            
-                            
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)        
+        
+        
 # ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, M, mat_map):

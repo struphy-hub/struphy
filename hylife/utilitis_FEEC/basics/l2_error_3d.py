@@ -6,7 +6,6 @@
 Modules to compute L2 - errors in 3d.
 """
 
-
 import numpy        as np
 import scipy.sparse as spa
 
@@ -377,7 +376,11 @@ def l2_error_V3(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map
     
     # evaluation of Jacobian determinant at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
-    ker.kernel_evaluation(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2, kind_map, params_map)
+    
+    if   mapping == 0:
+        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2, kind_map, params_map)
+    elif mapping == 1:
+        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2)
     
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 

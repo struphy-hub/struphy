@@ -10,8 +10,8 @@ import numpy as np
 
 import hylife.utilitis_FEEC.bsplines as bsp
 
-import hylife.utilitis_FEEC.projectors.kernels_projectors_local     as ker_loc
-import hylife.utilitis_FEEC.projectors.kernels_projectors_local_eva as ker_loc_eva
+import hylife.utilitis_FEEC.projectors.kernels_projectors_local         as ker_loc
+import hylife.utilitis_FEEC.projectors.kernels_projectors_local_eva_ana as ker_loc_eva
 
 
 
@@ -974,7 +974,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation points
         if fun == None:
             mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
             mat_f      = fun(xx, yy, zz)
@@ -1018,7 +1018,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
             mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
             mat_f       = fun[0](xx, yy, zz)
@@ -1034,7 +1034,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
             mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
             mat_f       = fun[1](xx, yy, zz)
@@ -1050,7 +1050,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
             mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
             mat_f       = fun[2](xx, yy, zz)
@@ -1095,7 +1095,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
             mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
             mat_f       = fun[0](xx, yy, zz)
@@ -1111,7 +1111,7 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
             mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
             mat_f       = fun[1](xx, yy, zz)
@@ -1127,10 +1127,11 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
             mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
             mat_f       = fun[2](xx, yy, zz)
+        
         
         # coefficients
         lambdas3  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
@@ -1161,11 +1162,12 @@ class projectors_local_3d:
         # evaluation of function at quadrature points
         if fun == None:
             mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
-            ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
+            ker_loc_eva.kernel_eva_ana(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
         else:
             xx, yy, zz = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
             mat_f      = fun(xx, yy, zz)
             
+        
         # coefficients
         lambdas  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
             
