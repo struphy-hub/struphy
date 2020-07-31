@@ -10,24 +10,32 @@ FLAGS   :=
 # SOURCE FILES
 #--------------------------------------
 
+run  = example_analytical
+
+BK  := hylife/utilitis_FEEC/bsplines_kernels
+BEV := hylife/utilitis_FEEC/basics/spline_evaluation_3d
+MD  := hylife/geometry/mappings_discrete
+MDF := hylife/geometry/mappings_discrete_fast
 MA  := hylife/geometry/mappings_analytical
-EQM := simulations/simulation_05042020_1/equilibrium_MHD
-EQP := simulations/simulation_05042020_1/equilibrium_PIC
-ICM := simulations/simulation_05042020_1/initial_conditions_MHD
-ICP := simulations/simulation_05042020_1/initial_conditions_PIC
-INT := hylife/interface
+PBD := hylife/geometry/pull_back_discrete
+PBA := hylife/geometry/pull_back_analytical
+EQM := simulations/$(run)/equilibrium_MHD
+EQP := simulations/$(run)/equilibrium_PIC
+ICM := simulations/$(run)/initial_conditions_MHD
+ICP := simulations/$(run)/initial_conditions_PIC
+INT := hylife/interface_analytical
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/basics/kernels_3d
 KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
-KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva
+KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana
 KPM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
 LA  := hylife/linear_algebra/core
-PF  := hylife/utilitis_PIC/STRUPHY_fields
-PP  := hylife/utilitis_PIC/STRUPHY_pusher
-PA  := hylife/utilitis_PIC/STRUPHY_accumulation_kernels
-PS  := hylife/utilitis_PIC/STRUPHY_sampling
+PF  := hylife/utilitis_PIC/fields
+PP  := hylife/utilitis_PIC/pusher
+PA  := hylife/utilitis_PIC/accumulation_kernels
+PS  := hylife/utilitis_PIC/sampling
 
-SOURCES := $(MA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV).py $(MD).py $(MDF).py $(MA).py $(PBD).py $(PBA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
@@ -37,7 +45,25 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 .PHONY: all
 all: $(OUTPUTS)
 
+$(BK)$(SO_EXT) : $(BK).py
+	pyccel $< $(FLAGS)
+    
+$(BEV)$(SO_EXT) : $(BEV).py $(BK)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(MD)$(SO_EXT) : $(MD).py $(BEV)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(MDF)$(SO_EXT) : $(MDF).py $(BEV)$(SO_EXT) $(BK)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
 $(MA)$(SO_EXT) : $(MA).py
+	pyccel $< $(FLAGS)
+    
+$(PBD)$(SO_EXT) : $(PBD).py $(MD)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(PBA)$(SO_EXT) : $(PBA).py $(MA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(EQM)$(SO_EXT) : $(EQM).py $(MA)$(SO_EXT)
@@ -58,7 +84,7 @@ $(INT)$(SO_EXT) : $(INT).py $(EQM)$(SO_EXT) $(EQP)$(SO_EXT) $(ICM)$(SO_EXT) $(IC
 $(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-$(KM)$(SO_EXT)  : $(KM).py $(MA)$(SO_EXT)
+$(KM)$(SO_EXT) : $(KM).py
 	pyccel $< $(FLAGS)
 
 $(KPL)$(SO_EXT) : $(KPL).py
@@ -93,10 +119,11 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-	rm -rf hylife/__pycache__ hylife/__pyccel__
+	rm -rf simulations/$(run)/__pyccel__ simulations/$(run)/__pycache__
+	rm -rf hylife/__pyccel__ hylife/__pycache__
 	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
-	rm -rf hylife/utilities_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
-	rm -rf hylife/utilities_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
-	rm -rf hylife/utilities_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
-	rm -rf hylife/utilities_PIC_April2020/__pyccel__ hylife/utilities_PIC_April2020/__pycache__
+	rm -rf hylife/utilitis_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
+	rm -rf hylife/utilitis_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
+	rm -rf hylife/utilitis_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
+	rm -rf hylife/utilitis_PIC/__pyccel__ hylife/utilitis_PIC/__pycache__

@@ -10,6 +10,8 @@ import numpy        as np
 import scipy.sparse as spa
 
 
+
+
 # ============== discrete gradient matrix (1d) ==============
 def grad_1d(spline_space):
     """
@@ -155,6 +157,7 @@ class discrete_derivatives:
 
         return D     
 
+    
     def apply_GRAD_3d_kron(self,vec3d):
         '''
         apply the divergence operator in tensor-product fashion with 3d vectors
@@ -230,6 +233,7 @@ class discrete_derivatives:
 
         return curl3d_1,curl3d_2,curl3d_3     
 
+    
     def apply_DIV_3d_kron(self,vec3d_1,vec3d_2,vec3d_3):
         '''
         apply the divergence operator in tensor-product fashion with 3d vectors
@@ -263,4 +267,47 @@ class discrete_derivatives:
                +( (self.grad_1d[2].dot(( vec3d_3.reshape(d0*d1,n2)).T)).T                                      ).reshape(d0,d1,d2) )
 
         return div3d
-#==============================================================================================================================
+    
+    
+    
+# ============== discrete gradient matrix (1d) for arbitrary number of basis functions ==============
+def grad_1d_ar(NbaseN, bc):
+    """
+    Returns the 1d discrete gradient matrix corresponding to the given B-spline space of degree p.
+    
+    Parameters
+    ----------
+    NbaseN : int 
+        number of basis functions in first space
+    
+    bc : boolean
+        True : periodic, False : clamped
+        
+    Returns
+    -------
+    grad : array_like
+        discrete gradient matrix
+    """
+    
+    
+    if bc == True:
+        
+        grad = np.zeros((NbaseN, NbaseN), dtype=float)
+        
+        for i in range(NbaseN):
+            grad[i, i] = -1.
+            if i < NbaseN - 1:
+                grad[i, i + 1] = 1.
+        grad[-1, 0] = 1.
+        
+        return grad
+    
+    else:
+        
+        grad = np.zeros((NbaseN - 1, NbaseN))
+    
+        for i in range(NbaseN - 1):        
+            grad[i, i] = -1.
+            grad[i, i  + 1] = 1.
+            
+        return grad

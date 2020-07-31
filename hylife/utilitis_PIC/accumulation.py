@@ -10,7 +10,7 @@ Basic modules to compute charge and current densities from particles
 import numpy        as np
 import scipy.sparse as spa
 
-import hylife.utilitis_PIC.STRUPHY_accumulation_kernels as ker
+import hylife.utilitis_PIC.accumulation_kernels as ker
 
 
 class accumulation:
@@ -61,13 +61,15 @@ class accumulation:
             Accumulated term of above expression
         """
         
+        Np = particles.shape[0]
+        
         # only distinctive non-vanishing blocks
-        mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat13 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat23 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
+        mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat13 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat23 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
         
         # perform accumulation
-        ker.kernel_step1(particles, self.p, self.Nel, [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]], self.T[0], self.T[1], self.T[2], self.t[0], self.t[1], self.t[2], b_part, kind_map, params_map, mat12, mat13, mat23)
+        ker.kernel_step1(particles, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, Np, b_part, kind_map, params_map, mat12, mat13, mat23)
         
         # conversion to sparse matrices
         indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
@@ -153,20 +155,22 @@ class accumulation:
         vec : array_like
             Accumulated term of second above expression
         """
+        
+        Np = particles.shape[0]
 
-        mat11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat13 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat23 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
-        mat33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float, order='F')
+        mat11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat13 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat23 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+        mat33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
 
-        vec1  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float, order='F')
-        vec2  = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float, order='F')
-        vec3  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float, order='F')
+        vec1  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+        vec2  = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
+        vec3  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
         # perform accumulation
-        ker.kernel_step3(particles, self.p, self.Nel, [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]], self.T[0], self.T[1], self.T[2], self.t[0], self.t[1], self.t[2], b_part, kind_map, params_map, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+        ker.kernel_step3(particles, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, Np, b_part, kind_map, params_map, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
         
         
         # conversion to sparse matrices

@@ -6,36 +6,34 @@ class parameters():
     
     def __init__(self):
 
-        # cores used : 8 on Cobra in interactive mode
+        # Simulation run via interactive on Draco (export OMP_NUM_THREADS=8)
         
-        self.Nel          = [64, 64, 2]             # mesh generation on logical domain
+        self.Nel          = [16, 16, 2]            # mesh generation on logical domain
         self.bc           = [True, True, True]     # boundary conditions (True: periodic, False: else)
-        self.p            = [3, 3, 1]              # spline degrees  
+        self.p            = [2, 2, 1]              # spline degrees  
         
-        self.nq_el        = [6, 6, 6] # number of quadrature points per element for integrations over whole domain
-        self.nq_pr        = [6, 6, 6] # number of quadrature points per integration interval of projectors
+        self.nq_el        = [6, 6, 2] # number of quadrature points per element for integrations over whole domain
+        self.nq_pr        = [6, 6, 2] # number of quadrature points per integration interval of projectors
 
-        self.time_int     = True     # do time integration?
-        self.dt           = 0.05     # time step
-        self.Tend         = 20.0      # simulation time
-        self.max_time     = 60*60    # maximum runtime of program in minutes
-        self.add_pressure = True    # add non-Hamiltonian terms to simulation?
+        self.time_int     = True      # do time integration?
+        self.dt           = 0.05      # time step
+        self.Tend         = 10.0      # simulation time
+        self.max_time     = 23.5*60   # maximum runtime of program in minutes
+        self.add_pressure = False     # add non-Hamiltonian terms to simulation?
 
         # geometry
-        self.kind_map     =  1                         # 1 : slab, 2 : hollow cylinder, 3 : colella
-        
-        self.params_map   = [18., 18., 1.]     # parameters for mapping  
-        #self.params_map   = [2*np.pi/0.75, 2*np.pi/1., 0.1, 0.1]     # parameters for mapping  
+        self.kind_map     =  3                                       # 1 : slab, 2 : hollow cylinder, 3 : colella
+        self.params_map   = [2*np.pi/0.8, 2*np.pi/0.8, 0.1, 1.]      # parameters for mapping  
         
         # physical constants
         self.gamma        = 5/3                        # adiabatic exponent
 
         # particle parameters
-        self.add_PIC      = False                # add kinetic terms to simulation?
-        self.Np           = 10              # total number of particles
-        self.control      = False                # control variate for noise resuction? (delta-f method)
+        self.add_PIC      = True                # add kinetic terms to simulation?
+        self.Np           = 125000              # total number of particles
+        self.control      = True                # control variate for noise resuction? (delta-f method)
 
-        self.v0x = 2.0                          # shift of Maxwellian in vx-direction
+        self.v0x = 2.5                          # shift of Maxwellian in vx-direction
         self.v0y = 0.                           # shift of Maxwellian in vy-direction
         self.v0z = 0.                           # shift of Maxwellian in vz-direction
         
@@ -48,59 +46,41 @@ class parameters():
             particles logical coordinates and physical velocities are drawn randomly.
         
         2. sobol_standard: particles[:, :6] = sobol.i4_sobol_generate(6, Np, 1000)
-            particles logical coordinates and physical velocities are drawn from a Sobol sequence, where the first 1000 numbers             are skipped.
+            particles logical coordinates and physical velocities are drawn from a Sobol sequence (skip first 1000 numbers).
         
         3. sobol_antithetic: sobol.i4_sobol_generate(6, int(Np/64), 1000) --> 64 symmetric particles
-            particles logical coordinates and physical velocities are drawn from a Sobol sequence, where the first 1000 numbers             are skipped. Additionally, for every particle which is drawn, the 63 next particles are drawn mirrored in all other             coordinates: e.g. (1 - xi1, xi2, xi3, vx, vy, vz), (xi1, 1 - xi2, xi3, vx, vy, vz), ...
+            like 2, but symmetric.
         
-        4. pr_space_uni_velocity: pseudo-random in space, uniform in velocity space
-        
-        5. external: particles[:, :6] = np.load('name_of_file.npy') 
+        4. external: particles[:, :6] = np.load('name_of_file.npy') 
         """
         
         self.loading = 'pseudo-random'
 
 
         # Is this run a restart? If yes, select restart data with num_restart
-        self.restart = False 
-        self.num_restart = 0
+        self.restart        = False 
+        self.num_restart    = 0
 
         # Create restart files at the end of the simulation?
         self.create_restart = True
         
+        
         # ======================== initial conditions ===========================================
-        self.ic_from_params = True
-        
-        
-        # some parameters
-        self.nmodes = [64, 64]
-        self.modes  = [np.linspace(0, nmodes, nmodes + 1) - nmodes/2 for nmodes in self.nmodes]
-        self.modes  = [np.delete(modes, int(nmodes/2)) for modes, nmodes in zip(self.modes, self.nmodes)]
-        
-        self.amps   = np.random.rand(8, self.nmodes[0], self.nmodes[1])
+        self.ic_from_params = False
         
     
     # ========== physical space ================
-    
     # initial bulk pressure
     def p_ini_phys(self, x, y, z):
 
         p_phys = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                p_phys += self.amps[0, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
 
         return p_phys
 
     # initial bulk velocity (x - component)
     def ux_ini(self, x, y, z):
-        
-        ux = 0.
 
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                ux += self.amps[1, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
+        ux = 0.
 
         return ux
 
@@ -108,21 +88,13 @@ class parameters():
     def uy_ini(self, x, y, z):
 
         uy = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                uy += self.amps[2, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
 
         return uy
 
     # initial bulk velocity (z - component)
     def uz_ini(self, x, y, z):
-        
-        uz = 0.
 
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                uz += self.amps[3, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
+        uz = 0.
 
         return uz
 
@@ -130,10 +102,6 @@ class parameters():
     def bx_ini(self, x, y, z):
 
         bx = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                bx += self.amps[4, i, j]*np.sin(2*np.pi*self.modes[1][j]*y/self.params_map[1])
 
         return bx
 
@@ -141,21 +109,19 @@ class parameters():
     def by_ini(self, x, y, z):
         
         by  = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                by += self.amps[5, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0])
 
         return by
 
     # initial magnetic field (z - component)
     def bz_ini(self, x, y, z):
 
-        bz = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                bz += self.amps[6, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
+        amp = 1e-3
+
+        kx  = 0.8
+        ky  = 0.
+        kz  = 0.
+
+        bz  = amp * np.sin(kx * x + ky * y + kz * z)
 
         return bz
 
@@ -163,10 +129,6 @@ class parameters():
     def rho_ini_phys(self, x, y, z):
 
         rho_phys = 0.
-        
-        for i in range(self.nmodes[0]):
-            for j in range(self.nmodes[1]):
-                rho_phys += self.amps[7, i, j]*np.sin(2*np.pi*self.modes[0][i]*x/self.params_map[0] + 2*np.pi*self.modes[1][j]*y/self.params_map[1])
 
         return rho_phys
     

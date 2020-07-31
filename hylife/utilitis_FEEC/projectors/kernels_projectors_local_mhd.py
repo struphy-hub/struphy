@@ -1,7 +1,7 @@
 from pyccel.decorators import types
 
 # ========================================================
-@types('int[:]','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:,:,:,:]','double[:,:,:]')
 def kernel_pi0(n, n_int, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_int_ind1, x_int_ind2, x_int_ind3, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -37,7 +37,7 @@ def kernel_pi0(n, n_int, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3,
                                         
                                         
 # ========================================================
-@types('int[:]','int','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:](order=F)')
+@types('int[:]','int','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:]','double[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:]')
 def kernel_pi1_1(n, n_quad1, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_his_ind1, x_int_ind2, x_int_ind3, wts1, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -75,8 +75,10 @@ def kernel_pi1_1(n, n_quad1, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
                                         
                                         
+                                        
+                                        
 # ========================================================
-@types('int[:]','int','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:,:](order=F)','double[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:](order=F)')
+@types('int[:]','int','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:]')
 def kernel_pi1_2(n, n_quad2, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_int_ind1, x_his_ind2, x_int_ind3, wts2, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -115,7 +117,7 @@ def kernel_pi1_2(n, n_quad2, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                         
                                         
 # ========================================================
-@types('int[:]','int','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:](order=F)')
+@types('int[:]','int','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:]')
 def kernel_pi1_3(n, n_quad3, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_int_ind1, x_int_ind2, x_his_ind3, wts3, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -154,7 +156,7 @@ def kernel_pi1_3(n, n_quad3, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c
                                         
                                         
 # ========================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:]')
 def kernel_pi2_1(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_int_ind1, x_his_ind2, x_his_ind3, wts2, wts3, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -196,7 +198,7 @@ def kernel_pi2_1(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                         
                                         
 # ========================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:,:](order=F)','double[:,:](order=F)','double[:,:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:]')
 def kernel_pi2_2(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_his_ind1, x_int_ind2, x_his_ind3, wts1, wts3, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -238,7 +240,7 @@ def kernel_pi2_2(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                         
                                         
 # ========================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:]')
 def kernel_pi2_3(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_his_ind1, x_his_ind2, x_int_ind3, wts1, wts2, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.
@@ -279,7 +281,7 @@ def kernel_pi2_3(n, n_quad, n_inthis, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_
                                         
                                         
 # ========================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','int[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','int[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_pi3(n, n_quad, n_his, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2, c_loc3, coeff1, coeff2, coeff3, coeff_ind1, coeff_ind2, coeff_ind3, bs1, bs2, bs3, x_his_ind1, x_his_ind2, x_his_ind3, wts1, wts2, wts3, tau, mat_eq):
     
     tau[:, :, :, :, :, :] = 0.

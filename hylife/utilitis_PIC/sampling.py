@@ -1,17 +1,15 @@
 # import pyccel decorators
 from pyccel.decorators import types
 
-# relative import of subroutines
-import ..geometry.mappings_analytical as mapping
+# import interface for simulation setup
+import hylife.interface_analytical as inter
 
-
-# absolute import of interface for simulation setup
-import hylife.interface as inter
-
+# import modules for mapping related quantities
+import hylife.geometry.mappings_analytical as mapping
 
 
 # ==============================================================================
-@types('double[:,:](order=F)','double[:,:](order=F)')
+@types('double[:,:]','double[:,:]')
 def set_particles_symmetric(numbers, particles):
     
     from numpy import zeros
@@ -24,8 +22,8 @@ def set_particles_symmetric(numbers, particles):
         ip = i_part%64
         
         if ip == 0:
-            q = numbers[int(i_part/64), 0:3]
-            v = numbers[int(i_part/64), 3:6]
+            q[:] = numbers[int(i_part/64), 0:3]
+            v[:] = numbers[int(i_part/64), 3:6]
             
         elif ip%32 == 0:
             v[2] = 1 - v[2]
@@ -49,10 +47,8 @@ def set_particles_symmetric(numbers, particles):
         particles[i_part, 3:6] = v  
         
     
-    ierr = 0
-    
 # ==============================================================================
-@types('double[:,:](order=F)','double[:]','double[:]','int','double[:]')
+@types('double[:,:]','double[:]','double[:]','int','double[:]')
 def compute_weights_ini(particles, w0, s0, kind_map, params_map):
     
     np = len(particles[:, 0])
@@ -72,7 +68,7 @@ def compute_weights_ini(particles, w0, s0, kind_map, params_map):
     
     
 # ==============================================================================
-@types('double[:,:](order=F)','double[:]','double[:]','int','double[:]')
+@types('double[:,:]','double[:]','double[:]','int','double[:]')
 def update_weights(particles, w0, s0, kind_map, params_map):
     
     np = len(particles[:, 0])

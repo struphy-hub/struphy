@@ -1,56 +1,98 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_analytical as mapping
+import hylife.geometry.mappings_analytical as map_ana
+import hylife.geometry.mappings_discrete   as map_dis
 
 
 # ==========================================================================================
 @types('double','double','double','int','int','double[:]')        
-def fun(xi1, xi2, xi3, kind_fun, kind_map, params):
+def fun_ana(eta1, eta2, eta3, kind_fun, kind_map, params):
     
-    value = 0.
-    
-    # quantities for 0-form mass matrix (H1)
+    # quantities for 0-form mass matrix
     if   kind_fun == 1:
-        value = mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     
-    # quantities for 1-form mass matrix (H curl)
+    # quantities for 1-form mass matrix
     elif kind_fun == 11:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 11) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 12:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 21) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 13:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 22) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 14:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 31) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 15:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 32) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 16:
-        value = mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) * mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 33) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
         
-    # quantities for 2-form mass matrix (H div)
+    # quantities for 2-form mass matrix
     elif kind_fun == 21:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 11) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 11) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 22:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 21) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 21) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 23:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 22) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 22) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 24:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 31) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 31) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 25:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 32) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 32) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     elif kind_fun == 26:
-        value = mapping.g(xi1, xi2, xi3, kind_map, params, 33) / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 33) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
         
-    # quantities for 3-form mass matrix (L2)
+    # quantities for 3-form mass matrix
     elif kind_fun == 2:
-        value = 1. / mapping.det_df(xi1, xi2, xi3, kind_map, params)
+        value = 1. / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
     
     return value
-
+    
 
 # ==========================================================================================
-@types('int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:,:,:](order=F)','int','int','double[:]')        
-def kernel_evaluation(nel, nq, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','int')        
+def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
+    
+    # quantities for 0-form mass matrix
+    if   kind_fun == 1:
+        value = abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    
+    # quantities for 1-form mass matrix
+    elif kind_fun == 11:
+        value = map_dis.ginv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 12:
+        value = map_dis.ginv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 13:
+        value = map_dis.ginv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 14:
+        value = map_dis.ginv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 15:
+        value = map_dis.ginv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 16:
+        value = map_dis.ginv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+        
+    # quantities for 2-form mass matrix
+    elif kind_fun == 21:
+        value = map_dis.g_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 22:
+        value = map_dis.g_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 23:
+        value = map_dis.g_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 24:
+        value = map_dis.g_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 25:
+        value = map_dis.g_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 26:
+        value = map_dis.g_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+        
+    # quantities for 3-form mass matrix
+    elif kind_fun == 2:
+        value = 1. / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    
+    return value    
+    
+       
+# ==========================================================================================
+@types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
+def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params):
     
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
@@ -59,11 +101,26 @@ def kernel_evaluation(nel, nq, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params)
                 for q1 in range(nq[0]):
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
-                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun(xi1[ie1, q1], xi2[ie2, q2], xi3[ie3, q3], kind_fun, kind_map, params)
-                            
-                            
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_ana(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params)
+        
+        
+        
+# ==========================================================================================
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int')        
+def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1, eta2, eta3, mat_f, kind_fun):
+    
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
+            for ie3 in range(nel[2]):
+    
+                for q1 in range(nq[0]):
+                    for q2 in range(nq[1]):
+                        for q3 in range(nq[2]):
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)        
+        
+        
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:,:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, M, mat_map):
     
     for ie1 in range(nel1):
@@ -93,7 +150,7 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
 
 
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int','int','int','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, nbase1, nbase2, nbase3, mat, mat_f, mat_map):
     
     for ie1 in range(nel1):
@@ -119,7 +176,7 @@ def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1,
                             
                             
 # ==========================================================================================          
-@types('int[:]','int[:]','int[:]','double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)','int[:]','int[:]','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','int[:]','int[:]','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
+@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
     
     # loop over all elements

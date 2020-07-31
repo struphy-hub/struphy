@@ -1,37 +1,39 @@
+# import pyccel decorators
 from pyccel.decorators import types
-#import ..linear_algebra.core as linalg
-#import ..geometry.mappings_analytical as mapping
 
-import hylife.linear_algebra.core as linalg
+# import modules for mapping related quantities
 import hylife.geometry.mappings_analytical as mapping
 
+# import module for matrix-matrix and matrix-vector multiplications
+import hylife.linear_algebra.core as linalg
+
+
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','double[:,:](order=F)','double[:,:](order=F)','int','double[:]')
+@types('double[:,:]','double','double[:,:]','double[:,:]','int','double[:]')
 def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
     
-    from numpy import empty
-    from numpy import zeros
+    from numpy import empty, zeros
     
     b          = empty( 3    , dtype=float)
     u          = empty( 3    , dtype=float)
     
-    b_prod     = zeros((3, 3), dtype=float, order='F')
+    b_prod     = zeros((3, 3), dtype=float)
     
-    xi         = empty( 3    , dtype=float)
+    eta        = empty( 3    , dtype=float)
     v          = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F')
-    dfinv_t    = empty((3, 3), dtype=float, order='F')
-    ginv       = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float)
+    dfinv_t    = empty((3, 3), dtype=float)
+    ginv       = empty((3, 3), dtype=float)
     
-    temp_mat1  = empty((3, 3), dtype=float, order='F')
-    temp_mat2  = empty((3, 3), dtype=float, order='F')
+    temp_mat1  = empty((3, 3), dtype=float)
+    temp_mat2  = empty((3, 3), dtype=float)
     
     temp_vec   = empty( 3    , dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
@@ -44,7 +46,7 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
     components[2, 2] = 33
     
     #$ omp parallel
-    #$ omp do private (ip, b, u, xi, v, i, j, dfinv, dfinv_t, ginv, temp_mat1, temp_mat2, temp_vec) firstprivate(b_prod)
+    #$ omp do private (ip, b, u, eta, v, i, j, dfinv, dfinv_t, ginv, temp_mat1, temp_mat2, temp_vec) firstprivate(b_prod)
     for ip in range(np):
         
         b[0] = b_part[ip, 0]
@@ -64,13 +66,13 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] =  b[0]
         
-        xi = particles[ip, 0:3]
-        v  = particles[ip, 3:6]
+        eta[:] = particles[ip, 0:3]
+        v[:]   = particles[ip, 3:6]
         
         # evaluate inverse Jacobian matrix
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0], xi[1], xi[2], kind_map, params_map, components[i, j])  
+                dfinv[i, j] = mapping.df_inv(eta[0], eta[1], eta[2], kind_map, params_map, components[i, j])  
         
         # transpose of inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -78,7 +80,7 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
         # evaluate inverse metric tensor
         for i in range(3):
             for j in range(3):
-                ginv[i, j] = mapping.g_inv(xi[0], xi[1], xi[2], kind_map, params_map, components[i, j]) 
+                ginv[i, j] = mapping.g_inv(eta[0], eta[1], eta[2], kind_map, params_map, components[i, j]) 
                 
         # perform matrix-matrix and matrix-vector products
         linalg.matrix_matrix(dfinv_t, b_prod, temp_mat1)
@@ -91,26 +93,23 @@ def pusher_step3(particles, dt, b_part, u_part, kind_map, params_map):
         particles[ip, 5] += dt*temp_vec[2]
         
     #$ omp end do
-    #$ omp end parallel 
-        
-    ierr = 0
-    
+    #$ omp end parallel
     
     
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','int','double[:]')
+@types('double[:,:]','double','int','double[:]')
 def pusher_step4(particles, dt, kind_map, params_map):
     
     from numpy import empty
     
-    xi         = empty( 3    , dtype=float)
+    eta        = empty( 3    , dtype=float)
     v          = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
@@ -128,88 +127,85 @@ def pusher_step4(particles, dt, kind_map, params_map):
     k4 = empty( 3, dtype=float)  
     
     #$ omp parallel
-    #$ omp do private (ip, xi, v, dfinv, k1, k2, k3, k4)
+    #$ omp do private (ip, eta, v, dfinv, k1, k2, k3, k4)
     for ip in range(np):
         
-        xi = particles[ip, 0:3]
-        v  = particles[ip, 3:6]
+        eta[:] = particles[ip, 0:3]
+        v[:]   = particles[ip, 3:6]
         
         # step 1 in Runge-Kutta method
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0], xi[1], xi[2], kind_map, params_map, components[i, j])
+                dfinv[i, j] = mapping.df_inv(eta[0], eta[1], eta[2], kind_map, params_map, components[i, j])
                 
         linalg.matrix_vector(dfinv, v, k1)
         
         # step 2 in Runge-Kutta method
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0] + dt*k1[0]/2, xi[1] + dt*k1[1]/2, xi[2] + dt*k1[2]/2, kind_map, params_map, components[i, j])
+                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k1[0]/2, eta[1] + dt*k1[1]/2, eta[2] + dt*k1[2]/2, kind_map, params_map, components[i, j])
                 
         linalg.matrix_vector(dfinv, v, k2)
         
         # step 3 in Runge-Kutta method
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0] + dt*k2[0]/2, xi[1] + dt*k2[1]/2, xi[2] + dt*k2[2]/2, kind_map, params_map, components[i, j])
+                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k2[0]/2, eta[1] + dt*k2[1]/2, eta[2] + dt*k2[2]/2, kind_map, params_map, components[i, j])
                 
         linalg.matrix_vector(dfinv, v, k3)
         
         # step 4 in Runge-Kutta method
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0] + dt*k3[0], xi[1] + dt*k3[1], xi[2] + dt*k3[2], kind_map, params_map, components[i, j])
+                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k3[0], eta[1] + dt*k3[1], eta[2] + dt*k3[2], kind_map, params_map, components[i, j])
                 
         linalg.matrix_vector(dfinv, v, k4)
         
         # update logical coordinates
-        particles[ip, 0] = (xi[0] + dt*(k1[0] + 2*k2[0] + 2*k3[0] + k4[0])/6)%1.
-        particles[ip, 1] = (xi[1] + dt*(k1[1] + 2*k2[1] + 2*k3[1] + k4[1])/6)%1.
-        particles[ip, 2] = (xi[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.
+        particles[ip, 0] = (eta[0] + dt*(k1[0] + 2*k2[0] + 2*k3[0] + k4[0])/6)%1.
+        particles[ip, 1] = (eta[1] + dt*(k1[1] + 2*k2[1] + 2*k3[1] + k4[1])/6)%1.
+        particles[ip, 2] = (eta[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.
     
     #$ omp end do
     #$ omp end parallel 
-        
-    ierr = 0
     
     
     
 # ==========================================================================================================
-@types('double[:,:](order=F)','double','double[:,:](order=F)','int','double[:]')
+@types('double[:,:]','double','double[:,:]','int','double[:]')
 def pusher_step5(particles, dt, b_part, kind_map, params_map):
     
-    from numpy import empty
-    from numpy import zeros
+    from numpy import empty, zeros
     
     b          = empty( 3    , dtype=float)
     
-    b_prod     = zeros((3, 3), dtype=float, order='F')
+    b_prod     = zeros((3, 3), dtype=float)
     
     v          = empty( 3    , dtype=float)
-    xi         = empty( 3    , dtype=float)
+    eta        = empty( 3    , dtype=float)
     
-    dfinv      = empty((3, 3), dtype=float, order='F') 
-    dfinv_t    = empty((3, 3), dtype=float, order='F')
+    dfinv      = empty((3, 3), dtype=float) 
+    dfinv_t    = empty((3, 3), dtype=float)
     
-    temp_mat1  = empty((3, 3), dtype=float, order='F')
-    temp_mat2  = empty((3, 3), dtype=float, order='F')
+    temp_mat1  = empty((3, 3), dtype=float)
+    temp_mat2  = empty((3, 3), dtype=float)
     
     rhs        = empty( 3    , dtype=float)
     
-    identity   = zeros((3, 3), dtype=float, order='F')
+    identity   = zeros((3, 3), dtype=float)
     identity[0, 0] = 1.
     identity[1, 1] = 1.
     identity[2, 2] = 1.
     
-    lhs        = empty((3, 3), dtype=float, order='F')
+    lhs        = empty((3, 3), dtype=float)
     
-    lhs1       = empty((3, 3), dtype=float, order='F')
-    lhs2       = empty((3, 3), dtype=float, order='F')
-    lhs3       = empty((3, 3), dtype=float, order='F')
+    lhs1       = empty((3, 3), dtype=float)
+    lhs2       = empty((3, 3), dtype=float)
+    lhs3       = empty((3, 3), dtype=float)
     
     np         = len(particles[:, 0])
     
-    components = empty((3, 3), dtype=int, order='F')
+    components = empty((3, 3), dtype=int)
     
     components[0, 0] = 11
     components[0, 1] = 12
@@ -222,7 +218,7 @@ def pusher_step5(particles, dt, b_part, kind_map, params_map):
     components[2, 2] = 33
     
     #$ omp parallel
-    #$ omp do private (ip, b, xi, v, dfinv, dfinv_t, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3) firstprivate(b_prod)
+    #$ omp do private (ip, b, eta, v, dfinv, dfinv_t, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3) firstprivate(b_prod)
     for ip in range(np):
         
         b[0] = b_part[ip, 0]
@@ -238,13 +234,13 @@ def pusher_step5(particles, dt, b_part, kind_map, params_map):
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] =  b[0]
         
-        xi = particles[ip, 0:3]
-        v  = particles[ip, 3:6]
+        eta[:] = particles[ip, 0:3]
+        v[:]   = particles[ip, 3:6]
         
         # evaluate inverse Jacobian matrix
         for i in range(3):
             for j in range(3):
-                dfinv[i, j] = mapping.df_inv(xi[0], xi[1], xi[2], kind_map, params_map, components[i, j])
+                dfinv[i, j] = mapping.df_inv(eta[0], eta[1], eta[2], kind_map, params_map, components[i, j])
         
         # transpose of inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -284,5 +280,3 @@ def pusher_step5(particles, dt, b_part, kind_map, params_map):
     
     #$ omp end do
     #$ omp end parallel     
-        
-    ierr = 0

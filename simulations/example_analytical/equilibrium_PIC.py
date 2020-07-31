@@ -26,7 +26,7 @@ def fh_eq_phys(x, y, z, vx, vy, vz):
 
 # ============= 0-th moment of equilibrium distribution function fh_eq ===========
 @types('double','double','double')
-def nh_eq_phys(x, y, z):
+def nh_eq_phys_(x, y, z):
     
     nh0 = 0.05
     
@@ -36,7 +36,7 @@ def nh_eq_phys(x, y, z):
 
 # x - component
 @types('double','double','double')
-def jhx_eq(x, y, z):
+def jhx_eq_(x, y, z):
     
     nh0 = 0.05
     v0x = 2.5
@@ -45,7 +45,7 @@ def jhx_eq(x, y, z):
 
 # y - component
 @types('double','double','double')
-def jhy_eq(x, y, z):
+def jhy_eq_(x, y, z):
     
     nh0 = 0.05
     v0y = 0.
@@ -54,7 +54,7 @@ def jhy_eq(x, y, z):
 
 # z - component
 @types('double','double','double')
-def jhz_eq(x, y, z):
+def jhz_eq_(x, y, z):
     
     nh0 = 0.05
     v0z = 0.
@@ -63,7 +63,7 @@ def jhz_eq(x, y, z):
 
 # ============= energy of equilibrium distribution function fh_eq ===============
 @types('int','double[:]')
-def eh_eq(kind_map, params_map):
+def eh_eq_(kind_map, params_map):
     
     v0x = 2.5
     v0y = 0.
@@ -92,7 +92,7 @@ def eh_eq(kind_map, params_map):
 
 # ======= equilibrium distribution function (used in delta-f method) =============
 @types('double','double','double','double','double','double','int','double[:]')
-def fh_eq(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
+def fh_eq_(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     
     x   = mapping.f(xi1, xi2, xi3, kind_map, params_map, 1)
     y   = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
