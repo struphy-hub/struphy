@@ -357,7 +357,7 @@ def ginv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv11  = dfinv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv12  = dfinv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv11*dfinv11 + dfinv12*dfinv12 + dfinv13*dfinv13
 
@@ -367,11 +367,11 @@ def ginv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv11  = dfinv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv12  = dfinv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv21  = dfinv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv22  = dfinv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv11*dfinv21 + dfinv12*dfinv22 + dfinv13*dfinv23
 
@@ -381,11 +381,11 @@ def ginv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv11  = dfinv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv12  = dfinv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv31  = dfinv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv32  = dfinv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv11*dfinv31 + dfinv12*dfinv32 + dfinv13*dfinv33
 
@@ -395,11 +395,11 @@ def ginv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv11  = dfinv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv12  = dfinv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv21  = dfinv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv22  = dfinv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv21*dfinv11 + dfinv22*dfinv12 + dfinv23*dfinv13
 
@@ -409,7 +409,7 @@ def ginv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv21  = dfinv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv22  = dfinv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv21*dfinv21 + dfinv22*dfinv22 + dfinv23*dfinv23
 
@@ -419,11 +419,11 @@ def ginv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv21  = dfinv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv22  = dfinv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv31  = dfinv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv32  = dfinv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv21*dfinv31 + dfinv22*dfinv32 + dfinv23*dfinv33
 
@@ -433,11 +433,11 @@ def ginv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv11  = dfinv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv12  = dfinv_12(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv13  = dfinv_13(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv31  = dfinv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv32  = dfinv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv11*dfinv31 + dfinv12*dfinv32 + dfinv13*dfinv33
 
@@ -447,11 +447,11 @@ def ginv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv21  = dfinv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv22  = dfinv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv23  = dfinv_23(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     dfinv31  = dfinv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv32  = dfinv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv31*dfinv21 + dfinv32*dfinv22 + dfinv33*dfinv23
 
@@ -461,6 +461,6 @@ def ginv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3):
     
     dfinv31  = dfinv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     dfinv32  = dfinv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
-    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cz, cz, eta1, eta2, eta3)
+    dfinv33  = dfinv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3)
     
     return dfinv31*dfinv31 + dfinv32*dfinv32 + dfinv33*dfinv33
