@@ -8,13 +8,13 @@ from numpy import exp, pi
 @types('double','double','double','double','double','double')
 def fh_ini_phys(x, y, z, vx, vy, vz):
     
-    v0x = 2.0
+    v0x = 2.5
     v0y = 0.
     v0z = 0.
     
     vth = 1.
     
-    nh0 = 0.06
+    nh0 = 0.05
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     
@@ -25,7 +25,7 @@ def fh_ini_phys(x, y, z, vx, vy, vz):
 
 # ======= initial distribution function (logical domain) ===============
 @types('double','double','double','double','double','double','int','double[:]')
-def fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
+def fh_ini_(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     
     x   = mapping.f(xi1, xi2, xi3, kind_map, params_map, 1)
     y   = mapping.f(xi1, xi2, xi3, kind_map, params_map, 2)
@@ -36,16 +36,16 @@ def fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
 
 # ===== sampling distribution of initial markers on logical domain =====
 @types('double','double','double','double','double','double','int','double[:]')
-def sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
+def sh_(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map):
     
-    v0x = 2.0
+    v0x = 2.5
     v0y = 0.
     v0z = 0.
     
     vth = 1.
     
-    det_df = mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
+    detdf = mapping.det_df(xi1, xi2, xi3, kind_map, params_map)
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     
-    return 1/(pi**(3/2)*vth**3*det_df)*exp(arg)
+    return 1/(pi**(3/2)*vth**3*detdf)*exp(arg)
