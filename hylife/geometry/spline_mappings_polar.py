@@ -15,23 +15,23 @@ class discrete_mapping_2d:
     Defines a discrete spline mapping from a logical domain [0, 1] x [0, 1] to a physical cartesian domain
     '''
     
-    def __init__(self, T, p, bc, kind):
+    def __init__(self, tensor_space, kind):
         
-        self.p        = p
-        self.T        = T
-        self.bc       = bc
+        self.p        = tensor_space.p
+        self.T        = tensor_space.T
+        self.bc       = tensor_space.bc
         
-        self.el_b     = [bsp.breakpoints(T, p) for T, p in zip(T, p)]
+        self.el_b     = [bsp.breakpoints(T, p) for T, p in zip(self.T, self.p)]
         self.Nel      = [len(el_b) - 1 for el_b in self.el_b]
         
-        self.NbaseN   = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, p, bc)]
-        self.NbaseD   = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, bc)]
+        self.NbaseN   = [Nel + p - bc*p for Nel, p, bc in zip(self.Nel, self.p, self.bc)]
+        self.NbaseD   = [NbaseN - (1 - bc) for NbaseN, bc in zip(self.NbaseN, self.bc)]
         
-        self.grad_1d  = [sparse.csr_matrix(der.GRAD_1d(T, p, bc)) for T, p, bc in zip(T, p, bc)]
-        self.greville = [bsp.greville(T, p, bc) for T, p, bc in zip(T, p, bc)]
+        self.grad_1d  = [sparse.csr_matrix(der.grad_1d(space)) for space in tensor_space.spaces]
+        self.greville = [bsp.greville(T, p, bc) for T, p, bc in zip(self.T, self.p, self.bc)]
         
-        N1 = sparse.csc_matrix(bsp.collocation_matrix(T[0], p[0], self.greville[0], bc[0])) 
-        N2 = sparse.csc_matrix(bsp.collocation_matrix(T[1], p[1], self.greville[1], bc[1]))  
+        N1 = sparse.csc_matrix(bsp.collocation_matrix(self.T[0], self.p[0], self.greville[0], self.bc[0])) 
+        N2 = sparse.csc_matrix(bsp.collocation_matrix(self.T[1], self.p[1], self.greville[1], self.bc[1]))  
         
         self.interpolation = splu(sparse.kron(N1, N2, format='csc'))
         
