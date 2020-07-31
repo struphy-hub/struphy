@@ -24,13 +24,13 @@ import hylife.utilitis_PIC.accumulation as pic_accumu
 import hylife.utilitis_PIC.sampling     as pic_sample
 import hylife.utilitis_PIC.sobol_seq    as sobol
 
-import hylife.interface as inter
+import hylife.interface_analytical as inter
 
 
 
 # ======================== load parameters ============================
-import simulations.simulation_21072020_1.parameters_21072020_1 as pa    # name input folder here!
-identifier = 'simulation_21072020_1'                                    # name input folder here!
+import simulations.example_analytical.parameters_example_analytical as pa    # name input folder here!
+identifier   = 'example_analytical'                                          # name input folder here!
 
 params       = pa.parameters()
 
@@ -158,6 +158,7 @@ fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 
 
 # ============= projection of initial conditions ==========================
+
 # create object for projecting initial conditions
 pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
@@ -177,6 +178,8 @@ else:
 
 del pro
 
+
+
 """
 amps = np.random.rand(8, pr.shape[0], pr.shape[1])
 
@@ -192,9 +195,9 @@ for k in range(pr.shape[2]):
     b3[:, :, k]  = amps[6]
 
     rho[:, :, k] = amps[7]
-"""
 
 print('projection of initial conditions done!')
+"""
 # ==========================================================================
 
 
@@ -285,7 +288,7 @@ elif loading == 'pr_space_uni_velocity':
     
 elif loading == 'external':
     # load numbers between (0, 1) from an external file
-    particles[:, :6] = np.load('papers/02_FEEC_MHD/particles.npy')
+    particles[:, :6] = np.load('simulations/reference_colella/particles.npy')
     
 else:
     print('particle loading not specified')
