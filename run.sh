@@ -92,6 +92,7 @@ echo "Your hylife repository is here:" $path_root
 echo "Your simulations are here:     " $path_root/$all_sim
 echo "Your current run is here:      " $path_root/$all_sim/$run_dir
 
+# interface
 cp hylife/interface_original_analytical.py hylife/interface_analytical.py
 
 var0="s|sed_replace_path_root|"
@@ -102,17 +103,18 @@ var3="|g"
 sed -i $var1$all_sim$var3 hylife/interface_analytical.py
 sed -i $var2$run_dir$var3 hylife/interface_analytical.py
 
+# makefile
 cp Makefile $all_sim/$run_dir/Makefile
 
 make all_sim=$all_sim run_dir=$run_dir
 
-cp parameters_analytical_original.py $all_sim/$run_dir/parameters_$run_dir.py
-
+# main code
 cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var0$path_root$var3 $all_sim/$run_dir/STRUPHY.py
 sed -i $var2$run_dir$var3 $all_sim/$run_dir/STRUPHY.py
 
-cd $all_sim/$run_dir
 
+# run the code
+cd $all_sim/$run_dir
 python3 STRUPHY.py
