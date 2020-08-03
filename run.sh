@@ -1,10 +1,11 @@
 #!/bin/bash
 
-
+# set simulation folders
 path_root=$(pwd)
 all_sim=simulations    
 run_dir=example_analytical
 
+# set parameters
 cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 
 #############################
@@ -33,10 +34,10 @@ time_int : True
 dt : .05
 
 # simulation time
-Tend : 0.1
+Tend : 10.
 
 # maximum runtime of program in minutes
-max_time : 3600
+max_time : 1000.
 
 # add non-Hamiltonian terms to simulation?
 add_pressure : False
@@ -45,10 +46,10 @@ add_pressure : False
 # 1: slab
 # 2: hollow cylinder
 # 3: colella
-kind_map : 1
+kind_map : 3
 
 # parameters for mapping 
-params_map : [20., 1., 1.]        
+params_map : [7.853981634, 7.853981634, 0.1, 1.]        
         
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666                 
@@ -75,6 +76,10 @@ vth : 1.
 # particle loading
 loading : pseudo-random
 
+###############################
+##### restart function ########
+###############################
+
 # Is this run a restart?
 restart : False
 
@@ -84,15 +89,14 @@ num_restart : 0
 # Create restart files at the end of the simulation? 
 create_restart : True
 
-# initial conditions 
-ic_from_params : False
 EOF
 
+# print location of simulation
 echo "Your hylife repository is here:" $path_root
 echo "Your simulations are here:     " $path_root/$all_sim
 echo "Your current run is here:      " $path_root/$all_sim/$run_dir
 
-# interface
+# copy interface_original and replace imports to current simulation
 cp hylife/interface_original_analytical.py hylife/interface_analytical.py
 
 var0="s|sed_replace_path_root|"
@@ -103,12 +107,12 @@ var3="|g"
 sed -i $var1$all_sim$var3 hylife/interface_analytical.py
 sed -i $var2$run_dir$var3 hylife/interface_analytical.py
 
-# makefile
+# copy Makefile and replace name of input files to current simulation
 cp Makefile $all_sim/$run_dir/Makefile
 
 make all_sim=$all_sim run_dir=$run_dir
 
-# main code
+# copy main code and adjust to current simulation
 cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var0$path_root$var3 $all_sim/$run_dir/STRUPHY.py

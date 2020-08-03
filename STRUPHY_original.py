@@ -7,115 +7,80 @@ sys.path.append('sed_replace_path_root')
 import h5py
 import yaml
 
+# load python modules
 import numpy         as np
 import scipy.sparse  as spa
 import scipy.special as sp
 
+# load hylife/utilitis_FEEC_modules
 import hylife.utilitis_FEEC.bsplines        as bsp
 import hylife.utilitis_FEEC.spline_space    as spl
 import hylife.utilitis_FEEC.derivatives     as der
 import hylife.utilitis_FEEC.control_variate as cv
 
+# load hylife/utilitis_FEEC/basics modules
 import hylife.utilitis_FEEC.basics.mass_matrices_3d  as mass
 import hylife.utilitis_FEEC.basics.inner_products_3d as inner
 
+# load hylife/utilitis_FEEC/projectors modules
 import hylife.utilitis_FEEC.projectors.projectors_local     as proj
 import hylife.utilitis_FEEC.projectors.projectors_local_mhd as mhd
 
+# load hylife/utilitis_PIC modules
 import hylife.utilitis_PIC.fields       as pic_fields
 import hylife.utilitis_PIC.pusher       as pic_pusher
 import hylife.utilitis_PIC.accumulation as pic_accumu
 import hylife.utilitis_PIC.sampling     as pic_sample
 import hylife.utilitis_PIC.sobol_seq    as sobol
 
-import hylife.interface_analytical as inter
+# load hylife/equilibrium_PIC 
+import equilibrium_PIC as eq_PIC
 
 
 
 # ======================== load parameters ============================
+identifier = 'sed_replace_run_dir'   
+
 with open('parameters_sed_replace_run_dir.yml') as file:
     params = yaml.load(file)
 
-#import sed_replace_all_sim.sed_replace_run_dir.parameters_sed_replace_run_dir as pa
-identifier   = 'sed_replace_run_dir'                                        
 
-Nel          = params['Nel']
-bc           = params['bc']
-p            = params['p']
-nq_el        = params['nq_el']
-nq_pr        = params['nq_pr']
+# mesh generation
+Nel            = params['Nel']
+bc             = params['bc']
+p              = params['p']
+nq_el          = params['nq_el']
+nq_pr          = params['nq_pr']
 
-time_int     = params['time_int']
-dt           = params['dt']
-Tend         = params['Tend']
-max_time     = params['max_time']
-add_pressure = params['add_pressure']
-
-kind_map     = params['kind_map']
-params_map   = params['params_map']
-
-gamma        = params['gamma']
-
-add_PIC      = params['add_PIC']
-Np           = params['Np']
-control      = params['control']
-
-v0           = params['v0']                    
-vth          = params['vth']
-v0x          = v0[0]
-v0y          = v0[1]                       
-v0z          = v0[2]
-
-loading      = params['loading']
-restart      = params['restart']
-num_restart  = params['num_restart']
-create_restart = params['create_restart']
-
-ic_from_params = params['ic_from_params']
-
-
-#params       = pa.parameters()
-
-#Nel          = params.Nel            # mesh generation on logical domain
-#bc           = params.bc             # boundary conditions (True: periodic, False: else)
-#p            = params.p              # spline degrees
-
-#nq_el        = params.nq_el          # number of quadrature points per element for integrations over whole domain
-#nq_pr        = params.nq_pr          # number of quadrature points per integration interval of projectors
-
-
-#time_int     = params.time_int       # do time integration ?
-#dt           = params.dt             # time step
-#Tend         = params.Tend           # simulation time
-#max_time     = params.max_time       # maximum runtime of program in minutes
-#add_pressure = params.add_pressure   # add non-Hamiltonian terms to simulation?
+# time integration
+time_int       = params['time_int']
+dt             = params['dt']
+Tend           = params['Tend']
+max_time       = params['max_time']
 
 # geometry
-#kind_map     = params.kind_map       # 1 : slab, 2 : hollow cylinder, 3 : colella
-#params_map   = params.params_map     # parameters for mapping  
+kind_map       = params['kind_map']
+params_map     = params['params_map']
 
-# physical constants
-#gamma        = params.gamma          # adiabatic exponent
+# general
+add_pressure   = params['add_pressure']
+gamma          = params['gamma']
 
-# particle parameters
-#add_PIC      = params.add_PIC        # add kinetic terms to simulation?
-#Np           = params.Np             # total number of particles
-#control      = params.control        # control variate on/off
-
-#v0x          = params.v0x            # shift of Maxwellian in vx - direction
-#v0y          = params.v0y            # shift of Maxwellian in vx - direction
-#v0z          = params.v0z            # shift of Maxwellian in vz - direction
-
-#vth          = params.vth            # thermal velocity of Maxwellian
-
-
-#loading      = params.loading        # particle loading
-
+# particles
+add_PIC        = params['add_PIC']
+Np             = params['Np']
+control        = params['control']
+v0             = params['v0']                    
+vth            = params['vth']
+v0x            = v0[0]
+v0y            = v0[1]                       
+v0z            = v0[2]
+loading        = params['loading']
 
 # restart function
-#restart        = params.restart         # is this run a restart?
-#num_restart    = params.num_restart     # if yes, locate restart data
-#create_restart = params.create_restart  # create restart data at the end of the run?
+restart        = params['restart']
+num_restart    = params['num_restart']
+create_restart = params['create_restart']
 # ========================================================================
 
 
@@ -177,50 +142,38 @@ b3     = np.empty(Nbase_2form[2], dtype=float)     # magnetic field FEM coeffici
 
 rho    = np.empty(Nbase_3form,    dtype=float)     # bulk mass density FEM coefficients
 
-# particles
+# particles, weights without control variate w0 and initial sampling density at particle positions s0
 particles = np.empty((Np, 7), dtype=float)
 w0        = np.empty( Np    , dtype=float)
 s0        = np.empty( Np    , dtype=float)
 
 # fields at particle positions (U and B)
-B_part = np.empty((Np, 3), dtype=float)
-U_part = np.empty((Np, 3), dtype=float)
+U_part    = np.empty((Np, 3), dtype=float)
+B_part    = np.empty((Np, 3), dtype=float)
 
 # energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
-energies = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
+energies  = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
 
 # snapshots of distribution function via particle binning
 n_bins    = [32, 64]
 bin_edges = [np.linspace(0., 1., n_bins[0] + 1), np.linspace(0., 5., n_bins[1] + 1)]
 dbin      = [bin_edges[0][1] - bin_edges[0][0], bin_edges[1][1] - bin_edges[1][0]]
 
-fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
+fh        = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 # =========================================================================
 
 
 
 # ============= projection of initial conditions ==========================
-
 # create object for projecting initial conditions
 pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
-# projection of initial conditions
-if ic_from_params == True:
-    
-    pr[:, :, :]                           = pro.pi_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
-    u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
-    b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([lambda xi1, xi2, xi3 : params.b1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.b3_ini(xi1, xi2, xi3)])
-    rho[:, :, :]                          = pro.pi_3(lambda xi1, xi2, xi3 : params.rho_ini(xi1, xi2, xi3))
-    
-else:
-    pr[:, :, :]                           = pro.pi_0( None,               1,        kind_map, params_map)
-    u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], [2, 3, 4], kind_map, params_map) 
-    b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], [5, 6, 7], kind_map, params_map)
-    rho[:, :, :]                          = pro.pi_3( None,               8,        kind_map, params_map)
+pr[:, :, :]                           = pro.pi_0( None,               1,        kind_map, params_map)
+u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], [2, 3, 4], kind_map, params_map) 
+b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], [5, 6, 7], kind_map, params_map)
+rho[:, :, :]                          = pro.pi_3( None,               8,        kind_map, params_map)
 
 del pro
-
-
 
 """
 amps = np.random.rand(8, pr.shape[0], pr.shape[1])
@@ -365,7 +318,7 @@ if add_PIC == True:
 energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
 energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
 energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
+energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq_(kind_map, params_map)
 
 # initial distribution function
 fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
@@ -390,7 +343,6 @@ times_elapsed = {'total'               : 0.,
                  'update_step2b'       : 0.,
                  'update_step3u'       : 0.,
                  'update_step6'        : 0.}
-
 
 
 
@@ -559,7 +511,7 @@ def update():
     energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
     energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
     energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-    energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*inter.eh_eq(kind_map, params_map)
+    energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq_(kind_map, params_map)
 
     # diagnostics (distribution function via particle binning)
     fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
