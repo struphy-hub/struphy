@@ -10,7 +10,6 @@ FLAGS   :=
 # SOURCE FILES
 #--------------------------------------
 
-run  = example_analytical
 
 BK  := hylife/utilitis_FEEC/bsplines_kernels
 BEV := hylife/utilitis_FEEC/basics/spline_evaluation_3d
@@ -19,10 +18,10 @@ MDF := hylife/geometry/mappings_discrete_fast
 MA  := hylife/geometry/mappings_analytical
 PBD := hylife/geometry/pull_back_discrete
 PBA := hylife/geometry/pull_back_analytical
-EQM := simulations/$(run)/equilibrium_MHD
-EQP := simulations/$(run)/equilibrium_PIC
-ICM := simulations/$(run)/initial_conditions_MHD
-ICP := simulations/$(run)/initial_conditions_PIC
+EQM := $(all_sim)/$(run_dir)/equilibrium_MHD
+EQP := $(all_sim)/$(run_dir)/equilibrium_PIC
+ICM := $(all_sim)/$(run_dir)/initial_conditions_MHD
+ICP := $(all_sim)/$(run_dir)/initial_conditions_PIC
 INT := hylife/interface_analytical
 KCV := hylife/utilitis_FEEC/kernels_control_variate
 KM  := hylife/utilitis_FEEC/basics/kernels_3d
@@ -119,7 +118,7 @@ $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-	rm -rf simulations/$(run)/__pyccel__ simulations/$(run)/__pycache__
+	rm -rf $(all_sim)/$(run_dir)/__pyccel__ $(all_sim)/$(run_dir)/__pycache__
 	rm -rf hylife/__pyccel__ hylife/__pycache__
 	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__

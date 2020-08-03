@@ -1,7 +1,11 @@
 import time
 start_simulation = time.time()
 
+import sys
+sys.path.append('sed_replace_path_root')
+
 import h5py
+import yaml
 
 import numpy         as np
 import scipy.sparse  as spa
@@ -29,51 +33,89 @@ import hylife.interface_analytical as inter
 
 
 # ======================== load parameters ============================
-import simulations.example_analytical.parameters_example_analytical as pa    # name input folder here!
-identifier   = 'example_analytical'                                          # name input folder here!
+with open('parameters_sed_replace_run_dir.yml') as file:
+    params = yaml.load(file)
 
-params       = pa.parameters()
+#import sed_replace_all_sim.sed_replace_run_dir.parameters_sed_replace_run_dir as pa
+identifier   = 'sed_replace_run_dir'                                        
 
-Nel          = params.Nel            # mesh generation on logical domain
-bc           = params.bc             # boundary conditions (True: periodic, False: else)
-p            = params.p              # spline degrees
+Nel          = params['Nel']
+bc           = params['bc']
+p            = params['p']
+nq_el        = params['nq_el']
+nq_pr        = params['nq_pr']
 
-nq_el        = params.nq_el          # number of quadrature points per element for integrations over whole domain
-nq_pr        = params.nq_pr          # number of quadrature points per integration interval of projectors
+time_int     = params['time_int']
+dt           = params['dt']
+Tend         = params['Tend']
+max_time     = params['max_time']
+add_pressure = params['add_pressure']
+
+kind_map     = params['kind_map']
+params_map   = params['params_map']
+
+gamma        = params['gamma']
+
+add_PIC      = params['add_PIC']
+Np           = params['Np']
+control      = params['control']
+
+v0           = params['v0']                    
+vth          = params['vth']
+v0x          = v0[0]
+v0y          = v0[1]                       
+v0z          = v0[2]
+
+loading      = params['loading']
+restart      = params['restart']
+num_restart  = params['num_restart']
+create_restart = params['create_restart']
+
+ic_from_params = params['ic_from_params']
 
 
-time_int     = params.time_int       # do time integration ?
-dt           = params.dt             # time step
-Tend         = params.Tend           # simulation time
-max_time     = params.max_time       # maximum runtime of program in minutes
-add_pressure = params.add_pressure   # add non-Hamiltonian terms to simulation?
+#params       = pa.parameters()
+
+#Nel          = params.Nel            # mesh generation on logical domain
+#bc           = params.bc             # boundary conditions (True: periodic, False: else)
+#p            = params.p              # spline degrees
+
+#nq_el        = params.nq_el          # number of quadrature points per element for integrations over whole domain
+#nq_pr        = params.nq_pr          # number of quadrature points per integration interval of projectors
+
+
+#time_int     = params.time_int       # do time integration ?
+#dt           = params.dt             # time step
+#Tend         = params.Tend           # simulation time
+#max_time     = params.max_time       # maximum runtime of program in minutes
+#add_pressure = params.add_pressure   # add non-Hamiltonian terms to simulation?
 
 # geometry
-kind_map     = params.kind_map       # 1 : slab, 2 : hollow cylinder, 3 : colella
-params_map   = params.params_map     # parameters for mapping  
+#kind_map     = params.kind_map       # 1 : slab, 2 : hollow cylinder, 3 : colella
+#params_map   = params.params_map     # parameters for mapping  
 
 # physical constants
-gamma        = params.gamma          # adiabatic exponent
+#gamma        = params.gamma          # adiabatic exponent
 
 # particle parameters
-add_PIC      = params.add_PIC        # add kinetic terms to simulation?
-Np           = params.Np             # total number of particles
-control      = params.control        # control variate on/off
+#add_PIC      = params.add_PIC        # add kinetic terms to simulation?
+#Np           = params.Np             # total number of particles
+#control      = params.control        # control variate on/off
 
-v0x          = params.v0x            # shift of Maxwellian in vx - direction
-v0y          = params.v0y            # shift of Maxwellian in vx - direction
-v0z          = params.v0z            # shift of Maxwellian in vz - direction
+#v0x          = params.v0x            # shift of Maxwellian in vx - direction
+#v0y          = params.v0y            # shift of Maxwellian in vx - direction
+#v0z          = params.v0z            # shift of Maxwellian in vz - direction
 
-vth          = params.vth            # thermal velocity of Maxwellian
+#vth          = params.vth            # thermal velocity of Maxwellian
 
 
-loading      = params.loading        # particle loading
+#loading      = params.loading        # particle loading
 
 
 # restart function
-restart        = params.restart         # is this run a restart?
-num_restart    = params.num_restart     # if yes, locate restart data
-create_restart = params.create_restart  # create restart data at the end of the run?
+#restart        = params.restart         # is this run a restart?
+#num_restart    = params.num_restart     # if yes, locate restart data
+#create_restart = params.create_restart  # create restart data at the end of the run?
 # ========================================================================
 
 
@@ -163,7 +205,7 @@ fh = {'fh_xi1_vx' : np.zeros((n_bins[0], n_bins[1]), dtype=float)}
 pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
 # projection of initial conditions
-if params.ic_from_params == True:
+if ic_from_params == True:
     
     pr[:, :, :]                           = pro.pi_0(lambda xi1, xi2, xi3 : params.p_ini(xi1, xi2, xi3))
     u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([lambda xi1, xi2, xi3 : params.u1_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u2_ini(xi1, xi2, xi3), lambda xi1, xi2, xi3 : params.u3_ini(xi1, xi2, xi3)]) 
@@ -288,15 +330,15 @@ elif loading == 'pr_space_uni_velocity':
     
 elif loading == 'external':
     # load numbers between (0, 1) from an external file
-    particles[:, :6] = np.load('simulations/reference_colella/particles.npy')
+    particles[:, :6] = np.load('initial_particles.npy')
     
 else:
     print('particle loading not specified')
 
 # inversion of cumulative distribution function
-#particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
-#particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
-#particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
+particles[:, 3]  = sp.erfinv(2*particles[:, 3] - 1)*vth + v0x
+particles[:, 4]  = sp.erfinv(2*particles[:, 4] - 1)*vth + v0y
+particles[:, 5]  = sp.erfinv(2*particles[:, 5] - 1)*vth + v0z
 
 # compute initial weights
 pic_sample.compute_weights_ini(particles, w0, s0, kind_map, params_map)
@@ -533,7 +575,7 @@ if time_int == True:
     if restart == False:
         
         # create hdf5 file and datasets for simulation output
-        file = h5py.File('simulations/' + identifier + '/results_' + identifier + '.hdf5', 'a')
+        file = h5py.File('results_' + identifier + '.hdf5', 'a')
         
         file.create_dataset('time', (1,),   maxshape=(None,),   dtype=float, chunks=True)
         
@@ -630,7 +672,7 @@ if time_int == True:
     else:
         
         # open existing hdf5 file
-        file = h5py.File('simulations/' + identifier + '/results_' + identifier  + '.hdf5', 'a')
+        file = h5py.File('results_' + identifier  + '.hdf5', 'a')
         
         # load restart data from last time step
         time_steps_done = file['restart/time_steps_done'][num_restart]
