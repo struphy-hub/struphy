@@ -28,9 +28,11 @@ These instructions will get you a copy of the project up and running on your loc
 
 What things you need to install the software and how to install them
 
-```
-Give examples
-```
+- [Pyccel: https://github.com/pyccel/pyccel](https://github.com/pyccel/pyccel)
+
+We recommend installation in development mode: 
+
+python3 -m pip install --user -e .
 
 ### Installing
 
