@@ -1,8 +1,8 @@
 import time
 start_simulation = time.time()
 
-import sys
-sys.path.append('sed_replace_path_root')
+#import sys
+#sys.path.append('sed_replace_path_root')
 
 import h5py
 import yaml
@@ -12,29 +12,26 @@ import numpy         as np
 import scipy.sparse  as spa
 import scipy.special as sp
 
-# load hylife/utilitis_FEEC_modules
-import hylife.utilitis_FEEC.bsplines        as bsp
-import hylife.utilitis_FEEC.spline_space    as spl
-import hylife.utilitis_FEEC.derivatives     as der
-import hylife.utilitis_FEEC.control_variate as cv
-
-# load hylife/utilitis_FEEC/basics modules
+# load global hylife modules
+import hylife.utilitis_FEEC.bsplines                 as bsp
+import hylife.utilitis_FEEC.spline_space             as spl
+import hylife.utilitis_FEEC.derivatives              as der
 import hylife.utilitis_FEEC.basics.mass_matrices_3d  as mass
 import hylife.utilitis_FEEC.basics.inner_products_3d as inner
+import hylife.utilitis_PIC.pusher                    as pic_pusher
+import hylife.utilitis_PIC.accumulation              as pic_accumu
+import hylife.utilitis_PIC.sobol_seq                 as sobol
 
-# load hylife/utilitis_FEEC/projectors modules
-import hylife.utilitis_FEEC.projectors.projectors_local     as proj
-import hylife.utilitis_FEEC.projectors.projectors_local_mhd as mhd
+# load local source files
+import source_run.projectors_local     as proj
+import source_run.projectors_local_mhd as mhd
+import source_run.control_variate      as cv
+import source_run.sampling             as pic_sample
+import source_run.fields               as pic_fields
 
-# load hylife/utilitis_PIC modules
-import hylife.utilitis_PIC.fields       as pic_fields
-import hylife.utilitis_PIC.pusher       as pic_pusher
-import hylife.utilitis_PIC.accumulation as pic_accumu
-import hylife.utilitis_PIC.sampling     as pic_sample
-import hylife.utilitis_PIC.sobol_seq    as sobol
 
-# load hylife/equilibrium_PIC 
-import equilibrium_PIC as eq_PIC
+# load local input files
+import input_run.equilibrium_PIC as eq_PIC
 
 
 
@@ -42,7 +39,7 @@ import equilibrium_PIC as eq_PIC
 identifier = 'sed_replace_run_dir'   
 
 with open('parameters_sed_replace_run_dir.yml') as file:
-    params = yaml.load(file)
+    params = yaml.full_load(file)
 
 
 # mesh generation
@@ -318,7 +315,7 @@ if add_PIC == True:
 energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
 energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
 energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq_(kind_map, params_map)
+energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
 
 # initial distribution function
 fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
@@ -511,7 +508,7 @@ def update():
     energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
     energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
     energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-    energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq_(kind_map, params_map)
+    energies['en_deltaf'] = 1/2*particles[:, 6].dot(particles[:, 3]**2 + particles[:, 4]**2 + particles[:, 5]**2)/Np + (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
 
     # diagnostics (distribution function via particle binning)
     fh['fh_xi1_vx'][:, :] = np.histogram2d(particles[:, 0], particles[:, 3], bins=bin_edges, weights=particles[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])

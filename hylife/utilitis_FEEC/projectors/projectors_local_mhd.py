@@ -12,8 +12,9 @@ import scipy.sparse as spa
 
 import hylife.utilitis_FEEC.bsplines as bsp
 
-import hylife.utilitis_FEEC.projectors.kernels_projectors_local_eva_ana as ker_loc_eva
 import hylife.utilitis_FEEC.projectors.kernels_projectors_local_mhd     as ker_loc
+#import hylife.utilitis_FEEC.projectors.kernels_projectors_local_eva_ana as ker_loc_eva
+import source_run.kernels_projectors_local_eva_ana as ker_loc_eva
 
 
 class projectors_local_mhd:

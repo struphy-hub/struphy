@@ -18,23 +18,27 @@ MDF := hylife/geometry/mappings_discrete_fast
 MA  := hylife/geometry/mappings_analytical
 PBD := hylife/geometry/pull_back_discrete
 PBA := hylife/geometry/pull_back_analytical
-EQM := $(all_sim)/$(run_dir)/equilibrium_MHD
-EQP := $(all_sim)/$(run_dir)/equilibrium_PIC
-ICM := $(all_sim)/$(run_dir)/initial_conditions_MHD
-ICP := $(all_sim)/$(run_dir)/initial_conditions_PIC
-INT := hylife/interface_analytical
-KCV := hylife/utilitis_FEEC/kernels_control_variate
+EQM := $(all_sim)/$(run_dir)/input_run/equilibrium_MHD
+EQP := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
+ICM := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
+ICP := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
+#INT := hylife/interface_analytical
+#KCV := hylife/utilitis_FEEC/kernels_control_variate
+KCV := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
 KM  := hylife/utilitis_FEEC/basics/kernels_3d
 KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
-KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana
+#KPI := hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana
+KPI := $(all_sim)/$(run_dir)/source_run/kernels_projectors_local_eva_ana
 KPM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
 LA  := hylife/linear_algebra/core
-PF  := hylife/utilitis_PIC/fields
+#PF  := hylife/utilitis_PIC/fields
+PF  := $(all_sim)/$(run_dir)/source_run/fields
 PP  := hylife/utilitis_PIC/pusher
 PA  := hylife/utilitis_PIC/accumulation_kernels
-PS  := hylife/utilitis_PIC/sampling
+#PS  := hylife/utilitis_PIC/sampling
+PS  := $(all_sim)/$(run_dir)/source_run/sampling
 
-SOURCES := $(BK).py $(BEV).py $(MD).py $(MDF).py $(MA).py $(PBD).py $(PBA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(INT).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV).py $(MD).py $(MDF).py $(MA).py $(PBD).py $(PBA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PF).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
@@ -77,10 +81,10 @@ $(ICM)$(SO_EXT) : $(ICM).py $(MA)$(SO_EXT)
 $(ICP)$(SO_EXT) : $(ICP).py $(MA)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(INT)$(SO_EXT) : $(INT).py $(EQM)$(SO_EXT) $(EQP)$(SO_EXT) $(ICM)$(SO_EXT) $(ICP)$(SO_EXT)
-	pyccel $< $(FLAGS)
+#$(INT)$(SO_EXT) : $(INT).py $(EQM)$(SO_EXT) $(EQP)$(SO_EXT) $(ICM)$(SO_EXT) $(ICP)$(SO_EXT)
+#	pyccel $< $(FLAGS)
     
-$(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
+$(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(EQM)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(KM)$(SO_EXT) : $(KM).py
@@ -89,7 +93,7 @@ $(KM)$(SO_EXT) : $(KM).py
 $(KPL)$(SO_EXT) : $(KPL).py
 	pyccel $< $(FLAGS)
     
-$(KPI)$(SO_EXT) : $(KPI).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
+$(KPI)$(SO_EXT) : $(KPI).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(ICM)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KPM)$(SO_EXT) : $(KPM).py
@@ -98,7 +102,7 @@ $(KPM)$(SO_EXT) : $(KPM).py
 $(LA)$(SO_EXT) : $(LA).py
 	pyccel $< $(FLAGS)
     
-$(PF)$(SO_EXT) : $(PF).py $(INT)$(SO_EXT)
+$(PF)$(SO_EXT) : $(PF).py $(EQM)$(SO_EXT)
 	pyccel --openmp $< $(FLAGS)
 
 $(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
@@ -107,7 +111,7 @@ $(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
 $(PA)$(SO_EXT) : $(PA).py $(MA)$(SO_EXT) $(LA)$(SO_EXT)
 	pyccel --openmp $< $(FLAGS)
 
-$(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(INT)$(SO_EXT)
+$(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(ICP)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 

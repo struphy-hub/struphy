@@ -2,8 +2,15 @@
 
 # set simulation folders
 path_root=$(pwd)
-all_sim=simulations    
+all_sim=$HOME/Schreibtisch/STRUPHY_simulations    
 run_dir=example_analytical
+
+#TODO: remove results.hdf5 file
+
+export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
+export PYTHONPATH="${PYTHONPATH}:$path_root"
+
+echo $PYTHONPATH
 
 # set parameters
 cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
@@ -93,31 +100,46 @@ EOF
 
 # print location of simulation
 echo "Your hylife repository is here:" $path_root
-echo "Your simulations are here:     " $path_root/$all_sim
-echo "Your current run is here:      " $path_root/$all_sim/$run_dir
+echo "Your simulations are here:     " $all_sim
+echo "Your current run is here:      " $all_sim/$run_dir
 
-# copy interface_original and replace imports to current simulation
-cp hylife/interface_original_analytical.py hylife/interface_analytical.py
+var1="s|sed_replace_run_dir|"
+var2="|g" 
 
-var0="s|sed_replace_path_root|"
-var1="s|sed_replace_all_sim|"
-var2="s|sed_replace_run_dir|"
-var3="|g" 
 
-sed -i $var1$all_sim$var3 hylife/interface_analytical.py
-sed -i $var2$run_dir$var3 hylife/interface_analytical.py
+# copy subroutines and replace import paths to current simulation
+SDIR=$all_sim/$run_dir/source_run
 
-# copy Makefile and replace name of input files to current simulation
-cp Makefile $all_sim/$run_dir/Makefile
+mkdir $SDIR
 
+cp hylife/utilitis_FEEC/kernels_control_variate.py $SDIR/kernels_control_variate.py
+cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana.py $SDIR/kernels_projectors_local_eva_ana.py
+cp hylife/utilitis_PIC/fields.py $SDIR/fields.py
+cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
+
+cp hylife/utilitis_FEEC/control_variate.py $SDIR/control_variate.py
+cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
+cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
+
+#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/kernels_control_variate.py
+#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/kernels_control_variate.py
+
+#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/kernels_projectors_local_eva_ana.py
+#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/kernels_projectors_local_eva_ana.py
+
+#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/fields.py
+#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/fields.py
+
+#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/sampling.py
+#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/sampling.py
+
+# run Makefile
 make all_sim=$all_sim run_dir=$run_dir
 
 # copy main code and adjust to current simulation
 cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
-sed -i $var0$path_root$var3 $all_sim/$run_dir/STRUPHY.py
-sed -i $var2$run_dir$var3 $all_sim/$run_dir/STRUPHY.py
-
+sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 
 # run the code
 cd $all_sim/$run_dir

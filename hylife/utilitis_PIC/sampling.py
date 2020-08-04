@@ -1,8 +1,9 @@
 # import pyccel decorators
 from pyccel.decorators import types
 
-# import interface for simulation setup
-import hylife.interface_analytical as inter
+# import input files for simulation setup
+import input_run.equilibrium_PIC        as eq_pic
+import input_run.initial_conditions_PIC as ini_pic
 
 # import modules for mapping related quantities
 import hylife.geometry.mappings_analytical as mapping
@@ -63,8 +64,8 @@ def compute_weights_ini(particles, w0, s0, kind_map, params_map):
         vy  = particles[ip, 4]
         vz  = particles[ip, 5]
         
-        s0[ip] = inter.sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)
-        w0[ip] = inter.fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)/s0[ip]
+        s0[ip] = ini_pic.sh(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)
+        w0[ip] = ini_pic.fh_ini(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)/s0[ip]
     
     
 # ==============================================================================
@@ -83,4 +84,4 @@ def update_weights(particles, w0, s0, kind_map, params_map):
         vy  = particles[ip, 4]
         vz  = particles[ip, 5]
          
-        particles[ip, 6] = w0[ip] - inter.fh_eq(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)/s0[ip]
+        particles[ip, 6] = w0[ip] - eq_pic.fh_eq(xi1, xi2, xi3, vx, vy, vz, kind_map, params_map)/s0[ip]

@@ -11,8 +11,8 @@ import numpy         as np
 import scipy.sparse  as spa
 
 import hylife.utilitis_FEEC.basics.kernels_3d       as ker
-import hylife.utilitis_FEEC.kernels_control_variate as ker_cv
-
+#import hylife.utilitis_FEEC.kernels_control_variate as ker_cv
+import source_run.kernels_control_variate as ker_cv
 
 class terms_control_variate:
     """

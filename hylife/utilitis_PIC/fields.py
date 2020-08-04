@@ -1,8 +1,8 @@
 # import pyccel decorators
 from pyccel.decorators import types
 
-# import interface for simulation setup
-import hylife.interface_analytical as inter
+# import input files for simulation setup
+import input_run.equilibrium_MHD as eq_mhd
 
 # import modules for B-spline evaluation
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
@@ -41,9 +41,9 @@ def evaluate_1form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, u1, 
         pos3 = particles_pos[ip, 2]
         
         # evaluation of equilibrium field
-        u_part[ip, 0] = inter.u1_eq(pos1, pos2, pos3, kind_map, params_map)
-        u_part[ip, 1] = inter.u2_eq(pos1, pos2, pos3, kind_map, params_map)
-        u_part[ip, 2] = inter.u3_eq(pos1, pos2, pos3, kind_map, params_map)
+        u_part[ip, 0] = eq_mhd.u1_eq(pos1, pos2, pos3, kind_map, params_map)
+        u_part[ip, 1] = eq_mhd.u2_eq(pos1, pos2, pos3, kind_map, params_map)
+        u_part[ip, 2] = eq_mhd.u3_eq(pos1, pos2, pos3, kind_map, params_map)
         
         # evaluation of perturbed field
         span1 = int(pos1*nel[0]) + p1
@@ -100,9 +100,9 @@ def evaluate_2form(particles_pos, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1,
         pos3 = particles_pos[ip, 2]
         
         # evaluation of equilibrium field
-        b_part[ip, 0] = inter.b1_eq(pos1, pos2, pos3, kind_map, params_map)
-        b_part[ip, 1] = inter.b2_eq(pos1, pos2, pos3, kind_map, params_map)
-        b_part[ip, 2] = inter.b3_eq(pos1, pos2, pos3, kind_map, params_map)
+        b_part[ip, 0] = eq_mhd.b1_eq(pos1, pos2, pos3, kind_map, params_map)
+        b_part[ip, 1] = eq_mhd.b2_eq(pos1, pos2, pos3, kind_map, params_map)
+        b_part[ip, 2] = eq_mhd.b3_eq(pos1, pos2, pos3, kind_map, params_map)
         
         # evaluation of perturbed field
         span1 = int(pos1*nel[0]) + p1
