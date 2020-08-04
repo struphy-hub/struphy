@@ -26,31 +26,44 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-What things you need to install the software and how to install them
+The requirements are the same as for Pyccel and can be found here:
 
 - [Pyccel: https://github.com/pyccel/pyccel](https://github.com/pyccel/pyccel)
 
-We recommend installation in development mode: 
+### Installing Pyccel
 
+We recommend installation in development mode.
+Choose a directory for the `pyccel` repository, go there and execute the following commands:
+
+```
+git clone https://github.com/pyccel/pyccel.git
+cd pyccel
 python3 -m pip install --user -e .
-
-### Installing
-
-A step by step series of examples that tell you how to get a development env running
-
-Say what the step will be
-
-```
-Give the example
 ```
 
-And repeat
+In order to be able to execute `pyccel` globally you need to add its path to your `$PATH` variable:
 
 ```
-until finished
+export PATH="$PATH:$HOME/.local/bin"
 ```
 
-End with an example of getting some data out of the system or using it for a little demo
+If you want to add the path permanently, add the above line to your `.bashrc` file in `$HOME`.
+In order to test the installation go to an arbitrary directory and type `pyccel --version`. You should see something like
+
+```
+pyccel 0.9.16 from ...your_pyccel_location.../pyccel/pyccel (python 3.8)
+```
+
+
+### Installing Hylife
+
+Choose a directory for the `hylife` repository, go there and execute the following commands:
+
+```
+git clone https://github.com/pyccel/pyccel.git
+cd pyccel
+python3 -m pip install --user -e .
+```
 
 ## Running the tests
 
