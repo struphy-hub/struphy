@@ -60,10 +60,31 @@ pyccel 0.9.16 from ...your_pyccel_location.../pyccel/pyccel (python 3.8)
 Choose a directory for the `hylife` repository, go there and execute the following commands:
 
 ```
-git clone https://github.com/pyccel/pyccel.git
-cd pyccel
-python3 -m pip install --user -e .
+git clone https://gitlab.mpcdf.mpg.de/clapp/hylife.git
 ```
+
+### Setting up STRUPHY
+
+In order to get the STRUPHY code running you need to perform the following steps:
+
+1. Create a directory for your STRUPHY simulations. We shall call the absolute path to this directory `$all_sim` in what follows.
+  It does not matter where this directory is created.
+  
+2. In your hylife repository execute
+  ```
+  cp -r simulations/example_analytical $all_sim/name_of_run
+  ```
+  This copies the simulation template of the `hylife` repository to your local simuation folder located at `$all_sim` and creates a folder `name_of_run` for the current simulation.
+  Simulation input, output and source files will be in `name_of_run`.
+  
+3. In your hylife repository, in the file `run.sh` set the correct paths in lines 5 and 6
+  ```
+  all_sim=$all_sim 
+  run_dir=name_of_run
+  ```
+  
+4. STRUPHY can now be run by executing `./run.sh` in your hylife repository. Results will be stored in `$all_sim/name_of_run`.
+  
 
 ## Running the tests
 
