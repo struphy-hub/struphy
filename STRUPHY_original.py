@@ -39,7 +39,7 @@ import input_run.equilibrium_PIC as eq_PIC
 identifier = 'sed_replace_run_dir'   
 
 with open('parameters_sed_replace_run_dir.yml') as file:
-    params = yaml.full_load(file)
+    params = yaml.load(file)
 
 
 # mesh generation
