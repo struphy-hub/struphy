@@ -1,6 +1,6 @@
 # Welcome to hylife!
 
-*The Python Finite Element library for structure-preserving kinetic-fluid hybrid simulations.*
+*The Python Finite Element library for structure-preserving fluid-kinetic hybrid simulations.*
 
 hylife provides
 
@@ -85,7 +85,7 @@ In order to get the STRUPHY code running perform the following steps:
 4. STRUPHY can now be run by executing `./run.sh` in your hylife repository. Results will be stored in `$all_sim/name_of_run`.
   
 
-## Running the tests
+## Running tests
 
 Explain how to run the automated tests for this system
 
