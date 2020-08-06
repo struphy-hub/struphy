@@ -1,24 +1,23 @@
-# Welcome to STRUPHY 
+# Welcome to hylife!
 
-The STRUPHY (STRUcture-Preserving HYbrid) code simulates kinetic-MHD (magneto-hydrodynamic) hybrid models of variuos flavours, combining conforming finite element methods (finite element exterior calculus, FEEC) with particle-in-cell (PIC) methods.
+*The Python finite element library for kinetic-fluid hybrid models.*
 
-The STRUPHY code features:
+Hylife provides
 
-- Linear, ideal MHD equations with nonlinear coupling to full-orbit Vlasov equation (6D), current-coupling approach
-- Regular C<sup>1</sup>-mappings to single patch
-- Exact conservation of div**B**=0 and of magnetic helicity, reagardless of grid spacing and mapping
-- Exact energy balance, reagardless of grid spacing and mapping
-- Control variate method for PIC (optional)
-- Implicit time stepping with operator splitting
-- OpenMP parallelization of PIC
+- discrete de Rham sequence in 1,2 or 3 dimensions
+- tensor-product B-spline basis functions
+- commuting projectors based on inter-/histopolation at Greville points
+- Fortran kernels generated via [pyccel](https://github.com/pyccel/pyccel)
+- grad, div, curl operators
+- analytical mappings and IGA-compatible spline mappings
+- pullback and push-forward to mapped domain
+- particle sampling routines
+- particle accumulation routines 
+- basis evaluation routines
 
-The low-level routines feature:
+Currently, there is 1 code delivered with the hylife repository:
 
-- B-spline bases and commuting projectors (inter- and histopolation) for the 3D de Rham complex
-- Periodic and Dirichlet boundary conditions
-- Local projection operators based on quasi-interpolation (optional)
-
-STRUPHY is a [python](https://www.python.org/) code that uses [pyccel](https://github.com/pyccel/pyccel) to accelerate to Fortran speed.
+- STRUPHY (STRUcture-Preserving HYbrid code for MHD-kinetic current coupling)
 
 ## Getting Started
 
