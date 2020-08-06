@@ -3,7 +3,7 @@
 # set simulation folders
 path_root=$(pwd)
 all_sim=$HOME/ptmp_link/simulations   
-run_dir=example_mpi
+run_dir=example_node_2_np_128000000
 
 #TODO: remove results.hdf5 file
 rm $all_sim/$run_dir/results_$run_dir.hdf5
@@ -42,7 +42,7 @@ time_int : True
 dt : .05
 
 # simulation time
-Tend : .1
+Tend : 10.
 
 # maximum runtime of program in minutes
 max_time : 1000.
@@ -70,7 +70,7 @@ gamma : 1.6666666666666666666666666666
 add_PIC : True     
 
 # total number of particles
-Np : 8              
+Np : 1280000000             
 
 # control variate? 
 control : False       
@@ -95,7 +95,7 @@ restart : False
 num_restart : 0
 
 # Create restart files at the end of the simulation? 
-create_restart : True
+create_restart : False
 
 EOF
 
@@ -139,15 +139,18 @@ cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_loca
 
 # copy main code and adjust to current simulation
 cp STRUPHY_mpi_original.py $all_sim/$run_dir/STRUPHY_mpi.py
+cp batch_draco_mpi.sh $all_sim/$run_dir/.
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY_mpi.py
 
 # run the code
 cd $all_sim/$run_dir
 
+sbatch batch_draco_mpi.sh
+
 #export OMP_NUM_THREADS=2
-srun -n 4 python3 STRUPHY_mpi.py
+#export OMP_PLACES=cores 
+#srun -n 4 python3 STRUPHY_mpi.py
 #python3 STRUPHY_mpi.py
 
 #make clean all_sim=$all_sim run_dir=$run_dir
-
