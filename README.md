@@ -1,13 +1,13 @@
 # Welcome to hylife!
 
-*The Python finite element library for kinetic-fluid hybrid models.*
+*The Python Finite Element library for structure-preserving kinetic-fluid hybrid simulations.*
 
 hylife provides
 
 - discrete de Rham sequence in 1,2 or 3 dimensions
 - tensor-product B-spline basis functions
 - commuting projectors based on inter-/histopolation at Greville points
-- grad, div, curl operators
+- grad, curl, div operators
 - Fortran kernels generated via [pyccel](https://github.com/pyccel/pyccel)
 - pullback and push-forward to mapped domain
 - C^1 analytical mappings and C^1 IGA-compatible spline mappings
