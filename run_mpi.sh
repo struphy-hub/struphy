@@ -3,7 +3,7 @@
 # set simulation folders
 path_root=$(pwd)
 all_sim=$HOME/ptmp_link/simulations   
-run_dir=example_node_2_np_128000000
+run_dir=example_node_1_np_6400000
 
 #TODO: remove results.hdf5 file
 rm $all_sim/$run_dir/results_$run_dir.hdf5
@@ -42,7 +42,7 @@ time_int : True
 dt : .05
 
 # simulation time
-Tend : 10.
+Tend : .5
 
 # maximum runtime of program in minutes
 max_time : 1000.
@@ -70,7 +70,7 @@ gamma : 1.6666666666666666666666666666
 add_PIC : True     
 
 # total number of particles
-Np : 1280000000             
+Np : 12800000             
 
 # control variate? 
 control : False       
@@ -150,7 +150,7 @@ sbatch batch_draco_mpi.sh
 
 #export OMP_NUM_THREADS=2
 #export OMP_PLACES=cores 
-#srun -n 4 python3 STRUPHY_mpi.py
+#srun -n 8 python3 STRUPHY_mpi.py
 #python3 STRUPHY_mpi.py
 
 #make clean all_sim=$all_sim run_dir=$run_dir

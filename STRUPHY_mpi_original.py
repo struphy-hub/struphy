@@ -141,6 +141,7 @@ if add_PIC == True:
 
 
 
+
 if mpi_rank == 0:
     # ========= reserve memory for FEM cofficients and particles ===========
     pr     = np.empty(Nbase_0form,    dtype=float)     # bulk pressure FEM coefficients
@@ -273,7 +274,7 @@ else:
     b1,     b2,     b3     = None, None, None
 
 
-
+    
 # ======================== create particles ======================================
 if   loading == 'pseudo-random':
     # pseudo-random numbers between (0, 1)
@@ -312,6 +313,14 @@ elif loading == 'external':
 else:
     print('particle loading not specified')
 
+#timea = time.time()
+#mpi_comm.Reduce(en_deltaf_loc, en_deltaf, op=MPI.SUM, root=0)
+timeb = time.time()
+
+#print(mpi_rank, en_deltaf, timeb - timea)
+print(Np_loc)
+print('%3i, %4.2f, %8.6f' %(mpi_rank, en_deltaf, timeb-start_simulation))
+sys.exit()   
 
 # inversion of cumulative distribution function
 particles_loc[:, 3]  = sp.erfinv(2*particles_loc[:, 3] - 1)*vth + v0x
@@ -330,6 +339,13 @@ else:
 #print(mpi_rank, 'particle initialization done!')
 # ======================================================================================
 
+timea = time.time()
+mpi_comm.Reduce(en_deltaf_loc, en_deltaf, op=MPI.SUM, root=0)
+timeb = time.time()
+
+#print(mpi_rank, en_deltaf, timeb - timea)
+print('%3i, %4.2f, %8.6f' %(mpi_rank, en_deltaf, timeb-timea))
+sys.exit()   
 
 
 # ========= compute initial fields at particle positions and initial energies ==========
@@ -349,7 +365,7 @@ if add_PIC == True:
     pic_fields.evaluate_1form(particles_loc[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, u1, u2, u3, U_part_loc, kind_map, params_map)
     pic_fields.evaluate_2form(particles_loc[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, B_part_loc, kind_map, params_map)
     timeb = time.time()
-    #print('initial field computation at particles done. Time : ', timeb-timea)
+    #print(mpi_rank, 'initial field computation at particles done. Time : ', timeb-timea)
 
 #print(mpi_rank, U_part_loc, B_part_loc)
 
@@ -361,19 +377,37 @@ if mpi_rank == 0:
     energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
 
 
-en_deltaf_loc[0] = 1/2*particles_loc[:, 6].dot(particles_loc[:, 3]**2 + particles_loc[:, 4]**2 + particles_loc[:, 5]**2)/Np
+#en_deltaf_loc[0] = 1/2*particles_loc[:, 6].dot(particles_loc[:, 3]**2 + particles_loc[:, 4]**2 + particles_loc[:, 5]**2)/Np
 
-#mpi_comm.Barrier()
+#print('energy contribution from rank ', mpi_rank, ' is', en_deltaf_loc[0])
 
+timea = time.time()
+#mpi_comm.Reduce([en_deltaf_loc, MPI.DOUBLE], [en_deltaf, MPI.DOUBLE], op=MPI.SUM, root=0)
 mpi_comm.Reduce(en_deltaf_loc, en_deltaf, op=MPI.SUM, root=0)
 
+# manually reduce sum
+#if mpi_rank != 0:
+ #   mpi_comm.Isend([en_deltaf_loc, MPI.DOUBLE], dest=0, tag=17)
+    
+#else:
+ #   temp = np.zeros(1, dtype=float)
+  #  for i in range(1, mpi_size):
+   #     mpi_comm.Recv([temp, MPI.DOUBLE], source=i, tag=17)
+    #    print(temp)
+     #   en_deltaf_loc += temp
+
+timeb = time.time()
+
+
+print(mpi_rank, en_deltaf, timeb - timea)
+sys.exit()
 #print('rank : ', mpi_rank, en_deltaf_loc)
 
 if mpi_rank == 0:
     energies['en_deltaf'] = en_deltaf[0] + (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
     #print('rank : ', mpi_rank, energies, en_deltaf)
     
-#sys.exit()
+
 
 # initial distribution function
 #fh['fh_xi1_vx'][:, :] = np.histogram2d(particles_loc[:, 0], particles_loc[:, 3], bins=bin_edges, weights=particles_loc[:, 6], normed=False)[0]/(Np*dbin[0]*dbin[1])
