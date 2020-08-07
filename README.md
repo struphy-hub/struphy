@@ -53,6 +53,10 @@ In order to test the installation go to an arbitrary directory and type `pyccel 
 pyccel 0.9.16 from ...your_pyccel_location.../pyccel/pyccel (python 3.8)
 ```
 
+Specifics for the HPC systems `cobra` and `draco` at IPP:
+
+- on `cobra` use the module `anaconda/3/2020.02` for installing pyccel and loading mpi4py.
+- on `draco` use the module `anaconda/3/5.1` for installing pyccel and loading mpi4py.
 
 ### Installing Hylife
 
