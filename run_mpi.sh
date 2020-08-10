@@ -1,19 +1,25 @@
 #!/bin/bash
 
-# set simulation folders
+# ============== set simulation folders ===========
 path_root=$(pwd)
 all_sim=$HOME/ptmp_link/simulations   
 run_dir=example_node_1_np_6400000
+# =================================================
 
 #TODO: remove results.hdf5 file
 rm $all_sim/$run_dir/results_$run_dir.hdf5
 
-export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
+
+
+# ============ add paths to python ================
 export PYTHONPATH="${PYTHONPATH}:$path_root"
+export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
 
 echo $PYTHONPATH
+# =================================================
 
-# set parameters
+
+# ====== set parameters and create .yml file ======
 cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 
 #############################
@@ -50,14 +56,11 @@ max_time : 1000.
 # add non-Hamiltonian terms to simulation?
 add_pressure : False
 
-# geometry 
-# 1: slab
-# 2: hollow cylinder
-# 3: colella
+# geometry (1: slab, 2: hollow cylinder, 3: colella)
 kind_map : 1
 
 # parameters for mapping 
-params_map : [1., 1., 1.]        
+params_map : [7.853981634, 1., 1.]        
         
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666                 
@@ -70,7 +73,7 @@ gamma : 1.6666666666666666666666666666
 add_PIC : True     
 
 # total number of particles
-Np : 12800000             
+Np : 512000             
 
 # control variate? 
 control : False       
@@ -98,17 +101,17 @@ num_restart : 0
 create_restart : False
 
 EOF
+# =================================================
 
-# print location of simulation
+
+# == print location of repository and simulation == 
 echo "Your hylife repository is here:" $path_root
 echo "Your simulations are here:     " $all_sim
 echo "Your current run is here:      " $all_sim/$run_dir
-
-var1="s|sed_replace_run_dir|"
-var2="|g" 
+# =================================================
 
 
-# copy subroutines and replace import paths to current simulation
+# == create source_run folder and copy subrouotines into it
 SDIR=$all_sim/$run_dir/source_run
 
 mkdir $SDIR
@@ -121,36 +124,37 @@ cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
 cp hylife/utilitis_FEEC/control_variate.py $SDIR/control_variate.py
 cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
 cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
+# =================================================
 
-#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/kernels_control_variate.py
-#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/kernels_control_variate.py
 
-#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/kernels_projectors_local_eva_ana.py
-#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/kernels_projectors_local_eva_ana.py
-
-#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/fields.py
-#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/fields.py
-
-#sed -i $var1$all_sim$var3 $all_sim/$run_dir/source_run/sampling.py
-#sed -i $var2$run_dir$var3 $all_sim/$run_dir/source_run/sampling.py
-
-# run Makefile
+# ================= run Makefile ==================
 #make all_sim=$all_sim run_dir=$run_dir
+# =================================================
 
-# copy main code and adjust to current simulation
+
+
+# copy main code and adjust to current simulation =
+var1="s|sed_replace_run_dir|"
+var2="|g"
+
 cp STRUPHY_mpi_original.py $all_sim/$run_dir/STRUPHY_mpi.py
-cp batch_draco_mpi.sh $all_sim/$run_dir/.
+#cp batch_draco_mpi.sh $all_sim/$run_dir/.
+cp batch_draco_mpi_openmp.sh $all_sim/$run_dir/.
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY_mpi.py
+# =================================================
 
-# run the code
+
+# ================== run the code =================
 cd $all_sim/$run_dir
 
-sbatch batch_draco_mpi.sh
+# job submission
+#sbatch batch_draco_mpi.sh
+sbatch batch_draco_mpi_openmp.sh
 
+# interactice run
 #export OMP_NUM_THREADS=2
 #export OMP_PLACES=cores 
-#srun -n 8 python3 STRUPHY_mpi.py
+#srun -n 1 python3 STRUPHY_mpi.py
 #python3 STRUPHY_mpi.py
-
-#make clean all_sim=$all_sim run_dir=$run_dir
+# =================================================
