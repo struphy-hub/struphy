@@ -27,19 +27,19 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 #############################
 
 # mesh generation on logical domain
-Nel : [16, 2, 2] 
+Nel : [16, 16, 16] 
 
 # boundary conditions (True: periodic, False: else)
 bc : [True, True, True]
 
 # spline degrees
-p : [2, 1, 1] 
+p : [3, 3, 3] 
 
 # number of quadrature points per element
-nq_el : [6, 2, 2]
+nq_el : [6, 6, 6]
 
 # number of quadrature points per histopolation cell
-nq_pr : [6, 2, 2]
+nq_pr : [6, 6, 6]
 
 # do time integration?
 time_int : True
@@ -48,7 +48,7 @@ time_int : True
 dt : .05
 
 # simulation time
-Tend : .5
+Tend : 1.
 
 # maximum runtime of program in minutes
 max_time : 1000.
@@ -57,10 +57,10 @@ max_time : 1000.
 add_pressure : False
 
 # geometry (1: slab, 2: hollow cylinder, 3: colella)
-kind_map : 1
+kind_map : 3
 
 # parameters for mapping 
-params_map : [7.853981634, 1., 1.]        
+params_map : [7.853981634, 7.853981634, 0.1, 7.853981634]        
         
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666                 
@@ -73,7 +73,7 @@ gamma : 1.6666666666666666666666666666
 add_PIC : True     
 
 # total number of particles
-Np : 512000             
+Np : 5120000             
 
 # control variate? 
 control : False       
@@ -98,7 +98,7 @@ restart : False
 num_restart : 0
 
 # Create restart files at the end of the simulation? 
-create_restart : False
+create_restart : True
 
 EOF
 # =================================================
@@ -152,7 +152,7 @@ cd $all_sim/$run_dir
 #sbatch batch_draco_mpi.sh
 sbatch batch_draco_mpi_openmp.sh
 
-# interactice run
+# interactive run
 #export OMP_NUM_THREADS=2
 #export OMP_PLACES=cores 
 #srun -n 1 python3 STRUPHY_mpi.py

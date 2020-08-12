@@ -19,7 +19,7 @@
 #SBATCH --mail-user=<userid>@rzg.mpg.de
 #
 # Wall clock limit:
-#SBATCH --time=00:10:00
+#SBATCH --time=00:20:00
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # For pinning threads correctly:

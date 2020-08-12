@@ -97,6 +97,11 @@ particles_loc  = np.empty((Np_loc, 7), dtype=float)    # particles of each proce
 w0_loc         = np.empty( Np_loc    , dtype=float)    # weights for each process: hat_f_ini(eta_0, v_0)/hat_s_ini(eta_0, v_0)
 s0_loc         = np.empty( Np_loc    , dtype=float)    # initial sampling density: hat_s_ini(eta_0, v_0) for each process
 
+if mpi_rank == 0:
+    particles_recv = np.empty((Np_loc, 7), dtype=float)
+    w0_recv        = np.empty( Np_loc    , dtype=float)    
+    s0_recv        = np.empty( Np_loc    , dtype=float)    
+    
 U_part_loc     = np.empty((Np_loc, 3), dtype=float)    # bulk velocity field (1-form) at particle positions
 B_part_loc     = np.empty((Np_loc, 3), dtype=float)    # magnetic field (2-form )at particles positions
 
@@ -210,6 +215,7 @@ if mpi_rank == 0:
 
     # snapshots of distribution function via particle binning
     fh        = {'fh_eta1_vx' : np.empty((n_bins[0], n_bins[1]), dtype=float)}
+    
     # =========================================================================
 
 
@@ -298,7 +304,7 @@ if mpi_rank == 0:
     S6      = spa.bmat([[A,  dt/2*M1.dot(GRAD)], [-dt/2*L, M0]]).tocsc()
     STEP6   = spa.bmat([[A, -dt/2*M1.dot(GRAD)], [ dt/2*L, M0]]).tocsc()
 
-    S6_ILU  = spa.linalg.spilu(S6)
+    #S6_ILU  = spa.linalg.spilu(S6)
 
     del MHD, M0, L, GRAD
 
@@ -616,7 +622,7 @@ def update():
 
         if control == True:
             timea = time.time()
-            pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
+            pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
             timeb = time.time()
             times_elapsed['control_weights'] = timeb - timea
     # =======================================================================================================
@@ -634,12 +640,12 @@ def update():
         rh[:, :, :] = rh - dt/2*(DIV.dot(Q).dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))).reshape(Nbase_3form)
 
         # update pressure
-        pr[:, :, :]  = pr_new.reshape(Nbase_0form)
+        pr[:, :, :] = pr_new.reshape(Nbase_0form)
 
         # update velocity
-        u1[:, :, :]  = u1_new.reshape(Nbase_1form[0])
-        u2[:, :, :]  = u2_new.reshape(Nbase_1form[1])
-        u3[:, :, :]  = u3_new.reshape(Nbase_1form[2])
+        u1[:, :, :] = u1_new.reshape(Nbase_1form[0])
+        u2[:, :, :] = u2_new.reshape(Nbase_1form[1])
+        u3[:, :, :] = u3_new.reshape(Nbase_1form[2])
 
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea
@@ -672,34 +678,40 @@ def update():
         fh['fh_eta1_vx'][:, :] = fh_eta1_vx
 # ============================================================================
 
-mpi_comm.Barrier()
+
+"""
 timea = time.time()
 for i in range(20):
-    #if mpi_rank == 0:
-        #print(i, energies)
+    if mpi_rank == 0:
+        print(i, energies)
     update()
 timeb = time.time()
-print(mpi_rank, (timeb - timea)/20)
+#print(mpi_rank, (timeb - timea)/20)
 sys.exit()
+"""
 
 
 # ========================== time integration ================================
 if time_int == True:
     
-    if mpi_rank == 0:
-        # a new simulation
-        if restart == False:
-
-            # create hdf5 file and datasets for simulation output
+    # a new simulation
+    if restart == False:
+    
+        if mpi_rank == 0:
+        
+            # ============= create hdf5 file and datasets for simulation output ======================
             file = h5py.File('results_' + identifier + '.hdf5', 'a')
 
+            # current time
             file.create_dataset('time', (1,),   maxshape=(None,),   dtype=float, chunks=True)
-
+            
+            # energies
             file.create_dataset('energies/bulk_kinetic',     (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('energies/magnetic',         (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('energies/bulk_internal',    (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('energies/energetic_deltaf', (1,), maxshape=(None,), dtype=float, chunks=True)
 
+            # elapsed times of different parts of the code
             file.create_dataset('times_elapsed/total',              (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('times_elapsed/accumulation_step1', (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('times_elapsed/accumulation_step3', (1,), maxshape=(None,), dtype=float, chunks=True)
@@ -710,14 +722,14 @@ if time_int == True:
             file.create_dataset('times_elapsed/pusher_step5',       (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('times_elapsed/control_step1',      (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('times_elapsed/control_step3',      (1,), maxshape=(None,), dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/control_weights',    (1,), maxshape=(None,),   dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/update_step1u',      (1,), maxshape=(None,),   dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/update_step2u',      (1,), maxshape=(None,),   dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/update_step2b',      (1,), maxshape=(None,),   dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/update_step3u',      (1,), maxshape=(None,),   dtype=float, chunks=True)
-            file.create_dataset('times_elapsed/update_step6',       (1,), maxshape=(None,),   dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/control_weights',    (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/update_step1u',      (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/update_step2u',      (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/update_step2b',      (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/update_step3u',      (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('times_elapsed/update_step6',       (1,), maxshape=(None,), dtype=float, chunks=True)
 
-
+            # FEM coefficients
             file.create_dataset('pressure',                   (1, Nbase_0form[0],    Nbase_0form[1],    Nbase_0form[2]),    maxshape=(None, Nbase_0form[0],    Nbase_0form[1],    Nbase_0form[2]),    dtype=float, chunks=True)
             file.create_dataset('velocity_field/1_component', (1, Nbase_1form[0][0], Nbase_1form[0][1], Nbase_1form[0][2]), maxshape=(None, Nbase_1form[0][0], Nbase_1form[0][1], Nbase_1form[0][2]), dtype=float, chunks=True)
             file.create_dataset('velocity_field/2_component', (1, Nbase_1form[1][0], Nbase_1form[1][1], Nbase_1form[1][2]), maxshape=(None, Nbase_1form[1][0], Nbase_1form[1][1], Nbase_1form[1][2]), dtype=float, chunks=True)
@@ -727,14 +739,17 @@ if time_int == True:
             file.create_dataset('magnetic_field/3_component', (1, Nbase_2form[2][0], Nbase_2form[2][1], Nbase_2form[2][2]), maxshape=(None, Nbase_2form[2][0], Nbase_2form[2][1], Nbase_2form[2][2]), dtype=float, chunks=True)
             file.create_dataset('density',                    (1, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    maxshape=(None, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    dtype=float, chunks=True)
 
+            # particles
+            file.create_dataset('particles', (1, Np, 7), maxshape=(None, Np, 7), dtype=float, chunks=True)
+            
+            # other diagnostics
             file.create_dataset('bulk_mass', (1,), maxshape=(None,), dtype=float, chunks=True)
 
-            file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    maxshape=(None, Nbase_3form[0],    Nbase_3form[1],    Nbase_3form[2]),    dtype=float, chunks=True)
+            file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), maxshape=(None, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), dtype=float, chunks=True)
 
-            file.create_dataset('particles', (1, Np, 7), maxshape=(None, Np, 7), dtype=float, chunks=True)
-            file.create_dataset('distribution_function/xi1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
+            file.create_dataset('distribution_function/eta1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
 
-
+            
             # datasets for restart function
             file.create_dataset('restart/time_steps_done', (1,), maxshape=(None,), dtype=int, chunks=True)
 
@@ -753,13 +768,13 @@ if time_int == True:
             file.create_dataset('restart/control_s0', (Np,), dtype=float)
 
 
-            # == save initial data ============
-            file['time'][0] = 0.
+            # ==================== save initial data =======================
+            file['time'][0]                       = 0.
 
-            file['energies/bulk_kinetic'][0]     = energies['en_U']
-            file['energies/magnetic'][0]         = energies['en_B']
-            file['energies/bulk_internal'][0]    = energies['en_p']
-            file['energies/energetic_deltaf'][0] = energies['en_deltaf']
+            file['energies/bulk_kinetic'][0]      = energies['en_U']
+            file['energies/magnetic'][0]          = energies['en_B']
+            file['energies/bulk_internal'][0]     = energies['en_p']
+            file['energies/energetic_deltaf'][0]  = energies['en_deltaf']
 
             file['pressure'][0]                   = pr
             file['velocity_field/1_component'][0] = u1
@@ -770,25 +785,39 @@ if time_int == True:
             file['magnetic_field/3_component'][0] = b3
             file['density'][0]                    = rh
 
-            file['magnetic_field/divergence'][0] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
+            file['magnetic_field/divergence'][0]  = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
 
-            file['bulk_mass'][0] = sum(rh.flatten())
-
-            #file['particles'][0] = particles
-            #file['distribution_function/xi1_vx'][0] = fh['fh_xi1_vx']
-
-            #file['restart/control_w0'][:] = w0
-            #file['restart/control_s0'][:] = s0
-            # =================================
-
-            #print('initial energies : ', energies)
-            #time_steps_done = 0
-
-        # restarting another simulation
+            file['bulk_mass'][0]                  = sum(rh.flatten())
+            file['distribution_function/eta1_vx'][0] = fh['fh_eta1_vx']
+            
+            file['particles'][0, :Np_loc]         = particles_loc
+            file['restart/control_w0'][:Np_loc]   = w0_loc
+            file['restart/control_s0'][:Np_loc]   = s0_loc
+            
+            for i in range(1, mpi_size):
+                mpi_comm.Recv(particles_recv, source=i, tag=11)
+                mpi_comm.Recv(w0_recv       , source=i, tag=12)
+                mpi_comm.Recv(s0_recv       , source=i, tag=13)
+                
+                file['particles'][0, i*Np_loc:(i + 1)*Np_loc]       = particles_recv
+                file['restart/control_w0'][i*Np_loc:(i + 1)*Np_loc] = w0_recv
+                file['restart/control_s0'][i*Np_loc:(i + 1)*Np_loc] = s0_recv
+            # =================================   
+            
         else:
+            mpi_comm.Send(particles_loc, dest=0, tag=11)
+            mpi_comm.Send(w0_loc       , dest=0, tag=12)
+            mpi_comm.Send(s0_loc       , dest=0, tag=13)
+
+        time_steps_done = 0
+    
+    # restarting another simulation
+    else:
+        
+        if mpi_rank == 0:
 
             # open existing hdf5 file
-            file = h5py.File('results_' + identifier  + '.hdf5', 'a')
+            file = h5py.File('results_' + identifier + '.hdf5', 'a')
 
             # load restart data from last time step
             time_steps_done = file['restart/time_steps_done'][num_restart]
@@ -801,38 +830,67 @@ if time_int == True:
             b2[:, :, :]     = file['restart/magnetic_field/2_component'][num_restart]
             b3[:, :, :]     = file['restart/magnetic_field/3_component'][num_restart]
             rh[:, :, :]     = file['restart/density'][num_restart]
+            
+            particles_loc[:, :] = file['restart/particles'][num_restart, :Np_loc]
+            w0_loc[:]           = file['restart/control_w0'][:Np_loc]
+            s0_loc[:]           = file['restart/control_s0'][:Np_loc]
+            
+            for i in range(1, mpi_size):
+                particles_recv[:, :] = file['restart/particles'][num_restart, i*Np_loc:(i + 1)*Np_loc]
+                w0_recv[:]           = file['restart/control_w0'][i*Np_loc:(i + 1)*Np_loc]
+                s0_recv[:]           = file['restart/control_s0'][i*Np_loc:(i + 1)*Np_loc]
+                
+                mpi_comm.Send(particles_recv, dest=i, tag=11)
+                mpi_comm.Send(w0_recv       , dest=i, tag=12)
+                mpi_comm.Send(s0_recv       , dest=i, tag=13)
+                
+        else:
+            mpi_comm.Recv(particles_loc, source=0, tag=11)
+            mpi_comm.Recv(w0_loc       , source=0, tag=12)
+            mpi_comm.Recv(s0_loc       , source=0, tag=13)
+            
+            time_steps_done = None
+         
+        
+        # broadcast time_steps_done to all processes
+        time_steps_done = mpi_comm.bcast(time_steps_done, root=0)
+        
+        # broadcast loaded FEM coefficients to all processes
+        mpi_comm.Bcast(u1, root=0)
+        mpi_comm.Bcast(u2, root=0)
+        mpi_comm.Bcast(u3, root=0)
+        
+        mpi_comm.Bcast(b1, root=0)
+        mpi_comm.Bcast(b2, root=0)
+        mpi_comm.Bcast(b3, root=0)
+       
 
-            particles[:, :] = file['restart/particles'][num_restart]
-            w0[:]           = file['restart/control_w0'][:]
-            s0[:]           = file['restart/control_s0'][:]
+        # perform initialization for next time step: field evaluation at particle positions
+        pic_fields.evaluate_1form(particles_loc[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, u1, u2, u3, U_part_loc, kind_map, params_map)
+        pic_fields.evaluate_2form(particles_loc[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, B_part_loc, kind_map, params_map)
 
-            # perform initialization for next time step: field evaluation at particle positions
-            pic_fields.evaluate_1form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, u1, u2, u3, U_part, kind_map, params_map)
-            pic_fields.evaluate_2form(particles[:, 0:3], T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np, b1, b2, b3, B_part, kind_map, params_map)
+        # perform initialization for next time step: compute partice weights
+        if control == True:
+            pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
+        else:
+            particles_loc[:, 6] = w0_loc
 
-            # perform initialization for next time step: compute partice weights
-            if control == True:
-                pic_sample.update_weights(particles, w0, s0, kind_map, params_map)
-            else:
-                particles[:, 6] = w0
-
-    time_steps_done = 0
-    
-    
     
     
     # ========================================================================================
     #              time loop 
     # ========================================================================================
-    #print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
+    mpi_comm.Barrier()
+    if mpi_rank == 0:
+        print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
     # ========================================================================================
     while True:
 
         if (time_steps_done*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
             
-            if mpi_rank == 0:
-                if create_restart:
-
+            # save data needed for restart
+            if create_restart:
+                if mpi_rank == 0:
                     file['restart/time_steps_done'][-1]            = time_steps_done
                     file['restart/pressure'][-1]                   = pr
                     file['restart/velocity_field/1_component'][-1] = u1
@@ -842,7 +900,12 @@ if time_int == True:
                     file['restart/magnetic_field/2_component'][-1] = b2
                     file['restart/magnetic_field/3_component'][-1] = b3
                     file['restart/density'][-1]                    = rh
-                    file['restart/particles'][-1]                  = particles
+
+                    file['restart/particles'][-1, :Np_loc]         = particles_loc
+
+                    for i in range(1, mpi_size):
+                        mpi_comm.Recv(particles_recv, source=i, tag=20)
+                        file['restart/particles'][-1, i*Np_loc:(i + 1)*Np_loc] = particles_recv
 
                     file['restart/time_steps_done'].resize(file['restart/time_steps_done'].shape[0] + 1, axis = 0)
                     file['restart/pressure'].resize(file['restart/pressure'].shape[0] + 1, axis = 0)
@@ -854,28 +917,33 @@ if time_int == True:
                     file['restart/magnetic_field/3_component'].resize(file['restart/magnetic_field/3_component'].shape[0] + 1, axis = 0)
                     file['restart/density'].resize(file['restart/density'].shape[0] + 1, axis = 0)
                     file['restart/particles'].resize(file['restart/particles'].shape[0] + 1, axis = 0)
+
+                else:
+                    mpi_comm.Send(particles_loc, dest=0, tag=20)
             
             break
 
-        if mpi_rank == 0:
-            if time_steps_done%1 == 0:
-                print('time steps finished : ' + str(time_steps_done))
-                print('energies : ', energies)
+        # print number of finished time steps and current energies
+        if mpi_rank == 0 and time_steps_done%1 == 0:
+            print('time steps finished : ' + str(time_steps_done))
+            print('energies : ', energies)
+            
+        
 
         # === time integration =======
         update()
         time_steps_done += 1
         # ============================
         
-        #if time_steps_done == 1:
-        if mpi_rank == 0:
-            print('time for current time step : ', times_elapsed['total'])
-
+        
         if mpi_rank == 0:
             # == data to save ==========
+            
+            # current time
             file['time'].resize(file['time'].shape[0] + 1, axis = 0)
             file['time'][-1] = time_steps_done*dt
 
+            # energies
             file['energies/bulk_kinetic'].resize(file['energies/bulk_kinetic'].shape[0] + 1, axis = 0)
             file['energies/magnetic'].resize(file['energies/magnetic'].shape[0] + 1, axis = 0)
             file['energies/bulk_internal'].resize(file['energies/bulk_internal'].shape[0] + 1, axis = 0)
@@ -885,6 +953,7 @@ if time_int == True:
             file['energies/bulk_internal'][-1]    = energies['en_p']
             file['energies/energetic_deltaf'][-1] = energies['en_deltaf']
 
+            # elapsed times of different parts of the code
             file['times_elapsed/total'].resize(file['times_elapsed/total'].shape[0] + 1, axis = 0)
             file['times_elapsed/accumulation_step1'].resize(file['times_elapsed/accumulation_step1'].shape[0] + 1, axis = 0)
             file['times_elapsed/accumulation_step3'].resize(file['times_elapsed/accumulation_step3'].shape[0] + 1, axis = 0)
@@ -918,7 +987,7 @@ if time_int == True:
             file['times_elapsed/update_step3u'][-1]      = times_elapsed['update_step3u']
             file['times_elapsed/update_step6'][-1]       = times_elapsed['update_step6']
 
-
+            # FEM coefficients
             #file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
             #file['pressure'][-1] = pr
 
@@ -939,19 +1008,30 @@ if time_int == True:
             #file['density'].resize(file['density'].shape[0] + 1, axis = 0)
             #file['density'][-1] = rh
 
+            # particles
+            if time_steps_done%5 == 0:
+                file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
+                file['particles'][-1, :Np_loc] = particles_loc
+                
+                for i in range(1, mpi_size):
+                    mpi_comm.Recv(particles_recv, source=i, tag=11)
+                    file['particles'][-1, i*Np_loc:(i + 1)*Np_loc] = particles_recv
+      
+            
+            # other diagnostics
             #file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
             #file['magnetic_field/divergence'][-1] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
 
             file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
             file['bulk_mass'][-1] = sum(rh.flatten())
-
-            #if time_steps_done%10 == 0:
-             #   file['particles'].resize(file['particles'].shape[0] + 1, axis = 0)
-              #  file['particles'][-1] = particles
-
-            #file['distribution_function/xi1_vx'].resize(file['distribution_function/xi1_vx'].shape[0] + 1, axis = 0)
-            #file['distribution_function/xi1_vx'][-1] = fh['fh_xi1_vx']
+            
+            #file['distribution_function/eta1_vx'].resize(file['distribution_function/eta1_vx'].shape[0] + 1, axis = 0)
+            #file['distribution_function/eta1_vx'][-1] = fh['fh_eta1_vx']
             # ==========================
+        
+        else:
+            if time_steps_done%5 == 0:
+                mpi_comm.Send(particles_loc, dest=0, tag=11)
     
     if mpi_rank == 0:
         file.close()
