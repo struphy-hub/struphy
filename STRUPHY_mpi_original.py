@@ -944,6 +944,10 @@ if time_int == True:
                 else:
                     mpi_comm.Send(particles_loc, dest=0, tag=20)
             
+            # close output file and time loop
+            if mpi_rank == 0:
+                file.close()
+
             break
 
         # print number of finished time steps and current energies
@@ -1059,9 +1063,5 @@ if time_int == True:
         if mpi_rank == 0 and time_steps_done == 1:
             print('time for one time step : ', timeb - timea)        
         # ==============================================================================================
-
-    
-    # close data file       
-    if mpi_rank == 0:
-        file.close()
+        
 # ============================================================================
