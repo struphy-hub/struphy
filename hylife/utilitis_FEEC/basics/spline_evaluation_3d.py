@@ -3,14 +3,13 @@
 # Copyright 2020 Florian Holderied
 
 """
-Basic functions for point-wise evaluation of a 3d B-spline basis.
+Basic functions for point-wise evaluation of a 2d B-spline basis.
 """
 
 from pyccel.decorators import types
+from numpy import empty
 
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
-
-from numpy import empty
 
 
 # =============================================================================
@@ -44,10 +43,18 @@ def evaluate_n_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, c
     bn1     = empty(pn1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
     value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
@@ -68,10 +75,18 @@ def evaluate_diffn_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bn1     = empty(pn1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs_1st_der(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs_1st_der(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
     value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
@@ -92,10 +107,18 @@ def evaluate_n_diffn_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bn1     = empty(pn1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs_1st_der(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs_1st_der(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
     value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
@@ -116,10 +139,18 @@ def evaluate_n_n_diffn(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bn1     = empty(pn1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs_1st_der(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs_1st_der(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
     value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
@@ -140,10 +171,18 @@ def evaluate_d_n_n(td1, tn2, tn3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, c
     bd1     = empty(pd1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pd1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pd1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(td1, pd1, eta1, span_d1, bd1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(td1, pd1, eta1, span_d1, bl1, br1, bd1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
     
     bsp.scaling(td1, pd1, span_d1, bd1)
 
@@ -166,10 +205,18 @@ def evaluate_n_d_n(tn1, td2, tn3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, c
     bn1     = empty(pn1 + 1, dtype=float)
     bd2     = empty(pd2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pd2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pd2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(td2, pd2, eta2, span_d2, bd2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(td2, pd2, eta2, span_d2, bl2, br2, bd2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
     
     bsp.scaling(td2, pd2, span_d2, bd2)
 
@@ -192,10 +239,18 @@ def evaluate_n_n_d(tn1, tn2, td3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, c
     bn1     = empty(pn1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bd3     = empty(pd3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pd3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pd3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(td3, pd3, eta3, span_d3, bd3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(td3, pd3, eta3, span_d3, bl3, br3, bd3)
     
     bsp.scaling(td3, pd3, span_d3, bd3)
 
@@ -218,10 +273,18 @@ def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, c
     bn1     = empty(pn1 + 1, dtype=float)
     bd2     = empty(pd2 + 1, dtype=float)
     bd3     = empty(pd3 + 1, dtype=float)
+    
+    bl1     = empty(pn1    , dtype=float)
+    bl2     = empty(pd2    , dtype=float)
+    bl3     = empty(pd3    , dtype=float)
+    
+    br1     = empty(pn1    , dtype=float)
+    br2     = empty(pd2    , dtype=float)
+    br3     = empty(pd3    , dtype=float)
 
-    bsp.basis_funs(tn1, pn1, eta1, span_n1, bn1)
-    bsp.basis_funs(td2, pd2, eta2, span_d2, bd2)
-    bsp.basis_funs(td3, pd3, eta3, span_d3, bd3)
+    bsp.basis_funs(tn1, pn1, eta1, span_n1, bl1, br1, bn1)
+    bsp.basis_funs(td2, pd2, eta2, span_d2, bl2, br2, bd2)
+    bsp.basis_funs(td3, pd3, eta3, span_d3, bl3, br3, bd3)
     
     bsp.scaling(td2, pd2, span_d2, bd2)
     bsp.scaling(td3, pd3, span_d3, bd3)
@@ -246,10 +309,18 @@ def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, c
     bd1     = empty(pd1 + 1, dtype=float)
     bn2     = empty(pn2 + 1, dtype=float)
     bd3     = empty(pd3 + 1, dtype=float)
+    
+    bl1     = empty(pd1    , dtype=float)
+    bl2     = empty(pn2    , dtype=float)
+    bl3     = empty(pd3    , dtype=float)
+    
+    br1     = empty(pd1    , dtype=float)
+    br2     = empty(pn2    , dtype=float)
+    br3     = empty(pd3    , dtype=float)
 
-    bsp.basis_funs(td1, pd1, eta1, span_d1, bd1)
-    bsp.basis_funs(tn2, pn2, eta2, span_n2, bn2)
-    bsp.basis_funs(td3, pd3, eta3, span_d3, bd3)
+    bsp.basis_funs(td1, pd1, eta1, span_d1, bl1, br1, bd1)
+    bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
+    bsp.basis_funs(td3, pd3, eta3, span_d3, bl3, br3, bd3)
     
     bsp.scaling(td1, pd1, span_d1, bd1)
     bsp.scaling(td3, pd3, span_d3, bd3)
@@ -273,10 +344,18 @@ def evaluate_d_d_n(td1, td2, tn3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, c
     bd1     = empty(pd1 + 1, dtype=float)
     bd2     = empty(pd2 + 1, dtype=float)
     bn3     = empty(pn3 + 1, dtype=float)
+    
+    bl1     = empty(pd1    , dtype=float)
+    bl2     = empty(pd2    , dtype=float)
+    bl3     = empty(pn3    , dtype=float)
+    
+    br1     = empty(pd1    , dtype=float)
+    br2     = empty(pd2    , dtype=float)
+    br3     = empty(pn3    , dtype=float)
 
-    bsp.basis_funs(td1, pd1, eta1, span_d1, bd1)
-    bsp.basis_funs(td2, pd2, eta2, span_d2, bd2)
-    bsp.basis_funs(tn3, pn3, eta3, span_n3, bn3)
+    bsp.basis_funs(td1, pd1, eta1, span_d1, bl1, br1, bd1)
+    bsp.basis_funs(td2, pd2, eta2, span_d2, bl2, br2, bd2)
+    bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
     
     bsp.scaling(td1, pd1, span_d1, bd1)
     bsp.scaling(td2, pd2, span_d2, bd2)
@@ -300,10 +379,18 @@ def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, c
     bd1     = empty(pd1 + 1, dtype=float)
     bd2     = empty(pd2 + 1, dtype=float)
     bd3     = empty(pd3 + 1, dtype=float)
+    
+    bl1     = empty(pd1    , dtype=float)
+    bl2     = empty(pd2    , dtype=float)
+    bl3     = empty(pd3    , dtype=float)
+    
+    br1     = empty(pd1    , dtype=float)
+    br2     = empty(pd2    , dtype=float)
+    br3     = empty(pd3    , dtype=float)
 
-    bsp.basis_funs(td1, pd1, eta1, span_d1, bd1)
-    bsp.basis_funs(td2, pd2, eta2, span_d2, bd2)
-    bsp.basis_funs(td3, pd3, eta3, span_d3, bd3)
+    bsp.basis_funs(td1, pd1, eta1, span_d1, bl1, br1, bd1)
+    bsp.basis_funs(td2, pd2, eta2, span_d2, bl2, br2, bd2)
+    bsp.basis_funs(td3, pd3, eta3, span_d3, bl3, br3, bd3)
     
     bsp.scaling(td1, pd1, span_d1, bd1)
     bsp.scaling(td2, pd2, span_d2, bd2)
