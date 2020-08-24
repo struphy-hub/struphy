@@ -27,7 +27,7 @@ echo $PYTHONPATH
 
 # ========== clean simulation folder ==============
 rm $all_sim/$run_dir/STRUPHY.py
-#rm $all_sim/$run_dir/*.hdf5
+rm $all_sim/$run_dir/*.hdf5
 rm $all_sim/$run_dir/sim*.*
 rm $all_sim/$run_dir/batch*.*
 # =================================================
@@ -41,9 +41,9 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 #############################
 
 # number of elements, boundary conditions and spline degrees
-Nel : [16, 16, 2] 
+Nel : [80, 80, 2] 
 bc  : [True, True, True]
-p   : [2, 2, 1] 
+p   : [3, 3, 1] 
 
 
 # number of quadrature points per element and histopolation cell
@@ -53,33 +53,54 @@ nq_pr : [6, 6, 2]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : .05
-Tend     : 1.
+dt       : 16.
+Tend     : 3200.
 max_time : 1000.
 
 
 # add non-Hamiltonian terms to simulation?
-add_pressure : False
+add_pressure : True
 
 # geometry (1: slab, 2: hollow cylinder, 3: colella) and parameters for geometry
 kind_map   : 3
-params_map : [7.853981634, 7.853981634, 0.1, 1.]        
-        
+#params_map : [7.853981634, 7.853981634, 0.1, 1.]        
+params_map : [2000., 2000., 0., 50.]
+ 
 # adiabatic exponent
-gamma : 1.6666666666666666666666666666                 
+gamma : 1.6666666666666666666666666666
+
+
+###############################
+##### linear solvers ##########
+###############################
+
+# ILUs
+drop_tol_S2 : 0.0001
+fill_fac_S2 : 10.
+
+drop_tol_A  : 0.0001
+fill_fac_A  : 10.
+
+drop_tol_M0 : 0.0001
+fill_fac_M0 : 10.
+
+# tolerances for iterative solvers
+tol2        : 0.00000001
+tol6        : 0.00000001
+
 
 ###############################
 ##### particle parameters #####
 ###############################
 
 # add kinetic terms to simulation?
-add_PIC : True     
+add_PIC : False     
 
 # total number of particles
-Np : 512000           
+Np : 10           
 
 # control variate? 
-control : True       
+control : False       
 
 # shift of Maxwellian 
 v0 : [2.5, 0., 0.]
@@ -101,13 +122,13 @@ dir_particles : /home/florian/Schreibtisch/PHD/02_Projekte/hylife/hylife_florian
 ###############################
 
 # Is this run a restart?
-restart : True
+restart : False
 
 # number of restart files
 num_restart : 0
 
 # Create restart files at the end of the simulation? 
-create_restart : True
+create_restart : False
 
 EOF
 # =================================================
@@ -120,7 +141,6 @@ mkdir $SDIR
 
 cp hylife/utilitis_FEEC/kernels_control_variate.py $SDIR/kernels_control_variate.py
 cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana.py $SDIR/kernels_projectors_local_eva_ana.py
-#cp hylife/utilitis_PIC/fields.py $SDIR/fields.py
 
 cp hylife/utilitis_PIC/pusher.py $SDIR/pusher.py
 cp hylife/utilitis_PIC/accumulation_kernels.py $SDIR/accumulation_kernels.py
@@ -162,5 +182,5 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY_mpi.py
 #python3 STRUPHY_mpi.py
 
-mpirun -n 4 python3 STRUPHY.py
+mpirun -n 1 python3 STRUPHY.py
 # =================================================

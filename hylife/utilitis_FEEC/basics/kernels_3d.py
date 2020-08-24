@@ -121,8 +121,11 @@ def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1,
         
 # ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
-def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, M, mat_map):
+def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, m, mat_map):
     
+    
+    #$ omp parallel
+    #$ omp do reduction ( + : m) private (ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, value, q1, q2, q3, wvol, bi, bj)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -146,7 +149,11 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
                                                     
                                                     value += wvol * bi * bj
 
-                                        M[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2, (ie3 + il3)%nbase3, p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
+                                        m[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2, (ie3 + il3)%nbase3, p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
 
 
 # ==========================================================================================          

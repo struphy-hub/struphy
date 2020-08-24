@@ -1,4 +1,13 @@
+# load mpi4py and create communicator
+from mpi4py import MPI
+
+mpi_comm = MPI.COMM_WORLD
+mpi_size = mpi_comm.Get_size()
+mpi_rank = mpi_comm.Get_rank()
+
+# synchronize MPI processes and set start of simulation
 import time
+mpi_comm.Barrier()
 start_simulation = time.time()
 
 import sys
@@ -34,15 +43,6 @@ import source_run.sampling             as pic_sample
 import input_run.equilibrium_PIC as eq_PIC
 
 
-# load mpi4py and create communicator
-from mpi4py import MPI
-
-mpi_comm = MPI.COMM_WORLD
-mpi_size = mpi_comm.Get_size()
-mpi_rank = mpi_comm.Get_rank()
-
-
-timea = time.time()
 # ======================== load parameters ============================
 identifier = 'sed_replace_run_dir'   
 
@@ -70,6 +70,20 @@ params_map     = params['params_map']
 # general
 add_pressure   = params['add_pressure']
 gamma          = params['gamma']
+
+# ILUs
+drop_tol_S2    = params['drop_tol_S2']
+fill_fac_S2    = params['fill_fac_S2']
+
+drop_tol_A     = params['drop_tol_A']
+fill_fac_A     = params['fill_fac_A']
+
+drop_tol_M0    = params['drop_tol_M0']
+fill_fac_M0    = params['fill_fac_M0']
+
+# tolerances for iterative solvers
+tol2           = params['tol2']
+tol6           = params['tol6']
 
 # particles
 add_PIC        = params['add_PIC']
@@ -218,6 +232,8 @@ if mpi_rank == 0:
 
     # ============= projection of initial conditions ==========================
     # create object for projecting initial conditions
+    
+    """
     pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
     pr[:, :, :]                           = pro.pi_0( None,               1,        kind_map, params_map)
@@ -226,8 +242,8 @@ if mpi_rank == 0:
     rh[:, :, :]                           = pro.pi_3( None,               8,        kind_map, params_map)
 
     del pro
-
     """
+    
     amps = np.random.rand(8, pr.shape[0], pr.shape[1])
 
     for k in range(pr.shape[2]):
@@ -242,9 +258,9 @@ if mpi_rank == 0:
         b3[:, :, k] = amps[6]
 
         rh[:, :, k] = amps[7]
-    """
     
-    print('rank : ', mpi_rank, ' projection of initial conditions done!')
+    
+    print('projection of initial conditions done!')
     # ==========================================================================
 
 
@@ -253,14 +269,14 @@ if mpi_rank == 0:
     MHD = mhd.projectors_local_mhd(tensor_space, nq_pr)
 
     # mass matrices in V0, V1 and V2
-    M0 = mass.mass_V0(tensor_space, 0, kind_map, params_map)
-    M1 = mass.mass_V1(tensor_space, 0, kind_map, params_map)
-    M2 = mass.mass_V2(tensor_space, 0, kind_map, params_map)
+    M0  = mass.mass_V0(tensor_space, 0, kind_map, params_map)
+    M1  = mass.mass_V1(tensor_space, 0, kind_map, params_map)
+    M2  = mass.mass_V2(tensor_space, 0, kind_map, params_map)
 
-    print('rank : ', mpi_rank, ' mass matrices done!')
+    print('mass matrices done!')
 
     # normalization vector in V0 (for bulk thermal energy)
-    norm_0form = inner.inner_prod_V0(tensor_space, lambda eta1, xi2, xi3 : np.ones(eta1.shape), 0, kind_map, params_map).flatten()
+    norm_0form = inner.inner_prod_V0(tensor_space, lambda eta1, eta2, eta3 : np.ones(eta1.shape), 0, kind_map, params_map).flatten()
 
     # discrete grad, curl and div matrices
     derivatives = der.discrete_derivatives(tensor_space)
@@ -269,7 +285,7 @@ if mpi_rank == 0:
     CURL = derivatives.curl_3d()
     DIV  = derivatives.div_3d()
 
-    print('rank : ', mpi_rank, ' discrete derivatives done!')
+    print('discrete derivatives done!')
 
     # projection matrices
     Q   = MHD.projection_Q(kind_map, params_map)     # pi_2[rho_eq * g_inv * lambda^1]
@@ -278,36 +294,97 @@ if mpi_rank == 0:
     S   = MHD.projection_S(kind_map, params_map)     # pi_1[p_eq * lambda^1]
     K   = MHD.projection_K(kind_map, params_map)     # pi_0[p_eq * lambda^0]  
     P   = MHD.projection_P(kind_map, params_map)     # pi_1[curl(b_eq) * lambda^2]
+    
+    del MHD
+    print('projection matrices done!')
 
-    print('rank : ', mpi_rank, ' projection matrices done!')
-
-    # compute matrix A
-    A = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
+    # compute symmetric matrix A
+    A   = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
+    print('A done')
 
     del W
 
-    # matrices for step 2
+    # ================== matrices and preconditioner for step 2 =======================
     S2      = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
+    print('S2 done')
+    
     STEP2_1 = (A - dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
+    print('STEP2_1 done')
+    
     STEP2_2 = dt*TAU.T.dot(CURL.T.dot(M2)).tocsc()
+    print('STEP2_2 done')
 
-    S2_ILU  = spa.linalg.spilu(S2)
+    # incomplete LU decomposition for preconditioning
+    S2_ILU  = spa.linalg.spilu(S2, drop_tol=drop_tol_S2, fill_factor=fill_fac_S2)
+    print('S2_ILU done')
+    
+    S2_PRE  = spa.linalg.LinearOperator(S2.shape, lambda x : S2_ILU.solve(x))
+    # ==================================================================================
 
-    # matrices for step 6
-    L       = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
+    
+    # ================== matrices and preconditioner for step 6 ========================
+    if add_pressure == True:
+    
+        L       = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
+        print('L done')
 
-    del S, K
+        del S, K
 
-    S6      = spa.bmat([[A,  dt/2*M1.dot(GRAD)], [-dt/2*L, M0]]).tocsc()
-    STEP6   = spa.bmat([[A, -dt/2*M1.dot(GRAD)], [ dt/2*L, M0]]).tocsc()
+        # incomplete LU decompositions
+        A_ILU   = spa.linalg.spilu(A , drop_tol=drop_tol_A , fill_factor=fill_fac_A)
+        print('A_ILU done')
 
-    S6_ILU  = spa.linalg.spilu(S6)
+        M0_ILU  = spa.linalg.spilu(M0, drop_tol=drop_tol_M0, fill_factor=fill_fac_M0)
+        print('M0_ILU done')
 
-    del MHD, M0, L, GRAD
+        # preconditioner
+        S6_PRE  = spa.linalg.LinearOperator(A.shape, lambda x : A_ILU.solve(x)) 
 
-    print('rank : ', mpi_rank, ' assembly of constant matrices done!')
+        # linear operators
+        S6_LHS  = spa.linalg.LinearOperator(A.shape, lambda x : A.dot(x) + dt**2/4*M1.dot(GRAD.dot(M0_ILU.solve(L.dot(x)))))
+        S6_RHS  = spa.linalg.LinearOperator(A.shape, lambda x : A.dot(x) - dt**2/4*M1.dot(GRAD.dot(M0_ILU.solve(L.dot(x)))))
+
+        S6_P    = spa.linalg.LinearOperator((M1.shape[0], GRAD.shape[1]), lambda x : M1.dot(GRAD.dot(x)))
+        S6_B    = spa.linalg.LinearOperator((M1.shape[0], P.shape[1])   , lambda x : M1.dot(P.dot(x)))
+
+
+    print('assembly of constant matrices done!')
     # ==========================================================================
     
+    
+"""
+timea = time.time()
+S6_PRE(np.random.rand(A.shape[0]))
+timeb = time.time()
+print(timeb - timea)
+
+timea = time.time()
+S6_LHS(np.random.rand(A.shape[0]))
+timeb = time.time()
+print(timeb - timea)
+
+timea = time.time()
+S6_P(np.random.rand(GRAD.shape[1]))
+timeb = time.time()
+print(timeb - timea)
+
+timea = time.time()
+S6_B(np.random.rand(P.shape[1]))
+timeb = time.time()
+print(timeb - timea)
+
+timea = time.time()
+np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+timeb = time.time()
+print(timeb - timea)
+
+timea = time.time()
+np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+timeb = time.time()
+print(timeb - timea)
+    
+sys.exit()
+"""
     
 # ======================== create particles ======================================
 if   loading == 'pseudo-random':
@@ -320,8 +397,6 @@ if   loading == 'pseudo-random':
         if i == mpi_rank:
             particles_loc[:6] = temp.T
             break
-           
-    #particles_loc[:6] = np.random.rand(6, Np_loc)
 
 elif loading == 'sobol_standard':
     # plain sobol numbers between (0, 1) (skip first 1000 numbers)
@@ -428,9 +503,9 @@ timeb = time.time()
 print(timeb - timea)
 sys.exit()
 
-
 if mpi_rank == 0:
     print(energies['en_deltaf'])
+
     
 sys.exit()
 """
@@ -505,9 +580,9 @@ def update():
         u2_old[:, :, :] = u2[:, :, :]
         u3_old[:, :, :] = u3[:, :, :]
         
-        # solve linear system with conjugate gradient method with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
+        # solve linear system with conjugate gradient method (S2 is a symmetric positive definite matrix) with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
         timea = time.time()
-        temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S2.shape, lambda x : S2_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+        temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
 
@@ -657,14 +732,18 @@ def update():
 
         timea = time.time()
 
-        # solve linear system with conjugate gradient method with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
-        u1_new, u2_new, u3_new, pr_new = np.split(spa.linalg.cg(S6, STEP6.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())) + np.concatenate((dt*M1.dot(P).dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), np.zeros(Ntot_0form)))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten(), pr.flatten())), tol=1e-8, M=spa.linalg.LinearOperator(S6.shape, lambda x : S6_ILU.solve(x)))[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1], Ntot_1form[0] + Ntot_1form[1] + Ntot_1form[2]])
+        # solve linear system of u^(n+1) with conjugate gradient squared method with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
+        u1_new, u2_new, u3_new = np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+        
+        # solve linear system of pr^(n+1) with ILU of M0
+        pr[:, :, :] = M0_ILU.solve(M0.dot(pr.flatten()) + dt/2*L.dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))).reshape(Nbase_0form)
+        
 
-        # update density
-        rh[:, :, :] = rh - dt/2*(DIV.dot(Q).dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))).reshape(Nbase_3form)
+        # update density rh^(n+1)
+        rh[:, :, :] = rh - dt/2*(DIV.dot(Q.dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))).reshape(Nbase_3form)
 
         # update pressure
-        pr[:, :, :] = pr_new.reshape(Nbase_0form)
+        #pr[:, :, :] = pr_new.reshape(Nbase_0form)
 
         # update velocity
         u1[:, :, :] = u1_new.reshape(Nbase_1form[0])
@@ -909,6 +988,8 @@ if time_int == True:
     # ========================================================================================
     while True:
 
+        # synchronize MPI processes and check if simulation end is reached
+        mpi_comm.Barrier()
         if (time_steps_done*dt >= Tend) or ((time.time() - start_simulation)/60 > max_time):
             
             # save data needed for restart
