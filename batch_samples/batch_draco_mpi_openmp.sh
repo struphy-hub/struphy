@@ -13,7 +13,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --ntasks-per-core=1
 # for OpenMP:
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=16
 #
 #SBATCH --mail-type=none
 #SBATCH --mail-user=<userid>@rzg.mpg.de
@@ -26,4 +26,4 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export OMP_PLACES=cores 
 
 # Run the program:
-srun python3 STRUPHY_mpi.py > prog_1_1_32.out
+srun python3 STRUPHY.py > test.out
