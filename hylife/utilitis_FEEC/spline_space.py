@@ -111,7 +111,7 @@ class spline_space_1d:
             evaluated FEM field at the point eta
         """
         
-        return eva_1d.evaluate_d(self.t, self.p, self.NbaseD, coeff, eta)
+        return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
         
         
 # =============== multi-d B-spline tensor product space ======================        
