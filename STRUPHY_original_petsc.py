@@ -278,7 +278,7 @@ else:
 # ============= projection of initial conditions ==========================
 if mpi_rank == 0:
     
-    
+    """
     # create object for projecting initial conditions
     pro   = proj.projectors_local_3d(tensor_space, nq_pr)
 
@@ -293,8 +293,9 @@ if mpi_rank == 0:
     rh[:] = pro.pi_3( None,               8,        kind_map, params_map).flatten()
     
     del pro
-    
     """
+    
+    
     amps = np.random.rand(8, NbaseN[0], NbaseN[1])
     temp = np.empty(Nbase_0form, dtype=float)
 
@@ -324,7 +325,7 @@ if mpi_rank == 0:
     for k in range(NbaseN[2]):
         temp[:, :, k] = amps[3]
     rh[:] = temp.flatten()
-    """
+    
     
     print('projection of initial conditions done!')
 # ==========================================================================
@@ -542,7 +543,9 @@ if add_pressure == True:
     ksp6.setOperators(S6_LHS, S6_LHS)
     ksp6.setInitialGuessNonzero(True)
     ksp6.setFromOptions()
-
+    ksp6.setType('cgs')
+    
+    
     # set up field split preconditioner
     pc6 = ksp6.getPC()
     pc6.setType('fieldsplit')         # use fieldsplit method for general block systems
@@ -555,14 +558,8 @@ if add_pressure == True:
 
     # set preconditioner for Schur complement manually
     pc6.setFieldSplitSchurPreType(3, Schur)
-
-    # containers for block vectors
-    up_old = PETSc.Vec().createNest([ut_pet, pr_pet], comm=pet_comm)
-    bp_old = PETSc.Vec().createNest([ut_pet, pr_pet], comm=pet_comm)
-    up_new = PETSc.Vec().createNest([ut_pet, pr_pet], comm=pet_comm)
 # ==========================================================================    
 
-    
     
 # ======================== create particles ======================================
 if   loading == 'pseudo-random':
@@ -604,9 +601,9 @@ else:
 
 
 # inversion of cumulative distribution function
-#particles_loc[3]  = sp.erfinv(2*particles_loc[3] - 1)*vth + v0x
-#particles_loc[4]  = sp.erfinv(2*particles_loc[4] - 1)*vth + v0y
-#particles_loc[5]  = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
+particles_loc[3]  = sp.erfinv(2*particles_loc[3] - 1)*vth + v0x
+particles_loc[4]  = sp.erfinv(2*particles_loc[4] - 1)*vth + v0y
+particles_loc[5]  = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
 
 
 # compute initial weights
@@ -880,6 +877,8 @@ def update():
 
         # distribute local updates to all processes
         mpi_comm.Allgather(ut_pet[u_start:u_end], ut)
+        mpi_comm.Allgather(pr_pet[p_start:p_end], pr)
+        mpi_comm.Allgather(rh_pet[r_start:r_end], rh)
         
         timeb = time.time()
         times_elapsed['update_step6']
@@ -941,7 +940,8 @@ def update():
     times_elapsed['total'] = time_totb - time_tota
     
 # ======================================================================================    
-    
+  
+"""
 mpi_comm.Barrier()
 timea = time.time()
 for i in range(10):
@@ -952,391 +952,7 @@ timeb = time.time()
 if mpi_rank == 0:
     print(mpi_rank, (timeb - timea)/10)
 sys.exit()
-
-
-update()    
-    
-print('en_U', mpi_rank, energies['U'][0])
-print('en_B', mpi_rank, energies['B'][0])
-
-print('en_f', mpi_rank, energies['df'][0])
-
-sys.exit()    
 """
-
-# solve linear system
-utnew_pet[u_start:u_end] = ut_pet[u_start:u_end]
-ksp2.solve(STEP2_1(ut_pet) + STEP2_2(bt_pet), utnew_pet)
-
-# update bt_pet
-bt_pet[b_start:b_end] = (bt_pet - dt/2*CURL(TAU(ut_pet)) - dt/2*CURL(TAU(utnew_pet)))[b_start:b_end]
-
-# update ut_pet
-ut_pet[u_start:u_end] = utnew_pet[u_start:u_end]
-
-# distribute local updates to all processes
-mpi_comm.Allgather(bt_pet[b_start:b_end], bt)
-mpi_comm.Allgather(ut_pet[u_start:u_end], ut)
-
-
-"""
-if add_pressure == True:
-    
-    a1 = PETSc.Vec().createMPI(size=ut_pet.size, comm=pet_comm)
-    a2 = PETSc.Vec().createMPI(size=pr_pet.size, comm=pet_comm)
-    a3 = PETSc.Vec().createMPI(size=bt_pet.size, comm=pet_comm)
-    
-    a1.setFromOptions()
-    a2.setFromOptions()
-    a3.setFromOptions()
-    
-    MPb = dt*M1(P(bt_pet))
-    sys.exit()
-
-    # fill vector entries owned by process
-    a1_start, a1_end = a1.getOwnershipRange()
-    a2_start, a2_end = a2.getOwnershipRange()
-    a3_start, a3_end = a3.getOwnershipRange()
-
-    for i in range(a1_start, a1_end):
-        a1.setValues(i, ut_pet[i])
-        
-    for i in range(a2_start, a2_end):
-        a2.setValues(i, pr_pet[i])
-        
-    for i in range(a3_start, a3_end):
-        a3.setValues(i, MPb[i])
-
-    a1.assemblyBegin()
-    a1.assemblyEnd()
-    
-    a2.assemblyBegin()
-    a2.assemblyEnd()
-    
-    a3.assemblyBegin()
-    a3.assemblyEnd()
-
-    # block vectors
-    up_old = PETSc.Vec().createNest([a1, a2]                      , comm=pet_comm) # old velocity and pressure
-    up_new = PETSc.Vec().createNest([a1, a2]                      , comm=pet_comm) # new velocity and pressure
-    bp_old = PETSc.Vec().createNest([a3, pr_pet.duplicate()], comm=pet_comm) # magnetic field contribution
-    
-    
-    # block vectors
-    up_old = PETSc.Vec().createNest([ut_pet, pr_pet]                      , comm=pet_comm) # old velocity and pressure
-    up_new = PETSc.Vec().createNest([ut_pet, pr_pet]                      , comm=pet_comm) # new velocity and pressure
-    bp_old = PETSc.Vec().createNest([dt*M1(P(bt_pet)), pr_pet.duplicate()], comm=pet_comm) # magnetic field contribution
-    
-
-    # solve system
-    ksp6.solve(S6_RHS(up_old) + bp_old, up_new)
-    
-    up_old.assemblyBegin()
-    up_old.assemblyEnd()
-    
-    up_new.assemblyBegin()
-    up_new.assemblyEnd()
-    
-
-    # update density
-    rh_pet[r_start:r_end] = (rh_pet - dt/2*DIV(Q(up_old.getNestSubVecs()[0] + up_new.getNestSubVecs()[0])))[r_start:r_end]
-    
-    # update velocity and pressure
-    ut_pet[u_start:u_end] = up_new.getNestSubVecs()[0][u_start:u_end]
-    pr_pet[p_start:p_end] = up_new.getNestSubVecs()[1][p_start:p_end]
-
-    # distribute local updates to all processes
-    mpi_comm.Allgather(ut_pet[u_start:u_end], ut)
-    
-print('hello')
-sys.exit()
-
-
-# ==================== time integrator ==========================================
-times_elapsed = {'total' : 0., 'accumulation_step1' : 0., 'accumulation_step3' : 0., 'pusher_step3' : 0., 'pusher_step4' : 0., 'pusher_step5' : 0., 'control_step1' : 0., 'control_step3' : 0., 'control_weights' : 0., 'update_step1u' : 0., 'update_step2u' : 0., 'update_step2b' : 0., 'update_step3u' : 0.,'update_step6' : 0.}
-
-    
-def update():
-    
-    global pr    , ut    , utnew    , bt    , rh
-    global pr_pet, ut_pet, utnew_pet, bt_pet, rh_pet
-    global particles_loc
-    
-    time_tota = time.time()
-    
-    # ====================================================================================
-    #                           step 1 (1: update ut)
-    # ====================================================================================
-    if add_PIC == True:
-        
-        # charge accumulation
-        timea = time.time()
-        
-        pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, bt[Ncum_2form[0]:Ncum_2form[1]].reshape(Nbase_2form[0]), bt[Ncum_2form[1]:Ncum_2form[2]].reshape(Nbase_2form[1]), bt[Ncum_2form[2]:Ncum_2form[3]].reshape(Nbase_2form[2]), kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
-        
-        mpi_comm.Reduce(mat12_loc, mat12, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat13_loc, mat13, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat23_loc, mat23, op=MPI.SUM, root=0)
-        
-        timeb = time.time()
-        times_elapsed['accumulation_step1'] = timeb - timea     
-        
-        
-        if mpi_rank == 0:
-            
-            # build global sparse matrix
-            mat = -acc.to_sparse_step1(mat12, mat13, mat23)/Np
-
-            # delta-f correction
-            if control == True:
-                timea = time.time()
-                mat  -= cont.mass_V1_nh_eq([b1, b2, b3])
-                timeb = time.time()
-                times_elapsed['control_step1'] = timeb - timea
-            
-            # solve linear system
-            timea = time.time()
-            ut[:] = spa.linalg.spsolve(As - dt*mat/2, (As + dt*mat/2).dot(ut))
-            timeb = time.time()
-            times_elapsed['update_step1u'] = timeb - timea
-    
-    # broadcast to all processes and update parallel vector
-    mpi_comm.Bcast(ut, root=0)
-    ut_pet[u_start:u_end] = ut[u_start:u_end]
-    # ====================================================================================
-    #                           step 1 (1: update u)
-    # ====================================================================================
-    
-    
-    
-    
-    # ====================================================================================
-    #                       step 2 (1 : update u, 2 : update b) 
-    # ====================================================================================
-    # solve linear system
-    utnew_pet[u_start:u_end] = ut_pet[u_start:u_end]
-    timea = time.time()
-    ksp2.solve(STEP2_1(ut_pet) + STEP2_2(bt_pet), utnew_pet)
-    timeb = time.time()
-    times_elapsed['update_step2u'] = timeb - timea
-
-    # update bt_pet
-    bt_pet.assemblyBegin()
-    bt_pet.assemblyEnd()
-    
-    ut_pet.assemblyBegin()
-    ut_pet.assemblyEnd()
-    
-    utnew_pet.assemblyBegin()
-    utnew_pet.assemblyEnd()
-    
-    timea = time.time()
-    bt_pet[b_start:b_end] = (bt_pet - dt/2*CURL(TAU(ut_pet)) - dt/2*CURL(TAU(utnew_pet)))[b_start:b_end]
-    timeb = time.time()
-    times_elapsed['update_step2b'] = timeb - timea
-
-    # update ut_pet
-    ut_pet[u_start:u_end] = utnew_pet[u_start:u_end]
-
-    # distribute local updates to all processes
-    mpi_comm.Allgather(bt_pet[b_start:b_end], bt)
-    mpi_comm.Allgather(ut_pet[u_start:u_end], ut)
-    # ====================================================================================
-    #                       step 2 (1 : update u, 2 : update b) 
-    # ====================================================================================
-    
-    
-    
-    # ====================================================================================
-    #             step 3 (1 : update u,  2 : update particles velocities V)
-    # ====================================================================================
-    if add_PIC == True:
-        
-        # current accumulation
-        timea = time.time()
-        
-        pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, bt[Ncum_2form[0]:Ncum_2form[1]].reshape(Nbase_2form[0]), bt[Ncum_2form[1]:Ncum_2form[2]].reshape(Nbase_2form[1]), bt[Ncum_2form[2]:Ncum_2form[3]].reshape(Nbase_2form[2]), kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
-        
-        mpi_comm.Reduce(mat11_loc, mat11, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat12_loc, mat12, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat13_loc, mat13, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat22_loc, mat22, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat23_loc, mat23, op=MPI.SUM, root=0)
-        mpi_comm.Reduce(mat33_loc, mat33, op=MPI.SUM, root=0)
-
-        mpi_comm.Reduce(vec1_loc , vec1 , op=MPI.SUM, root=0)
-        mpi_comm.Reduce(vec2_loc , vec2 , op=MPI.SUM, root=0)
-        mpi_comm.Reduce(vec3_loc , vec3 , op=MPI.SUM, root=0)
-                   
-        timeb = time.time()
-        times_elapsed['accumulation_step3'] = timeb - timea
-        
-        if mpi_rank == 0:
-            
-            # build global sparse matrix
-            mat = acc.to_sparse_step3(mat11, mat12, mat13, mat22, mat23, mat33)/Np
-        
-            # delta-f update
-            if control == True:
-                timea  = time.time()
-                vec_cv = cont.inner_prod_V1_jh_eq([b1, b2, b3])
-                timeb  = time.time()
-                times_elapsed['control_step3'] = timeb - timea
-
-                timea = time.time()
-                utnew[:] = spa.linalg.spsolve(As + dt**2*mat/4, (As - dt**2*mat/4).dot(ut) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten())))
-                timeb = time.time()
-                times_elapsed['update_step3u'] = timeb - timea
-                
-
-            # full-f update
-            else: 
-                timea = time.time()
-                utnew[:] = spa.linalg.spsolve(As + dt**2*mat/4, (As - dt**2*mat/4).dot(ut) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np)
-                timeb = time.time()
-                times_elapsed['update_step3u'] = timeb - timea
-
-        
-        # broadcast to all processes and update parallel vector
-        mpi_comm.Bcast(utnew, root=0)
-        
-        
-        # update particle velocities
-        timea = time.time()
-        pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, bt[Ncum_2form[0]:Ncum_2form[1]].reshape(Nbase_2form[0]), bt[Ncum_2form[1]:Ncum_2form[2]].reshape(Nbase_2form[1]), bt[Ncum_2form[2]:Ncum_2form[3]].reshape(Nbase_2form[2]), 1/2*(ut[Ncum_1form[0]:Ncum_1form[1]] + utnew[Ncum_1form[0]:Ncum_1form[1]]).reshape(Nbase_1form[0]), 1/2*(ut[Ncum_1form[1]:Ncum_1form[2]] + utnew[Ncum_1form[1]:Ncum_1form[2]]).reshape(Nbase_1form[1]), 1/2*(ut[Ncum_1form[2]:Ncum_1form[3]] + utnew[Ncum_1form[2]:Ncum_1form[3]]).reshape(Nbase_1form[2]), kind_map, params_map)
-        timeb = time.time()
-        times_elapsed['pusher_step3'] = timeb - timea
-        
-        # update ut and ut_pet
-        ut[:] = utnew
-        ut_pet[u_start:u_end] = ut[u_start:u_end]
-    # ====================================================================================
-    #             step 3 (1 : update u,  2 : update particles velocities V)
-    # ====================================================================================
-    
-    
-    
-    # ====================================================================================
-    #             step 4 (1 : update particles positions ETA)
-    # ====================================================================================
-    if add_PIC == True:
-        timea = time.time()
-        pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
-        timeb = time.time()
-        times_elapsed['pusher_step4'] = timeb - timea
-    # ====================================================================================
-    #             step 4 (1 : update particles positions ETA)
-    # ====================================================================================
-
-    
-    
-    # ====================================================================================
-    #       step 5 (1 : update particle veclocities V, 2 : update particle weights W)
-    # ====================================================================================
-    if add_PIC == True:
-        timea = time.time()
-        pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, bt[Ncum_2form[0]:Ncum_2form[1]].reshape(Nbase_2form[0]), bt[Ncum_2form[1]:Ncum_2form[2]].reshape(Nbase_2form[1]), bt[Ncum_2form[2]:Ncum_2form[3]].reshape(Nbase_2form[2]), kind_map, params_map)
-        timeb = time.time()
-        times_elapsed['pusher_step5'] = timeb - timea
-
-        if control == True:
-            timea = time.time()
-            pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
-            timeb = time.time()
-            times_elapsed['control_weights'] = timeb - timea
-    # ====================================================================================
-    #       step 5 (1 : update particle veclocities V, 2 : update particle weights W)
-    # ====================================================================================
-    
-    
-    
-    # ====================================================================================
-    #       step 6 (1 : update rh, u and pr from non - Hamiltonian MHD terms)
-    # ====================================================================================
-    if add_pressure == True:
-        timea = time.time()
-        
-        # block vectors
-        up_old = PETSc.Vec().createNest([ut_pet, pr_pet]                      , comm=pet_comm) # old velocity and pressure
-        up_new = PETSc.Vec().createNest([ut_pet, pr_pet]                      , comm=pet_comm) # new velocity and pressure
-        bp_old = PETSc.Vec().createNest([dt*M1(P(bt_pet)), pr_pet.duplicate()], comm=pet_comm) # magnetic field contribution
-        
-        # solve system
-        ksp6.solve(S6_RHS(up_old) + bp_old, up_new)
-        
-        # reassemble block vectors (TODO: check why this is necessary)
-        up_old.assemblyBegin()
-        up_old.assemblyEnd()
-
-        up_new.assemblyBegin()
-        up_new.assemblyEnd()
-        
-        bp_old.assemblyBegin()
-        bp_old.assemblyEnd()
-
-        # update density
-        rh_pet[r_start:r_end] = (rh_pet - dt/2*DIV(Q(up_old.getNestSubVecs()[0] + up_new.getNestSubVecs()[0])))[r_start:r_end]
-
-        # update velocity and pressure
-        ut_pet[u_start:u_end] = up_new.getNestSubVecs()[0][u_start:u_end]
-        pr_pet[p_start:p_end] = up_new.getNestSubVecs()[1][p_start:p_end]
-        
-        rh_pet.assemblyBegin()
-        rh_pet.assemblyEnd()
-
-        ut_pet.assemblyBegin()
-        ut_pet.assemblyEnd()
-        
-        pr_pet.assemblyBegin()
-        pr_pet.assemblyEnd()
-
-        # distribute local updates to all processes
-        mpi_comm.Allgather(ut_pet[u_start:u_end], ut)
-        
-        timeb = time.time()
-        times_elapsed['update_step6']
-    # ====================================================================================
-    #       step 6 (1 : update rh, u and pr from non - Hamiltonian MHD terms)
-    # ====================================================================================
-        
-    time_totb = time.time()
-    times_elapsed['total'] = time_totb - time_tota
-    
-    
-    
-    # ====================================================================================
-    #                                diagnostics
-    # ====================================================================================
-    energies['U'][0] = 1/2*ut_pet.dot(A(ut_pet))
-    energies['B'][0] = 1/2*bt_pet.dot(M2(bt_pet))
-    energies['p'][0] = 1/(gamma - 1)*pr_pet.dot(norm_0form)
-
-    energies_loc['df'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
-    mpi_comm.Allreduce(energies_loc['df'], energies['df'], op=MPI.SUM)
-
-    energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
-
-    # distribution function
-    fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
-    mpi_comm.Allreduce(fh_loc['eta1_vx'], fh['eta1_vx'], op=MPI.SUM)  
-    # ====================================================================================
-    #                                diagnostics
-    # ====================================================================================
-    
-# ============================================================================
-
-
-
-mpi_comm.Barrier()
-timea = time.time()
-for i in range(10):
-    if mpi_rank == 0:
-        print(i, energies)
-    update()
-timeb = time.time()
-if mpi_rank == 0:
-    print(mpi_rank, (timeb - timea)/10)
-sys.exit()
 
 
 # ========================== time integration ================================
@@ -1393,7 +1009,7 @@ if time_int == True:
 
             file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), maxshape=(None, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), dtype=float, chunks=True)
 
-            file.create_dataset('distribution_function/eta1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
+            #file.create_dataset('distribution_function/eta1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
 
             
             # datasets for restart function
@@ -1417,24 +1033,24 @@ if time_int == True:
             # ==================== save initial data =======================
             file['time'][0]                       = 0.
 
-            file['energies/bulk_kinetic'][0]      = energies['en_U']
-            file['energies/magnetic'][0]          = energies['en_B']
-            file['energies/bulk_internal'][0]     = energies['en_p']
-            file['energies/energetic_deltaf'][0]  = energies['en_deltaf']
+            file['energies/bulk_kinetic'][0]      = energies['U'][0]
+            file['energies/magnetic'][0]          = energies['B'][0]
+            file['energies/bulk_internal'][0]     = energies['p'][0]
+            file['energies/energetic_deltaf'][0]  = energies['df'][0]
 
-            file['pressure'][0]                   = pr
-            file['velocity_field/1_component'][0] = u1
-            file['velocity_field/2_component'][0] = u2
-            file['velocity_field/3_component'][0] = u3
-            file['magnetic_field/1_component'][0] = b1
-            file['magnetic_field/2_component'][0] = b2
-            file['magnetic_field/3_component'][0] = b3
-            file['density'][0]                    = rh
+            file['pressure'][0]                   = pr.reshape(Nbase_0form)
+            file['velocity_field/1_component'][0] = ut[Ncum_1form[0]:Ncum_1form[1]].reshape(Nbase_1form[0])
+            file['velocity_field/2_component'][0] = ut[Ncum_1form[1]:Ncum_1form[2]].reshape(Nbase_1form[1])
+            file['velocity_field/3_component'][0] = ut[Ncum_1form[2]:Ncum_1form[3]].reshape(Nbase_1form[2])
+            file['magnetic_field/1_component'][0] = bt[Ncum_2form[0]:Ncum_2form[1]].reshape(Nbase_2form[0])
+            file['magnetic_field/2_component'][0] = bt[Ncum_2form[1]:Ncum_2form[2]].reshape(Nbase_2form[1])
+            file['magnetic_field/3_component'][0] = bt[Ncum_2form[2]:Ncum_2form[3]].reshape(Nbase_2form[2])
+            file['density'][0]                    = rh.reshape(Nbase_3form)
 
-            file['magnetic_field/divergence'][0]  = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
+            #file['magnetic_field/divergence'][0]  = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
 
-            file['bulk_mass'][0]                  = sum(rh.flatten())
-            file['distribution_function/eta1_vx'][0] = fh['eta1_vx']
+            #file['bulk_mass'][0]                  = sum(rh.flatten())
+            #file['distribution_function/eta1_vx'][0] = fh['eta1_vx']
             
             file['particles'][0, :, :Np_loc]      = particles_loc
             file['restart/control_w0'][:Np_loc]   = w0_loc
@@ -1596,10 +1212,10 @@ if time_int == True:
             file['energies/magnetic'].resize(file['energies/magnetic'].shape[0] + 1, axis = 0)
             file['energies/bulk_internal'].resize(file['energies/bulk_internal'].shape[0] + 1, axis = 0)
             file['energies/energetic_deltaf'].resize(file['energies/energetic_deltaf'].shape[0] + 1, axis = 0)
-            file['energies/bulk_kinetic'][-1]     = energies['en_U']
-            file['energies/magnetic'][-1]         = energies['en_B']
-            file['energies/bulk_internal'][-1]    = energies['en_p']
-            file['energies/energetic_deltaf'][-1] = energies['en_deltaf']
+            file['energies/bulk_kinetic'][-1]     = energies['U'][0]
+            file['energies/magnetic'][-1]         = energies['B'][0]
+            file['energies/bulk_internal'][-1]    = energies['p'][0]
+            file['energies/energetic_deltaf'][-1] = energies['df'][0]
 
             # elapsed times of different parts of the code
             file['times_elapsed/total'].resize(file['times_elapsed/total'].shape[0] + 1, axis = 0)
@@ -1632,22 +1248,22 @@ if time_int == True:
             file['times_elapsed/update_step6'][-1]       = times_elapsed['update_step6']
 
             # FEM coefficients
-            #file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
-            #file['pressure'][-1] = pr
+            file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
+            file['pressure'][-1] = pr.reshape(Nbase_0form)
 
-            file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
-            file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
-            file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
-            file['magnetic_field/1_component'][-1] = b1
-            file['magnetic_field/2_component'][-1] = b2
-            file['magnetic_field/3_component'][-1] = b3
+            #file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
+            #file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
+            #file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
+            #file['magnetic_field/1_component'][-1] = b1
+            #file['magnetic_field/2_component'][-1] = b2
+            #file['magnetic_field/3_component'][-1] = b3
 
             #file['velocity_field/1_component'].resize(file['velocity_field/1_component'].shape[0] + 1, axis = 0)
             #file['velocity_field/2_component'].resize(file['velocity_field/2_component'].shape[0] + 1, axis = 0)
-            #file['velocity_field/3_component'].resize(file['velocity_field/3_component'].shape[0] + 1, axis = 0)
+            file['velocity_field/3_component'].resize(file['velocity_field/3_component'].shape[0] + 1, axis = 0)
             #file['velocity_field/1_component'][-1] = u1
             #file['velocity_field/2_component'][-1] = u2
-            #file['velocity_field/3_component'][-1] = u3
+            file['velocity_field/3_component'][-1] = ut[Ncum_1form[2]:Ncum_1form[3]].reshape(Nbase_1form[2])
 
             #file['density'].resize(file['density'].shape[0] + 1, axis = 0)
             #file['density'][-1] = rh
@@ -1657,8 +1273,8 @@ if time_int == True:
             #file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
             #file['magnetic_field/divergence'][-1] = DIV.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))).reshape(Nbase_3form[0], Nbase_3form[1], Nbase_3form[2])
 
-            file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
-            file['bulk_mass'][-1] = sum(rh.flatten())
+            #file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
+            #file['bulk_mass'][-1] = sum(rh.flatten())
             
             #file['distribution_function/eta1_vx'].resize(file['distribution_function/eta1_vx'].shape[0] + 1, axis = 0)
             #file['distribution_function/eta1_vx'][-1] = fh['eta1_vx']
