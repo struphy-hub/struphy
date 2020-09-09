@@ -82,7 +82,9 @@ drop_tol_M0    = params['drop_tol_M0']
 fill_fac_M0    = params['fill_fac_M0']
 
 # tolerances for iterative solvers
+tol1           = params['tol1']
 tol2           = params['tol2']
+tol3           = params['tol3']
 tol6           = params['tol6']
 
 # particles
@@ -115,16 +117,24 @@ if mpi_rank == 0:
     particles_recv = np.empty((7, Np_loc), dtype=float)
     w0_recv        = np.empty(    Np_loc , dtype=float)    
     s0_recv        = np.empty(    Np_loc , dtype=float)
+# ========================================================================
 
-en_deltaf_loc  = np.empty( 1         , dtype=float)    # hot ion energy computed from particles on each process (delta-f)
-en_deltaf      = np.empty( 1         , dtype=float)    # total hot ion energy (delta-f)
 
-n_bins         = [32, 64]
-bin_edges      = [np.linspace(0., 1., n_bins[0] + 1), np.linspace(0., 5., n_bins[1] + 1)]
-dbin           = [bin_edges[0][1] - bin_edges[0][0], bin_edges[1][1] - bin_edges[1][0]]
 
-fh_eta1_vx_loc = np.empty((n_bins[0], n_bins[1]), dtype=float)  # hot ion distribution function (in eta1-vx-plane) for process
-fh_eta1_vx     = np.empty((n_bins[0], n_bins[1]), dtype=float)  # total hot ion distribution function (in eta1-vx-plane)
+# =================== some diagnostics ===================================
+# energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
+energies     = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'df' : np.empty(1, dtype=float)}
+
+energies_loc = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'df' : np.empty(1, dtype=float)}
+
+# snapshots of distribution function via particle binning
+n_bins       = {'eta1_vx' : [32, 64]}
+bin_edges    = {'eta1_vx' : [np.linspace(0., 1., n_bins['eta1_vx'][0] + 1), np.linspace(0., 5., n_bins['eta1_vx'][1] + 1)]}
+dbin         = {'eta1_vx' : [bin_edges['eta1_vx'][0][1] - bin_edges['eta1_vx'][0][0], bin_edges['eta1_vx'][1][1] - bin_edges['eta1_vx'][1][0]]}
+                
+fh           = {'eta1_vx' : np.empty((n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]), dtype=float)}
+                
+fh_loc       = {'eta1_vx' : np.empty((n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]), dtype=float)}
 # ========================================================================
 
 
@@ -219,17 +229,6 @@ else:
 
 
 if mpi_rank == 0:
-    # =================== some diagnostics ====================================
-    
-    # energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
-    energies  = {'en_U' : 0., 'en_B' : 0., 'en_p' : 0., 'en_deltaf' : 0.}
-
-    # snapshots of distribution function via particle binning
-    fh        = {'eta1_vx' : np.empty((n_bins[0], n_bins[1]), dtype=float)}
-    
-    # =========================================================================
-
-
     # ============= projection of initial conditions ==========================
     # create object for projecting initial conditions
     
@@ -297,14 +296,24 @@ if mpi_rank == 0:
     
     del MHD
     print('projection matrices done!')
+    # ==========================================================================
 
-    # compute symmetric matrix A
-    A   = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
+    
+    # ========= compute symmetric matrix A and a ILU preconditioner ============
+    A     = 1/2*(M1.dot(W) + W.T.dot(M1)).tocsc()
     print('A done')
-
+    
     del W
+    
+    A_ILU = spa.linalg.spilu(A , drop_tol=drop_tol_A , fill_factor=fill_fac_A)
+    print('A_ILU done')
+    
+    A_PRE = spa.linalg.LinearOperator(A.shape, lambda x : A_ILU.solve(x)) 
+    # ==========================================================================
 
-    # ================== matrices and preconditioner for step 2 =======================
+    
+
+    # ================== matrices and preconditioner for step 2 ================
     S2      = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsc()
     print('S2 done')
     
@@ -319,10 +328,11 @@ if mpi_rank == 0:
     print('S2_ILU done')
     
     S2_PRE  = spa.linalg.LinearOperator(S2.shape, lambda x : S2_ILU.solve(x))
-    # ==================================================================================
+    # ===========================================================================
 
     
-    # ================== matrices and preconditioner for step 6 ========================
+    
+    # ================== matrices and preconditioner for step 6 =================
     if add_pressure == True:
     
         L       = GRAD.T.dot(M1).dot(S) + (gamma - 1)*K.T.dot(GRAD.T).dot(M1)
@@ -330,15 +340,9 @@ if mpi_rank == 0:
 
         del S, K
 
-        # incomplete LU decompositions
-        A_ILU   = spa.linalg.spilu(A , drop_tol=drop_tol_A , fill_factor=fill_fac_A)
-        print('A_ILU done')
-
+        # incomplete LU decompositions of M0
         M0_ILU  = spa.linalg.spilu(M0, drop_tol=drop_tol_M0, fill_factor=fill_fac_M0)
         print('M0_ILU done')
-
-        # preconditioner
-        S6_PRE  = spa.linalg.LinearOperator(A.shape, lambda x : A_ILU.solve(x)) 
 
         # linear operators
         S6_LHS  = spa.linalg.LinearOperator(A.shape, lambda x : A.dot(x) + dt**2/4*M1.dot(GRAD.dot(M0_ILU.solve(L.dot(x)))))
@@ -346,15 +350,14 @@ if mpi_rank == 0:
 
         S6_P    = spa.linalg.LinearOperator((M1.shape[0], GRAD.shape[1]), lambda x : M1.dot(GRAD.dot(x)))
         S6_B    = spa.linalg.LinearOperator((M1.shape[0], P.shape[1])   , lambda x : M1.dot(P.dot(x)))
-
-
-    print('assembly of constant matrices done!')
     # ==========================================================================
     
+    print('assembly of constant matrices done!')
     
+
 """
 timea = time.time()
-S6_PRE(np.random.rand(A.shape[0]))
+A_PRE(np.random.rand(A.shape[0]))
 timeb = time.time()
 print(timeb - timea)
 
@@ -363,15 +366,6 @@ S6_LHS(np.random.rand(A.shape[0]))
 timeb = time.time()
 print(timeb - timea)
 
-timea = time.time()
-S6_P(np.random.rand(GRAD.shape[1]))
-timeb = time.time()
-print(timeb - timea)
-
-timea = time.time()
-S6_B(np.random.rand(P.shape[1]))
-timeb = time.time()
-print(timeb - timea)
 
 timea = time.time()
 np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
@@ -379,13 +373,14 @@ timeb = time.time()
 print(timeb - timea)
 
 timea = time.time()
-np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
 timeb = time.time()
 print(timeb - timea)
     
 sys.exit()
 """
     
+
 # ======================== create particles ======================================
 if   loading == 'pseudo-random':
     # pseudo-random numbers between (0, 1)
@@ -397,14 +392,17 @@ if   loading == 'pseudo-random':
         if i == mpi_rank:
             particles_loc[:6] = temp.T
             break
+            
+    del temp
+
 
 elif loading == 'sobol_standard':
     # plain sobol numbers between (0, 1) (skip first 1000 numbers)
-    particles_loc[:6] = sobol.i4_sobol_generate(6, Np_loc, 1000).T 
+    particles_loc[:6] = sobol.i4_sobol_generate(6, Np_loc, 1000 + Np_loc*mpi_rank).T 
 
 elif loading == 'sobol_antithetic':
     # symmetric sobol numbers between (0, 1) (skip first 1000 numbers) in all 6 dimensions
-    pic_sample.set_particles_symmetric(sobol.i4_sobol_generate(6, int(Np_loc/64), 1000), particles_loc)  
+    pic_sample.set_particles_symmetric(sobol.i4_sobol_generate(6, int(Np_loc/64), 1000 + int(Np_loc/64)*mpi_rank), particles_loc, Np_loc)  
 
 elif loading == 'external':
     
@@ -430,10 +428,10 @@ particles_loc[5]  = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
 
 
 # compute initial weights
-pic_sample.compute_weights_ini(particles_loc, w0_loc, s0_loc, kind_map, params_map)
+pic_sample.compute_weights_ini(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
 
 if control == True:
-    pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
+    pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
 else:
     particles_loc[6] = w0_loc
 
@@ -441,7 +439,8 @@ else:
 # ======================================================================================
 
 
-# ========= compute initial fields at particle positions and initial energies ==========
+
+# ================ compute initial energies and distribution function ==================
 # broadcast FEM coeffiecients from zeroth rank
 mpi_comm.Bcast(u1, root=0)
 mpi_comm.Bcast(u2, root=0)
@@ -451,24 +450,26 @@ mpi_comm.Bcast(b1, root=0)
 mpi_comm.Bcast(b2, root=0)
 mpi_comm.Bcast(b3, root=0)
 
-    
-# initial energies (hot ions)
-en_deltaf_loc[0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
-mpi_comm.Reduce(en_deltaf_loc, en_deltaf, op=MPI.SUM, root=0)
+
+# initial energies
+if mpi_rank == 0:
+    energies['U'][0] = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
+    energies['B'][0] = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
+    energies['p'][0] = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
+
+energies_loc['df'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
+mpi_comm.Reduce(energies_loc['df'], energies['df'], op=MPI.SUM, root=0)
+
+energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
+
 
 # initial distribution function
-fh_eta1_vx_loc[:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges, weights=particles_loc[6], normed=False)[0]/(Np*dbin[0]*dbin[1])
-mpi_comm.Reduce(fh_eta1_vx_loc, fh_eta1_vx, op=MPI.SUM, root=0)
+fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
+mpi_comm.Reduce(fh_loc['eta1_vx'], fh['eta1_vx'], op=MPI.SUM, root=0)
+# ======================================================================================
 
-if mpi_rank == 0:
-    energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
-    energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
-    energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-    
-    energies['en_deltaf'] = en_deltaf[0] + (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
-    
-    fh['eta1_vx'][:, :]   = fh_eta1_vx
-# =====================================================================================================================
+
+
 
 """
 mpi_comm.Barrier()
@@ -533,7 +534,7 @@ def update():
         # charge accumulation
         timea = time.time()
         
-        pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseN, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
+        pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
         
         mpi_comm.Reduce(mat12_loc, mat12, op=MPI.SUM, root=0)
         mpi_comm.Reduce(mat13_loc, mat13, op=MPI.SUM, root=0)
@@ -554,9 +555,9 @@ def update():
                 timeb = time.time()
                 times_elapsed['control_step1'] = timeb - timea
         
-            # solve linear system
+            # solve linear system with conjugate gradient squared method with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess 
             timea = time.time()
-            temp1, temp2, temp3 = np.split(spa.linalg.spsolve(A - dt*mat/2, (A + dt*mat/2).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+            temp1, temp2, temp3 = np.split(spa.linalg.cgs(A - dt*mat/2, (A + dt*mat/2).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol1, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
             timeb = time.time()
             times_elapsed['update_step1u'] = timeb - timea
 
@@ -650,25 +651,25 @@ def update():
                 timeb  = time.time()
                 times_elapsed['control_step3'] = timeb - timea
 
+                # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
                 timea = time.time()
-                temp1, temp2, temp3 = np.split(spa.linalg.spsolve(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten()))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+                temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten())), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
                 timeb = time.time()
                 times_elapsed['update_step3u'] = timeb - timea
-
-                u1[:, :, :] = temp1.reshape(Nbase_1form[0])
-                u2[:, :, :] = temp2.reshape(Nbase_1form[1])
-                u3[:, :, :] = temp3.reshape(Nbase_1form[2])
 
             # full-f update
             else: 
+                
+                # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
                 timea = time.time()
-                temp1, temp2, temp3 = np.split(spa.linalg.spsolve(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+                temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
                 timeb = time.time()
                 times_elapsed['update_step3u'] = timeb - timea
 
-                u1[:, :, :] = temp1.reshape(Nbase_1form[0])
-                u2[:, :, :] = temp2.reshape(Nbase_1form[1])
-                u3[:, :, :] = temp3.reshape(Nbase_1form[2])
+            
+            u1[:, :, :] = temp1.reshape(Nbase_1form[0])
+            u2[:, :, :] = temp2.reshape(Nbase_1form[1])
+            u3[:, :, :] = temp3.reshape(Nbase_1form[2])
 
         
         # broadcast new FEM coefficients
@@ -716,7 +717,7 @@ def update():
 
         if control == True:
             timea = time.time()
-            pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
+            pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
             timeb = time.time()
             times_elapsed['control_weights'] = timeb - timea
     # ====================================================================================
@@ -733,17 +734,13 @@ def update():
         timea = time.time()
 
         # solve linear system of u^(n+1) with conjugate gradient squared method with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
-        u1_new, u2_new, u3_new = np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+        u1_new, u2_new, u3_new = np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
         
         # solve linear system of pr^(n+1) with ILU of M0
         pr[:, :, :] = M0_ILU.solve(M0.dot(pr.flatten()) + dt/2*L.dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))).reshape(Nbase_0form)
         
-
         # update density rh^(n+1)
         rh[:, :, :] = rh - dt/2*(DIV.dot(Q.dot(np.concatenate((u1_new, u2_new, u3_new)) + np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))).reshape(Nbase_3form)
-
-        # update pressure
-        #pr[:, :, :] = pr_new.reshape(Nbase_0form)
 
         # update velocity
         u1[:, :, :] = u1_new.reshape(Nbase_1form[0])
@@ -757,32 +754,30 @@ def update():
     # ====================================================================================
     
         
+    # ====================================================================================
+    #                                diagnostics
+    # ====================================================================================
+    # energies
+    if mpi_rank == 0:
+        energies['U'][0] = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
+        energies['B'][0] = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
+        energies['p'][0] = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
+
+    energies_loc['df'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
+    mpi_comm.Reduce(energies_loc['df'], energies['df'], op=MPI.SUM, root=0)
+
+    energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
+
+
+    # distribution function
+    fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
+    mpi_comm.Reduce(fh_loc['eta1_vx'], fh['eta1_vx'], op=MPI.SUM, root=0)
+    # ====================================================================================
+    #                                diagnostics
+    # ====================================================================================
+    
     time_totb = time.time()
     times_elapsed['total'] = time_totb - time_tota
-    
-    # ====================================================================================
-    #                                diagnostics
-    # ====================================================================================
-    # diagnostics: energies (hot ions)
-    en_deltaf_loc[0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
-    mpi_comm.Reduce(en_deltaf_loc, en_deltaf, op=MPI.SUM, root=0)
-        
-    # diagnostics: distribution function
-    fh_eta1_vx_loc[:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges, weights=particles_loc[6], normed=False)[0]/(Np*dbin[0]*dbin[1])
-    mpi_comm.Reduce(fh_eta1_vx_loc, fh_eta1_vx, op=MPI.SUM, root=0)
-
-    if mpi_rank == 0:
-        energies['en_U']      = 1/2*np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())).dot(A.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
-        energies['en_B']      = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
-        energies['en_p']      = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
-        
-        energies['en_deltaf'] = en_deltaf[0] + (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
-        
-        fh['eta1_vx'][:, :]   = fh_eta1_vx
-        
-    # ====================================================================================
-    #                                diagnostics
-    # ====================================================================================
     
 # ============================================================================
 
@@ -798,6 +793,8 @@ if mpi_rank == 0:
     print(mpi_rank, (timeb - timea)/10)
 sys.exit()
 """
+
+
 
 # ========================== time integration ================================
 if time_int == True:
@@ -853,7 +850,7 @@ if time_int == True:
 
             file.create_dataset('magnetic_field/divergence',  (1, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), maxshape=(None, Nbase_3form[0], Nbase_3form[1], Nbase_3form[2]), dtype=float, chunks=True)
 
-            file.create_dataset('distribution_function/eta1_vx', (1, n_bins[0], n_bins[1]), maxshape=(None, n_bins[0], n_bins[1]), dtype=float, chunks=True)
+            file.create_dataset('distribution_function/eta1_vx', (1, n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]), maxshape=(None, n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]), dtype=float, chunks=True)
 
             
             # datasets for restart function
@@ -877,10 +874,10 @@ if time_int == True:
             # ==================== save initial data =======================
             file['time'][0]                       = 0.
 
-            file['energies/bulk_kinetic'][0]      = energies['en_U']
-            file['energies/magnetic'][0]          = energies['en_B']
-            file['energies/bulk_internal'][0]     = energies['en_p']
-            file['energies/energetic_deltaf'][0]  = energies['en_deltaf']
+            file['energies/bulk_kinetic'][0]      = energies['U'][0]
+            file['energies/magnetic'][0]          = energies['B'][0]
+            file['energies/bulk_internal'][0]     = energies['p'][0]
+            file['energies/energetic_deltaf'][0]  = energies['df'][0]
 
             file['pressure'][0]                   = pr
             file['velocity_field/1_component'][0] = u1
@@ -973,7 +970,7 @@ if time_int == True:
 
         # perform initialization for next time step: compute particle weights
         if control == True:
-            pic_sample.update_weights(particles_loc, w0_loc, s0_loc, kind_map, params_map)
+            pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
         else:
             particles_loc[6] = w0_loc
 
@@ -1056,10 +1053,10 @@ if time_int == True:
             file['energies/magnetic'].resize(file['energies/magnetic'].shape[0] + 1, axis = 0)
             file['energies/bulk_internal'].resize(file['energies/bulk_internal'].shape[0] + 1, axis = 0)
             file['energies/energetic_deltaf'].resize(file['energies/energetic_deltaf'].shape[0] + 1, axis = 0)
-            file['energies/bulk_kinetic'][-1]     = energies['en_U']
-            file['energies/magnetic'][-1]         = energies['en_B']
-            file['energies/bulk_internal'][-1]    = energies['en_p']
-            file['energies/energetic_deltaf'][-1] = energies['en_deltaf']
+            file['energies/bulk_kinetic'][-1]     = energies['U'][0]
+            file['energies/magnetic'][-1]         = energies['B'][0]
+            file['energies/bulk_internal'][-1]    = energies['p'][0]
+            file['energies/energetic_deltaf'][-1] = energies['df'][0]
 
             # elapsed times of different parts of the code
             file['times_elapsed/total'].resize(file['times_elapsed/total'].shape[0] + 1, axis = 0)
