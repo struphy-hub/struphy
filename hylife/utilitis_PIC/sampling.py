@@ -10,14 +10,13 @@ import input_run.initial_conditions_PIC as ini_pic
 
 
 # ==============================================================================
-@types('double[:,:]','double[:,:]')
-def set_particles_symmetric(numbers, particles):
+@types('double[:,:]','double[:,:]','int')
+def set_particles_symmetric(numbers, particles, np):
     
     from numpy import zeros
     
     eta  = zeros(3, dtype=float)
     v    = zeros(3, dtype=float)
-    np   = len(particles[0])
     
     for i_part in range(np):
         ip = i_part%64
@@ -49,21 +48,29 @@ def set_particles_symmetric(numbers, particles):
         
     
 # ==============================================================================
-@types('double[:,:]','double[:]','double[:]','int','double[:]')
-def compute_weights_ini(particles, w0, s0, kind_map, params_map):
+@types('double[:,:]','int','double[:]','double[:]','int','double[:]')
+def compute_weights_ini(particles, np, w0, s0, kind_map, params_map):
     
-    np = len(particles[0, :])
-    
+    #$ omp parallel
+    #$ omp do private (ip)
     for ip in range(np):
         s0[ip] = ini_pic.sh(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)
         w0[ip] = ini_pic.fh_ini(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)/s0[ip]
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
     
     
 # ==============================================================================
-@types('double[:,:]','double[:]','double[:]','int','double[:]')
-def update_weights(particles, w0, s0, kind_map, params_map):
+@types('double[:,:]','int','double[:]','double[:]','int','double[:]')
+def update_weights(particles, np, w0, s0, kind_map, params_map):
     
-    np = len(particles[:, 0])
-    
+    #$ omp parallel
+    #$ omp do private (ip)
     for ip in range(np):
-        particles[ip, 6] = w0[ip] - eq_pic.fh_eq(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)/s0[ip]
+        particles[6, ip] = w0[ip] - eq_pic.fh_eq(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)/s0[ip]
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
