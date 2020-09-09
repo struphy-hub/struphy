@@ -5,8 +5,9 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
-FLAGS        := 
-FLAGS_openmp := $(flags_openmp)
+FLAGS            := 
+FLAGS_openmp_mhd := $(flags_openmp_mhd)
+FLAGS_openmp_pic := $(flags_openmp_pic)
 
 #--------------------------------------
 # SOURCE FILES
@@ -81,7 +82,7 @@ $(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(EQM)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(KM)$(SO_EXT) : $(KM).py
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
 $(KPL)$(SO_EXT) : $(KPL).py
 	pyccel $< $(FLAGS)
@@ -90,19 +91,19 @@ $(KPI)$(SO_EXT) : $(KPI).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(ICM)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KPM)$(SO_EXT) : $(KPM).py
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
     
 $(LA)$(SO_EXT) : $(LA).py
 	pyccel $< $(FLAGS)
 
 $(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(LA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV)$(SO_EXT)
-	pyccel $(FLAGS_openmp) $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PA)$(SO_EXT) : $(PA).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(LA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV)$(SO_EXT)
-	pyccel $(FLAGS_openmp) $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(ICP)$(SO_EXT)
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 
 #--------------------------------------

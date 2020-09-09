@@ -160,6 +160,8 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
 @types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, nbase1, nbase2, nbase3, mat, mat_f, mat_map):
     
+    #$ omp parallel
+    #$ omp do reduction ( + : mat) private (ie1, ie2, ie3, il1, il2, il3, value, q1, q2, q3, wvol, bi)
     for ie1 in range(nel1):
         for ie2 in range(nel2):
             for ie3 in range(nel3):
@@ -180,11 +182,18 @@ def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1,
                                         value += wvol * bi * mat_f[nq1*ie1 + q1, nq2*ie2 + q2, nq3*ie3 + q3]
 
                             mat[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2, (ie3 + il3)%nbase3] += value
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
                             
                             
 # ==========================================================================================          
 @types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
+    
+    #$ omp parallel
+    #$ omp do reduction ( + : error) private (ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
     
     # loop over all elements
     for ie1 in range(nel[0]):
@@ -217,3 +226,8 @@ def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3,
                             
                             # compare this value to exact one and add contribution to error in element
                             error[ie1, ie2, ie3] += wvol * (bi - mat_f1[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3]) * (bj - mat_f2[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3])
+                            
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
