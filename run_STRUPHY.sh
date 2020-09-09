@@ -3,12 +3,13 @@
 # ============== set simulation folders ===========
 path_root=$(pwd)
 all_sim=$HOME/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2020_08_19_1
+run_dir=sim_2020_09_08_1
 # =================================================
 
 # ============== if you want to use OpenMp ========
 #flag_openmp=
-flag_openmp=--openmp
+flag_openmp_mhd=--openmp
+flag_openmp_pic=--openmp
 # =================================================
 
 
@@ -53,7 +54,7 @@ nq_pr : [6, 6, 2]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : .05
+dt       : 0.05
 Tend     : 1.
 max_time : 1000.
 
@@ -64,7 +65,8 @@ add_pressure : False
 # geometry (1: slab, 2: hollow cylinder, 3: colella) and parameters for geometry
 kind_map   : 3
 params_map : [7.853981634, 7.853981634, 0.1, 1.]        
- 
+#params_map : [7.853981634, 7.853981634, 1.]
+
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666
 
@@ -73,7 +75,7 @@ gamma : 1.6666666666666666666666666666
 ##### linear solvers ##########
 ###############################
 
-# ILUs
+# ILUs (default: drop_tol=1e-4, fill_fac=10.)
 drop_tol_S2 : 0.0001
 fill_fac_S2 : 10.
 
@@ -83,8 +85,10 @@ fill_fac_A  : 10.
 drop_tol_M0 : 0.0001
 fill_fac_M0 : 10.
 
-# tolerances for iterative solvers
+# tolerances for iterative solvers (default: tol=1e-8)
+tol1        : 0.00000001
 tol2        : 0.00000001
+tol3        : 0.00000001
 tol6        : 0.00000001
 
 
@@ -96,7 +100,7 @@ tol6        : 0.00000001
 add_PIC : True     
 
 # total number of particles
-Np : 128000           
+Np : 125000           
 
 # control variate? 
 control : False       
@@ -114,7 +118,7 @@ loading : pseudo-random
 seed : 1234
 
 # directory of particles if loaded externally
-dir_particles : dir
+dir_particles : /home/florian/Schreibtisch/PHD/02_Projekte/hylife/hylife_florian/simulations/reference_colella/results_reference_colella.hdf5
 
 ###############################
 ##### restart function ########
@@ -163,7 +167,6 @@ EOF
 
 
 
-
 # == create source_run folder and copy subroutines into it
 SDIR=$all_sim/$run_dir/source_run
 
@@ -183,7 +186,7 @@ cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_loca
 
 
 # ================= run Makefile ==================
-make all_sim=$all_sim run_dir=$run_dir flags_openmp=$flag_openmp
+make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 # =================================================
 
 
@@ -191,7 +194,6 @@ make all_sim=$all_sim run_dir=$run_dir flags_openmp=$flag_openmp
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-#cp STRUPHY_mpi_original.py $all_sim/$run_dir/STRUPHY.py
 cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
@@ -210,5 +212,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 4 python3 STRUPHY.py
+#mpirun -n 4 python3 STRUPHY.py
+#export OMP_NUM_THREADS=4
+#python3 STRUPHY.py
 # =================================================
