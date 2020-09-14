@@ -79,7 +79,7 @@ $(ICP)$(SO_EXT) : $(ICP).py $(MA)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(EQM)$(SO_EXT)
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
 $(KM)$(SO_EXT) : $(KM).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
