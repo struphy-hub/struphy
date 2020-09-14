@@ -17,7 +17,7 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 BK  := hylife/utilitis_FEEC/bsplines_kernels
 BEV := hylife/utilitis_FEEC/basics/spline_evaluation_3d
 MD  := hylife/geometry/mappings_discrete
-#MDF := hylife/geometry/mappings_discrete_fast
+MDF := hylife/geometry/mappings_discrete_fast
 MA  := hylife/geometry/mappings_analytical
 PBD := hylife/geometry/pull_back_discrete
 PBA := hylife/geometry/pull_back_analytical
@@ -35,7 +35,7 @@ PP  := $(all_sim)/$(run_dir)/source_run/pusher
 PA  := $(all_sim)/$(run_dir)/source_run/accumulation_kernels
 PS  := $(all_sim)/$(run_dir)/source_run/sampling
 
-SOURCES := $(BK).py $(BEV).py $(MD).py $(MA).py $(PBD).py $(PBA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV).py $(MD).py $(MDF).py $(MA).py $(PBD).py $(PBA).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KM).py $(KPL).py $(KPI).py $(KPM).py $(LA).py $(PP).py $(PA).py $(PS).py
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
 #--------------------------------------
@@ -54,8 +54,8 @@ $(BEV)$(SO_EXT) : $(BEV).py $(BK)$(SO_EXT)
 $(MD)$(SO_EXT) : $(MD).py $(BEV)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-#$(MDF)$(SO_EXT) : $(MDF).py $(BEV)$(SO_EXT) $(BK)$(SO_EXT)
-#	pyccel $< $(FLAGS)
+$(MDF)$(SO_EXT) : $(MDF).py $(BEV)$(SO_EXT) $(BK)$(SO_EXT)
+	pyccel $< $(FLAGS)
 
 $(MA)$(SO_EXT) : $(MA).py
 	pyccel $< $(FLAGS)

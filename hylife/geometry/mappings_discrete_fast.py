@@ -11,99 +11,85 @@ from pyccel.decorators import types
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
 
-from numpy import empty
-
 
 # ==========================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','double[:,:]')
-def df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double','double[:,:]')
+def df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3, mat):
     
     # evaluate non-vanishing basis functions and its derivatives
-    b1 = empty((2, pn[0] + 1), dtype=float)
-    b2 = empty((2, pn[1] + 1), dtype=float)
-    b3 = empty((2, pn[2] + 1), dtype=float)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], l1, r1, b1, d1, der1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], l2, r2, b2, d2, der2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], l3, r3, b3, d3, der3)
     
-    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
-    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
-    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
-
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-    mat[0, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    mat[0, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    mat[0, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    mat[0, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    mat[0, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    mat[0, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
     
     # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-    mat[1, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    mat[1, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    mat[1, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    mat[1, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    mat[1, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    mat[1, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
     
     # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-    mat[2, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    mat[2, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    mat[2, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    mat[2, 0] = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    mat[2, 1] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    mat[2, 2] = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
     
-
+    
 # ==========================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double')
-def det_df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double')
+def det_df(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3):
     
     # evaluate non-vanishing basis functions and its derivatives
-    b1 = empty((2, pn[0] + 1), dtype=float)
-    b2 = empty((2, pn[1] + 1), dtype=float)
-    b3 = empty((2, pn[2] + 1), dtype=float)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], l1, r1, b1, d1, der1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], l2, r2, b2, d2, der2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], l3, r3, b3, d3, der3)
     
-    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
-    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
-    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
-
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
     
     # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
     
     # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
     
     # compute determinant
     value = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
     
     return value
-    
-    
+
+
 # ==========================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','double[:,:]')
-def df_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double','double[:,:]')
+def df_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3, mat):
     
     # evaluate non-vanishing basis functions and its derivatives
-    b1 = empty((2, pn[0] + 1), dtype=float)
-    b2 = empty((2, pn[1] + 1), dtype=float)
-    b3 = empty((2, pn[2] + 1), dtype=float)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], l1, r1, b1, d1, der1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], l2, r2, b2, d2, der2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], l3, r3, b3, d3, der3)
     
-    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
-    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
-    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
-
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
     
     # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
     
     # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
     
     # inverte Jabobian matrix
     over_det_df = 1. / (df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13))
@@ -122,32 +108,28 @@ def df_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat
     
     
 # ==========================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','double[:,:]')
-def g(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double','double[:,:]')
+def g(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3, mat):
     
     # evaluate non-vanishing basis functions and its derivatives
-    b1 = empty((2, pn[0] + 1), dtype=float)
-    b2 = empty((2, pn[1] + 1), dtype=float)
-    b3 = empty((2, pn[2] + 1), dtype=float)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], l1, r1, b1, d1, der1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], l2, r2, b2, d2, der2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], l3, r3, b3, d3, der3)
     
-    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
-    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
-    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
-
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
     
     # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
     
     # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
     
     # assemble g
     mat[0, 0] = df_11*df_11 + df_21*df_21 + df_31*df_31
@@ -164,32 +146,28 @@ def g(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
     
     
 # ==========================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','double[:,:]')
-def g_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, eta1, eta2, eta3, mat):
+@types('double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double','double[:,:]')
+def g_inv(tn1, tn2, tn3, pn, nbase_n, span_n, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3, mat):
     
     # evaluate non-vanishing basis functions and its derivatives
-    b1 = empty((2, pn[0] + 1), dtype=float)
-    b2 = empty((2, pn[1] + 1), dtype=float)
-    b3 = empty((2, pn[2] + 1), dtype=float)
+    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], l1, r1, b1, d1, der1)
+    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], l2, r2, b2, d2, der2)
+    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], l3, r3, b3, d3, der3)
     
-    bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n[0], b1)
-    bsp.basis_funs_and_der(tn2, pn[1], eta2, span_n[1], b2)
-    bsp.basis_funs_and_der(tn3, pn[2], eta3, span_n[2], b3)
-
     # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
-    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_11 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_12 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
+    df_13 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cx)
     
     # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
-    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_21 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_22 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
+    df_23 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cy)
     
     # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[1], b2[0], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[1], b3[0], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
-    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[0], b2[0], b3[1], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_31 = eva.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_32 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
+    df_33 = eva.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n[0], span_n[1], span_n[2], nbase_n[0], nbase_n[1], nbase_n[2], cz)
     
     # inverte Jabobian matrix
     over_det_df = 1. / (df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13))

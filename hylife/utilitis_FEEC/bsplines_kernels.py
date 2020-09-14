@@ -159,8 +159,8 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
         
                
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]')
-def basis_funs_and_der(t, p, eta, span, left, right, values):
+@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]','double[:]')
+def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
     """
     Parameters
     ----------
@@ -175,6 +175,14 @@ def basis_funs_and_der(t, p, eta, span, left, right, values):
 
     span : int
         Knot span index.
+        
+    left : array_like
+        p left values
+        
+    right : array_like
+        p right values
+        
+    values_all : array_like
 
     Returns
     -------
@@ -182,13 +190,11 @@ def basis_funs_and_der(t, p, eta, span, left, right, values):
         Values of (2, p + 1) non-vanishing B-Splines and derivatives at location eta.
     """
     
-    left[:]    = 0.
-    right[:]   = 0.
+    left[:]      = 0.
+    right[:]     = 0.
     
-    vals       = zeros((p + 1, p + 1), dtype=float)
-    vals[0, 0] = 1.
-    
-    diff       = empty(p, dtype=float)
+    values[:, :] = 0.
+    values[0, 0] = 1.
     
     for j in range(p):
         left[j]  = eta - t[span - j]
@@ -196,29 +202,26 @@ def basis_funs_and_der(t, p, eta, span, left, right, values):
         saved    = 0.
         for r in range(j + 1):
             diff[r] = 1. / (right[r] + left[j - r])
-            temp = vals[j, r] * diff[r]
-            vals[j + 1, r] = saved + right[r] * temp
+            temp = values[j, r] * diff[r]
+            values[j + 1, r] = saved + right[r] * temp
             saved     = left[j - r] * temp
-        vals[j + 1, j + 1] = saved
+        values[j + 1, j + 1] = saved
         
     diff[:] = diff*p
     
-    # set B-spline values
-    values[0] = vals[p] 
-    
     # compute derivatives
     # j = 0
-    saved        = vals[p - 1, 0]*diff[0]
-    values[1, 0] = -saved
+    saved  = values[p - 1, 0]*diff[0]
+    der[0] = -saved
     
-    # j = 1, ..., p
+    # j = 1, ... , p
     for j in range(1, p):
-        temp         = saved
-        saved        = vals[p - 1, j]*diff[j]
-        values[1, j] = temp - saved
+        temp   = saved
+        saved  = values[p - 1, j]*diff[j]
+        der[j] = temp - saved
             
     # j = p
-    values[1, p] = saved
+    der[p] = saved
             
             
 # ==============================================================================
