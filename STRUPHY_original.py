@@ -170,12 +170,12 @@ Ntot_3form     =  NbaseD[0]*NbaseD[1]*NbaseD[2]
 
 if add_PIC == True:
 
-    # delta-f corrections (only MHD process)
-    if control == True and mpi_rank == 0:
-        cont = cv.terms_control_variate(tensor_space, kind_map, params_map)
-
     # particle accumulator (all processes)
     acc = pic_accumu.accumulation(tensor_space)
+    
+    # delta-f corrections (only MHD process)
+    if control == True and mpi_rank == 0:
+        cont = cv.terms_control_variate(tensor_space, acc, kind_map, params_map)
 # =======================================================================
 
 
@@ -231,18 +231,18 @@ else:
 if mpi_rank == 0:
     # ============= projection of initial conditions ==========================
     # create object for projecting initial conditions
-    
     pro = proj.projectors_local_3d(tensor_space, nq_pr)
 
     pr[:, :, :]                           = pro.pi_0( None,               1,        kind_map, params_map)
     u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], [2, 3, 4], kind_map, params_map) 
     b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], [5, 6, 7], kind_map, params_map)
     rh[:, :, :]                           = pro.pi_3( None,               8,        kind_map, params_map)
-
+    
     del pro
     
+    
     """
-    amps = np.random.rand(8, pr.shape[0], pr.shape[1])
+    amps = 1e-3*np.random.rand(8, pr.shape[0], pr.shape[1])
 
     for k in range(pr.shape[2]):
         pr[:, :, k] = amps[0]
@@ -256,10 +256,10 @@ if mpi_rank == 0:
         b3[:, :, k] = amps[6]
 
         rh[:, :, k] = amps[7]
-    """
     
     
     print('projection of initial conditions done!')
+    """
     # ==========================================================================
 
 
@@ -354,28 +354,41 @@ if mpi_rank == 0:
     
     print('assembly of constant matrices done!')
     
-
 """
-timea = time.time()
-A_PRE(np.random.rand(A.shape[0]))
-timeb = time.time()
-print(timeb - timea)
+if mpi_rank == 0:
+    timea = time.time()
+    A_PRE(np.random.rand(A.shape[0]))
+    timeb = time.time()
+    print('preconditioner of A : ', timeb - timea)
+    
+    timea = time.time()
+    np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+    timeb = time.time()
+    print('linear system of step 2 : ', timeb - timea)
 
-timea = time.time()
-S6_LHS(np.random.rand(A.shape[0]))
-timeb = time.time()
-print(timeb - timea)
+    
+if mpi_rank == 0 and add_pressure == True:
+    timea = time.time()
+    S6_LHS(np.random.rand(A.shape[0]))
+    timeb = time.time()
+    print('left hand side of step 6 : ', timeb - timea)
+
+    timea = time.time()
+    np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+    timeb = time.time()
+    print('linear system of step 6 : ', timeb - timea)
 
 
-timea = time.time()
-np.split(spa.linalg.cg(S2, STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
-timeb = time.time()
-print(timeb - timea)
+if control == 0 and mpi_rank == 0:
+    timea = time.time()
+    mat   = cont.mass_V1_nh_eq(b1, b2, b3)
+    timeb = time.time()
+    print('control step 1 : ', timeb - timea)
 
-timea = time.time()
-np.split(spa.linalg.cgs(S6_LHS, S6_RHS(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) - dt*S6_P(pr.flatten()) + dt*S6_B(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
-timeb = time.time()
-print(timeb - timea)
+    timea = time.time()
+    vec   = cont.inner_prod_V1_jh_eq(b1, b2, b3)
+    timeb = time.time()
+    print('control step 3 : ', timeb - timea)
     
 sys.exit()
 """
@@ -422,9 +435,9 @@ else:
 
 
 # inversion of cumulative distribution function
-particles_loc[3]  = sp.erfinv(2*particles_loc[3] - 1)*vth + v0x
-particles_loc[4]  = sp.erfinv(2*particles_loc[4] - 1)*vth + v0y
-particles_loc[5]  = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
+particles_loc[3] = sp.erfinv(2*particles_loc[3] - 1)*vth + v0x
+particles_loc[4] = sp.erfinv(2*particles_loc[4] - 1)*vth + v0y
+particles_loc[5] = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
 
 
 # compute initial weights
@@ -435,7 +448,7 @@ if control == True:
 else:
     particles_loc[6] = w0_loc
 
-#print(mpi_rank, 'particle initialization done!')
+print(mpi_rank, 'particle initialization done!')
 # ======================================================================================
 
 
@@ -466,9 +479,9 @@ energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
 # initial distribution function
 fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
 mpi_comm.Reduce(fh_loc['eta1_vx'], fh['eta1_vx'], op=MPI.SUM, root=0)
+
+print('initial diagnostics done')
 # ======================================================================================
-
-
 
 
 """
@@ -490,6 +503,7 @@ pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
 timeb = time.time()
 print(timeb - timea)
 
+
 mpi_comm.Barrier()
 timea = time.time()
 pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
@@ -502,11 +516,9 @@ timea = time.time()
 pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
 timeb = time.time()
 print(timeb - timea)
-sys.exit()
 
 if mpi_rank == 0:
-    print(energies['en_deltaf'])
-
+    print(energies['df'])
     
 sys.exit()
 """
@@ -531,7 +543,7 @@ def update():
     # ====================================================================================
     if add_PIC == True:
         
-        # charge accumulation
+        # ------- charge accumulation -----------
         timea = time.time()
         
         pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
@@ -542,7 +554,10 @@ def update():
         
         timeb = time.time()
         times_elapsed['accumulation_step1'] = timeb - timea
+        # ----------------------------------------
         
+        
+        # ----- set up and solve linear system ---
         if mpi_rank == 0:
             
             # build global sparse matrix
@@ -551,7 +566,7 @@ def update():
             # delta-f correction
             if control == True:
                 timea = time.time()
-                mat  -= cont.mass_V1_nh_eq([b1, b2, b3])
+                mat  -= cont.mass_V1_nh_eq(b1, b2, b3)
                 timeb = time.time()
                 times_elapsed['control_step1'] = timeb - timea
         
@@ -564,6 +579,8 @@ def update():
             u1[:, :, :] = temp1.reshape(Nbase_1form[0])
             u2[:, :, :] = temp2.reshape(Nbase_1form[1])
             u3[:, :, :] = temp3.reshape(Nbase_1form[2])
+        # -----------------------------------------
+            
     # ====================================================================================
     #                           step 1 (1: update u)
     # ====================================================================================
@@ -615,7 +632,7 @@ def update():
     # ====================================================================================
     if add_PIC == True:
         
-        # current accumulation
+        # ------------ current accumulation ----------------
         timea = time.time()
         
         pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
@@ -633,7 +650,10 @@ def update():
                    
         timeb = time.time()
         times_elapsed['accumulation_step3'] = timeb - timea
+        # ---------------------------------------------------
         
+        
+        # ---------- set up and solve linear system ---------
         if mpi_rank == 0:
             
             # save coefficients from previous time step
@@ -641,32 +661,24 @@ def update():
             u2_old[:, :, :] = u2[:, :, :]
             u3_old[:, :, :] = u3[:, :, :]
             
-            # build global sparse matrix
+            # build global sparse matrix and vector
             mat = acc.to_sparse_step3(mat11, mat12, mat13, mat22, mat23, mat33)/Np
+            vec = np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np
         
-            # delta-f update
+            # delta-f correction
             if control == True:
                 timea  = time.time()
-                vec_cv = cont.inner_prod_V1_jh_eq([b1, b2, b3])
+                vec   += cont.inner_prod_V1_jh_eq(b1, b2, b3)
                 timeb  = time.time()
                 times_elapsed['control_step3'] = timeb - timea
 
-                # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
-                timea = time.time()
-                temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np + dt*np.concatenate((vec_cv[0].flatten(), vec_cv[1].flatten(), vec_cv[2].flatten())), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
-                timeb = time.time()
-                times_elapsed['update_step3u'] = timeb - timea
-
-            # full-f update
-            else: 
-                
-                # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
-                timea = time.time()
-                temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
-                timeb = time.time()
-                times_elapsed['update_step3u'] = timeb - timea
-
             
+            # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
+            timea = time.time()
+            temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+            timeb = time.time()
+            times_elapsed['update_step3u'] = timeb - timea
+
             u1[:, :, :] = temp1.reshape(Nbase_1form[0])
             u2[:, :, :] = temp2.reshape(Nbase_1form[1])
             u3[:, :, :] = temp3.reshape(Nbase_1form[2])
@@ -680,12 +692,16 @@ def update():
         mpi_comm.Bcast(u1_old, root=0)
         mpi_comm.Bcast(u2_old, root=0)
         mpi_comm.Bcast(u3_old, root=0)
+        # ---------------------------------------------------
         
-        # update velocities
+        
+        # ---------------- update velocities ----------------
         timea = time.time()
         pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, kind_map, params_map)
         timeb = time.time()
         times_elapsed['pusher_step3'] = timeb - timea
+        # ---------------------------------------------------
+        
     # ====================================================================================
     #             step 3 (1 : update u,  2 : update particles velocities V)
     # ====================================================================================
@@ -781,6 +797,8 @@ def update():
     
 # ============================================================================
 
+
+
 """
 mpi_comm.Barrier()
 timea = time.time()
@@ -793,7 +811,6 @@ if mpi_rank == 0:
     print(mpi_rank, (timeb - timea)/10)
 sys.exit()
 """
-
 
 
 # ========================== time integration ================================
