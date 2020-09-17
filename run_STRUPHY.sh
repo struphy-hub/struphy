@@ -230,7 +230,7 @@ make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_o
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp STRUPHY_original_local.py $all_sim/$run_dir/STRUPHY.py
+cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
