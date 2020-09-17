@@ -2,16 +2,19 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2020_09_08_1
+all_sim=$HOME/path_to_simulations
+run_dir=name_of_run
 # =================================================
 
 # ============== if you want to use OpenMp ========
-#flag_openmp=
 flag_openmp_mhd=--openmp
 flag_openmp_pic=--openmp
 # =================================================
 
+# ========== analytical or discrete mapping ? =====
+mapping=analytical
+#mapping=discrete
+# =================================================
 
 # == print location of repository and simulation == 
 echo "Your hylife repository is here:" $path_root
@@ -41,34 +44,37 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 ##### grid construction #####
 #############################
 
-# number of elements, boundary conditions and spline degrees
+# number of elements, boundary conditions and spline degrees (finite elements)
 Nel : [16, 16, 2] 
 bc  : [True, True, True]
 p   : [2, 2, 1] 
-
 
 # number of quadrature points per element and histopolation cell
 nq_el : [6, 6, 2]
 nq_pr : [6, 6, 2]
 
+# analytical (0) or spline mapping (1)?
+mapping : 0
+
+# ----> for analytical geometry: kind of mapping (1: slab, 2: hollow cylinder, 3: colella) and parameters
+kind_map   : 1
+params_map : [7.853981634, 7.853981634, 1.]        
+
+# ----> for spline geometry: number of elements, boundary conditions and spline degrees
+Nel_F : [16, 16, 2] 
+bc_F  : [False, False, False]
+p_F   : [2, 2, 1] 
+
+
+#############################
+##### time integration ######
+#############################
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
 dt       : 0.05
 Tend     : 1.
 max_time : 1000.
-
-
-# add non-Hamiltonian terms to simulation?
-add_pressure : False
-
-# geometry (1: slab, 2: hollow cylinder, 3: colella) and parameters for geometry
-kind_map   : 3
-params_map : [7.853981634, 7.853981634, 0.1, 1.]        
-#params_map : [7.853981634, 7.853981634, 1.]
-
-# adiabatic exponent
-gamma : 1.6666666666666666666666666666
 
 
 ###############################
@@ -93,7 +99,17 @@ tol6        : 0.00000001
 
 
 ###############################
-##### particle parameters #####
+####### MHD parameters ########
+###############################
+
+# add non-Hamiltonian terms to simulation?
+add_pressure : False
+
+# adiabatic exponent
+gamma : 1.6666666666666666666666666666
+
+###############################
+##### kinetic parameters ######
 ###############################
 
 # add kinetic terms to simulation?
@@ -118,7 +134,7 @@ loading : pseudo-random
 seed : 1234
 
 # directory of particles if loaded externally
-dir_particles : /home/florian/Schreibtisch/PHD/02_Projekte/hylife/hylife_florian/simulations/reference_colella/results_reference_colella.hdf5
+dir_particles : path_to_particles
 
 ###############################
 ##### restart function ########
@@ -137,6 +153,7 @@ EOF
 # =================================================
 
 
+
 # ========= set parameters for batch script =======
 cat >$all_sim/$run_dir/batch_$run_dir.sh <<'EOF'
 #!/bin/bash -l
@@ -147,23 +164,28 @@ cat >$all_sim/$run_dir/batch_$run_dir.sh <<'EOF'
 #SBATCH -D ./
 # Job Name:
 #SBATCH -J test_struphy
-# Queue (Partition):
-#SBATCH --partition=express
+#
 # Number of nodes and MPI tasks per node:
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=16
+#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-core=1
+# for OpenMP:
+#SBATCH --cpus-per-task=16
 #
 #SBATCH --mail-type=none
 #SBATCH --mail-user=<userid>@rzg.mpg.de
 #
 # Wall clock limit:
-#SBATCH --time=00:10:00
+#SBATCH --time=00:20:00
 
-#Run the program:
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# For pinning threads correctly:
+#export OMP_PLACES=cores 
+
+# Run the program:
 srun python3 STRUPHY.py > test.out
 EOF
 # =================================================
-
 
 
 
@@ -172,20 +194,34 @@ SDIR=$all_sim/$run_dir/source_run
 
 mkdir $SDIR
 
-cp hylife/utilitis_FEEC/kernels_control_variate.py $SDIR/kernels_control_variate.py
-cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana.py $SDIR/kernels_projectors_local_eva_ana.py
+cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
+cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
+cp hylife/utilitis_FEEC/control_variates/control_variate.py $SDIR/control_variate.py
+
+if [ "$mapping" = "analytical" ]
+then
+cp hylife/utilitis_FEEC/control_variates/kernels_cv_analytical.py $SDIR/kernels_control_variate.py
+cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana.py $SDIR/kernels_projectors_local_eva.py
 
 cp hylife/utilitis_PIC/pusher.py $SDIR/pusher.py
 cp hylife/utilitis_PIC/accumulation_kernels.py $SDIR/accumulation_kernels.py
 cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
 
-cp hylife/utilitis_FEEC/control_variate.py $SDIR/control_variate.py
-cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
-cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
+
+elif [ "$mapping" = "discrete" ]
+then
+cp hylife/utilitis_FEEC/control_variates/kernels_cv_discrete.py $SDIR/kernels_control_variate.py
+cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_dis.py $SDIR/kernels_projectors_local_eva.py
+
+cp hylife/utilitis_PIC/discrete_mapping/pusher.py $SDIR/pusher.py
+cp hylife/utilitis_PIC/discrete_mapping/accumulation_kernels.py $SDIR/accumulation_kernels.py
+cp hylife/utilitis_PIC/discrete_mapping/sampling.py $SDIR/sampling.py
+
+fi
 # =================================================
 
 
-# ================= run Makefile ==================
+# ============== run Makefile =====================
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 # =================================================
 
@@ -194,7 +230,7 @@ make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_o
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
+cp STRUPHY_original_local.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
@@ -204,7 +240,7 @@ sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 cd $all_sim/$run_dir
 
 # job submission via SLURM
-#sbatch batch_$run_dir.sh
+sbatch batch_$run_dir.sh
 
 # interactive run on an interactive node on e.g. Draco or Cobra (indicate number of MPI processes after -n)
 #export OMP_NUM_THREADS=4

@@ -64,8 +64,14 @@ Tend           = params['Tend']
 max_time       = params['max_time']
 
 # geometry
+mapping        = params['mapping']
+
 kind_map       = params['kind_map']
 params_map     = params['params_map']
+
+Nel_F          = params['Nel_F']
+bc_F           = params['bc_F']
+p_F            = params['p_F']
 
 # general
 add_pressure   = params['add_pressure']
@@ -106,6 +112,8 @@ create_restart = params['create_restart']
 # ========================================================================
 
 
+
+
 # ================= MPI initialization for particles =====================
 Np_loc         = int(Np/mpi_size)                      # number of particles for each process
 
@@ -123,9 +131,9 @@ if mpi_rank == 0:
 
 # =================== some diagnostics ===================================
 # energies (bulk kinetic energy, magnetic energy, bulk internal energy, hot ion kinetic + internal energy (delta f))
-energies     = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'df' : np.empty(1, dtype=float)}
+energies     = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'f' : np.empty(1, dtype=float)}
 
-energies_loc = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'df' : np.empty(1, dtype=float)}
+energies_loc = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'f' : np.empty(1, dtype=float)}
 
 # snapshots of distribution function via particle binning
 n_bins       = {'eta1_vx' : [32, 64]}
@@ -140,34 +148,70 @@ fh_loc       = {'eta1_vx' : np.empty((n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]
 
 
 # ================== basics ==============================================
-# element boundaries and spline knot vectors (N and D)
-el_b           = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                      
-T              = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]
-t              = [T[1:-1] for T in T] 
-   
+# element boundaries and spline knot vectors for finite elements (N and D)
+el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]                      
+T    = [bsp.make_knots(el_b, p, bc) for el_b, p, bc in zip(el_b, p, bc)]
+t    = [T[1:-1] for T in T]
+
+# element boundaries and spline knot vectors for spline mapping (N)
+el_b_F = [np.linspace(0., 1., Nel_F + 1) for Nel_F in Nel_F]                      
+T_F    = [bsp.make_knots(el_b_F, p_F, bc_F) for el_b_F, p_F, bc_F in zip(el_b_F, p_F, bc_F)]
+
 # 1d B-spline finite element spaces (save evaluated quadrature points only for MHD process)
 if mpi_rank == 0:
-    spaces     = [spl.spline_space_1d(T, p, bc, nq_el) for T, p, bc, nq_el in zip(T, p, bc, nq_el)]
+    spaces   = [spl.spline_space_1d(T  , p  , bc  , nq_el) for T,   p  , bc  , nq_el in zip(T  , p  , bc  , nq_el)]
+    spaces_F = [spl.spline_space_1d(T_F, p_F, bc_F       ) for T_F, p_F, bc_F        in zip(T_F, p_F, bc_F       )]
+    
 else:
-    spaces     = [spl.spline_space_1d(T, p, bc) for T, p, bc in zip(T, p, bc)]
+    spaces   = [spl.spline_space_1d(T  , p  , bc  ) for T  , p  , bc   in zip(T  , p  , bc  )]
+    spaces_F = [spl.spline_space_1d(T_F, p_F, bc_F) for T_F, p_F, bc_F in zip(T_F, p_F, bc_F)]
 
-# 3d tensor-product B-spline spaces
-tensor_space   = spl.tensor_spline_space(spaces)
 
-# number of basis functions in different spaces
-NbaseN         = tensor_space.NbaseN
-NbaseD         = tensor_space.NbaseD
+# 3d tensor-product B-spline spaces for finite elements and mapping
+tensor_space   = spl.tensor_spline_space(spaces  )
+tensor_space_F = spl.tensor_spline_space(spaces_F)
 
-Nbase_0form    =  [NbaseN[0], NbaseN[1], NbaseN[2]]
-Nbase_1form    = [[NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]]]
-Nbase_2form    = [[NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]]]
-Nbase_3form    =  [NbaseD[0], NbaseD[1], NbaseD[2]]
+# number of basis functions in different spaces (finite elements)
+NbaseN      = tensor_space.NbaseN
+NbaseD      = tensor_space.NbaseD
 
-Ntot_0form     =  NbaseN[0]*NbaseN[1]*NbaseN[2] 
-Ntot_1form     = [NbaseD[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseD[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseD[2]]
-Ntot_2form     = [NbaseN[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseN[2]]  
-Ntot_3form     =  NbaseD[0]*NbaseD[1]*NbaseD[2]
+Nbase_0form =  [NbaseN[0], NbaseN[1], NbaseN[2]]
+Nbase_1form = [[NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]]]
+Nbase_2form = [[NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]]]
+Nbase_3form =  [NbaseD[0], NbaseD[1], NbaseD[2]]
 
+Ntot_0form  =  NbaseN[0]*NbaseN[1]*NbaseN[2] 
+Ntot_1form  = [NbaseD[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseD[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseD[2]]
+Ntot_2form  = [NbaseN[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseN[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseN[2]]  
+Ntot_3form  =  NbaseD[0]*NbaseD[1]*NbaseD[2]
+
+# number of basis functions for spline mapping
+NbaseN_F    = tensor_space_F.NbaseN
+# =======================================================================
+
+
+# ========= geometry in case of spline mapping ==========================
+# interpolation of mapping on discrete space with local interpolator pi_0 (get controlpoints)
+#Fx = lambda eta1, eta2, eta3 : 2*np.pi/0.8*(eta1 + 0.1*np.sin(2*np.pi*eta1)*np.sin(2*np.pi*eta2))
+#Fy = lambda eta1, eta2, eta3 : 2*np.pi/0.8*(eta2 + 0.1*np.sin(2*np.pi*eta1)*np.sin(2*np.pi*eta2))
+#Fz = lambda eta1, eta2, eta3 : 1*eta3
+
+Fx = lambda eta1, eta2, eta3 : 2*np.pi/0.8*eta1
+Fy = lambda eta1, eta2, eta3 : 2*np.pi/0.8*eta2
+Fz = lambda eta1, eta2, eta3 : 1*eta3
+
+pro_F = proj.projectors_local_3d(tensor_space_F, [p_F[0] + 1, p_F[1] + 1, p_F[2] + 1])
+
+cx = pro_F.pi_0(Fx)
+cy = pro_F.pi_0(Fy)
+cz = pro_F.pi_0(Fz)
+
+del pro_F
+# =======================================================================
+
+
+
+# ======= particle accumulator (and delta-f corrections) ================
 if add_PIC == True:
 
     # particle accumulator (all processes)
@@ -175,8 +219,9 @@ if add_PIC == True:
     
     # delta-f corrections (only MHD process)
     if control == True and mpi_rank == 0:
-        cont = cv.terms_control_variate(tensor_space, acc, kind_map, params_map)
+        cont = cv.terms_control_variate(tensor_space, acc, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
 # =======================================================================
+
 
 
 
@@ -231,17 +276,28 @@ else:
 if mpi_rank == 0:
     # ============= projection of initial conditions ==========================
     # create object for projecting initial conditions
+    
     pro = proj.projectors_local_3d(tensor_space, nq_pr)
+    
+    if   mapping == 0:
 
-    pr[:, :, :]                           = pro.pi_0( None,               1,        kind_map, params_map)
-    u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], [2, 3, 4], kind_map, params_map) 
-    b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], [5, 6, 7], kind_map, params_map)
-    rh[:, :, :]                           = pro.pi_3( None,               8,        kind_map, params_map)
+        pr[:, :, :]                           = pro.pi_0( None,              0,  1,        kind_map, params_map)
+        u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], 0, [2, 3, 4], kind_map, params_map) 
+        b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], 0, [5, 6, 7], kind_map, params_map)
+        rh[:, :, :]                           = pro.pi_3( None,              0,  8,        kind_map, params_map)
+
+    elif mapping == 1:
+        
+        pr[:, :, :]                           = pro.pi_0( None,              1,  1,        T_F, p_F, NbaseN_F, [cx, cy, cz])
+        u1[:, :, :], u2[:, :, :], u3[:, :, :] = pro.pi_1([None, None, None], 1, [2, 3, 4], T_F, p_F, NbaseN_F, [cx, cy, cz]) 
+        b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], 1, [5, 6, 7], T_F, p_F, NbaseN_F, [cx, cy, cz])
+        rh[:, :, :]                           = pro.pi_3( None,              1,  8,        T_F, p_F, NbaseN_F, [cx, cy, cz])
     
     del pro
     
     
     """
+    np.random.seed(1234)
     amps = 1e-3*np.random.rand(8, pr.shape[0], pr.shape[1])
 
     for k in range(pr.shape[2]):
@@ -256,43 +312,45 @@ if mpi_rank == 0:
         b3[:, :, k] = amps[6]
 
         rh[:, :, k] = amps[7]
-    
+    """
     
     print('projection of initial conditions done!')
-    """
+    
     # ==========================================================================
 
 
     # ==================== matrices ============================================
-    # create object for projecting MHD matrices
-    MHD = mhd.projectors_local_mhd(tensor_space, nq_pr)
-
     # mass matrices in V0, V1 and V2
-    M0  = mass.mass_V0(tensor_space, 0, kind_map, params_map)
-    M1  = mass.mass_V1(tensor_space, 0, kind_map, params_map)
-    M2  = mass.mass_V2(tensor_space, 0, kind_map, params_map)
-
+    M0 = mass.mass_V0(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    M1 = mass.mass_V1(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    M2 = mass.mass_V2(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    
     print('mass matrices done!')
-
+    
     # normalization vector in V0 (for bulk thermal energy)
-    norm_0form = inner.inner_prod_V0(tensor_space, lambda eta1, eta2, eta3 : np.ones(eta1.shape), 0, kind_map, params_map).flatten()
-
+    norm_0form = inner.inner_prod_V0(tensor_space, lambda eta1, eta2, eta3 : np.ones(eta1.shape), mapping, kind_map, params_map, tensor_space_F, cx, cy, cz).flatten() 
+    
     # discrete grad, curl and div matrices
     derivatives = der.discrete_derivatives(tensor_space)
 
     GRAD = derivatives.grad_3d()
     CURL = derivatives.curl_3d()
     DIV  = derivatives.div_3d()
+    
+    del derivatives
 
     print('discrete derivatives done!')
 
+    
     # projection matrices
-    Q   = MHD.projection_Q(kind_map, params_map)     # pi_2[rho_eq * g_inv * lambda^1]
-    W   = MHD.projection_W(kind_map, params_map)     # pi_1[rho_eq/g_sqrt * lambda^1]
-    TAU = MHD.projection_T(kind_map, params_map)     # pi_1[b_eq * g_inv * lambda^1]
-    S   = MHD.projection_S(kind_map, params_map)     # pi_1[p_eq * lambda^1]
-    K   = MHD.projection_K(kind_map, params_map)     # pi_0[p_eq * lambda^0]  
-    P   = MHD.projection_P(kind_map, params_map)     # pi_1[curl(b_eq) * lambda^2]
+    MHD = mhd.projectors_local_mhd(tensor_space, nq_pr)
+    
+    Q   = MHD.projection_Q(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_2[rho_eq * g_inv * lambda^1]
+    W   = MHD.projection_W(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_1[rho_eq/g_sqrt * lambda^1]
+    TAU = MHD.projection_T(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_1[b_eq * g_inv * lambda^1]
+    S   = MHD.projection_S(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_1[p_eq * lambda^1]
+    K   = MHD.projection_K(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_0[p_eq * lambda^0]  
+    P   = MHD.projection_P(mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)     # pi_1[curl(b_eq) * lambda^2]
     
     del MHD
     print('projection matrices done!')
@@ -354,7 +412,7 @@ if mpi_rank == 0:
     
     print('assembly of constant matrices done!')
     
-"""
+
 if mpi_rank == 0:
     timea = time.time()
     A_PRE(np.random.rand(A.shape[0]))
@@ -379,7 +437,8 @@ if mpi_rank == 0 and add_pressure == True:
     print('linear system of step 6 : ', timeb - timea)
 
 
-if control == 0 and mpi_rank == 0:
+    
+if control == True and mpi_rank == 0:
     timea = time.time()
     mat   = cont.mass_V1_nh_eq(b1, b2, b3)
     timeb = time.time()
@@ -389,9 +448,7 @@ if control == 0 and mpi_rank == 0:
     vec   = cont.inner_prod_V1_jh_eq(b1, b2, b3)
     timeb = time.time()
     print('control step 3 : ', timeb - timea)
-    
-sys.exit()
-"""
+
     
 
 # ======================== create particles ======================================
@@ -441,10 +498,16 @@ particles_loc[5] = sp.erfinv(2*particles_loc[5] - 1)*vth + v0z
 
 
 # compute initial weights
-pic_sample.compute_weights_ini(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+if mapping == 0:
+    pic_sample.compute_weights_ini(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+elif mapping == 1:
+    pic_sample.compute_weights_ini(particles_loc, Np_loc, w0_loc, s0_loc, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
 
 if control == True:
-    pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+    if mapping == 0:
+        pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+    elif mapping == 1:
+        pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
 else:
     particles_loc[6] = w0_loc
 
@@ -470,12 +533,12 @@ if mpi_rank == 0:
     energies['B'][0] = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
     energies['p'][0] = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
 
-energies_loc['df'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
-mpi_comm.Reduce(energies_loc['df'], energies['df'], op=MPI.SUM, root=0)
+energies_loc['f'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
+mpi_comm.Reduce(energies_loc['f'], energies['f'], op=MPI.SUM, root=0)
 
-energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
-
-
+if mapping == 0:
+    energies['f'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
+    
 # initial distribution function
 fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
 mpi_comm.Reduce(fh_loc['eta1_vx'], fh['eta1_vx'], op=MPI.SUM, root=0)
@@ -484,44 +547,85 @@ print('initial diagnostics done')
 # ======================================================================================
 
 
+
 """
+# ======= test pusher step 3 =========
 mpi_comm.Barrier()
 timea = time.time()
-pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, u1, u2, u3, kind_map, params_map)
+
+if mapping == 0:
+    pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, u1, u2, u3, kind_map, params_map)
+elif mapping == 1:
+    pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, u1, u2, u3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+    
 timeb = time.time()
 print(timeb - timea)
+# ====================================
 
+
+# ======= test pusher step 4 =========
 mpi_comm.Barrier()
 timea = time.time()
-pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map)
+
+if mapping == 0:
+    pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
+elif mapping == 1:
+    pic_pusher.pusher_step4(particles_loc, dt, Np_loc, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+
 timeb = time.time()
 print(timeb - timea)
+# ====================================
 
+
+print(particles_loc[0].max())
+print(particles_loc[1].max())
+print(particles_loc[2].max())
+sys.exit()
+
+# ======= test pusher step 5 =========
 mpi_comm.Barrier()
 timea = time.time()
-pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
+
+if mapping == 0:
+    pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map)
+elif mapping == 1:
+    pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+
 timeb = time.time()
 print(timeb - timea)
+# ====================================
 
 
+# ==== test accumulator step 1 =======
 mpi_comm.Barrier()
 timea = time.time()
-pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
+
+if mapping == 0:
+    pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
+elif mapping == 1:
+    pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz, mat12_loc, mat13_loc, mat23_loc)
+    
 timeb = time.time()
 print(timeb - timea)
+# ====================================
 
 
+# ==== test accumulator step 3 =======
 mpi_comm.Barrier()
 timea = time.time()
-pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
+
+if mapping == 0:
+    pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
+elif mapping == 1:
+    pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, Nbase_0form, Nbase_3form, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
+    
 timeb = time.time()
 print(timeb - timea)
-
-if mpi_rank == 0:
-    print(energies['df'])
+# ====================================
     
 sys.exit()
 """
+
 
 
 # ==================== time integrator ==========================================
@@ -546,7 +650,11 @@ def update():
         # ------- charge accumulation -----------
         timea = time.time()
         
-        pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
+        if mapping == 0:
+            pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat12_loc, mat13_loc, mat23_loc)
+        elif mapping == 1:
+            pic_accumu_ker.kernel_step1(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz, mat12_loc, mat13_loc, mat23_loc)
+        
         
         mpi_comm.Reduce(mat12_loc, mat12, op=MPI.SUM, root=0)
         mpi_comm.Reduce(mat13_loc, mat13, op=MPI.SUM, root=0)
@@ -572,7 +680,7 @@ def update():
         
             # solve linear system with conjugate gradient squared method with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess 
             timea = time.time()
-            temp1, temp2, temp3 = np.split(spa.linalg.cgs(A - dt*mat/2, (A + dt*mat/2).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol1, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+            temp1, temp2, temp3 = np.split(spa.linalg.cgs(A - dt*mat/2, (A + dt*mat/2).dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol1, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])         
             timeb = time.time()
             times_elapsed['update_step1u'] = timeb - timea
 
@@ -635,7 +743,10 @@ def update():
         # ------------ current accumulation ----------------
         timea = time.time()
         
-        pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
+        if mapping == 0:
+            pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
+        elif mapping == 1:
+            pic_accumu_ker.kernel_step3(particles_loc, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz, mat11_loc, mat12_loc, mat13_loc, mat22_loc, mat23_loc, mat33_loc, vec1_loc, vec2_loc, vec3_loc)
         
         mpi_comm.Reduce(mat11_loc, mat11, op=MPI.SUM, root=0)
         mpi_comm.Reduce(mat12_loc, mat12, op=MPI.SUM, root=0)
@@ -664,18 +775,19 @@ def update():
             # build global sparse matrix and vector
             mat = acc.to_sparse_step3(mat11, mat12, mat13, mat22, mat23, mat33)/Np
             vec = np.concatenate((vec1.flatten(), vec2.flatten(), vec3.flatten()))/Np
+            
         
             # delta-f correction
             if control == True:
                 timea  = time.time()
-                vec   += cont.inner_prod_V1_jh_eq(b1, b2, b3)
+                vec   += cont.inner_prod_V1_jh_eq(b1, b2, b3)      
                 timeb  = time.time()
                 times_elapsed['control_step3'] = timeb - timea
 
             
             # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
             timea = time.time()
-            temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]]) 
+            temp1, temp2, temp3 = np.split(spa.linalg.cg(A + dt**2*mat/4, (A - dt**2*mat/4).dot(np.concatenate((u1_old.flatten(), u2_old.flatten(), u3_old.flatten()))) + dt*vec, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol3, M=A_PRE)[0], [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
             timeb = time.time()
             times_elapsed['update_step3u'] = timeb - timea
 
@@ -697,7 +809,12 @@ def update():
         
         # ---------------- update velocities ----------------
         timea = time.time()
-        pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, kind_map, params_map)
+        
+        if mapping == 0:
+            pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, kind_map, params_map)
+        elif mapping == 1:
+            pic_pusher.pusher_step3(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, (u1 + u1_old)/2, (u2 + u2_old)/2, (u3 + u3_old)/2, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+        
         timeb = time.time()
         times_elapsed['pusher_step3'] = timeb - timea
         # ---------------------------------------------------
@@ -713,7 +830,12 @@ def update():
     # ====================================================================================
     if add_PIC == True:
         timea = time.time()
-        pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
+        
+        if mapping == 0:
+            pic_pusher.pusher_step4(particles_loc, dt, Np_loc, kind_map, params_map)
+        elif mapping == 1:
+            pic_pusher.pusher_step4(particles_loc, dt, Np_loc, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+        
         timeb = time.time()
         times_elapsed['pusher_step4'] = timeb - timea
     # ====================================================================================
@@ -726,14 +848,26 @@ def update():
     #       step 5 (1 : update particle veclocities V, 2 : update particle weights W)
     # ====================================================================================
     if add_PIC == True:
+        # push particles
         timea = time.time()
-        pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map)
+        
+        if mapping == 0:
+            pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, kind_map, params_map)
+        elif mapping == 1:
+            pic_pusher.pusher_step5(particles_loc, dt, T[0], T[1], T[2], p, Nel, NbaseN, NbaseD, Np_loc, b1, b2, b3, T_F[0], T_F[1], T_F[2], p_F, Nel_F, NbaseN_F, cx, cy, cz)
+            
         timeb = time.time()
         times_elapsed['pusher_step5'] = timeb - timea
 
+        # update particle weights in case of delta-f
         if control == True:
             timea = time.time()
-            pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+            
+            if mapping == 0:
+                pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, kind_map, params_map)
+            elif mapping == 1:
+                pic_sample.update_weights(particles_loc, Np_loc, w0_loc, s0_loc, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
+                 
             timeb = time.time()
             times_elapsed['control_weights'] = timeb - timea
     # ====================================================================================
@@ -779,10 +913,11 @@ def update():
         energies['B'][0] = 1/2*np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())).dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))))
         energies['p'][0] = 1/(gamma - 1)*pr.flatten().dot(norm_0form)
 
-    energies_loc['df'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
-    mpi_comm.Reduce(energies_loc['df'], energies['df'], op=MPI.SUM, root=0)
+    energies_loc['f'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
+    mpi_comm.Reduce(energies_loc['f'], energies['f'], op=MPI.SUM, root=0)
 
-    energies['df'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
+    if mapping == 0:
+        energies['f'] += (control - 1)*eq_PIC.eh_eq(kind_map, params_map)
 
 
     # distribution function
@@ -796,7 +931,6 @@ def update():
     times_elapsed['total'] = time_totb - time_tota
     
 # ============================================================================
-
 
 
 """
@@ -828,10 +962,10 @@ if time_int == True:
             file.create_dataset('time', (1,),   maxshape=(None,),   dtype=float, chunks=True)
             
             # energies
-            file.create_dataset('energies/bulk_kinetic',     (1,), maxshape=(None,), dtype=float, chunks=True)
-            file.create_dataset('energies/magnetic',         (1,), maxshape=(None,), dtype=float, chunks=True)
-            file.create_dataset('energies/bulk_internal',    (1,), maxshape=(None,), dtype=float, chunks=True)
-            file.create_dataset('energies/energetic_deltaf', (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('energies/bulk_kinetic',  (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('energies/magnetic',      (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('energies/bulk_internal', (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('energies/energetic',     (1,), maxshape=(None,), dtype=float, chunks=True)
 
             # elapsed times of different parts of the code
             file.create_dataset('times_elapsed/total',              (1,), maxshape=(None,), dtype=float, chunks=True)
@@ -894,7 +1028,7 @@ if time_int == True:
             file['energies/bulk_kinetic'][0]      = energies['U'][0]
             file['energies/magnetic'][0]          = energies['B'][0]
             file['energies/bulk_internal'][0]     = energies['p'][0]
-            file['energies/energetic_deltaf'][0]  = energies['df'][0]
+            file['energies/energetic'][0]         = energies['f'][0]
 
             file['pressure'][0]                   = pr
             file['velocity_field/1_component'][0] = u1
@@ -1069,11 +1203,11 @@ if time_int == True:
             file['energies/bulk_kinetic'].resize(file['energies/bulk_kinetic'].shape[0] + 1, axis = 0)
             file['energies/magnetic'].resize(file['energies/magnetic'].shape[0] + 1, axis = 0)
             file['energies/bulk_internal'].resize(file['energies/bulk_internal'].shape[0] + 1, axis = 0)
-            file['energies/energetic_deltaf'].resize(file['energies/energetic_deltaf'].shape[0] + 1, axis = 0)
-            file['energies/bulk_kinetic'][-1]     = energies['U'][0]
-            file['energies/magnetic'][-1]         = energies['B'][0]
-            file['energies/bulk_internal'][-1]    = energies['p'][0]
-            file['energies/energetic_deltaf'][-1] = energies['df'][0]
+            file['energies/energetic'].resize(file['energies/energetic'].shape[0] + 1, axis = 0)
+            file['energies/bulk_kinetic'][-1]  = energies['U'][0]
+            file['energies/magnetic'][-1]      = energies['B'][0]
+            file['energies/bulk_internal'][-1] = energies['p'][0]
+            file['energies/energetic'][-1]     = energies['f'][0]
 
             # elapsed times of different parts of the code
             file['times_elapsed/total'].resize(file['times_elapsed/total'].shape[0] + 1, axis = 0)
