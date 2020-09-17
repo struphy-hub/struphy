@@ -11,8 +11,6 @@ import input_run.equilibrium_MHD as eq_mhd
 @types('double','double','double','int','int','double[:]')        
 def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map):
     
-    value = 0.
-    
     if   kind_fun == 1:
         
         x     = mapping.f(eta1, eta2, eta3, kind_map, params_map, 1)

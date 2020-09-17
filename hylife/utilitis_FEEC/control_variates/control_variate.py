@@ -33,10 +33,7 @@ class terms_control_variate:
         parameters for the mapping
     """
     
-    def __init__(self, tensor_space, pic_accumulation, kind_map, params_map):
-        
-        self.kind_map   = kind_map         # type of mapping
-        self.params_map = params_map       # parameters for mapping
+    def __init__(self, tensor_space, pic_accumulation, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         
         self.p      = tensor_space.p       # spline degrees
         self.Nel    = tensor_space.Nel     # number of elements
@@ -55,21 +52,48 @@ class terms_control_variate:
         # particle accumulator
         self.pic    = pic_accumulation
         
-        # evaluation of DF^T * jh_eq_phys at quadrature points
+        # mapping
+        self.mapping = mapping
+        
+        if   mapping == 0:
+            self.kind_map   = kind_map
+            self.params_map = params_map
+            
+        elif mapping == 1:
+            self.T_F      = tensor_space_F.T
+            self.p_F      = tensor_space_F.p
+            self.NbaseN_F = tensor_space_F.NbaseN
+            
+            self.cx = cx
+            self.cy = cy
+            self.cz = cz
+        
+        
+        # ========= evaluation of DF^T * jh_eq_phys at quadrature points =========
         self.mat_jh1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.mat_jh2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.mat_jh3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, kind_map, params_map)
+        if   mapping == 0:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, kind_map, params_map)
+        elif mapping == 1:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
-        # evaluation of nh_eq_phys at quadrature points
+        
+        # ========= evaluation of nh_eq_phys at quadrature points ================
         self.mat_nh = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, kind_map, params_map)
+        if   mapping == 0:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, kind_map, params_map)
+        elif mapping == 1:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
-        # evaluation of G / sqrt(g) at quadrature points
+        
+        # ============ evaluation of G / sqrt(g) at quadrature points ===========
         self.mat_g11 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.mat_g21 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.mat_g22 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
@@ -78,18 +102,27 @@ class terms_control_variate:
         self.mat_g33 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g21, 22, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g22, 23, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g31, 24, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g32, 25, kind_map, params_map)
-        ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g33, 26, kind_map, params_map)
+        if   mapping == 0:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g21, 22, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g22, 23, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g31, 24, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g32, 25, kind_map, params_map)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g33, 26, kind_map, params_map)
+        elif mapping == 1:
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g11, 21, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g21, 22, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g22, 23, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g31, 24, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g32, 25, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_g33, 26, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
         
         # total magnetic field at quadrature points (perturbed + equilibrium)
         self.B1  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.B2  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         self.B3  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        
         
         # correction vectors in step 3
         self.F1  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
@@ -125,10 +158,18 @@ class terms_control_variate:
             inner products with each basis function in V1
         """
         
+        
         # evaluation of total magnetic field at quadrature points (perturbed + equilibrium)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.kind_map, self.params_map)
+        if self.mapping == 0:
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.kind_map, self.params_map)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.kind_map, self.params_map)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.kind_map, self.params_map)
+        elif self.mapping == 1:
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
+            
+            
         
         # assembly of F (1 - component)
         ker_cv.kernel_inner(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisN[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.F1, self.mat_jh3*(self.mat_g21*self.B1 + self.mat_g22*self.B2 + self.mat_g32*self.B3) - self.mat_jh2*(self.mat_g31*self.B1 + self.mat_g32*self.B2 + self.mat_g33*self.B3))
@@ -167,10 +208,15 @@ class terms_control_variate:
         """
         
         
-        # evaluation of total magnetic field at quadrature points (perturbed + equilibrium)   
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.kind_map, self.params_map)
-        ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.kind_map, self.params_map)
+        # evaluation of total magnetic field at quadrature points (perturbed + equilibrium)
+        if self.mapping == 0:
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.kind_map, self.params_map)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.kind_map, self.params_map)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.kind_map, self.params_map)
+        elif self.mapping == 1:
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1, 11, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2, 12, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
+            ker_cv.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, self.pts[0], self.pts[1], self.pts[2], b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3, 13, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, self.cx, self.cy, self.cz)
         
         
         # assembly of M12
