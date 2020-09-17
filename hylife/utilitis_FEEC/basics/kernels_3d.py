@@ -94,6 +94,8 @@ def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
 @types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
 def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params):
     
+    #$ omp parallel
+    #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
@@ -102,6 +104,10 @@ def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, 
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
                             mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_ana(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params)
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
         
         
         
@@ -109,6 +115,8 @@ def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, 
 @types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int')        
 def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1, eta2, eta3, mat_f, kind_fun):
     
+    #$ omp parallel
+    #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
@@ -116,7 +124,11 @@ def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1,
                 for q1 in range(nq[0]):
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
-                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)        
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
         
         
 # ==========================================================================================          
