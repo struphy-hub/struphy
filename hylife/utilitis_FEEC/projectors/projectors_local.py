@@ -10,9 +10,9 @@ import numpy as np
 
 import hylife.utilitis_FEEC.bsplines as bsp
 
-import hylife.utilitis_FEEC.projectors.kernels_projectors_local         as ker_loc
-#import hylife.utilitis_FEEC.projectors.kernels_projectors_local_eva_ana as ker_loc_eva
-import source_run.kernels_projectors_local_eva_ana as ker_loc_eva
+import hylife.utilitis_FEEC.projectors.kernels_projectors_local as ker_loc
+
+import source_run.kernels_projectors_local_eva as ker_loc_eva
 
 
 # ======================= 1d ====================================
@@ -951,12 +951,12 @@ class projectors_local_3d:
     # projector on space V0 (interpolation)
     def pi_0(self, fun, *args):
         """
-        Local projector of the discrete space V0.
+        Local projector on the discrete space V0.
         
         Parameters
         ----------
         fun : callable
-            the function (0-form) to be projected. If None, the function is called internally from hylife.interface.py, where args[0] selects the function, args[1] the mapping and args[2] is the parameters list for the mapping.
+            the function (0-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
             
         Returns
         -------
@@ -972,15 +972,21 @@ class projectors_local_3d:
         n_unique = [x_int1.size, x_int2.size, x_int3.size]
         
         # evaluation of function at interpolation points
+        mat_f    = np.empty((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
+        
         if fun == None:
-            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+                       
         else:
-            xx, yy, zz = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
-            mat_f      = fun(xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
+            mat_f[:, :, :] = fun(xx, yy, zz)
             
         # coefficients
-        lambdas  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+        lambdas = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi0_3d(self.NbaseN, self.p, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], mat_f, lambdas)
                                 
@@ -990,12 +996,12 @@ class projectors_local_3d:
     # projector on space V1 ([histopolation, interpolation, interpolation], [interpolation, histopolation, interpolation], [interpolation, interpolation, histopolation])
     def pi_1(self, fun, *args):
         """
-        Local projector of the discrete space V1.
+        Local projector on the discrete space V1.
         
         Parameters
         ----------
         fun : list of callables
-            the functions (components of a 1-form) to be projected. If None, the function is called internally from hylife.interface.py, where args[0] selects the function, args[1] the mapping and args[2] is the parameters list for the mapping.
+            the functions (components of a 1-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
             
         Returns
         -------
@@ -1014,14 +1020,19 @@ class projectors_local_3d:
         
         
         # ======== 1 - component ========
+        mat_f = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
-            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
-            mat_f       = fun[0](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
+            mat_f[:, :, :] = fun[0](xx, yy, zz)
         
         # coefficients
         lambdas1  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
@@ -1030,14 +1041,19 @@ class projectors_local_3d:
         
         
         # ======== 2 - component ========
+        mat_f = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
-            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f       = fun[1](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
+            mat_f[:, :, :] = fun[1](xx, yy, zz)
         
         # coefficients
         lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
@@ -1046,14 +1062,19 @@ class projectors_local_3d:
         
         
         # ======== 3 - component ========
+        mat_f = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
-            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f       = fun[2](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
+            mat_f[:, :, :] = fun[2](xx, yy, zz)
         
         # coefficients
         lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
@@ -1066,20 +1087,18 @@ class projectors_local_3d:
     # projector on space V2 ([interpolation, histopolation, histopolation], [histopolation, interpolation, histopolation], [histopolation, histopolation, interpolation])
     def pi_2(self, fun, *args):
         """
-        Local projector of the discrete space V2.
+        Local projector on the discrete space V2.
         
         Parameters
         ----------
         fun : list of callables
-            the functions (components of a 2-form) to be projected. If None, the function is called internally from hylife.interface.py, where args[0] selects the function, args[1] the mapping and args[2] is the parameters list for the mapping.
+            the functions (components of a 2-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
             
         Returns
         -------
         lambdas : list of array_like
             the coefficients in V2 corresponding to the projected function
         """
-        
-        
         
         # interpolation points
         x_int1    = np.unique(self.x_int[0].flatten())
@@ -1090,15 +1109,21 @@ class projectors_local_3d:
         n_unique2 = [self.pts[0].flatten().size, x_int2.size, self.pts[2].flatten().size]
         n_unique3 = [self.pts[0].flatten().size, self.pts[1].flatten().size, x_int3.size]
         
+        
         # ======== 1 - component ========
+        mat_f = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[0] == None:
-            mat_f = np.zeros((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0][0], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f       = fun[0](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
+            mat_f[:, :, :] = fun[0](xx, yy, zz)
         
         # coefficients
         lambdas1  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
@@ -1107,14 +1132,19 @@ class projectors_local_3d:
         
         
         # ======== 2 - component ========
+        mat_f = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[1] == None:
-            mat_f = np.zeros((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[0][1], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f       = fun[1](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
+            mat_f[:, :, :] = fun[1](xx, yy, zz)
         
         # coefficients
         lambdas2  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
@@ -1123,18 +1153,23 @@ class projectors_local_3d:
         
         
         # ======== 3 - component ========
+        mat_f = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         # evaluation of function at interpolation/quadrature points
         if fun[2] == None:
-            mat_f = np.zeros((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[0][2], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        
         else:
-            xx, yy, zz  = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f       = fun[2](xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
+            mat_f[:, :, :] = fun[2](xx, yy, zz)
         
         
-        # coefficients
-        lambdas3  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
+        # compute coefficients
+        lambdas3 = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
     
         ker_loc.kernel_pi23_3d([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]), lambdas3)
         
@@ -1144,12 +1179,12 @@ class projectors_local_3d:
     # projector on space V0 (histopolation)
     def pi_3(self, fun, *args):
         """
-        Local projector of the discrete space V3.
+        Local projector on the discrete space V3.
         
         Parameters
         ----------
         fun : callable
-            the function (component of a 3-form) to be projected. If None, the function is called internally from hylife.interface.py, where args[0] selects the function, args[1] the mapping and args[2] is the parameters list for the mapping.
+            the function (component of a 3-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
             
         Returns
         -------
@@ -1160,16 +1195,22 @@ class projectors_local_3d:
         n_unique = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size]
         
         # evaluation of function at quadrature points
+        mat_f = np.empty((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
+        
         if fun == None:
-            mat_f = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
-            ker_loc_eva.kernel_eva_ana(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[0], kind_map=args[1], params=args[2])
+            
+            if   args[0] == 0:
+                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], kind_map=args[2], params=args[3])
+            elif args[0] == 1:
+                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+                
         else:
-            xx, yy, zz = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f      = fun(xx, yy, zz)
+            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
+            mat_f[:, :, :] = fun(xx, yy, zz)
             
         
-        # coefficients
-        lambdas  = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
+        # compute coefficients
+        lambdas = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
             
         ker_loc.kernel_pi3_3d(self.NbaseD, self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas)
                                 
