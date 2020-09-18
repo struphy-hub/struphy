@@ -93,3 +93,34 @@ def pull_3_form(a, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     value  = a * abs(detdf)
     
     return value
+
+
+# ==============================================================================
+@types('double','double','double','double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int')
+def pull_vector(ax, ay, az, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, component):
+    
+    if   component == 1:
+        
+        dfinv11 = mapping.dfinv_11(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv12 = mapping.dfinv_12(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv13 = mapping.dfinv_13(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        
+        value = dfinv11 * ax + dfinv12 * ay + dfinv13 * az
+    
+    elif component == 2:
+        
+        dfinv21 = mapping.dfinv_21(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv22 = mapping.dfinv_22(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv23 = mapping.dfinv_23(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        
+        value = dfinv21 * ax + dfinv22 * ay + dfinv23 * az
+        
+    elif component == 3:
+        
+        dfinv31 = mapping.dfinv_31(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv32 = mapping.dfinv_32(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        dfinv33 = mapping.dfinv_33(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+        
+        value = dfinv31 * ax + dfinv32 * ay + dfinv33 * az
+        
+    return value

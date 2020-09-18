@@ -93,3 +93,35 @@ def pull_3_form(a, eta1, eta2, eta3, kind_map, params_map):
     value  = a * abs(detdf)
     
     return value
+
+
+
+# ==============================================================================
+@types('double','double','double','double','double','double','int','double[:]','int')
+def pull_vector(ax, ay, az, eta1, eta2, eta3, kind_map, params_map, component):
+    
+    if   component == 1:
+        
+        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 11)
+        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 12)
+        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 13)
+        
+        value = dfinv_11 * ax + dfinv_12 * ay + dfinv_13 * az
+    
+    elif component == 2:
+        
+        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 21)
+        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 22)
+        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 23)
+        
+        value = dfinv_21 * ax + dfinv_22 * ay + dfinv_23 * az
+        
+    elif component == 3:
+        
+        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 31)
+        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 32)
+        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, 33)
+        
+        value = dfinv_31 * ax + dfinv_32 * ay + dfinv_33 * az
+        
+    return value
