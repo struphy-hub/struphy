@@ -1,21 +1,25 @@
 from pyccel.decorators import types
 
 import hylife.geometry.mappings_discrete  as mapping
-import hylife.geometry.pull_back_discrete as pull
-from   numpy import sin, cos
+import hylife.geometry.pull_push_discrete as pull
 
-# ============================ physical domain ===========================================================
+from numpy import sin, cos, pi
+
+# ===============================================================
+#                       physical domain
+# ===============================================================
+
 # initial bulk pressure
 @types('double','double','double')
-def p_ini_phys(x, y, z):
+def p_ini(x, y, z):
     
-    p_phys = 0.
+    p = 0.
     
-    return p_phys
+    return p
 
 # initial bulk velocity (x - component)
 @types('double','double','double')
-def ux_ini(x, y, z):
+def u_ini_x(x, y, z):
     
     ux = 0.
     
@@ -23,7 +27,7 @@ def ux_ini(x, y, z):
 
 # initial bulk velocity (y - component)
 @types('double','double','double')
-def uy_ini(x, y, z):
+def u_ini_y(x, y, z):
     
     uy = 0.
     
@@ -31,7 +35,7 @@ def uy_ini(x, y, z):
 
 # initial bulk velocity (z - component)
 @types('double','double','double')
-def uz_ini(x, y, z):
+def u_ini_z(x, y, z):
     
     uz = 0.
     
@@ -39,7 +43,7 @@ def uz_ini(x, y, z):
 
 # initial magnetic field (x - component)
 @types('double','double','double')
-def bx_ini(x, y, z):
+def b_ini_x(x, y, z):
     
     bx = 0.
     
@@ -47,7 +51,7 @@ def bx_ini(x, y, z):
 
 # initial magnetic field (y - component)
 @types('double','double','double')
-def by_ini(x, y, z):
+def b_ini_y(x, y, z):
     
     by = 0.
     
@@ -55,7 +59,7 @@ def by_ini(x, y, z):
 
 # initial magnetic field (z - component)
 @types('double','double','double')
-def bz_ini(x, y, z):
+def b_ini_z(x, y, z):
     
     amp = 1e-3
     
@@ -69,118 +73,119 @@ def bz_ini(x, y, z):
 
 # initial bulk density
 @types('double','double','double')
-def rho_ini_phys(x, y, z):
+def rho_ini(x, y, z):
     
-    rho_phys = 0.
+    rho = 0.
     
-    return rho_phys
+    return rho
 
 
 
 
+# ===============================================================
+#                       logical domain
+# ===============================================================
 
-# ======== pull-back to logical domain ===================
-
-# equilibrium bulk pressure (0-form on logical domain)
+# initial bulk pressure (3-form)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def p_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def p3_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    return pull.pull_0_form(p_ini_phys(x, y, z), eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+    return pull.pull_0_form(p_ini(x, y, z), eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
 
-# equilibrium bulk velocity (1-form on logical domain, 1-component)
+# initial bulk velocity (vector, 1-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def u1_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def u_ini_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    ux = ux_ini(x, y, z)
-    uy = uy_ini(x, y, z)
-    uz = uz_ini(x, y, z)
+    ux = u_ini_x(x, y, z)
+    uy = u_ini_y(x, y, z)
+    uz = u_ini_z(x, y, z)
     
     return pull.pull_1_form(ux, uy, uz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 1)
 
-# equilibrium bulk velocity (1-form on logical domain, 2-component)
+# initial bulk velocity (vector, 2-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def u2_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def u_ini_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    ux = ux_ini(x, y, z)
-    uy = uy_ini(x, y, z)
-    uz = uz_ini(x, y, z)
+    ux = u_ini_x(x, y, z)
+    uy = u_ini_y(x, y, z)
+    uz = u_ini_z(x, y, z)
     
     return pull.pull_1_form(ux, uy, uz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 2)
 
-# equilibrium bulk velocity (1-form on logical domain, 3-component)
+# initial bulk velocity (vector, 3-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def u3_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def u_ini_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    ux = ux_ini(x, y, z)
-    uy = uy_ini(x, y, z)
-    uz = uz_ini(x, y, z)
+    ux = u_ini_x(x, y, z)
+    uy = u_ini_y(x, y, z)
+    uz = u_ini_z(x, y, z)
     
     return pull.pull_1_form(ux, uy, uz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 3)
 
-# equilibrium magnetic field (2-form on logical domain, 1-component)
+# initial magnetic field (2-form, 1-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b1_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b_ini_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    bx = bx_ini(x, y, z)
-    by = by_ini(x, y, z)
-    bz = bz_ini(x, y, z)
+    bx = b_ini_x(x, y, z)
+    by = b_ini_y(x, y, z)
+    bz = b_ini_z(x, y, z)
     
     return pull.pull_2_form(bx, by, bz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 1)
 
-# equilibrium magnetic field (2-form on logical domain, 2-component)
+# initial magnetic field (2-form, 2-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b2_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b_ini_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    bx = bx_ini(x, y, z)
-    by = by_ini(x, y, z)
-    bz = bz_ini(x, y, z)
+    bx = b_ini_x(x, y, z)
+    by = b_ini_y(x, y, z)
+    bz = b_ini_z(x, y, z)
     
     return pull.pull_2_form(bx, by, bz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 2)
 
-# equilibrium magnetic field (3-form on logical domain, 3-component)
+# initial magnetic field (2-form, 3-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b3_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b_ini_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z  = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    bx = bx_ini(x, y, z)
-    by = by_ini(x, y, z)
-    bz = bz_ini(x, y, z)
+    bx = b_ini_x(x, y, z)
+    by = b_ini_y(x, y, z)
+    bz = b_ini_z(x, y, z)
     
     return pull.pull_2_form(bx, by, bz, eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz, 3)
 
-# equilibrium bulk density (3-form on logical domain)
+# initial bulk density (3-form)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def rho_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def rho3_ini(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
     z = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
     
-    return pull.pull_3_form(rho_ini_phys(x, y, z), eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+    return pull.pull_3_form(rho_ini(x, y, z), eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
