@@ -79,7 +79,7 @@ def inner_prod_V0(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None
     # assembly
     F = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], F, mat_f, mat_map)
+    ker.kernel_inner_1(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], F, mat_f, mat_map)
                 
     return F
 
@@ -180,7 +180,7 @@ def inner_prod_V1(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None
             # evaluate function at quadrature points
             mat_f = fun[b](quad_mesh[0], quad_mesh[1], quad_mesh[2])
             
-            ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f, mat_map)
+            ker.kernel_inner_1(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f, mat_map)
             
             counter += 1
             
@@ -283,7 +283,7 @@ def inner_prod_V2(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None
             # evaluate function at quadrature points
             mat_f = fun[b](quad_mesh[0], quad_mesh[1], quad_mesh[2])
             
-            ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f, mat_map)
+            ker.kernel_inner_1(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f, mat_map)
             
             counter += 1
             
@@ -356,6 +356,6 @@ def inner_prod_V3(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None
     # assembly
     F = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], F, mat_f, mat_map)
+    ker.kernel_inner_1(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], F, mat_f, mat_map)
                 
     return F
