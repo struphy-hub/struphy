@@ -266,13 +266,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -284,7 +284,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_n_n_n(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 0)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_n_n_n(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -294,13 +303,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -312,7 +321,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_d_n_n(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 11)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_d_n_n(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -322,13 +340,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -340,7 +358,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_n_d_n(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 12)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_n_d_n(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -350,13 +377,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -368,7 +395,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_n_n_d(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 13)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_n_n_d(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -378,13 +414,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -396,7 +432,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_n_d_d(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 21)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_n_d_d(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -406,13 +451,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -424,7 +469,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_d_n_d(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 22)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_d_n_d(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -434,13 +488,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -452,7 +506,16 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_d_d_n(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 23)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_d_d_n(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -462,13 +525,13 @@ class tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double
+        eta1 : double or np.ndarray
             1st component of logical evaluation point
             
-        eta2 : double
+        eta2 : double or np.ndarray
             2nd component of logical evaluation point
             
-        eta3 : double
+        eta3 : double or np.ndarray
             3rd component of logical evaluation point
         
         coeff : array_like
@@ -480,4 +543,13 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2, eta3)
         """
         
-        return eva_3d.evaluate_d_d_d(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+        if isinstance(eta1, np.ndarray):
+            
+            values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+            
+            eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 3)
+            
+            return values
+        
+        else:
+            return eva_3d.evaluate_d_d_d(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
