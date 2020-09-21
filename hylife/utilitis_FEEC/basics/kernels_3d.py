@@ -43,6 +43,21 @@ def fun_ana(eta1, eta2, eta3, kind_fun, kind_map, params):
     # quantities for 3-form mass matrix
     elif kind_fun == 2:
         value = 1. / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        
+    # quantities for vector mass matrix
+    elif kind_fun == 31:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 11) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+    elif kind_fun == 32:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 21) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+    elif kind_fun == 33:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 22) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+    elif kind_fun == 34:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 31) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+    elif kind_fun == 35:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 32) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+    elif kind_fun == 36:
+        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 33) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        
     
     return value
     
