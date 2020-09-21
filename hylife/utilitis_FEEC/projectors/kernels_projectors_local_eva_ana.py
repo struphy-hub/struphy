@@ -10,102 +10,91 @@ import input_run.initial_conditions_MHD as ini_mhd
 
 # ==========================================================================================
 @types('double','double','double','int','int','double[:]')        
-def fun(xi1, xi2, xi3, kind_fun, kind_map, params):
+def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map):
     
     # initial conditions
     if   kind_fun == 1:
-        value = ini_mhd.p_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.p3_ini(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 2:
-        value = ini_mhd.u1_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.u_ini_1(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 3:
-        value = ini_mhd.u2_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.u_ini_2(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 4:
-        value = ini_mhd.u3_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.u_ini_3(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 5:
-        value = ini_mhd.b1_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.b2_ini_1(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 6:
-        value = ini_mhd.b2_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.b2_ini_2(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 7:
-        value = ini_mhd.b3_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.b2_ini_3(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 8:
-        value = ini_mhd.rho_ini(xi1, xi2, xi3, kind_map, params)
+        value = ini_mhd.rho3_ini(eta1, eta2, eta3, kind_map, params_map)
     
     # quantities for projection matrix Q
     elif kind_fun == 11:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
-    elif kind_fun == 12:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
-    elif kind_fun == 13:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
-    elif kind_fun == 14:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
-    elif kind_fun == 15:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
-    elif kind_fun == 16:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
-    elif kind_fun == 17:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
-    elif kind_fun == 18:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
-    elif kind_fun == 19:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
+        value = eq_mhd.rho3_eq(eta1, eta2, eta3, kind_map, params_map)
         
     # quantities for projection matrix T
     elif kind_fun == 21:
-        value = eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31) - eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21)
+        value = eq_mhd.b2_eq_1(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 22:
-        value = eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32) - eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22)
+        value = eq_mhd.b2_eq_2(eta1, eta2, eta3, kind_map, params_map)
     elif kind_fun == 23:
-        value = eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33) - eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23)
-    elif kind_fun == 24:
-        value = eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11) - eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 31)
-    elif kind_fun == 25:
-        value = eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12) - eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 32)
-    elif kind_fun == 26:
-        value = eq_mhd.b3_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13) - eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 33)
-    elif kind_fun == 27:
-        value = eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 21) - eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 11)
-    elif kind_fun == 28:
-        value = eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 22) - eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 12)
-    elif kind_fun == 29:
-        value = eq_mhd.b1_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 23) - eq_mhd.b2_eq(xi1, xi2, xi3, kind_map, params) * mapping.g_inv(xi1, xi2, xi3, kind_map, params, 13)
+        value = eq_mhd.b2_eq_3(eta1, eta2, eta3, kind_map, params_map)
         
-    # quantities for projection matrix W
+    # quantities for projection matrix S
     elif kind_fun == 31:
-        value = eq_mhd.rho_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
+        value = eq_mhd.p3_eq(eta1, eta2, eta3, kind_map, params_map)
         
-    # quantities for projection matrix P
+    # quantities for projection matrix K
     elif kind_fun == 41:
-        value = -eq_mhd.curlb3_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    elif kind_fun == 42:
-        value =  eq_mhd.curlb2_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    elif kind_fun == 43:
-        value =  eq_mhd.curlb3_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    elif kind_fun == 44:
-        value = -eq_mhd.curlb1_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    elif kind_fun == 45:
-        value = -eq_mhd.curlb2_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    elif kind_fun == 46:
-        value =  eq_mhd.curlb1_eq(xi1, xi2, xi3, kind_map, params) / abs(mapping.det_df(xi1, xi2, xi3, kind_map, params))
-    
-    # quantities for projection matrices K and S
-    elif kind_fun == 91:
-        value = eq_mhd.p_eq(xi1, xi2, xi3, kind_map, params)
+        value = eq_mhd.p0_eq(eta1, eta2, eta3, kind_map, params_map)
         
+    # quantities for projection matrix N
+    elif kind_fun == 51:
+        value = abs(mapping.det_df(eta1, eta2, eta3, kind_map, params_map))
     
+    # quantities for equilibrium current term r
+    elif kind_fun == 61:
+        value = eq_mhd.curlb_eq_1(eta1, eta2, eta3, kind_map, params_map)
+    elif kind_fun == 62:
+        value = eq_mhd.curlb_eq_2(eta1, eta2, eta3, kind_map, params_map)
+    elif kind_fun == 63:
+        value = eq_mhd.curlb_eq_3(eta1, eta2, eta3, kind_map, params_map)
+        
     return value
 
      
 # ==========================================================================================
 @types('int[:]','double[:]','double[:]','double[:]','double[:,:,:]','int','int','double[:]')        
-def kernel_eva(n, xi1, xi2, xi3, mat_f, kind_fun, kind_map, params):
+def kernel_eva(n, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params_map):
     
     #$ omp parallel
     #$ omp do private (i1, i2, i3)
     for i1 in range(n[0]):
         for i2 in range(n[1]):
             for i3 in range(n[2]):
-                mat_f[i1, i2, i3] = fun(xi1[i1], xi2[i2], xi3[i3], kind_fun, kind_map, params)
+                mat_f[i1, i2, i3] = fun(eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params_map)
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+
+# ==========================================================================================
+@types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
+def kernel_eva_quad(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params_map):
+    
+    #$ omp parallel
+    #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
+            for ie3 in range(nel[2]):
+    
+                for q1 in range(nq[0]):
+                    for q2 in range(nq[1]):
+                        for q3 in range(nq[2]):
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params_map)
     #$ omp end do
     #$ omp end parallel
     

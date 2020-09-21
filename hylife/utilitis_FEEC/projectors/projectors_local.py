@@ -977,7 +977,7 @@ class projectors_local_3d:
         if fun == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
                        
@@ -1026,7 +1026,7 @@ class projectors_local_3d:
         if fun[0] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1047,7 +1047,7 @@ class projectors_local_3d:
         if fun[1] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1068,7 +1068,7 @@ class projectors_local_3d:
         if fun[2] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1117,7 +1117,7 @@ class projectors_local_3d:
         if fun[0] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1138,7 +1138,7 @@ class projectors_local_3d:
         if fun[1] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1159,7 +1159,7 @@ class projectors_local_3d:
         if fun[2] == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
         
@@ -1200,7 +1200,7 @@ class projectors_local_3d:
         if fun == None:
             
             if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], kind_map=args[2], params=args[3])
+                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], kind_map=args[2], params_map=args[3])
             elif args[0] == 1:
                 ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
                 

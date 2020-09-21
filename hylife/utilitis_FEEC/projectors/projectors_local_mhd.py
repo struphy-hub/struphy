@@ -6,13 +6,14 @@
 Class for local projections for linear ideal mhd in 3d based on quasi-interpolation
 """
 
-
+import sys
 import numpy as np
 import scipy.sparse as spa
 
 import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_local_mhd as ker_loc
+import hylife.utilitis_FEEC.basics.kernels_3d as ker_loc_3d
 
 import source_run.kernels_projectors_local_eva as ker_loc_eva
 
@@ -495,45 +496,53 @@ class projectors_local_mhd:
         self.basisD_his = [bsp.collocation_matrix(T[1:-1], p - 1, pts.flatten(), bc, normalize=True).reshape(pts[:, 0].size, pts[0, :].size, NbaseD) for T, p, pts, bc, NbaseD in zip(self.T, self.p, self.pts, self.bc, self.NbaseD)]
         
         
-    # ======================================================================== 
+    # ========================================================================
     def projection_Q(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
-        Computes the sparse matrix of the expression pi_2(rho_eq * g_inv * lambda^1) with the output (coefficients, basis_fun of lambda^1).
+        Computes the sparse matrix of the expression pi_2(rho3_eq * lambda^2) with the output (coefficients, basis_fun of lambda^2).
 
         The following blocks need to be computed:
 
-        1 - component [int, his, his] : (D, N, N)*g_inv_00*rho_eq, (N, D, N)*g_inv_01*rho_eq, (N, N, D)*g_inv_02*rho_eq
-        2 - component [his, int, his] : (D, N, N)*g_inv_10*rho_eq, (N, D, N)*g_inv_11*rho_eq, (N, N, D)*g_inv_12*rho_eq
-        3 - component [his, his, int] : (D, N, N)*g_inv_20*rho_eq, (N, D, N)*g_inv_21*rho_eq, (N, N, D)*g_inv_22*rho_eq
+        1 - component [int, his, his] : (N, D, D)*rho3_eq, None             , None
+        2 - component [his, int, his] : None             , (D, N, D)*rho3_eq, None
+        3 - component [his, his, int] : None             , None             , (D, D, N)*rho3_eq
 
-        The mapping is called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings.
+        An analytical mapping is called from hylife.geometry.mappings_analytical.
 
         Parameters
         ----------
+        mapping : int
+            0 : analytical mapping
+            1 : discrete mapping
+        
         kind_map : int
-            type of mapping
+            type of mapping (analytical)
 
         params_map : list of doubles
-            parameters for the mapping
+            parameters for the mapping (analytical)
+            
+        tensor_space_F : tensor_spline_space
+            the 3d tensor-product B-spline space defing the mapping
+            
+        cx : array_like
+            control points of Fx
+            
+        cy : array_like
+            control points of Fy
+            
+        cz : array_like
+            control points of Fz
 
         Returns
         -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V1 on V2 weighted with rho_eq * g_inv   
+        Q : sparse matrix in csc-format
+            the projection of each basis function in V2 on V2 weighted with rho3_eq   
         """
 
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
-
-        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
-
-        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
+        Q11 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
+        Q22 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
+        Q33 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
 
 
         # size of interpolation/quadrature points of the 3 components
@@ -542,243 +551,139 @@ class projectors_local_mhd:
         n_unique3 = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.x_int[2].size]
 
 
-        # assembly of 1 - component (pi2_1 : int, his, his)
+        # ========= assembly of 1 - component (pi2_1 : int, his, his) ============
         mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
 
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 11, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 11, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
             ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 11, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
 
-        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_his_locbf_N[1], self.n_his_locbf_N[2]], self.int_global_D[0], self.his_global_N[1], self.his_global_N[2], self.int_loccof_D[0], self.his_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_his[1], self.basisN_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], tau11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 12, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 12, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_his_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], tau12, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 13, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 13, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_N[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], tau13, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
+        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], Q11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
 
 
-        # assembly of 2 - component (pi2_2 : his, int, his)
+        # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
         mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
 
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 14, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 11, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 14, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 11, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
 
-        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], tau21, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 15, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 15, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_N[0], self.n_int_locbf_D[1], self.n_his_locbf_N[2]], self.his_global_N[0], self.int_global_D[1], self.his_global_N[2], self.his_loccof_N[0], self.int_loccof_D[1], self.his_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_his[0], self.basisD_int[1], self.basisN_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], tau22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 16, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 16, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.his_global_N[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_N[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], tau23, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], Q22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
 
 
-        # assembly of 3 - component (pi2_3 : his, his, int)
+        # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
         mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
 
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 17, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 11, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 17, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 11, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
 
-        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], tau31, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 18, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 18, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_N[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], tau32, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
-
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 19, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 19, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-
-        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_his_locbf_N[1], self.n_int_locbf_D[2]], self.his_global_N[0], self.his_global_N[1], self.int_global_D[2], self.his_loccof_N[0], self.his_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_his[1], self.basisD_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], tau33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
+        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], Q33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
 
 
-        # conversion to sparse matrices (1 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
 
-        col1 = (indices[3] + self.int_shift_D[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-
-        col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-
-        tau11 = spa.csc_matrix((tau11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))         
-        tau11.eliminate_zeros()
-
-
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
+        # ========= conversion to sparse matrices (1 - component) =================
+        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]))
+        row     = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
 
         col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
         col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-
-        col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-
-        tau12 = spa.csc_matrix((tau12.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))         
-        tau12.eliminate_zeros()
-
-
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_his_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
         col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
 
         col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
 
-        tau13 = spa.csc_matrix((tau13.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))         
-        tau13.eliminate_zeros()
+        Q11 = spa.csc_matrix((Q11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))
+        Q11.eliminate_zeros()
 
-        # conversion to sparse matrices (2 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-
-        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-
-        tau21 = spa.csc_matrix((tau21.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau21.eliminate_zeros()
-
-
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_D[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-
-        tau22 = spa.csc_matrix((tau22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau22.eliminate_zeros()
-
-
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
+        
+        # ========= conversion to sparse matrices (2 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
         row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
 
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
         col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
         col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
 
         col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
 
-        tau23 = spa.csc_matrix((tau23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau23.eliminate_zeros()
-
-        # conversion to sparse matrices (3 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-
-        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-
-        tau31 = spa.csc_matrix((tau31.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau31.eliminate_zeros()
+        Q22 = spa.csc_matrix((Q22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
+        Q22.eliminate_zeros()
 
 
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
+        # ========= conversion to sparse matrices (3 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
         row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
 
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
         col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
         col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
 
         col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
 
-        tau32 = spa.csc_matrix((tau32.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau32.eliminate_zeros()
+        Q33 = spa.csc_matrix((Q33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
+        Q33.eliminate_zeros()
 
 
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
+        Q = spa.bmat([[Q11.T, None, None], [None, Q22.T, None], [None, None, Q33.T]], format='csc')
 
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_D[2][None, None, :, None, None, None])%self.NbaseN[2]
-
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-
-        tau33 = spa.csc_matrix((tau33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau33.eliminate_zeros()
-
-
-        tau = spa.bmat([[tau11.T, tau12.T, tau13.T], [tau21.T, tau22.T, tau23.T], [tau31.T, tau32.T, tau33.T]], format='csc')
-
-        return tau
+        return Q
     
     
-    # ======================================================================== 
+    # =========================================================================
     def projection_T(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
-        Computes the matrix of the expression pi_1(b_eq * g_inv * lambda^1) with the output (coefficients, basis_fun of lambda^1).
+        Computes the matrix of the expression pi_1(b2_eq * lambda^2) with the output (coefficients, basis_fun of lambda^2).
 
         The following blocks need to be computed:
 
-        1 - component [his, int, int] : (D, N, N)*(B1*Ginv_20 - B2*Ginv_10), (N, D, N)*(B1*Ginv_21 - B2*Ginv_11), (N, N, D)*(B1*Ginv_22 - B2*Ginv_12)
-        2 - component [int, his, int] : (D, N, N)*(B2*Ginv_00 - B0*Ginv_20), (N, D, N)*(B2*Ginv_01 - B0*Ginv_21), (N, N, D)*(B2*Ginv_02 - B0*Ginv_22)
-        3 - component [int, int, his] : (D, N, N)*(B0*Ginv_10 - B1*Ginv_00), (N, N, D)*(B0*Ginv_11 - B1*Ginv_01), (N, N, D)*(B0*Ginv_12 - B1*Ginv_02)
+        1 - component [his, int, int] :   None       , -(D, N, D)*B3,  (D, D, N)*B2
+        2 - component [int, his, int] :  (N, D, D)*B3,   None       , -(D, D, N)*B1
+        3 - component [int, int, his] : -(N, D, D)*B2,  (D, N, D)*B1,   None
 
-        The mapping is called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings.
+        An analytical mapping is called from hylife.geometry.mappings_analytical.
 
         Parameters
         ----------
+        mapping : int
+            0 : analytical mapping
+            1 : discrete mapping
+        
         kind_map : int
-            type of mapping
+            type of mapping (analytical)
 
         params_map : list of doubles
-            parameters for the mapping
+            parameters for the mapping (analytical)
+            
+        tensor_space_F : tensor_spline_space
+            the 3d tensor-product B-spline space defing the mapping
+            
+        cx : array_like
+            control points of Fx
+            
+        cy : array_like
+            control points of Fy
+            
+        cz : array_like
+            control points of Fz
 
         Returns
         -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V1 on V1 weighted with b_eq * g_inv 
+        T : sparse matrix in csc-format
+            the projection of each basis function in V2 on V1 weighted with b2_eq   
         """
         
         # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
+        T12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
+        T13 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau21 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        tau23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
+        T21 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_D[2]), dtype=float)
+        T23 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
         
-        tau31 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau32 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]), dtype=float)
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
+        T31 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
+        T32 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # unique interpolation points
         n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
@@ -786,528 +691,62 @@ class projectors_local_mhd:
         n_unique3 = [self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size]
         
         
-        # assembly of 1 - component (pi1_1 : his, int, int)
+        # ================= assembly of 1 - component (pi1_1 : his, int, int) ============
         mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 21, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 21, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau11, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 22, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 22, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_N[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_N[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisD_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 23, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 23, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
             ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 23, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_N[0], self.n_int_locbf_N[1], self.n_int_locbf_D[2]], self.his_global_N[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_N[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_his[0], self.basisN_int[1], self.basisD_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
+        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
+        
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 22, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 22, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+        
+        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], T13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
         
         
-        # assembly of 2 - component (PI_1_2 : int, his, int)
+        # ================= assembly of 2 - component (PI_1_2 : int, his, int) ============
         mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 24, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 23, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 24, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 23, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_N[1], self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisN_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
+        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
+        
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 25, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 21, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 25, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 21, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau22, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 26, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 26, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1], self.n_int_locbf_D[2]], self.int_global_N[0], self.his_global_N[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisD_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
+        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
         
         
-        # assembly of 3 - component (PI_1_3 : int, int, his)
+        # ================= assembly of 3 - component (PI_1_3 : int, int, his) ============
         mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 27, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 22, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 27, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 22, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_N[2]], self.int_global_D[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_int[1], self.basisN_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_D[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 28, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 21, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 28, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 21, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_D[1], self.n_his_locbf_N[2]], self.int_global_N[0], self.int_global_D[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_int[1], self.basisN_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_D[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
         
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 29, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 29, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau33, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-        
-        
-        # conversion to sparse matrices (1 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau11 = spa.csc_matrix((tau11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau11.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_N[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_D[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau12 = spa.csc_matrix((tau12.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau12.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.his_shift_N[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_D[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau13 = spa.csc_matrix((tau13.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau13.eliminate_zeros()
-        
-        
-        # conversion to sparse matrices (2 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_D[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau21 = spa.csc_matrix((tau21.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau21.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau22 = spa.csc_matrix((tau22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau22.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_N[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_D[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau23 = spa.csc_matrix((tau23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau23.eliminate_zeros()
-        
-        
-        # conversion to sparse matrices (3 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_D[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-        
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-        
-        tau31 = spa.csc_matrix((tau31.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau31.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_D[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_N[2][None, None, :, None, None, None])%self.NbaseD[2]
-        
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-        
-        tau32 = spa.csc_matrix((tau32.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau32.eliminate_zeros()
-        
-        
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
-        
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-        
-        tau33 = spa.csc_matrix((tau33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau33.eliminate_zeros()
-        
-        tau = spa.bmat([[tau11.T, tau12.T, tau13.T], [tau21.T, tau22.T, tau23.T], [tau31.T, tau32.T, tau33.T]], format='csc')
-        
-        return tau
-    
-    
-    # ======================================================================== 
-    def projection_W(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
-        """
-        Computes the matrix of the expression pi_1(rho_eq/g_sqrt * lambda^1) with the output (coefficients, basis_funs of lambda^1).
-        
-        The following blocks need to be computed:
-        
-        1 - component [his, int, int] : (D, N, N)*rho_eq/g_sqrt, 0, 0
-        2 - component [int, his, int] : 0, (N, D, N)*rho_eq/g_sqrt, 0
-        3 - component [int, int, his] : 0, 0, (N, N, D)*rho_eq/g_sqrt
-        
-        The mapping is called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings.
-
-        Parameters
-        ----------
-        kind_map : int
-            type of mapping
-
-        params_map : list of doubles
-            parameters for the mapping
-
-        Returns
-        -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V1 on V1 weighted with rho_eq/g_sqrt 
-        """
-        
-        
-        # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
-        
-        # unique interpolation points
-        n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
-        n_unique2 = [self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size]
-        n_unique3 = [self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size]
-        
-        # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 31, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau11, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 31, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau22, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
-        
-        # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 31, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau33, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-        
-        
-        # conversion to sparse matrices (1 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau11 = spa.csc_matrix((tau11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau11.eliminate_zeros()
-        
-        # conversion to sparse matrices (2 - component)
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau22 = spa.csc_matrix((tau22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau22.eliminate_zeros()
-        
-        # conversion to sparse matrices (3 - component)
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
-        
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-        
-        tau33 = spa.csc_matrix((tau33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau33.eliminate_zeros()
-        
-        tau = spa.bmat([[tau11.T, None, None], [None, tau22.T, None], [None, None, tau33.T]], format='csc')
-        
-        return tau
-    
-    
-    # ======================================================================== 
-    def projection_S(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
-        """
-        Computes the matrix of the expression pi_1(p_eq * lambda^1) with the output (coefficients, basis_funs of lambda^1).
-        
-        The following blocks need to be computed:
-        
-        1 - component [his, int, int] : (D, N, N)*p_eq, 0, 0
-        2 - component [int, his, int] : 0, (N, D, N)*p_eq, 0
-        3 - component [int, int, his] : 0, 0, (N, N, D)*p_eq
-        
-        The mapping is called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings.
-
-        Parameters
-        ----------
-        kind_map : int
-            type of mapping
-
-        params_map : list of doubles
-            parameters for the mapping
-
-        Returns
-        -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V1 on V1 weighted with p_eq
-        """
-        
-        
-        # non-vanishing coefficients
-        tau11 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau22 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
-        
-        # unique interpolation points
-        n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
-        n_unique2 = [self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size]
-        n_unique3 = [self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size]
-        
-        
-        # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 91, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 91, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau11, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 91, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 91, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau22, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
-        
-        # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 91, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 91, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau33, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-        
-        # conversion to sparse matrices (1 - component)
-        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau11 = spa.csc_matrix((tau11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau11.eliminate_zeros()
-        
-        # conversion to sparse matrices (2 - component)
-        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
-        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
-        
-        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
-        
-        tau22 = spa.csc_matrix((tau22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau22.eliminate_zeros()
-        
-        # conversion to sparse matrices (3 - component)
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
-        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
-        
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
-        
-        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
-        
-        tau33 = spa.csc_matrix((tau33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau33.eliminate_zeros()
-        
-        tau = spa.bmat([[tau11.T, None, None], [None, tau22.T, None], [None, None, tau33.T]], format='csc')
-        
-        return tau
-    
-    
-    # ======================================================================== 
-    def projection_P(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
-        """
-        Computes the matrix of the expression pi_1(curl(b_eq) * lambda^2) with the output (coefficients, basis_funs of lambda^2).
-        
-        The following blocks need to be computed:
-        
-        1 - component (his, int, int) :  0, -(D, N, D)*curl(b_eq)_3, (D, D, N)*curl(b_eq)_2 
-        2 - component (int, his, int) :  (N, D, D)*curl(b_eq)_3, 0, -(D, D, N)*curl(b_eq)_1
-        3 - component (int, int, his) : -(N, D, D)*curl(b_eq)_2, (D, N, D)*curl(b_eq)_1,  0
-        
-        Parameters
-        ----------
-        kind_map : int
-            type of mapping
-
-        params_map : list of doubles
-            parameters for the mapping
-
-        Returns
-        -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V2 on V1 weighted with curl(b_eq)
-        """
-        
-        # non-vanishing coefficients
-        tau12 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]), dtype=float)
-        tau13 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau21 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_D[2]), dtype=float)
-        tau23 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
-        
-        tau31 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
-        tau32 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
-        
-        # unique interpolation points
-        n_unique1 = [self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size]
-        n_unique2 = [self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size]
-        n_unique3 = [self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size]
-        
-        
-        # assembly of 1 - component (pi1_1 : his, int, int)
-        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 41, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 41, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_int_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.int_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.int_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau12, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 42, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), self.x_int[1], self.x_int[2], mat_eq, 42, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-            
-        ker_loc.kernel_pi1_1([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.n_quad[0], [self.n_his[0], self.n_int[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_int_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.int_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.int_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_int[1], self.basisN_int[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], tau13, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]))
-        
-        # assembly of 2 - component (pi1_2 : int, his, int)
-        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 43, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 43, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_int_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.int_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.int_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 44, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 44, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.int_global_D[0], self.his_global_D[1], self.int_global_N[2], self.int_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_int[0], self.basisD_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], tau23, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
-        
-        # assembly of 3 - component (pi1_3 : int, int, his)
-        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 45, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 45, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_D[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.int_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.int_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-        
-        if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 46, kind_map=kind_map, params=params_map)
-        elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 46, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
-        
-        ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.int_global_D[0], self.int_global_N[1], self.his_global_D[2], self.int_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_int[0], self.basisN_int[1], self.basisD_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], tau32, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
-        
-        # conversion to sparse matrices (1 - component)
+        # ============== conversion to sparse matrices (1 - component) ==============
         indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_int_nvcof_D[2]))
         row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
         
@@ -1317,8 +756,8 @@ class projectors_local_mhd:
         
         col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
         
-        tau12 = spa.csc_matrix((tau12.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau12.eliminate_zeros()
+        T12 = spa.csc_matrix((T12.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
+        T12.eliminate_zeros()
         
         
         indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_int_nvcof_D[1], self.n_int_nvcof_N[2]))
@@ -1330,11 +769,11 @@ class projectors_local_mhd:
         
         col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
         
-        tau13 = spa.csc_matrix((tau13.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau13.eliminate_zeros()
+        T13 = spa.csc_matrix((T13.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2]))         
+        T13.eliminate_zeros()
         
         
-        # conversion to sparse matrices (2 - component)
+        # ============== conversion to sparse matrices (2 - component) ==============
         indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_int_nvcof_D[2]))
         row     = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
         
@@ -1344,8 +783,8 @@ class projectors_local_mhd:
         
         col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
         
-        tau21 = spa.csc_matrix((tau21.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau21.eliminate_zeros()
+        T21 = spa.csc_matrix((T21.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
+        T21.eliminate_zeros()
         
         
         indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_int_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
@@ -1357,11 +796,11 @@ class projectors_local_mhd:
         
         col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
         
-        tau23 = spa.csc_matrix((tau23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
-        tau23.eliminate_zeros()
+        T23 = spa.csc_matrix((T23.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
+        T23.eliminate_zeros()
         
         
-        # conversion to sparse matrices (3 - component)
+        # ============== conversion to sparse matrices (3 - component) ==============
         indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_int_nvcof_D[1], self.n_his_nvcof_D[2]))
         row     = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
         
@@ -1371,8 +810,8 @@ class projectors_local_mhd:
         
         col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
         
-        tau31 = spa.csc_matrix((tau31.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau31.eliminate_zeros()
+        T31 = spa.csc_matrix((T31.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
+        T31.eliminate_zeros()
         
         
         indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_int_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
@@ -1384,68 +823,470 @@ class projectors_local_mhd:
         
         col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
         
-        tau32 = spa.csc_matrix((tau32.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
-        tau32.eliminate_zeros()
+        T32 = spa.csc_matrix((T32.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]))         
+        T32.eliminate_zeros()
+                             
+                             
         
-        tau = spa.bmat([[None, tau12.T, tau13.T], [tau21.T, None, tau23.T], [tau31.T, tau32.T, None]], format='csc')
+        T = spa.bmat([[None, -T12.T, T13.T], [T21.T, None, -T23.T], [-T31.T, T32.T, None]], format='csc')
         
-        return tau
+        return T
+
+    
+    
+    # ========================================================================
+    def projection_S(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+        """
+        Computes the sparse matrix of the expression pi_2(p3_eq * lambda^2) with the output (coefficients, basis_fun of lambda^2).
+
+        The following blocks need to be computed:
+
+        1 - component [int, his, his] : (N, D, D)*p3_eq, None           , None
+        2 - component [his, int, his] : None           , (D, N, D)*p3_eq, None
+        3 - component [his, his, int] : None           , None           , (D, D, N)*p3_eq
+
+        An analytical mapping is called from hylife.geometry.mappings_analytical.
+
+        Parameters
+        ----------
+        mapping : int
+            0 : analytical mapping
+            1 : discrete mapping
+        
+        kind_map : int
+            type of mapping (analytical)
+
+        params_map : list of doubles
+            parameters for the mapping (analytical)
+            
+        tensor_space_F : tensor_spline_space
+            the 3d tensor-product B-spline space defing the mapping
+            
+        cx : array_like
+            control points of Fx
+            
+        cy : array_like
+            control points of Fy
+            
+        cz : array_like
+            control points of Fz
+
+        Returns
+        -------
+        S : sparse matrix in csc-format
+            the projection of each basis function in V2 on V2 weighted with rho3_eq   
+        """
+
+        # non-vanishing coefficients
+        S11 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
+        S22 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
+        S33 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
+
+
+        # size of interpolation/quadrature points of the 3 components
+        n_unique1 = [self.x_int[0].size, self.pts[1].flatten().size, self.pts[2].flatten().size]
+        n_unique2 = [self.pts[0].flatten().size, self.x_int[1].size, self.pts[2].flatten().size]
+        n_unique3 = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.x_int[2].size]
+
+
+        # ========= assembly of 1 - component (pi2_1 : int, his, his) ============
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 31, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], S11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
+
+
+        # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 31, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], S22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+
+
+        # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 31, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 31, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], S33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
+
+
+
+        # ========= conversion to sparse matrices (1 - component) =================
+        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]))
+        row     = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
+        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
+        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
+
+        col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
+
+        S11 = spa.csc_matrix((S11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))         
+        S11.eliminate_zeros()
+
+
+        # ========= conversion to sparse matrices (2 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
+        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
+        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
+
+        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
+
+        S22 = spa.csc_matrix((S22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
+        S22.eliminate_zeros()
+
+
+        # ========= conversion to sparse matrices (3 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
+        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
+        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
+
+        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
+
+        S33 = spa.csc_matrix((S33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
+        S33.eliminate_zeros()
+
+
+        S = spa.bmat([[S11.T, None, None], [None, S22.T, None], [None, None, S33.T]], format='csc')
+
+        return S
+    
     
     
     # ========================================================================                
     def projection_K(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
-        Computes the matrix of the expression pi_0(p_eq * lambda^0) with the output (coefficients, basis_fun of V0).
-        
-        The following block need to be computed:
-        
-        (int, int, int) : (N, N, N)*p_eq
-        
+        Computes the sparse matrix of the expression pi_3(p0_eq * lambda^3) with the output (coefficients, basis_fun of lambda^2).
+
+        The following block needs to be computed:
+
+        [his, his, his] : (D, D, D)*p0_eq
+
+        An analytical mapping is called from hylife.geometry.mappings_analytical.
+
         Parameters
         ----------
+        mapping : int
+            0 : analytical mapping
+            1 : discrete mapping
+        
         kind_map : int
-            type of mapping
+            type of mapping (analytical)
 
         params_map : list of doubles
-            parameters for the mapping
+            parameters for the mapping (analytical)
+            
+        tensor_space_F : tensor_spline_space
+            the 3d tensor-product B-spline space defing the mapping
+            
+        cx : array_like
+            control points of Fx
+            
+        cy : array_like
+            control points of Fy
+            
+        cz : array_like
+            control points of Fz
 
         Returns
         -------
-        tau : sparse matrix in csc-format
-            the projection of each basis function in V0 on V0 weighted with p_eq
+        S : sparse matrix in csc-format
+            the projection of each basis function in V3 on V3 weighted with p0_eq   
         """
         
         # non-vanishing coefficients
-        tau = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        K = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
         
         # evaluation of equilibrium pressure at interpolation points
-        n_unique = [self.x_int[0].size, self.x_int[1].size, self.x_int[2].size]
+        n_unique = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size]
         
         mat_eq   = np.zeros((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
         
         if   mapping == 0:
-            ker_loc_eva.kernel_eva(n_unique, self.x_int[0], self.x_int[1], self.x_int[2], mat_eq, 91, kind_map=kind_map, params=params_map)
+            ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 41, kind_map=kind_map, params_map=params_map)
         elif mapping == 1:
-            ker_loc_eva.kernel_eva(n_unique, self.x_int[0], self.x_int[1], self.x_int[2], mat_eq, 91, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+            ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 41, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
-        # assembly of tau
-        ker_loc.kernel_pi0(self.NbaseN, self.n_int, self.n_int_locbf_N, self.int_global_N[0], self.int_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_int[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], tau, mat_eq)
+        # assembly of K
+        ker_loc.kernel_pi3(self.NbaseD, self.n_quad, self.n_his, self.n_his_locbf_D, self.his_global_D[0], self.his_global_D[1], self.his_global_D[2], self.his_loccof_D[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisD_his[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], K, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
         
         # conversion to sparse matrix
-        indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]))
+        indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]))
         
         # row indices
-        row  = self.NbaseN[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
+        row  = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
         
         # column indices
-        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
-        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
-        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
+        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
         
-        col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
+        col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
         
         # create sparse matrix 
-        tau = spa.csc_matrix((tau.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        tau.eliminate_zeros()
+        K = spa.csc_matrix((K.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseD[2]))         
+        K.eliminate_zeros()
 
-        return tau.T
+        return K.T
+                             
+                             
+    
+                             
+    # ========================================================================
+    def projection_N(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+        """
+        Computes the sparse matrix of the expression pi_2(g_sqrt * lambda^2) with the output (coefficients, basis_fun of lambda^2).
+
+        The following blocks need to be computed:
+
+        1 - component [int, his, his] : (N, D, D)*g_sqrt, None            , None
+        2 - component [his, int, his] : None            , (D, N, D)*g_sqrt, None
+        3 - component [his, his, int] : None            , None            , (D, D, N)*g_sqrt
+
+        An analytical mapping is called from hylife.geometry.mappings_analytical.
+
+        Parameters
+        ----------
+        mapping : int
+            0 : analytical mapping
+            1 : discrete mapping
+        
+        kind_map : int
+            type of mapping (analytical)
+
+        params_map : list of doubles
+            parameters for the mapping (analytical)
+            
+        tensor_space_F : tensor_spline_space
+            the 3d tensor-product B-spline space defing the mapping
+            
+        cx : array_like
+            control points of Fx
+            
+        cy : array_like
+            control points of Fy
+            
+        cz : array_like
+            control points of Fz
+
+        Returns
+        -------
+        N : sparse matrix in csc-format
+            the projection of each basis function in V2 on V2 weighted with rho3_eq   
+        """
+
+        # non-vanishing coefficients
+        N11 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]), dtype=float)
+        N22 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]), dtype=float)
+        N33 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]), dtype=float)
+
+
+        # size of interpolation/quadrature points of the 3 components
+        n_unique1 = [self.x_int[0].size, self.pts[1].flatten().size, self.pts[2].flatten().size]
+        n_unique2 = [self.pts[0].flatten().size, self.x_int[1].size, self.pts[2].flatten().size]
+        n_unique3 = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.x_int[2].size]
+
+
+        # ========= assembly of 1 - component (pi2_1 : int, his, his) ============
+        mat_eq = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 51, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique1, self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), mat_eq, 51, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_1([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], [self.n_quad[1], self.n_quad[2]], [self.n_int[0], self.n_his[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_his_locbf_D[1], self.n_his_locbf_D[2]], self.int_global_N[0], self.his_global_D[1], self.his_global_D[2], self.int_loccof_N[0], self.his_loccof_D[1], self.his_loccof_D[2], self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisD_his[1], self.basisD_his[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], N11, mat_eq.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size))
+
+
+        # ========= assembly of 2 - component (pi2_2 : his, int, his) ============
+        mat_eq = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 51, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), mat_eq, 51, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_2([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], [self.n_quad[0], self.n_quad[2]], [self.n_his[0], self.n_int[1], self.n_his[2]], [self.n_his_locbf_D[0], self.n_int_locbf_N[1], self.n_his_locbf_D[2]], self.his_global_D[0], self.int_global_N[1], self.his_global_D[2], self.his_loccof_D[0], self.int_loccof_N[1], self.his_loccof_D[2], self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisD_his[0], self.basisN_int[1], self.basisD_his[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], N22, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+
+
+        # ========= assembly of 3 - component (pi2_3 : his, his, int) ============
+        mat_eq = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
+
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 51, kind_map=kind_map, params_map=params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], mat_eq, 51, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
+
+        ker_loc.kernel_pi2_3([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], [self.n_quad[0], self.n_quad[1]], [self.n_his[0], self.n_his[1], self.n_int[2]], [self.n_his_locbf_D[0], self.n_his_locbf_D[1], self.n_int_locbf_N[2]], self.his_global_D[0], self.his_global_D[1], self.int_global_N[2], self.his_loccof_D[0], self.his_loccof_D[1], self.int_loccof_N[2], self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisD_his[0], self.basisD_his[1], self.basisN_int[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], N33, mat_eq.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]))
+                             
+                             
+        # ========= conversion to sparse matrices (1 - component) =================
+        indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.n_int_nvcof_N[0], self.n_his_nvcof_D[1], self.n_his_nvcof_D[2]))
+        row     = self.NbaseD[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.int_shift_N[0][:, None, None, None, None, None])%self.NbaseN[0]
+        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
+        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
+
+        col  = self.NbaseD[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
+
+        N11 = spa.csc_matrix((N11.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]))         
+        N11.eliminate_zeros()
+
+
+        # ========= conversion to sparse matrices (2 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.n_his_nvcof_D[0], self.n_int_nvcof_N[1], self.n_his_nvcof_D[2]))
+        row     = self.NbaseN[1]*self.NbaseD[2]*indices[0] + self.NbaseD[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col2 = (indices[4] + self.int_shift_N[1][None, :, None, None, None, None])%self.NbaseN[1]
+        col3 = (indices[5] + self.his_shift_D[2][None, None, :, None, None, None])%self.NbaseD[2]
+
+        col  = self.NbaseN[1]*self.NbaseD[2]*col1 + self.NbaseD[2]*col2 + col3
+
+        N22 = spa.csc_matrix((N22.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2]))         
+        N22.eliminate_zeros()
+
+
+        # ========= conversion to sparse matrices (3 - component) =================
+        indices = np.indices((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.n_his_nvcof_D[0], self.n_his_nvcof_D[1], self.n_int_nvcof_N[2]))
+        row     = self.NbaseD[1]*self.NbaseN[2]*indices[0] + self.NbaseN[2]*indices[1] + indices[2]
+
+        col1 = (indices[3] + self.his_shift_D[0][:, None, None, None, None, None])%self.NbaseD[0]
+        col2 = (indices[4] + self.his_shift_D[1][None, :, None, None, None, None])%self.NbaseD[1]
+        col3 = (indices[5] + self.int_shift_N[2][None, None, :, None, None, None])%self.NbaseN[2]
+
+        col  = self.NbaseD[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
+
+        N33 = spa.csc_matrix((N33.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2], self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]))         
+        N33.eliminate_zeros()
+
+
+        N = spa.bmat([[N11.T, None, None], [None, N22.T, None], [None, None, N33.T]], format='csc')
+
+        return N
+                             
+                             
+                             
+class term_curl_beq:
+    """
+    Computes the inner product of the term [nabla x (G * Beq)] x B2 = [nabla x (DF^T * B_eq_phys)] x B2 with each basis function in V2. 
+    
+    Parameters
+    ----------
+    tensor_space : tensor_spline_space
+        tensor product B-spline space
+        
+    kind_map : int
+        type of mapping
+        
+    params_map : list of doubles
+        parameters for the mapping
+    """
+    
+    def __init__(self, tensor_space, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+        
+        self.p      = tensor_space.p       # spline degrees
+        self.Nel    = tensor_space.Nel     # number of elements
+        self.NbaseN = tensor_space.NbaseN  # total number of basis functions (N)
+        self.NbaseD = tensor_space.NbaseD  # total number of basis functions (D)
+        
+        self.n_quad = tensor_space.n_quad  # number of quadrature points per element
+        self.wts    = tensor_space.wts     # quadrature weights in format (element, local point)
+        self.pts    = tensor_space.pts     # quadrature points in format (element, local point)
+        self.n_pts  = tensor_space.n_pts   # total number of quadrature points
+        
+        # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
+        self.basisN = tensor_space.basisN
+        self.basisD = tensor_space.basisD
+        
+        
+        # mapping
+        self.mapping = mapping
+        
+        if   mapping == 0:
+            self.kind_map   = kind_map
+            self.params_map = params_map
+            
+        elif mapping == 1:
+            self.T_F      = tensor_space_F.T
+            self.p_F      = tensor_space_F.p
+            self.NbaseN_F = tensor_space_F.NbaseN
+            
+            self.cx = cx
+            self.cy = cy
+            self.cz = cz
+                             
+        
+                             
+        # ============= evaluation of background magnetic field at quadrature points =========
+        self.mat_curl_beq_1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_curl_beq_2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.mat_curl_beq_3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+                             
+                             
+        if   mapping == 0:
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_1, 61, kind_map, params_map)
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_2, 62, kind_map, params_map)
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_3, 63, kind_map, params_map)
+        elif mapping == 1:
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_1, 61, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_2, 62, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_loc_eva.kernel_eva_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_curl_beq_3, 63, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)                    
+                             
+        
+        
+        # ====================== perturbed magnetic field at quadrature points ==========
+        self.B1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.B2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.B3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+                             
+                             
+        # ========================== inner products =====================================
+        self.F1 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
+        self.F2 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
+        self.F3 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
+                             
+                             
+    
+    # ============================================================
+    def inner_curl_beq(self, b1, b2, b3):
+        """
+        Computes the inner product of the term [nabla x (G * Beq)] x B2 = [nabla x (DF^T * B_eq_phys)] x B2 with each basis function in V2. 
+        """
+                             
+        # evaluation of perturbed magnetic field at quadrature points
+        ker_loc_3d.kernel_evaluate_2form(self.Nel, self.p, [0, 1, 1], self.n_quad, b1, [self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.basisN[0], self.basisD[1], self.basisD[2], self.B1)
+        ker_loc_3d.kernel_evaluate_2form(self.Nel, self.p, [1, 0, 1], self.n_quad, b2, [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.basisD[0], self.basisN[1], self.basisD[2], self.B2)
+        ker_loc_3d.kernel_evaluate_2form(self.Nel, self.p, [1, 1, 0], self.n_quad, b3, [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.basisD[0], self.basisD[1], self.basisN[2], self.B3)
+                             
+                             
+        # assembly of F (1 - component)
+        ker_loc_3d.kernel_inner_2(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 0, 1, 1, self.wts[0], self.wts[1], self.wts[2], self.basisN[0], self.basisD[1], self.basisD[2], self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], self.F1, self.mat_curl_beq_2*self.B3 - self.mat_curl_beq_3*self.B2)
+        
+        # assembly of F (2 - component)
+        ker_loc_3d.kernel_inner_2(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 0, 1, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisN[1], self.basisD[2], self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], self.F2, self.mat_curl_beq_3*self.B1 - self.mat_curl_beq_1*self.B3)
+        
+        # assembly of F (3 - component)
+        ker_loc_3d.kernel_inner_2(self.Nel[0], self.Nel[1], self.Nel[2], self.p[0], self.p[1], self.p[2], self.n_quad[0], self.n_quad[1], self.n_quad[2], 1, 1, 0, self.wts[0], self.wts[1], self.wts[2], self.basisD[0], self.basisD[1], self.basisN[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], self.F3, self.mat_curl_beq_1*self.B2 - self.mat_curl_beq_2*self.B1)
+        
+        # convert to 1d array and return
+        return np.concatenate((self.F1.flatten(), self.F2.flatten(), self.F3.flatten()))
