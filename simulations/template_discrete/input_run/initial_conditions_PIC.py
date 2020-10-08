@@ -44,8 +44,8 @@ def sh(eta1, eta2, eta3, vx, vy, vz, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     vth = 1.
     
-    det_df = mapping.det_df(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
+    detdf = mapping.det_df(tf1, tf2, tf3, pf, nbasef, cx, cy, cz, eta1, eta2, eta3)
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     
-    return 1/(pi**(3/2)*vth**3*det_df)*exp(arg)
+    return 1/(pi**(3/2)*vth**3*detdf)*exp(arg)

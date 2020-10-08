@@ -163,7 +163,7 @@ def u_eq_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
 
 # equilibrium magnetic field (2-form on logical domain, 1-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b_eq_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b2_eq_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
@@ -177,7 +177,7 @@ def b_eq_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
 
 # equilibrium magnetic field (2-form on logical domain, 2-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b_eq_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b2_eq_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
@@ -191,7 +191,7 @@ def b_eq_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
 
 # equilibrium magnetic field (2-form on logical domain, 3-component)
 @types('double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def b_eq_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+def b2_eq_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     x  = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
     y  = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
