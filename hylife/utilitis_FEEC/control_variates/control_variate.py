@@ -81,9 +81,9 @@ class terms_control_variate:
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, kind_map, params_map)
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, kind_map, params_map)
         elif mapping == 1:
-            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
-            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
-            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh1, 1, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh2, 2, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_jh3, 3, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
         
         # ========= evaluation of nh_eq_phys at quadrature points ================
@@ -92,7 +92,7 @@ class terms_control_variate:
         if   mapping == 0:
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, kind_map, params_map)
         elif mapping == 1:
-            ker_cv.kernel_evaluation(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.mat_nh, 4, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
         
         # ============= evaluation of B_eq at quadrature points ==================
@@ -104,12 +104,16 @@ class terms_control_variate:
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_1_eq, 11, kind_map, params_map)
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_2_eq, 12, kind_map, params_map)
             ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_3_eq, 13, kind_map, params_map)
+        elif mapping == 1:
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_1_eq, 11, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_2_eq, 12, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
+            ker_cv.kernel_evaluation_quad(self.Nel, self.n_quad, self.pts[0], self.pts[1], self.pts[2], self.B2_3_eq, 13, self.T_F[0], self.T_F[1], self.T_F[2], self.p_F, self.NbaseN_F, cx, cy, cz)
         
         
         # ======== perturbed magnetic field at quadrature points =================
-        self.B2_1  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
-        self.B2_2  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
-        self.B2_3  = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.B2_1 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.B2_2 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
+        self.B2_3 = np.empty((self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float)
         
         
         # ================== correction matrices in step 1 ========================
