@@ -101,6 +101,21 @@ def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
     # quantities for 3-form mass matrix
     elif kind_fun == 2:
         value = 1. / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+        
+    # quantities for vector mass matrix
+    elif kind_fun == 31:
+        value = map_dis.g_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 32:
+        value = map_dis.g_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 33:
+        value = map_dis.g_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 34:
+        value = map_dis.g_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 35:
+        value = map_dis.g_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    elif kind_fun == 36:
+        value = map_dis.g_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
+    
     
     return value    
     
@@ -258,7 +273,6 @@ def kernel_inner_2(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w
 @types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
     
-    error[:, :, :] = 0.
     
     #$ omp parallel
     #$ omp do reduction ( + : error) private (ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
