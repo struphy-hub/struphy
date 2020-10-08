@@ -34,6 +34,10 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map):
     elif kind_fun == 11:
         value = eq_mhd.rho3_eq(eta1, eta2, eta3, kind_map, params_map)
         
+    # quantities for projection matrix W
+    elif kind_fun == 12:
+        value = eq_mhd.rho0_eq(eta1, eta2, eta3, kind_map, params_map)
+        
     # quantities for projection matrix T
     elif kind_fun == 21:
         value = eq_mhd.b2_eq_1(eta1, eta2, eta3, kind_map, params_map)
