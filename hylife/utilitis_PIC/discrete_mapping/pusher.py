@@ -46,11 +46,10 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     d2  = empty( pn2              , dtype=float)
     d3  = empty( pn3              , dtype=float)
     
-    # magnetic field and velocity field at particle positions
-    b      = empty( 3    , dtype=float)
-    u      = empty( 3    , dtype=float)
-    
-    b_prod = zeros((3, 3), dtype=float)
+    # magnetic field, velocity field and electric field at particle position
+    u   = empty( 3    , dtype=float)
+    b   = empty( 3    , dtype=float)
+    e   = empty( 3    , dtype=float)
     # ==========================================================
     
     
@@ -87,19 +86,14 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     
     # needed mapping quantities
     df        = empty((3, 3), dtype=float)
-    dfinv     = empty((3, 3), dtype=float)
     dfinv_t   = empty((3, 3), dtype=float)
-    ginv      = empty((3, 3), dtype=float)
-    
-    temp_mat1 = empty((3, 3), dtype=float)
-    temp_mat2 = empty((3, 3), dtype=float)
     
     temp_vec  = empty( 3    , dtype=float)
     # ==========================================================
     
     
     #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, u, b, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, over_det_df, dfinv, dfinv_t, ginv, temp_mat1, temp_mat2, temp_vec) firstprivate(b_prod)
+    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, u, b, e, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, over_det_df, dfinv_t, temp_vec)
     for ip in range(np):
         
         eta1 = particles[0, ip]
@@ -115,22 +109,21 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
         bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
-        u[0] = eva.evaluation_kernel(pd1, pn2, pn3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pn3], span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-        u[1] = eva.evaluation_kernel(pn1, pd2, pn3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pn3], span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-        u[2] = eva.evaluation_kernel(pn1, pn2, pd3, b1[pn1], b2[pn2], b3[pd3, :pn3]*d3[:], span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+        #u[0] = eva.evaluation_kernel(pd1, pn2, pn3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pn3], span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+        #u[1] = eva.evaluation_kernel(pn1, pd2, pn3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pn3], span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+        #u[2] = eva.evaluation_kernel(pn1, pn2, pd3, b1[pn1], b2[pn2], b3[pd3, :pn3]*d3[:], span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
         
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b1_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b3_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        u[0] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1)
+        u[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2)
+        u[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3)
         
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] =  b[1]
-
-        b_prod[1, 0] =  b[2]
-        b_prod[1, 2] = -b[0]
-
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] =  b[0]
+        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b2_eq_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b2_eq_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        
+        e[0] = b[1]*u[2] - b[2]*u[1]
+        e[1] = b[2]*u[0] - b[0]*u[2]
+        e[2] = b[0]*u[1] - b[1]*u[0]
         # ==========================================
         
         
@@ -161,47 +154,31 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         # inverse Jacobian determinant
         over_det_df = 1. / (df[0, 0]*(df[1, 1]*df[2, 2] - df[2, 1]*df[1, 2]) + df[1, 0]*(df[2, 1]*df[0, 2] - df[0, 1]*df[2, 2]) + df[2, 0]*(df[0, 1]*df[1, 2] - df[1, 1]*df[0, 2]))
         
-        # inverse Jacobian matrix
-        dfinv[0, 0] = (df[1, 1]*df[2, 2] - df[1, 2]*df[2, 1]) * over_det_df
-        dfinv[0, 1] = (df[0, 2]*df[2, 1] - df[0, 1]*df[2, 2]) * over_det_df
-        dfinv[0, 2] = (df[0, 1]*df[1, 2] - df[0, 2]*df[1, 1]) * over_det_df
+        # transposed, inverse Jacobian matrix
+        dfinv_t[0, 0] = (df[1, 1]*df[2, 2] - df[1, 2]*df[2, 1]) * over_det_df
+        dfinv_t[1, 0] = (df[0, 2]*df[2, 1] - df[0, 1]*df[2, 2]) * over_det_df
+        dfinv_t[2, 0] = (df[0, 1]*df[1, 2] - df[0, 2]*df[1, 1]) * over_det_df
 
-        dfinv[1, 0] = (df[1, 2]*df[2, 0] - df[1, 0]*df[2, 2]) * over_det_df
-        dfinv[1, 1] = (df[0, 0]*df[2, 2] - df[0, 2]*df[2, 0]) * over_det_df
-        dfinv[1, 2] = (df[0, 2]*df[1, 0] - df[0, 0]*df[1, 2]) * over_det_df
+        dfinv_t[0, 1] = (df[1, 2]*df[2, 0] - df[1, 0]*df[2, 2]) * over_det_df
+        dfinv_t[1, 1] = (df[0, 0]*df[2, 2] - df[0, 2]*df[2, 0]) * over_det_df
+        dfinv_t[2, 1] = (df[0, 2]*df[1, 0] - df[0, 0]*df[1, 2]) * over_det_df
 
-        dfinv[2, 0] = (df[1, 0]*df[2, 1] - df[1, 1]*df[2, 0]) * over_det_df
-        dfinv[2, 1] = (df[0, 1]*df[0, 2] - df[0, 0]*df[2, 1]) * over_det_df
-        dfinv[2, 2] = (df[0, 0]*df[1, 1] - df[0, 1]*df[1, 0]) * over_det_df
-        
-        # transpose of inverse Jacobian matrix
-        linalg.transpose(dfinv, dfinv_t)
-        
-        # inverse metric tensor
-        ginv[0, 0] = dfinv[0, 0]*dfinv[0, 0] + dfinv[0, 1]*dfinv[0, 1] + dfinv[0, 2]*dfinv[0, 2]
-        ginv[0, 1] = dfinv[0, 0]*dfinv[1, 0] + dfinv[0, 1]*dfinv[1, 1] + dfinv[0, 2]*dfinv[1, 2]
-        ginv[0, 2] = dfinv[0, 0]*dfinv[2, 0] + dfinv[0, 1]*dfinv[2, 1] + dfinv[0, 2]*dfinv[2, 2]
-
-        ginv[1, 0] = ginv[0, 1]
-        ginv[1, 1] = dfinv[1, 0]*dfinv[1, 0] + dfinv[1, 1]*dfinv[1, 1] + dfinv[1, 2]*dfinv[1, 2]
-        ginv[1, 2] = dfinv[1, 0]*dfinv[2, 0] + dfinv[1, 1]*dfinv[2, 1] + dfinv[1, 2]*dfinv[2, 2]
-
-        ginv[2, 0] = ginv[0, 2]
-        ginv[2, 1] = ginv[1, 2]
-        ginv[2, 2] = dfinv[2, 0]*dfinv[2, 0] + dfinv[2, 1]*dfinv[2, 1] + dfinv[2, 2]*dfinv[2, 2]
+        dfinv_t[0, 2] = (df[1, 0]*df[2, 1] - df[1, 1]*df[2, 0]) * over_det_df
+        dfinv_t[1, 2] = (df[0, 1]*df[0, 2] - df[0, 0]*df[2, 1]) * over_det_df
+        dfinv_t[2, 2] = (df[0, 0]*df[1, 1] - df[0, 1]*df[1, 0]) * over_det_df
         # ==========================================
         
         
-        # ======== particle pushing ================   
-        # perform matrix-matrix and matrix-vector products
-        linalg.matrix_matrix(dfinv_t, b_prod, temp_mat1)
-        linalg.matrix_matrix(temp_mat1, ginv, temp_mat2)
-        linalg.matrix_vector(temp_mat2, u, temp_vec)
+        # ======== particle pushing ================
+        
+        # perform push-forward of 1-form electric field to physical space
+        linalg.matrix_vector(dfinv_t, e, temp_vec)
         
         # update particle velocities
         particles[3, ip] += dt*temp_vec[0]
         particles[4, ip] += dt*temp_vec[1]
         particles[5, ip] += dt*temp_vec[2]
+        
         # ==========================================
         
     #$ omp end do
@@ -585,9 +562,9 @@ def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
         bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b1_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b3_eq(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b2_eq_1(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq_2(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b2_eq_3(eta1, eta2, eta3, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
         
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] =  b[1]
