@@ -2,12 +2,12 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/path_to_simulations
-run_dir=name_of_run
+all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
+run_dir=sim_2020_10_27_2
 # =================================================
 
 # ============== if you want to use OpenMp ========
-flag_openmp_mhd=--openmp
+flag_openmp_mhd=
 flag_openmp_pic=--openmp
 # =================================================
 
@@ -44,21 +44,31 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 ##### grid construction #####
 #############################
 
-# number of elements, boundary conditions and spline degrees (finite elements)
-Nel : [16, 16, 2] 
-bc  : [True, True, True]
-p   : [2, 2, 1] 
+# number of elements, clamped (False) or periodic (True) spline and spline degrees (finite elements)
+Nel : [80, 32, 16] 
+bc  : [False, True, True]
+p   : [1, 1, 3]
 
-# number of quadrature points per element and histopolation cell
-nq_el : [6, 6, 2]
-nq_pr : [6, 6, 2]
+
+# boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = 'dirichlet', free boundary = 'free')
+bc_u1 : [dirichlet, dirichlet]
+bc_b1 : [dirichlet, dirichlet]  
+
+# number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
+nq_el : [3, 3, 6]
+nq_pr : [3, 3, 6]
 
 # analytical (0) or spline mapping (1)?
 mapping : 0
 
 # ----> for analytical geometry: kind of mapping (1: slab, 2: hollow cylinder, 3: colella) and parameters
 kind_map   : 1
-params_map : [7.853981634, 7.853981634, 1.]        
+params_map : [0.5, 3.141592654, 10.36725576]
+#params_map : [7.853981634, 1., 1.]
+
+#kind_map   : 2
+#params_map : [0.02, 0.5, 10.36725576]  
+#params_map : [7.853981634, 1., 1.]
 
 # ----> for spline geometry: number of elements, boundary conditions and spline degrees
 Nel_F : [16, 16, 2] 
@@ -72,8 +82,8 @@ p_F   : [2, 2, 1]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : 0.05
-Tend     : 1.
+dt       : 0.1
+Tend     : 200.
 max_time : 1000.
 
 
@@ -88,8 +98,8 @@ fill_fac_S2 : 10.
 drop_tol_A  : 0.0001
 fill_fac_A  : 10.
 
-drop_tol_M0 : 0.0001
-fill_fac_M0 : 10.
+drop_tol_S6 : 0.0001
+fill_fac_S6 : 10.
 
 # tolerances for iterative solvers (default: tol=1e-8)
 tol1        : 0.00000001
@@ -103,7 +113,7 @@ tol6        : 0.00000001
 ###############################
 
 # add non-Hamiltonian terms to simulation?
-add_pressure : False
+add_pressure : True
 
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666
@@ -113,13 +123,13 @@ gamma : 1.6666666666666666666666666666
 ###############################
 
 # add kinetic terms to simulation?
-add_PIC : True     
+add_PIC : False     
 
 # total number of particles
-Np : 125000           
+Np : 10           
 
 # control variate? 
-control : False       
+control : False   
 
 # shift of Maxwellian 
 v0 : [2.5, 0., 0.]
@@ -230,7 +240,7 @@ make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_o
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp STRUPHY_original_local.py $all_sim/$run_dir/STRUPHY.py
+cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
@@ -240,7 +250,7 @@ sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 cd $all_sim/$run_dir
 
 # job submission via SLURM
-sbatch batch_$run_dir.sh
+#sbatch batch_$run_dir.sh
 
 # interactive run on an interactive node on e.g. Draco or Cobra (indicate number of MPI processes after -n)
 #export OMP_NUM_THREADS=4
@@ -248,7 +258,7 @@ sbatch batch_$run_dir.sh
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-#mpirun -n 4 python3 STRUPHY.py
-#export OMP_NUM_THREADS=4
-#python3 STRUPHY.py
+#pirun -n 4 python3 STRUPHY.py
+export OMP_NUM_THREADS=1
+python3 STRUPHY.py
 # =================================================
