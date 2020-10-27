@@ -286,11 +286,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 0)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
             
             return values
@@ -326,11 +328,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 11)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
             
             return values
@@ -366,11 +370,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 12)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
             
             return values
@@ -406,11 +412,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 13)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
             
             return values
@@ -446,11 +454,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 21)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
             
             return values
@@ -486,11 +496,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 22)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
             
             return values
@@ -526,11 +538,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 23)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
             
             return values
@@ -566,11 +580,13 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
-            values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-            
             if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
+                
                 eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 3)
             else:
+                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                
                 eva_3d.evaluate_matrix(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
             
             return values
