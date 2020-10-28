@@ -17,8 +17,8 @@ BK  := hylife/utilitis_FEEC/bsplines_kernels
 BEV := hylife/utilitis_FEEC/basics/spline_evaluation_3d
 MA  := hylife/geometry/mappings_analytical
 MD  := hylife/geometry/mappings_discrete
-PBA := hylife/geometry/pull_back_analytical
-PBD := hylife/geometry/pull_back_discrete
+PBA := hylife/geometry/pull_push_analytical
+PBD := hylife/geometry/pull_push_discrete
 EQM := $(all_sim)/$(run_dir)/input_run/equilibrium_MHD
 EQP := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
 ICM := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
@@ -34,6 +34,7 @@ PA  := $(all_sim)/$(run_dir)/source_run/accumulation_kernels
 PS  := $(all_sim)/$(run_dir)/source_run/sampling
 
 SOURCES := $(BK).py $(BEV).py $(MA).py $(MD).py $(PBA).py $(PBD).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KM).py $(KPL).py $(KPV).py $(KPM).py $(LA).py $(PP).py $(PA).py $(PS).py
+
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
