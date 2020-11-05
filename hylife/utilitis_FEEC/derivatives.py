@@ -68,6 +68,7 @@ class discrete_derivatives:
         
         self.NbaseN  = tensor_space.NbaseN
         self.NbaseD  = tensor_space.NbaseD
+        self.bc      = tensor_space.bc
         
         self.grad_1d = [spa.csc_matrix(grad_1d(spl)) for spl in tensor_space.spaces]
         
@@ -120,7 +121,7 @@ class discrete_derivatives:
     
     
     # ================== 3d ==================
-    def grad_3d(self):
+    def grad_3d(self, bc_kind=None):
         
         G1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseN[2]))
         G2 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
@@ -131,23 +132,36 @@ class discrete_derivatives:
         return G
     
     
-    def curl_3d(self):
+    def curl_3d(self, bc_kind=None):
         
-        C12 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
-        C13 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
+        # apply Dirichlet boundary conditions
+        if self.bc[0] == False:
+            g1        = self.grad_1d[0].copy().tolil()
+            id1       = spa.identity(self.NbaseN[0], format='lil')
+            
+            if bc_kind[0][0] == 'dirichlet':
+                g1[:,  0] = 0.
+                id1[0, 0] = 0.
+                
+            if bc_kind[0][1] == 'dirichlet':
+                g1[:, -1] = 0.
+                id1[-1, -1] = 0.
+        
+        C12 = spa.kron(spa.kron(id1, spa.identity(self.NbaseD[1])), self.grad_1d[2])
+        C13 = spa.kron(spa.kron(id1, self.grad_1d[1]), spa.identity(self.NbaseD[2]))
         
         C21 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
-        C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
+        C23 = spa.kron(spa.kron(g1             , spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
         
         C31 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
-        C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
+        C32 = spa.kron(spa.kron(g1             , spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
         
         C   = spa.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csc')
         
         return C
     
     
-    def div_3d(self):
+    def div_3d(self, bc_kind=None):
         
         D1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseD[2]))
         D2 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
