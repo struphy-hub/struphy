@@ -773,7 +773,7 @@ class projectors_local_mhd:
     
     
     # ========================================================================
-    def projection_W(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def projection_W(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None, bc_u1=None, bc_u2=None, bc_u3=None):
         """
         Computes the sparse matrix of the expression pi_0(rho0_eq * lambda^0) with the output (coefficients, basis_fun of lambda^2).
 
@@ -808,6 +808,24 @@ class projectors_local_mhd:
             
         cz : array_like
             control points of Fz
+            
+        bc_u1 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u1[0] : boundary conditions in 1-direction
+            bc_u1[1] : boundary conditions in 2-direction
+            bc_u1[2] : boundary conditions in 3-direction
+            
+        bc_u2 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u2[0] : boundary conditions in 1-direction
+            bc_u2[1] : boundary conditions in 2-direction
+            bc_u2[2] : boundary conditions in 3-direction
+            
+        bc_u3 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u3[0] : boundary conditions in 1-direction
+            bc_u3[1] : boundary conditions in 2-direction
+            bc_u3[2] : boundary conditions in 3-direction
 
         Returns
         -------
@@ -816,7 +834,9 @@ class projectors_local_mhd:
         """
 
         # non-vanishing coefficients
-        W = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        W1 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        W2 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
+        W3 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_int_nvcof_N[1], self.n_int_nvcof_N[2]), dtype=float)
         
 
         # size of interpolation/quadrature points of the 3 components
@@ -830,7 +850,21 @@ class projectors_local_mhd:
         elif mapping == 1:
             ker_loc_eva.kernel_eva(n_unique, self.x_int[0], self.x_int[1], self.x_int[2], mat_eq, 12, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
 
-        ker_loc.kernel_pi0(self.NbaseN, self.n_int, self.n_int_locbf_N, self.int_global_N[0], self.int_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_int[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], W, mat_eq)
+        ker_loc.kernel_pi0(self.NbaseN, self.n_int, self.n_int_locbf_N, self.int_global_N[0], self.int_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_int[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], W1, mat_eq)
+        
+        ker_loc.kernel_pi0(self.NbaseN, self.n_int, self.n_int_locbf_N, self.int_global_N[0], self.int_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_int[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], W2, mat_eq)
+        
+        ker_loc.kernel_pi0(self.NbaseN, self.n_int, self.n_int_locbf_N, self.int_global_N[0], self.int_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_int[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], W3, mat_eq)
+        
+        
+        if self.bc[0] == False:
+            # apply Dirichlet boundary conditions for u1 at eta1 = 0
+            if bc_u1[0][0] == 'dirichlet':
+                W1[0]  = 0.
+
+            # apply Dirichlet boundary conditions for u1 at eta1 = 1
+            if bc_u1[0][1] == 'dirichlet':
+                W1[-1] = 0.
 
 
         # conversion to sparse matrix
@@ -846,18 +880,25 @@ class projectors_local_mhd:
         
         col  = self.NbaseN[1]*self.NbaseN[2]*col1 + self.NbaseN[2]*col2 + col3
         
-        # create sparse matrix 
-        W = spa.csc_matrix((W.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]))         
-        W.eliminate_zeros()
+        # create sparse matrices
+        W1 = spa.csc_matrix((W1.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]))         
+        W1.eliminate_zeros()
+        
+        W2 = spa.csc_matrix((W2.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]))         
+        W2.eliminate_zeros()
+        
+        W3 = spa.csc_matrix((W3.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]))         
+        W3.eliminate_zeros()
+        
 
-        W = spa.bmat([[W.T, None, None], [None, W.T, None], [None, None, W.T]], format='csc')
+        W = spa.bmat([[W1.T, None, None], [None, W2.T, None], [None, None, W3.T]], format='csc')
 
         return W
     
     
     
     # =========================================================================
-    def projection_T(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def projection_T(self, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None, bc_u1=None, bc_u2=None, bc_u3=None):
         """
         Computes the matrix of the expression pi_1(b2_eq * lambda^0) with the output (coefficients, basis_fun of lambda^0).
 
@@ -892,6 +933,24 @@ class projectors_local_mhd:
             
         cz : array_like
             control points of Fz
+            
+        bc_u1 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u1[0] : boundary conditions in 1-direction
+            bc_u1[1] : boundary conditions in 2-direction
+            bc_u1[2] : boundary conditions in 3-direction
+            
+        bc_u2 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u2[0] : boundary conditions in 1-direction
+            bc_u2[1] : boundary conditions in 2-direction
+            bc_u2[2] : boundary conditions in 3-direction
+            
+        bc_u3 : 3x2 list of strings
+            kind of boundary conditions for first component of bulk velocity ('dirichlet' or 'free') 
+            bc_u3[0] : boundary conditions in 1-direction
+            bc_u3[1] : boundary conditions in 2-direction
+            bc_u3[2] : boundary conditions in 3-direction
 
         Returns
         -------
@@ -942,6 +1001,15 @@ class projectors_local_mhd:
             ker_loc_eva.kernel_eva(n_unique2, self.x_int[0], self.pts[1].flatten(), self.x_int[2], mat_eq, 23, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
         ker_loc.kernel_pi1_2([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.n_quad[1], [self.n_int[0], self.n_his[1], self.n_int[2]], [self.n_int_locbf_N[0], self.n_his_locbf_N[1], self.n_int_locbf_N[2]], self.int_global_N[0], self.his_global_N[1], self.int_global_N[2], self.int_loccof_N[0], self.his_loccof_N[1], self.int_loccof_N[2], self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.basisN_int[0], self.basisN_his[1], self.basisN_int[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], T21, mat_eq.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]))
+        
+        if self.bc[0] == False:
+            # apply Dirichlet boundary conditions for u1 at eta1 = 0
+            if bc_u1[0][0] == 'dirichlet':
+                T21[0]  = 0.
+
+            # apply Dirichlet boundary conditions for u1 at eta1 = 1
+            if bc_u1[0][1] == 'dirichlet':
+                T21[-1] = 0.
            
         
         if   mapping == 0:
@@ -963,6 +1031,15 @@ class projectors_local_mhd:
             ker_loc_eva.kernel_eva(n_unique3, self.x_int[0], self.x_int[1], self.pts[2].flatten(), mat_eq, 22, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz)
         
         ker_loc.kernel_pi1_3([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.n_quad[2], [self.n_int[0], self.n_int[1], self.n_his[2]], [self.n_int_locbf_N[0], self.n_int_locbf_N[1], self.n_his_locbf_N[2]], self.int_global_N[0], self.int_global_N[1], self.his_global_N[2], self.int_loccof_N[0], self.int_loccof_N[1], self.his_loccof_N[2], self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.basisN_int[0], self.basisN_int[1], self.basisN_his[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], T31, mat_eq.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size))
+        
+        if self.bc[0] == False:
+            # apply Dirichlet boundary conditions for u1 at eta1 = 0
+            if bc_u1[0][0] == 'dirichlet':
+                T31[0]  = 0.
+
+            # apply Dirichlet boundary conditions for u1 at eta1 = 1
+            if bc_u1[0][1] == 'dirichlet':
+                T31[-1] = 0.
         
    
         if   mapping == 0:
@@ -1014,6 +1091,7 @@ class projectors_local_mhd:
         
         T21 = spa.csc_matrix((T21.flatten(), (row.flatten(), col.flatten())), shape=(self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2], self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2]))         
         T21.eliminate_zeros()
+        
         
         
         indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], self.n_int_nvcof_N[0], self.n_his_nvcof_N[1], self.n_int_nvcof_N[2]))
