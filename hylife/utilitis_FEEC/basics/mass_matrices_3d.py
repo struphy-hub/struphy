@@ -14,7 +14,7 @@ import hylife.utilitis_FEEC.basics.kernels_3d as ker
 
 
 # ================ mass matrix in V0 ===========================
-def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def mass_V0(tensor_space_FEM, mapping, bc_kind, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
     """
     Assembles the 3d mass matrix (NNN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
     
@@ -30,6 +30,12 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     mapping : int
         0 : analytical mapping
         1 : discrete mapping
+        
+    bc_kind : 3 x 2 list of strings 
+        kind of boundary conditions (dirichlet: remove first respectivley last spline by setting corresponding contributions to zero, free: leave it as it is --> work on full spline space)
+        bc_kind[0] : boundary conditions in 1-direction
+        bc_kind[1] : boundary conditions in 2-direction
+        bc_kind[2] : boundary conditions in 3-direction
         
     kind_map : int
         type of mapping in case of analytical mapping
@@ -52,6 +58,7 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
@@ -87,9 +94,27 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
 
     col     = NbaseN[1]*NbaseN[2]*col1 + NbaseN[2]*col2 + col3
                 
-    M       = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
     M.eliminate_zeros()
-                
+    M       = M.tolil()
+        
+    # apply boundary conditions
+    if bc[0] == False:
+        
+        # first and last spline in rows (Ni) 
+        if bc_kind[0][0] == 'dirichlet':
+            M[:NbaseN[1]*NbaseN[2] , :] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[-NbaseN[1]*NbaseN[2]:, :] = 0.
+            
+        # first and last spline in columns (Nj)
+        if bc_kind[0][0] == 'dirichlet':
+            M[:, :NbaseN[1]*NbaseN[2] ] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[:, -NbaseN[1]*NbaseN[2]:] = 0.
+            
+    M = M.tocsr()
+    
     return M
 
 
@@ -132,6 +157,7 @@ def mass_V1(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
     
@@ -201,18 +227,18 @@ def mass_V1(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
             
             col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
             
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
+            M[counter] = spa.csr_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
             M[counter].eliminate_zeros()
             
             counter += 1
                        
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csr')
                 
     return M
 
 
 # ================ mass matrix in V2 ===========================
-def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def mass_V2(tensor_space_FEM, bc_kind, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
     """
     Assembles the 3d mass matrix (NDD, DND, DDN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
     
@@ -224,6 +250,13 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    bc_kind : 3 x 2 list of strings 
+        kind of boundary conditions (dirichlet: remove first respectivley last spline by setting corresponding contributions to zero, free: leave it as it is --> work on full spline space)
+        1 - component (bc_kind[0]): boundary conditions in 1-direction
+        2 - component (bc_kind[1]): boundary conditions in 2-direction
+        3 - component (bc_kind[2]): boundary conditions in 3-direction
+        
         
     mapping : int
         0 : analytical mapping
@@ -246,10 +279,13 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
         
     cz : array_like
         z control points in case of discrete mapping
+        
+    bc1 :
     """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
     
@@ -304,6 +340,7 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
             bj1, bj2, bj3 = basis[b]
             
             ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, nj1, nj2, nj3, wts[0], wts[1], wts[2], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M[counter], mat_map)
+                    
             
             indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
             
@@ -319,12 +356,42 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
             
             col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
             
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
+            M[counter] = spa.csr_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
             M[counter].eliminate_zeros()
+            M[counter] = M[counter].tolil()
             
             counter += 1
                        
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+    
+    # apply boundary conditions
+    if bc[0] == False:
+        
+        # first and last spline in rows (Ni) 
+        if bc_kind[0][0] == 'dirichlet':
+            M[0][:NbaseD[1]*NbaseD[2] , :] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[0][-NbaseD[1]*NbaseD[2]:, :] = 0.
+        
+        # first and last spline in columns (Nj)
+        if bc_kind[0][0] == 'dirichlet':
+            M[0][:, :NbaseD[1]*NbaseD[2] ] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[0][:, -NbaseD[1]*NbaseD[2]:] = 0.
+        
+        
+        # first and last spline in columns (Nj)
+        if bc_kind[0][0] == 'dirichlet':
+            M[1][:, :NbaseD[1]*NbaseD[2] ] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[1][:, -NbaseD[1]*NbaseD[2]:] = 0.
+        
+        # first and last spline in columns (Nj)
+        if bc_kind[0][0] == 'dirichlet':
+            M[3][:, :NbaseD[1]*NbaseD[2] ] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            M[3][:, -NbaseD[1]*NbaseD[2]:] = 0.
+    
+    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csr')
                 
     return M
 
@@ -368,6 +435,7 @@ def mass_V3(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (N)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
@@ -403,7 +471,7 @@ def mass_V3(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
 
     col       = NbaseD[1]*NbaseD[2]*col1 + NbaseD[2]*col2 + col3
                 
-    M         = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD[0]*NbaseD[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseD[2]))
+    M         = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD[0]*NbaseD[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseD[2]))
     M.eliminate_zeros()
                 
     return M
@@ -448,6 +516,7 @@ def mass_V2_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
     
@@ -517,12 +586,12 @@ def mass_V2_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
             
             col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
             
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
+            M[counter] = spa.csr_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
             M[counter].eliminate_zeros()
             
             counter += 1
                        
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csr')
                 
     return M
 
@@ -530,7 +599,7 @@ def mass_V2_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
 
 
 # ================ mass matrix of vector field in V0 ===========================
-def mass_V0_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def mass_V0_vector(tensor_space_FEM, bc_kind1, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
     """
     Assembles the 3d mass matrix (NNN, NNN, NNN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
     
@@ -542,6 +611,9 @@ def mass_V0_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    bc_kind1 : 3 x 2 list of strings 
+        kind of boundary conditions for first vector component (dirichlet: remove first respectivley last spline by setting corresponding contributions to zero, free: leave it as it is --> work on full spline space)
         
     mapping : int
         0 : analytical mapping
@@ -568,6 +640,7 @@ def mass_V0_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
+    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
@@ -615,12 +688,42 @@ def mass_V0_vector(tensor_space_FEM, mapping, kind_map=None, params_map=None, te
 
             col     = NbaseN[1]*NbaseN[2]*col1 + NbaseN[2]*col2 + col3
             
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
+            M[counter] = spa.csr_matrix((M[counter].flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
             M[counter].eliminate_zeros()
+            M[counter] = M[counter].tolil()
             
             counter += 1
                        
     
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+    # apply boundary conditions
+    if bc[0] == False:
+        
+        # first and last spline in rows (Ni) 
+        if bc_kind1[0][0] == 'dirichlet':
+            M[0][:NbaseN[1]*NbaseN[2] , :] = 0.
+        if bc_kind1[0][1] == 'dirichlet':
+            M[0][-NbaseN[1]*NbaseN[2]:, :] = 0.
+        
+        # first and last spline in columns (Nj)
+        if bc_kind1[0][0] == 'dirichlet':
+            M[0][:, :NbaseN[1]*NbaseN[2] ] = 0.
+        if bc_kind1[0][1] == 'dirichlet':
+            M[0][:, -NbaseN[1]*NbaseN[2]:] = 0.
+        
+        
+        # first and last spline in columns (Nj)
+        if bc_kind1[0][0] == 'dirichlet':
+            M[1][:, :NbaseN[1]*NbaseN[2] ] = 0.
+        if bc_kind1[0][1] == 'dirichlet':
+            M[1][:, -NbaseN[1]*NbaseN[2]:] = 0.
+        
+        # first and last spline in columns (Nj)
+        if bc_kind1[0][0] == 'dirichlet':
+            M[3][:, :NbaseN[1]*NbaseN[2] ] = 0.
+        if bc_kind1[0][1] == 'dirichlet':
+            M[3][:, -NbaseN[1]*NbaseN[2]:] = 0.
+         
+    
+    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csr')
                 
     return M
