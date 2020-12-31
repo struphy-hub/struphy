@@ -90,7 +90,25 @@ class spline_space_1d:
             evaluated FEM field at the point eta
         """
         
-        return eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta)
+        if isinstance(eta, np.ndarray):
+            
+            if eta.ndim == 1:
+                values = np.empty(eta.size, dtype=float)
+
+                for i in range(eta.size):
+                    values[i] = eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta[i])
+                    
+            elif eta.ndim == 2:
+                values = np.empty(eta.shape, dtype=float)
+                
+                for i in range(eta.shape[0]):
+                    for j in range(eta.shape[1]):
+                        values[i, j] = eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta[i, j])
+                    
+            return values
+        
+        else:
+            return eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta)
     
     
     def evaluate_D(self, eta, coeff):
@@ -111,7 +129,25 @@ class spline_space_1d:
             evaluated FEM field at the point eta
         """
         
-        return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
+        if isinstance(eta, np.ndarray):
+            
+            if eta.ndim == 1:
+                values = np.empty(eta.size, dtype=float)
+
+                for i in range(eta.size):
+                    values[i] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i])
+                    
+            elif eta.ndim == 2:
+                values = np.empty(eta.shape, dtype=float)
+                
+                for i in range(eta.shape[0]):
+                    for j in range(eta.shape[1]):
+                        values[i, j] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i, j])
+                    
+            return values
+        
+        else:
+            return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
         
         
 # =============== multi-d B-spline tensor product space ======================        
@@ -181,7 +217,21 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2)
         """
         
-        return eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2)
+        if isinstance(eta1, np.ndarray):
+            
+            if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                
+                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2, values, 0)
+            else:
+                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 0)
+                
+            return values
+        
+        else:
+            return eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2)
     
     
     # =================================================
@@ -206,7 +256,21 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2)
         """
         
-        return eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2)
+        if isinstance(eta1, np.ndarray):
+            
+            if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                
+                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2, values, 11)
+            else:
+                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 11)
+                
+            return values
+        
+        else:
+            return eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2)
     
     
     # =================================================
@@ -231,7 +295,21 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2)
         """
         
-        return eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2)
+        if isinstance(eta1, np.ndarray):
+            
+            if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                
+                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2, values, 12)
+            else:
+                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 12)
+                
+            return values
+            
+        else:
+            return eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2)
     
     
     # =================================================
@@ -256,7 +334,21 @@ class tensor_spline_space:
             evaluated FEM field at the point eta = (eta1, eta2)
         """
         
-        return eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2)
+        if isinstance(eta1, np.ndarray):
+            
+            if eta1.ndim == 1:
+                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                
+                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2, values, 2)
+            else:
+                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 2)
+                
+            return values
+            
+        else:
+            return eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2)
     
     
     # =================================================
