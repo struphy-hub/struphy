@@ -1,7 +1,7 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_analytical as map_ana
-import hylife.geometry.mappings_discrete   as map_dis
+import hylife.geometry.mappings_analytical_3d as map_ana
+import hylife.geometry.mappings_discrete_3d   as map_dis
 
 
 # ==========================================================================================
