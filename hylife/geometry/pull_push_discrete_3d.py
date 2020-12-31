@@ -8,7 +8,7 @@ Basic functions for discrete (spline mapping) pull-back (physical --> logical) a
 
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_discrete as mapping
+import hylife.geometry.mappings_discrete_3d as mapping
 
 
 # ==============================================================================

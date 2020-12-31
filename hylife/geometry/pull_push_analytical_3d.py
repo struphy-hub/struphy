@@ -8,7 +8,7 @@ Basic functions for analytical pull-back (physical --> logical) and push-forward
 
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_analytical as mapping
+import hylife.geometry.mappings_analytical_3d as mapping
 
 
 # ==============================================================================
