@@ -3,44 +3,44 @@ from pyccel.decorators import types
 
 # =========================================
 @types('double[:,:]','double[:]','double[:]')
-def matrix_vector(A, b, c):
+def matrix_vector(a, b, c):
     
     c[:] = 0.
     
     for i in range(3):
         for j in range(3):
-            c[i] += A[i, j] * b[j]      
+            c[i] += a[i, j] * b[j]      
 
 
 # =========================================
 @types('double[:,:]','double[:,:]','double[:,:]')
-def matrix_matrix(A, B, C):
+def matrix_matrix(a, b, c):
     
-    C[:, :] = 0.
+    c[:, :] = 0.
     
     for i in range(3):
         for j in range(3):
             for k in range(3):
-                C[i, j] += A[i, k] * B[k, j]      
+                c[i, j] += a[i, k] * b[k, j]      
 
 
 # =========================================
 @types('double[:,:]','double[:,:]')
-def transpose(A, B):
+def transpose(a, b):
     
-    B[:, :] = 0.
+    b[:, :] = 0.
     
     for i in range(3):
         for j in range(3):
-            B[i, j] = A[j, i]
+            b[i, j] = a[j, i]
 
             
 # =========================================
 @types('double[:,:]')
-def det(A):
+def det(a):
     
-    plus  = A[0, 0]*A[1, 1]*A[2, 2] + A[0, 1]*A[1, 2]*A[2, 0] + A[0, 2]*A[1, 0]*A[2, 1]
-    minus = A[2, 0]*A[1, 1]*A[0, 2] + A[2, 1]*A[1, 2]*A[0, 0] + A[2, 2]*A[1, 0]*A[0, 1]
+    plus  = a[0, 0]*a[1, 1]*a[2, 2] + a[0, 1]*a[1, 2]*a[2, 0] + a[0, 2]*a[1, 0]*a[2, 1]
+    minus = a[2, 0]*a[1, 1]*a[0, 2] + a[2, 1]*a[1, 2]*a[0, 0] + a[2, 2]*a[1, 0]*a[0, 1]
     
     return plus - minus
 
