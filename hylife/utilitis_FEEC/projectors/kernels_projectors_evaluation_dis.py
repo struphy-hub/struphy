@@ -2,7 +2,7 @@
 from pyccel.decorators import types
 
 # import subroutines
-import hylife.geometry.mappings_discrete as mapping
+import hylife.geometry.mappings_discrete_3d as mapping
 
 import input_run.equilibrium_MHD        as eq_mhd
 import input_run.initial_conditions_MHD as ini_mhd
