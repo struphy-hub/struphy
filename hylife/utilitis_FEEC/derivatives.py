@@ -64,13 +64,34 @@ class discrete_derivatives:
     tensor_space : tensor_spline_space
     """
     
-    def __init__(self, tensor_space):
+    def __init__(self, tensor_space, bc_kind=[['free', 'free'], ['free', 'free'], ['free', 'free']]):
         
         self.NbaseN  = tensor_space.NbaseN
         self.NbaseD  = tensor_space.NbaseD
         self.bc      = tensor_space.bc
         
-        self.grad_1d = [spa.csc_matrix(grad_1d(spl)) for spl in tensor_space.spaces]
+        self.grad_1d = [grad_1d(spl) for spl in tensor_space.spaces]
+        
+        # apply boundary conditions in 1-direction
+        if bc_kind[0][0] == 'dirichlet':
+            self.grad_1d[0][:,  0] = 0.
+        if bc_kind[0][1] == 'dirichlet':
+            self.grad_1d[0][:, -1] = 0.
+            
+        # apply boundary conditions in 2-direction
+        if bc_kind[1][0] == 'dirichlet':
+            self.grad_1d[1][:,  0] = 0.
+        if bc_kind[1][1] == 'dirichlet':
+            self.grad_1d[1][:, -1] = 0.
+            
+        # apply boundary conditions in 3-direction
+        if bc_kind[2][0] == 'dirichlet':
+            self.grad_1d[2][:,  0] = 0.
+        if bc_kind[2][1] == 'dirichlet':
+            self.grad_1d[2][:, -1] = 0.
+            
+        # transform to sparse matrix
+        self.grad_1d = [spa.csc_matrix(grad_1d) for grad_1d in self.grad_1d]
         
     
     # ================== 2d ==================
@@ -134,27 +155,14 @@ class discrete_derivatives:
     
     def curl_3d(self, bc_kind=None):
         
-        # apply Dirichlet boundary conditions
-        if self.bc[0] == False:
-            g1        = self.grad_1d[0].copy().tolil()
-            id1       = spa.identity(self.NbaseN[0], format='lil')
-            
-            if bc_kind[0][0] == 'dirichlet':
-                g1[:,  0] = 0.
-                id1[0, 0] = 0.
-                
-            if bc_kind[0][1] == 'dirichlet':
-                g1[:, -1] = 0.
-                id1[-1, -1] = 0.
-        
-        C12 = spa.kron(spa.kron(id1, spa.identity(self.NbaseD[1])), self.grad_1d[2])
-        C13 = spa.kron(spa.kron(id1, self.grad_1d[1]), spa.identity(self.NbaseD[2]))
+        C12 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
+        C13 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
         
         C21 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
-        C23 = spa.kron(spa.kron(g1             , spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
+        C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
         
         C31 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
-        C32 = spa.kron(spa.kron(g1             , spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
+        C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
         
         C   = spa.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csc')
         
@@ -172,9 +180,9 @@ class discrete_derivatives:
         return D     
 
     
-    def apply_GRAD_3d_kron(self,vec3d):
-        '''
-        apply the divergence operator in tensor-product fashion with 3d vectors
+    def apply_GRAD_3d_kron(self, vec3d):
+        """
+        apply the disrete gradient operator in tensor-product fashion with 3d vectors
 
         res^1_mjk = G^1_mi vec3d_ijk 
         res^2_ink = G^2_nj vec3d_ijk
@@ -182,32 +190,34 @@ class discrete_derivatives:
 
         Parameters
         ----------
-        self.grad_1d  : 3 sparse matrices representing the 1D gradient matrix in each direction, 
-                        of size (d0,n0),(d1,n1),(d2,n2)
+        self.grad_1d : 3 sparse matrices representing the 1D gradient matrix in each direction, 
+                       of size (d0, n0), (d1, n1), (d2, n2)
 
-        vec3d : 3d array of size (n0,n1,n2)
+        vec3d : 3d array of size (n0, n1, n2)
+        
         Returns
         -------
-        grad_1 : 3d array of 1st component of size (d0,n1,n2)   
-        grad_2 : 3d array of 2nd component of size (n0,d1,n2)   
-        grad_3 : 3d array of 3rd component of size (n0,n1,d2)   
-        '''
-        d0 , n0 = self.grad_1d[0].shape
-        d1 , n1 = self.grad_1d[1].shape
-        d2 , n2 = self.grad_1d[2].shape
-
-        assert ( vec3d.shape == (n0, n1, n2) ) 
+        grad_1 : 3d array of 1st component of size (d0, n1, n2)   
+        grad_2 : 3d array of 2nd component of size (n0, d1, n2)   
+        grad_3 : 3d array of 3rd component of size (n0, n1, d2)   
+        """
         
-        grad_1 =   (self.grad_1d[0].dot(  vec3d.reshape(n0,n1*n2))                                            ).reshape(d0,n1,n2)
-        grad_2 = (((self.grad_1d[1].dot(((vec3d.reshape(n0,n1*n2)).T).reshape(n1,n2*n0))).reshape(d1*n2,n0)).T).reshape(n0,d1,n2)
-        grad_3 = ( (self.grad_1d[2].dot(( vec3d.reshape(n0*n1,n2)).T)).T                                      ).reshape(n0,n1,d2)
+        d0, n0 = self.grad_1d[0].shape
+        d1, n1 = self.grad_1d[1].shape
+        d2, n2 = self.grad_1d[2].shape
+
+        assert (vec3d.shape == (n0, n1, n2))
+        
+        grad_1 = (self.grad_1d[0].dot(vec3d.reshape(n0, n1*n2))).reshape(d0, n1, n2)
+        grad_2 = (((self.grad_1d[1].dot(((vec3d.reshape(n0, n1*n2)).T).reshape(n1, n2*n0))).reshape(d1*n2, n0)).T).reshape(n0, d1, n2)
+        grad_3 = ((self.grad_1d[2].dot((vec3d.reshape(n0*n1, n2)).T)).T).reshape(n0,n1,d2)
 
         return grad_1,grad_2,grad_3     
 
 
-    def apply_CURL_3d_kron(self,vec3d_1,vec3d_2,vec3d_3):
-        '''
-        apply the divergence operator in tensor-product fashion with 3d vectors
+    def apply_CURL_3d_kron(self, vec3d_1, vec3d_2, vec3d_3):
+        """
+        apply the discrete curl operator in tensor-product fashion with 3d vectors
 
         curl3d^1_ino = G^2_nj vec3d^3_ijo - G^3_ok vec3d^2_ink
         curl3d^2_mjo = G^3_ok vec3d^1_mjk - G^1_mi vec3d^3_ijo
@@ -215,70 +225,84 @@ class discrete_derivatives:
 
         Parameters
         ----------
-        self.grad_1d  : 3 sparse matrices representing the 1D gradient matrix in each direction, 
-                  of size (d0,n0),(d1,n1),(d2,n2)
+        self.grad_1d : 3 sparse matrices representing the 1D gradient matrix in each direction, 
+                       of size (d0, n0), (d1, n1), (d2, n2)
             
-        vec3d_1 : 3d array of 1st component of size (d0,n1,n2)   
-        vec3d_2 : 3d array of 2nd component of size (n0,d1,n2)   
-        vec3d_3 : 3d array of 3rd component of size (n0,n1,d2)   
+        vec3d_1 : 3d array of 1st component of size (d0, n1, n2)   
+        vec3d_2 : 3d array of 2nd component of size (n0, d1, n2)   
+        vec3d_3 : 3d array of 3rd component of size (n0, n1, d2)   
 
         Returns
         -------
-        curl3d_1 : 3d array of 1st component of size (n0,d1,d2)   
-        curl3d_2 : 3d array of 2nd component of size (d0,n1,d2)   
-        curl3d_3 : 3d array of 3rd component of size (d0,d1,n2)   
-        '''
-        d0 , n0 = self.grad_1d[0].shape
-        d1 , n1 = self.grad_1d[1].shape
-        d2 , n2 = self.grad_1d[2].shape
-
-        assert ( vec3d_1.shape == (d0, n1, n2) ) 
-        assert ( vec3d_2.shape == (n0, d1, n2) ) 
-        assert ( vec3d_3.shape == (n0, n1, d2) ) 
+        curl3d_1 : 3d array of 1st component of size (n0, d1, d2)   
+        curl3d_2 : 3d array of 2nd component of size (d0, n1, d2)   
+        curl3d_3 : 3d array of 3rd component of size (d0, d1, n2)   
+        """
         
-        curl3d_1 =( (((self.grad_1d[1].dot(((vec3d_3.reshape(n0,n1*d2)).T).reshape(n1,d2*n0))).reshape(d1*d2,n0)).T).reshape(n0,d1,d2) \
-                   -( (self.grad_1d[2].dot(( vec3d_2.reshape(n0*d1,n2)).T)).T                                      ).reshape(n0,d1,d2) )
+        d0, n0 = self.grad_1d[0].shape
+        d1, n1 = self.grad_1d[1].shape
+        d2, n2 = self.grad_1d[2].shape
 
-        curl3d_2 =( ( (self.grad_1d[2].dot(( vec3d_1.reshape(d0*n1,n2)).T)).T                                      ).reshape(d0,n1,d2) \
-                   -  (self.grad_1d[0].dot(  vec3d_3.reshape(n0,n1*d2))                                            ).reshape(d0,n1,d2) )
+        assert (vec3d_1.shape == (d0, n1, n2)) 
+        assert (vec3d_2.shape == (n0, d1, n2)) 
+        assert (vec3d_3.shape == (n0, n1, d2))
+        
+        curl3d_1  = np.zeros((n0, d1, d2), dtype=float)
+        curl3d_2  = np.zeros((d0, n1, d2), dtype=float)
+        curl3d_3  = np.zeros((d0, d1, n2), dtype=float)
+        
+        curl3d_1 += (((self.grad_1d[1].dot(((vec3d_3.reshape(n0, n1*d2)).T).reshape(n1, d2*n0))).reshape(d1*d2, n0)).T).reshape(n0, d1, d2)
+        
+        curl3d_1 -= ((self.grad_1d[2].dot((vec3d_2.reshape(n0*d1, n2)).T)).T).reshape(n0, d1, d2)
+        
+        
+        curl3d_2 += ((self.grad_1d[2].dot((vec3d_1.reshape(d0*n1, n2)).T)).T).reshape(d0, n1, d2)
+        
+        curl3d_2 -= (self.grad_1d[0].dot(vec3d_3.reshape(n0, n1*d2))).reshape(d0, n1, d2)
 
-        curl3d_3 =(   (self.grad_1d[0].dot(  vec3d_2.reshape(n0,d1*n2))                                            ).reshape(d0,d1,n2) \
-                   -(((self.grad_1d[1].dot(((vec3d_1.reshape(d0,n1*n2)).T).reshape(n1,n2*d0))).reshape(d1*n2,d0)).T).reshape(d0,d1,n2) )
 
-        return curl3d_1,curl3d_2,curl3d_3     
+        curl3d_3 += self.grad_1d[0].dot(vec3d_2.reshape(n0, d1*n2)).reshape(d0, d1, n2)
+        
+        curl3d_3 -= (((self.grad_1d[1].dot(((vec3d_1.reshape(d0, n1*n2)).T).reshape(n1, n2*d0))).reshape(d1*n2, d0)).T).reshape(d0, d1, n2)
+        
+
+        return curl3d_1, curl3d_2, curl3d_3     
 
     
-    def apply_DIV_3d_kron(self,vec3d_1,vec3d_2,vec3d_3):
-        '''
-        apply the divergence operator in tensor-product fashion with 3d vectors
+    def apply_DIV_3d_kron(self, vec3d_1, vec3d_2, vec3d_3):
+        """
+        apply the discrete divergence operator in tensor-product fashion with 3d vectors
 
         div3d_mno = G_mi vec3d^1_ino + G_nj vec3d^2_mjo + G_ok vec3d^3_mnk
 
         Parameters
         ----------
-        self.grad_1d  : 3 sparse matrices representing the 1D gradient matrix in each direction, 
-                  of size (d0,n0),(d1,n1),(d2,n2)
+        self.grad_1d : 3 sparse matrices representing the 1D gradient matrix in each direction, 
+                       of size (d0, n0), (d1, n1), (d2, n2)
             
-        vec3d_1 : 3d array of 1st component of size (n0,d1,d2)   
-        vec3d_2 : 3d array of 2nd component of size (d0,n1,d2)   
-        vec3d_3 : 3d array of 3rd component of size (d0,d1,n2)   
+        vec3d_1 : 3d array of 1st component of size (n0, d1, d2)   
+        vec3d_2 : 3d array of 2nd component of size (d0, n1, d2)   
+        vec3d_3 : 3d array of 3rd component of size (d0, d1, n2)   
 
         Returns
         -------
-        div3d : 3d array of size (d0,d1,d2)
-        '''
+        div3d : 3d array of size (d0, d1, d2)
+        """
 
-        d0 , n0 = self.grad_1d[0].shape
-        d1 , n1 = self.grad_1d[1].shape
-        d2 , n2 = self.grad_1d[2].shape
+        d0, n0 = self.grad_1d[0].shape
+        d1, n1 = self.grad_1d[1].shape
+        d2, n2 = self.grad_1d[2].shape
 
-        assert ( vec3d_1.shape == (n0, d1, d2) ) 
-        assert ( vec3d_2.shape == (d0, n1, d2) ) 
-        assert ( vec3d_3.shape == (d0, d1, n2) ) 
+        assert (vec3d_1.shape == (n0, d1, d2)) 
+        assert (vec3d_2.shape == (d0, n1, d2)) 
+        assert (vec3d_3.shape == (d0, d1, n2))
+                    
+        div3d  = np.zeros((d0, d1, d2), dtype=float)
+                    
         
-        div3d=(   (self.grad_1d[0].dot(  vec3d_1.reshape(n0,d1*d2))                                            ).reshape(d0,d1,d2) \
-               +(((self.grad_1d[1].dot(((vec3d_2.reshape(d0,n1*d2)).T).reshape(n1,d2*d0))).reshape(d1*d2,d0)).T).reshape(d0,d1,d2) \
-               +( (self.grad_1d[2].dot(( vec3d_3.reshape(d0*d1,n2)).T)).T                                      ).reshape(d0,d1,d2) )
+        div3d += (self.grad_1d[0].dot(vec3d_1.reshape(n0, d1*d2))).reshape(d0, d1, d2)
+        div3d += (((self.grad_1d[1].dot(((vec3d_2.reshape(d0, n1*d2)).T).reshape(n1, d2*d0))).reshape(d1*d2, d0)).T).reshape(d0, d1, d2)
+        div3d += ((self.grad_1d[2].dot((vec3d_3.reshape(d0*d1, n2)).T)).T).reshape(d0, d1, d2)
 
         return div3d
     
