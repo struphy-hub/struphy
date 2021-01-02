@@ -3,7 +3,7 @@
 # Copyright 2020 Florian Holderied
 
 """
-Modules to compute mass matrices 2d.
+Modules to compute inner products with given functions in 2d.
 """
 
 
@@ -13,11 +13,11 @@ import scipy.sparse as spa
 import hylife.utilitis_FEEC.basics.kernels_2d as ker
 
 
-# ================ mass matrix in V0 ===========================
-def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+# ================ inner product in V0 ===========================
+def inner_prod_V0(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[NN NN]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2d inner product [NN] of all basis functions of the given tensor product B-spline spaces of multi-degree (p1, p2) with the 0-form fun.
     
     In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
     One must then pass kind_map and params_map.
@@ -29,6 +29,9 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    fun : callable
+        the 0-form with which the inner products shall be computed
         
     mapping : int
         0 : analytical mapping
@@ -52,7 +55,6 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
@@ -70,34 +72,23 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     elif mapping == 1:
         ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, 1)
     
-    # assembly of global mass matrix
-    M = np.zeros((NbaseN[0], NbaseN[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
+    # evaluation of function at quadrature points
+    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
+    mat_f     = fun(quad_mesh[0], quad_mesh[1])
     
-    ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, 0, 0, wts[0], wts[1], basisN[0], basisN[1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], M, mat_map)
-              
-    # conversion to sparse matrix
-    indices = np.indices((NbaseN[0], NbaseN[1], 2*p[0] + 1, 2*p[1] + 1))
+    # assembly
+    F = np.zeros((NbaseN[0], NbaseN[1]), dtype=float)
     
-    shift   = [np.arange(NbaseN) - p for NbaseN, p in zip(NbaseN, p)]
-    
-    row     = (NbaseN[1]*indices[0] + indices[1]).flatten()
-    
-    col1    = (indices[2] + shift[0][:, None, None, None])%NbaseN[0]
-    col2    = (indices[3] + shift[1][None, :, None, None])%NbaseN[1]
-
-    col     = NbaseN[1]*col1 + col2
+    ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, wts[0], wts[1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], F, mat_f, mat_map)
                 
-    M       = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1], NbaseN[0]*NbaseN[1]))
-    M.eliminate_zeros()
-    
-    return M
+    return F
 
 
-# ================ mass matrix in V1 (H curl) ===========================
-def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+# ================ inner product in V1 (H curl) ===========================
+def inner_prod_V1_curl(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[DN DN, DN ND], [ND DN, ND ND]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2d inner product [DN, ND] of all basis functions of the given tensor product B-spline spaces of multi-degree (p1, p2) with the 1-form fun.
     
     In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
     One must then pass kind_map and params_map.
@@ -109,6 +100,9 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    fun : list of callable
+        the two components of a 1-form with which the inner products shall be computed
         
     mapping : int
         0 : analytical mapping
@@ -132,7 +126,6 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
     
@@ -143,32 +136,37 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # blocks   11         21         22
-    Nbi1 = [NbaseD[0], NbaseN[0], NbaseN[0]]
-    Nbi2 = [NbaseN[1], NbaseD[1], NbaseD[1]]
-    
-    Nbj1 = [NbaseD[0], NbaseD[0], NbaseN[0]]
-    Nbj2 = [NbaseN[1], NbaseN[1], NbaseD[1]]
     
     # basis functions of components of a 1-form
     basis = [[basisD[0], basisN[1]], 
              [basisN[0], basisD[1]]]
+    
+    Nbase = [[NbaseD[0], NbaseN[1]], 
+             [NbaseN[0], NbaseD[1]]]
     
     ns    = [[1, 0], 
              [0, 1]]
     
     # mappings at quadrature points
     mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
-    kind_funs = [11, 12, 13]
+    kind_funs = [11, 12, 12, 13]
     
-    # blocks of global mass matrix
-    M = [np.zeros((Nbi1, Nbi2, 2*p[0] + 1, 2*p[1] + 1), dtype=float) for Nbi1, Nbi2 in zip(Nbi1, Nbi2)]
+    # function at quadrature points
+    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
     
-    # assembly of blocks 11, 21, 22
+    # components of global inner product
+    F = [np.zeros((Nbase[0], Nbase[1])) for Nbase in Nbase]
+    
+    # assembly
     counter = 0
     
     for a in range(2):
-        for b in range(a + 1):
+        
+        ni1,    ni2    = ns[a]
+        bi1,    bi2    = basis[a]
+        Nbase1, Nbase2 = Nbase[a]
+        
+        for b in range(2):
             
             # evaluate mapping (Ginv * sqrt(g)) at quadrature points
             if   mapping == 0:
@@ -176,41 +174,21 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
             elif mapping == 1:
                 ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter])
             
-            ni1, ni2 = ns[a]
-            nj1, nj2 = ns[b]
+            # evaluate function at quadrature points
+            mat_f = fun[b](quad_mesh[0], quad_mesh[1])
             
-            bi1, bi2 = basis[a]
-            bj1, bj2 = basis[b]
-            
-            ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, nj1, nj2, wts[0], wts[1], bi1, bi2, bj1, bj2, Nbi1[counter], Nbi2[counter], M[counter], mat_map)
-            
-            indices = np.indices((Nbi1[counter], Nbi2[counter], 2*p[0] + 1, 2*p[1] + 1))
-            
-            shift1  = np.arange(Nbi1[counter]) - p[0]
-            shift2  = np.arange(Nbi2[counter]) - p[1]
-            
-            row     = (Nbi2[counter]*indices[0] + indices[1]).flatten()
-            
-            col1    = (indices[2] + shift1[:, None, None, None])%Nbj1[counter]
-            col2    = (indices[3] + shift2[None, :, None, None])%Nbj2[counter]
-            
-            col     = Nbj2[counter]*col1 + col2
-            
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter], Nbj1[counter]*Nbj2[counter]))
-            M[counter].eliminate_zeros()
+            ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f, mat_map)
             
             counter += 1
-                       
-    M = spa.bmat([[M[0], M[1].T], [M[1], M[2]]], format='csc')
-                
-    return M
+            
+    return F
 
 
-# ================ mass matrix in V1 (H div) ===========================
-def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+# ================ inner product in V1 (H div) ===========================
+def inner_prod_V1_div(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[ND ND, ND DN], [DN ND, DN DN]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2d inner product [ND, DN] of all basis functions of the given tensor product B-spline spaces of multi-degree (p1, p2) with the 1-form fun.
     
     In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
     One must then pass kind_map and params_map.
@@ -222,6 +200,9 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    fun : list of callables
+        the two components of a 1-form with which the inner products shall be computed
         
     mapping : int
         0 : analytical mapping
@@ -245,7 +226,6 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
     
@@ -256,32 +236,37 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # blocks   11         21         22
-    Nbi1   = [NbaseN[0], NbaseD[0], NbaseD[0]]
-    Nbi2   = [NbaseD[1], NbaseN[1], NbaseN[1]]
-    
-    Nbj1   = [NbaseN[0], NbaseN[0], NbaseD[0]]
-    Nbj2   = [NbaseD[1], NbaseD[1], NbaseN[1]]
     
     # basis functions of components of a 1-form
     basis = [[basisN[0], basisD[1]], 
              [basisD[0], basisN[1]]]
+    
+    Nbase = [[NbaseN[0], NbaseD[1]], 
+             [NbaseD[0], NbaseN[1]]]
     
     ns    = [[0, 1], 
              [1, 0]]
     
     # mappings at quadrature points
     mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
-    kind_funs = [21, 22, 23]
+    kind_funs = [21, 22, 22, 23]
     
-    # blocks of global mass matrix
-    M = [np.zeros((Nbi1, Nbi2, 2*p[0] + 1, 2*p[1] + 1), dtype=float) for Nbi1, Nbi2 in zip(Nbi1, Nbi2)]
+    # function at quadrature points
+    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
     
-    # assembly of blocks 11, 21, 22
+    # components of global inner product
+    F = [np.zeros((Nbase[0], Nbase[1])) for Nbase in Nbase]
+    
+    # assembly
     counter = 0
     
     for a in range(2):
-        for b in range(a + 1):
+        
+        ni1,    ni2    = ns[a]
+        bi1,    bi2    = basis[a]
+        Nbase1, Nbase2 = Nbase[a]
+        
+        for b in range(2):
             
             # evaluate mapping (G / sqrt(g)) at quadrature points
             if   mapping == 0:
@@ -289,41 +274,21 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
             elif mapping == 1:
                 ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter])
             
-            ni1, ni2 = ns[a]
-            nj1, nj2 = ns[b]
+            # evaluate function at quadrature points
+            mat_f = fun[b](quad_mesh[0], quad_mesh[1])
             
-            bi1, bi2 = basis[a]
-            bj1, bj2 = basis[b]
-            
-            ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, nj1, nj2, wts[0], wts[1], bi1, bi2, bj1, bj2, Nbi1[counter], Nbi2[counter], M[counter], mat_map)
-            
-            indices = np.indices((Nbi1[counter], Nbi2[counter], 2*p[0] + 1, 2*p[1] + 1))
-            
-            shift1  = np.arange(Nbi1[counter]) - p[0]
-            shift2  = np.arange(Nbi2[counter]) - p[1]
-            
-            row     = (Nbi2[counter]*indices[0] + indices[1]).flatten()
-            
-            col1    = (indices[2] + shift1[:, None, None, None])%Nbj1[counter]
-            col2    = (indices[3] + shift2[None, :, None, None])%Nbj2[counter]
-            
-            col     = Nbj2[counter]*col1 + col2
-            
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter], Nbj1[counter]*Nbj2[counter]))
-            M[counter].eliminate_zeros()
+            ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f, mat_map)
             
             counter += 1
-                       
-    M = spa.bmat([[M[0], M[1].T], [M[1], M[2]]], format='csc')
-                
-    return M
+            
+    return F
 
 
-# ================ mass matrix in V2 ===========================
-def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+# ================ inner product in V2 ===========================
+def inner_prod_V2(tensor_space_FEM, fun, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[DD DD]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2d inner product [DD] of all basis functions of the given tensor product B-spline spaces of multi-degree (p1, p2) with the 2-form fun.
     
     In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
     One must then pass kind_map and params_map.
@@ -335,6 +300,9 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
+        
+    fun : callable
+        the 2-form with which the inner products shall be computed
         
     mapping : int
         0 : analytical mapping
@@ -358,7 +326,6 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    bc     = tensor_space_FEM.bc      # boundary conditions (periodic vs. clamped)
     NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (N)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
@@ -376,24 +343,13 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     elif mapping == 1:
         ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, 2)
     
-    # assembly of global mass matrix
-    M = np.zeros((NbaseD[0], NbaseD[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
+    # evaluation of function at quadrature points
+    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
+    mat_f     = fun(quad_mesh[0], quad_mesh[1])
     
-    ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, 1, 1, wts[0], wts[1], basisD[0], basisD[1], basisD[0], basisD[1], NbaseD[0], NbaseD[1], M, mat_map)
-              
-    # conversion to sparse matrix
-    indices = np.indices((NbaseD[0], NbaseD[1], 2*p[0] + 1, 2*p[1] + 1))
+    # assembly
+    F = np.zeros((NbaseD[0], NbaseD[1]), dtype=float)
     
-    shift   = [np.arange(NbaseD) - p for NbaseD, p in zip(NbaseD, p)]
-    
-    row     = (NbaseD[1]*indices[0] + indices[1]).flatten()
-    
-    col1    = (indices[2] + shift[0][:, None, None, None])%NbaseD[0]
-    col2    = (indices[3] + shift[1][None, :, None, None])%NbaseD[1]
-
-    col     = NbaseD[1]*col1 + col2
+    ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, wts[0], wts[1], basisD[0], basisD[1], NbaseD[0], NbaseD[1], F, mat_f, mat_map)
                 
-    M       = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD[0]*NbaseD[1], NbaseD[0]*NbaseD[1]))
-    M.eliminate_zeros()
-    
-    return M
+    return F
