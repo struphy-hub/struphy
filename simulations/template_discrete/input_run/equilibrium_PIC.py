@@ -1,6 +1,6 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_discrete as mapping
+import hylife.geometry.mappings_discrete_3d as mapping
 from numpy import exp, pi
 
 # ============================ physical domain ===========================================================

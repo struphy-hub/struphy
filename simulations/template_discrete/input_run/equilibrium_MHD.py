@@ -1,7 +1,7 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_discrete  as mapping
-import hylife.geometry.pull_push_discrete as pull
+import hylife.geometry.mappings_discrete_3d  as mapping
+import hylife.geometry.pull_push_discrete_3d as pull
 
 
 

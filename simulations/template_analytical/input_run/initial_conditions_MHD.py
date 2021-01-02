@@ -1,7 +1,7 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_analytical  as mapping
-import hylife.geometry.pull_push_analytical as pull
+import hylife.geometry.mappings_analytical_3d  as mapping
+import hylife.geometry.pull_push_analytical_3d as pull
 
 from numpy import sin, cos, pi
 
