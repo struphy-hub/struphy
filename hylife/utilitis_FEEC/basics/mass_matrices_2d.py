@@ -3,7 +3,7 @@
 # Copyright 2020 Florian Holderied
 
 """
-Modules to compute mass matrices 2d.
+Modules to compute mass matrices in 2D.
 """
 
 
@@ -14,15 +14,14 @@ import hylife.utilitis_FEEC.basics.kernels_2d as ker
 
 
 # ================ mass matrix in V0 ===========================
-def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def mass_V0(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[NN NN]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2D mass matrix [[NN NN]] of the given tensor product B-spline spaces of bi-degree (p1, p2).
     
-    In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
-    One must then pass kind_map and params_map.
+    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
     
-    In case of a discrete mapping, one must pass a tensor product B-spline space together with control points cx and cy.
+    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
     -----------------------------------------------------------------------------------------------------------
     
     Parameters
@@ -30,12 +29,8 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete   mapping
-        
     kind_map : int
-        type of mapping in case of analytical mapping
+        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
         
     params_map : list of doubles
         parameters for the mapping in case of analytical mapping
@@ -61,14 +56,24 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
+    # create dummy variables
+    if kind_map == 0:
+        T_F        =  tensor_space_F.T
+        p_F        =  tensor_space_F.p
+        NbaseN_F   =  tensor_space_F.NbaseN
+        params_map =  np.zeros((1,  ), dtype=float)
+    else:
+        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
+        p_F        =  np.zeros((1,  ), dtype=int)
+        NbaseN_F   =  np.zeros((1,  ), dtype=int)
+        cx         =  np.zeros((1, 1), dtype=float)
+        cy         =  np.zeros((1, 1), dtype=float)
     
-    # evaluation of Jacobian determinant at quadrature points
+    
+    # evaluation of |det(DF)| at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], mat_map, 1, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, 1)
+    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 1, kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
     
     # assembly of global mass matrix
     M = np.zeros((NbaseN[0], NbaseN[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
@@ -94,15 +99,14 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
 
 
 # ================ mass matrix in V1 (H curl) ===========================
-def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def mass_V1_curl(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[DN DN, DN ND], [ND DN, ND ND]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2D mass matrix [[DN DN, DN ND], [ND DN, ND ND]] of the given tensor product B-spline space of bi-degree (p1, p2).
     
-    In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
-    One must then pass kind_map and params_map.
+    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
     
-    In case of a discrete mapping, one must pass a tensor product B-spline space together with control points cx and cy.
+    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
     -----------------------------------------------------------------------------------------------------------
     
     Parameters
@@ -110,12 +114,8 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete   mapping
-        
     kind_map : int
-        type of mapping in case of analytical mapping
+        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
         
     params_map : list of doubles
         parameters for the mapping in case of analytical mapping
@@ -143,6 +143,19 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
+    # create dummy variables
+    if kind_map == 0:
+        T_F        =  tensor_space_F.T
+        p_F        =  tensor_space_F.p
+        NbaseN_F   =  tensor_space_F.NbaseN
+        params_map =  np.zeros((1,  ), dtype=float)
+    else:
+        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
+        p_F        =  np.zeros((1,  ), dtype=int)
+        NbaseN_F   =  np.zeros((1,  ), dtype=int)
+        cx         =  np.zeros((1, 1), dtype=float)
+        cy         =  np.zeros((1, 1), dtype=float)
+    
     # blocks   11         21         22
     Nbi1 = [NbaseD[0], NbaseN[0], NbaseN[0]]
     Nbi2 = [NbaseN[1], NbaseD[1], NbaseD[1]]
@@ -157,7 +170,7 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     ns    = [[1, 0], 
              [0, 1]]
     
-    # mappings at quadrature points
+    # G^(-1)|det(DF)| at quadrature points
     mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     kind_funs = [11, 12, 13]
     
@@ -170,11 +183,8 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
     for a in range(2):
         for b in range(a + 1):
             
-            # evaluate mapping (Ginv * sqrt(g)) at quadrature points
-            if   mapping == 0:
-                ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map)
-            elif mapping == 1:
-                ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter])
+            # evaluate G^(-1)|det(DF)| at quadrature points
+            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
             
             ni1, ni2 = ns[a]
             nj1, nj2 = ns[b]
@@ -207,15 +217,14 @@ def mass_V1_curl(tensor_space_FEM, mapping, kind_map=None, params_map=None, tens
 
 
 # ================ mass matrix in V1 (H div) ===========================
-def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def mass_V1_div(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[ND ND, ND DN], [DN ND, DN DN]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2D mass matrix [[ND ND, ND DN], [DN ND, DN DN]] of the given tensor product B-spline space of bi-degree (p1, p2).
     
-    In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
-    One must then pass kind_map and params_map.
+    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
     
-    In case of a discrete mapping, one must pass a tensor product B-spline space together with control points cx and cy.
+    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
     -----------------------------------------------------------------------------------------------------------
     
     Parameters
@@ -223,12 +232,8 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete   mapping
-        
     kind_map : int
-        type of mapping in case of analytical mapping
+        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
         
     params_map : list of doubles
         parameters for the mapping in case of analytical mapping
@@ -256,6 +261,19 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
+    # create dummy variables
+    if kind_map == 0:
+        T_F        =  tensor_space_F.T
+        p_F        =  tensor_space_F.p
+        NbaseN_F   =  tensor_space_F.NbaseN
+        params_map =  np.zeros((1,  ), dtype=float)
+    else:
+        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
+        p_F        =  np.zeros((1,  ), dtype=int)
+        NbaseN_F   =  np.zeros((1,  ), dtype=int)
+        cx         =  np.zeros((1, 1), dtype=float)
+        cy         =  np.zeros((1, 1), dtype=float)
+    
     # blocks   11         21         22
     Nbi1   = [NbaseN[0], NbaseD[0], NbaseD[0]]
     Nbi2   = [NbaseD[1], NbaseN[1], NbaseN[1]]
@@ -270,7 +288,7 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     ns    = [[0, 1], 
              [1, 0]]
     
-    # mappings at quadrature points
+    # G/|det(DF)| at quadrature points
     mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     kind_funs = [21, 22, 23]
     
@@ -283,11 +301,8 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
     for a in range(2):
         for b in range(a + 1):
             
-            # evaluate mapping (G / sqrt(g)) at quadrature points
-            if   mapping == 0:
-                ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map)
-            elif mapping == 1:
-                ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter])
+            # evaluate G/|det(DF)| at quadrature points
+            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
             
             ni1, ni2 = ns[a]
             nj1, nj2 = ns[b]
@@ -320,15 +335,14 @@ def mass_V1_div(tensor_space_FEM, mapping, kind_map=None, params_map=None, tenso
 
 
 # ================ mass matrix in V2 ===========================
-def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def mass_V2(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
     """
     ----------------------------------------------------------------------------------------------------------
-    Assembles the 2d mass matrix [[DD DD]] of the given tensor product B-spline spaces of multi-degree (p1, p2).
+    Assembles the 2D mass matrix [[DD DD]] of the given tensor product B-spline space of bi-degree (p1, p2).
     
-    In case of an analytical mapping, all mapping related quantities are called from hylife.geometry.mappings_analytical_2d.
-    One must then pass kind_map and params_map.
+    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
     
-    In case of a discrete mapping, one must pass a tensor product B-spline space together with control points cx and cy.
+    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
     -----------------------------------------------------------------------------------------------------------
     
     Parameters
@@ -336,12 +350,8 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete   mapping
-        
     kind_map : int
-        type of mapping in case of analytical mapping
+        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
         
     params_map : list of doubles
         parameters for the mapping in case of analytical mapping
@@ -367,14 +377,24 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
+    # create dummy variables
+    if kind_map == 0:
+        T_F        =  tensor_space_F.T
+        p_F        =  tensor_space_F.p
+        NbaseN_F   =  tensor_space_F.NbaseN
+        params_map =  np.zeros((1,  ), dtype=float)
+    else:
+        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
+        p_F        =  np.zeros((1,  ), dtype=int)
+        NbaseN_F   =  np.zeros((1,  ), dtype=int)
+        cx         =  np.zeros((1, 1), dtype=float)
+        cy         =  np.zeros((1, 1), dtype=float)
     
-    # evaluation of 1 / Jacobian determinant at quadrature points
+    
+    # evaluation of 1/|det(DF)| at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], mat_map, 2, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, Nel, n_quad, pts[0], pts[1], mat_map, 2)
+    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 2, kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
     
     # assembly of global mass matrix
     M = np.zeros((NbaseD[0], NbaseD[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)

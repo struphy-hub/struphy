@@ -1,128 +1,73 @@
+# coding: utf-8
+#
+# Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
+
+
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_analytical_3d as map_ana
-import hylife.geometry.mappings_discrete_3d   as map_dis
+import hylife.geometry.mappings_3d as mapping
 
 
 # ==========================================================================================
-@types('double','double','double','int','int','double[:]')        
-def fun_ana(eta1, eta2, eta3, kind_fun, kind_map, params):
+@types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')         
+def fun(eta1, eta2, eta3, kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
-    # quantities for 0-form mass matrix
+    # quantities for 0-form mass matrix (|det(DF)|)
     if   kind_fun == 1:
-        value = abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     
-    # quantities for 1-form mass matrix
+    # quantities for 1-form mass matrix (G^(-1)|det(DF)|)
     elif kind_fun == 11:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 11) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 41, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 12:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 21) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 44, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 13:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 22) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 45, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 14:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 31) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 47, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 15:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 32) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 48, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 16:
-        value = map_ana.g_inv(eta1, eta2, eta3, kind_map, params, 33) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 49, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
         
-    # quantities for 2-form mass matrix
+    # quantities for 2-form mass matrix (G/|det(DF)|)
     elif kind_fun == 21:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 11) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 22:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 21) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 34, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 23:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 22) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 35, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 24:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 31) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 37, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 25:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 32) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 38, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 26:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 33) / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 39, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
         
-    # quantities for 3-form mass matrix
+    # quantities for 3-form mass matrix (1/|det(DF)|)
     elif kind_fun == 2:
-        value = 1. / abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = 1. / abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
         
-    # quantities for vector mass matrix
+    # quantities for vector mass matrix (G|det(DF)|)
     elif kind_fun == 31:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 11) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 32:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 21) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 34, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 33:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 22) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 35, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 34:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 31) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 37, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 35:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 32) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 38, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
     elif kind_fun == 36:
-        value = map_ana.g(eta1, eta2, eta3, kind_map, params, 33) * abs(map_ana.det_df(eta1, eta2, eta3, kind_map, params))
+        value = mapping.all_mappings(eta1, eta2, eta3, 39, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz) * abs(mapping.all_mappings(eta1, eta2, eta3, 4, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
         
-    
     return value
-    
+
 
 # ==========================================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double','double','int')        
-def fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3, kind_fun):
-    
-    # quantities for 0-form mass matrix
-    if   kind_fun == 1:
-        value = abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    
-    # quantities for 1-form mass matrix
-    elif kind_fun == 11:
-        value = map_dis.ginv_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 12:
-        value = map_dis.ginv_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 13:
-        value = map_dis.ginv_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 14:
-        value = map_dis.ginv_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 15:
-        value = map_dis.ginv_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 16:
-        value = map_dis.ginv_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-        
-    # quantities for 2-form mass matrix
-    elif kind_fun == 21:
-        value = map_dis.g_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 22:
-        value = map_dis.g_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 23:
-        value = map_dis.g_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 24:
-        value = map_dis.g_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 25:
-        value = map_dis.g_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 26:
-        value = map_dis.g_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-        
-    # quantities for 3-form mass matrix
-    elif kind_fun == 2:
-        value = 1. / abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-        
-    # quantities for vector mass matrix
-    elif kind_fun == 31:
-        value = map_dis.g_11(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 32:
-        value = map_dis.g_21(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 33:
-        value = map_dis.g_22(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 34:
-        value = map_dis.g_31(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 35:
-        value = map_dis.g_32(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    elif kind_fun == 36:
-        value = map_dis.g_33(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3) * abs(map_dis.det_df(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1, eta2, eta3))
-    
-    
-    return value    
-    
-       
-# ==========================================================================================
-@types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]')        
-def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params):
+@types('int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')        
+def kernel_evaluate_quadrature(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
     #$ omp parallel
     #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
@@ -133,34 +78,14 @@ def kernel_evaluation_ana(nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, 
                 for q1 in range(nq[0]):
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
-                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_ana(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params)
+                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun(eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     #$ omp end do
     #$ omp end parallel
     
     ierr = 0
-        
-        
-        
-# ==========================================================================================
-@types('double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','int')        
-def kernel_evaluation_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, nel, nq, eta1, eta2, eta3, mat_f, kind_fun):
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, ie3, q1, q2, q3)
-    for ie1 in range(nel[0]):
-        for ie2 in range(nel[1]):
-            for ie3 in range(nel[2]):
     
-                for q1 in range(nq[0]):
-                    for q2 in range(nq[1]):
-                        for q3 in range(nq[2]):
-                            mat_f[ie1, ie2, ie3, q1, q2, q3] = fun_dis(tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, eta1[ie1, q1], eta2[ie2, q2], eta3[ie3, q3], kind_fun)
-    #$ omp end do
-    #$ omp end parallel
     
-    ierr = 0
-        
-        
 # ==========================================================================================          
 @types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, m, mat_map):
