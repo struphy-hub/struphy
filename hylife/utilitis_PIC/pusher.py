@@ -1,25 +1,23 @@
 # import pyccel decorators
 from pyccel.decorators import types
 
-# import modules for mapping related quantities
-import hylife.geometry.mappings_analytical as mapping
-
-# import input files for simulation setup
-import input_run.equilibrium_MHD as eq_mhd
-
 # import module for matrix-matrix and matrix-vector multiplications
 import hylife.linear_algebra.core as linalg
+
+# import module for mapping evaluation
+import hylife.geometry.mappings_3d_fast as mapping_fast
 
 # import modules for B-spline evaluation
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]')
-def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, u1, u2, u3, kind_map, params_map):
+@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')
+def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, bnorm, u1, u2, u3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mu):
     
     from numpy import empty, zeros
     
+    # ============== for magnetic field evaluation ============
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -34,43 +32,73 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     b2  = empty((pn2 + 1, pn2 + 1), dtype=float)
     b3  = empty((pn3 + 1, pn3 + 1), dtype=float)
     
-    l1  = empty( pn1              , dtype=float)
-    l2  = empty( pn2              , dtype=float)
-    l3  = empty( pn3              , dtype=float)
+    # left and right values for spline evaluation
+    l1  = empty( pn1, dtype=float)
+    l2  = empty( pn2, dtype=float)
+    l3  = empty( pn3, dtype=float)
     
-    r1  = empty( pn1              , dtype=float)
-    r2  = empty( pn2              , dtype=float)
-    r3  = empty( pn3              , dtype=float)
+    r1  = empty( pn1, dtype=float)
+    r2  = empty( pn2, dtype=float)
+    r3  = empty( pn3, dtype=float)
     
     # scaling arrays for M-splines
-    d1  = empty( pn1              , dtype=float)
-    d2  = empty( pn2              , dtype=float)
-    d3  = empty( pn3              , dtype=float)
+    d1  = empty( pn1, dtype=float)
+    d2  = empty( pn2, dtype=float)
+    d3  = empty( pn3, dtype=float)
+    
+    # p + 1 non-vanishing derivatives
+    der1 = empty(pn1 + 1, dtype=float)
+    der2 = empty(pn2 + 1, dtype=float)
+    der3 = empty(pn3 + 1, dtype=float)
     
     # magnetic field, velocity field and electric field at particle position
-    u          = empty( 3    , dtype=float)
-    b          = empty( 3    , dtype=float)
-    e          = empty( 3    , dtype=float)
+    u      = empty( 3, dtype=float)
+    b      = empty( 3, dtype=float)
+    b_grad = empty( 3, dtype=float)
+    e      = empty( 3, dtype=float)
+    e_cart = empty( 3, dtype=float)
+    # ==========================================================
     
-    # mapping related quantities
-    dfinv_t    = empty((3, 3), dtype=float)
     
-    temp_vec   = empty( 3    , dtype=float)
+    # ================ for mapping evaluation ==================
+    # spline degrees
+    pf1   = pf[0]
+    pf2   = pf[1]
+    pf3   = pf[2]
     
-    components = empty((3, 3), dtype=int)
+    # pf + 1 non-vanishing basis functions up tp degree pf
+    b1f   = empty((pf1 + 1, pf1 + 1), dtype=float)
+    b2f   = empty((pf2 + 1, pf2 + 1), dtype=float)
+    b3f   = empty((pf3 + 1, pf3 + 1), dtype=float)
     
-    components[0, 0] = 11
-    components[0, 1] = 12
-    components[0, 2] = 13
-    components[1, 0] = 21
-    components[1, 1] = 22
-    components[1, 2] = 23
-    components[2, 0] = 31
-    components[2, 1] = 32
-    components[2, 2] = 33
+    # left and right values for spline evaluation
+    l1f   = empty( pf1, dtype=float)
+    l2f   = empty( pf2, dtype=float)
+    l3f   = empty( pf3, dtype=float)
+    
+    r1f   = empty( pf1, dtype=float)
+    r2f   = empty( pf2, dtype=float)
+    r3f   = empty( pf3, dtype=float)
+    
+    # scaling arrays for M-splines
+    d1f   = empty( pf1, dtype=float)
+    d2f   = empty( pf2, dtype=float)
+    d3f   = empty( pf3, dtype=float)
+    
+    # pf + 1 derivatives
+    der1f = empty( pf1 + 1, dtype=float)
+    der2f = empty( pf2 + 1, dtype=float)
+    der3f = empty( pf3 + 1, dtype=float)
+    
+    # needed mapping quantities
+    df        = empty((3, 3), dtype=float)
+    dfinv     = empty((3, 3), dtype=float)
+    dfinv_t   = empty((3, 3), dtype=float)
+    # ==========================================================
+    
     
     #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, u, b, e, i, j, dfinv_t, temp_vec)
+    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, u, b, b_grad, e, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, dfinv, dfinv_t, e_cart)
     for ip in range(np):
         
         eta1 = particles[0, ip]
@@ -82,136 +110,240 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         span2 = int(eta2*nel[1]) + pn2
         span3 = int(eta3*nel[2]) + pn3
         
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        # evaluation of basis functions and derivatives
+        bsp.basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
+        bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
+        bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
+        # velocity field (1-form)
+        #u[0] = eva.evaluation_kernel(pd1, pn2, pn3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pn3], span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+        #u[1] = eva.evaluation_kernel(pn1, pd2, pn3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pn3], span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+        #u[2] = eva.evaluation_kernel(pn1, pn2, pd3, b1[pn1], b2[pn2], b3[pd3, :pn3]*d3[:], span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+        
+        # velocity field (2-form)
         #u[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
         #u[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
         #u[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
         
+        # velocity field (0-form)
         u[0] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1)
         u[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2)
         u[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3)
         
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b2_eq_1(eta1, eta2, eta3, kind_map, params_map)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq_2(eta1, eta2, eta3, kind_map, params_map)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b2_eq_3(eta1, eta2, eta3, kind_map, params_map)
+        # magnetic field (2-form)
+        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1)
+        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2)
+        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3)
         
-        e[0] = b[1]*u[2] - b[2]*u[1]
-        e[1] = b[2]*u[0] - b[0]*u[2]
-        e[2] = b[0]*u[1] - b[1]*u[0]
+        # evaluation of grad(B) on logical domain (|B| is a 0-form, then grad(B) a 1-form)
+        b_grad[0] = eva.evaluation_kernel(pn1, pn2, pn3, der1, b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
+        b_grad[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], der2, b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
+        b_grad[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], der3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
+        
+        # electric field B x U (interior product)
+        linalg.cross(b, u, e)
+        
+        # additional artificial electric field if Pauli particles are used
+        e[:] = e - mu[ip]*b_grad
         # ==========================================
         
+        # ========= mapping evaluation =============
+        span1f = int(eta1*nelf[0]) + pf1
+        span2f = int(eta2*nelf[1]) + pf2
+        span3f = int(eta3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
+        
+        # evaluate transposed inverse Jacobian matrix
+        linalg.transpose(dfinv, dfinv_t)
+        # ==========================================
         
         # ======== particle pushing ================
-        
-        # evaluate transposed, inverse Jacobian matrix
-        for i in range(3):
-            for j in range(3):
-                dfinv_t[i, j] = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, components[j, i])  
-        
-                
         # perform push-forward of 1-form electric field to physical space
-        linalg.matrix_vector(dfinv_t, e, temp_vec)
+        linalg.matrix_vector(dfinv_t, e, e_cart)
         
         # update particle velocities
-        particles[3, ip] += dt*temp_vec[0]
-        particles[4, ip] += dt*temp_vec[1]
-        particles[5, ip] += dt*temp_vec[2]
-        
+        particles[3, ip] += dt*e_cart[0]
+        particles[4, ip] += dt*e_cart[1]
+        particles[5, ip] += dt*e_cart[2]
         # ==========================================
         
     #$ omp end do
     #$ omp end parallel
     
     ierr = 0
+
+    
     
     
 # ==========================================================================================================
-@types('double[:,:]','double','int','int','double[:]')
-def pusher_step4(particles, dt, np, kind_map, params_map):
+@types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
     
     from numpy import empty
     
-    # particle position and velocity
-    eta        = empty( 3    , dtype=float)
-    v          = empty( 3    , dtype=float)
+    # ================ for mapping evaluation ==================
+    # spline degrees
+    pf1   = pf[0]
+    pf2   = pf[1]
+    pf3   = pf[2]
     
-    # mapping related quantities
-    dfinv      = empty((3, 3), dtype=float)
+    # pf + 1 non-vanishing basis functions up tp degree pf
+    b1f   = empty((pf1 + 1, pf1 + 1), dtype=float)
+    b2f   = empty((pf2 + 1, pf2 + 1), dtype=float)
+    b3f   = empty((pf3 + 1, pf3 + 1), dtype=float)
     
-    components = empty((3, 3), dtype=int)
+    # left and right values for spline evaluation
+    l1f   = empty( pf1, dtype=float)
+    l2f   = empty( pf2, dtype=float)
+    l3f   = empty( pf3, dtype=float)
     
-    components[0, 0] = 11
-    components[0, 1] = 12
-    components[0, 2] = 13
-    components[1, 0] = 21
-    components[1, 1] = 22
-    components[1, 2] = 23
-    components[2, 0] = 31
-    components[2, 1] = 32
-    components[2, 2] = 33
+    r1f   = empty( pf1, dtype=float)
+    r2f   = empty( pf2, dtype=float)
+    r3f   = empty( pf3, dtype=float)
     
-    # intermediate stps in 4th order Runge-Kutta
-    k1 = empty( 3, dtype=float)  
-    k2 = empty( 3, dtype=float)  
-    k3 = empty( 3, dtype=float)  
-    k4 = empty( 3, dtype=float)  
+    # scaling arrays for M-splines
+    d1f   = empty( pf1, dtype=float)
+    d2f   = empty( pf2, dtype=float)
+    d3f   = empty( pf3, dtype=float)
+    
+    # pf + 1 derivatives
+    der1f = empty( pf1 + 1, dtype=float)
+    der2f = empty( pf2 + 1, dtype=float)
+    der3f = empty( pf3 + 1, dtype=float)
+    
+    # needed mapping quantities
+    df    = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    # ========================================================
+    
+    
+    # ======= particle position and velocity =================
+    eta = empty(3, dtype=float)
+    v   = empty(3, dtype=float)
+    # ========================================================
+    
+    
+    # ===== intermediate stps in 4th order Runge-Kutta =======
+    k1 = empty(3, dtype=float)  
+    k2 = empty(3, dtype=float)  
+    k3 = empty(3, dtype=float)  
+    k4 = empty(3, dtype=float) 
+    # ========================================================
+    
     
     #$ omp parallel
-    #$ omp do private (ip, eta, v, dfinv, k1, k2, k3, k4)
+    #$ omp do private (ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, dfinv, k1, k2, k3, k4)
     for ip in range(np):
         
         eta[:] = particles[0:3, ip]
         v[:]   = particles[3:6, ip]
         
-        # step 1 in Runge-Kutta method
-        for i in range(3):
-            for j in range(3):
-                dfinv[i, j] = mapping.df_inv(eta[0], eta[1], eta[2], kind_map, params_map, components[i, j])
+        # ----------- step 1 in Runge-Kutta method -----------------------
+        pos1   = eta[0]
+        pos2   = eta[1]
+        pos3   = eta[2]
+        
+        span1f = int(pos1*nelf[0]) + pf1
+        span2f = int(pos2*nelf[1]) + pf2
+        span3f = int(pos3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
                 
+        # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k1)
+        # ------------------------------------------------------------------
         
-        # step 2 in Runge-Kutta method
-        for i in range(3):
-            for j in range(3):
-                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k1[0]/2, eta[1] + dt*k1[1]/2, eta[2] + dt*k1[2]/2, kind_map, params_map, components[i, j])
+        
+        # ----------------- step 2 in Runge-Kutta method -------------------
+        pos1   = (eta[0] + dt*k1[0]/2)%1.
+        pos2   = (eta[1] + dt*k1[1]/2)%1.
+        pos3   = (eta[2] + dt*k1[2]/2)%1.
+        
+        span1f = int(pos1*nelf[0]) + pf1
+        span2f = int(pos2*nelf[1]) + pf2
+        span3f = int(pos3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
                 
+        # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k2)
+        # ------------------------------------------------------------------
         
-        # step 3 in Runge-Kutta method
-        for i in range(3):
-            for j in range(3):
-                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k2[0]/2, eta[1] + dt*k2[1]/2, eta[2] + dt*k2[2]/2, kind_map, params_map, components[i, j])
+        
+        # ------------------ step 3 in Runge-Kutta method ------------------
+        pos1   = (eta[0] + dt*k2[0]/2)%1.
+        pos2   = (eta[1] + dt*k2[1]/2)%1.
+        pos3   = (eta[2] + dt*k2[2]/2)%1.
+        
+        span1f = int(pos1*nelf[0]) + pf1
+        span2f = int(pos2*nelf[1]) + pf2
+        span3f = int(pos3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
                 
+        # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k3)
+        # ------------------------------------------------------------------
         
-        # step 4 in Runge-Kutta method
-        for i in range(3):
-            for j in range(3):
-                dfinv[i, j] = mapping.df_inv(eta[0] + dt*k3[0], eta[1] + dt*k3[1], eta[2] + dt*k3[2], kind_map, params_map, components[i, j])
+        
+        # ------------------ step 4 in Runge-Kutta method ------------------
+        pos1   = (eta[0] + dt*k3[0])%1.
+        pos2   = (eta[1] + dt*k3[1])%1.
+        pos3   = (eta[2] + dt*k3[2])%1.
+        
+        span1f = int(pos1*nelf[0]) + pf1
+        span2f = int(pos2*nelf[1]) + pf2
+        span3f = int(pos3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
                 
+        # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k4)
+        # ------------------------------------------------------------------
         
-        # update logical coordinates
+        
+        #  ---------------- update logical coordinates ---------------------
         particles[0, ip] = (eta[0] + dt*(k1[0] + 2*k2[0] + 2*k3[0] + k4[0])/6)%1.
         particles[1, ip] = (eta[1] + dt*(k1[1] + 2*k2[1] + 2*k3[1] + k4[1])/6)%1.
         particles[2, ip] = (eta[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.
+        # ------------------------------------------------------------------
     
     #$ omp end do
     #$ omp end parallel
     
     ierr = 0
+
     
     
     
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]')
-def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, kind_map, params_map):
+@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
     
     from numpy import empty, zeros
     
+    # ============== for magnetic field evaluation ============
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -226,61 +358,84 @@ def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     b2  = empty((pn2 + 1, pn2 + 1), dtype=float)
     b3  = empty((pn3 + 1, pn3 + 1), dtype=float)
     
-    l1  = empty( pn1              , dtype=float)
-    l2  = empty( pn2              , dtype=float)
-    l3  = empty( pn3              , dtype=float)
+    # left and right values for spline evaluation
+    l1  = empty( pn1, dtype=float)
+    l2  = empty( pn2, dtype=float)
+    l3  = empty( pn3, dtype=float)
     
-    r1  = empty( pn1              , dtype=float)
-    r2  = empty( pn2              , dtype=float)
-    r3  = empty( pn3              , dtype=float)
+    r1  = empty( pn1, dtype=float)
+    r2  = empty( pn2, dtype=float)
+    r3  = empty( pn3, dtype=float)
     
     # scaling arrays for M-splines
-    d1  = empty( pn1              , dtype=float)
-    d2  = empty( pn2              , dtype=float)
-    d3  = empty( pn3              , dtype=float)
+    d1  = empty( pn1, dtype=float)
+    d2  = empty( pn2, dtype=float)
+    d3  = empty( pn3, dtype=float)
     
-    # magnetic field at particle positions
-    b          = empty( 3    , dtype=float)
-    b_prod     = zeros((3, 3), dtype=float)
+    # magnetic field at particle position and velocity
+    b      = empty( 3    , dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+    v      = empty( 3    , dtype=float)
+    # ==========================================================
     
-    # particle velocity
-    v          = empty( 3    , dtype=float)
     
-    # mapping related quantities
-    dfinv      = empty((3, 3), dtype=float) 
-    dfinv_t    = empty((3, 3), dtype=float)
+    # ================ for mapping evaluation ==================
+    # spline degrees
+    pf1   = pf[0]
+    pf2   = pf[1]
+    pf3   = pf[2]
     
-    temp_mat1  = empty((3, 3), dtype=float)
-    temp_mat2  = empty((3, 3), dtype=float)
+    # pf + 1 non-vanishing basis functions up tp degree pf
+    b1f   = empty((pf1 + 1, pf1 + 1), dtype=float)
+    b2f   = empty((pf2 + 1, pf2 + 1), dtype=float)
+    b3f   = empty((pf3 + 1, pf3 + 1), dtype=float)
     
-    rhs        = empty( 3    , dtype=float)
+    # left and right values for spline evaluation
+    l1f   = empty( pf1, dtype=float)
+    l2f   = empty( pf2, dtype=float)
+    l3f   = empty( pf3, dtype=float)
     
-    identity   = zeros((3, 3), dtype=float)
+    r1f   = empty( pf1, dtype=float)
+    r2f   = empty( pf2, dtype=float)
+    r3f   = empty( pf3, dtype=float)
     
-    lhs        = empty((3, 3), dtype=float)
+    # scaling arrays for M-splines
+    d1f   = empty( pf1, dtype=float)
+    d2f   = empty( pf2, dtype=float)
+    d3f   = empty( pf3, dtype=float)
     
-    lhs1       = empty((3, 3), dtype=float)
-    lhs2       = empty((3, 3), dtype=float)
-    lhs3       = empty((3, 3), dtype=float)
+    # pf + 1 derivatives
+    der1f = empty( pf1 + 1, dtype=float)
+    der2f = empty( pf2 + 1, dtype=float)
+    der3f = empty( pf3 + 1, dtype=float)
     
-    components = empty((3, 3), dtype=int)
+    # needed mapping quantities
+    df        = empty((3, 3), dtype=float)
+    dfinv     = empty((3, 3), dtype=float)
+    dfinv_t   = empty((3, 3), dtype=float)
+    # ==========================================================
     
-    components[0, 0] = 11
-    components[0, 1] = 12
-    components[0, 2] = 13
-    components[1, 0] = 21
-    components[1, 1] = 22
-    components[1, 2] = 23
-    components[2, 0] = 31
-    components[2, 1] = 32
-    components[2, 2] = 33
     
-    identity[0, 0]   = 1.
-    identity[1, 1]   = 1.
-    identity[2, 2]   = 1.
+    # ================ for solving linear 3x3 system ===========
+    temp_mat1 = empty((3, 3), dtype=float)
+    temp_mat2 = empty((3, 3), dtype=float)
+    
+    rhs       = empty( 3    , dtype=float)
+    lhs       = empty((3, 3), dtype=float)
+    lhs1      = empty((3, 3), dtype=float)
+    lhs2      = empty((3, 3), dtype=float)
+    lhs3      = empty((3, 3), dtype=float)
+    
+    identity  = zeros((3, 3), dtype=float)
+    
+    identity[0, 0] = 1.
+    identity[1, 1] = 1.
+    identity[2, 2] = 1.
+    # ===========================================================
+    
     
     #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, b, v, i, j, dfinv, dfinv_t, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3) firstprivate(b_prod)
+    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, b, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, dfinv, dfinv_t, v, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3) firstprivate(b_prod)
     for ip in range(np):
         
         eta1 = particles[0, ip]
@@ -292,13 +447,15 @@ def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         span2 = int(eta2*nel[1]) + pn2
         span3 = int(eta3*nel[2]) + pn3
         
+        # evaluation of basis functions
         bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
         bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
         bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1) + eq_mhd.b2_eq_1(eta1, eta2, eta3, kind_map, params_map)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2) + eq_mhd.b2_eq_2(eta1, eta2, eta3, kind_map, params_map)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3) + eq_mhd.b2_eq_3(eta1, eta2, eta3, kind_map, params_map)
+        # magnetic field (2-form)
+        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1)
+        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2)
+        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3)
         
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] =  b[1]
@@ -310,17 +467,24 @@ def pusher_step5(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         b_prod[2, 1] =  b[0]
         # ==========================================
         
+        # ========= mapping evaluation =============
+        span1f = int(eta1*nelf[0]) + pf1
+        span2f = int(eta2*nelf[1]) + pf2
+        span3f = int(eta3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df)
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
+        
+        # evaluate transposed inverse Jacobian matrix
+        linalg.transpose(dfinv, dfinv_t)
+        # ==========================================
+        
         
         # ======== particle pushing ================
         v[:] = particles[3:6, ip]
-        
-        # evaluate inverse Jacobian matrix
-        for i in range(3):
-            for j in range(3):
-                dfinv[i, j] = mapping.df_inv(eta1, eta2, eta3, kind_map, params_map, components[i, j])
-        
-        # transpose of inverse Jacobian matrix
-        linalg.transpose(dfinv, dfinv_t)
         
         # perform matrix-matrix and matrix-vector multiplications
         linalg.matrix_matrix(b_prod, dfinv, temp_mat1)
