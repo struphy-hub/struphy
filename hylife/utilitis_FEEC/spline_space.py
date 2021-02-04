@@ -178,6 +178,41 @@ class tensor_spline_space:
         self.NbaseN  = [spl.NbaseN  for spl in self.spaces]    # total number of basis functions (N)
         self.NbaseD  = [spl.NbaseD  for spl in self.spaces]    # total number of basis functions (D)
         
+        
+        # number of basis functions of discrete p-forms
+        if len(self.spaces) == 3:
+            
+            self.Nbase_0form =  [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]]
+
+            self.Nbase_1form = [[self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], 
+                                [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], 
+                                [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]]]
+
+            self.Nbase_2form = [[self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], 
+                                [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], 
+                                [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]]]
+
+            self.Nbase_3form =  [self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]]
+
+            self.Ntot_0form  =  self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2] 
+
+            self.Ntot_1form  = [self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], 
+                                self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], 
+                                self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]]
+
+            self.Ntot_2form  = [self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], 
+                                self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], 
+                                self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]]
+
+            self.Ntot_3form  =  self.NbaseD[0]*self.NbaseD[1]*self.NbaseD[2]
+            
+            self.Ntot_1form_cum = [self.Ntot_1form[0], self.Ntot_1form[0] + self.Ntot_1form[1], self.Ntot_1form[0] + self.Ntot_1form[1] + self.Ntot_1form[2]]
+            
+            self.Ntot_2form_cum = [self.Ntot_2form[0], self.Ntot_2form[0] + self.Ntot_2form[1], self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2]]
+        
+        
+        
+        
         if self.spaces[0].n_quad != None:
             
             self.n_quad  = [spl.n_quad  for spl in self.spaces]    # number of Gauss-Legendre quadrature points per element
@@ -194,7 +229,49 @@ class tensor_spline_space:
             self.basisN  = [spl.basisN  for spl in self.spaces] 
             self.basisD  = [spl.basisD  for spl in self.spaces]
         
+    
+    # ================================================
+    def ravel_pform(self, x1, x2, x3):
+        return np.concatenate((x1.flatten(), x2.flatten(), x3.flatten()))
+    
+    
+    # ================================================
+    def unravel_0form(self, x):
         
+        x1, x2, x3 = np.split(x, [self.Ntot_0form, 2*self.Ntot_0form])
+        
+        x1 = x1.reshape(self.Nbase_0form)
+        x2 = x2.reshape(self.Nbase_0form)
+        x3 = x3.reshape(self.Nbase_0form)
+        
+        return x1, x2, x3
+    
+    
+    # ================================================
+    def unravel_1form(self, x):
+        
+        x1, x2, x3 = np.split(x, [self.Ntot_1form_cum[0], self.Ntot_1form_cum[1]])
+        
+        x1 = x1.reshape(self.Nbase_1form[0])
+        x2 = x2.reshape(self.Nbase_1form[1])
+        x3 = x3.reshape(self.Nbase_1form[2])
+        
+        return x1, x2, x3
+    
+    
+    # ================================================
+    def unravel_2form(self, x):
+        
+        x1, x2, x3 = np.split(x, [self.Ntot_2form_cum[0], self.Ntot_2form_cum[1]])
+        
+        x1 = x1.reshape(self.Nbase_2form[0])
+        x2 = x2.reshape(self.Nbase_2form[1])
+        x3 = x3.reshape(self.Nbase_2form[2])
+        
+        return x1, x2, x3
+        
+    
+    
     # =================================================
     def evaluate_NN(self, eta1, eta2, coeff):
         """
