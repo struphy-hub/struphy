@@ -68,8 +68,9 @@ class discrete_mapping_2d:
             eps = 0.3
             e   = 1.4
             xi  = 1/np.sqrt(1 - eps**2/4)
+            x0  = (1 - np.sqrt(1 + eps**2))/eps
             
-            self.x = lambda s, phi : 1/eps*(1 - np.sqrt(1 + eps*(eps + 2*s*np.cos(2*np.pi*phi))))
+            self.x = lambda s, phi : 1/eps*(1 - np.sqrt(1 + eps*(eps + 2*s*np.cos(2*np.pi*phi)))) - x0
             self.y = lambda s, phi : y0 + e*xi*s*np.sin(2*np.pi*phi)/(1 + eps*self.x(s, phi))
             
         elif kind == 'slab':
