@@ -1,9 +1,13 @@
 from pyccel.decorators import types
 
-import hylife.geometry.mappings_discrete_3d as mapping
+import hylife.geometry.mappings_3d as mapping
+import hylife.geometry.pullback_3d as pull
+
 from numpy import exp, pi
 
-# ============================ physical domain ===========================================================
+# ===============================================================
+#                       physical domain
+# ===============================================================
 
 # ======= equilibrium distribution function (used in delta-f method) =============
 @types('double','double','double','double','double','double')
@@ -88,14 +92,16 @@ def eh_eq(kind_map, params_map):
     return value
 
 
-# ============================ logical domain ===========================================================
+# ===============================================================
+#                       logical domain
+# ===============================================================
 
 # ======= equilibrium distribution function (used in delta-f method) =============
-@types('double','double','double','double','double','double','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def fh_eq(eta1, eta2, eta3, vx, vy, vz, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
+@types('double','double','double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def fh_eq(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
-    x = mapping.f(tf1, tf2, tf3, pf, nbasef, cx, eta1, eta2, eta3)
-    y = mapping.f(tf1, tf2, tf3, pf, nbasef, cy, eta1, eta2, eta3)
-    z = mapping.f(tf1, tf2, tf3, pf, nbasef, cz, eta1, eta2, eta3)
+    x = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    y = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    z = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    return fh_eq_phys(x, y, z, vx, vy, vz)
+    return pull.pull_0_form(fh_eq_phys(x, y, z, vx, vy, vz), eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
