@@ -2,8 +2,9 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
+#all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife/particle_pusher_2020_12
 all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2020_10_27_2
+run_dir=sim_2021_02_22_2
 # =================================================
 
 # ============== if you want to use OpenMp ========
@@ -11,9 +12,13 @@ flag_openmp_mhd=
 flag_openmp_pic=--openmp
 # =================================================
 
-# ========== analytical or discrete mapping ? =====
-mapping=analytical
-#mapping=discrete
+# ======= name of main code =======================
+#code_name=STRUPHY_original.py
+code_name=STRUPHY_original_new.py
+# =================================================
+
+# ======= if you want to run the makefile =========
+make=false
 # =================================================
 
 # == print location of repository and simulation == 
@@ -45,35 +50,48 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 #############################
 
 # number of elements, clamped (False) or periodic (True) spline and spline degrees (finite elements)
-Nel : [80, 32, 16] 
+Nel : [40, 33, 8] 
 bc  : [False, True, True]
-p   : [1, 1, 3]
-
+p   : [2, 2, 3]
 
 # boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = 'dirichlet', free boundary = 'free')
-bc_u1 : [dirichlet, dirichlet]
-bc_b1 : [dirichlet, dirichlet]  
+bc_u1 : [free, dirichlet]
+bc_b1 : [free, dirichlet]  
+
+# projector (global vs. local)
+use_projector : global
+
+# tolerance for approximation of inverse interpolation/histopolation matrices
+tol_approx_reduced : 0.2
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [3, 3, 6]
-nq_pr : [3, 3, 6]
+nq_el : [4, 4, 6]
+nq_pr : [4, 4, 6]
 
-# analytical (0) or spline mapping (1)?
-mapping : 0
+# polar splines in poloidal plane
+polar : True
+
+# basis for bulk velocity
+basis_u : 2
 
 # ----> for analytical geometry: kind of mapping (1: slab, 2: hollow cylinder, 3: colella) and parameters
-kind_map   : 1
-params_map : [0.5, 3.141592654, 10.36725576]
-#params_map : [7.853981634, 1., 1.]
+#kind_map   :  0
+#params_map : [0.5, 3.141592654, 10.36725576]
+#params_map : [7.853981634, 7.853981634, 1.]
+#params_map  : [1., 1., 1.]
 
-#kind_map   : 2
-#params_map : [0.02, 0.5, 10.36725576]  
+#kind_map   : 1
+#params_map : [7.853981634, 1., 1.]
+#params_map : [0.5, 3.141592654, 10.36725576]
+
+kind_map   : 2
+params_map : [0., 0.5, 10.36725576]  
 #params_map : [7.853981634, 1., 1.]
 
 # ----> for spline geometry: number of elements, boundary conditions and spline degrees
-Nel_F : [16, 16, 2] 
-bc_F  : [False, False, False]
-p_F   : [2, 2, 1] 
+Nel_MAP : [40, 33, 8] 
+bc_MAP  : [False, True, False]
+p_MAP   : [2, 2, 3] 
 
 
 #############################
@@ -82,8 +100,8 @@ p_F   : [2, 2, 1]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : 0.1
-Tend     : 200.
+dt       : 0.05
+Tend     : 240.
 max_time : 1000.
 
 
@@ -92,6 +110,7 @@ max_time : 1000.
 ###############################
 
 # ILUs (default: drop_tol=1e-4, fill_fac=10.)
+# From scipy: "To improve the better approximation to the inverse, you may need to increase fill_factor AND decrease drop_tol."
 drop_tol_S2 : 0.0001
 fill_fac_S2 : 10.
 
@@ -126,7 +145,7 @@ gamma : 1.6666666666666666666666666666
 add_PIC : False     
 
 # total number of particles
-Np : 10           
+Np : 10      
 
 # control variate? 
 control : False   
@@ -205,34 +224,26 @@ SDIR=$all_sim/$run_dir/source_run
 mkdir $SDIR
 
 cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
+cp hylife/utilitis_FEEC/projectors/projectors_global.py $SDIR/projectors_global.py
+
 cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
+cp hylife/utilitis_FEEC/projectors/projectors_global_mhd.py $SDIR/projectors_global_mhd.py
+cp hylife/utilitis_FEEC/projectors/linear_operators_mhd.py $SDIR/linear_operators_mhd.py
+
+cp hylife/utilitis_FEEC/control_variates/kernels_control_variate.py $SDIR/kernels_control_variate.py
 cp hylife/utilitis_FEEC/control_variates/control_variate.py $SDIR/control_variate.py
 
-if [ "$mapping" = "analytical" ]
-then
-cp hylife/utilitis_FEEC/control_variates/kernels_cv_analytical.py $SDIR/kernels_control_variate.py
-cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_ana.py $SDIR/kernels_projectors_local_eva.py
+cp hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation.py $SDIR/kernels_projectors_evaluation.py
 
-cp hylife/utilitis_PIC/pusher.py $SDIR/pusher.py
-cp hylife/utilitis_PIC/accumulation_kernels.py $SDIR/accumulation_kernels.py
 cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
-
-
-elif [ "$mapping" = "discrete" ]
-then
-cp hylife/utilitis_FEEC/control_variates/kernels_cv_discrete.py $SDIR/kernels_control_variate.py
-cp hylife/utilitis_FEEC/projectors/kernels_projectors_local_eva_dis.py $SDIR/kernels_projectors_local_eva.py
-
-cp hylife/utilitis_PIC/discrete_mapping/pusher.py $SDIR/pusher.py
-cp hylife/utilitis_PIC/discrete_mapping/accumulation_kernels.py $SDIR/accumulation_kernels.py
-cp hylife/utilitis_PIC/discrete_mapping/sampling.py $SDIR/sampling.py
-
-fi
 # =================================================
 
 
 # ============== run Makefile =====================
+if [ "$make" = true ]
+then
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
+fi
 # =================================================
 
 
@@ -240,7 +251,7 @@ make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_o
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
+cp $code_name $all_sim/$run_dir/STRUPHY.py
 
 sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
@@ -258,7 +269,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-#pirun -n 4 python3 STRUPHY.py
+#mpirun -n 4 python3 STRUPHY.py
 export OMP_NUM_THREADS=1
 python3 STRUPHY.py
 # =================================================

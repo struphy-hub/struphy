@@ -28,9 +28,12 @@ import hylife.utilitis_FEEC.spline_space             as spl
 import hylife.utilitis_FEEC.derivatives              as der
 import hylife.utilitis_FEEC.basics.mass_matrices_3d  as mass
 import hylife.utilitis_FEEC.basics.inner_products_3d as inner
+import hylife.utilitis_FEEC.basics.l2_error_3d       as l2_error
 
 import hylife.utilitis_PIC.sobol_seq                 as sobol
 import hylife.utilitis_PIC.accumulation              as pic_accumu
+
+import hylife.linear_algebra.kernels_tensor_product  as ker_la
 
 
 # load local source files
@@ -122,11 +125,11 @@ create_restart = params['create_restart']
 
 
 # ================= MPI initialization for particles =====================
-Np_loc         = int(Np/mpi_size)                      # number of particles for each process
+Np_loc        = int(Np/mpi_size)                      # number of particles for each process
 
-particles_loc  = np.empty((7, Np_loc), dtype=float)    # particles of each process
-w0_loc         = np.empty(    Np_loc , dtype=float)    # weights for each process: hat_f_ini(eta_0, v_0)/hat_s_ini(eta_0, v_0)
-s0_loc         = np.empty(    Np_loc , dtype=float)    # initial sampling density: hat_s_ini(eta_0, v_0) for each process
+particles_loc = np.empty((7, Np_loc), dtype=float)    # particles of each process
+w0_loc        = np.empty(    Np_loc , dtype=float)    # weights for each process: hat_f_ini(eta_0, v_0)/hat_s_ini(eta_0, v_0)
+s0_loc        = np.empty(    Np_loc , dtype=float)    # initial sampling density: hat_s_ini(eta_0, v_0) for each process
 
 if mpi_rank == 0:
     particles_recv = np.empty((7, Np_loc), dtype=float)
@@ -231,18 +234,34 @@ map_ana.kernel_evaluation_tensor(etaplot[0], etaplot[1], etaplot[2], xplot[2], 3
 # =======================================================================
 
 
+
 """
-B2_2 = np.empty(100, dtype=float)
-B2_3 = np.empty(100, dtype=float)
+B2_eq_2 = np.empty(100, dtype=float)
+B2_eq_3 = np.empty(100, dtype=float)
 for i in range(100):
-    B2_2[i] = eq_MHD.b2_eq_2(etaplot[0][i], 0.5, 0.5, kind_map, params_map)
-    B2_3[i] = eq_MHD.b2_eq_3(etaplot[0][i], 0.5, 0.5, kind_map, params_map)
+    B2_eq_2[i] = eq_MHD.b2_eq_2(etaplot[0][i], 0., 0., kind_map, params_map)
+    B2_eq_3[i] = eq_MHD.b2_eq_3(etaplot[0][i], 0., 0., kind_map, params_map)
     
-plt.plot(etaplot[0], B2_2)
-plt.plot(etaplot[0], B2_3)
+plt.plot(xplot[0][:, 0, 0], B2_eq_3)
+plt.xlim(0., params_map[1])
 plt.show()
 sys.exit()
 """
+"""
+B_eq_x = np.empty(100, dtype=float)
+B_eq_y = np.empty(100, dtype=float)
+B_eq_z = np.empty(100, dtype=float)
+for i in range(100):
+    B_eq_x[i] = eq_MHD.b_eq_x(0., -etaplot[0][i]*0.5, 0.)
+    B_eq_y[i] = eq_MHD.b_eq_y(0., -etaplot[0][i]*0.5, 0.)
+    B_eq_z[i] = eq_MHD.b_eq_z(etaplot[0][i]*0.5, 0., 0.)
+    
+plt.plot(etaplot[0]*0.5, B_eq_x)
+plt.xlim(0., 0.5)
+plt.show()
+sys.exit()
+"""
+
 
 
 # ======= particle accumulator (and delta-f corrections) ================
@@ -273,6 +292,10 @@ u3_old = np.empty(Nbase_0form,    dtype=float)     # bulk velocity FEM coefficie
 b1     = np.empty(Nbase_2form[0], dtype=float)     # magnetic field FEM coefficients (1 - component)
 b2     = np.empty(Nbase_2form[1], dtype=float)     # magnetic field FEM coefficients (2 - component)
 b3     = np.empty(Nbase_2form[2], dtype=float)     # magnetic field FEM coefficients (3 - component)
+
+b1_eq  = np.empty(Nbase_2form[0], dtype=float)     # magnetic field FEM coefficients (1 - component) (static background field)
+b2_eq  = np.empty(Nbase_2form[1], dtype=float)     # magnetic field FEM coefficients (2 - component) (static background field)
+b3_eq  = np.empty(Nbase_2form[2], dtype=float)     # magnetic field FEM coefficients (3 - component) (static background field)
 
 rh     = np.empty(Nbase_3form,    dtype=float)     # bulk mass density FEM coefficients
 # =======================================================================
@@ -309,35 +332,41 @@ else:
 
 
 
+
 if mpi_rank == 0:
     # ============= projection of initial conditions ==========================
     
     # create object for projecting initial conditions
-    pro = proj.projectors_local_3d(tensor_space, nq_pr)
+    projectors_1d = [proj.projectors_local_1d(space, nq_pr) for space, nq_pr in zip(tensor_space.spaces, nq_pr)]
+    projectors_3d =  proj.projectors_local_3d(tensor_space, nq_pr)
     
     if   mapping == 0:
 
-        pr[:, :, :]                           = pro.pi_3( None,              0,  1,        kind_map, params_map)
+        pr[:, :, :] = projectors_3d.pi_3(None, 0, 1, kind_map, params_map)
         
-        u1[:, :, :]                           = pro.pi_0( None,              0,  2,        kind_map, params_map)
-        u2[:, :, :]                           = pro.pi_0( None,              0,  3,        kind_map, params_map)
-        u3[:, :, :]                           = pro.pi_0( None,              0,  4,        kind_map, params_map)
+        u1[:, :, :] = projectors_3d.pi_0(None, 0, 2, kind_map, params_map)
+        u2[:, :, :] = projectors_3d.pi_0(None, 0, 3, kind_map, params_map)
+        u3[:, :, :] = projectors_3d.pi_0(None, 0, 4, kind_map, params_map)
         
-        b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], 0, [5, 6, 7], kind_map, params_map)
-        rh[:, :, :]                           = pro.pi_3( None,              0,  8,        kind_map, params_map)
+        rh[:, :, :] = projectors_3d.pi_3(None, 0, 8, kind_map, params_map)
+        
+        b1[:, :, :],    b2[:, :, :],    b3[:, :, :]    = projectors_3d.pi_2([None, None, None], 0, [ 5,  6,  7], kind_map, params_map)
+        b1_eq[:, :, :], b2_eq[:, :, :], b3_eq[:, :, :] = projectors_3d.pi_2([None, None, None], 0, [21, 22, 23], kind_map, params_map)
+        
+        
 
     elif mapping == 1:
         
-        pr[:, :, :]                           = pro.pi_3( None,              1,  1,        T_F, p_F, NbaseN_F, [cx, cy, cz])
+        pr[:, :, :] = projectors_3d.pi_3(None, 1, 1, T_F, p_F, NbaseN_F, [cx, cy, cz])
         
-        u1[:, :, :]                           = pro.pi_0( None,              1,  2,        T_F, p_F, NbaseN_F, [cx, cy, cz])
-        u2[:, :, :]                           = pro.pi_0( None,              1,  3,        T_F, p_F, NbaseN_F, [cx, cy, cz])
-        u3[:, :, :]                           = pro.pi_0( None,              1,  4,        T_F, p_F, NbaseN_F, [cx, cy, cz])
+        u1[:, :, :] = projectors_3d.pi_0(None, 1, 2, T_F, p_F, NbaseN_F, [cx, cy, cz])
+        u2[:, :, :] = projectors_3d.pi_0(None, 1, 3, T_F, p_F, NbaseN_F, [cx, cy, cz])
+        u3[:, :, :] = projectors_3d.pi_0(None, 1, 4, T_F, p_F, NbaseN_F, [cx, cy, cz])
         
-        b1[:, :, :], b2[:, :, :], b3[:, :, :] = pro.pi_2([None, None, None], 1, [5, 6, 7], T_F, p_F, NbaseN_F, [cx, cy, cz])
-        rh[:, :, :]                           = pro.pi_3( None,              1,  8,        T_F, p_F, NbaseN_F, [cx, cy, cz])
-    
-    del pro
+        rh[:, :, :] = projectors_3d.pi_3(None, 1, 8, T_F, p_F, NbaseN_F, [cx, cy, cz])
+        
+        b1[:, :, :],    b2[:, :, :],    b3[:, :, :]    = projectors_3d.pi_2([None, None, None], 1, [ 5,  6,  7], T_F, p_F, NbaseN_F, [cx, cy, cz])
+        b1_eq[:, :, :], b2_eq[:, :, :], b3_eq[:, :, :] = projectors_3d.pi_2([None, None, None], 1, [21, 22, 23], T_F, p_F, NbaseN_F, [cx, cy, cz])
     
     
     # apply boundary conditions
@@ -355,39 +384,113 @@ if mpi_rank == 0:
         if bc_b1[1] == 'dirichlet':
             b1[-1] = 0.
     
+    
     """
+    # plot equilibrium field
+    plt.plot(xplot[0][:, 0, 0], tensor_space.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], b2_eq)[:, 0, 0])
+    plt.plot(xplot[0][:, 0, 0], tensor_space.evaluate_DDN(etaplot[0], etaplot[1], etaplot[2], b3_eq)[:, 0, 0])
+    plt.show()
+    sys.exit()
+    """
+    
+    """
+    # plot initial velocity field
+    U1_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], u1)
     U2_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], u2)
+    U3_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], u3)
+    
+    U_plot  = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
+    
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 16, kind_map, params_map, U_plot[0])
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 17, kind_map, params_map, U_plot[1])
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 18, kind_map, params_map, U_plot[2])
+    
+    #plt.plot(xplot[0][:, 10, 1], U_plot[0][:, 10, 1])
+    #plt.plot(xplot[0][:, 2, 2], U_plot[1][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], U_plot[2][:, 2, 2])
+    
+    #plt.plot(U1_plot[:, 10, 1])
+    #plt.show()
+    #sys.exit()
     
     plt.contourf(xplot[0][:, :, 0], xplot[1][:, :, 0], U2_plot[:, :, 0], levels=50, cmap='jet')
     plt.colorbar()
-    plt.axis('square')
     
-    #plt.plot(etaplot[0], U1_plot[:, 25, 0])
     plt.show()
-    
-    
     sys.exit()
     """
     
     
+    
     """
+    bc_kind = [['free', 'free'], ['free', 'free'], ['free', 'free']]
+    
+    Mv = mass.mass_V0_vector(tensor_space, bc_kind, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    
+    M_curl_beq = mhd.mass_curl(tensor_space, kind_map, params_map)
+    print(M_curl_beq.max())
+    print(M_curl_beq.min())
+    #sys.exit()
+   
+    test1, test2, test3 = np.split(spa.linalg.spsolve(Mv, M_curl_beq.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))), [Ntot_0form, 2*Ntot_0form])
+    
+    test1 = test1.reshape(Nbase_0form)
+    test2 = test2.reshape(Nbase_0form)
+    test3 = test3.reshape(Nbase_0form)
+    
+    U1_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test1)
+    U2_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test2)
+    U3_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test3)
+    
+    
+    U_plot  = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
+    
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 16, kind_map, params_map, U_plot[0])
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 17, kind_map, params_map, U_plot[1])
+    push.kernel_evaluation_vector(U1_plot, U2_plot, U3_plot, etaplot[0], etaplot[1], etaplot[2], 18, kind_map, params_map, U_plot[2])
+    
+    plt.plot(xplot[0][:, 0, 0], U_plot[2][:, 2, 6])
+    plt.plot(xplot[0][:, 0, 0], 0.1*np.sin(np.pi*xplot[0][:, 0, 0]/0.5)*np.exp(xplot[0][:, 0, 0]/0.5)/0.5, 'k--')
+    #plt.plot(xplot[0][:, 0, 0], 0.1*np.sin(np.pi*xplot[0][:, 0, 0]/0.5)*2*xplot[0][:, 0, 0]/0.5**2, 'k--')
+    plt.show()
+    sys.exit()
+    """
+    
+    
+    
+    """
+    rho_plot = np.empty(100, dtype=float)
+    
+    for i in range(100):
+        rho_plot[i] = eq_MHD.rho3_eq(etaplot[0][i], etaplot[1][0], etaplot[2][0], kind_map, params_map)
+        
+    plt.plot(xplot[0][:, 0, 0], rho_plot)
+    plt.plot(etaplot[0]*0.5, 4*np.pi**2*1.65*0.5**2*etaplot[0]*2*(1 - 0.75*etaplot[0]**2), 'k--')
+    plt.show()
+    sys.exit()
+    """
+    
+    """
+    # plot in initial magnetic field
     B1_plot = tensor_space.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], b1)
     B2_plot = tensor_space.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], b2)
     B3_plot = tensor_space.evaluate_DDN(etaplot[0], etaplot[1], etaplot[2], b3)
     
     B_plot  = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
     
-    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 16, kind_map, params_map, B_plot[0])
-    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 17, kind_map, params_map, B_plot[1])
-    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 18, kind_map, params_map, B_plot[2])
+    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 13, kind_map, params_map, B_plot[0])
+    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 14, kind_map, params_map, B_plot[1])
+    push.kernel_evaluation_vector(B1_plot, B2_plot, B3_plot, etaplot[0], etaplot[1], etaplot[2], 15, kind_map, params_map, B_plot[2])
     
-    plt.plot(xplot[0][:, 10, 1], B_plot[1][:, 10, 1])
-    plt.plot(xplot[0][:, 10, 1], 1e-3*np.sin(xplot[0][:, 10, 1]*0.8), 'k--')
+    plt.plot(xplot[0][:, 2, 2], B_plot[0][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], 1 + 0.75*xplot[0][:, 2, 2]**2/0.5**2, 'k--')
     plt.show()
     sys.exit()
     """
     
+    
     """
+    # initialization wtih white noise
     np.random.seed(1234)
     amps = np.random.rand(8, pr.shape[0], pr.shape[1])
 
@@ -405,15 +508,24 @@ if mpi_rank == 0:
         rh[:, :, k] = amps[7]
     """
     
+    # 1d projection matrices with indices of non-vanishing entries
+    pi0_x_NN, pi0_x_DN, pi0_x_ND, pi0_x_DD, pi1_x_NN, pi1_x_DN, pi1_x_ND, pi1_x_DD, pi0_x_NN_i, pi0_x_DN_i, pi0_x_ND_i, pi0_x_DD_i, pi1_x_NN_i, pi1_x_DN_i, pi1_x_ND_i, pi1_x_DD_i = proj.projection_matrices_1d(projectors_1d[0], spaces[0])
+    pi0_y_NN, pi0_y_DN, pi0_y_ND, pi0_y_DD, pi1_y_NN, pi1_y_DN, pi1_y_ND, pi1_y_DD, pi0_y_NN_i, pi0_y_DN_i, pi0_y_ND_i, pi0_y_DD_i, pi1_y_NN_i, pi1_y_DN_i, pi1_y_ND_i, pi1_y_DD_i = proj.projection_matrices_1d(projectors_1d[1], spaces[1])
+    pi0_z_NN, pi0_z_DN, pi0_z_ND, pi0_z_DD, pi1_z_NN, pi1_z_DN, pi1_z_ND, pi1_z_DD, pi0_z_NN_i, pi0_z_DN_i, pi0_z_ND_i, pi0_z_DD_i, pi1_z_NN_i, pi1_z_DN_i, pi1_z_ND_i, pi1_z_DD_i = proj.projection_matrices_1d(projectors_1d[2], spaces[2])
+    
     
     print('projection of initial conditions done!')
     # ==========================================================================
 
 
     # ==================== matrices ============================================
-    # mass matrices in V2 and V3
+    
+    # mass matrices in space of discrete 2-forms (V2) and discrete 3-forms (V3)
     M2 = mass.mass_V2(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
     M3 = mass.mass_V3(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    
+    
+    # mass matrix in space of discrete contravariant vector fields using the V0 basis (NNN)
     Mv = mass.mass_V0_vector(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
     
     print('mass matrices done!')
@@ -444,26 +556,150 @@ if mpi_rank == 0:
     del MHD
     print('projection matrices done!')
     
-    """
-    test1, test2, test3 = np.split(TAU.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
     
-    test1 = test1.reshape(Nbase_1form[0])
-    test2 = test2.reshape(Nbase_1form[1])
-    test3 = test3.reshape(Nbase_1form[2])
+    """
+    coff = DIV.dot(N.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))))
+    
+    error_div_u = l2_error.l2_error_V3(tensor_space, lambda eta1, eta2, eta3 : np.zeros(eta1.shape, dtype=float), coff, mapping, kind_map, params_map)
+    print(error_div_u)
+    """
+    
+    """
+    rhs = TAU.T.dot(CURL.T.dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))))
+    
+    # apply boundary conditions
+    if bc[0] == False:
+        
+        # eta1 = 0
+        if bc_u1[0] == 'dirichlet':
+            Mv[:Nbase_0form[1]*Nbase_0form[2], :] = 0.
+            Mv[:, :Nbase_0form[1]*Nbase_0form[2]] = 0.
+            Mv[:Nbase_0form[1]*Nbase_0form[2], :Nbase_0form[1]*Nbase_0form[2]] = np.identity(Nbase_0form[1]*Nbase_0form[2])
+            
+            
+    
+        # eta1 = 1
+        if bc_u1[1] == 'dirichlet':
+            Mv[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form, :] = 0.
+            S2[:, (Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = 0.
+            S2[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form, (Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = np.identity(Nbase_0form[1]*Nbase_0form[2])
+    
+    
+    
+    rhs = TAU.T.dot(CURL.T.dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))))
+    coeffs1, coeff2, coeffs3 = np.split(spa.spsolve(Mv, rhs), [Ntot_0form, 2*Ntot_0form]) 
+    """
+    
+    """
+    # equilibrium magnetic field
+    def b2_eq_1(eta1, eta2, eta3):
+        
+        bx = 0*eta1
+
+        return bx
+    
+    
+    # equilibrium magnetic field
+    def b2_eq_2(eta1, eta2, eta3):
+        
+
+        # parameters
+        b0y = 0.2
+        lx  = 0.5
+        r0  = 1.65
+        q0  = 1.1
+        b   = 0.75
+        
+        ly  = 2*np.pi*lx
+        lz  = 2*np.pi*r0
+
+        eps = lx/r0
+        c   = b0y**2*(q0**2/eps**2 + 1)
+        
+        x   = eta1*lx
+
+        # q - profile
+        q   = q0 + b*(x/lx)**2
+
+        # magnetic field profile
+        by  = -np.sqrt(c/(q**2/eps**2 + 1))
+
+        return by*lx*lz
+
+    # equilibrium magnetic field
+    def b2_eq_3(eta1, eta2, eta3):
+
+        # parameters
+        b0y = 0.2
+        lx  = 0.5
+        r0  = 1.65
+        q0  = 1.1
+        b   = 0.75
+        
+        ly  = 2*np.pi*lx
+        lz  = 2*np.pi*r0
+
+        eps = lx/r0
+        c   = b0y**2*(q0**2/eps**2 + 1)
+        
+        x   = eta1*lx
+
+        # q - profile
+        q   = q0 + b*(x/lx)**2
+
+        # magnetic field profile
+        by  = -np.sqrt(c/(q**2/eps**2 + 1))
+        bz  =  np.sqrt(c - by**2)
+
+        return bz*lx*ly
+    
+    funs = [lambda eta1, eta2, eta3 : b2_eq_2(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u3) - b2_eq_3(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u2), lambda eta1, eta2, eta3 : b2_eq_3(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u1) - b2_eq_1(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u3), lambda eta1, eta2, eta3 : b2_eq_1(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u2) - b2_eq_2(eta1, eta2, eta3)*tensor_space.evaluate_NNN(eta1, eta2, eta3, u1)]
+    
+    test1, test2, test3 = pro.pi_1(funs)
+    
+    test4 = TAU.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))
+    
+    print(np.allclose(test4, np.concatenate((test1.flatten(), test2.flatten(), test3.flatten()))))
+    print(test4.min(), test4.max())
+    
+    sys.exit()
+    """
+    
+    """
+    # plot initial (curl b) x b_eq term
+    test1, test2, test3 = np.split(spa.linalg.spsolve(Mv, TAU.T.dot(CURL.T.dot(M2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))))), [Ntot_0form, 2*Ntot_0form])
+    
+    test1 = test1.reshape(Nbase_0form)
+    test2 = test2.reshape(Nbase_0form)
+    test3 = test3.reshape(Nbase_0form)
     
     #print(np.abs(test1).max())
     #print(np.abs(test2).max())
     #print(np.abs(test3).max())
-    print(test2[0], test2[-1])
-    print(test3[0], test3[-1])
+    #sys.exit()
     
-    BxU_plot1 = tensor_space.evaluate_DNN(etaplot[0], etaplot[1], etaplot[2], test1)
-    BxU_plot2 = tensor_space.evaluate_NDN(etaplot[0], etaplot[1], etaplot[2], test2)
-    BxU_plot3 = tensor_space.evaluate_NND(etaplot[0], etaplot[1], etaplot[2], test3)
+    curlb_plot1 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test1)
+    curlb_plot2 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test2)
+    curlb_plot3 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test3)
     
-    plt.contourf(xplot[0][:, :, 15], xplot[1][:, :, 15], BxU_plot3[:, :, 15], levels=50, cmap='jet')
-    plt.colorbar()
-    plt.axis('square')
+    
+    #print(np.abs(curlb_plot1).max())
+    #print(np.abs(curlb_plot2).max())
+    #print(np.abs(curlb_plot3).max())
+    
+    #plt.plot(xplot[0][:, 2, 2], curlb_plot1[:, 2, 2])
+    #plt.show()
+    #sys.exit()
+    
+    curlb_plot  = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
+    
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 16, kind_map, params_map, curlb_plot[0])
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 17, kind_map, params_map, curlb_plot[1])
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 18, kind_map, params_map, curlb_plot[2])
+    
+    plt.plot(xplot[0][:, 2, 2], curlb_plot[0][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], np.sin(xplot[0][:, 2, 2]*2*np.pi/0.5)*2*np.pi/0.5*(1 + 0.75*xplot[0][:, 2, 2]**2/0.5**2), 'k--')
+    plt.plot(xplot[0][:, 2, 2], -(1/0.5 - 2*xplot[0][:, 2, 2]/0.5**2)*(1 + 0.75*xplot[0][:, 2, 2]**2/0.5**2), 'k--')
     plt.show()
     
     sys.exit()
@@ -490,10 +726,12 @@ if mpi_rank == 0:
     sys.exit()
     """
     
-    # curl Beq term
-    curl_beq = mhd.term_curl_beq(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    # (curl b_eq) x b term
+    #curl_beq   = mhd.term_curl_beq(tensor_space, mapping, kind_map, params_map, tensor_space_F, cx, cy, cz)
+    #M_curl_beq = mhd.mass_curl(tensor_space, kind_map, params_map)
     
     """
+    # plot initial (curl b_eq) x b term
     rhs = curl_beq.inner_curl_beq(b1, b2, b3)
     test1, test2, test3 = np.split(spa.linalg.spsolve(Mv, rhs), [Ntot_0form, 2*Ntot_0form])
     
@@ -501,19 +739,88 @@ if mpi_rank == 0:
     test2 = test2.reshape(Nbase_0form)
     test3 = test3.reshape(Nbase_0form)
     
-    curlb1_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test1)
-    curlb2_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test2)
-    curlb3_plot = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test3)
+    curlb_plot1 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test1)
+    curlb_plot2 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test2)
+    curlb_plot3 = tensor_space.evaluate_NNN(etaplot[0], etaplot[1], etaplot[2], test3)
     
-    plt.contourf(xplot[0][:, :, 15], xplot[1][:, :, 15], curlb2_plot[:, :, 15], levels=50, cmap='jet')
-    plt.colorbar()
-    plt.axis('square')
+    curlb_plot  = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
+    
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 16, kind_map, params_map, curlb_plot[0])
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 17, kind_map, params_map, curlb_plot[1])
+    push.kernel_evaluation_vector(curlb_plot1, curlb_plot2, curlb_plot3, etaplot[0], etaplot[1], etaplot[2], 18, kind_map, params_map, curlb_plot[2])
+    
+    #plt.plot(xplot[0][:, 2, 2], curlb_plot[0][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], -2*0.75*xplot[0][:, 2, 2]/0.5**2*(xplot[0][:, 2, 2]/0.5 - xplot[0][:, 2, 2]**2/0.5**2), 'k--')
+    
+    plt.plot(xplot[0][:, 2, 2], curlb_plot[2][:, 2, 2])
+    plt.plot(xplot[0][:, 2, 2], 2*0.75*xplot[0][:, 2, 2]/0.5**2*2*(xplot[0][:, 2, 2]/0.5 - xplot[0][:, 2, 2]**2/0.5**2), 'k--')
+    
     plt.show()
     
     sys.exit()
     """
+    
+    """
+    # plot initial div(p_eq U) term
+    test1, test2, test3 = np.split(S.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))), [Ntot_2form[0], Ntot_2form[0] + Ntot_2form[1]])
+    
+    test4 = DIV.dot(np.concatenate((test1, test2, test3)))
+    
+    test1 = test1.reshape(Nbase_2form[0])
+    test2 = test2.reshape(Nbase_2form[1])
+    test3 = test3.reshape(Nbase_2form[2])
+    
+    test4 = test4.reshape(Nbase_3form)
+    
+    pU_plot1 = tensor_space.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], test1)
+    pU_plot2 = tensor_space.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], test2)
+    pU_plot3 = tensor_space.evaluate_DDN(etaplot[0], etaplot[1], etaplot[2], test3)
+    
+    div_pU   = tensor_space.evaluate_DDD(etaplot[0], etaplot[1], etaplot[2], test4)
+    
+    pU_plot     = [np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float) for i in range(3)]
+    div_pU_plot =  np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float)
+    
+    push.kernel_evaluation_vector(pU_plot1, pU_plot2, pU_plot3, etaplot[0], etaplot[1], etaplot[2], 13, kind_map, params_map, pU_plot[0])
+    push.kernel_evaluation_vector(pU_plot1, pU_plot2, pU_plot3, etaplot[0], etaplot[1], etaplot[2], 14, kind_map, params_map, pU_plot[1])
+    push.kernel_evaluation_vector(pU_plot1, pU_plot2, pU_plot3, etaplot[0], etaplot[1], etaplot[2], 15, kind_map, params_map, pU_plot[2])
+    
+    push.kernel_evaluation_scalar(div_pU, etaplot[0], etaplot[1], etaplot[2], 4, kind_map, params_map, div_pU_plot)
+    
+    
+    #plt.plot(xplot[0][:, 2, 2], pU_plot[0][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], pU_plot[1][:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], (1 - (xplot[0][:, 2, 2]/0.5)**2)*np.sin(np.pi*xplot[0][:, 2, 2]/0.5), 'k--')
+    #plt.plot(xplot[0][:, 2, 2], (1 - (xplot[0][:, 2, 2]/0.5)**2)*np.cos(np.pi*xplot[0][:, 2, 2]/0.5), 'k--')
+    
+    #plt.plot(xplot[0][:, 2, 2], div_pU_plot[:, 2, 2])
+    #plt.plot(xplot[0][:, 2, 2], np.cos(np.pi*xplot[0][:, 2, 2]/0.5)*np.pi/0.5, 'k--')
+    
+    plt.show()
+    sys.exit()
+    """
+   
+    
+    """
+    # plot initial (gamma - 1)*p_eq*div(U) term
+    test = (gamma - 1)*K.dot(DIV.dot(N.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())))))
+    test = test.reshape(Nbase_3form)
+    
+    pdivU      = tensor_space.evaluate_DDD(etaplot[0], etaplot[1], etaplot[2], test)
+    pdivU_plot = np.empty((etaplot[0].size, etaplot[1].size, etaplot[2].size), dtype=float)
+    
+    push.kernel_evaluation_scalar(pdivU, etaplot[0], etaplot[1], etaplot[2], 4, kind_map, params_map, pdivU_plot)
+    
+    plt.plot(xplot[0][:, 1, 1], pdivU_plot[:, 1, 1])
+    #plt.plot(xplot[0][:, 2, 2], (1 - (xplot[0][:, 2, 2]/0.5)**2)*(gamma - 1)*np.cos(np.pi*xplot[0][:, 2, 2]/0.5)*np.pi/0.5, 'k--')
+    plt.show()
+    sys.exit()
+    """
+    
+    
     # ==========================================================================
 
+    
     
     # ========= compute symmetric matrix A and a ILU preconditioner ============
     A     = 1/2*(W.T.dot(Mv) + Mv.dot(W)).tocsc()
@@ -526,10 +833,19 @@ if mpi_rank == 0:
     
     A     = A.tocsr()
     # ==========================================================================
+    
+    
+       
 
 
     # ================== matrices and preconditioner for step 2 ================
-    S2      = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tolil()
+    #S2 = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU)))) + dt**2/4*M_curl_beq.dot(CURL.dot(TAU))).tolil()
+    S2 = (A + dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tolil()
+    
+    plt.spy(S2)
+    plt.show()
+    sys.exit()
+    
     
     # apply boundary conditions
     if bc[0] == False:
@@ -548,10 +864,12 @@ if mpi_rank == 0:
     
     print('S2 done')
     
+    #STEP2_1 = (A - dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU)))) - dt**2/4*M_curl_beq.dot(CURL.dot(TAU))).tocsr()
     STEP2_1 = (A - dt**2/4*TAU.T.dot(CURL.T.dot(M2.dot(CURL.dot(TAU))))).tocsr()
     print('STEP2_1 done')
     
-    STEP2_2 = dt*TAU.T.dot(CURL.T.dot(M2)).tocsr()
+    #STEP2_2 = (dt*TAU.T.dot(CURL.T.dot(M2)) + dt*M_curl_beq).tocsr()
+    STEP2_2 = (dt*TAU.T.dot(CURL.T.dot(M2))).tocsr()
     print('STEP2_2 done')
 
     # incomplete LU decomposition for preconditioning
@@ -567,12 +885,12 @@ if mpi_rank == 0:
     # ================== matrices and preconditioner for step 6 =================
     if add_pressure == True:
     
-        L       = -DIV.dot(S) - (gamma - 1)*K.dot(DIV).dot(N)
+        L  = -DIV.dot(S) - (gamma - 1)*K.dot(DIV).dot(N)
         print('L done')
 
         del S, K
         
-        S6      = (A - dt**2/4*N.T.dot(DIV.T).dot(M3).dot(L)).tolil()
+        S6 = (A - dt**2/4*N.T.dot(DIV.T).dot(M3).dot(L)).tolil()
         
         # apply boundary conditions
         if bc[0] == False:
@@ -584,30 +902,80 @@ if mpi_rank == 0:
                 S6[:Nbase_0form[1]*Nbase_0form[2], :Nbase_0form[1]*Nbase_0form[2]] = np.identity(Nbase_0form[1]*Nbase_0form[2])
             
             # eta1 = 1
-            f bc_u1[1] == 'dirichlet':
+            if bc_u1[1] == 'dirichlet':
                 S6[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form, :] = 0.
                 S6[:, (Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = 0.
                 S6[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form, (Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = np.identity(Nbase_0form[1]*Nbase_0form[2])
         
         print('S6 done')
         
-        STEP6_1 = (A + dt**2/4*N.T.dot(DIV.T).dot(M3).dot(L)).tocsr()
+        STEP6_1  = (A + dt**2/4*N.T.dot(DIV.T).dot(M3).dot(L)).tocsr()
         print('STEP6_1 done')
         
-        STEP6_2 = dt*N.T.dot(DIV.T).dot(M3).tocsr()
+        STEP6_2  = dt*N.T.dot(DIV.T).dot(M3).tocsr()
         print('STEP6_2 done')
 
         # incomplete LU decomposition for preconditioning
-        S6_ILU  = spa.linalg.spilu(S6.tocsc(), drop_tol=drop_tol_S6, fill_factor=fill_fac_S6)
+        S6_ILU   = spa.linalg.spilu(S6.tocsc(), drop_tol=drop_tol_S6, fill_factor=fill_fac_S6)
         print('S6_ILU done')
 
-        S6_PRE  = spa.linalg.LinearOperator(S6.shape, lambda x : S6_ILU.solve(x))
+        S6_PRE   = spa.linalg.LinearOperator(S6.shape, lambda x : S6_ILU.solve(x))
         
-        S6      = S6.tocsr()
+        S6       = S6.tocsr()
+        
+        # inhomogeneity for (curl x b_eq) x b term
+        curl_beq1, curl_beq2, curl_beq3 = np.split(CURL.T.dot(M2.dot(np.concatenate((b1_eq.flatten(), b2_eq.flatten(), b3_eq.flatten())))), [Ntot_1form[0], Ntot_1form[0] + Ntot_1form[1]])
+
+        curl_beq1 = curl_beq1.reshape(Nbase_1form[0])
+        curl_beq2 = curl_beq2.reshape(Nbase_1form[1])
+        curl_beq3 = curl_beq3.reshape(Nbase_1form[2])
+        
+        curl_beq_x_b_1 = np.empty(Nbase_0form, dtype=float)
+        curl_beq_x_b_2 = np.empty(Nbase_0form, dtype=float)
+        curl_beq_x_b_3 = np.empty(Nbase_0form, dtype=float)
+        
     # ==========================================================================
     print('assembly of constant matrices done!')
     
+"""
+u_vec = np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))
+b_vec = np.concatenate((b1.flatten(), b2.flatten(), b3.flatten()))
+u_old = np.empty(u_vec.size, dtype=float)
 
+Nt = int(Tend/dt)
+Hamiltonian = np.empty(Nt + 1, dtype=float)
+Hamiltonian[0] = 1/2*np.dot(u_vec, A.dot(u_vec)) + 1/2*np.dot(b_vec, M2.dot(b_vec))
+
+print('initial energy : ', Hamiltonian[0])
+
+Ntot = Nel[0]*Nel[1]*Nel[2]
+
+MAT1 = spa.bmat([[A, None], [None, spa.identity(3*Ntot)]], format='csc')
+MAT2 = spa.bmat([[None, TAU.T.dot(CURL.T).dot(M2)], [-CURL.dot(TAU), None]], format='csc')
+
+LHS_LU = spa.linalg.splu(MAT1 - dt/2*MAT2)
+RHS    = MAT1 + dt/2*MAT2
+
+for i in range(Nt):
+    
+    #u_vec[:], b_vec[:] = np.split(LHS_LU.solve(RHS.dot(np.concatenate((u_vec, b_vec)))), [3*Ntot])
+    
+    u_old[:] = u_vec
+    
+    #u_vec[:] = spa.linalg.spsolve(S2, STEP2_1.dot(u_vec) + STEP2_2.dot(b_vec))
+    u_vec[:] = spa.linalg.cg(S2, STEP2_1.dot(u_vec) + STEP2_2.dot(b_vec), x0=u_vec, tol=tol2, M=S2_PRE)[0]
+    
+    b_vec[:] = b_vec - dt/2*CURL.dot(TAU.dot(u_old + u_vec))
+    
+    Hamiltonian[i + 1] = 1/2*np.dot(u_vec, A.dot(u_vec)) + 1/2*np.dot(b_vec, M2.dot(b_vec))
+    
+    if i%10 == 0:
+        print(i, Hamiltonian[i + 1], np.abs(Hamiltonian[i + 1] - Hamiltonian[0])/Hamiltonian[0])
+   
+sys.exit()    
+"""
+   
+   
     
 if mpi_rank == 0:
     timea = time.time()
@@ -616,18 +984,38 @@ if mpi_rank == 0:
     print('Time for evaluation of preconditioner for A : ', timeb - timea)
     
     timea = time.time()
-    rhs = STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))
+    rhs_test = STEP2_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP2_2.dot(np.concatenate((b1.flatten(), b2.flatten(), b3.flatten())))
     
-    temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, rhs, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_0form, 2*Ntot_0form])
+    # apply boundary conditions
+    if bc[0] == False:
+        if bc_u1[0] == 'dirichlet':
+            rhs_test[:Nbase_0form[1]*Nbase_0form[2]] = 0.
+        if bc_u1[1] == 'dirichlet':
+            rhs_test[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = 0.
+    
+    temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, rhs_test, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_0form, 2*Ntot_0form])
     timeb = time.time()
     print('Time for solving linear system in step 2 : ', timeb - timea)
     
 if mpi_rank == 0 and add_pressure == True:
     timea = time.time()
-    rhs = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*curl_beq.inner_curl_beq(b1, b2, b3)
-    rhs[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = 0.
     
-    temp1, temp2, temp3 = np.split(spa.linalg.cgs(S6, rhs, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_0form, 2*Ntot_0form])
+    #rhs_test = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*curl_beq.inner_curl_beq(b1, b2, b3)
+
+    ker_la.projector_tensor_weak(pi0_x_DN, pi1_y_DN, pi0_z_NN, pi0_x_DN, pi0_y_NN, pi1_z_DN, pi0_x_DN_i, pi1_y_DN_i, pi0_z_NN_i, pi0_x_DN_i, pi0_y_NN_i, pi1_z_DN_i, curl_beq2, b3, -curl_beq3, b2, curl_beq_x_b_1)
+    ker_la.projector_tensor_weak(pi0_x_NN, pi0_y_DN, pi1_z_DN, pi1_x_DN, pi0_y_DN, pi0_z_NN, pi0_x_NN_i, pi0_y_DN_i, pi1_z_DN_i, pi1_x_DN_i, pi0_y_DN_i, pi0_z_NN_i, curl_beq3, b1, -curl_beq1, b3, curl_beq_x_b_2)
+    ker_la.projector_tensor_weak(pi1_x_DN, pi0_y_NN, pi0_z_DN, pi0_x_NN, pi1_y_DN, pi0_z_DN, pi1_x_DN_i, pi0_y_NN_i, pi0_z_DN_i, pi0_x_NN_i, pi1_y_DN_i, pi0_z_DN_i, curl_beq1, b2, -curl_beq2, b1, curl_beq_x_b_3)
+    
+    rhs_test = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*np.concatenate((curl_beq_x_b_1.flatten(), curl_beq_x_b_2.flatten(), curl_beq_x_b_3.flatten()))
+    
+    # apply boundary conditions
+    if bc[0] == False:
+        if bc_u1[0] == 'dirichlet':
+            rhs_test[:Nbase_0form[1]*Nbase_0form[2]] = 0.
+        if bc_u1[1] == 'dirichlet':
+            rhs_test[(Nbase_0form[0] - 1)*Nbase_0form[1]*Nbase_0form[2]:Ntot_0form] = 0.
+    
+    temp1, temp2, temp3 = np.split(spa.linalg.cgs(S6, rhs_test, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol6, M=S6_PRE)[0], [Ntot_0form, 2*Ntot_0form])
     timeb = time.time()
     print('Time for solving linear system in step 6 : ', timeb - timea)
     
@@ -999,7 +1387,14 @@ def update():
         
         # solve linear system with conjugate gradient method (S2 is a symmetric positive definite matrix) with an incomplete LU decomposition as preconditioner and values from last time step as initial guess
         timea = time.time()
+        
+        #if M_curl_beq.count_nonzero() == 0:
+            #temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, rhs, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_0form, 2*Ntot_0form])
+        #else:
+            #temp1, temp2, temp3 = np.split(spa.linalg.cgs(S2, rhs, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_0form, 2*Ntot_0form])
+            
         temp1, temp2, temp3 = np.split(spa.linalg.cg(S2, rhs, x0=np.concatenate((u1.flatten(), u2.flatten(), u3.flatten())), tol=tol2, M=S2_PRE)[0], [Ntot_0form, 2*Ntot_0form])
+        
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
 
@@ -1198,7 +1593,14 @@ def update():
         u3_old[:, :, :] = u3[:, :, :]
         
         # compute right-hand side of linear system
-        rhs = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*curl_beq.inner_curl_beq(b1, b2, b3)
+        
+        #rhs = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*curl_beq.inner_curl_beq(b1, b2, b3)
+        
+        ker_la.projector_tensor_weak(pi0_x_DN, pi1_y_DN, pi0_z_NN, pi0_x_DN, pi0_y_NN, pi1_z_DN, pi0_x_DN_i, pi1_y_DN_i, pi0_z_NN_i, pi0_x_DN_i, pi0_y_NN_i, pi1_z_DN_i, curl_beq2, b3, -curl_beq3, b2, curl_beq_x_b_1)
+        ker_la.projector_tensor_weak(pi0_x_NN, pi0_y_DN, pi1_z_DN, pi1_x_DN, pi0_y_DN, pi0_z_NN, pi0_x_NN_i, pi0_y_DN_i, pi1_z_DN_i, pi1_x_DN_i, pi0_y_DN_i, pi0_z_NN_i, curl_beq3, b1, -curl_beq1, b3, curl_beq_x_b_2)
+        ker_la.projector_tensor_weak(pi1_x_DN, pi0_y_NN, pi0_z_DN, pi0_x_NN, pi1_y_DN, pi0_z_DN, pi1_x_DN_i, pi0_y_NN_i, pi0_z_DN_i, pi0_x_NN_i, pi1_y_DN_i, pi0_z_DN_i, curl_beq1, b2, -curl_beq2, b1, curl_beq_x_b_3)
+    
+        rhs = STEP6_1.dot(np.concatenate((u1.flatten(), u2.flatten(), u3.flatten()))) + STEP6_2.dot(pr.flatten()) + dt*np.concatenate((curl_beq_x_b_1.flatten(), curl_beq_x_b_2.flatten(), curl_beq_x_b_3.flatten()))
         
         # apply boundary conditions
         if bc[0] == False:
@@ -1287,6 +1689,44 @@ def update():
     b3[:, :, :]    = np.real(np.fft.ifftn(spec))
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     """
+    
+    
+    """
+    # <<<<< apply Fourier filter in perodic directions <<<<<<<<<<<<
+    spec = np.zeros((Nel[1], Nel[2]), dtype=complex)
+    
+    for i in range(u1.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(u1[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(u1[i])[-1,  1]
+        u1[i, :, :]  = np.real(np.fft.ifftn(spec))
+
+    for i in range(u2.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(u2[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(u2[i])[-1,  1]
+        u2[i, :, :]  = np.real(np.fft.ifftn(spec))
+
+    for i in range(u3.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(u3[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(u3[i])[-1,  1]
+        u3[i, :, :]  = np.real(np.fft.ifftn(spec))
+    
+    for i in range(b1.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(b1[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(b1[i])[-1,  1]
+        b1[i, :, :]  = np.real(np.fft.ifftn(spec))
+
+    for i in range(b2.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(b2[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(b2[i])[-1,  1]
+        b2[i, :, :]  = np.real(np.fft.ifftn(spec))
+
+    for i in range(b3.shape[0]):
+        spec[ 1, -1] = np.fft.fftn(b3[i])[ 1, -1]
+        spec[-1,  1] = np.fft.fftn(b3[i])[-1,  1]
+        b3[i, :, :]  = np.real(np.fft.ifftn(spec))
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    """
+    
     
     time_totb = time.time()
     times_elapsed['total'] = time_totb - time_tota
