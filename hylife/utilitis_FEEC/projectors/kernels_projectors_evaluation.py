@@ -29,6 +29,12 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nba
         value = ini_mhd.b2_ini_3(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 8:
         value = ini_mhd.rho3_ini(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 61:
+        value = ini_mhd.u2_ini_1(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 62:
+        value = ini_mhd.u2_ini_2(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 63:
+        value = ini_mhd.u2_ini_3(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # quantities for projection matrix Q
     elif kind_fun == 11:
