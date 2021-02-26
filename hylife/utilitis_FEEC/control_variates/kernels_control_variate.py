@@ -10,6 +10,7 @@ import input_run.equilibrium_MHD as eq_mhd
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')        
 def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
+    # bulk velocity is a 0-form
     if   kind_fun == 1:
         
         x   = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
@@ -73,6 +74,67 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nba
         detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
         value = eq_pic.nh_eq_phys(x, y, z) * abs(detdf)
+        
+    
+    # bulk velocity is a 2-form
+    if   kind_fun == 11:
+        
+        x   = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        y   = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        z   = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+        jhx = eq_pic.jhx_eq(x, y, z)
+        jhy = eq_pic.jhy_eq(x, y, z)
+        jhz = eq_pic.jhz_eq(x, y, z)
+        
+        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        value = dfinv_11*jhx + dfinv_12*jhy + dfinv_13*jhz
+        
+    elif kind_fun == 12:
+        
+        x   = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        y   = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        z   = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+        jhx = eq_pic.jhx_eq(x, y, z)
+        jhy = eq_pic.jhy_eq(x, y, z)
+        jhz = eq_pic.jhz_eq(x, y, z)
+        
+        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        value = dfinv_21*jhx + dfinv_22*jhy + dfinv_23*jhz
+        
+    elif kind_fun == 13:
+        
+        x   = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        y   = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        z   = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+        jhx = eq_pic.jhx_eq(x, y, z)
+        jhy = eq_pic.jhy_eq(x, y, z)
+        jhz = eq_pic.jhz_eq(x, y, z)
+        
+        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        value = dfinv_31*jhx + dfinv_32*jhy + dfinv_33*jhz
+    
+    elif kind_fun == 14:
+        
+        x = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        y = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        z = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        value = eq_pic.nh_eq_phys(x, y, z) / abs(detdf)
+        
     
     return value
 
