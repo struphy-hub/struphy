@@ -1,9 +1,9 @@
 # coding: utf-8
 #
-# Copyright 2020 Florian Holderied
+# Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Classes for local projectors in 1d and 3d based on quasi-interpolation
+Classes for local projectors in 1D and 3D based on quasi-spline interpolation and histopolation.
 """
 
 import numpy as np
@@ -12,7 +12,11 @@ import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_local as ker_loc
 
-import source_run.kernels_projectors_local_eva as ker_loc_eva
+import source_run.kernels_projectors_evaluation as ker_eva
+
+
+
+
 
 
 # ======================= 1d ====================================
@@ -31,6 +35,9 @@ class projectors_local_1d:
     
     def __init__(self, spline_space, n_quad):
         
+        self.kind    = 'local'
+        
+        self.space   = spline_space         # 1D spline space
         self.T       = spline_space.T       # knot vector
         self.p       = spline_space.p       # spline degree
         self.bc      = spline_space.bc      # boundary conditions
@@ -482,6 +489,132 @@ class projectors_local_1d:
         return lambdas
     
     
+    # projection matrices of products of basis functions: pi0_i(A_j*B_k) and pi1_i(A_j*B_k)
+    def projection_matrices_1d(self, bc_kind=['free', 'free']):
+
+        PI0_NN = np.empty((self.NbaseN, self.NbaseN, self.NbaseN), dtype=float)
+        PI0_DN = np.empty((self.NbaseN, self.NbaseD, self.NbaseN), dtype=float)
+        PI0_DD = np.empty((self.NbaseN, self.NbaseD, self.NbaseD), dtype=float)
+
+        PI1_NN = np.empty((self.NbaseD, self.NbaseN, self.NbaseN), dtype=float)
+        PI1_DN = np.empty((self.NbaseD, self.NbaseD, self.NbaseN), dtype=float)
+        PI1_DD = np.empty((self.NbaseD, self.NbaseD, self.NbaseD), dtype=float)
+
+
+        # ========= PI0__NN and PI1_NN =============
+        ci = np.zeros(self.NbaseN, dtype=float)
+        cj = np.zeros(self.NbaseN, dtype=float)
+
+        for i in range(self.NbaseN):
+            for j in range(self.NbaseN):
+
+                ci[:] = 0.
+                cj[:] = 0.
+
+                ci[i] = 1.
+                cj[j] = 1.
+                
+                fun = lambda eta : self.space.evaluate_N(eta, ci)*self.space.evaluate_N(eta, cj)
+
+                PI0_NN[:, i, j] = self.pi_0(fun)
+                PI1_NN[:, i, j] = self.pi_1(fun)
+
+
+
+        # ========= PI0__DN and PI1_DN =============
+        ci = np.zeros(self.NbaseD, dtype=float)
+        cj = np.zeros(self.NbaseN, dtype=float)
+
+        for i in range(self.NbaseD):
+            for j in range(self.NbaseN):
+
+                ci[:] = 0.
+                cj[:] = 0.
+
+                ci[i] = 1.
+                cj[j] = 1.
+                
+                fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_N(eta, cj)
+
+                PI0_DN[:, i, j] = self.pi_0(fun)
+                PI1_DN[:, i, j] = self.pi_1(fun)
+
+
+
+        # ========= PI0__DD and PI1_DD =============
+        ci = np.zeros(self.NbaseD, dtype=float)
+        cj = np.zeros(self.NbaseD, dtype=float)
+
+        for i in range(self.NbaseD):
+            for j in range(self.NbaseD):
+
+                ci[:] = 0.
+                cj[:] = 0.
+
+                ci[i] = 1.
+                cj[j] = 1.
+                
+                fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_D(eta, cj)
+
+                PI0_DD[:, i, j] = self.pi_0(fun)
+                PI1_DD[:, i, j] = self.pi_1(fun)
+
+
+        PI0_ND = np.transpose(PI0_DN, (0, 2, 1))
+        PI1_ND = np.transpose(PI1_DN, (0, 2, 1))
+        
+        # remove contributions from first and last N-splines
+        if bc_kind[0] == 'dirichlet':
+            PI0_NN[:, :, 0] = 0.
+            PI0_NN[:, 0, :] = 0.
+            PI0_DN[:, :, 0] = 0.
+            PI0_ND[:, 0, :] = 0.
+
+            PI1_NN[:, :, 0] = 0.
+            PI1_NN[:, 0, :] = 0.
+            PI1_DN[:, :, 0] = 0.
+            PI1_ND[:, 0, :] = 0.
+
+        if bc_kind[1] == 'dirichlet':    
+            PI0_NN[:,  :, -1] = 0.
+            PI0_NN[:, -1,  :] = 0.
+            PI0_DN[:,  :, -1] = 0.
+            PI0_ND[:, -1,  :] = 0.
+
+            PI1_NN[:,  :, -1] = 0.
+            PI1_NN[:, -1,  :] = 0.
+            PI1_DN[:,  :, -1] = 0.
+            PI1_ND[:, -1,  :] = 0.
+
+
+        PI0_NN_indices = np.nonzero(PI0_NN)
+        PI0_DN_indices = np.nonzero(PI0_DN)
+        PI0_ND_indices = np.nonzero(PI0_ND)
+        PI0_DD_indices = np.nonzero(PI0_DD)
+
+        PI1_NN_indices = np.nonzero(PI1_NN)
+        PI1_DN_indices = np.nonzero(PI1_DN)
+        PI1_ND_indices = np.nonzero(PI1_ND)
+        PI1_DD_indices = np.nonzero(PI1_DD)
+
+        PI0_NN_indices = np.vstack((PI0_NN_indices[0], PI0_NN_indices[1], PI0_NN_indices[2]))
+        PI0_DN_indices = np.vstack((PI0_DN_indices[0], PI0_DN_indices[1], PI0_DN_indices[2]))
+        PI0_ND_indices = np.vstack((PI0_ND_indices[0], PI0_ND_indices[1], PI0_ND_indices[2]))
+        PI0_DD_indices = np.vstack((PI0_DD_indices[0], PI0_DD_indices[1], PI0_DD_indices[2]))
+
+        PI1_NN_indices = np.vstack((PI1_NN_indices[0], PI1_NN_indices[1], PI1_NN_indices[2]))
+        PI1_DN_indices = np.vstack((PI1_DN_indices[0], PI1_DN_indices[1], PI1_DN_indices[2]))
+        PI1_ND_indices = np.vstack((PI1_ND_indices[0], PI1_ND_indices[1], PI1_ND_indices[2]))
+        PI1_DD_indices = np.vstack((PI1_DD_indices[0], PI1_DD_indices[1], PI1_DD_indices[2]))
+
+        return PI0_NN, PI0_DN, PI0_ND, PI0_DD, PI1_NN, PI1_DN, PI1_ND, PI1_DD, PI0_NN_indices, PI0_DN_indices, PI0_ND_indices, PI0_DD_indices, PI1_NN_indices, PI1_DN_indices, PI1_ND_indices, PI1_DD_indices
+
+    
+    
+    
+    
+    
+    
 # ======================= 3d ====================================
 class projectors_local_3d:
     """
@@ -499,15 +632,22 @@ class projectors_local_3d:
     
     def __init__(self, tensor_space, n_quad):
         
+        self.kind    = 'local'              # kind of projector
+        
+        self.tensor_space = tensor_space    # 3D tensor-product B-splines space
+        
         self.T       = tensor_space.T       # knot vector
         self.p       = tensor_space.p       # spline degree
         self.bc      = tensor_space.bc      # boundary conditions
+        self.el_b    = tensor_space.el_b    # element boundaries
         
         self.Nel     = tensor_space.Nel     # number of elements
         self.NbaseN  = tensor_space.NbaseN  # number of basis functions (N)
         self.NbaseD  = tensor_space.NbaseD  # number of basis functions (D)
         
         self.n_quad  = n_quad               # number of quadrature point per integration interval
+        
+        sefl.polar   = False                # local projectors for polar splines are not implemented yet
         
         # Gauss - Legendre quadrature points and weights in (-1, 1)
         self.pts_loc = [np.polynomial.legendre.leggauss(n_quad)[0] for n_quad in self.n_quad]
@@ -949,14 +1089,14 @@ class projectors_local_3d:
                 
     
     # projector on space V0 (interpolation)
-    def pi_0(self, fun, *args):
+    def pi_0(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
         Local projector on the discrete space V0.
         
         Parameters
         ----------
         fun : callable
-            the function (0-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
+            the function (0-form) to be projected. If None, the function is called internally from the simulation input folder. 
             
         Returns
         -------
@@ -969,18 +1109,29 @@ class projectors_local_3d:
         x_int2   = np.unique(self.x_int[1].flatten())
         x_int3   = np.unique(self.x_int[2].flatten())
         
-        n_unique = [x_int1.size, x_int2.size, x_int3.size]
-        
         # evaluation of function at interpolation points
-        mat_f    = np.empty((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
+        mat_f    = np.empty((x_int1.size, x_int2.size, x_int3.size), dtype=float)
         
+        # internal function call
         if fun == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique, x_int1, x_int2, x_int3, mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(x_int1, x_int2, x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
                        
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
             mat_f[:, :, :] = fun(xx, yy, zz)
@@ -993,15 +1144,15 @@ class projectors_local_3d:
         return lambdas
     
     
-    # projector on space V1 ([histopolation, interpolation, interpolation], [interpolation, histopolation, interpolation], [interpolation, interpolation, histopolation])
-    def pi_1(self, fun, *args):
+    # projector on space V1 ([histo, inter, inter], [inter, histo, inter], [inter, inter, histo])
+    def pi_1(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
         Local projector on the discrete space V1.
         
         Parameters
         ----------
         fun : list of callables
-            the functions (components of a 1-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
+            the function (1-form) to be projected. If None, the function is called internally from the simulation input folder. 
             
         Returns
         -------
@@ -1014,43 +1165,66 @@ class projectors_local_3d:
         x_int2    = np.unique(self.x_int[1].flatten())
         x_int3    = np.unique(self.x_int[2].flatten())
         
-        n_unique1 = [self.pts[0].flatten().size, x_int2.size, x_int3.size]
-        n_unique2 = [x_int1.size, self.pts[1].flatten().size, x_int3.size]
-        n_unique3 = [x_int1.size, x_int2.size, self.pts[2].flatten().size]
-        
-        
-        # ======== 1 - component ========
-        mat_f = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
+        # ======== 1-component ========
         
         # evaluation of function at interpolation/quadrature points
+        mat_f = np.empty((self.pts[0].flatten().size, x_int2.size, x_int3.size), dtype=float)
+        
+        # internal function call
         if fun[0] == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique1, self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
         
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
             mat_f[:, :, :] = fun[0](xx, yy, zz)
         
         # coefficients
-        lambdas1  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+        lambdas1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
-        ker_loc.kernel_pi11_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique1[1], n_unique1[2]), lambdas1)
+        ker_loc.kernel_pi11_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, x_int3.size), lambdas1)
         
         
-        # ======== 2 - component ========
-        mat_f = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
+        # ======== 2-component ========
         
         # evaluation of function at interpolation/quadrature points
+        mat_f = np.empty((x_int1.size, self.pts[1].flatten().size, x_int3.size), dtype=float)
+        
+        # internal function call
         if fun[1] == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique2, x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
         
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
             mat_f[:, :, :] = fun[1](xx, yy, zz)
@@ -1058,20 +1232,34 @@ class projectors_local_3d:
         # coefficients
         lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
         
-        ker_loc.kernel_pi12_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], mat_f.reshape(n_unique2[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique2[2]), lambdas2)
+        ker_loc.kernel_pi12_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], mat_f.reshape(x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas2)
         
         
-        # ======== 3 - component ========
-        mat_f = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
+        # ======== 3-component ========
         
         # evaluation of function at interpolation/quadrature points
-        if fun[2] == None:
-            
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique3, x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+        mat_f = np.empty((x_int1.size, x_int1.size, self.pts[2].flatten().size), dtype=float)
         
+        # internal function call
+        if fun[1] == None:
+        
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
+        
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
             mat_f[:, :, :] = fun[2](xx, yy, zz)
@@ -1079,20 +1267,20 @@ class projectors_local_3d:
         # coefficients
         lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
-        ker_loc.kernel_pi13_3d([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], mat_f.reshape(n_unique3[0], n_unique3[1], self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas3)
+        ker_loc.kernel_pi13_3d([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], mat_f.reshape(x_int1.size, x_int2.size, self.pts[2][:, 0].shape[0], self.pts[2].shape[1]), lambdas3)
         
         return lambdas1, lambdas2, lambdas3
         
         
-    # projector on space V2 ([interpolation, histopolation, histopolation], [histopolation, interpolation, histopolation], [histopolation, histopolation, interpolation])
-    def pi_2(self, fun, *args):
+    # projector on space V1 ([inter, histo, histo], [histo, inter, histo], [histo, histo, inter])
+    def pi_2(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
         Local projector on the discrete space V2.
         
         Parameters
         ----------
         fun : list of callables
-            the functions (components of a 2-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
+            the function (2-form) to be projected. If None, the function is called internally from the simulation input folder. 
             
         Returns
         -------
@@ -1101,67 +1289,104 @@ class projectors_local_3d:
         """
         
         # interpolation points
-        x_int1    = np.unique(self.x_int[0].flatten())
-        x_int2    = np.unique(self.x_int[1].flatten())
-        x_int3    = np.unique(self.x_int[2].flatten())
-        
-        n_unique1 = [x_int1.size, self.pts[1].flatten().size, self.pts[2].flatten().size]
-        n_unique2 = [self.pts[0].flatten().size, x_int2.size, self.pts[2].flatten().size]
-        n_unique3 = [self.pts[0].flatten().size, self.pts[1].flatten().size, x_int3.size]
+        x_int1 = np.unique(self.x_int[0].flatten())
+        x_int2 = np.unique(self.x_int[1].flatten())
+        x_int3 = np.unique(self.x_int[2].flatten())
         
         
-        # ======== 1 - component ========
-        mat_f = np.empty((n_unique1[0], n_unique1[1], n_unique1[2]), dtype=float)
+        # ======== 1-component ========
         
         # evaluation of function at interpolation/quadrature points
+        mat_f = np.empty((x_int1.size, self.pts[1].flatten().size, self.pts[2].flatten().size), dtype=float)
+        
+        # internal function call
         if fun[0] == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique1, x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1][0], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
         
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
             mat_f[:, :, :] = fun[0](xx, yy, zz)
         
         # coefficients
-        lambdas1  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
+        lambdas1 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
         
-        ker_loc.kernel_pi21_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], mat_f.reshape(n_unique1[0], self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas1)
+        ker_loc.kernel_pi21_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], mat_f.reshape(x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]), lambdas1)
         
         
-        # ======== 2 - component ========
-        mat_f = np.empty((n_unique2[0], n_unique2[1], n_unique2[2]), dtype=float)
+        # ======== 2-component ========
         
         # evaluation of function at interpolation/quadrature points
+        mat_f = np.empty((self.pts[0].flatten().size, x_int2.size, self.pts[2].flatten().size), dtype=float)
+        
+        # internal function call
         if fun[1] == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique2, self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun=args[1][1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
         
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
             mat_f[:, :, :] = fun[1](xx, yy, zz)
         
         # coefficients
-        lambdas2  = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
+        lambdas2 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
-        ker_loc.kernel_pi22_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, n_unique2[1], self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas2)
+        ker_loc.kernel_pi22_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2],shape[1]), lambdas2)
         
         
-        # ======== 3 - component ========
-        mat_f = np.empty((n_unique3[0], n_unique3[1], n_unique3[2]), dtype=float)
+        # ======== 3-component ========
         
         # evaluation of function at interpolation/quadrature points
+        mat_f = np.empty((self.pts[0].flatten().size, self.pts[1].flatten().size, x_int3.size), dtype=float)
+        
+        # internal function call
         if fun[2] == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique3, self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun=args[1][2], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
         
         else:
             xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
@@ -1171,20 +1396,20 @@ class projectors_local_3d:
         # compute coefficients
         lambdas3 = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
     
-        ker_loc.kernel_pi23_3d([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, n_unique3[2]), lambdas3)
+        ker_loc.kernel_pi23_3d([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas3)
         
         return lambdas1, lambdas2, lambdas3
     
     
-    # projector on space V0 (histopolation)
-    def pi_3(self, fun, *args):
+    # projector on space V3 (histopolation)
+    def pi_3(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
         """
         Local projector on the discrete space V3.
         
         Parameters
         ----------
         fun : callable
-            the function (component of a 3-form) to be projected. If None, the function is called internally from the simulation input folder. args[0] specifies wether an analytical or a spline mapping is used. For the former, args[1] selects the function, args[2] the mapping and args[3] is the parameters list for the mapping. For the latter, args[1] selects the function, args[2] contains the spline knot vectors, args[3] the spline degrees, args[4] the number of basis functions and args[5] the control points.
+            the function (3-form) to be projected. If None, the function is called internally from the simulation input folder. 
             
         Returns
         -------
@@ -1192,18 +1417,29 @@ class projectors_local_3d:
             the coefficients in V3 corresponding to the projected function
         """
         
-        n_unique = [self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size]
-        
         # evaluation of function at quadrature points
-        mat_f = np.empty((n_unique[0], n_unique[1], n_unique[2]), dtype=float)
+        mat_f = np.empty((self.pts[0].flatten().size, self.pts[0].flatten().size, self.pts[0].flatten().size), dtype=float)
         
+        # internal function call
         if fun == None:
             
-            if   args[0] == 0:
-                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], kind_map=args[2], params_map=args[3])
-            elif args[0] == 1:
-                ker_loc_eva.kernel_eva(n_unique, self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun=args[1], tf1=args[2][0], tf2=args[2][1], tf3=args[2][2], pf=args[3], nbasef=args[4], cx=args[5][0], cy=args[5][1], cz=args[5][2])
+            # create dummy variables
+            if kind_map == 0:
+                T_F        =  tensor_space_F.T
+                p_F        =  tensor_space_F.p
+                NbaseN_F   =  tensor_space_F.NbaseN
+                params_map =  np.zeros((1,  ), dtype=float)
+            else:
+                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
+                p_F        =  np.zeros((1,     ), dtype=int)
+                NbaseN_F   =  np.zeros((1,     ), dtype=int)
+                cx         =  np.zeros((1, 1, 1), dtype=float)
+                cy         =  np.zeros((1, 1, 1), dtype=float)
+                cz         =  np.zeros((1, 1, 1), dtype=float)
+            
+            ker_eva.kernel_eva(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
                 
+        # external function call
         else:
             xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
             mat_f[:, :, :] = fun(xx, yy, zz)
@@ -1212,6 +1448,6 @@ class projectors_local_3d:
         # compute coefficients
         lambdas = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
             
-        ker_loc.kernel_pi3_3d(self.NbaseD, self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], mat_f.reshape(self.pts[0][:, 0].size, self.pts[0][0, :].size, self.pts[1][:, 0].size, self.pts[1][0, :].size, self.pts[2][:, 0].size, self.pts[2][0, :].size), lambdas)
+        ker_loc.kernel_pi3_3d(self.NbaseD, self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]), lambdas)
                                 
         return lambdas
