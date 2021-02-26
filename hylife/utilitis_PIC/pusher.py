@@ -12,8 +12,8 @@ import hylife.utilitis_FEEC.bsplines_kernels as bsp
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')
-def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, bnorm, u1, u2, u3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mu):
+@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')
+def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, bnorm, u1, u2, u3, basis_u, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mu):
     
     from numpy import empty, zeros
     
@@ -52,11 +52,15 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     der3 = empty(pn3 + 1, dtype=float)
     
     # magnetic field, velocity field and electric field at particle position
-    u      = empty( 3, dtype=float)
-    b      = empty( 3, dtype=float)
-    b_grad = empty( 3, dtype=float)
-    e      = empty( 3, dtype=float)
-    e_cart = empty( 3, dtype=float)
+    u           = empty( 3, dtype=float)
+    b           = empty( 3, dtype=float)
+    b_grad      = empty( 3, dtype=float)
+    
+    u_cart      = empty( 3, dtype=float)
+    b_cart      = empty( 3, dtype=float)
+    b_grad_cart = empty( 3, dtype=float)
+    
+    e_cart      = empty( 3, dtype=float)
     # ==========================================================
     
     
@@ -98,12 +102,32 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
     
     
     #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, u, b, b_grad, e, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, dfinv, dfinv_t, e_cart)
+    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, det_df, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
     for ip in range(np):
         
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
+        
+        
+        # ========= mapping evaluation =============
+        span1f = int(eta1*nelf[0]) + pf1
+        span2f = int(eta2*nelf[1]) + pf2
+        span3f = int(eta3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df)
+        
+        # evaluate Jacobian determinant
+        det_df = abs(linalg.det(df))
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
+
+        # evaluate transposed inverse Jacobian matrix
+        linalg.transpose(dfinv, dfinv_t)
+        # ==========================================
+        
         
         # ========== field evaluation ==============
         span1 = int(eta1*nel[0]) + pn1
@@ -115,58 +139,58 @@ def pusher_step3(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, b
         bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
         bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
-        # velocity field (1-form)
-        #u[0] = eva.evaluation_kernel(pd1, pn2, pn3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pn3], span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-        #u[1] = eva.evaluation_kernel(pn1, pd2, pn3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pn3], span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-        #u[2] = eva.evaluation_kernel(pn1, pn2, pd3, b1[pn1], b2[pn2], b3[pd3, :pn3]*d3[:], span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
         
-        # velocity field (2-form)
-        #u[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-        #u[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-        #u[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+        # velocity field (0-form, push-forward with df)
+        if basis_u == 0:
+            u[0] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3)
+            
+            linalg.matrix_vector(df, u, u_cart)
         
-        # velocity field (0-form)
-        u[0] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1)
-        u[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2)
-        u[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3)
+        # velocity field (1-form, push forward with df^(-T))
+        elif basis_u == 1:
+            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pn3], span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pn3], span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, b1[pn1], b2[pn2], b3[pd3, :pn3]*d3[:], span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            
+            linalg.matrix_vector(dfinv_t, u, u_cart)
+        
+        # velocity field (2-form, push forward with df/|det df|)
+        elif basis_u == 2:
+            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            
+            linalg.matrix_vector(df, u, u_cart)
+            u_cart[:] = u_cart/det_df
+            
         
         # magnetic field (2-form)
         b[0] = eva.evaluation_kernel(pn1, pd2, pd3, b1[pn1], b2[pd2, :pn2]*d2[:], b3[pd3, :pn3]*d3[:], span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1)
         b[1] = eva.evaluation_kernel(pd1, pn2, pd3, b1[pd1, :pn1]*d1[:], b2[pn2], b3[pd3, :pn3]*d3[:], span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2)
         b[2] = eva.evaluation_kernel(pd1, pd2, pn3, b1[pd1, :pn1]*d1[:], b2[pd2, :pn2]*d2[:], b3[pn3], span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3)
         
-        # evaluation of grad(B) on logical domain (|B| is a 0-form, then grad(B) a 1-form)
+        linalg.matrix_vector(df, b, b_cart)
+        b_cart[:] = b_cart/det_df
+        
+        # evaluation of grad(B) on logical domain (|B| is a 0-form, then grad(B) a 1-form, , push forward with df^(-T))
         b_grad[0] = eva.evaluation_kernel(pn1, pn2, pn3, der1, b2[pn2], b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
         b_grad[1] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], der2, b3[pn3], span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
         b_grad[2] = eva.evaluation_kernel(pn1, pn2, pn3, b1[pn1], b2[pn2], der3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], bnorm)
         
-        # electric field B x U (interior product)
-        linalg.cross(b, u, e)
+        linalg.matrix_vector(dfinv_t, b_grad, b_grad_cart)
+       
+        
+        # electric field B x U
+        linalg.cross(b_cart, u_cart, e_cart)
         
         # additional artificial electric field if Pauli particles are used
-        e[:] = e - mu[ip]*b_grad
+        e_cart[:] = e_cart - mu[ip]*b_grad_cart
         # ==========================================
         
-        # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
-        
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df)
-        
-        # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
-        
-        # evaluate transposed inverse Jacobian matrix
-        linalg.transpose(dfinv, dfinv_t)
-        # ==========================================
         
         # ======== particle pushing ================
-        # perform push-forward of 1-form electric field to physical space
-        linalg.matrix_vector(dfinv_t, e, e_cart)
-        
-        # update particle velocities
         particles[3, ip] += dt*e_cart[0]
         particles[4, ip] += dt*e_cart[1]
         particles[5, ip] += dt*e_cart[2]

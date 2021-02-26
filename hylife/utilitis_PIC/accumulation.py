@@ -6,10 +6,12 @@
 Modules to create sparse matrices from 6D sub-matrices in particle accumulation steps
 """
 
+from mpi4py import MPI
 
 import numpy        as np
 import scipy.sparse as spa
 
+import hylife.utilitis_PIC.accumulation_kernels as pic_ker
 
 class accumulation:
     """
@@ -19,24 +21,94 @@ class accumulation:
     ---------
     tensor_space : tensor_spline_space
         tensor product B-spline space
+        
+    basis_u : int
+        bulk velocity representation (0 : 0-form, 1 : 1-form , 2 : 2-form)
     """
         
     # ===============================================================
-    def __init__(self, tensor_space_FEM):
-         
-        self.T      = tensor_space_FEM.T        # knot vectors
-        self.p      = tensor_space_FEM.p        # spline degrees
-        self.bc     = tensor_space_FEM.bc       # boundary conditions (True : periodic, False : clamped)
+    def __init__(self, tensor_space_FEM, basis_u, mpi_comm):
         
-        self.t      = tensor_space_FEM.t        # reduced knot vectors
-        self.el_b   = tensor_space_FEM.el_b     # element boundaries
-        self.Nel    = tensor_space_FEM.Nel      # number of elements
-        self.NbaseN = tensor_space_FEM.NbaseN   # number of basis functions (N)
-        self.NbaseD = tensor_space_FEM.NbaseD   # number of basis functions (D)
+        self.tensor_space_FEM = tensor_space_FEM
+         
+        self.T        = tensor_space_FEM.T        # knot vectors
+        self.p        = tensor_space_FEM.p        # spline degrees
+        self.bc       = tensor_space_FEM.bc       # boundary conditions (True : periodic, False : clamped)
+        
+        self.t        = tensor_space_FEM.t        # reduced knot vectors
+        self.el_b     = tensor_space_FEM.el_b     # element boundaries
+        self.Nel      = tensor_space_FEM.Nel      # number of elements
+        self.NbaseN   = tensor_space_FEM.NbaseN   # number of basis functions (N)
+        self.NbaseD   = tensor_space_FEM.NbaseD   # number of basis functions (D)
+        
+        self.basis_u  = basis_u                   # bulk velocity representation (0-form, 1-form or 2-form)
+        
+        self.mpi_rank = mpi_comm.Get_rank()
+        
+        
+        # ==== reserve memory for implicit particle-coupling sub-steps ==========
+        if self.basis_u == 0:
+            self.mat11_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat12_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat13_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat22_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat23_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat33_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+
+            self.vec1_loc  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+            self.vec2_loc  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+            self.vec3_loc  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+
+            if self.mpi_rank == 0:
+                self.mat11 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat12 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat13 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat22 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat23 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat33 = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+
+                self.vec1  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+                self.vec2  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+                self.vec3  = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
+
+            else:
+                self.mat11, self.mat12, self.mat13, self.mat22, self.mat23, self.mat33 = None, None, None, None, None, None
+                self.vec1,  self.vec2,  self.vec3 = None, None, None
+
+        elif self.basis_u == 2:
+            self.mat11_loc = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat12_loc = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat13_loc = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat22_loc = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat23_loc = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+            self.mat33_loc = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+
+            self.vec1_loc  = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
+            self.vec2_loc  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
+            self.vec3_loc  = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
+
+            if self.mpi_rank == 0:
+                self.mat11 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat12 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat13 = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat22 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat23 = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+                self.mat33 = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
+
+                self.vec1  = np.empty((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
+                self.vec2  = np.empty((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
+                self.vec3  = np.empty((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
+
+            else:
+                self.mat11, self.mat12, self.mat13, self.mat22, self.mat23, self.mat33 = None, None, None, None, None, None
+                self.vec1,  self.vec2,  self.vec3 = None, None, None
+        # =======================================================================
         
     
+    
+    
     # ===============================================================
-    def to_sparse_step1(self, mat12, mat13, mat23, kind):
+    def to_sparse_step1(self, mat12, mat13, mat23):
         """
         Converts the 6d arrays mat12, mat13, mat23 to a sparse 2d block matrix using row-major ordering
         
@@ -50,9 +122,6 @@ class accumulation:
         
         mat23 : array_like
             23 - block in final matrix (6d array)
-            
-        kind : string
-            the basis of U
         
         Returns
         -------
@@ -62,7 +131,7 @@ class accumulation:
         
         
         # conversion to sparse matrix if all components of U live in V0
-        if kind == '0-form':
+        if self.basis_u == 0:
             indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
 
             shift1 = np.arange(self.NbaseN[0]) - self.p[0]
@@ -87,7 +156,7 @@ class accumulation:
             M23.eliminate_zeros()
         
         # conversion to sparse matrix if U lives in V2
-        elif kind == '2-form':
+        elif self.basis_u == 2:
             
             # conversion to sparse matrix (12 -block)
             indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
@@ -153,7 +222,7 @@ class accumulation:
     
     
     # ===============================================================
-    def to_sparse_step3(self, mat11, mat12, mat13, mat22, mat23, mat33, kind):
+    def to_sparse_step3(self, mat11, mat12, mat13, mat22, mat23, mat33):
         """
         Converts the 6d arrays mat11, mat12, mat13, mat22, mat23, mat33 to a sparse 2d block matrix using row-major ordering
         
@@ -176,9 +245,6 @@ class accumulation:
         
         mat33 : array_like
             33 - block in final matrix (6d array)
-            
-        kind : string
-            the basis of U
         
         Returns
         -------
@@ -187,7 +253,7 @@ class accumulation:
         """
         
         # conversion to sparse matrix if all components of U live in V0
-        if kind == '0-form':
+        if self.basis_u == 0:
             indices = np.indices((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
 
             shift1 = np.arange(self.NbaseN[0]) - self.p[0]
@@ -222,7 +288,7 @@ class accumulation:
         
         
         # conversion to sparse matrix if U lives in V2
-        if kind == '2-form':
+        elif self.basis_u == 2:
             # conversion to sparse matrix (11-block)
             indices = np.indices((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1))
 
@@ -341,3 +407,29 @@ class accumulation:
         M = spa.bmat([[M11, M12, M13], [M12.T, M22, M23], [M13.T, M23.T, M33]], format='csr')
         
         return M
+    
+    
+    # ===============================================================
+    def assemble_step1(self, particles_loc, b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F, cx, cy, cz, mpi_comm):
+        
+        pic_ker.kernel_step1(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.Nel, tensor_space_F.NbaseN, cx, cy, cz, self.mat12_loc, self.mat13_loc, self.mat23_loc, self.basis_u)
+        
+        mpi_comm.Reduce(self.mat12_loc, self.mat12, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat13_loc, self.mat13, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat23_loc, self.mat23, op=MPI.SUM, root=0)
+        
+    # ===============================================================
+    def assemble_step3(self, particles_loc, b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F, cx, cy, cz, mpi_comm):
+        
+        pic_ker.kernel_step3(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.Nel, tensor_space_F.NbaseN, cx, cy, cz, self.mat11_loc, self.mat12_loc, self.mat13_loc, self.mat22_loc, self.mat23_loc, self.mat33_loc, self.vec1_loc, self.vec2_loc, self.vec3_loc, self.basis_u)
+        
+        mpi_comm.Reduce(self.mat11_loc, self.mat11, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat12_loc, self.mat12, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat13_loc, self.mat13, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat22_loc, self.mat22, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat23_loc, self.mat23, op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.mat33_loc, self.mat33, op=MPI.SUM, root=0)
+
+        mpi_comm.Reduce(self.vec1_loc , self.vec1 , op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.vec2_loc , self.vec2 , op=MPI.SUM, root=0)
+        mpi_comm.Reduce(self.vec3_loc , self.vec3 , op=MPI.SUM, root=0)

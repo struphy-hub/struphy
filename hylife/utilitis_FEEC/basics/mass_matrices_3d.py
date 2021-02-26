@@ -102,7 +102,6 @@ def mass_V0(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx
     M       = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
     M.eliminate_zeros()
     
-    
     ## apply boundary conditions
     #M       = M.tolil()
     #
@@ -122,8 +121,8 @@ def mass_V0(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx
     #
     #M = M.tocsr()
     
-    
-    return M
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E0.dot(M.dot(tensor_space_FEM.E0.T))
 
 
 
@@ -254,7 +253,8 @@ def mass_V1(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx
                        
     M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
                 
-    return M
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E1.dot(M.dot(tensor_space_FEM.E1.T))
 
 
 
@@ -401,7 +401,8 @@ def mass_V2(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx
         
     M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
                 
-    return M
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E2.dot(M.dot(tensor_space_FEM.E2.T))
 
 
 # ================ mass matrix in V3 ===========================
@@ -490,7 +491,8 @@ def mass_V3(tensor_space_FEM, kind_map, params_map=None, tensor_space_F=None, cx
     M         = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD[0]*NbaseD[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseD[2]))
     M.eliminate_zeros()
                 
-    return M
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E3.dot(M.dot(tensor_space_FEM.E3.T))
 
 
 # ================ mass matrix for vector fields in V2 ===========================

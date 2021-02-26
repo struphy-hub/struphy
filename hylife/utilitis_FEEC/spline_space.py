@@ -10,6 +10,8 @@ Basic modules to create tensor-product finite element spaces of univariate B-spl
 import numpy        as np
 import scipy.sparse as spa
 
+import matplotlib.pyplot as plt
+
 import hylife.utilitis_FEEC.bsplines         as bsp
 import hylife.utilitis_FEEC.bsplines_kernels as bsp_kernels
 
@@ -26,33 +28,34 @@ class spline_space_1d:
     
     Parameters
     ----------
-    T : array_like
-        spline knot vector
+    Nel : int
+        number of elements of discretized 1D domain [0, 1]
         
     p : int
         spline degree
         
     bc : boolean
-        boundary conditions (True = periodic, False = clamped)
+        type of splines (True = periodic, False = clamped)
         
     n_quad : int
         optional: number of Gauss-Legendre quadrature points per element for integrations
     """
     
-    def __init__(self, T, p, bc, n_quad=None):
+    def __init__(self, Nel, p, bc, n_quad=None):
         
-        self.T       = T                                               # knot vector
+        self.Nel     = Nel                                             # number of elements
         self.p       = p                                               # spline degree
         self.bc      = bc                                              # boundary conditions
         self.n_quad  = n_quad                                          # number of Gauss-Legendre quadrature points per element
         
-        self.el_b    = bsp.breakpoints(self.T, self.p)                 # element boundaries
-        self.Nel     = len(self.el_b) - 1                              # number of elements
+        self.el_b    = np.linspace(0., 1., Nel + 1)                    # element boundaries
         self.delta   = 1/self.Nel                                      # element length
+        
+        self.T       = bsp.make_knots(self.el_b, self.p, self.bc)      # spline knot vector for B-splines (N)
         self.t       = self.T[1:-1]                                    # reduced knot vector for M-splines (D)
         
-        self.NbaseN  = len(self.T) - self.p - 1 - self.bc*self.p       # total number of basis functions (N)
-        self.NbaseD  = self.NbaseN - 1 + self.bc                       # total number of basis functions (D)
+        self.NbaseN  = len(self.T) - self.p - 1 - self.bc*self.p       # total number of B-splines (N)
+        self.NbaseD  = self.NbaseN - 1 + self.bc                       # total number of M-splines (D)
         
         
         if n_quad != None:
@@ -71,7 +74,8 @@ class spline_space_1d:
             self.basisN  = bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False)
             self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
         
-            
+    
+    # =================================================
     def evaluate_N(self, eta, coeff):
         """
         Evaluates the spline space (N) at the point eta for the coefficients coeff.
@@ -111,6 +115,8 @@ class spline_space_1d:
             return eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta)
     
     
+    
+    # =================================================
     def evaluate_D(self, eta, coeff):
         """
         Evaluates the spline space (D) at the point eta for the coefficients coeff.
@@ -150,6 +156,34 @@ class spline_space_1d:
             return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
         
         
+    # =================================================
+    def plot_splines(self, n_pts, kind='B-splines'):
+
+        etaplot = np.linspace(0., 1., n_pts)
+
+        if kind == 'B-splines':
+
+            coeff = np.zeros(self.NbaseN, dtype=float)
+
+            for i in range(self.NbaseN):
+                coeff[:] = 0.
+                coeff[i] = 1.
+                plt.plot(etaplot, self.evaluate_N(etaplot, coeff))
+
+        elif kind == 'M-splines':
+
+            coeff = np.zeros(self.NbaseD, dtype=float)
+
+            for i in range(self.NbaseD):
+                coeff[:] = 0.
+                coeff[i] = 1.
+                plt.plot(etaplot, self.evaluate_D(etaplot, coeff))
+
+        else:
+            print('only B-splines and M-splines available')
+            
+        
+        
 # =============== multi-d B-spline tensor product space ======================        
 class tensor_spline_space:
     """
@@ -179,7 +213,7 @@ class tensor_spline_space:
         self.NbaseD  = [spl.NbaseD  for spl in self.spaces]    # total number of basis functions (D)
         
         
-        # number of basis functions of discrete p-forms
+        # number of basis functions of discrete tensor-product p-forms
         if len(self.spaces) == 3:
             
             self.Nbase_0form =  [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]]
@@ -427,6 +461,52 @@ class tensor_spline_space:
         else:
             return eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2)
     
+    
+    
+    # =================================================
+    def set_extraction_operators(self, polar_splines=None):
+        
+        if polar_splines == None:
+            
+            # 2D number of basis functions
+            self.Nbase0_pol = self.NbaseN[0]*self.NbaseN[1]
+            self.Nbase1_pol = self.NbaseD[0]*self.NbaseN[1] + self.NbaseN[0]*self.NbaseD[1]
+            self.Nbase2_pol = self.NbaseN[0]*self.NbaseD[1] + self.NbaseD[0]*self.NbaseN[1]
+            self.Nbase3_pol = self.NbaseD[0]*self.NbaseD[1]
+            
+            # 2D operators
+            self.E0_pol = spa.identity(self.Nbase0_pol, dtype=float, format='csr')
+            self.E1_pol = spa.identity(self.Nbase1_pol, dtype=float, format='csr')
+            self.E2_pol = spa.identity(self.Nbase2_pol, dtype=float, format='csr')
+            self.E3_pol = spa.identity(self.Nbase3_pol, dtype=float, format='csr')
+            
+            # 3D operators
+            self.E0     = spa.identity(    self.Ntot_0form , dtype=float, format='csr')
+            self.E1     = spa.identity(sum(self.Ntot_1form), dtype=float, format='csr')
+            self.E2     = spa.identity(sum(self.Ntot_2form), dtype=float, format='csr')
+            self.E3     = spa.identity(    self.Ntot_3form , dtype=float, format='csr')
+            
+        else:
+            
+            # 2D number of basis functions
+            self.Nbase0_pol = polar_splines.Nbase0_pol
+            self.Nbase1_pol = polar_splines.Nbase1_pol
+            self.Nbase2_pol = polar_splines.Nbase2_pol
+            self.Nbase3_pol = polar_splines.Nbase3_pol
+            
+            # 2D operators
+            self.E0_pol = polar_splines.E0_pol
+            self.E1_pol = polar_splines.E1_pol
+            self.E2_pol = polar_splines.E2_pol
+            self.E3_pol = polar_splines.E3_pol
+            
+            # 3D operators
+            self.E0 = polar_splines.E0
+            self.E1 = polar_splines.E1
+            self.E2 = polar_splines.E2
+            self.E3 = polar_splines.E3
+    
+
     
     # =================================================
     def evaluate_NNN(self, eta1, eta2, eta3, coeff):
