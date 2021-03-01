@@ -179,9 +179,9 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         if basis_u == 0:
             
             # particle weight and magnetic field rotation
-            temp12 = particles[6, ip] * b_prod[0, 1]
-            temp13 = particles[6, ip] * b_prod[0, 2]
-            temp23 = particles[6, ip] * b_prod[1, 2]
+            temp12 = -particles[6, ip] * b_prod[0, 1]
+            temp13 = -particles[6, ip] * b_prod[0, 2]
+            temp23 = -particles[6, ip] * b_prod[1, 2]
 
             for il1 in range(pn1 + 1):
                 i1  = (ie1 + il1)%nbase_n[0]
@@ -212,9 +212,9 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
             linalg.matrix_matrix(ginv, b_prod, temp_mat1)
             linalg.matrix_matrix(temp_mat1, ginv, temp_mat2)
 
-            temp12 = particles[6, ip] * temp_mat2[0, 1]
-            temp13 = particles[6, ip] * temp_mat2[0, 2]
-            temp23 = particles[6, ip] * temp_mat2[1, 2]
+            temp12 = -particles[6, ip] * temp_mat2[0, 1]
+            temp13 = -particles[6, ip] * temp_mat2[0, 2]
+            temp23 = -particles[6, ip] * temp_mat2[1, 2]
             
             # add contribution to 12 component (DNN NDN) and 13 component (DNN NND)
             for il1 in range(pd1 + 1):
@@ -272,9 +272,9 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
             # particle weight and magnetic field rotation
             w_over_det2 = particles[6, ip] / det_df**2
             
-            temp12 = w_over_det2 * b_prod[0, 1]
-            temp13 = w_over_det2 * b_prod[0, 2]
-            temp23 = w_over_det2 * b_prod[1, 2]
+            temp12 = -w_over_det2 * b_prod[0, 1]
+            temp13 = -w_over_det2 * b_prod[0, 2]
+            temp23 = -w_over_det2 * b_prod[1, 2]
             
             # add contribution to 12 component (NDD DND) and 13 component (NDD DDN)
             for il1 in range(pn1 + 1):
