@@ -1,3 +1,12 @@
+# coding: utf-8
+#
+# Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
+
+"""
+Class for 3D linear MHD operators.
+"""
+
+
 import numpy as np
 import scipy.sparse as spa
 
@@ -5,14 +14,13 @@ import scipy.sparse as spa
 import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global_mhd as ker
 
-import source_run.projectors_global as pro
-import source_run.kernels_projectors_evaluation as ker_eva
-
+import hylife.utilitis_FEEC.projectors.projectors_global as pro
+import hylife.utilitis_FEEC.projectors.kernels_projectors_evaluation as ker_eva
 
 
 class operators_mhd:
     
-    def __init__(self, projectors_3d):
+    def __init__(self, projectors_3d, bc_u1, bc_b1, dt, gamma):
         
         self.projectors_3d = projectors_3d
         
@@ -28,6 +36,11 @@ class operators_mhd:
         self.NbaseD = self.tensor_space.NbaseD
         
         kind_splines = [False, True]
+        
+        self.bc_u1 = bc_u1
+        self.bc_b1 = bc_b1
+        self.dt    = dt
+        self.gamma = gamma
         
         # non-vanishing 1D indices of expressions pi0(N), pi0(D), pi1(N) and pi1(D)
         projectors_1d = [pro.projectors_global_1d(space, n_quad) for space, n_quad in zip(self.tensor_space.spaces, self.projectors_3d.n_quad)]
@@ -97,23 +110,9 @@ class operators_mhd:
             self.x_int[0][0] += 0.00001
     
     # =================================================================
-    def assemble_rhs_TAU(self, b2_eq, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def assemble_rhs_EF(self, b2_eq, domain):
         
         b2_1_eq, b2_2_eq, b2_3_eq = self.tensor_space.unravel_2form(self.tensor_space.E2.T.dot(b2_eq))
-
-        # create dummy variables
-        if kind_map == 0:
-            T_F        =  tensor_space_F.T
-            p_F        =  tensor_space_F.p
-            NbaseN_F   =  tensor_space_F.NbaseN
-            params_map =  np.zeros((1,     ), dtype=float)
-        else:
-            T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-            p_F        =  np.zeros((1,     ), dtype=int)
-            NbaseN_F   =  np.zeros((1,     ), dtype=int)
-            cx         =  np.zeros((1, 1, 1), dtype=float)
-            cy         =  np.zeros((1, 1, 1), dtype=float)
-            cz         =  np.zeros((1, 1, 1), dtype=float)
 
         # ====================== 12 - block ([his, int, int] of DND) ===========================
 
@@ -121,10 +120,7 @@ class operators_mhd:
         B3_eq   = self.tensor_space.evaluate_DDN(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_3_eq).reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
 
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size), dtype=float)
-
-        ker_eva.kernel_eva(self.pts[0].flatten(), self.x_int[1], self.x_int[2], det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df')
         det_dF  = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
         
         # assemble sparse matrix
@@ -134,7 +130,7 @@ class operators_mhd:
         
         ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi0_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi0_z_D_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[2], self.NbaseN, self.NbaseD, -B3_eq/det_dF, values, row_all, col_all)
         
-        T_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[0], self.tensor_space.Ntot_2form[1]))
+        EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[0], self.tensor_space.Ntot_2form[1]))
         
         # ====================== 13 - block ([his, int, int] of DDN) ===========================
         
@@ -142,10 +138,7 @@ class operators_mhd:
         B2_eq   = self.tensor_space.evaluate_DND(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_2_eq).reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size), dtype=float)
-
-        ker_eva.kernel_eva(self.pts[0].flatten(), self.x_int[1], self.x_int[2], det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df')
         det_dF  = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
         
         # assemble sparse matrix
@@ -155,7 +148,7 @@ class operators_mhd:
         
         ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi0_y_D_i[1], self.pi0_z_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[2], self.NbaseN, self.NbaseD,  B2_eq/det_dF, values, row_all, col_all)
         
-        T_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[0], self.tensor_space.Ntot_2form[2]))
+        EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[0], self.tensor_space.Ntot_2form[2]))
         
         
         # ====================== 21 - block ([int, his, int] of NDD) ===========================
@@ -164,10 +157,7 @@ class operators_mhd:
         B3_eq   = self.tensor_space.evaluate_DDN(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_3_eq).reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size), dtype=float)
-
-        ker_eva.kernel_eva(self.x_int[0], self.pts[1].flatten(), self.x_int[2], det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df')
         det_dF  = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
         
         # assemble sparse matrix
@@ -177,7 +167,7 @@ class operators_mhd:
         
         ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi0_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi0_z_D_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.basis_int_D[2], self.NbaseN, self.NbaseD,  B3_eq/det_dF, values, row_all, col_all)
         
-        T_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[1], self.tensor_space.Ntot_2form[0]))
+        EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[1], self.tensor_space.Ntot_2form[0]))
         
         
         # ====================== 23 - block ([int, his, int] of DDN) ===========================
@@ -186,10 +176,7 @@ class operators_mhd:
         B1_eq   = self.tensor_space.evaluate_NDD(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_1_eq).reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size), dtype=float)
-
-        ker_eva.kernel_eva(self.x_int[0], self.pts[1].flatten(), self.x_int[2], det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df')
         det_dF  = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
         
         # assemble sparse matrix
@@ -199,7 +186,7 @@ class operators_mhd:
         
         ker.rhs12(self.pi0_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi0_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_D[0], self.basis_his_D[1], self.basis_int_N[2], self.NbaseN, self.NbaseD,  -B1_eq/det_dF, values, row_all, col_all)
         
-        T_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[1], self.tensor_space.Ntot_2form[2]))
+        EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[1], self.tensor_space.Ntot_2form[2]))
         
         
         # ====================== 31 - block ([int, int, his] of NDD) ===========================
@@ -208,10 +195,7 @@ class operators_mhd:
         B2_eq   = self.tensor_space.evaluate_DND(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_2_eq).reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size), dtype=float)
-
-        ker_eva.kernel_eva(self.x_int[0], self.x_int[1], self.pts[2].flatten(), det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df')
         det_dF  = det_dF.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
         
         # assemble sparse matrix
@@ -221,7 +205,7 @@ class operators_mhd:
         
         ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi0_y_D_i[1], self.pi1_z_D_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_N[0], self.basis_int_D[1], self.basis_his_D[2], self.NbaseN, self.NbaseD,  -B2_eq/det_dF, values, row_all, col_all)
         
-        T_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[2], self.tensor_space.Ntot_2form[0]))
+        EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[2], self.tensor_space.Ntot_2form[0]))
         
         # ====================== 32 - block ([int, int, his] of DND) ===========================
         
@@ -229,12 +213,9 @@ class operators_mhd:
         B1_eq   = self.tensor_space.evaluate_NDD(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_1_eq).reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size), dtype=float)
-
-        ker_eva.kernel_eva(self.x_int[0], self.x_int[1], self.pts[2].flatten(), det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df')
         det_dF  = det_dF.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
-        
+
         # assemble sparse matrix
         values  = np.empty(self.pi0_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
         row_all = np.empty(self.pi0_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
@@ -242,42 +223,24 @@ class operators_mhd:
         
         ker.rhs13(self.pi0_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi0_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_D[0], self.basis_int_N[1], self.basis_his_D[2], self.NbaseN, self.NbaseD,  B1_eq/det_dF, values, row_all, col_all)
         
-        T_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[2], self.tensor_space.Ntot_2form[1]))
+        EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_1form[2], self.tensor_space.Ntot_2form[1]))
 
-        self.rhs_TAU = self.projectors_3d.P1.dot(spa.bmat([[None, T_12, T_13], [T_21, None, T_23], [T_31, T_32, None]], format='csr').dot(self.tensor_space.E2.T))
-        self.rhs_TAU.eliminate_zeros()
+        self.rhs_EF = self.projectors_3d.P1.dot(spa.bmat([[None, EF_12, EF_13], [EF_21, None, EF_23], [EF_31, EF_32, None]], format='csr').dot(self.tensor_space.E2.T))
+        self.rhs_EF.eliminate_zeros()
     
     
     # =================================================================
-    def assemble_rhs_WS(self, coeff3_eq, which, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def assemble_rhs_F(self, coeff3_eq, which, domain):
         
         coeff3_eq = self.tensor_space.E3.T.dot(coeff3_eq).reshape(self.tensor_space.Nbase_3form)
 
-        # create dummy variables
-        if kind_map == 0:
-            T_F        =  tensor_space_F.T
-            p_F        =  tensor_space_F.p
-            NbaseN_F   =  tensor_space_F.NbaseN
-            params_map =  np.zeros((1,     ), dtype=float)
-        else:
-            T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-            p_F        =  np.zeros((1,     ), dtype=int)
-            NbaseN_F   =  np.zeros((1,     ), dtype=int)
-            cx         =  np.zeros((1, 1, 1), dtype=float)
-            cy         =  np.zeros((1, 1, 1), dtype=float)
-            cz         =  np.zeros((1, 1, 1), dtype=float)
-            
-            
         # ====================== 11 - block ([int, his, his] of NDD) ===========================
 
         # evaluate equilibrium density at interpolation and quadrature points
         EQ = self.tensor_space.evaluate_DDD(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), coeff3_eq).reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
 
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.x_int[0].size, self.pts[1].flatten().size, self.pts[2].flatten().size), dtype=float)
-
-        ker_eva.kernel_eva(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), 'det_df')
         det_dF  = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
         
         # assemble sparse matrix
@@ -287,7 +250,7 @@ class operators_mhd:
         
         ker.rhs21(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.subs[1], self.subs[2], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[1], self.wts[2], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[2], self.NbaseN, self.NbaseD, EQ/det_dF, values, row_all, col_all)
         
-        W_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[0], self.tensor_space.Ntot_2form[0]))
+        F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[0], self.tensor_space.Ntot_2form[0]))
         
         
         # ====================== 22 - block ([his, int, his] of DND) ===========================
@@ -296,10 +259,7 @@ class operators_mhd:
         EQ = self.tensor_space.evaluate_DDD(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), coeff3_eq).reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
 
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.pts[0].flatten().size, self.x_int[1].size, self.pts[2].flatten().size), dtype=float)
-
-        ker_eva.kernel_eva(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), 'det_df')
         det_dF  = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
         
         # assemble sparse matrix
@@ -309,7 +269,7 @@ class operators_mhd:
         
         ker.rhs22(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.subs[0], self.subs[2], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[0], self.wts[2], self.basis_his_D[0], self.basis_int_N[1], self.basis_his_D[2], self.NbaseN, self.NbaseD, EQ/det_dF, values, row_all, col_all)
         
-        W_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[1], self.tensor_space.Ntot_2form[1]))
+        F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[1], self.tensor_space.Ntot_2form[1]))
         
         
         # ====================== 33 - block ([his, his, int] of DDN) ===========================
@@ -318,10 +278,7 @@ class operators_mhd:
         EQ = self.tensor_space.evaluate_DDD(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], coeff3_eq).reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
 
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF  = np.empty((self.pts[0].flatten().size, self.pts[1].flatten().size, self.x_int[2].size), dtype=float)
-
-        ker_eva.kernel_eva(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], det_dF, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-
+        det_dF  = domain.evaluate(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], 'det_df')
         det_dF  = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
         
         # assemble sparse matrix
@@ -331,35 +288,20 @@ class operators_mhd:
         
         ker.rhs23(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.subs[0], self.subs[1], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], self.basis_int_N[2], self.NbaseN, self.NbaseD, EQ/det_dF, values, row_all, col_all)
         
-        W_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[2], self.tensor_space.Ntot_2form[2]))
+        F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_2form[2], self.tensor_space.Ntot_2form[2]))
         
-        if which == 'W':
-            self.rhs_W = self.projectors_3d.P2.dot(spa.bmat([[W_11, None, None], [None, W_22, None], [None, None, W_33]], format='csr').dot(self.tensor_space.E2.T))
-            self.rhs_W.eliminate_zeros()
-        elif which == 'S':
-            self.rhs_S = self.projectors_3d.P2.dot(spa.bmat([[W_11, None, None], [None, W_22, None], [None, None, W_33]], format='csr').dot(self.tensor_space.E2.T))
-            self.rhs_S.eliminate_zeros()
+        if   which == 'M':
+            self.rhs_FM = self.projectors_3d.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.tensor_space.E2.T))
+            self.rhs_FM.eliminate_zeros()
+        elif which == 'P':
+            self.rhs_FP = self.projectors_3d.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.tensor_space.E2.T))
+            self.rhs_FP.eliminate_zeros()
     
     
     # =================================================================
-    def assemble_rhs_K(self, p3_eq, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def assemble_rhs_PR(self, p3_eq):
         
         p3_eq = self.tensor_space.E3.T.dot(p3_eq).reshape(self.tensor_space.Nbase_3form)
-
-        # create dummy variables
-        if kind_map == 0:
-            T_F        =  tensor_space_F.T
-            p_F        =  tensor_space_F.p
-            NbaseN_F   =  tensor_space_F.NbaseN
-            params_map =  np.zeros((1,     ), dtype=float)
-        else:
-            T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-            p_F        =  np.zeros((1,     ), dtype=int)
-            NbaseN_F   =  np.zeros((1,     ), dtype=int)
-            cx         =  np.zeros((1, 1, 1), dtype=float)
-            cy         =  np.zeros((1, 1, 1), dtype=float)
-            cz         =  np.zeros((1, 1, 1), dtype=float)
-            
             
         # ====================== ([his, his, his] of DDD) ===========================
         # evaluate equilibrium pressure at quadrature points
@@ -372,42 +314,21 @@ class operators_mhd:
         
         ker.rhs3(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.subs[0], self.subs[1], self.subs[2], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[0], self.wts[1], self.wts[2], self.basis_his_D[0], self.basis_his_D[1], self.basis_his_D[2], self.NbaseN, self.NbaseD, PR_eq, values, row_all, col_all)
         
-        self.rhs_K = self.projectors_3d.P3.dot(spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_3form, self.tensor_space.Ntot_3form)).dot(self.tensor_space.E3.T))
-        self.rhs_K.eliminate_zeros()
+        self.rhs_PR = self.projectors_3d.P3.dot(spa.csr_matrix((values, (row_all, col_all)), shape=(self.tensor_space.Ntot_3form, self.tensor_space.Ntot_3form)).dot(self.tensor_space.E3.T))
+        self.rhs_PR.eliminate_zeros()
         
     
     
     # =================================================================
-    def assemble_TF(self, f1, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def assemble_TF(self, f1, domain):
         
         # apply transposed projection extraction operator
         f1_1, f1_2, f1_3 = self.tensor_space.unravel_1form(self.projectors_3d.P1.T.dot(self.projectors_3d.apply_IinvT_V1(f1)))
         
-        # create dummy variables
-        if kind_map == 0:
-            T_F        =  tensor_space_F.T
-            p_F        =  tensor_space_F.p
-            NbaseN_F   =  tensor_space_F.NbaseN
-            params_map =  np.zeros((1,     ), dtype=float)
-        else:
-            T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-            p_F        =  np.zeros((1,     ), dtype=int)
-            NbaseN_F   =  np.zeros((1,     ), dtype=int)
-            cx         =  np.zeros((1, 1, 1), dtype=float)
-            cy         =  np.zeros((1, 1, 1), dtype=float)
-            cz         =  np.zeros((1, 1, 1), dtype=float)
-            
-            
         # evaluate Jacobian determinant at point sets
-        det_DF_hii = np.empty((self.pts[0].flatten().size, self.x_int[1].size, self.x_int[2].size), dtype=float)
-        det_DF_ihi = np.empty((self.x_int[0].size, self.pts[1].flatten().size, self.x_int[2].size), dtype=float)
-        det_DF_iih = np.empty((self.x_int[0].size, self.x_int[1].size, self.pts[2].flatten().size), dtype=float)
-        
-        ker_eva.kernel_eva(self.pts[0].flatten(), self.x_int[1], self.x_int[2], det_DF_hii, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        ker_eva.kernel_eva(self.x_int[0], self.pts[1].flatten(), self.x_int[2], det_DF_ihi, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        ker_eva.kernel_eva(self.x_int[0], self.x_int[1], self.pts[2].flatten(), det_DF_iih, 51, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
+        det_DF_hii = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df')
+        det_DF_ihi = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df')
+        det_DF_iih = domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df')
         
         det_DF_hii = det_DF_hii.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
         det_DF_ihi = det_DF_ihi.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
@@ -489,36 +410,36 @@ class operators_mhd:
     
     
     # ======================================
-    def __TAU(self, u):
-        return self.projectors_3d.solve_V1(self.rhs_TAU.dot(u))
+    def __EF(self, u):
+        return self.projectors_3d.solve_V1(self.rhs_EF.dot(u))
     
     # ======================================
-    def __TAU_transposed(self, e):
-        return self.rhs_TAU.T.dot(self.projectors_3d.apply_IinvT_V1(e))
+    def __EF_transposed(self, e):
+        return self.rhs_EF.T.dot(self.projectors_3d.apply_IinvT_V1(e))
     
     # ======================================
-    def __W(self, u):
-        return self.projectors_3d.solve_V2(self.rhs_W.dot(u))
+    def __FM(self, u):
+        return self.projectors_3d.solve_V2(self.rhs_FM.dot(u))
     
     # ======================================
-    def __W_transposed(self, u):
-        return self.rhs_W.T.dot(self.projectors_3d.apply_IinvT_V2(u))
+    def __FM_transposed(self, u):
+        return self.rhs_FM.T.dot(self.projectors_3d.apply_IinvT_V2(u))
     
     # ======================================
-    def __S(self, u):
-        return self.projectors_3d.solve_V2(self.rhs_S.dot(u))
+    def __FP(self, u):
+        return self.projectors_3d.solve_V2(self.rhs_FP.dot(u))
     
     # ======================================
-    def __S_transposed(self, u):
-        return self.rhs_S.T.dot(self.projectors_3d.apply_IinvT_V2(u))
+    def __FP_transposed(self, u):
+        return self.rhs_FP.T.dot(self.projectors_3d.apply_IinvT_V2(u))
     
     # ======================================
-    def __K(self, f3):
-        return self.projectors_3d.solve_V3(self.rhs_K.dot(f3))
+    def __PR(self, f3):
+        return self.projectors_3d.solve_V3(self.rhs_PR.dot(f3))
     
     # ======================================
-    def __K_transposed(self, f3):
-        return self.rhs_K.T.dot(self.projectors_3d.apply_IinvT_V3(f3))
+    def __PR_transposed(self, f3):
+        return self.rhs_PR.T.dot(self.projectors_3d.apply_IinvT_V3(f3))
     
     # ======================================
     def __TF(self, b2):
@@ -529,14 +450,223 @@ class operators_mhd:
         return self._mat_TF.T.dot(u2)
     
     # ======================================
+    def __A(self, u):
+        return 1/2*(self.__FM_transposed(self.tensor_space.M2.dot(u)) + self.tensor_space.M2.dot(self.__FM(u)))
+    
+    # ======================================
+    def __A_transposed(self, u):
+        return 1/2*(self.__FM_transposed(self.tensor_space.M2.dot(u)) + self.tensor_space.M2.dot(self.__FM(u)))
+    
+    # ======================================
+    def __L(self, u):
+        return -self.tensor_space.DIV.dot(self.__FP(u)) - (self.gamma - 1)*self.__PR(self.tensor_space.DIV.dot(u))
+    
+    # ======================================
+    def __S2(self, u):
+
+        out = self.__A(u) + self.dt**2/4*self.__EF_transposed(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(self.tensor_space.CURL.dot(self.__EF(u)))))
+
+        # apply boundary conditions
+        if self.tensor_space.bc[0] == False:
+            
+            if self.tensor_space.polar == False:
+                if self.bc_u1[0] == 'dirichlet':
+                    out[:self.NbaseD[1]*self.NbaseD[2]] = u[:self.NbaseD[1]*self.NbaseD[2]]
+                if self.bc_u1[1] == 'dirichlet':
+                    out[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = u[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]]
+
+            else:
+                if self.bc_u1[1] == 'dirichlet':
+                    out[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]] = u[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]]
+
+        return out
+    
+    # ======================================
+    def __S6(self, u):
+
+        out = self.__A(u) - self.dt**2/4*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(self.__L(u)))
+
+        # apply boundary conditions
+        if self.tensor_space.bc[0] == False:
+            
+            if self.tensor_space.polar == False:
+                if self.bc_u1[0] == 'dirichlet':
+                    out[:self.NbaseD[1]*self.NbaseD[2]] = u[:self.NbaseD[1]*self.NbaseD[2]]
+                if self.bc_u1[1] == 'dirichlet':
+                    out[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = u[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]]
+
+            else:
+                if self.bc_u1[1] == 'dirichlet':
+                    out[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]] = u[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]]
+
+        return out
+    
+    # ======================================
     def setOperators(self):
         
-        self.W   = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__W, rmatvec=self.__W_transposed)
+        self.FM = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__FM, rmatvec=self.__FM_transposed)
         
-        self.S   = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__S, rmatvec=self.__S_transposed)
+        self.FP = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__FP, rmatvec=self.__FP_transposed)
         
-        self.TAU = spa.linalg.LinearOperator((self.tensor_space.E1.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__TAU, rmatvec=self.__TAU_transposed)
+        self.EF = spa.linalg.LinearOperator((self.tensor_space.E1.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
         
-        self.K   = spa.linalg.LinearOperator((self.tensor_space.E3.shape[0], self.tensor_space.E3.shape[0]), matvec=self.__K, rmatvec=self.__K_transposed)
+        self.PR = spa.linalg.LinearOperator((self.tensor_space.E3.shape[0], self.tensor_space.E3.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
         
-        self.TF  = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__TF, rmatvec=self.__TF_transposed)
+        self.TF = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__TF, rmatvec=self.__TF_transposed)
+        
+        self.A  = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__A, rmatvec=self.__A_transposed)
+        
+        self.L  = spa.linalg.LinearOperator((self.tensor_space.E3.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__L)
+        
+        self.S2 = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__S2)
+        
+        self.S6 = spa.linalg.LinearOperator((self.tensor_space.E2.shape[0], self.tensor_space.E2.shape[0]), matvec=self.__S6)
+        
+    # ======================================
+    def RHS2(self, u, b):
+        
+        out = self.A(u) - self.dt**2/4*self.EF.T(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(self.tensor_space.CURL.dot(self.EF(u))))) + self.dt*self.EF.T(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(b)))
+        
+        self.tensor_space.apply_bc_2form(out, self.bc_u1)
+        
+        return out
+    
+    # ======================================
+    def RHS6(self, u, p, b):
+        
+        out = self.A(u) + self.dt**2/4*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(self.L(u))) + self.dt*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(p)) + self.dt*self.TF(b)
+        
+        self.tensor_space.apply_bc_2form(out, self.bc_u1)
+        
+        return out
+    
+    # ======================================
+    def setPreconditionerA(self, drop_tol, fill_fac):
+        
+        FM_local = self.projectors_3d.I2_inv_approx.dot(self.rhs_FM)
+        A_local  = 1/2*(FM_local.T.dot(self.tensor_space.M2) + self.tensor_space.M2.dot(FM_local)).tolil()
+
+        del FM_local
+
+        # apply boundary conditions to A_local
+        if self.bc[0] == False:
+
+            # eta1 = 0
+            if self.bc_u1[0] == 'dirichlet':
+                lower = 0
+                upper = self.NbaseD[1]*self.NbaseD[2]
+
+                A_local[lower:upper,      :     ] = 0.
+                A_local[     :     , lower:upper] = 0.
+                A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # eta1 = 1
+            if self.bc_u1[1] == 'dirichlet':
+                if self.tensor_space.polar == False:
+                    lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
+                    upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
+                else:
+                    lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
+                    upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
+
+                A_local[lower:upper,      :     ] = 0.
+                A_local[     :     , lower:upper] = 0.
+                A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+
+        A_ILU = spa.linalg.spilu(A_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
+        self.A_PRE = spa.linalg.LinearOperator(A_local.shape, lambda x : A_ILU.solve(x))
+        
+        
+    # ======================================
+    def setPreconditionerS2(self, drop_tol, fill_fac):
+        
+        FM_local = self.projectors_3d.I2_inv_approx.dot(self.rhs_FM)
+        A_local  = 1/2*(FM_local.T.dot(self.tensor_space.M2) + self.tensor_space.M2.dot(FM_local)).tocsr()
+
+        del FM_local
+        
+        EF_local = self.projectors_3d.I1_inv_approx.dot(self.rhs_EF)
+        
+        S2_local = (A_local + self.dt**2/4*EF_local.T.dot(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(self.tensor_space.CURL.dot(EF_local))))).tolil()
+        
+        del A_local, EF_local
+
+        # apply boundary conditions to A_local
+        if self.bc[0] == False:
+
+            # eta1 = 0
+            if self.bc_u1[0] == 'dirichlet':
+                lower = 0
+                upper = self.NbaseD[1]*self.NbaseD[2]
+
+                S2_local[lower:upper,      :     ] = 0.
+                S2_local[     :     , lower:upper] = 0.
+                S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # eta1 = 1
+            if self.bc_u1[1] == 'dirichlet':
+                if self.tensor_space.polar == False:
+                    lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
+                    upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
+                else:
+                    lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
+                    upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
+
+                S2_local[lower:upper,      :     ] = 0.
+                S2_local[     :     , lower:upper] = 0.
+                S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+
+        S2_ILU = spa.linalg.spilu(S2_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
+        self.S2_PRE = spa.linalg.LinearOperator(S2_local.shape, lambda x : S2_ILU.solve(x))
+        
+        
+    # ======================================
+    def setPreconditionerS6(self, drop_tol, fill_fac):
+        
+        FM_local = self.projectors_3d.I2_inv_approx.dot(self.rhs_FM)
+        A_local  = 1/2*(FM_local.T.dot(self.tensor_space.M2) + self.tensor_space.M2.dot(FM_local)).tocsr()
+
+        del FM_local
+        
+        FP_local = self.projectors_3d.I2_inv_approx.dot(self.rhs_FP)
+        PR_local = self.projectors_3d.I3_inv_approx.dot(self.rhs_PR)
+
+        L_local  = -self.tensor_space.DIV.dot(FP_local) - (self.gamma - 1)*PR_local.dot(self.tensor_space.DIV)
+
+        del FP_local, PR_local
+
+        S6_local = (A_local - self.dt**2/4*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(L_local))).tolil()
+
+        del A_local
+
+
+        # apply boundary conditions to A_local
+        if self.bc[0] == False:
+
+            # eta1 = 0
+            if self.bc_u1[0] == 'dirichlet':
+                lower = 0
+                upper = self.NbaseD[1]*self.NbaseD[2]
+
+                S6_local[lower:upper,      :     ] = 0.
+                S6_local[     :     , lower:upper] = 0.
+                S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # eta1 = 1
+            if self.bc_u1[1] == 'dirichlet':
+                if self.tensor_space.polar == False:
+                    lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
+                    upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
+                else:
+                    lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
+                    upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
+
+                S6_local[lower:upper,      :     ] = 0.
+                S6_local[     :     , lower:upper] = 0.
+                S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+
+        S6_ILU = spa.linalg.spilu(S6_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
+        self.S6_PRE = spa.linalg.LinearOperator(S6_local.shape, lambda x : S6_ILU.solve(x))
