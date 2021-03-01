@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.sparse as spa
 
-import source_run.projectors_global as proj_global
-import source_run.projectors_local  as proj_local
+import hylife.utilitis_FEEC.projectors.projectors_global as proj_global
+import hylife.utilitis_FEEC.projectors.projectors_local  as proj_local
 
 import hylife.linear_algebra.kernels_tensor_product as ker_la
 import hylife.linear_algebra.linalg_kron            as kron_la
