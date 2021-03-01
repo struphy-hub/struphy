@@ -670,7 +670,7 @@ class projectors_global_3d:
         return pts_PI
     
     # ======================================        
-    def eval_for_PI(self, comp, fun, kind_fun, domain=None):
+    def eval_for_PI(self, comp, fun, domain=None):
         """
         Evaluates the callable "fun" at the points corresponding to the projector, and returns the result as 3d array "mat_f".
             
@@ -697,17 +697,17 @@ class projectors_global_3d:
         # array of evaluated function
         mat_f  = np.empty((n_pts[0], n_pts[1], n_pts[2]), dtype=float)
         
-        # internal function call
-        if fun == 'internal':
-            # evaluate function on point set
-            ker_eva.kernel_eva(pts_PI[0], pts_PI[1], pts_PI[2], mat_f, kind_fun, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.NbaseN, domain.cx, domain.cy, domain.cz)
-        
-        # external function call
-        else:
+        # external function call if a callable is passed
+        if callable(fun):
             # create a meshgrid and evaluate function on point set
             pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
             mat_f[:, :, :]   = fun(pts1, pts2, pts3)
-
+        
+        # internal function call
+        else:
+            # evaluate function on point set
+            ker_eva.kernel_eva(pts_PI[0], pts_PI[1], pts_PI[2], mat_f, fun, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+       
         return mat_f
     
     
@@ -794,24 +794,24 @@ class projectors_global_3d:
         return self.I3_pol_inv.T.dot(self.D_inv[2].T.dot(rhs.T).T).flatten()  
     
     # ======================================        
-    def pi_0(self, fun, kind_fun=None, domain=None):
+    def pi_0(self, fun, domain=None):
         
         #  ==== evaluate on tensor-product grid ====
-        rhs = self.eval_for_PI(0, fun, kind_fun, domain)
+        rhs = self.eval_for_PI(0, fun, domain)
         
         # ====== solve for coefficients ============
         return self.solve_V0(self.P0.dot(rhs.flatten()))
     
     
     # ======================================        
-    def pi_1(self, fun, kind_fun=[None, None, None], domain=None):
+    def pi_1(self, fun, domain=None):
         
         # ====== integrate along 1-direction =======
         n1   = self.pts_PI_11[0].size//self.n_quad[0] 
         n2   = self.pts_PI_11[1].size 
         n3   = self.pts_PI_11[2].size
         
-        pts  = self.eval_for_PI(11, fun[0], kind_fun[0], domain)
+        pts  = self.eval_for_PI(11, fun[0], domain)
         
         rhs1 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_1d_ext_eta1(self.wts[0], pts.reshape(n1, self.n_quad[0], n2, n3), rhs1)
@@ -821,7 +821,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_12[1].size//self.n_quad[1]  
         n3   = self.pts_PI_12[2].size
         
-        pts  = self.eval_for_PI(12, fun[1], kind_fun[1], domain)
+        pts  = self.eval_for_PI(12, fun[1], domain)
         
         rhs2 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_1d_ext_eta2(self.wts[1], pts.reshape(n1, n2, self.n_quad[1], n3), rhs2)
@@ -831,7 +831,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_13[1].size  
         n3   = self.pts_PI_13[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(13, fun[2], kind_fun[2], domain)
+        pts  = self.eval_for_PI(13, fun[2], domain)
         
         rhs3 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_1d_ext_eta3(self.wts[2], pts.reshape(n1, n2, n3, self.n_quad[2]), rhs3)
@@ -844,14 +844,14 @@ class projectors_global_3d:
             
 
     # ======================================        
-    def pi_2(self, fun, kind_fun=[None, None, None], domain=None):
+    def pi_2(self, fun, domain=None):
         
         # ====== integrate in 2-3-plane =======
         n1   = self.pts_PI_21[0].size
         n2   = self.pts_PI_21[1].size//self.n_quad[1] 
         n3   = self.pts_PI_21[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(21, fun[0], kind_fun[0], domain)
+        pts  = self.eval_for_PI(21, fun[0], domain)
         
         rhs1 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_2d_ext_eta2_eta3(self.wts[1], self.wts[2], pts.reshape(n1, n2, self.n_quad[1], n3, self.n_quad[2]), rhs1)   
@@ -860,7 +860,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_22[1].size
         n3   = self.pts_PI_22[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(22, fun[1], kind_fun[1], domain)
+        pts  = self.eval_for_PI(22, fun[1], domain)
         
         rhs2 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_2d_ext_eta1_eta3(self.wts[0], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, n3, self.n_quad[2]), rhs2)  
@@ -869,7 +869,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_23[1].size//self.n_quad[1]
         n3   = self.pts_PI_23[2].size
         
-        pts  = self.eval_for_PI(23, fun[2], kind_fun[2], domain)
+        pts  = self.eval_for_PI(23, fun[2], domain)
         
         rhs3 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_2d_ext_eta1_eta2(self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3), rhs3)
@@ -882,13 +882,13 @@ class projectors_global_3d:
     
     
     # ======================================        
-    def pi_3(self, fun, kind_fun=None, domain=None):
+    def pi_3(self, fun, domain=None):
         
         n1  = self.pts_PI_3[0].size//self.n_quad[0] 
         n2  = self.pts_PI_3[1].size//self.n_quad[1]
         n3  = self.pts_PI_3[2].size//self.n_quad[2]
         
-        pts = self.eval_for_PI(3, fun, kind_fun, domain)
+        pts = self.eval_for_PI(3, fun, domain)
         
         rhs = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_ext(self.wts[0], self.wts[1], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3, self.n_quad[2]), rhs)
