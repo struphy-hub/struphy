@@ -15,7 +15,7 @@ import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.projectors.kernels_projectors_local_mhd as ker_loc
 import hylife.utilitis_FEEC.basics.kernels_3d as ker_loc_3d
 
-import source_run.kernels_projectors_evaluation as ker_eva
+import hylife.utilitis_FEEC.projectors.kernels_projectors_evaluation as ker_eva
 
 
 class projectors_local_mhd:
