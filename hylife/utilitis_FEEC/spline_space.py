@@ -19,6 +19,10 @@ import hylife.utilitis_FEEC.basics.spline_evaluation_1d as eva_1d
 import hylife.utilitis_FEEC.basics.spline_evaluation_2d as eva_2d
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva_3d
 
+import hylife.utilitis_FEEC.basics.mass_matrices_1d as mass_1d
+import hylife.utilitis_FEEC.basics.mass_matrices_3d as mass_3d
+
+import hylife.utilitis_FEEC.derivatives.derivatives as der
 
 
 # =============== 1d B-spline space ======================
@@ -74,6 +78,15 @@ class spline_space_1d:
             self.basisN  = bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False)
             self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
         
+    
+    # =================================================
+    def assemble_M0(self, mapping=None):
+        self.M0 = mass_1d.get_V0(self, mapping)
+        
+    # =================================================
+    def assemble_M1(self, mapping=None):
+        self.M1 = mass_1d.get_V1(self, mapping)
+    
     
     # =================================================
     def evaluate_N(self, eta, coeff):
@@ -245,8 +258,6 @@ class tensor_spline_space:
             self.Ntot_2form_cum = [self.Ntot_2form[0], self.Ntot_2form[0] + self.Ntot_2form[1], self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2]]
         
         
-        
-        
         if self.spaces[0].n_quad != None:
             
             self.n_quad  = [spl.n_quad  for spl in self.spaces]    # number of Gauss-Legendre quadrature points per element
@@ -262,7 +273,33 @@ class tensor_spline_space:
             # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
             self.basisN  = [spl.basisN  for spl in self.spaces] 
             self.basisD  = [spl.basisD  for spl in self.spaces]
+            
+    
+    # =================================================
+    def assemble_M0(self, domain):
+        self.M0 = mass_3d.get_M0(self, domain)
         
+    # =================================================
+    def assemble_M1(self, domain):
+        self.M1 = mass_3d.get_M1(self, domain)
+        
+    # =================================================
+    def assemble_M2(self, domain):
+        self.M2 = mass_3d.get_M2(self, domain)
+        
+    # =================================================
+    def assemble_M3(self, domain):
+        self.M3 = mass_3d.get_M3(self, domain)
+        
+    # =================================================
+    def assemble_Mv0(self, domain):
+        self.Mv = mass_3d.get_Mv0(self, domain)
+        
+    # =================================================
+    def assemble_Mv2(self, domain):
+        self.Mv = mass_3d.get_Mv2(self, domain)
+    
+    
     
     # ================================================
     def ravel_pform(self, x1, x2, x3):
@@ -461,12 +498,21 @@ class tensor_spline_space:
         else:
             return eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2)
     
-    
+    # =================================================
+    def set_derivatives(self, polar_splines=None):
+        
+        derivatives = der.discrete_derivatives_3D(self, polar_splines)
+        
+        self.GRAD   = derivatives.GRAD
+        self.CURL   = derivatives.CURL
+        self.DIV    = derivatives.DIV
     
     # =================================================
     def set_extraction_operators(self, polar_splines=None):
         
         if polar_splines == None:
+            
+            self.polar = False
             
             # 2D number of basis functions
             self.Nbase0_pol = self.NbaseN[0]*self.NbaseN[1]
@@ -488,6 +534,8 @@ class tensor_spline_space:
             
         else:
             
+            self.polar = False
+            
             # 2D number of basis functions
             self.Nbase0_pol = polar_splines.Nbase0_pol
             self.Nbase1_pol = polar_splines.Nbase1_pol
@@ -505,7 +553,25 @@ class tensor_spline_space:
             self.E1 = polar_splines.E1
             self.E2 = polar_splines.E2
             self.E3 = polar_splines.E3
+            
     
+    # =================================================
+    def apply_bc_2form(self, coeff, bc):
+        
+        if self.bc[0] == False:
+        
+            # eta1 = 0
+            if bc[0] == 'dirichlet':
+                coeff[:self.NbaseD[1]*self.NbaseD[2]] = 0.
+            
+            # eta1 = 1
+            if bc[1] == 'dirichlet':
+                if self.polar == False:
+                    coeff[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = 0.
+                else:
+                    coeff[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]] = 0.
+        
+        
 
     
     # =================================================
