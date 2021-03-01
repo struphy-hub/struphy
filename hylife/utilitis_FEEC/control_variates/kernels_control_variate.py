@@ -3,7 +3,6 @@ from pyccel.decorators import types
 import hylife.geometry.mappings_3d as mapping
 
 import input_run.equilibrium_PIC as eq_pic
-import input_run.equilibrium_MHD as eq_mhd
 
 
 # ==========================================================================================
