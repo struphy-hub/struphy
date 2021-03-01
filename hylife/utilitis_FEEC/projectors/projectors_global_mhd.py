@@ -15,7 +15,6 @@ import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global_mhd as ker
 
 import hylife.utilitis_FEEC.projectors.projectors_global as pro
-import hylife.utilitis_FEEC.projectors.kernels_projectors_evaluation as ker_eva
 
 
 class operators_mhd:

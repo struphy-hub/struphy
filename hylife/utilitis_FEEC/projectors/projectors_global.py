@@ -12,7 +12,7 @@ import scipy.sparse as spa
 import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global     as ker_glob
-import hylife.utilitis_FEEC.projectors.kernels_projectors_evaluation as ker_eva
+import source_run.kernels_projectors_evaluation as ker_eva
 
 from   hylife.linear_algebra.linalg_kron import kron_lusolve_3d
 

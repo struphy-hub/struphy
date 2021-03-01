@@ -18,8 +18,7 @@ flag_openmp_pic=--openmp
 # =================================================
 
 # ======= if you want to run the makefile =========
-# needed if you created a new run_dir OR you switched to an existing run_dir
-make=false
+make=true
 # =================================================
 
 # == print location of repository and simulation == 
@@ -218,14 +217,20 @@ EOF
 # =================================================
 
 
+# == create source_run folder and copy subroutines into it
+SDIR=$all_sim/$run_dir/source_run
+
+mkdir $SDIR
+
+cp hylife/utilitis_FEEC/control_variates/kernels_control_variate.py $SDIR/kernels_control_variate.py
+cp hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation.py $SDIR/kernels_projectors_evaluation.py
+cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
+# =================================================
+
+
 # ============== run Makefile =====================
 if [ "$make" = true ]
 then
-
-touch hylife/utilitis_FEEC/control_variates/kernels_control_variate.py
-touch hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation.py
-touch hylife/utilitis_PIC/sampling.py
-
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 fi
 # =================================================
@@ -253,7 +258,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 4 python3 STRUPHY.py
+mpirun -n 1 python3 STRUPHY.py
 #export OMP_NUM_THREADS=1
 #python3 STRUPHY.py
 # =================================================

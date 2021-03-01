@@ -37,9 +37,9 @@ EQP  := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
 ICM  := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
 ICP  := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
 
-KCV  := hylife/utilitis_FEEC/control_variates/kernels_control_variate
+KCV  := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
 
-KPV  := hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation
+KPV  := $(all_sim)/$(run_dir)/source_run/kernels_projectors_evaluation
 KPL  := hylife/utilitis_FEEC/projectors/kernels_projectors_local
 KPG  := hylife/utilitis_FEEC/projectors/kernels_projectors_global
 KPLM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
@@ -47,7 +47,7 @@ KPGM := hylife/utilitis_FEEC/projectors/kernels_projectors_global_mhd
 
 PP   := hylife/utilitis_PIC/pusher
 PA   := hylife/utilitis_PIC/accumulation_kernels
-PS   := hylife/utilitis_PIC/sampling
+PS   := $(all_sim)/$(run_dir)/source_run/sampling
 
 SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M2).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KPV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(PP).py $(PA).py $(PS).py
 
