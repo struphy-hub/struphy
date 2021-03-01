@@ -611,7 +611,7 @@ def update():
             timeb = time.time()
             times_elapsed['control_step1'] = timeb - timea
                 
-            # solve linear system with conjugate gradient squared method and values from last time step as initial guess 
+            # solve linear system with gmres method and values from last time step as initial guess 
             timea = time.time()
             
             # LHS and RHS of linear system
@@ -621,6 +621,7 @@ def update():
             up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, M=MHD.A_PRE)
             print('linear solver step 1 : ', info)
             
+            timeb = time.time()
             times_elapsed['update_step1u'] = timeb - timea
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         
