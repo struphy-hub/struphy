@@ -24,32 +24,32 @@ MF3  := hylife/geometry/mappings_3d_fast
 PB3  := hylife/geometry/pullback_3d
 PF3  := hylife/geometry/pushforward_3d
 
+KM2  := hylife/utilitis_FEEC/basics/kernels_2d
+KM3  := hylife/utilitis_FEEC/basics/kernels_3d
+
+DER  := hylife/utilitis_FEEC/derivatives/kernels_derivatives
+
+LAC  := hylife/linear_algebra/core
+LAT  := hylife/linear_algebra/kernels_tensor_product
+
 EQM  := $(all_sim)/$(run_dir)/input_run/equilibrium_MHD
 EQP  := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
 ICM  := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
 ICP  := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
 
-KCV  := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
+KCV  := hylife/utilitis_FEEC/control_variates/kernels_control_variate
 
-DER  := hylife/utilitis_FEEC/derivatives/kernels_derivatives
-
-KM2  := hylife/utilitis_FEEC/basics/kernels_2d
-KM3  := hylife/utilitis_FEEC/basics/kernels_3d
-
-KPV  := $(all_sim)/$(run_dir)/source_run/kernels_projectors_evaluation
+KPV  := hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation
 KPL  := hylife/utilitis_FEEC/projectors/kernels_projectors_local
 KPG  := hylife/utilitis_FEEC/projectors/kernels_projectors_global
 KPLM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
 KPGM := hylife/utilitis_FEEC/projectors/kernels_projectors_global_mhd
 
-LAC  := hylife/linear_algebra/core
-LAT  := hylife/linear_algebra/kernels_tensor_product
-
 PP   := hylife/utilitis_PIC/pusher
 PA   := hylife/utilitis_PIC/accumulation_kernels
-PS   := $(all_sim)/$(run_dir)/source_run/sampling
+PS   := hylife/utilitis_PIC/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M2).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(DER).py $(KM2).py $(KM3).py $(KPV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(LAC).py $(LAT).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M2).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KPV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(PP).py $(PA).py $(PS).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -87,7 +87,22 @@ $(PB3)$(SO_EXT) : $(PB3).py $(M3)$(SO_EXT)
     
 $(PF3)$(SO_EXT) : $(PF3).py $(M3)$(SO_EXT)
 	pyccel $< $(FLAGS)
-
+    
+$(KM2)$(SO_EXT) : $(KM2).py $(M2)$(SO_EXT)
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(KM3)$(SO_EXT) : $(KM3).py $(M3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(DER)$(SO_EXT) : $(DER).py
+	pyccel $< $(FLAGS)
+    
+$(LAC)$(SO_EXT) : $(LAC).py
+	pyccel $< $(FLAGS)
+    
+$(LAT)$(SO_EXT) : $(LAT).py
+	pyccel $< $(FLAGS)
+    
 $(EQM)$(SO_EXT) : $(EQM).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
@@ -100,16 +115,7 @@ $(ICM)$(SO_EXT) : $(ICM).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
 $(ICP)$(SO_EXT) : $(ICP).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(KCV)$(SO_EXT) : $(KCV).py $(M3)$(SO_EXT) $(EQP)$(SO_EXT) $(EQM)$(SO_EXT)
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(DER)$(SO_EXT) : $(DER).py
-	pyccel $< $(FLAGS)
-
-$(KM2)$(SO_EXT) : $(KM2).py $(M2)$(SO_EXT)
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(KM3)$(SO_EXT) : $(KM3).py $(M3)$(SO_EXT)
+$(KCV)$(SO_EXT) : $(KCV).py $(M3)$(SO_EXT) $(EQP)$(SO_EXT)
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
 $(KPV)$(SO_EXT) : $(KPV).py $(M3)$(SO_EXT) $(EQM)$(SO_EXT) $(ICM)$(SO_EXT)
@@ -126,12 +132,6 @@ $(KPLM)$(SO_EXT) : $(KPLM).py
     
 $(KPGM)$(SO_EXT) : $(KPGM).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(LAC)$(SO_EXT) : $(LAC).py
-	pyccel $< $(FLAGS)
-    
-$(LAT)$(SO_EXT) : $(LAT).py
-	pyccel $< $(FLAGS)
 
 $(PP)$(SO_EXT) : $(PP).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)

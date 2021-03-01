@@ -4,12 +4,7 @@
 path_root=$(pwd)
 #all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife/particle_pusher_2020_12
 all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2021_02_22_2
-# =================================================
-
-# ============== if you want to use OpenMp ========
-flag_openmp_mhd=
-flag_openmp_pic=--openmp
+run_dir=sim_2021_02_18_3
 # =================================================
 
 # ======= name of main code =======================
@@ -17,7 +12,13 @@ flag_openmp_pic=--openmp
 code_name=STRUPHY_original_new.py
 # =================================================
 
+# ============== if you want to use OpenMp ========
+flag_openmp_mhd=
+flag_openmp_pic=--openmp
+# =================================================
+
 # ======= if you want to run the makefile =========
+# needed if you created a new run_dir OR you switched to an existing run_dir
 make=false
 # =================================================
 
@@ -50,13 +51,13 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 #############################
 
 # number of elements, clamped (False) or periodic (True) spline and spline degrees (finite elements)
-Nel : [40, 33, 8] 
-bc  : [False, True, True]
-p   : [2, 2, 3]
+Nel : [16, 2, 2] 
+bc  : [True, True, True]
+p   : [3, 1, 1]
 
 # boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = 'dirichlet', free boundary = 'free')
-bc_u1 : [free, dirichlet]
-bc_b1 : [free, dirichlet]  
+bc_u1 : [free, free]
+bc_b1 : [free, free]  
 
 # projector (global vs. local)
 use_projector : global
@@ -65,11 +66,11 @@ use_projector : global
 tol_approx_reduced : 0.2
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [4, 4, 6]
-nq_pr : [4, 4, 6]
+nq_el : [6, 4, 4]
+nq_pr : [6, 4, 4]
 
 # polar splines in poloidal plane
-polar : True
+polar : False
 
 # basis for bulk velocity
 basis_u : 2
@@ -80,18 +81,18 @@ basis_u : 2
 #params_map : [7.853981634, 7.853981634, 1.]
 #params_map  : [1., 1., 1.]
 
-#kind_map   : 1
-#params_map : [7.853981634, 1., 1.]
+kind_map   : cuboid
+params_map : [7.853981634, 1., 1.]
 #params_map : [0.5, 3.141592654, 10.36725576]
 
-kind_map   : 2
-params_map : [0., 0.5, 10.36725576]  
+#kind_map   : 2
+#params_map : [0., 0.5, 10.36725576]  
 #params_map : [7.853981634, 1., 1.]
 
 # ----> for spline geometry: number of elements, boundary conditions and spline degrees
-Nel_MAP : [40, 33, 8] 
-bc_MAP  : [False, True, False]
-p_MAP   : [2, 2, 3] 
+Nel_MAP : [16, 2, 2] 
+bc_MAP  : [False, False, False]
+p_MAP   : [3, 1, 1] 
 
 
 #############################
@@ -100,7 +101,7 @@ p_MAP   : [2, 2, 3]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : 0.05
+dt       : 0.1
 Tend     : 240.
 max_time : 1000.
 
@@ -132,7 +133,7 @@ tol6        : 0.00000001
 ###############################
 
 # add non-Hamiltonian terms to simulation?
-add_pressure : True
+add_pressure : False
 
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666
@@ -142,13 +143,13 @@ gamma : 1.6666666666666666666666666666
 ###############################
 
 # add kinetic terms to simulation?
-add_PIC : False     
+add_PIC : True     
 
 # total number of particles
-Np : 10      
+Np : 128000 
 
 # control variate? 
-control : False   
+control : True  
 
 # shift of Maxwellian 
 v0 : [2.5, 0., 0.]
@@ -217,31 +218,14 @@ EOF
 # =================================================
 
 
-
-# == create source_run folder and copy subroutines into it
-SDIR=$all_sim/$run_dir/source_run
-
-mkdir $SDIR
-
-cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
-cp hylife/utilitis_FEEC/projectors/projectors_global.py $SDIR/projectors_global.py
-
-cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
-cp hylife/utilitis_FEEC/projectors/projectors_global_mhd.py $SDIR/projectors_global_mhd.py
-cp hylife/utilitis_FEEC/projectors/linear_operators_mhd.py $SDIR/linear_operators_mhd.py
-
-cp hylife/utilitis_FEEC/control_variates/kernels_control_variate.py $SDIR/kernels_control_variate.py
-cp hylife/utilitis_FEEC/control_variates/control_variate.py $SDIR/control_variate.py
-
-cp hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation.py $SDIR/kernels_projectors_evaluation.py
-
-cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
-# =================================================
-
-
 # ============== run Makefile =====================
 if [ "$make" = true ]
 then
+
+touch hylife/utilitis_FEEC/control_variates/kernels_control_variate.py
+touch hylife/utilitis_FEEC/projectors/kernels_projectors_evaluation.py
+touch hylife/utilitis_PIC/sampling.py
+
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 fi
 # =================================================
@@ -269,7 +253,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-#mpirun -n 4 python3 STRUPHY.py
-export OMP_NUM_THREADS=1
-python3 STRUPHY.py
+mpirun -n 4 python3 STRUPHY.py
+#export OMP_NUM_THREADS=1
+#python3 STRUPHY.py
 # =================================================
