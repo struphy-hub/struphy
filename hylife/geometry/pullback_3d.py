@@ -102,8 +102,7 @@ def pull_3_form(a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nb
     
     return a3
 
-
-
+    
 # ==============================================================================
 @types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def pull_vector(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
@@ -136,19 +135,63 @@ def pull_vector(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
 
 
 # ==============================================================================
+@types('double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def pull_all_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+    
+    value = 0.
+    
+    # 0-form
+    if   kind_fun == 0:
+        value = pull_0_form(a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    # 3-form
+    elif kind_fun == 3:
+        value = pull_3_form(a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+    return value
+
+
+# ==============================================================================
+@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def pull_all_vector(ax, ay, az, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+    
+    value = 0.
+    
+    # 1-form
+    if   kind_fun == 11:
+        value = pull_1_form(ax, ay, az, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 12:
+        value = pull_1_form(ax, ay, az, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 13:
+        value = pull_1_form(ax, ay, az, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    # 2-form
+    elif kind_fun == 21:
+        value = pull_2_form(ax, ay, az, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 22:
+        value = pull_2_form(ax, ay, az, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 23:
+        value = pull_2_form(ax, ay, az, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    # vector
+    elif kind_fun == 31:
+        value = pull_vector(ax, ay, az, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 32:
+        value = pull_vector(ax, ay, az, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 33:
+        value = pull_vector(ax, ay, az, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+    return value
+
+
+# ==============================================================================
 @types('double[:,:,:]','double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def kernel_evaluate_tensor_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
     
     for i1 in range(len(eta1)):
         for i2 in range(len(eta2)):
             for i3 in range(len(eta3)):
-                
-                # 0-form
-                if   kind_fun == 1:
-                    values[i1, i2, i3] = pull_0_form(a[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                # 3-form
-                elif kind_fun == 2:
-                    values[i1, i2, i3] = pull_3_form(a[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                values[i1, i2, i3] = pull_all_scalar(a[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
                     
                     
 # ==============================================================================
@@ -162,13 +205,7 @@ def kernel_evaluate_general_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, para
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                
-                # 0-form
-                if   kind_fun == 1:
-                    values[i1, i2, i3] = pull_0_form(a[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                # 3-form
-                elif kind_fun == 2:
-                    values[i1, i2, i3] = pull_3_form(a[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                values[i1, i2, i3] = pull_all_scalar(a[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
                     
                     
 # ==============================================================================
@@ -178,30 +215,7 @@ def kernel_evaluate_tensor_vector(ax, ay, az, eta1, eta2, eta3, kind_fun, kind_m
     for i1 in range(len(eta1)):
         for i2 in range(len(eta2)):
             for i3 in range(len(eta3)):
-                
-                # 1-form
-                if   kind_fun == 1:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 2:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 3:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                # 2-form
-                elif kind_fun == 4:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 5:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 6:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                # vector
-                elif kind_fun == 7:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 8:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 9:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                values[i1, i2, i3] = pull_all_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
                     
                     
 # ==============================================================================
@@ -215,27 +229,4 @@ def kernel_evaluate_general_vector(ax, ay, az, eta1, eta2, eta3, kind_fun, kind_
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                
-                # 1-form
-                if   kind_fun == 1:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 2:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 3:
-                    values[i1, i2, i3] = pull_1_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                # 2-form
-                elif kind_fun == 4:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 5:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 6:
-                    values[i1, i2, i3] = pull_2_form(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                # vector
-                elif kind_fun == 7:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 8:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                elif kind_fun == 9:
-                    values[i1, i2, i3] = pull_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                values[i1, i2, i3] = pull_all_vector(ax[i1, i2, i3], ay[i1, i2, i3], az[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
