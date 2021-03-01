@@ -13,13 +13,15 @@ import scipy.sparse as spa
 
 import hylife.utilitis_PIC.accumulation_kernels as pic_ker
 
+import hylife.utilitis_FEEC.control_variates.control_variate as cv
+
 class accumulation:
     """
     Class for computing charge and current densities from particles.
     
     Parameters
     ---------
-    tensor_space : tensor_spline_space
+    tensor_space_FEM : tensor_spline_space
         tensor product B-spline space
         
     basis_u : int
@@ -27,10 +29,15 @@ class accumulation:
     """
         
     # ===============================================================
-    def __init__(self, tensor_space_FEM, basis_u, mpi_comm):
+    def __init__(self, tensor_space_FEM, domain, basis_u, mpi_comm, control):
+        
+        self.domain   = domain
+        self.basis_u  = basis_u                   
+        self.mpi_rank = mpi_comm.Get_rank()
+        self.control  = control
         
         self.tensor_space_FEM = tensor_space_FEM
-         
+        
         self.T        = tensor_space_FEM.T        # knot vectors
         self.p        = tensor_space_FEM.p        # spline degrees
         self.bc       = tensor_space_FEM.bc       # boundary conditions (True : periodic, False : clamped)
@@ -41,11 +48,12 @@ class accumulation:
         self.NbaseN   = tensor_space_FEM.NbaseN   # number of basis functions (N)
         self.NbaseD   = tensor_space_FEM.NbaseD   # number of basis functions (D)
         
-        self.basis_u  = basis_u                   # bulk velocity representation (0-form, 1-form or 2-form)
         
-        self.mpi_rank = mpi_comm.Get_rank()
+        # ==== intialize delta-f correction terms ===============================
+        if self.control == True and self.mpi_rank == 0:
+            self.cont = cv.terms_control_variate(self.tensor_space_FEM, self.domain, self.basis_u)
         
-        
+
         # ==== reserve memory for implicit particle-coupling sub-steps ==========
         if self.basis_u == 0:
             self.mat11_loc = np.empty((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], 2*self.p[0] + 1, 2*self.p[1] + 1, 2*self.p[2] + 1), dtype=float)
@@ -104,8 +112,7 @@ class accumulation:
                 self.vec1,  self.vec2,  self.vec3 = None, None, None
         # =======================================================================
         
-    
-    
+        
     
     # ===============================================================
     def to_sparse_step1(self, mat12, mat13, mat23):
@@ -410,18 +417,38 @@ class accumulation:
     
     
     # ===============================================================
-    def assemble_step1(self, particles_loc, b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F, cx, cy, cz, mpi_comm):
+    def accumulate_step1(self, particles_loc, b2, mpi_comm):
         
-        pic_ker.kernel_step1(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.Nel, tensor_space_F.NbaseN, cx, cy, cz, self.mat12_loc, self.mat13_loc, self.mat23_loc, self.basis_u)
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        
+        pic_ker.kernel_step1(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.mat12_loc, self.mat13_loc, self.mat23_loc, self.basis_u)
         
         mpi_comm.Reduce(self.mat12_loc, self.mat12, op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.mat13_loc, self.mat13, op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.mat23_loc, self.mat23, op=MPI.SUM, root=0)
+       
+    # ===============================================================
+    def assemble_step1(self, Np, b2):
+        
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+            
+        # delta-f correction
+        if self.control == True:
+            mat12_df, mat13_df, mat23_df = self.cont.mass_nh_eq(b2_1, b2_2, b2_3)
+        else:
+            mat12_df = np.zeros(self.mat12.shape, dtype=float)
+            mat13_df = np.zeros(self.mat13.shape, dtype=float)
+            mat23_df = np.zeros(self.mat23.shape, dtype=float)
+            
+        # build global sparse matrix
+        return self.to_sparse_step1(self.mat12/Np + mat12_df, self.mat13/Np + mat13_df, self.mat23/Np + mat23_df)
         
     # ===============================================================
-    def assemble_step3(self, particles_loc, b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F, cx, cy, cz, mpi_comm):
+    def accumulate_step3(self, particles_loc, b2, mpi_comm):
         
-        pic_ker.kernel_step3(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, kind_map, params_map, tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.Nel, tensor_space_F.NbaseN, cx, cy, cz, self.mat11_loc, self.mat12_loc, self.mat13_loc, self.mat22_loc, self.mat23_loc, self.mat33_loc, self.vec1_loc, self.vec2_loc, self.vec3_loc, self.basis_u)
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        
+        pic_ker.kernel_step3(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.mat11_loc, self.mat12_loc, self.mat13_loc, self.mat22_loc, self.mat23_loc, self.mat33_loc, self.vec1_loc, self.vec2_loc, self.vec3_loc, self.basis_u)
         
         mpi_comm.Reduce(self.mat11_loc, self.mat11, op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.mat12_loc, self.mat12, op=MPI.SUM, root=0)
@@ -433,3 +460,17 @@ class accumulation:
         mpi_comm.Reduce(self.vec1_loc , self.vec1 , op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.vec2_loc , self.vec2 , op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.vec3_loc , self.vec3 , op=MPI.SUM, root=0)
+        
+    # ===============================================================
+    def assemble_step3(self, Np, b2):
+        
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+            
+        # delta-f correction
+        if self.control == True:
+            vec_df = self.cont.inner_prod_jh_eq(b2_1, b2_2, b2_3)     
+        else:
+            vec_df = np.zeros(self.vec1.size + self.vec2.size, self.vec3.siize, dtype=float)
+            
+        # build global sparse matrix
+        return (self.to_sparse_step3(self.mat11, self.mat12, self.mat13, self.mat22, self.mat23, self.mat23)/Np).tocsr(), np.concatenate((self.vec1.flatten(), self.vec2.flatten(), self.vec3.flatten()))/Np + vec_df
