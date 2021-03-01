@@ -11,7 +11,7 @@ import scipy.sparse as spa
 
 
 # ======= mass matrix in V0 ====================
-def mass_V0(spline_space, mapping):
+def get_M0(spline_space, mapping=None):
     """
     Assembles the 1d mass matrix (N) of the given B-spline space of degree p.
     
@@ -36,7 +36,10 @@ def mass_V0(spline_space, mapping):
     
     
     # evaluation of mapping at quadrature points
-    mat_map = mapping(pts)
+    if mapping == None:
+        mat_map = np.ones(pts.shape, dtype=float)
+    else:
+        mat_map = mapping(pts)
     
     # assembly
     M      = np.zeros((NbaseN, 2*p + 1), dtype=float)
@@ -65,7 +68,7 @@ def mass_V0(spline_space, mapping):
 
 
 # ======= mass matrix in V1 ====================
-def mass_V1(spline_space, mapping):
+def get_M1(spline_space, mapping=None):
     """
     Assembles the 1d mass matrix (D) of the given B-spline space of degree p.
     
@@ -90,7 +93,10 @@ def mass_V1(spline_space, mapping):
     
     
     # evaluation of mapping at quadrature points
-    mat_map = 1 / mapping(pts)
+    if mapping == None:
+        mat_map = np.ones(pts.shape, dtype=float)
+    else:
+        mat_map = 1/mapping(pts)
     
     # assembly
     M      = np.zeros((NbaseD, 2*p + 1), dtype=float)
