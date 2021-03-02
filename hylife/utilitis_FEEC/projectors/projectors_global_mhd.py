@@ -446,7 +446,7 @@ class operators_mhd:
     
     # ======================================
     def __TF_transposed(self, u2):
-        return self._mat_TF.T.dot(u2)
+        return self.mat_TF.T.dot(u2)
     
     # ======================================
     def __A(self, u):
@@ -466,14 +466,17 @@ class operators_mhd:
         out = self.__A(u) + self.dt**2/4*self.__EF_transposed(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(self.tensor_space.CURL.dot(self.__EF(u)))))
 
         # apply boundary conditions
-        if self.tensor_space.bc[0] == False:
+        if self.bc[0] == False:
             
             if self.tensor_space.polar == False:
+                # eta1 = 0
                 if self.bc_u1[0] == 'dirichlet':
                     out[:self.NbaseD[1]*self.NbaseD[2]] = u[:self.NbaseD[1]*self.NbaseD[2]]
+                # eta1 = 1
                 if self.bc_u1[1] == 'dirichlet':
                     out[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = u[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]]
 
+            # for polar splines only b.c. at eta1 = 1 possible
             else:
                 if self.bc_u1[1] == 'dirichlet':
                     out[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]] = u[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]]
@@ -486,14 +489,18 @@ class operators_mhd:
         out = self.__A(u) - self.dt**2/4*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(self.__L(u)))
 
         # apply boundary conditions
-        if self.tensor_space.bc[0] == False:
+        if self.bc[0] == False:
             
+            # without polar splines b.c. at eta1 = 0 and eta1 = 1 possible
             if self.tensor_space.polar == False:
+                # eta1 = 0
                 if self.bc_u1[0] == 'dirichlet':
                     out[:self.NbaseD[1]*self.NbaseD[2]] = u[:self.NbaseD[1]*self.NbaseD[2]]
+                # eta1 = 1
                 if self.bc_u1[1] == 'dirichlet':
                     out[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = u[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]]
 
+            # for polar splines only b.c. at eta1 = 1 possible
             else:
                 if self.bc_u1[1] == 'dirichlet':
                     out[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]] = u[2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]:2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]]
@@ -549,28 +556,37 @@ class operators_mhd:
 
         # apply boundary conditions to A_local
         if self.bc[0] == False:
+            
+            # without polar splines b.c. at eta1 = 0 and eta1 = 1 possible
+            if self.tensor_space.polar == False:
 
-            # eta1 = 0
-            if self.bc_u1[0] == 'dirichlet':
-                lower = 0
-                upper = self.NbaseD[1]*self.NbaseD[2]
+                # eta1 = 0
+                if self.bc_u1[0] == 'dirichlet':
+                    lower = 0
+                    upper = self.NbaseD[1]*self.NbaseD[2]
 
-                A_local[lower:upper,      :     ] = 0.
-                A_local[     :     , lower:upper] = 0.
-                A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
-
-            # eta1 = 1
-            if self.bc_u1[1] == 'dirichlet':
-                if self.tensor_space.polar == False:
+                    A_local[lower:upper,      :     ] = 0.
+                    A_local[     :     , lower:upper] = 0.
+                    A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    
+                # eta1 = 1
+                if self.bc_u1[1] == 'dirichlet':
                     lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
                     upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
-                else:
+                    
+                    A_local[lower:upper,      :     ] = 0.
+                    A_local[     :     , lower:upper] = 0.
+                    A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # for polar splines only b.c. at eta1 = 1 possible
+            else:
+                if self.bc_u1[1] == 'dirichlet':
                     lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
                     upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
 
-                A_local[lower:upper,      :     ] = 0.
-                A_local[     :     , lower:upper] = 0.
-                A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    A_local[lower:upper,      :     ] = 0.
+                    A_local[     :     , lower:upper] = 0.
+                    A_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
 
 
         A_ILU = spa.linalg.spilu(A_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
@@ -591,31 +607,40 @@ class operators_mhd:
         
         del A_local, EF_local
 
-        # apply boundary conditions to A_local
+        # apply boundary conditions to S2_local
         if self.bc[0] == False:
+            
+            # without polar splines b.c. at eta1 = 0 and eta1 = 1 possible
+            if self.tensor_space.polar == False:
 
-            # eta1 = 0
-            if self.bc_u1[0] == 'dirichlet':
-                lower = 0
-                upper = self.NbaseD[1]*self.NbaseD[2]
+                # eta1 = 0
+                if self.bc_u1[0] == 'dirichlet':
+                    lower = 0
+                    upper = self.NbaseD[1]*self.NbaseD[2]
 
-                S2_local[lower:upper,      :     ] = 0.
-                S2_local[     :     , lower:upper] = 0.
-                S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
-
-            # eta1 = 1
-            if self.bc_u1[1] == 'dirichlet':
-                if self.tensor_space.polar == False:
+                    S2_local[lower:upper,      :     ] = 0.
+                    S2_local[     :     , lower:upper] = 0.
+                    S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    
+                # eta1 = 1
+                if self.bc_u1[1] == 'dirichlet':
                     lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
                     upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
-                else:
+                    
+                    S2_local[lower:upper,      :     ] = 0.
+                    S2_local[     :     , lower:upper] = 0.
+                    S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # for polar splines only b.c. at eta1 = 1 possible
+            else:
+                if self.bc_u1[1] == 'dirichlet':
                     lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
                     upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
 
-                S2_local[lower:upper,      :     ] = 0.
-                S2_local[     :     , lower:upper] = 0.
-                S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
-
+                    S2_local[lower:upper,      :     ] = 0.
+                    S2_local[     :     , lower:upper] = 0.
+                    S2_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    
 
         S2_ILU = spa.linalg.spilu(S2_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
         self.S2_PRE = spa.linalg.LinearOperator(S2_local.shape, lambda x : S2_ILU.solve(x))
@@ -641,30 +666,39 @@ class operators_mhd:
         del A_local
 
 
-        # apply boundary conditions to A_local
+        # apply boundary conditions to S6_local
         if self.bc[0] == False:
+            
+            # without polar splines b.c. at eta1 = 0 and eta1 = 1 possible
+            if self.tensor_space.polar == False:
 
-            # eta1 = 0
-            if self.bc_u1[0] == 'dirichlet':
-                lower = 0
-                upper = self.NbaseD[1]*self.NbaseD[2]
+                # eta1 = 0
+                if self.bc_u1[0] == 'dirichlet':
+                    lower = 0
+                    upper = self.NbaseD[1]*self.NbaseD[2]
 
-                S6_local[lower:upper,      :     ] = 0.
-                S6_local[     :     , lower:upper] = 0.
-                S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
-
-            # eta1 = 1
-            if self.bc_u1[1] == 'dirichlet':
-                if self.tensor_space.polar == False:
+                    S6_local[lower:upper,      :     ] = 0.
+                    S6_local[     :     , lower:upper] = 0.
+                    S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    
+                # eta1 = 1
+                if self.bc_u1[1] == 'dirichlet':
                     lower = (self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]
                     upper =  self.NbaseN[0]     *self.NbaseD[1]*self.NbaseD[2]
-                else:
+                    
+                    S6_local[lower:upper,      :     ] = 0.
+                    S6_local[     :     , lower:upper] = 0.
+                    S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+
+            # for polar splines only b.c. at eta1 = 1 possible
+            else:
+                if self.bc_u1[1] == 'dirichlet':
                     lower = 2*self.NbaseD[2] + (self.NbaseN[0] - 3)*self.NbaseD[1]*self.NbaseD[2]
                     upper = 2*self.NbaseD[2] + (self.NbaseN[0] - 2)*self.NbaseD[1]*self.NbaseD[2]
 
-                S6_local[lower:upper,      :     ] = 0.
-                S6_local[     :     , lower:upper] = 0.
-                S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
+                    S6_local[lower:upper,      :     ] = 0.
+                    S6_local[     :     , lower:upper] = 0.
+                    S6_local[lower:upper, lower:upper] = np.identity(self.NbaseD[1]*self.NbaseD[2])
 
 
         S6_ILU = spa.linalg.spilu(S6_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)

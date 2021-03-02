@@ -309,7 +309,10 @@ tensor_space_FEM.apply_bc_2form(up, bc_u1)
 tensor_space_FEM.apply_bc_2form(b2, bc_b1)
 
 
-#u1, u2, u3 = tensor_space.unravel_2form(tensor_space.E2.T.dot(u))
+#u1, u2, u3 = tensor_space_FEM.unravel_2form(tensor_space_FEM.E2.T.dot(up))
+#print(u1[-1])
+
+
 
 #plt.plot(etaplot[0], tensor_space.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], u1)[:, 25, 0])
 #plt.plot(etaplot[0], tensor_space.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], u2)[:,  0, 0])
@@ -368,6 +371,7 @@ if mpi_rank == 0:
     tensor_space_FEM.set_derivatives(polar_splines)
     print('assembly of discrete derivatives done!')
     # =========================================================================
+
     
 if mpi_rank == 0:    
     # ================== linear MHD operators =================================
@@ -380,6 +384,7 @@ if mpi_rank == 0:
     MHD.assemble_TF(tensor_space_FEM.CURL.T.dot(tensor_space_FEM.M2.dot(b2_eq)), domain)
 
     MHD.setOperators()
+    
 
     # dummy coefficients in sub-step 2
     #g_dummy = pro_3d.apply_IinvT_V1(CURL.T.dot(M2.dot(b2)))
