@@ -534,7 +534,7 @@ class tensor_spline_space:
             
         else:
             
-            self.polar = False
+            self.polar = True
             
             # 2D number of basis functions
             self.Nbase0_pol = polar_splines.Nbase0_pol
@@ -559,13 +559,14 @@ class tensor_spline_space:
     def apply_bc_2form(self, coeff, bc):
         
         if self.bc[0] == False:
-        
+   
             # eta1 = 0
             if bc[0] == 'dirichlet':
                 coeff[:self.NbaseD[1]*self.NbaseD[2]] = 0.
             
             # eta1 = 1
             if bc[1] == 'dirichlet':
+                
                 if self.polar == False:
                     coeff[(self.NbaseN[0] - 1)*self.NbaseD[1]*self.NbaseD[2]:self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2]] = 0.
                 else:
