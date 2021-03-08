@@ -387,11 +387,8 @@ class projectors_global_3d:
     n_quad : int
         number of Gauss-Legendre quadrature points per integration interval for histopolations
         
-    polar : boolean
-        whether polar splines are used in the poloidal plane
-        
     polar_splines : polar_splines_3d
-        class for polar splines in the poloidal plane
+        class for polar splines in the poloidal plane (optional)
     """
     
     def __init__(self, tensor_space, n_quad, polar_splines=None):
@@ -620,6 +617,8 @@ class projectors_global_3d:
         
         N_inv_z_approx = spa.csr_matrix(N_inv_z_approx)
         D_inv_z_approx = spa.csr_matrix(D_inv_z_approx)
+        
+        self.I0_inv_approx = spa.kron(I0_pol_inv_approx, N_inv_z_approx, format='csr')
 
         self.I1_inv_approx = spa.bmat([[spa.kron(I1_pol_inv_approx, N_inv_z_approx), None], [None, spa.kron(I0_pol_inv_approx, D_inv_z_approx)]], format='csr') 
         self.I2_inv_approx = spa.bmat([[spa.kron(I2_pol_inv_approx, D_inv_z_approx), None], [None, spa.kron(I3_pol_inv_approx, N_inv_z_approx)]], format='csr')
