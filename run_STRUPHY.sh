@@ -4,7 +4,7 @@
 path_root=$(pwd)
 #all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife/particle_pusher_2020_12
 all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2021_02_18_3
+run_dir=sim_2021_03_03_2
 # =================================================
 
 # ======= name of main code =======================
@@ -18,7 +18,7 @@ flag_openmp_pic=--openmp
 # =================================================
 
 # ======= if you want to run the makefile =========
-make=true
+make=false
 # =================================================
 
 # == print location of repository and simulation == 
@@ -50,9 +50,9 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 #############################
 
 # number of elements, clamped (False) or periodic (True) spline and spline degrees (finite elements)
-Nel : [16, 2, 2] 
+Nel : [2, 2, 80] 
 bc  : [True, True, True]
-p   : [3, 1, 1]
+p   : [1, 1, 3]
 
 # boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = 'dirichlet', free boundary = 'free')
 bc_u1 : [free, free]
@@ -62,11 +62,11 @@ bc_b1 : [free, free]
 use_projector : global
 
 # tolerance for approximation of inverse interpolation/histopolation matrices
-tol_approx_reduced : 0.2
+tol_approx_reduced : 0.1
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [6, 4, 4]
-nq_pr : [6, 4, 4]
+nq_el : [4, 4, 4]
+nq_pr : [4, 4, 4]
 
 # polar splines in poloidal plane
 polar : False
@@ -81,17 +81,18 @@ basis_u : 2
 #params_map  : [1., 1., 1.]
 
 kind_map   : cuboid
-params_map : [7.853981634, 1., 1.]
-#params_map : [0.5, 3.141592654, 10.36725576]
+#params_map : [7.853981634, 1., 1.]
+params_map : [0.5, 3.141592654, 10.36725576]
+#params_map : [10.36725576, 10.36725576, 1.]
 
-#kind_map   : 2
+#kind_map   : spline
 #params_map : [0., 0.5, 10.36725576]  
 #params_map : [7.853981634, 1., 1.]
 
 # ----> for spline geometry: number of elements, boundary conditions and spline degrees
-Nel_MAP : [16, 2, 2] 
-bc_MAP  : [False, False, False]
-p_MAP   : [3, 1, 1] 
+Nel_MAP : [32, 33, 8] 
+bc_MAP  : [False, True, False]
+p_MAP   : [2, 2, 3] 
 
 
 #############################
@@ -100,8 +101,8 @@ p_MAP   : [3, 1, 1]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : 0.1
-Tend     : 240.
+dt       : 0.01
+Tend     : 40.
 max_time : 1000.
 
 
@@ -132,7 +133,8 @@ tol6        : 0.00000001
 ###############################
 
 # add non-Hamiltonian terms to simulation?
-add_pressure : False
+add_pressure : True
+add_jeq_step2 : True
 
 # adiabatic exponent
 gamma : 1.6666666666666666666666666666
@@ -142,13 +144,13 @@ gamma : 1.6666666666666666666666666666
 ###############################
 
 # add kinetic terms to simulation?
-add_PIC : True     
+add_PIC : False     
 
 # total number of particles
-Np : 128000 
+Np : 10 
 
 # control variate? 
-control : True  
+control : False  
 
 # shift of Maxwellian 
 v0 : [2.5, 0., 0.]
@@ -258,7 +260,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 1 python3 STRUPHY.py
-#export OMP_NUM_THREADS=1
-#python3 STRUPHY.py
+#mpirun -n 1 python3 STRUPHY.py
+export OMP_NUM_THREADS=1
+python3 STRUPHY.py
 # =================================================

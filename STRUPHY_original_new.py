@@ -96,6 +96,7 @@ p_MAP          = params['p_MAP']
 
 # general
 add_pressure   = params['add_pressure']
+add_jeq_step2  = params['add_jeq_step2']
 gamma          = params['gamma']
 
 # ILU preconditioners for linear systems
@@ -176,45 +177,58 @@ tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
 # =======================================================================
 
 
+
 # ========= geometry in case of spline mapping ==========================
-# 1d B-spline spline spaces for mapping
-spaces_MAP = [spl.spline_space_1d(Nel_MAP, p_MAP, bc_MAP) for Nel_MAP, p_MAP, bc_MAP in zip(Nel_MAP, p_MAP, bc_MAP)]
+if kind_map == 'spline' or polar == True:
+    # 1d B-spline spline spaces for mapping
+    spaces_MAP = [spl.spline_space_1d(Nel_MAP, p_MAP, bc_MAP) for Nel_MAP, p_MAP, bc_MAP in zip(Nel_MAP, p_MAP, bc_MAP)]
 
-# 3d tensor-product B-spline space for mapping
-tensor_space_MAP = spl.tensor_spline_space(spaces_MAP)
-tensor_space_MAP.set_extraction_operators()
+    # 3d tensor-product B-spline space for mapping
+    tensor_space_MAP = spl.tensor_spline_space(spaces_MAP)
+    tensor_space_MAP.set_extraction_operators()
 
-# number of basis functions for spline mapping
-NbaseN_MAP = tensor_space_MAP.NbaseN
+    # number of basis functions for spline mapping
+    NbaseN_MAP = tensor_space_MAP.NbaseN
 
-# interpolation of mapping on discrete space with local interpolator pi_0 (get controlpoints)
-Fx = lambda eta1, eta2, eta3 : params_map[1]*eta1*np.cos(2*np.pi*eta2)
-Fy = lambda eta1, eta2, eta3 : params_map[1]*eta1*np.sin(2*np.pi*eta2)
-Fz = lambda eta1, eta2, eta3 : params_map[2]*eta3
+    # interpolation of mapping on discrete space with local interpolator pi_0 (get controlpoints)
+    Fx = lambda eta1, eta2, eta3 : params_map[1]*eta1*np.cos(2*np.pi*eta2)
+    Fy = lambda eta1, eta2, eta3 : params_map[1]*eta1*np.sin(2*np.pi*eta2)
+    Fz = lambda eta1, eta2, eta3 : params_map[2]*eta3
 
-#Fx = lambda eta1, eta2, eta3 : params_map[0]*eta1
-#Fy = lambda eta1, eta2, eta3 : params_map[1]*eta2
-#Fz = lambda eta1, eta2, eta3 : params_map[2]*eta3
+    #Fx = lambda eta1, eta2, eta3 : params_map[0]*eta1
+    #Fy = lambda eta1, eta2, eta3 : params_map[1]*eta2
+    #Fz = lambda eta1, eta2, eta3 : params_map[2]*eta3
 
-pro_MAP = proj_global.projectors_global_3d(tensor_space_MAP, [p_MAP[0] + 1, p_MAP[1] + 1, p_MAP[2] + 1])
+    pro_MAP = proj_global.projectors_global_3d(tensor_space_MAP, [p_MAP[0] + 1, p_MAP[1] + 1, p_MAP[2] + 1])
 
-cx = pro_MAP.pi_0(Fx).reshape(tensor_space_MAP.Nbase_0form)
-cy = pro_MAP.pi_0(Fy).reshape(tensor_space_MAP.Nbase_0form)
-cz = pro_MAP.pi_0(Fz).reshape(tensor_space_MAP.Nbase_0form)
+    cx = pro_MAP.pi_0(Fx).reshape(tensor_space_MAP.Nbase_0form)
+    cy = pro_MAP.pi_0(Fy).reshape(tensor_space_MAP.Nbase_0form)
+    cz = pro_MAP.pi_0(Fz).reshape(tensor_space_MAP.Nbase_0form)
 
-del pro_MAP
+    del pro_MAP
 
-# create polar splines in poloidal plane
-if polar == True:
-    polar_splines = spl_pol.polar_splines(tensor_space_FEM, cx, cy)
+    # create polar splines in poloidal plane
+    if polar == True:
+        polar_splines = spl_pol.polar_splines(tensor_space_FEM, cx, cy)
+    else:
+        polar_splines = None
+        
+    # create domain object
+    domain = dom.domain(kind_map, params_map, tensor_space_MAP, cx, cy, cz)
+
+    # set extraction operators in tensor-product splines space
+    tensor_space_FEM.set_extraction_operators(polar_splines)
+        
 else:
+    
+    # create polar splines in poloidal plane
     polar_splines = None
     
-# create domain object
-domain = dom.domain(kind_map, params_map, tensor_space_MAP, cx, cy, cz)
-    
-# set extraction operators in tensor-product splines space
-tensor_space_FEM.set_extraction_operators(polar_splines)
+    # create domain object
+    domain = dom.domain(kind_map, params_map)
+
+    # set extraction operators in tensor-product splines space
+    tensor_space_FEM.set_extraction_operators()
 # =======================================================================
 
 
@@ -312,31 +326,85 @@ tensor_space_FEM.apply_bc_2form(b2, bc_b1)
 #u1, u2, u3 = tensor_space_FEM.unravel_2form(tensor_space_FEM.E2.T.dot(up))
 #print(u1[-1])
 
-
-
 #plt.plot(etaplot[0], tensor_space.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], u1)[:, 25, 0])
 #plt.plot(etaplot[0], tensor_space.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], u2)[:,  0, 0])
 #plt.show()
 #sys.exit()
 
 
-## initialization with white noise
-#np.random.seed(1234)
-#amps = 1e-3*np.random.rand(8, pr.shape[0], pr.shape[2])
-#
-#for k in range(pr.shape[1]):
-#    pr[:, k, :] = amps[0]
-#
-#    u1[:, k, :] = amps[1]
-#    u2[:, k, :] = amps[2]
-#    u3[:, k, :] = amps[3]
-#
-#    b1[:, :, :] = 0.
-#    b2[:, k, :] = amps[5]
-#    b3[:, :, :] = 0.
-#
-#    rh[:, k, :] = amps[7]
+# initialization with white noise
+np.random.seed(1607)
 
+
+p3_temp = np.empty(N_3form   , dtype=float)
+
+u1_temp = np.empty(N_0form   , dtype=float)
+u2_temp = np.empty(N_0form   , dtype=float)
+u3_temp = np.empty(N_0form   , dtype=float)
+
+b1_temp = np.empty(N_2form[0], dtype=float)
+b2_temp = np.empty(N_2form[1], dtype=float)
+b3_temp = np.empty(N_2form[2], dtype=float)
+
+r3_temp = np.empty(N_3form   , dtype=float)
+
+plane = 'yz'
+
+# spectrum in xy-plane
+if plane == 'xy':
+    amps = np.random.rand(8, NbaseN[0], NbaseN[1])
+    
+    for k in range(NbaseN[2]):
+        p3_temp[:, :, k] = amps[0]
+
+        u1_temp[:, :, k] = amps[1]
+        u2_temp[:, :, k] = amps[2]
+        u3_temp[:, :, k] = amps[3]
+
+        b1_temp[:, :, :] = 0.
+        b2_temp[:, :, :] = 0.
+        b3_temp[:, :, k] = amps[6]
+
+        r3_temp[:, :, k] = amps[7]
+
+# for spectrum in yz-plane
+if plane == 'yz':
+    amps = np.random.rand(8, NbaseN[1], NbaseN[2])
+    
+    for k in range(NbaseN[0]):
+        p3_temp[k, :, :] = amps[0]
+
+        u1_temp[k, :, :] = amps[1]
+        u2_temp[k, :, :] = amps[2]
+        u3_temp[k, :, :] = amps[3]
+
+        b1_temp[k, :, :] = amps[4]
+        b2_temp[:, :, :] = 0.
+        b3_temp[:, :, :] = 0.
+
+        r3_temp[k, :, :] = amps[7]
+
+# for spectrum in xz-plane
+if plane == 'xz':
+    amps = np.random.rand(8, NbaseN[0], NbaseN[2])
+    
+    for k in range(NbaseN[1]):
+        p3_temp[:, k, :] = amps[0]
+
+        u1_temp[:, k, :] = amps[1]
+        u2_temp[:, k, :] = amps[2]
+        u3_temp[:, k, :] = amps[3]
+
+        b1_temp[:, :, :] = 0.
+        b2_temp[:, k, :] = amps[5]
+        b3_temp[:, :, :] = 0.
+
+        r3_temp[:, :, :] = amps[7]
+
+p3[:] = p3_temp.flatten()
+up[:] = tensor_space_FEM.ravel_pform(u1_temp, u2_temp, u3_temp)
+b2[:] = tensor_space_FEM.ravel_pform(b1_temp, b2_temp, b3_temp)
+r3[:] = r3_temp.flatten()
 
 ## create parallel petsc vectors ====  
 #p3_pet = VecToPetsc(p3)
@@ -375,16 +443,34 @@ if mpi_rank == 0:
     
 if mpi_rank == 0:    
     # ================== linear MHD operators =================================
-    MHD = mhd_global.operators_mhd(pro_3d, bc_u1, bc_b1, dt, gamma)
-
-    MHD.assemble_rhs_F( r3_eq, 'M', domain)
-    MHD.assemble_rhs_F( p3_eq, 'P', domain)
-    MHD.assemble_rhs_EF(b2_eq     , domain)
-    MHD.assemble_rhs_PR(p3_eq)
-    MHD.assemble_TF(tensor_space_FEM.CURL.T.dot(tensor_space_FEM.M2.dot(b2_eq)), domain)
+    MHD = mhd_global.operators_mhd(pro_3d, basis_u, bc_u1, bc_b1, dt, gamma, add_jeq_step2)
+    
+    MHD.assemble_rhs_EF(domain, b2_eq)
+    MHD.assemble_rhs_F(domain, 'mass', r3_eq)
+    MHD.assemble_rhs_F(domain, 'pressure', p3_eq)
+    MHD.assemble_rhs_PR(domain, p3_eq)
+    
+    if basis_u == 0:
+        MHD.assemble_rhs_W(domain, r3_eq)
+        MHD.assemble_rhs_F(domain, 'jacobian')
+    
+    MHD.assemble_TF(domain, b2_eq)
 
     MHD.setOperators()
     
+    #MHD = mhd_local.projectors_local_mhd(tensor_space_FEM, nq_pr)
+    #
+    #MHD.projection_Q_0form(domain)     # pi_2[rho3_eq * lambda^0]
+    #MHD.projection_W_0form(domain)     # pi_0[rho0_eq * lambda^0]
+    #MHD.projection_T_0form(domain)     # pi_1[b2_eq   x lambda^0]
+    #MHD.projection_S_0form(domain)     # pi_2[p3_eq   * lambda^0]
+    #MHD.projection_K_3form(domain)     # pi_3[p0_eq   * lambda^3]  
+    #MHD.projection_N_0form(domain)     # pi_2[g_sqrt  * lambda^0]
+    #
+    #MHD.setOperators(gamma, dt, drop_tol_S6, fill_fac_S6)
+    
+    
+    #sys.exit()
 
     # dummy coefficients in sub-step 2
     #g_dummy = pro_3d.apply_IinvT_V1(CURL.T.dot(M2.dot(b2)))
@@ -569,18 +655,6 @@ print('initial diagnostics done')
 # ======================================================================================
 
 
-"""
-if mpi_rank == 0:
-    LHS  = spa.linalg.LinearOperator(A.shape, lambda x : A(x) + dt**2/4*TAU.T(CURL.T.dot(M2.dot(CURL.dot(TAU(x))))))
-    
-    timea = time.time()
-    LHS(np.random.rand(3*Ntot_0form))
-    timeb = time.time()
-    
-    print(timeb - timea)
-    
-sys.exit()
-"""
 
  
 # ==================== time integrator ==========================================
@@ -921,7 +995,6 @@ def update():
 
         timea = time.time()
         
-        #up[:] = 0.
         
         # save coefficients from previous time step
         up_old[:] = up
@@ -942,10 +1015,10 @@ def update():
         tensor_space_FEM.apply_bc_2form(up, bc_u1)
         
         # update pressure
-        p3[:] = p3 + dt/2*MHD.L((up + up_old)/2)
+        p3[:] = p3 + dt*MHD.L((up + up_old)/2)
         
         # update density
-        r3[:] = r3 - dt/2*tensor_space_FEM.DIV.dot(MHD.FM((up + up_old)/2))
+        #r3[:] = r3 - dt/2*tensor_space_FEM.DIV.dot(MHD.FM((up + up_old)/2))
 
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea
