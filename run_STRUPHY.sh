@@ -2,8 +2,8 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/path_to_simulations
-run_dir=name_of_run
+all_sim=$HOME/Desktop/PLASMA/WORK/HYLIFE/STRUPHY_simulations
+run_dir=tests_2
 # =================================================
 
 # ============== if you want to use OpenMp ========
@@ -25,15 +25,13 @@ echo "Your current run is here:      " $all_sim/$run_dir
 # ============ add paths to python ================
 export PYTHONPATH="${PYTHONPATH}:$path_root"
 export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
-
-echo $PYTHONPATH
 # =================================================
 
 # ========== clean simulation folder ==============
-rm $all_sim/$run_dir/STRUPHY.py
-rm $all_sim/$run_dir/*.hdf5
-rm $all_sim/$run_dir/sim*.*
-rm $all_sim/$run_dir/batch*.*
+rm -f $all_sim/$run_dir/STRUPHY.py
+rm -f $all_sim/$run_dir/*.hdf5
+rm -f $all_sim/$run_dir/sim*.*
+rm -f $all_sim/$run_dir/batch*.*
 # =================================================
 
 
@@ -192,7 +190,7 @@ EOF
 # == create source_run folder and copy subroutines into it
 SDIR=$all_sim/$run_dir/source_run
 
-mkdir $SDIR
+mkdir -p $SDIR
 
 cp hylife/utilitis_FEEC/projectors/projectors_local.py $SDIR/projectors_local.py
 cp hylife/utilitis_FEEC/projectors/projectors_local_mhd.py $SDIR/projectors_local_mhd.py
@@ -240,7 +238,7 @@ sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 cd $all_sim/$run_dir
 
 # job submission via SLURM
-sbatch batch_$run_dir.sh
+#sbatch batch_$run_dir.sh
 
 # interactive run on an interactive node on e.g. Draco or Cobra (indicate number of MPI processes after -n)
 #export OMP_NUM_THREADS=4
@@ -249,6 +247,6 @@ sbatch batch_$run_dir.sh
 
 # for run on a local machine (indicate number of MPI processes after -n)
 #mpirun -n 4 python3 STRUPHY.py
-#export OMP_NUM_THREADS=4
-#python3 STRUPHY.py
+export OMP_NUM_THREADS=4
+python3 STRUPHY.py
 # =================================================
