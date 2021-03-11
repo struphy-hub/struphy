@@ -2,8 +2,8 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/Desktop/PLASMA/WORK/HYLIFE/STRUPHY_simulations
-run_dir=tests_2
+all_sim=$HOME/STRUPHY_simulations
+run_dir=tests
 # =================================================
 
 # ============== if you want to use OpenMp ========
@@ -230,7 +230,7 @@ var2="|g"
 
 cp STRUPHY_original.py $all_sim/$run_dir/STRUPHY.py
 
-sed -i $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
+sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
 
 
@@ -247,6 +247,6 @@ cd $all_sim/$run_dir
 
 # for run on a local machine (indicate number of MPI processes after -n)
 #mpirun -n 4 python3 STRUPHY.py
-export OMP_NUM_THREADS=4
+export OMP_NUM_THREADS=1
 python3 STRUPHY.py
 # =================================================
