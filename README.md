@@ -31,13 +31,14 @@ The requirements are the same as for Pyccel and can be found here:
 
 ### Installing Pyccel
 
-We recommend using pyccel version 0.10.1. 
+We recommend using pyccel version 0.9.16. 
 
 Installation in development mode: Choose a directory for the `pyccel` repository, go there and execute the following commands:
 
 ```
 git clone https://github.com/pyccel/pyccel.git
 cd pyccel
+git checkout v0.9.16
 python3 -m pip install --user -e .
 ```
 
