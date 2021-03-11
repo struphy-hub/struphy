@@ -31,8 +31,9 @@ The requirements are the same as for Pyccel and can be found here:
 
 ### Installing Pyccel
 
-We recommend installation in development mode.
-Choose a directory for the `pyccel` repository, go there and execute the following commands:
+We recommend using pyccel version 0.10.1. 
+
+Installation in development mode: Choose a directory for the `pyccel` repository, go there and execute the following commands:
 
 ```
 git clone https://github.com/pyccel/pyccel.git
@@ -70,23 +71,22 @@ git clone https://gitlab.mpcdf.mpg.de/clapp/hylife.git
 
 In order to get the STRUPHY code running perform the following steps:
 
-1. Create a directory for your STRUPHY simulations. The absolute path to this directory will be called `$all_sim` in what follows.
-   This directory need not be located in your hylife repository.
+1. Create a directory that will contain all your STRUPHY simulations. The absolute path to this directory will be called `$all_sim` in what follows. This directory need not be located in your hylife repository. Specific simulations, i.e. their input and output files, will be stored in subfolders of `$all_sim`. Let us call one such subfolder `name_of_run` in the following.
   
 2. In your hylife repository execute
   ```
-  cp -r simulations/example_analytical $all_sim/name_of_run
+  cp -r simulations/template_analytical $all_sim/name_of_run
   ```
   This copies a simulation template from your `hylife` repository to your simulation folder located at `$all_sim` and creates a folder `name_of_run` for the current simulation.
-  Simulation input, output and source files for the current simulation will be in `name_of_run`.
+  Simulation input, output and source files for the current simulation will be in `$all_sim/name_of_run`.
   
-3. In your hylife repository, in the file `run.sh` set the correct paths in lines 5 and 6
+3. In your hylife repository, in the file `run_STRUPHY.sh` set the correct paths in lines 5 and 6
   ```
   all_sim=$all_sim 
   run_dir=name_of_run
   ```
   
-4. STRUPHY can now be run by executing `./run.sh` in your hylife repository. Results will be stored in `$all_sim/name_of_run`.
+4. STRUPHY can now be run by executing `./run_STRUPHY.sh` in your hylife repository. Results will be stored in `$all_sim/name_of_run`.
   
 
 ## Running tests
