@@ -2,8 +2,8 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/STRUPHY_simulations
-run_dir=tests
+all_sim=$HOME/Desktop/PLASMA/WORK/HYLIFE/STRUPHY_simulations
+run_dir=tests_2
 # =================================================
 
 # ============== if you want to use OpenMp ========
@@ -219,6 +219,10 @@ fi
 # =================================================
 
 
+# for use of pyccel version >= v0.10.1
+export SYMPY_USE_CACHE=no
+
+
 # ============== run Makefile =====================
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 # =================================================
@@ -235,6 +239,8 @@ sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 
 
 # ================== run the code =================
+
+
 cd $all_sim/$run_dir
 
 # job submission via SLURM
