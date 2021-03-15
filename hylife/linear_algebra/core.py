@@ -2,7 +2,7 @@ from pyccel.decorators import types
 
 
 # =========================================
-@types('double[:,:](order=F)','double[:]','double[:]')
+@types('double[:,:]','double[:]','double[:]')
 def matrix_vector(A, b, c):
     
     c[:] = 0.
@@ -13,7 +13,7 @@ def matrix_vector(A, b, c):
 
 
 # =========================================
-@types('double[:,:](order=F)','double[:,:](order=F)','double[:,:](order=F)')
+@types('double[:,:]','double[:,:]','double[:,:]')
 def matrix_matrix(A, B, C):
     
     C[:, :] = 0.
@@ -25,7 +25,7 @@ def matrix_matrix(A, B, C):
 
 
 # =========================================
-@types('double[:,:](order=F)','double[:,:](order=F)')
+@types('double[:,:]','double[:,:]')
 def transpose(A, B):
     
     B[:, :] = 0.
@@ -36,7 +36,7 @@ def transpose(A, B):
 
             
 # =========================================
-@types('double[:,:](order=F)')
+@types('double[:,:]')
 def det(A):
     
     plus  = A[0, 0]*A[1, 1]*A[2, 2] + A[0, 1]*A[1, 2]*A[2, 0] + A[0, 2]*A[1, 0]*A[2, 1]

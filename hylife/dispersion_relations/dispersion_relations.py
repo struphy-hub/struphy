@@ -2,6 +2,29 @@ import numpy as np
 import scipy.special as sp
 
 
+# = dispersion relation for fast and slow magnetosonic waves propagating in the x-y-plane (B = B0x)=
+def omegaM_xy(kx, ky, pol, B0x, p0, rho0, gamma):
+                                           
+    # speed of sound
+    cS    = np.sqrt(gamma*p0/rho0) 
+    
+    # Alfvén velocity
+    vA    = np.sqrt(B0x**2/rho0) 
+    
+    delta = (4*kx**2*cS**2*vA**2)/((cS**2 + vA**2)**2*(kx**2 + ky**2))
+    
+    return np.sqrt(1/2*(kx**2 + ky**2)*(cS**2 + vA**2)*(1 + pol*np.sqrt(1 - delta)))
+
+
+# ====== dispersion relation for shear Alfvén waves propagating in the x-y-plane (B = B0x) =========
+def omegaS_xy(kx, B0x, rho0):
+    
+    # Alfvén velocity
+    vA    = np.sqrt(B0x**2/rho0) 
+    
+    return vA*kx
+
+
 # ==== dispersion relation for fast and slow magnetosonic waves propagating along the x-axis =======
 def omegaM(k, pol, B0, p0, rho0, gamma):
     
@@ -62,14 +85,9 @@ def solveDispersionFullOrbit(k, pol, wch, vA, vth, v0, nuh, Ah, Zh, AMHD, initia
     w = initial_guess
     counter = 0
     
-    while True:
-        wnew = w - D(k, w, pol)/Dprime(k, w, pol)
+    while np.abs(D(k, w, pol)) > tol or counter == max_it:
         
-        if np.abs(wnew - w) < tol or counter == max_it:
-            w = wnew
-            break
-
-        w = wnew
+        w = w - D(k, w, pol)/Dprime(k, w, pol)
         counter += 1
 
     return w, counter
