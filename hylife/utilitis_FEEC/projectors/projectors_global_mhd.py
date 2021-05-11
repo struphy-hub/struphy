@@ -816,8 +816,6 @@ class operators_mhd:
         # with J_eq x B
         else:
             
-            print('hello RHS2')
-            
             temp = self.tensor_space.CURL.dot(self.EF(u))
 
             out = self.A(u) - self.dt**2/4*self.EF.T(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(temp))) - self.dt**2/4*self.TF(temp) + self.dt*self.EF.T(self.tensor_space.CURL.T.dot(self.tensor_space.M2.dot(b))) + self.dt*self.TF(b)
@@ -845,7 +843,6 @@ class operators_mhd:
             
             # MHD bulk velocity is a 2-form
             if   self.basis_u == 2:
-                print('hello RHS6')
                 out = self.A(u) + self.dt**2/4*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(self.L(u))) + self.dt*self.tensor_space.DIV.T.dot(self.tensor_space.M3.dot(p))
             # MHD bulk velocity is a 0-form
             elif self.basis_u == 0:

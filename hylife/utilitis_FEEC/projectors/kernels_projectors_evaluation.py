@@ -36,15 +36,15 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nba
     elif kind_fun == 63:
         value = ini_mhd.u2_ini_3(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    # quantities for projection matrix Q
+    # 3-form equilibrium density
     elif kind_fun == 11:
         value = eq_mhd.rho3_eq(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
-    # quantities for projection matrix W
+    # 0-form equilibrium density
     elif kind_fun == 12:
         value = eq_mhd.rho0_eq(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
-    # quantities for projection matrix T
+    # 2-form equilibrium magnetic field
     elif kind_fun == 21:
         value = eq_mhd.b2_eq_1(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 22:
@@ -52,15 +52,23 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nba
     elif kind_fun == 23:
         value = eq_mhd.b2_eq_3(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
-    # quantities for projection matrix S
+    # 2-form equilibrium current
+    elif kind_fun == 71:
+        value = eq_mhd.j2_eq_1(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 72:
+        value = eq_mhd.j2_eq_2(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 73:
+        value = eq_mhd.j2_eq_3(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+    # 3-form equilibrium pressure
     elif kind_fun == 31:
         value = eq_mhd.p3_eq(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
-    # quantities for projection matrix K
+    # 0-form equilibrium pressure
     elif kind_fun == 41:
         value = eq_mhd.p0_eq(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
-    # quantities for projection matrix N
+    # Jacobian determinant
     elif kind_fun == 51:
         value = abs(mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz))
         
