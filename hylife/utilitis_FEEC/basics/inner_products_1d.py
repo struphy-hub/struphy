@@ -11,7 +11,7 @@ import scipy.sparse as spa
 
 
 # ======= inner product in V0 ====================
-def inner_prod_V0(spline_space, mapping, fun):
+def inner_prod_V0(spline_space, fun, mapping=None):
     """
     Computes the 1d inner product (N) of the given B-spline space of degree p with the function fun.
     
@@ -39,7 +39,10 @@ def inner_prod_V0(spline_space, mapping, fun):
     
     
     # evaluation of mapping at quadrature points
-    mat_map = mapping(pts)
+    if mapping == None:
+        mat_map = np.ones(pts.shape, dtype=float)
+    else:
+        mat_map = mapping(pts)
     
     # evaluation of function at quadrature points
     mat_f   = fun(pts)
@@ -61,7 +64,7 @@ def inner_prod_V0(spline_space, mapping, fun):
 
 
 # ======= inner product in V1 ====================
-def inner_prod_V1(spline_space, mapping, fun):
+def inner_prod_V1(spline_space, fun, mapping=None):
     """
     Computes the 1d inner product (D) of the given B-spline space of degree p with the function fun.
     
@@ -89,7 +92,10 @@ def inner_prod_V1(spline_space, mapping, fun):
     
     
     # evaluation of mapping at quadrature points
-    mat_map = 1 / mapping(pts)
+    if mapping == None:
+        mat_map = np.ones(pts.shape, dtype=float)
+    else:
+        mat_map = 1/mapping(pts)
     
     # evaluation of function at quadrature points
     mat_f   = fun(pts)

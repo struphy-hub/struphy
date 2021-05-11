@@ -14,39 +14,21 @@ import hylife.utilitis_FEEC.basics.kernels_2d as ker
 
 
 # ================ inner product in V0 ===========================
-def inner_prod_V0(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def inner_prod_V0(tensor_space_FEM, domain, fun):
     """
-    ----------------------------------------------------------------------------------------------------------
-    Assembles the 2D inner prodcut (NN, fun) of the given tensor product B-spline spaces of bi-degree (p1, p2).
-    
-    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
-    
-    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
-    -----------------------------------------------------------------------------------------------------------
+    Assembles the 2D inner prodcut (NN, fun) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
+    domain : domain
+        domain object defining the geometry
+    
     fun : callable
         the 0-form with which the inner products shall be computed
-        
-    kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-    """  
+    """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
@@ -58,24 +40,10 @@ def inner_prod_V0(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
-    # create dummy variables
-    if kind_map == 0:
-        T_F        =  tensor_space_F.T
-        p_F        =  tensor_space_F.p
-        NbaseN_F   =  tensor_space_F.NbaseN
-        params_map =  np.zeros((1,  ), dtype=float)
-    else:
-        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
-        p_F        =  np.zeros((1,  ), dtype=int)
-        NbaseN_F   =  np.zeros((1,  ), dtype=int)
-        cx         =  np.zeros((1, 1), dtype=float)
-        cy         =  np.zeros((1, 1), dtype=float)
-    
-    
     # evaluation of |det(DF)| at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     
-    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 1, kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
+    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 1, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
     
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
@@ -86,43 +54,23 @@ def inner_prod_V0(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space
     
     ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, wts[0], wts[1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], F, mat_f, mat_map)
                 
-    return F
+    return tensor_space_FEM.E0.dot(F.flatten())
 
 
 # ================ inner product in V1 (H curl) ===========================
-def inner_prod_V1_curl(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def inner_prod_V1C(tensor_space_FEM, domain, fun):
     """
-    ----------------------------------------------------------------------------------------------------------
-    Assembles the 2D inner prodcut ([DN, ND], [fun_1, fun_2]) of the given tensor product B-spline spaces of bi-degree (p1, p2).
+    Assembles the 2D inner prodcut ([DN, ND], [fun_1, fun_2]) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
-    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
-    
-    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
-    -----------------------------------------------------------------------------------------------------------
-    
-    Parameters
-    ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
+    domain : domain
+        domain object defining the geometry
+    
     fun : list of callables
-        the two 1-form components with which the inner products shall be computed
-        
-    kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-    """  
+        the three 1-form components (H curl) with which the inner products shall be computed
+    """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
@@ -135,19 +83,6 @@ def inner_prod_V1_curl(tensor_space_FEM, fun, kind_map, params_map=None, tensor_
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
-    
-    # create dummy variables
-    if kind_map == 0:
-        T_F        =  tensor_space_F.T
-        p_F        =  tensor_space_F.p
-        NbaseN_F   =  tensor_space_F.NbaseN
-        params_map =  np.zeros((1,  ), dtype=float)
-    else:
-        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
-        p_F        =  np.zeros((1,  ), dtype=int)
-        NbaseN_F   =  np.zeros((1,  ), dtype=int)
-        cx         =  np.zeros((1, 1), dtype=float)
-        cy         =  np.zeros((1, 1), dtype=float)
     
     # basis functions of components of a 1-form
     basis = [[basisD[0], basisN[1]], 
@@ -181,7 +116,7 @@ def inner_prod_V1_curl(tensor_space_FEM, fun, kind_map, params_map=None, tensor_
         for b in range(2):
             
             # evaluate G^(-1)|det(DF)| at quadrature points
-            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
+            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
             
             # evaluate function at quadrature points
             mat_f = fun[b](quad_mesh[0], quad_mesh[1])
@@ -190,43 +125,23 @@ def inner_prod_V1_curl(tensor_space_FEM, fun, kind_map, params_map=None, tensor_
             
             counter += 1
             
-    return F
+    return tensor_space_FEM.E1C.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
 
 
 # ================ inner product in V1 (H div) ===========================
-def inner_prod_V1_div(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def inner_prod_V1D(tensor_space_FEM, domain, fun):
     """
-    ----------------------------------------------------------------------------------------------------------
-    Assembles the 2D inner prodcut ([ND, DN], [fun_1, fun_2]) of the given tensor product B-spline spaces of bi-degree (p1, p2).
+    Assembles the 2D inner prodcut ([ND, DN], [fun_1, fun_2]) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
-    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
-    
-    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
-    -----------------------------------------------------------------------------------------------------------
-    
-    Parameters
-    ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
+    domain : domain
+        domain object defining the geometry
+    
     fun : list of callables
-        the two 1-form components with which the inner products shall be computed
-        
-    kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-    """  
+        the three 1-form components (H div) with which the inner products shall be computed
+    """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
@@ -239,19 +154,6 @@ def inner_prod_V1_div(tensor_space_FEM, fun, kind_map, params_map=None, tensor_s
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
-    
-    # create dummy variables
-    if kind_map == 0:
-        T_F        =  tensor_space_F.T
-        p_F        =  tensor_space_F.p
-        NbaseN_F   =  tensor_space_F.NbaseN
-        params_map =  np.zeros((1,  ), dtype=float)
-    else:
-        T_F        = [np.zeros((1,  ), dtype=float), np.zeros(1, dtype=float)]
-        p_F        =  np.zeros((1,  ), dtype=int)
-        NbaseN_F   =  np.zeros((1,  ), dtype=int)
-        cx         =  np.zeros((1, 1), dtype=float)
-        cy         =  np.zeros((1, 1), dtype=float)
     
     # basis functions of components of a 1-form
     basis = [[basisN[0], basisD[1]], 
@@ -285,7 +187,7 @@ def inner_prod_V1_div(tensor_space_FEM, fun, kind_map, params_map=None, tensor_s
         for b in range(2):
             
             # evaluate G/|det(DF)| at quadrature points
-            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
+            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
             
             # evaluate function at quadrature points
             mat_f = fun[b](quad_mesh[0], quad_mesh[1])
@@ -294,43 +196,23 @@ def inner_prod_V1_div(tensor_space_FEM, fun, kind_map, params_map=None, tensor_s
             
             counter += 1
             
-    return F
+    return tensor_space_FEM.E1D.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
 
 
 # ================ inner product in V2 ===========================
-def inner_prod_V2(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space_F=None, cx=None, cy=None):
+def inner_prod_V2(tensor_space_FEM, domain, fun):
     """
-    ----------------------------------------------------------------------------------------------------------
-    Assembles the 2D inner prodcut (DD, fun) of the given tensor product B-spline spaces of bi-degree (p1, p2).
+    Assembles the 2D inner prodcut (DD, fun) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
-    In case of an analytical mapping (kind_map >= 1), all mapping related quantities are called from hylife.geometry.mappings_2d. One must then pass the parameter list params_map.
-    
-    In case of a discrete mapping (kind_map = 0), one must pass a 2D tensor product B-spline space tensor_space_F together with control points cx and cy which together define the mapping.
-    -----------------------------------------------------------------------------------------------------------
-    
-    Parameters
-    ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
+    domain : domain
+        domain object defining the geometry
+    
     fun : callable
-        the two 2-form components with which the inner products shall be computed
-        
-    kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-    """  
+        the 2-form component with which the inner products shall be computed
+    """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
@@ -342,11 +224,10 @@ def inner_prod_V2(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space
     
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
-    
     # evaluation of 1/|det(DF)| at quadrature points
     mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
     
-    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 2, kind_map, params_map, T_F[0], T_F[1], p_F, NbaseN_F, cx, cy)
+    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 2, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
     
     # evaluation of function at quadrature points
     quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
@@ -357,4 +238,4 @@ def inner_prod_V2(tensor_space_FEM, fun, kind_map, params_map=None, tensor_space
     
     ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, wts[0], wts[1], basisD[0], basisD[1], NbaseD[0], NbaseD[1], F, mat_f, mat_map)
                 
-    return F
+    return tensor_space_FEM.E2.dot(F.flatten())
