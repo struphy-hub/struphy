@@ -27,12 +27,12 @@ def grad_1d_matrix(spline_space):
         strong discrete gradient matrix
     """
     
-    NbaseN = spline_space.NbaseN      # total number of basis functions (N)
-    bc     = spline_space.bc          # boundary conditions (True : periodic, False : clamped)
+    NbaseN   = spline_space.NbaseN   # total number of basis functions (N)
+    spl_kind = spline_space.spl_kind # kind of spline space (True : periodic, False : clamped)
     
     
     # periodic splines
-    if bc == True:
+    if spl_kind == True:
         
         grad = np.zeros((NbaseN, NbaseN), dtype=float)
         
@@ -51,11 +51,10 @@ def grad_1d_matrix(spline_space):
     
         for i in range(NbaseN - 1):        
             grad[i, i] = -1.
-            grad[i, i  + 1] = 1.
+            grad[i, i + 1] = 1.
             
         return grad
 
-    
     
     
 # ===== discrete derivatives in two dimensions ================
@@ -66,66 +65,136 @@ class discrete_derivatives_2D:
     Parameters
     ----------
     tensor_space : tensor_spline_space
+        2d tensor-product B-splines space
+    
+    mode_n : int
+        toroidal mode number
     """
     
-    def __init__(self, tensor_space):
+    def __init__(self, tensor_space, mode_n):
         
-        self.NbaseN  = tensor_space.NbaseN
-        self.NbaseD  = tensor_space.NbaseD
-        self.bc      = tensor_space.bc
+        self.space = tensor_space
         
-        self.grad_1d = [grad_1d_matrix(spl) for spl in tensor_space.spaces]
+        # 1D discrete derivatives in each logical direction
+        self.grad_1d = [spa.csr_matrix(grad_1d_matrix(spl)) for spl in self.space.spaces]
         
-        # transform to sparse matrix
-        self.grad_1d = [spa.csc_matrix(grad_1d) for grad_1d in self.grad_1d]
-    
-    
-    # ================== grad ======================
-    def grad_2d_matrix(self):
+        # number of degrees of freedom in first logical direction
+        n1 = self.space.NbaseN[0]
         
-        G1 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1]))
-        G2 = spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1])
+        # boundary conditions in first logical direction
+        if self.space.bc[0] == 'd':
+            self.grad_1d[0] = self.grad_1d[0][:, 1:]
+            n1 -= 1
+        if self.space.bc[1] == 'd':
+            self.grad_1d[0] = self.grad_1d[0][:, :-1]
+            n1 -= 1
         
-        G  = spa.bmat([[G1], [G2]], format='csc')
+        NbaseN = self.space.NbaseN
+        NbaseD = self.space.NbaseD
         
-        return G
-    
-    
-    # ================== curl ======================
-    def curl_2d_matrix(self, kind):
-        
-        # 'Hcurl' : corresponds to sequence grad --> curl
-        if   kind == 'Hcurl':
+        # standard derivatives
+        if self.space.polar == False:
             
-            C1 = spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1])
-            C2 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1]))
+            n2 = NbaseN[1]
+            
+            # discrete grad
+            G1 = spa.kron(self.grad_1d[0], spa.identity(n2))
+            G2 = spa.kron(spa.identity(n1), self.grad_1d[1])
 
-            C  = spa.bmat([[-C1, C2]], format='csc')
+            self.G = [[G1], [G2]]
+            self.G = spa.bmat(self.G, format='csr')
             
-        # 'Hdiv' : corresponds to sequence curl --> div
-        elif kind == 'Hdiv':
+            self.G3 = 1j*2*np.pi*mode_n*spa.identity(n1*n2, format='csr')
             
-            C1 = spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1])
-            C2 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1]))
+            self.G = spa.bmat([[self.G], [self.G3]], format='csr')
+            
+            # discrete vector curl
+            C1 = spa.kron(spa.identity(n1), self.grad_1d[1])
+            C2 = spa.kron(self.grad_1d[0], spa.identity(n2))
 
-            C  = spa.bmat([[C1], [-C2]], format='csc')
+            self.VC = [[C1], [-C2]]
+            self.VC = spa.bmat(self.VC, format='csr')
             
-        return C
+            # discrete scalar curl
+            C1 = spa.kron(spa.identity(NbaseD[0]), self.grad_1d[1])
+            C2 = spa.kron(self.grad_1d[0], spa.identity(NbaseD[1]))
+
+            self.SC = [[-C1, C2]]
+            self.SC = spa.bmat(self.SC, format='csr')
             
-    # ================== div ========================
-    def div_2d(self):
-        
-        D1 = spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1]))
-        D2 = spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1])
-        
-        D  = sparse.bmat([[D1, D2]], format='csc')
-        
-        return D
-    
-    
-    
-    
-    
+            self.C12 = 1j*2*np.pi*mode_n*spa.identity(n1*NbaseD[1], format='csr')
+            self.C21 = 1j*2*np.pi*mode_n*spa.identity(NbaseD[0]*n2, format='csr')
+            
+            self.C11 = spa.bmat([[None, -self.C12], [self.C21, None]], format='csr')
+            
+            self.C   = spa.bmat([[self.C11, self.VC], [self.SC, None]], format='csr')
+            
+            self.C_wn = spa.bmat([[None, self.VC], [self.SC, None]], format='csr')
+            
+            # discrete div
+            D1 = spa.kron(self.grad_1d[0], spa.identity(NbaseD[1]))
+            D2 = spa.kron(spa.identity(NbaseD[0]), self.grad_1d[1])
+
+            self.D = [[D1, D2]]
+            self.D = spa.bmat(self.D, format='csr')
+            
+            self.D3 = 1j*2*np.pi*mode_n*spa.identity(NbaseD[0]*NbaseD[1], format='csr')
+            
+            self.D = spa.bmat([[self.D, self.D3]], format='csr')
+            
+        # polar derivatives
+        else:
+            
+            # discrete polar grad ([DN ND NN] x NN)
+            self.G   = self.space.polar_splines.G.copy()
+            self.G3  = 1j*2*np.pi*mode_n*spa.identity(self.G.shape[1], format='csr')
+            
+            # discrete polar vector curl ([ND DN] x NN)
+            self.VC  = self.space.polar_splines.VC.copy()
+            
+            # discrete polar scalar curl (DD x [DN ND])
+            self.SC  = self.space.polar_splines.SC.copy()
+            
+            self.C12 = 1j*2*np.pi*mode_n*spa.identity(2 + (NbaseN[0] - 2)*NbaseD[1], format='csr')
+            self.C21 = 1j*2*np.pi*mode_n*spa.identity(0 + (NbaseD[0] - 1)*NbaseN[1], format='csr')
+            
+            self.C_all = spa.bmat([[None, self.space.polar_splines.VC], [self.space.polar_splines.SC, None]], format='csr')
+            
+            # discrete polar div (DD x [ND DN DD])
+            self.D   = self.space.polar_splines.D.copy()
+            self.D3  = 1j*2*np.pi*mode_n*spa.identity(self.SC.shape[0], format='csr')
+            
+            # boundary conditions at eta1 = 1
+            if self.space.bc[1] == 'd':
+                self.G  = self.G[:-NbaseD[1], :-NbaseN[1]].tocsr()
+                self.G3 = self.G3[:-NbaseN[1], :-NbaseN[1]].tocsr()
+                
+                VC1     = self.VC[:(2 + (NbaseN[0] - 3)*NbaseD[1]) , :-NbaseN[1]]
+                VC2     = self.VC[ (2 + (NbaseN[0] - 2)*NbaseD[1]):, :-NbaseN[1]]
+
+                self.VC = spa.bmat([[VC1], [VC2]], format='csr')
+                
+                self.SC = self.SC[:, :-NbaseD[1]].tocsr()
+                
+                self.C12 = self.C12[:-NbaseD[1], :-NbaseD[1]]
+                
+                D1      = self.D[:, :(2 + (NbaseN[0] - 3)*NbaseD[1]) ]
+                D2      = self.D[:,  (2 + (NbaseN[0] - 2)*NbaseD[1]):]
+
+                self.D  = spa.bmat([[D1, D2]], format='csr')
+            
+            # final operators
+            self.G   = spa.bmat([[self.G], [self.G3]], format='csr')
+            
+            self.C11 = spa.bmat([[None, -self.C12], [self.C21, None]], format='csr')
+            
+            self.C    = spa.bmat([[self.C11, self.VC], [self.SC, None]], format='csr')
+            self.C_wn = spa.bmat([[None, self.VC], [self.SC, None]], format='csr')
+            
+            self.D   = spa.bmat([[self.D ,  self.D3]], format='csr')
+                
+            
+            
 # ===== discrete derivatives in three dimensions ================
 class discrete_derivatives_3D:
     """
@@ -134,130 +203,159 @@ class discrete_derivatives_3D:
     Parameters
     ----------
     tensor_space : tensor_spline_space
+        3d tensor-product B-splines space
     """
     
-    def __init__(self, tensor_space, polar_splines=None, bc1=['free', 'free'], bc2=['free', 'free'], bc3=['free', 'free']):
+    def __init__(self, tensor_space):
         
-        self.NbaseN       = tensor_space.NbaseN
-        self.NbaseD       = tensor_space.NbaseD
+        self.space = tensor_space
         
-        self.tensor_space = tensor_space
+        # 1D discrete derivatives in each logical direction
+        self.grad_1d = [spa.csr_matrix(grad_1d_matrix(spl)) for spl in self.space.spaces]
         
-        self.bc1 = bc1
-        self.bc2 = bc2
-        self.bc3 = bc3
+        # number of degrees of freedom in first logical direction
+        n1 = self.space.NbaseN[0]
         
-        self.grad_1d = [grad_1d_matrix(spl) for spl in tensor_space.spaces]
+        # boundary conditions in first logical direction
+        if self.space.bc[0] == 'd':
+            self.grad_1d[0] = self.grad_1d[0][:, 1:]
+            n1 -= 1
+        if self.space.bc[1] == 'd':
+            self.grad_1d[0] = self.grad_1d[0][:, :-1]
+            n1 -= 1
         
-        # apply boundary conditions in 1-direction
-        if tensor_space.bc[0] == False:
+        NbaseN = self.space.NbaseN
+        NbaseD = self.space.NbaseD
         
-            if bc1[0] == 'dirichlet':
-                self.grad_1d[0][:,  0] = 0.
-            if bc1[1] == 'dirichlet':
-                self.grad_1d[0][:, -1] = 0.
+        # standard derivatives
+        if self.space.polar == False:
             
-        # apply boundary conditions in 2-direction
-        if tensor_space.bc[1] == False:
-        
-            if bc2[0] == 'dirichlet':
-                self.grad_1d[1][:,  0] = 0.
-            if bc2[1] == 'dirichlet':
-                self.grad_1d[1][:, -1] = 0.
-            
-        # apply boundary conditions in 3-direction
-        if tensor_space.bc[2] == False:
-        
-            if bc3[0] == 'dirichlet':
-                self.grad_1d[2][:,  0] = 0.
-            if bc3[1] == 'dirichlet':
-                self.grad_1d[2][:, -1] = 0.
-            
-        # transform to sparse matrix
-        self.grad_1d = [spa.csc_matrix(grad_1d) for grad_1d in self.grad_1d]
-        
-        
-        if polar_splines == None:
+            n2 = NbaseN[1]
+            n3 = NbaseN[2]
             
             # discrete grad
-            G1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseN[2]))
-            G2 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
-            G3 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
+            G1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(n2)), spa.identity(n3))
+            G2 = spa.kron(spa.kron(spa.identity(n1), self.grad_1d[1]), spa.identity(n3))
+            G3 = spa.kron(spa.kron(spa.identity(n1), spa.identity(n2)), self.grad_1d[2])
 
-            self.GRAD = spa.bmat([[G1], [G2], [G3]], format='csr')
+            self.G = [[G1], [G2], [G3]]
+            self.G = spa.bmat(self.G, format='csr')
             
             # discrete curl
-            C12 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
-            C13 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
+            C12 = spa.kron(spa.kron(spa.identity(n1), spa.identity(NbaseD[1])), self.grad_1d[2])
+            C13 = spa.kron(spa.kron(spa.identity(n1), self.grad_1d[1]), spa.identity(NbaseD[2]))
 
-            C21 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
-            C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
+            C21 = spa.kron(spa.kron(spa.identity(NbaseD[0]), spa.identity(n2)), self.grad_1d[2])
+            C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(n2)), spa.identity(NbaseD[2]))
 
-            C31 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
-            C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
+            C31 = spa.kron(spa.kron(spa.identity(NbaseD[0]), self.grad_1d[1]), spa.identity(n3))
+            C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(NbaseD[1])), spa.identity(n3))
 
-            self.CURL = spa.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csr')
+            self.C = [[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]]
+            self.C = spa.bmat(self.C, format='csr')
             
             # discrete div
-            D1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseD[2]))
-            D2 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
-            D3 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
+            D1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(NbaseD[1])), spa.identity(NbaseD[2]))
+            D2 = spa.kron(spa.kron(spa.identity(NbaseD[0]), self.grad_1d[1]), spa.identity(NbaseD[2]))
+            D3 = spa.kron(spa.kron(spa.identity(NbaseD[0]), spa.identity(NbaseD[1])), self.grad_1d[2])
 
-            self.DIV = spa.bmat([[D1, D2, D3]], format='csr')
+            self.D = [[D1, D2, D3]]
+            self.D = spa.bmat(self.D, format='csr')
             
+        # polar derivatives
         else:
             
-            # discrete polar grad
-            self.GRAD = polar_splines.GRAD
+            # discrete polar grad ([DN ND NN] x NN)
+            grad_pol   = self.space.polar_splines.grad_pol.copy()
+            grad_pol_3 = spa.identity(grad_pol.shape[1], format='csr')
             
-            # discrete polar curl
-            self.CURL = polar_splines.CURL
+            # discrete polar vector curl ([ND DN] x NN)
+            vector_curl_pol = self.space.polar_splines.vector_curl_pol.copy()
             
-            # discrete polar div
-            self.DIV  = polar_splines.DIV
+            # discrete polar scalar curl (DD x [DN ND])
+            scalar_curl_pol = self.space.polar_splines.scalar_curl_pol.copy()
+            
+            C12 = spa.identity(2 + (NbaseN[0] - 2)*NbaseD[1], format='csr')
+            C21 = spa.identity(0 + (NbaseD[0] - 1)*NbaseN[1], format='csr')
+            
+            # discrete polar div (DD x [ND DN])
+            div_pol   = self.space.polar_splines.div_pol.copy()
+            div_pol_3 = spa.identity(scalar_curl_pol.shape[0], format='csr')
+            
+            # boundary conditions at eta1 = 1
+            if self.space.bc[1] == 'd':
+                grad_pol   = grad_pol[:-NbaseD[1], :-NbaseN[1]].tocsr()
+                grad_pol_3 = grad_pol_3[:-NbaseN[1], :-NbaseN[1]].tocsr()
+                
+                vector_curl_pol_1 = vector_curl_pol[:(2 + (NbaseN[0] - 3)*NbaseD[1]) , :-NbaseN[1]]
+                vector_curl_pol_2 = vector_curl_pol[ (2 + (NbaseN[0] - 2)*NbaseD[1]):, :-NbaseN[1]]
+
+                vector_curl_pol = spa.bmat([[vector_curl_pol_1], [vector_curl_pol_2]], format='csr')
+                
+                scalar_curl_pol = scalar_curl_pol[:, :-NbaseD[1]].tocsr()
+                
+                C12 = C12[:-NbaseD[1], :-NbaseD[1]]
+                
+                div_pol_1 = div_pol[:, :(2 + (NbaseN[0] - 3)*NbaseD[1]) ]
+                div_pol_2 = div_pol[:,  (2 + (NbaseN[0] - 2)*NbaseD[1]):]
+
+                div_pol  = spa.bmat([[div_pol_1, div_pol_2]], format='csr')
+            
+            # final operators
+            self.G = spa.bmat([[spa.kron(grad_pol, spa.identity(NbaseN[2]))], [spa.kron(grad_pol_3, self.grad_1d[2])]], format='csr')
+            
+            C11 = spa.bmat([[None, -spa.kron(C12, self.grad_1d[2])], [spa.kron(C21, self.grad_1d[2]), None]])
+            
+            self.C = spa.bmat([[C11, spa.kron(vector_curl_pol, spa.identity(NbaseD[2]))], 
+                               [spa.kron(scalar_curl_pol, spa.identity(NbaseN[2])), None]], format='csr')
+            
+            self.D = spa.bmat([[spa.kron(div_pol, spa.identity(NbaseD[2])), spa.kron(div_pol_3, self.grad_1d[2])]], format='csr')
         
     
     # ================== grad ==================
-    def grad_3d_matrix(self):
+    def get_G(self):
         
         G1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseN[2]))
         G2 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
         G3 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
 
-        G  = spa.bmat([[G1], [G2], [G3]], format='csc')
+        G = [[G1], [G2], [G3]]
+        G = spa.bmat(G, format='csr')
 
         return G
     
     # ================== curl ==================
-    def curl_3d_matrix(self):
+    def get_C(self):
         
         C12 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
         C13 = spa.kron(spa.kron(spa.identity(self.NbaseN[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
-        
+
         C21 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseN[1])), self.grad_1d[2])
         C23 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseN[1])), spa.identity(self.NbaseD[2]))
-        
+
         C31 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseN[2]))
         C32 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseN[2]))
-        
-        C   = spa.bmat([[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]], format='csc')
+
+        C = [[None, -C12, C13], [C21, None, -C23], [-C31, C32, None]]
+        C = spa.bmat(C, format='csr')
         
         return C
     
     # ================== div ==================
-    def div_3d_matrix(self):
+    def get_D(self):
         
         D1 = spa.kron(spa.kron(self.grad_1d[0], spa.identity(self.NbaseD[1])), spa.identity(self.NbaseD[2]))
         D2 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), self.grad_1d[1]), spa.identity(self.NbaseD[2]))
         D3 = spa.kron(spa.kron(spa.identity(self.NbaseD[0]), spa.identity(self.NbaseD[1])), self.grad_1d[2])
 
-        D  = spa.bmat([[D1, D2, D3]], format='csc')
+        D = [[D1, D2, D3]]
+        D = spa.bmat(D, format='csr')
 
         return D     
 
     
     # ========================================
-    def apply_GRAD_3d_kron(self, f0):
+    def apply_G_kron(self, f0):
         """
         apply the disrete gradient operator in tensor-product fashion with 3d vectors
 
@@ -293,7 +391,7 @@ class discrete_derivatives_3D:
 
 
     # ==========================================
-    def apply_CURL_3d_kron(self, f1_1, f1_2, f1_3):
+    def apply_C_kron(self, f1_1, f1_2, f1_3):
         """
         apply the discrete curl operator in tensor-product fashion with 3d vectors
 
@@ -349,7 +447,7 @@ class discrete_derivatives_3D:
 
     
     # ===========================================
-    def apply_DIV_3d_kron(self, f2_1, f2_2, f2_3):
+    def apply_D_kron(self, f2_1, f2_2, f2_3):
         """
         apply the discrete divergence operator in tensor-product fashion with 3d vectors
 
@@ -387,49 +485,49 @@ class discrete_derivatives_3D:
     
     
     # ================================================
-    def grad_strong(self, f0):
+    def apply_G_strong(self, f0):
         
-        # final coefficients of the operation GRAD(f0)
+        # final coefficients of the operation G(f0)
         f1_1 = np.empty(self.tensor_space.Nbase_1form[0], dtype=float)
         f1_2 = np.empty(self.tensor_space.Nbase_1form[1], dtype=float)
         f1_3 = np.empty(self.tensor_space.Nbase_1form[2], dtype=float)
         
-        ker.grad_strong(f0, f1_1, f1_2, f1_3)
+        ker.g_strong(f0, f1_1, f1_2, f1_3)
         
         return f1_1, f1_2, f1_3
     
     # ================================================
-    def curl_strong(self, f1_1, f1_2, f1_3):
+    def apply_C_strong(self, f1_1, f1_2, f1_3):
         
-        # final coefficients of the operation CURL(f1)
+        # final coefficients of the operation C(f1)
         f2_1 = np.empty(self.tensor_space.Nbase_2form[0], dtype=float)
         f2_2 = np.empty(self.tensor_space.Nbase_2form[1], dtype=float)
         f2_3 = np.empty(self.tensor_space.Nbase_2form[2], dtype=float)
         
-        ker.curl_strong(f1_1, f1_2, f1_3, f2_1, f2_2, f2_3)
+        ker.c_strong(f1_1, f1_2, f1_3, f2_1, f2_2, f2_3)
         
         return f2_1, f2_2, f2_3
     
     # ================================================
-    def div_strong(self, f2_1, f2_2, f2_3):
+    def apply_D_strong(self, f2_1, f2_2, f2_3):
         
-        # final coefficients of the operation DIV(f2)
+        # final coefficients of the operation D(f2)
         f3 = np.empty(self.tensor_space.Nbase_3form, dtype=float)
         
-        ker.div_strong(f2_1, f2_2, f2_3, f3)
+        ker.d_strong(f2_1, f2_2, f2_3, f3)
         
         return f3
     
     # ================================================
-    def grad_weak(self, f1_1, f1_2, f1_3):
+    def apply_G_weak(self, f1_1, f1_2, f1_3):
         
-        # final 0-form coefficients of the operation GRAD.T(f1)
+        # final 0-form coefficients of the operation G.T(f1)
         f0 = np.zeros(self.tensor_space.Nbase_0form, dtype=float)
         
         # spline boundary conditions
-        bc_splines = [1*self.tensor_space.bc[0], 1*self.tensor_space.bc[1], 1*self.tensor_space.bc[2]]
+        bc_splines = [1*self.tensor_space.spl_kind[0], 1*self.tensor_space.spl_kind[1], 1*self.tensor_space.spl_kind[2]]
         
-        ker.grad_weak(f1_1, f1_2, f1_3, f0, bc_splines)
+        ker.g_weak(f1_1, f1_2, f1_3, f0, bc_splines)
         
         # boundary conditions (1-direction)
         if self.tensor_space.bc[0] == False:
@@ -464,17 +562,17 @@ class discrete_derivatives_3D:
         return f0
     
     # ================================================
-    def curl_weak(self, f2_1, f2_2, f2_3):
+    def apply_C_weak(self, f2_1, f2_2, f2_3):
         
-        # final 1-form coefficients of the operation CURL.T(f2)
+        # final 1-form coefficients of the operation C.T(f2)
         f1_1 = np.zeros(self.tensor_space.Nbase_1form[0], dtype=float)
         f1_2 = np.zeros(self.tensor_space.Nbase_1form[1], dtype=float)
         f1_3 = np.zeros(self.tensor_space.Nbase_1form[2], dtype=float)
         
         # spline boundary conditions
-        bc_splines = [1*self.tensor_space.bc[0], 1*self.tensor_space.bc[1], 1*self.tensor_space.bc[2]]
+        bc_splines = [1*self.tensor_space.spl_kind[0], 1*self.tensor_space.spl_kind[1], 1*self.tensor_space.spl_kind[2]]
         
-        ker.curl_weak(f2_1, f2_2, f2_3, f1_1, f1_2, f1_3, bc_splines)
+        ker.c_weak(f2_1, f2_2, f2_3, f1_1, f1_2, f1_3, bc_splines)
         
         # boundary conditions (1-direction)
         if self.tensor_space.bc[0] == False:
@@ -530,17 +628,17 @@ class discrete_derivatives_3D:
         return f1_1, f1_2, f1_3
     
     # ================================================
-    def div_weak(self, f3):
+    def apply_D_weak(self, f3):
         
-        # final 2-form coefficients of the operation DIV.T(f3)
+        # final 2-form coefficients of the operation D.T(f3)
         f2_1 = np.zeros(self.tensor_space.Nbase_2form[0], dtype=float)
         f2_2 = np.zeros(self.tensor_space.Nbase_2form[1], dtype=float)
         f2_3 = np.zeros(self.tensor_space.Nbase_2form[2], dtype=float)
         
         # spline boundary conditions
-        bc_splines = [1*self.tensor_space.bc[0], 1*self.tensor_space.bc[1], 1*self.tensor_space.bc[2]]
+        bc_splines = [1*self.tensor_space.spl_kind[0], 1*self.tensor_space.spl_kind[1], 1*self.tensor_space.spl_kind[2]]
         
-        ker.div_weak(f3, f2_1, f2_2, f2_3, bc_splines)
+        ker.d_weak(f3, f2_1, f2_2, f2_3, bc_splines)
         
         # boundary conditions (1-direction)
         if self.tensor_space.bc[0] == False:

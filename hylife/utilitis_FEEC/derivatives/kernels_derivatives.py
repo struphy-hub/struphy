@@ -5,7 +5,7 @@ from numpy import shape
 
 # ===============================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def grad_strong(f0, f1_1, f1_2, f1_3):
+def g_strong(f0, f1_1, f1_2, f1_3):
     
     n1, n2, n3 = shape(f0)
     
@@ -27,7 +27,7 @@ def grad_strong(f0, f1_1, f1_2, f1_3):
 
 # ===============================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def curl_strong(f1_1, f1_2, f1_3, f2_1, f2_2, f2_3):
+def c_strong(f1_1, f1_2, f1_3, f2_1, f2_2, f2_3):
     
     n1_1, n1_2, n1_3 = shape(f1_1)
     n2_1, n2_2, n2_3 = shape(f1_2)
@@ -51,7 +51,7 @@ def curl_strong(f1_1, f1_2, f1_3, f2_1, f2_2, f2_3):
                 
 # ===============================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def div_strong(f2_1, f2_2, f2_3, f3):
+def d_strong(f2_1, f2_2, f2_3, f3):
     
     n1_1, n1_2, n1_3 = shape(f2_1)
     n2_1, n2_2, n2_3 = shape(f2_2)
@@ -67,7 +67,7 @@ def div_strong(f2_1, f2_2, f2_3, f3):
                 
 # ===============================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]')
-def grad_weak(f1_1, f1_2, f1_3, f0, bc):
+def g_weak(f1_1, f1_2, f1_3, f0, bc):
     
     # contributions from 1st component
     for i1 in range(1 - bc[0], shape(f0)[0] - 1 + bc[0]):
@@ -92,7 +92,7 @@ def grad_weak(f1_1, f1_2, f1_3, f0, bc):
 
 # ===============================================================                
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]')
-def curl_weak(f2_1, f2_2, f2_3, f1_1, f1_2, f1_3, bc):
+def c_weak(f2_1, f2_2, f2_3, f1_1, f1_2, f1_3, bc):
     
     # contributions to 1st component from 2nd component
     for i1 in range(shape(f1_1)[0]):
@@ -133,7 +133,7 @@ def curl_weak(f2_1, f2_2, f2_3, f1_1, f1_2, f1_3, bc):
                 
 # ===============================================================                
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]')
-def div_weak(f3, f2_1, f2_2, f2_3, bc):
+def d_weak(f3, f2_1, f2_2, f2_3, bc):
     
     # contributions to 1st component
     for i1 in range(1 - bc[0], shape(f2_1)[0] - 1 + bc[0]):
@@ -156,7 +156,7 @@ def div_weak(f3, f2_1, f2_2, f2_3, bc):
                 
 # ===============================================================
 @types('double[:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','double[:,:]')
-def grad_pol_strong(f0_pol, f0_ten, f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_3_ten, xi1):
+def g_pol_strong(f0_pol, f0_ten, f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_3_ten, xi1):
     
     # number of radial degrees of freedom (clamped)
     n1 = shape(f0_ten)[0]
@@ -209,7 +209,7 @@ def grad_pol_strong(f0_pol, f0_ten, f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_
                 
 # ===============================================================
 @types('double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:]')
-def curl_pol_strong(f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_3_ten, f2_12_pol, f2_1_ten, f2_2_ten, f2_3_ten, xi1):
+def c_pol_strong(f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_3_ten, f2_12_pol, f2_1_ten, f2_2_ten, f2_3_ten, xi1):
     
     # number of radial degrees of freedom (clamped)
     n1 = shape(f1_2_ten)[0]
@@ -265,7 +265,7 @@ def curl_pol_strong(f1_12_pol, f1_1_ten, f1_2_ten, f1_3_pol, f1_3_ten, f2_12_pol
                 
 # ===============================================================
 @types('double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:]')
-def div_pol_strong(f2_12_pol, f2_1_ten, f2_2_ten, f2_3_ten, f3_ten, xi1):
+def d_pol_strong(f2_12_pol, f2_1_ten, f2_2_ten, f2_3_ten, f3_ten, xi1):
     
     # number of radial degrees of freedom (clamped)
     n1 = shape(f2_1_ten)[0]
