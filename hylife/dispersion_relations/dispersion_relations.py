@@ -91,3 +91,61 @@ def solveDispersionFullOrbit(k, pol, wch, vA, vth, v0, nuh, Ah, Zh, AMHD, initia
         counter += 1
 
     return w, counter
+
+
+# analytical eigenfrequencies for fast (+) and slow (-) modes with mode numbers (m, n) in a periodic cylinder with radius a and length 2*pi*R0 with homogeneous equilibrium profiles
+def omega_cylinder_FS(l, pol, m, n, a, R0, gamma, p0, rho0, B0):
+    
+    # axial wavenumber
+    k = n/R0
+    
+    # lth zero of the first derivative of the mth Bessel function
+    alpha_ml = sp.jnp_zeros(m, l)[-1]
+    
+    # squared eigenfrequency (solution of a quadratic equation)
+    b = rho0*gamma*p0*k**2 + rho0*k**2*B0**2 + alpha_ml**2*rho0*B0**2/a**2 + alpha_ml**2*rho0*gamma*p0/a**2
+    c = k**4*B0**2*gamma*p0 + alpha_ml**2*gamma*p0*k**2*B0**2/a**2 
+    
+    omega = 1/(2*rho0**2)*b + pol/(2*rho0**2)*np.sqrt(b**2 - 4*rho0**2*c)
+    
+    return np.sqrt(omega)
+
+
+# analytical radial eigenfunctions for fast (+) and slow (-) modes with mode numbers (m, n) in a periodic cylinder with radius a and length 2*pi*R0 with homogeneous equilibrium profiles
+def xi_r_cylinder_FS(r, l, pol, m, n, a, R0, gamma, p0, rho0, B0):
+    
+    # axial wavenumber
+    k = n/R0
+    
+    # eigenfrequency
+    omega = omega_cylinder_FS(l, pol, m, n, a, R0, gamma, p0, rho0, B0)
+    
+    # eigenfunction (derivative of mth Bessel function)
+    A = rho0*omega**2 - k**2*B0**2
+    S = rho0*omega**2*(B0**2 + gamma*p0) - gamma*p0*k**2*B0**2
+    
+    K = np.sqrt(A*(rho0*omega**2 - gamma*p0*k**2)/S)
+    
+    xi_r = sp.jvp(m, K*r)
+    
+    return xi_r
+
+
+# analytical eigenfrequencies for continuum modes with mode numbers (m, n) in a periodic cylinder with radius a and length 2*pi*R0 and a specified q-profile
+def omega_A_cylinder(r, m, n, a, R0, gamma, pr, rho, B_z, B_phi, kind):
+    
+    # q-profile
+    q = lambda r : r*B_z(r)/(R0*B_phi(r))
+    
+    # Alfvén continuum
+    if B_phi(0.5) != 0.:
+        omegaA2 = B_z(r)**2/(R0**2*rho(r))*(n + m/q(r))**2
+    else:
+        omegaA2 = B_z(r)**2/(R0**2*rho(r))*n**2
+    
+    if   kind == 'A':
+        omega2 = omegaA2
+    elif kind == 'S':
+        omega2 = gamma*pr(r)/(B_phi(r)**2 + B_z(r)**2 + gamma*pr(r))*omegaA2
+    
+    return np.sqrt(omega2)
