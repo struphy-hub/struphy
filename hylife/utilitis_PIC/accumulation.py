@@ -419,7 +419,7 @@ class accumulation:
     # ===============================================================
     def accumulate_step1(self, particles_loc, b2, mpi_comm):
         
-        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.extract_2form(b2)
         
         pic_ker.kernel_step1(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.mat12_loc, self.mat13_loc, self.mat23_loc, self.basis_u)
         
@@ -430,7 +430,7 @@ class accumulation:
     # ===============================================================
     def assemble_step1(self, Np, b2):
         
-        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.extract_2form(b2)
             
         # delta-f correction
         if self.control == True:
@@ -446,7 +446,7 @@ class accumulation:
     # ===============================================================
     def accumulate_step3(self, particles_loc, b2, mpi_comm):
         
-        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.extract_2form(b2)
         
         pic_ker.kernel_step3(particles_loc, self.T[0], self.T[1], self.T[2], self.p, self.Nel, self.NbaseN, self.NbaseD, particles_loc.shape[1], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.mat11_loc, self.mat12_loc, self.mat13_loc, self.mat22_loc, self.mat23_loc, self.mat33_loc, self.vec1_loc, self.vec2_loc, self.vec3_loc, self.basis_u)
         
@@ -464,13 +464,13 @@ class accumulation:
     # ===============================================================
     def assemble_step3(self, Np, b2):
         
-        b2_1, b2_2, b2_3 = self.tensor_space_FEM.unravel_2form(self.tensor_space_FEM.E2.T.dot(b2))
+        b2_1, b2_2, b2_3 = self.tensor_space_FEM.extract_2form(b2)
             
         # delta-f correction
         if self.control == True:
             vec_df = self.cont.inner_prod_jh_eq(b2_1, b2_2, b2_3)     
         else:
-            vec_df = np.zeros(self.vec1.size + self.vec2.size, self.vec3.siize, dtype=float)
+            vec_df = np.zeros(self.vec1.size + self.vec2.size + self.vec3.size, dtype=float)
             
         # build global sparse matrix
         return (self.to_sparse_step3(self.mat11, self.mat12, self.mat13, self.mat22, self.mat23, self.mat23)/Np).tocsr(), np.concatenate((self.vec1.flatten(), self.vec2.flatten(), self.vec3.flatten()))/Np + vec_df
