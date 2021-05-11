@@ -5,11 +5,12 @@
 """
 Basic push-forward (logical --> physical) operations between scalar fields, vector fields and differential p-forms:
 
-- 0-form: a = a^0
-- 1-form: (ax, ay, az) = DF^(-T) (a^1_1, a^1_2, a^1_3)
-- 2-form: (ax, ay, az) = 1/|det(DF)| DF (a^2_1, a^2_2, a^2_3)
-- 3-form: a = 1/|det(DF)| a^3
-- vector: (ax, ay, az) = DF (a_1, a_2, a_3) 
+- 0-form:  a           = a^0
+- 1-form: (ax, ay, az) =             DF^(-T) (a^1_1, a^1_2, a^1_3)
+- 2-form: (ax, ay, az) = 1/|det(DF)| DF      (a^2_1, a^2_2, a^2_3)
+- 3-form:  a           = 1/|det(DF)| a^3
+
+- vector: (ax, ay, az) =             DF      (a_1  , a_2  , a_3  )  
 """
 
 from numpy import shape
@@ -135,69 +136,49 @@ def push_vector(a1, a2, a3, eta1, eta2, eta3, component, kind_map, params_map, t
 
 
 # ==============================================================================
-@types('double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def push_all_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+@types('double[:]','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def push_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
     value = 0.
     
     # 0-form
     if   kind_fun == 0:
-        value = push_0_form(a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_0_form(a[0], eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # 3-form
     elif kind_fun == 3:
-        value = push_3_form(a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        
-    return value
-
-
-# ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def push_all_vector(a1, a2, a3, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    
-    value = 0.
+        value = push_3_form(a[0], eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # 1-form
-    if   kind_fun == 11:
-        value = push_1_form(a1, a2, a3, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    elif kind_fun == 11:
+        value = push_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 12:
-        value = push_1_form(a1, a2, a3, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 13:
-        value = push_1_form(a1, a2, a3, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # 2-form
     elif kind_fun == 21:
-        value = push_2_form(a1, a2, a3, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 22:
-        value = push_2_form(a1, a2, a3, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 23:
-        value = push_2_form(a1, a2, a3, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # vector
     elif kind_fun == 31:
-        value = push_vector(a1, a2, a3, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_vector(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 32:
-        value = push_vector(a1, a2, a3, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_vector(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 33:
-        value = push_vector(a1, a2, a3, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = push_vector(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     return value
 
 
-
 # ==============================================================================
-@types('double[:,:,:]','double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate_tensor_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
-    
-    for i1 in range(len(eta1)):
-        for i2 in range(len(eta2)):
-            for i3 in range(len(eta3)):
-                values[i1, i2, i3] = push_all_scalar(a[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                    
-# ==============================================================================
-@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate_general_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+@types('double[:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def kernel_evaluate(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
     
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -206,28 +187,4 @@ def kernel_evaluate_general_scalar(a, eta1, eta2, eta3, kind_fun, kind_map, para
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                values[i1, i2, i3] = push_all_scalar(a[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                    
-# ==============================================================================
-@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate_tensor_vector(a1, a2, a3, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
-    
-    for i1 in range(len(eta1)):
-        for i2 in range(len(eta2)):
-            for i3 in range(len(eta3)):
-                values[i1, i2, i3] = push_all_vector(a1[i1, i2, i3], a2[i1, i2, i3], a3[i1, i2, i3], eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                    
-                    
-# ==============================================================================
-@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate_general_vector(a1, a2, a3, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
-    
-    n1 = shape(eta1)[0]
-    n2 = shape(eta2)[1]
-    n3 = shape(eta3)[2]
-    
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                values[i1, i2, i3] = push_all_vector(a1[i1, i2, i3], a2[i1, i2, i3], a3[i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                values[i1, i2, i3] = push_all(a[:, i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)

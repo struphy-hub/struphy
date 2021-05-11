@@ -3,13 +3,27 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Basic functions for point-wise evaluation of a 3d analytical or discrete spline mapping mapping and its corresponding geometric quantities:
+Basic functions for point-wise evaluation of a 3d analytical or discrete spline mapping and its corresponding geometric quantities:
 
-- Jacobian matrix (df)
-- inverse Jacobian matrix (df_inv)
-- Jacobian determinant (det_df)
-- metric tensor (g)
-- inverse metric tensor (g_inv)
+- f      : mapping x_i = f_i(eta1, eta2, eta3)
+- df     : Jacobian matrix df_i/deta_j
+- det_df : Jacobian determinant det(df)
+- df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+- g      : metric tensor df^T * df 
+- g_inv  : inverse metric tensor df^(-1) * df^(-T)
+
+The following geometries are implemented:
+
+- kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
+- kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+- kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
+
+- kind_map = 10 : cuboid. params_map = [lx, ly, lz].
+- kind_map = 11 : hollow cylinder. params_map = [a1, a2, lz].
+- kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
+- kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
+- kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
+
 """
 
 from numpy import shape
@@ -17,14 +31,15 @@ from numpy import sin, cos, pi, zeros, array, sqrt
 
 from pyccel.decorators import types
 
-import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
+import hylife.utilitis_FEEC.basics.spline_evaluation_2d as eva_2d
+import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva_3d
 
 
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns one of the three components of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions. 
+    returns one of the three components of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
     
     Parameters
     ----------
@@ -41,10 +56,10 @@ def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
         physical coordinate (1 : x, 2 : y, 3 : z)
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -74,25 +89,50 @@ def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
    
     value = 0.
     
-    # =========== discrete =================
+    # =========== 3d discrete =================
     if kind_map == 0:
         
         if   component == 1:
-            value = eva.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
 
         elif component == 2:
-            value = eva.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
 
         elif component == 3:
-            value = eva.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
-
-
-    # ============== slab ==================
+            value = eva_3d.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
+            
+    # =========== discrete cylinder =================
     elif kind_map == 1:
+        
+        lz = params_map[0]
+        
+        if   component == 1:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
+
+        elif component == 2:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+            
+        elif component == 3:
+            value = lz * eta3
+
+    # =========== discrete torus ====================
+    elif kind_map == 2:
+        
+        if   component == 1:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+
+        elif component == 2:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+            
+        elif component == 3:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+  
+    # ============== cuboid ==================
+    elif kind_map == 10:
          
-        lx = params[0] 
-        ly = params[1] 
-        lz = params[2]
+        lx = params_map[0] 
+        ly = params_map[1] 
+        lz = params_map[2]
         
         if   component == 1:
             value = lx * eta1
@@ -101,28 +141,29 @@ def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
         elif component == 3:
             value = lz * eta3
             
-    # ============= annulus ================
-    elif kind_map == 2:
+    # ========= hollow cylinder ==============
+    elif kind_map == 11:
         
-        r1 = params[0]
-        r2 = params[1]
-        lz = params[2]
-        dr = r2 - r1
+        a1 = params_map[0]
+        a2 = params_map[1]
+        lz = params_map[2]
+        
+        da = a2 - a1
         
         if   component == 1:
-            value = (eta1 * dr + r1) * cos(2*pi*eta2)
+            value = (a1 + eta1 * da) * cos(2*pi*eta2)
         elif component == 2:
-            value = (eta1 * dr + r1) * sin(2*pi*eta2)
+            value = (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
             value = lz * eta3
             
-    # ============ colella =================
-    elif kind_map == 3:
+    # ============ colella ===================
+    elif kind_map == 12:
         
-        lx    = params[0]
-        ly    = params[1]
-        alpha = params[2]
-        lz    = params[3]
+        lx    = params_map[0]
+        ly    = params_map[1]
+        alpha = params_map[2]
+        lz    = params_map[3]
         
         if   component == 1:
             value = lx * (eta1 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
@@ -131,13 +172,13 @@ def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
         elif component == 3:
             value = lz * eta3
     
-    # =========== orthogonal ===============
-    elif kind_map == 4:
+    # =========== orthogonal ================
+    elif kind_map == 13:
         
-        lx    = params[0]
-        ly    = params[1]
-        alpha = params[2]
-        lz    = params[3]
+        lx    = params_map[0]
+        ly    = params_map[1]
+        alpha = params_map[2]
+        lz    = params_map[3]
         
         if   component == 1:
             value = lx * (eta1 + alpha * sin(2*pi*eta1))
@@ -146,14 +187,31 @@ def f(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
         elif component == 3:
             value = lz * eta3
             
+            
+    # ========= hollow torus ================
+    elif kind_map == 14:
+        
+        a1 = params_map[0]
+        a2 = params_map[1]
+        r0 = params_map[2]
+        
+        da = a2 - a1
+        
+        if   component == 1:
+            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3)
+        elif component == 2:
+            value =  (a1 + eta1 * da) * sin(2*pi*eta2)
+        elif component == 3:
+            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+            
     return value
 
 
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns one of the nine components of the Jacobian matrix DF_ij = dF_i/deta_j of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions.
+    returns one of the nine components of the Jacobian matrix df_ij = df_i/deta_j of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
     
     Parameters
     ----------
@@ -172,10 +230,10 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
         31 : (dz/deta1), 32 : (dz/deta2), 33 : (dz/deta3)
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -204,34 +262,80 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
     
     value = 0.
     
-    # ============ discrete ================
+    # ============ 3d discrete ================
     if kind_map == 0:
         
         if   component == 11:
-            value = eva.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
+            value = eva_3d.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
         elif component == 12:
-            value = eva.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
         elif component == 13:
-            value = eva.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
         elif component == 21:
-            value = eva.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
+            value = eva_3d.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
         elif component == 22:
-            value = eva.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
         elif component == 23:
-            value = eva.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3)
         elif component == 31:
-            value = eva.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
+            value = eva_3d.evaluate_diffn_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
         elif component == 32:
-            value = eva.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_diffn_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
         elif component == 33:
-            value = eva.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
+            value = eva_3d.evaluate_n_n_diffn(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
                
-    # ============== slab ==================
+    # ============ discrete cylinder ================
     elif kind_map == 1:
+        
+        lz = params_map[0]
+        
+        if   component == 11:
+            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
+        elif component == 12:
+            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+        elif component == 22:
+            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = lz
+    
+    # ============ discrete torus ===================
+    elif kind_map == 2:
+        
+        if   component == 11:
+            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+        elif component == 12:
+            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
+        elif component == 13:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3) * (-2*pi)
+        elif component == 21:
+            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+        elif component == 22:
+            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+        elif component == 32:
+            value = eva_2d.evaluate_n_diffn(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
+        elif component == 33:
+            value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3) * 2*pi
+    
+    # ============== cuboid ===================
+    elif kind_map == 10:
          
-        lx = params[0] 
-        ly = params[1] 
-        lz = params[2]
+        lx = params_map[0] 
+        ly = params_map[1] 
+        lz = params_map[2]
         
         if   component == 11:
             value = lx
@@ -252,24 +356,25 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
         elif component == 33:
             value = lz
             
-    # ============ annulus =================
-    elif kind_map == 2:
+    # ======== hollow cylinder =================
+    elif kind_map == 11:
         
-        r1 = params[0]
-        r2 = params[1]
-        lz = params[2]
-        dr = r2 - r1
+        a1 = params_map[0]
+        a2 = params_map[1]
+        lz = params_map[2]
+        
+        da = a2 - a1
         
         if   component == 11:
-            value = dr * cos(2*pi*eta2)
+            value = da * cos(2*pi*eta2)
         elif component == 12:
-            value = -2*pi * (eta1*dr + r1) * sin(2*pi*eta2)
+            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = dr * sin(2*pi*eta2)
+            value = da * sin(2*pi*eta2)
         elif component == 22:
-            value = 2*pi * (eta1*dr + r1) * cos(2*pi*eta2)
+            value = 2*pi * (a1 + eta1 * da) * cos(2*pi*eta2)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -280,12 +385,12 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
             value = lz
             
     # ============ colella =================
-    elif kind_map == 3:
+    elif kind_map == 12:
         
-        lx    = params[0]
-        ly    = params[1]
-        alpha = params[2]
-        lz    = params[3]
+        lx    = params_map[0]
+        ly    = params_map[1]
+        alpha = params_map[2]
+        lz    = params_map[3]
         
         if   component == 11:
             value = lx * (1 + alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi)
@@ -307,12 +412,12 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
             value = lz
                    
     # =========== orthogonal ================
-    elif kind_map == 4:
+    elif kind_map == 13:
         
-        lx    = params[0]
-        ly    = params[1]
-        alpha = params[2]
-        lz    = params[3]
+        lx    = params_map[0]
+        ly    = params_map[1]
+        alpha = params_map[2]
+        lz    = params_map[3]
         
         if   component == 11:
             value = lx * (1 + alpha * cos(2*pi*eta1) * 2*pi)
@@ -333,15 +438,52 @@ def df(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n
         elif component == 33:
             value = lz
             
+            
+    # ========= hollow torus ==================
+    elif kind_map == 14:
+        
+        a1 = params_map[0]
+        a2 = params_map[1]
+        r0 = params_map[2]
+        
+        da = a2 - a1
+        
+        if   component == 1:
+            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3)
+        elif component == 2:
+            value =  (a1 + eta1 * da) * sin(2*pi*eta2)
+        elif component == 3:
+            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+        
+        
+        if   component == 11:
+            value = da * cos(2*pi*eta2) * cos(2*pi*eta3)
+        elif component == 12:
+            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * cos(2*pi*eta3)
+        elif component == 13:
+            value = -2*pi * ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+        elif component == 21:
+            value = da * sin(2*pi*eta2)
+        elif component == 22:
+            value = (a1 + eta1 * da) * cos(2*pi*eta2) * 2*pi
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = da * cos(2*pi*eta2) * sin(2*pi*eta3)
+        elif component == 32:
+            value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
+        elif component == 33:
+            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
+            
     return value
 
 
 
 # =======================================================================
 @types('double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def det_df(eta1, eta2, eta3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns the Jacobian determinant det(DF)=dF/deta1.( dF/deta2 x dF/deta3) of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions. 
+    returns the Jacobian determinant det(df) = df/deta1.(df/deta2 x df/deta3) of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
     
     Parameters
     ----------
@@ -355,10 +497,10 @@ def det_df(eta1, eta2, eta3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, c
         3rd logical coordinate in [0, 1]
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -392,17 +534,17 @@ def det_df(eta1, eta2, eta3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, c
     
     value = 0.
     
-    df_11 = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_12 = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_13 = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    df_21 = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_22 = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_23 = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    df_31 = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_32 = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_33 = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
     value = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
             
@@ -411,15 +553,15 @@ def det_df(eta1, eta2, eta3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, c
 
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def df_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def df_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns one of the nine components of the inverse Jacobian matrix of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions. 
+    returns one of the nine components of the inverse Jacobian matrix of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions.  
     
-    the 3x3 inverse is computed directly from DF, using the cross product of the columns of DF:
+    the 3 x 3 inverse is computed directly from df, using the cross product of the columns of df:
 
-                            | [ (dF/deta2) x (dF/deta3) ]^T |
-    (DF)^(-1) = 1/det_df *  | [ (dF/deta3) x (dF/deta1) ]^T |
-                            | [ (dF/deta1) x (dF/deta2) ]^T |
+                            | [ (df/deta2) x (df/deta3) ]^T |
+    (df)^(-1) = 1/det_df *  | [ (df/deta3) x (df/deta1) ]^T |
+                            | [ (df/deta1) x (df/deta2) ]^T |
     
     Parameters
     ----------
@@ -436,10 +578,10 @@ def df_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nba
         the component of the inverse Jacobian matrix
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -468,17 +610,17 @@ def df_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nba
     
     value = 0.
 
-    df_11 = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_12 = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_13 = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    df_21 = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_22 = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_23 = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-    df_31 = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_32 = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    df_33 = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
     detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
 
@@ -508,9 +650,9 @@ def df_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nba
 
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def g(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def g(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns one of the nine components of the metric tensor G = DF^T * DF of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions.
+    returns one of the nine components of the metric tensor g = df^T * df of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
     
     Parameters
     ----------
@@ -527,10 +669,10 @@ def g(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
         the component of the metric tensor
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -560,48 +702,48 @@ def g(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
     value = 0.
 
     if   component == 11:
-        df_11 = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_21 = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_31 = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_11*df_11 + df_21*df_21 + df_31*df_31
         
     elif component == 22:                                              
-        df_12 = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_22 = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_32 = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_12*df_12 + df_22*df_22 + df_32*df_32
                  
     elif component == 33:                                              
-        df_13 = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_23 = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_33 = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_13*df_13 + df_23*df_23 + df_33*df_33
                  
     elif ((component == 12) or (component == 21)) :
-        df_11 = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_21 = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_31 = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_12 = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_22 = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_32 = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_11*df_12 + df_21*df_22 + df_31*df_32
                  
     elif ((component == 13) or (component == 31)):
-        df_11 = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_21 = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_31 = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_13 = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_23 = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_33 = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_11*df_13 + df_21*df_23 + df_31*df_33
                  
     elif ((component == 23) or (component == 32)):  
-        df_12 = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_22 = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_32 = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_13 = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_23 = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        df_33 = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value = df_12*df_13 + df_22*df_23 + df_32*df_33
                
     return value
@@ -609,9 +751,9 @@ def g(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n,
 
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def g_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def g_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """
-    returns one of the nine components of the inverse metric tensor G = DF^(-1) * DF^(-T) of an analytical (kind_map >= 1) or discrete (kind_map = 0) mapping x, y, z = F(eta1, eta2, eta3) in three space dimensions. 
+    returns one of the nine components of the inverse metric tensor g_inv = df^(-1) * df^(-T) of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions.
     
     Parameters
     ----------
@@ -628,10 +770,10 @@ def g_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbas
         the component of the inverse metric tensor
         
     kind_map : int
-        kind of mapping (0 : discrete, 1 : slab, 2 : annulus, 3 : colella, 4 : orthogonal)
+        kind of mapping
         
-    params : array_like
-        parameters for the mapping (1 : [lx, ly, lz], 2 : [r1, r2, lz], 3 : [lx, ly, alpha, lz], 4 : [lx, ly, alpha, lz])
+    params_map : array_like
+        parameters for the mapping
         
     tn1 : array_like
         spline knot vector in 1-direction
@@ -661,48 +803,48 @@ def g_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbas
     value = 0.
 
     if   component == 11:
-        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_11*dfinv_11 + dfinv_12*dfinv_12 + dfinv_13*dfinv_13
                   
     elif component == 22:                                              
-        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_21*dfinv_21 + dfinv_22*dfinv_22 + dfinv_23*dfinv_23
                   
     elif component == 33:                                              
-        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_31*dfinv_31 + dfinv_32*dfinv_32 + dfinv_33*dfinv_33
                   
     elif ((component == 12) or (component == 21)) :
-        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_11*dfinv_21 + dfinv_12*dfinv_22 + dfinv_13*dfinv_23
                   
     elif ((component == 13) or (component == 31)):
-        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_11*dfinv_31 + dfinv_12*dfinv_32 + dfinv_13*dfinv_33
                   
     elif ((component == 23) or (component == 32)):  
-        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         value    = dfinv_21*dfinv_31 + dfinv_22*dfinv_32 + dfinv_23*dfinv_33
     
     return value
@@ -710,119 +852,108 @@ def g_inv(eta1, eta2, eta3, component, kind_map, params, tn1, tn2, tn3, pn, nbas
 
 # ==========================================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def all_mappings(eta1, eta2, eta3, kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def mappings_all(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
     value = 0.
     
     # mapping f
     if   kind_fun == 1:
-        value = f(eta1, eta2, eta3, 1, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 2:
-        value = f(eta1, eta2, eta3, 2, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 3:
-        value = f(eta1, eta2, eta3, 3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     # Jacobian matrix df
     elif kind_fun == 11:
-        value = df(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 12:
-        value = df(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 13:
-        value = df(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 14:
-        value = df(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 15:
-        value = df(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 16:
-        value = df(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 17:
-        value = df(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 18:
-        value = df(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 19:
-        value = df(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     # Jacobian determinant det_df
     elif kind_fun == 4:
-        value = det_df(eta1, eta2, eta3, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     # inverse Jacobian matrix df_inv
     elif kind_fun == 21:
-        value = df_inv(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 22:
-        value = df_inv(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 23:
-        value = df_inv(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 24:
-        value = df_inv(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 25:
-        value = df_inv(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 26:
-        value = df_inv(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 27:
-        value = df_inv(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 28:
-        value = df_inv(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 29:
-        value = df_inv(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     # metric tensor g
     elif kind_fun == 31:
-        value = g(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 32:
-        value = g(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 33:
-        value = g(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 34:
-        value = g(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 35:
-        value = g(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 36:
-        value = g(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 37:
-        value = g(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 38:
-        value = g(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 39:
-        value = g(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     # metric tensor g_inv
     elif kind_fun == 41:
-        value = g_inv(eta1, eta2, eta3, 11, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 42:
-        value = g_inv(eta1, eta2, eta3, 12, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 43:
-        value = g_inv(eta1, eta2, eta3, 13, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 44:
-        value = g_inv(eta1, eta2, eta3, 21, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 45:
-        value = g_inv(eta1, eta2, eta3, 22, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 46:
-        value = g_inv(eta1, eta2, eta3, 23, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 47:
-        value = g_inv(eta1, eta2, eta3, 31, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 48:
-        value = g_inv(eta1, eta2, eta3, 32, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 49:
-        value = g_inv(eta1, eta2, eta3, 33, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        value = g_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
     return value
 
-
-
-# ==========================================================================================
-@types('double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
-def kernel_evaluate_tensor_product(eta1, eta2, eta3, kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
-    
-    for i1 in range(len(eta1)):
-        for i2 in range(len(eta2)):
-            for i3 in range(len(eta3)):
-                mat_f[i1, i2, i3] = all_mappings(eta1[i1], eta2[i2], eta3[i3], kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                
                 
 # ==========================================================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
-def kernel_evaluate_general(eta1, eta2, eta3, kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
+def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
     
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -831,4 +962,4 @@ def kernel_evaluate_general(eta1, eta2, eta3, kind_fun, kind_map, params, tn1, t
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                mat_f[i1, i2, i3] = all_mappings(eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                mat_f[i1, i2, i3] = mappings_all(eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
