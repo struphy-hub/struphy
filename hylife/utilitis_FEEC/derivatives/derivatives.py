@@ -129,8 +129,6 @@ class discrete_derivatives_2D:
             
             self.C   = spa.bmat([[self.C11, self.VC], [self.SC, None]], format='csr')
             
-            self.C_wn = spa.bmat([[None, self.VC], [self.SC, None]], format='csr')
-            
             # discrete div
             D1 = spa.kron(self.grad_1d[0], spa.identity(NbaseD[1]))
             D2 = spa.kron(spa.identity(NbaseD[0]), self.grad_1d[1])
@@ -157,8 +155,6 @@ class discrete_derivatives_2D:
             
             self.C12 = 1j*2*np.pi*mode_n*spa.identity(2 + (NbaseN[0] - 2)*NbaseD[1], format='csr')
             self.C21 = 1j*2*np.pi*mode_n*spa.identity(0 + (NbaseD[0] - 1)*NbaseN[1], format='csr')
-            
-            self.C_all = spa.bmat([[None, self.space.polar_splines.VC], [self.space.polar_splines.SC, None]], format='csr')
             
             # discrete polar div (DD x [ND DN DD])
             self.D   = self.space.polar_splines.D.copy()
@@ -187,9 +183,7 @@ class discrete_derivatives_2D:
             self.G   = spa.bmat([[self.G], [self.G3]], format='csr')
             
             self.C11 = spa.bmat([[None, -self.C12], [self.C21, None]], format='csr')
-            
-            self.C    = spa.bmat([[self.C11, self.VC], [self.SC, None]], format='csr')
-            self.C_wn = spa.bmat([[None, self.VC], [self.SC, None]], format='csr')
+            self.C   = spa.bmat([[self.C11, self.VC], [self.SC, None]], format='csr')
             
             self.D   = spa.bmat([[self.D ,  self.D3]], format='csr')
                 
@@ -266,50 +260,50 @@ class discrete_derivatives_3D:
         else:
             
             # discrete polar grad ([DN ND NN] x NN)
-            grad_pol   = self.space.polar_splines.grad_pol.copy()
-            grad_pol_3 = spa.identity(grad_pol.shape[1], format='csr')
+            G_pol   = self.space.polar_splines.G.copy()
+            G_pol_3 = spa.identity(G_pol.shape[1], format='csr')
             
             # discrete polar vector curl ([ND DN] x NN)
-            vector_curl_pol = self.space.polar_splines.vector_curl_pol.copy()
+            VC_pol  = self.space.polar_splines.VC.copy()
             
             # discrete polar scalar curl (DD x [DN ND])
-            scalar_curl_pol = self.space.polar_splines.scalar_curl_pol.copy()
+            SC_pol  = self.space.polar_splines.SC.copy()
             
             C12 = spa.identity(2 + (NbaseN[0] - 2)*NbaseD[1], format='csr')
             C21 = spa.identity(0 + (NbaseD[0] - 1)*NbaseN[1], format='csr')
             
             # discrete polar div (DD x [ND DN])
-            div_pol   = self.space.polar_splines.div_pol.copy()
-            div_pol_3 = spa.identity(scalar_curl_pol.shape[0], format='csr')
+            D_pol   = self.space.polar_splines.D.copy()
+            D_pol_3 = spa.identity(D_pol.shape[0], format='csr')
             
             # boundary conditions at eta1 = 1
             if self.space.bc[1] == 'd':
-                grad_pol   = grad_pol[:-NbaseD[1], :-NbaseN[1]].tocsr()
-                grad_pol_3 = grad_pol_3[:-NbaseN[1], :-NbaseN[1]].tocsr()
+                G_pol    = G_pol[:-NbaseD[1], :-NbaseN[1]].tocsr()
+                G_pol_3  = G_pol_3[:-NbaseN[1], :-NbaseN[1]].tocsr()
                 
-                vector_curl_pol_1 = vector_curl_pol[:(2 + (NbaseN[0] - 3)*NbaseD[1]) , :-NbaseN[1]]
-                vector_curl_pol_2 = vector_curl_pol[ (2 + (NbaseN[0] - 2)*NbaseD[1]):, :-NbaseN[1]]
+                VC_pol_1 = VC_pol[:(2 + (NbaseN[0] - 3)*NbaseD[1]) , :-NbaseN[1]]
+                VC_pol_2 = VC_pol[ (2 + (NbaseN[0] - 2)*NbaseD[1]):, :-NbaseN[1]]
 
-                vector_curl_pol = spa.bmat([[vector_curl_pol_1], [vector_curl_pol_2]], format='csr')
+                VC_pol   = spa.bmat([[VC_pol_1], [VC_pol_2]], format='csr')
                 
-                scalar_curl_pol = scalar_curl_pol[:, :-NbaseD[1]].tocsr()
+                SC_pol   = SC_pol[:, :-NbaseD[1]].tocsr()
                 
-                C12 = C12[:-NbaseD[1], :-NbaseD[1]]
+                C12      = C12[:-NbaseD[1], :-NbaseD[1]]
                 
-                div_pol_1 = div_pol[:, :(2 + (NbaseN[0] - 3)*NbaseD[1]) ]
-                div_pol_2 = div_pol[:,  (2 + (NbaseN[0] - 2)*NbaseD[1]):]
-
-                div_pol  = spa.bmat([[div_pol_1, div_pol_2]], format='csr')
+                D_pol_1  = D_pol[:, :(2 + (NbaseN[0] - 3)*NbaseD[1]) ]
+                D_pol_2  = D_pol[:,  (2 + (NbaseN[0] - 2)*NbaseD[1]):]
+ 
+                D_pol    = spa.bmat([[div_pol_1, div_pol_2]], format='csr')
             
             # final operators
-            self.G = spa.bmat([[spa.kron(grad_pol, spa.identity(NbaseN[2]))], [spa.kron(grad_pol_3, self.grad_1d[2])]], format='csr')
+            self.G = spa.bmat([[spa.kron(G_pol, spa.identity(NbaseN[2]))], [spa.kron(G_pol_3, self.grad_1d[2])]], format='csr')
             
-            C11 = spa.bmat([[None, -spa.kron(C12, self.grad_1d[2])], [spa.kron(C21, self.grad_1d[2]), None]])
+            C11    = spa.bmat([[None, -spa.kron(C12, self.grad_1d[2])], [spa.kron(C21, self.grad_1d[2]), None]])
             
-            self.C = spa.bmat([[C11, spa.kron(vector_curl_pol, spa.identity(NbaseD[2]))], 
-                               [spa.kron(scalar_curl_pol, spa.identity(NbaseN[2])), None]], format='csr')
+            self.C = spa.bmat([[C11, spa.kron(VC_pol, spa.identity(NbaseD[2]))], 
+                               [spa.kron(SC_pol, spa.identity(NbaseN[2])), None]], format='csr')
             
-            self.D = spa.bmat([[spa.kron(div_pol, spa.identity(NbaseD[2])), spa.kron(div_pol_3, self.grad_1d[2])]], format='csr')
+            self.D = spa.bmat([[spa.kron(D_pol, spa.identity(NbaseD[2])), spa.kron(D_pol_3, self.grad_1d[2])]], format='csr')
         
     
     # ================== grad ==================
