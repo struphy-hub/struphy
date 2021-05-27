@@ -143,6 +143,8 @@ def get_M1(tensor_space_FEM, domain, weight=None):
             g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[counter])[:, :, 0]
             g_inv = g_inv.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
+            #g_inv = np.ones(det_df.shape, dtype=float)
+            
             ni1, ni2 = ns[a]
             nj1, nj2 = ns[b]
             
@@ -242,6 +244,8 @@ def get_M2(tensor_space_FEM, domain, weight=None):
             # evaluate metric tensor at quadrature points
             g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[counter])[:, :, 0]
             g = g.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
+            
+            #g = np.ones(det_df.shape, dtype=float)
             
             ni1, ni2 = ns[a]
             nj1, nj2 = ns[b]
