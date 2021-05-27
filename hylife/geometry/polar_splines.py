@@ -41,6 +41,9 @@ class polar_splines_2D:
         self.Xi_1[1, :] = 1/3 - 1/(3*self.tau)*(cx[1] - self.x0) + np.sqrt(3)/(3*self.tau)*(cy[1] - self.y0)
         self.Xi_1[2, :] = 1/3 - 1/(3*self.tau)*(cx[1] - self.x0) - np.sqrt(3)/(3*self.tau)*(cy[1] - self.y0)
         
+        # remove small values
+        self.Xi_1[abs(self.Xi_1) < 1e-15] = 0.
+        
         
         # =========== extraction operators for discrete 0-forms ==================
         # extraction operator for basis functions
