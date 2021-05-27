@@ -16,7 +16,7 @@ import hylife.utilitis_FEEC.basics.kernels_2d as ker
 # ================ inner product in V0 ===========================
 def inner_prod_V0(tensor_space_FEM, domain, fun):
     """
-    Assembles the 2D inner prodcut (NN, fun) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    Assembles the 2D inner product [NN] * fun * |det(DF)|  of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
@@ -26,8 +26,8 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
     
-    fun : callable
-        the 0-form with which the inner products shall be computed
+    fun : callable or np.ndarray
+        the 0-form with which the inner products shall be computed (either callable or 2D array with values at quadrature points)
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -40,27 +40,33 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
-    # evaluation of |det(DF)| at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
-    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 1, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
+    # evaluation of given 0-form at quadrature points
+    mat_f  = np.empty((pts[0].size, pts[1].size), dtype=float)
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
-    mat_f     = fun(quad_mesh[0], quad_mesh[1])
+    if callable(fun):
+        quad_mesh   = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
+        mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1])
+    else:
+        mat_f[:, :] = fun
     
     # assembly
     F = np.zeros((NbaseN[0], NbaseN[1]), dtype=float)
     
-    ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, wts[0], wts[1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], F, mat_f, mat_map)
+    mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
+    
+    ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, wts[0], wts[1], basisN[0], basisN[1], NbaseN[0], NbaseN[1], F, mat_f*det_df)
                 
     return tensor_space_FEM.E0.dot(F.flatten())
 
 
-# ================ inner product in V1 (H curl) ===========================
-def inner_prod_V1C(tensor_space_FEM, domain, fun):
+# ================ inner product in V1 ===========================
+def inner_prod_V1(tensor_space_FEM, domain, fun):
     """
-    Assembles the 2D inner prodcut ([DN, ND], [fun_1, fun_2]) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    Assembles the 2D inner prodcut [DN, ND, NN] * |det(DF)| * G^(-1) * [fun_1, fun_2, fun_3] of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
@@ -68,8 +74,8 @@ def inner_prod_V1C(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
     
-    fun : list of callables
-        the three 1-form components (H curl) with which the inner products shall be computed
+    fun : list of callables or np.ndarrays
+        the 1-form components with which the inner products shall be computed (either list of 3 callables or 2D arrays with values at quadrature points)
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -85,124 +91,61 @@ def inner_prod_V1C(tensor_space_FEM, domain, fun):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
     # basis functions of components of a 1-form
-    basis = [[basisD[0], basisN[1]], 
-             [basisN[0], basisD[1]]]
+    basis = [[basisD[0], basisN[1]], [basisN[0], basisD[1]], [basisN[0], basisN[1]]]
     
-    Nbase = [[NbaseD[0], NbaseN[1]], 
-             [NbaseN[0], NbaseD[1]]]
+    Nbase = [[NbaseD[0], NbaseN[1]], [NbaseN[0], NbaseD[1]], [NbaseN[0], NbaseN[1]]]
     
-    ns    = [[1, 0], 
-             [0, 1]]
+    ns    = [[1, 0], [0, 1], [0, 0]]
     
-    # G^(-1)|det(DF)| at quadrature points
-    mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
-    kind_funs = [11, 12, 12, 13]
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
-    # function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
+    # keys for components of inverse metric tensor
+    kind_funs = [['g_inv_11', 'g_inv_12', 'g_inv_13'],
+                 ['g_inv_21', 'g_inv_22', 'g_inv_23'],
+                 ['g_inv_31', 'g_inv_32', 'g_inv_33']]
     
-    # components of global inner product
-    F = [np.zeros((Nbase[0], Nbase[1])) for Nbase in Nbase]
+    # 1-form components at quadrature points
+    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
     
-    # assembly
-    counter = 0
-    
-    for a in range(2):
-        
-        ni1,    ni2    = ns[a]
-        bi1,    bi2    = basis[a]
-        Nbase1, Nbase2 = Nbase[a]
-        
-        for b in range(2):
-            
-            # evaluate G^(-1)|det(DF)| at quadrature points
-            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
-            
-            # evaluate function at quadrature points
-            mat_f = fun[b](quad_mesh[0], quad_mesh[1])
-            
-            ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f, mat_map)
-            
-            counter += 1
-            
-    return tensor_space_FEM.E1C.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
-
-
-# ================ inner product in V1 (H div) ===========================
-def inner_prod_V1D(tensor_space_FEM, domain, fun):
-    """
-    Assembles the 2D inner prodcut ([ND, DN], [fun_1, fun_2]) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
-    
-    tensor_space_FEM : tensor_spline_space
-        tensor product B-spline space for finite element spaces
-        
-    domain : domain
-        domain object defining the geometry
-    
-    fun : list of callables
-        the three 1-form components (H div) with which the inner products shall be computed
-    """
-    
-    p      = tensor_space_FEM.p       # spline degrees
-    Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
-    
-    n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
-    pts    = tensor_space_FEM.pts     # global quadrature points
-    wts    = tensor_space_FEM.wts     # global quadrature weights
-    
-    basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
-    basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
-    
-    # basis functions of components of a 1-form
-    basis = [[basisN[0], basisD[1]], 
-             [basisD[0], basisN[1]]]
-    
-    Nbase = [[NbaseN[0], NbaseD[1]], 
-             [NbaseD[0], NbaseN[1]]]
-    
-    ns    = [[0, 1], 
-             [1, 0]]
-    
-    # G/|det(DF)| at quadrature points
-    mat_map   = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
-    kind_funs = [21, 22, 22, 23]
-    
-    # function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
+    if callable(fun[0]):
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
     
     # components of global inner product
     F = [np.zeros((Nbase[0], Nbase[1])) for Nbase in Nbase]
     
     # assembly
-    counter = 0
-    
-    for a in range(2):
+    for a in range(3):
         
         ni1,    ni2    = ns[a]
         bi1,    bi2    = basis[a]
         Nbase1, Nbase2 = Nbase[a]
         
-        for b in range(2):
+        mat_f[:, :] = 0.
+        
+        for b in range(3):
             
-            # evaluate G/|det(DF)| at quadrature points
-            ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, kind_funs[counter], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
+            # evaluate inverse metric tensor g^ab at quadrature points
+            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a, b])[:, :, 0]
             
-            # evaluate function at quadrature points
-            mat_f = fun[b](quad_mesh[0], quad_mesh[1])
+            # evaluate g^ab * f_b at quadrature points
+            if callable(fun[b]):
+                mat_f += fun[b](quad_mesh[0], quad_mesh[1]) * g_inv
+            else:
+                mat_f += fun[b] * g_inv
             
-            ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f, mat_map)
+        mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])    
+        
+        ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f*det_df)
             
-            counter += 1
-            
-    return tensor_space_FEM.E1D.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
+    return tensor_space_FEM.E1.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
 
 
 # ================ inner product in V2 ===========================
 def inner_prod_V2(tensor_space_FEM, domain, fun):
     """
-    Assembles the 2D inner prodcut (DD, fun) of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    Assembles the 2D inner product [ND, DN, DD] / |det(DF)| * G * [fun_1, fun_2, fun_3] of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
@@ -210,8 +153,87 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
     
-    fun : callable
-        the 2-form component with which the inner products shall be computed
+    fun : list of callables or np.ndarrays
+        the 2-form components with which the inner products shall be computed (either list of 3 callables or 2D arrays with values at quadrature points)
+    """
+    
+    p      = tensor_space_FEM.p       # spline degrees
+    Nel    = tensor_space_FEM.Nel     # number of elements
+    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
+    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
+    
+    n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
+    pts    = tensor_space_FEM.pts     # global quadrature points
+    wts    = tensor_space_FEM.wts     # global quadrature weights
+    
+    basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
+    basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
+    
+    # basis functions of components of a 2-form
+    basis = [[basisN[0], basisD[1]], [basisD[0], basisN[1]], [basisD[0], basisD[1]]]
+    
+    Nbase = [[NbaseN[0], NbaseD[1]], [NbaseD[0], NbaseN[1]], [NbaseD[0], NbaseD[1]]]
+    
+    ns    = [[0, 1], [1, 0], [1, 1]]
+    
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
+    
+    # keys for components of metric tensor
+    kind_funs = [['g_11', 'g_12', 'g_13'],
+                 ['g_21', 'g_22', 'g_23'],
+                 ['g_31', 'g_32', 'g_33']]
+    
+    # 2-form components at quadrature points
+    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
+    
+    if callable(fun[0]):
+        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
+    
+    # components of global inner product
+    F = [np.zeros((Nbase[0], Nbase[1])) for Nbase in Nbase]
+    
+    # assembly
+    for a in range(3):
+        
+        ni1,    ni2    = ns[a]
+        bi1,    bi2    = basis[a]
+        Nbase1, Nbase2 = Nbase[a]
+        
+        mat_f[:, :] = 0.
+        
+        for b in range(3):
+            
+            # evaluate metric tensor g_ab at quadrature points
+            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a, b])[:, :, 0]
+            
+            # evaluate g_ab * f_b at quadrature points
+            if callable(fun[b]):
+                mat_f += fun[b](quad_mesh[0], quad_mesh[1]) * g
+            else:
+                mat_f += fun[b] * g
+            
+        mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])    
+        
+        ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ni1, ni2, wts[0], wts[1], bi1, bi2, Nbase1, Nbase2, F[a], mat_f/det_df)
+            
+    return tensor_space_FEM.E2.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
+
+
+# ================ inner product in V3 ===========================
+def inner_prod_V3(tensor_space_FEM, domain, fun):
+    """
+    Assembles the 2D inner product [DD] * fun / |det(DF)| of the given tensor product B-spline space of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    
+    tensor_space_FEM : tensor_spline_space
+        tensor product B-spline space for finite element spaces
+        
+    domain : domain
+        domain object defining the geometry
+    
+    fun : callable or np.ndarray
+        the 3-form component with which the inner products shall be computed (either callable or 2D array with values at quadrature points)
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -224,18 +246,22 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
-    # evaluation of 1/|det(DF)| at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], n_quad[0], n_quad[1]), dtype=float)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
-    ker.kernel_evaluate_quadrature(Nel, n_quad, pts[0], pts[1], mat_map, 2, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.p, domain.NbaseN, domain.cx, domain.cy)
+    # evaluation of given 0-form at quadrature points
+    mat_f  = np.empty((pts[0].size, pts[1].size), dtype=float)
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij') 
-    mat_f     = fun(quad_mesh[0], quad_mesh[1])
+    if callable(fun):
+        quad_mesh      = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
+        mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1])
+    else:
+        mat_f[:, :, :] = fun
     
     # assembly
     F = np.zeros((NbaseD[0], NbaseD[1]), dtype=float)
     
-    ker.kernel_inner_1(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, wts[0], wts[1], basisD[0], basisD[1], NbaseD[0], NbaseD[1], F, mat_f, mat_map)
+    ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, wts[0], wts[1], basisD[0], basisD[1], NbaseD[0], NbaseD[1], F, mat_f/det_df)
                 
-    return tensor_space_FEM.E2.dot(F.flatten())
+    return tensor_space_FEM.E3.dot(F.flatten())

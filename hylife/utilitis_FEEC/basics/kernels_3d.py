@@ -10,7 +10,7 @@ from pyccel.decorators import types
 @types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
 def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, mat, mat_fun):
     
-    mat[:,:,:,:,:,:] = 0.
+    mat[:, :, :, :, :, :] = 0.
      
     #$ omp parallel
     #$ omp do reduction ( + : mat) private (ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, value, q1, q2, q3, wvol, bi, bj)
@@ -48,7 +48,7 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
 @types('int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:]','double[:,:,:,:,:,:]')
 def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1, w2, w3, bi1, bi2, bi3, nbase1, nbase2, nbase3, mat, mat_fun):
     
-    mat[:,:,:] = 0.
+    mat[:, :, :] = 0.
     
     #$ omp parallel
     #$ omp do reduction ( + : mat) private (ie1, ie2, ie3, il1, il2, il3, value, q1, q2, q3, wvol, bi)
@@ -79,7 +79,7 @@ def kernel_inner(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, w1,
                                  
                        
 # ==========================================================================================          
-@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
+@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
     
     
@@ -96,7 +96,7 @@ def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3,
                     for q2 in range(nq[1]):
                         for q3 in range(nq[2]):
 
-                            wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_map[ie1, ie2, ie3, q1, q2, q3]
+                            wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_map[nq[0]*ie1 + q1, nq[1]*ie2 + q2, nq[2]*ie3 + q3]
 
                             # evaluate discrete fields at quadrature point
                             bi = 0.
@@ -129,7 +129,7 @@ def kernel_l2error(nel, p, nq, w1, w2, w3, ni, nj, bi1, bi2, bi3, bj1, bj2, bj3,
 @types('int[:]','int[:]','int[:]','int[:]','double[:,:,:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:,:,:]')        
 def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, nbase, bi1, bi2, bi3, b_eva):
     
-    b_eva[:,:,:,:,:,:] = 0.
+    b_eva[:, :, :, :, :, :] = 0.
     
     #$ omp parallel
     #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3)

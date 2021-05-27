@@ -74,7 +74,7 @@ def kernel_inner(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, nbase
 
     
 # ==========================================================================================          
-@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]')
+@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]')
 def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
     
     
@@ -89,7 +89,7 @@ def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, err
             for q1 in range(nq[0]):
                 for q2 in range(nq[1]):
 
-                    wvol = w1[ie1, q1] * w2[ie2, q2] * mat_map[ie1, q1, ie2, q2]
+                    wvol = w1[ie1, q1] * w2[ie2, q2] * mat_map[nq[0]*ie1 + q1, nq[1]*ie2 + q2]
 
                     # evaluate discrete fields at quadrature point
                     bi = 0.
@@ -132,7 +132,7 @@ def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, nbase, bi1, bi2, b_eva):
                     for il1 in range(p[0] + 1 - ns[0]):
                         for il2 in range(p[1] + 1 - ns[1]):
 
-                            b_eva[ie1, ie2, q1, q2] += b_coeff[(ie1 + il1)%nbase[0], (ie2 + il2)%nbase[1]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+                            b_eva[ie1, q1, ie2, q2] += b_coeff[(ie1 + il1)%nbase[0], (ie2 + il2)%nbase[1]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
     #$ omp end do
     #$ omp end parallel
     
