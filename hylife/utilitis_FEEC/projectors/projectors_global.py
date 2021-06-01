@@ -12,7 +12,6 @@ import scipy.sparse as spa
 import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global as ker_glob
-#import source_run.kernels_projectors_evaluation as ker_eva
 
 from   hylife.linear_algebra.linalg_kron import kron_lusolve_3d
 
@@ -419,17 +418,17 @@ class projectors_global_2d:
             P_DD = spa.identity(d1*d2, format='csr')
 
             # remove contributions from N-splines at eta1 = 0
-            if self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[n2:, :]
                 P_ND = P_ND[d2:, :]
             elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             # remove contributions from N-splines at eta1 = 1
-            if self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[:-n2, :]
                 P_ND = P_ND[:-d2, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P_NN.tocsr().copy()
@@ -468,11 +467,11 @@ class projectors_global_2d:
             P3_DD = self.space.polar_splines.P2.copy()
 
             # remove contributions from N-splines at eta1 = 1
-            if self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
                 P0_NN = P0_NN[:-n2, :]
                 P1_ND = P1_ND[:-d2, :]
                 P2_ND = P2_ND[:-d2, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P0_NN.tocsr().copy()
@@ -665,7 +664,7 @@ class projectors_global_2d:
         if callable(fun):
             
             # create a meshgrid and evaluate function on point set
-            if eval_kind == 'normal':
+            if eval_kind == 'meshgrid':
                 pts1, pts2  = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij')
                 mat_f[:, :] = fun(pts1, pts2)
             
@@ -731,7 +730,7 @@ class projectors_global_2d:
         
     
     # ======================================        
-    def pi_0(self, fun, include_bc=True, eval_kind='normal'):
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         #  ==== evaluate on tensor-product grid ====
         rhs = self.eval_for_PI(0, fun, eval_kind)
@@ -743,10 +742,13 @@ class projectors_global_2d:
             rhs = self.P0_pol.dot(rhs.flatten())
         
         # ====== solve for coefficients ============
-        return self.solve_V0(include_bc, rhs)
+        if interp == True:
+            return self.solve_V0(include_bc, rhs)
+        else:
+            return rhs
     
     # ======================================        
-    def pi_1(self, fun, include_bc=True, eval_kind='normal'):
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         # ====== integrate along 1-direction =======
         n1   = self.pts_PI_1_1[0].size//self.n_quad[0] 
@@ -776,10 +778,13 @@ class projectors_global_2d:
             rhs = self.P1.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
             
         # ====== solve for coefficients ============
-        return self.solve_V1(include_bc, rhs)
+        if interp == True:
+            return self.solve_V1(include_bc, rhs)
+        else:
+            return rhs
         
     # ======================================        
-    def pi_2(self, fun, include_bc=True, eval_kind='normal'):
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         # ====== integrate along 2-direction =======
         n1   = self.pts_PI_2_1[0].size
@@ -815,10 +820,13 @@ class projectors_global_2d:
             rhs = self.P2.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
             
         # ====== solve for coefficients ============
-        return self.solve_V2(include_bc, rhs)
+        if interp == True:
+            return self.solve_V2(include_bc, rhs)
+        else:
+            return rhs
         
     # ======================================        
-    def pi_3(self, fun, include_bc=True, eval_kind='normal'):
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         n1  = self.pts_PI_3[0].size//self.n_quad[0] 
         n2  = self.pts_PI_3[1].size//self.n_quad[1]
@@ -835,7 +843,10 @@ class projectors_global_2d:
             rhs = self.P3_pol.dot(rhs.flatten())
             
         # ====== solve for coefficients ============
-        return self.solve_V3(include_bc, rhs)
+        if interp == True:
+            return self.solve_V3(include_bc, rhs)
+        else:
+            return rhs
     
     
     
@@ -868,9 +879,7 @@ class projectors_global_3d:
         d1, d2, d3 = self.space.NbaseD
         
         # standard domain
-        if self.space.polar_splines == None:
-
-            self.space.polar = False
+        if self.space.polar == False:
 
             # including boundary splines
             self.P0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
@@ -921,37 +930,64 @@ class projectors_global_3d:
 
         # polar domain
         else:
+            
+            # including boundary splines
+            self.P0_pol_all = self.space.polar_splines.P0.copy()
+            self.P1_pol_all = self.space.polar_splines.P1C.copy()
+            self.P2_pol_all = self.space.polar_splines.P1D.copy()
+            self.P3_pol_all = self.space.polar_splines.P2.copy()
+            
+            # expansion in third dimension
+            self.P0_all     = spa.kron(self.P0_pol_all, spa.identity(n3), format='csr')  
+            P1_all_1        = spa.kron(self.P1_pol_all, spa.identity(n3), format='csr')
+            P1_all_3        = spa.kron(self.P0_pol_all, spa.identity(d3), format='csr')
 
-            self.space.polar = True
+            P2_all_1        = spa.kron(self.P2_pol_all, spa.identity(d3), format='csr')
+            P2_all_3        = spa.kron(self.P3_pol_all, spa.identity(n3), format='csr')
+            self.P3_all     = spa.kron(self.P3_pol_all, spa.identity(d3), format='csr')
+
+            self.P1_all     = spa.bmat([[P1_all_1, None], [None, P1_all_3]], format='csr')
+            self.P2_all     = spa.bmat([[P2_all_1, None], [None, P2_all_3]], format='csr')
 
             # including boundary splines
-            self.P0_pol_all = self.space.polar_splines.P0_pol.copy()
-            self.P1_pol_all = self.space.polar_splines.P1_pol.copy()
-            self.P2_pol_all = self.space.polar_splines.P2_pol.copy()
-            self.P3_pol_all = self.space.polar_splines.P3_pol.copy()                                                        
+            #self.P0_pol_all = self.space.polar_splines.P0_pol.copy()
+            #self.P1_pol_all = self.space.polar_splines.P1_pol.copy()
+            #self.P2_pol_all = self.space.polar_splines.P2_pol.copy()
+            #self.P3_pol_all = self.space.polar_splines.P3_pol.copy()                                                        
 
-            self.P0_all     = self.space.polar_splines.P0.copy()
-            self.P1_all     = self.space.polar_splines.P1.copy()
-            self.P2_all     = self.space.polar_splines.P2.copy()
-            self.P3_all     = self.space.polar_splines.P3.copy()
+            #self.P0_all     = self.space.polar_splines.P0.copy()
+            #self.P1_all     = self.space.polar_splines.P1.copy()
+            #self.P2_all     = self.space.polar_splines.P2.copy()
+            #self.P3_all     = self.space.polar_splines.P3.copy()
+            
+            # without boundary splines
+            P0_NN = self.space.polar_splines.P0.copy()
+
+            P1_DN = self.space.polar_splines.P1C.copy()[:(0 + (d1 - 1)*d2) , :]
+            P1_ND = self.space.polar_splines.P1C.copy()[ (0 + (d1 - 1)*d2):, :]
+
+            P2_ND = self.space.polar_splines.P1D.copy()[:(2 + (n1 - 2)*d2) , :]
+            P2_DN = self.space.polar_splines.P1D.copy()[ (2 + (n1 - 2)*d2):, :]
+
+            P3_DD = self.space.polar_splines.P2.copy()
 
             # without boundary splines
-            P0_NN = self.space.polar_splines.P0_pol.copy()
+            #P0_NN = self.space.polar_splines.P0_pol.copy()
 
-            P1_DN = self.space.polar_splines.P1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
-            P1_ND = self.space.polar_splines.P1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
+            #P1_DN = self.space.polar_splines.P1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
+            #P1_ND = self.space.polar_splines.P1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
 
-            P2_ND = self.space.polar_splines.P2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
-            P2_DN = self.space.polar_splines.P2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
+            #P2_ND = self.space.polar_splines.P2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
+            #P2_DN = self.space.polar_splines.P2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
 
-            P3_DD = self.space.polar_splines.P3_pol.copy()
+            #P3_DD = self.space.polar_splines.P3_pol.copy()
 
             # remove contributions from N-splines at eta1 = 1
-            if self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
                 P0_NN = P0_NN[:-n2, :]
                 P1_ND = P1_ND[:-d2, :]
                 P2_ND = P2_ND[:-d2, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P0_NN.tocsr().copy()
@@ -1219,7 +1255,7 @@ class projectors_global_3d:
     
     
     # ======================================        
-    def eval_for_PI(self, comp, fun, eval_kind, domain=None):
+    def eval_for_PI(self, comp, fun, eval_kind):
         """
         Evaluates the callable "fun" at the points corresponding to the projector, and returns the result as 3d array "mat_f".
             
@@ -1230,6 +1266,9 @@ class projectors_global_3d:
             
         fun : callable
             the function fun(eta1, eta2, eta3) to project
+            
+        eval_kind : string
+            function evaluation at interpolation/quadrature points ('meshgrid', 'tensor_product' or point-wise)
                
         Returns
         -------
@@ -1250,12 +1289,12 @@ class projectors_global_3d:
         if callable(fun):
             
             # create a meshgrid and evaluate function on point set
-            if eval_kind == 'normal':
+            if eval_kind == 'meshgrid':
                 pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
                 mat_f[:, :, :]   = fun(pts1, pts2, pts3)
                 
             # tensor-product evaluation is done by input function
-            elif eval_kind == 'tp':
+            elif eval_kind == 'tensor_product':
                 mat_f[:, :, :] = fun(pts_PI[0], pts_PI[1], pts_PI[2])
                 
             # point-wise evaluation
@@ -1268,8 +1307,7 @@ class projectors_global_3d:
         
         # internal function call
         else:
-            # evaluate function on point set
-            ker_eva.kernel_eva(pts_PI[0], pts_PI[1], pts_PI[2], mat_f, fun, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+            print('no internal 3D function implemented!')
        
         return mat_f
     
@@ -1380,10 +1418,10 @@ class projectors_global_3d:
     
     
     # ======================================        
-    def pi_0(self, fun, include_bc=True, eval_kind='normal', domain=None):
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         #  ==== evaluate on tensor-product grid ====
-        rhs = self.eval_for_PI(0, fun, eval_kind, domain)
+        rhs = self.eval_for_PI(0, fun, eval_kind)
         
         # ====== apply extraction operator =========
         if include_bc == True:
@@ -1392,18 +1430,21 @@ class projectors_global_3d:
             rhs = self.P0.dot(rhs.flatten())
         
         # ====== solve for coefficients ============
-        return self.solve_V0(include_bc, rhs)
+        if interp == True:
+            return self.solve_V0(include_bc, rhs)
+        else:
+            return rhs
     
     
     # ======================================        
-    def pi_1(self, fun, include_bc=True, eval_kind='normal', domain=None):
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         # ====== integrate along 1-direction =======
         n1   = self.pts_PI_11[0].size//self.n_quad[0] 
         n2   = self.pts_PI_11[1].size 
         n3   = self.pts_PI_11[2].size
         
-        pts  = self.eval_for_PI(11, fun[0], eval_kind, domain)
+        pts  = self.eval_for_PI(11, fun[0], eval_kind)
         
         rhs1 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta1(self.wts[0], pts.reshape(n1, self.n_quad[0], n2, n3), rhs1)
@@ -1413,7 +1454,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_12[1].size//self.n_quad[1]  
         n3   = self.pts_PI_12[2].size
         
-        pts  = self.eval_for_PI(12, fun[1], eval_kind, domain)
+        pts  = self.eval_for_PI(12, fun[1], eval_kind)
         
         rhs2 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta2(self.wts[1], pts.reshape(n1, n2, self.n_quad[1], n3), rhs2)
@@ -1423,7 +1464,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_13[1].size  
         n3   = self.pts_PI_13[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(13, fun[2], eval_kind, domain)
+        pts  = self.eval_for_PI(13, fun[2], eval_kind)
         
         rhs3 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta3(self.wts[2], pts.reshape(n1, n2, n3, self.n_quad[2]), rhs3)
@@ -1435,18 +1476,21 @@ class projectors_global_3d:
             rhs = self.P1.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
             
         # ====== solve for coefficients ============
-        return self.solve_V1(include_bc, rhs)
+        if interp == True:
+            return self.solve_V1(include_bc, rhs)
+        else:
+            return rhs
             
 
     # ======================================        
-    def pi_2(self, fun, include_bc=True, eval_kind='normal', domain=None):
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         # ====== integrate in 2-3-plane =======
         n1   = self.pts_PI_21[0].size
         n2   = self.pts_PI_21[1].size//self.n_quad[1] 
         n3   = self.pts_PI_21[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(21, fun[0], eval_kind, domain)
+        pts  = self.eval_for_PI(21, fun[0], eval_kind)
         
         rhs1 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta2_eta3(self.wts[1], self.wts[2], pts.reshape(n1, n2, self.n_quad[1], n3, self.n_quad[2]), rhs1)   
@@ -1455,7 +1499,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_22[1].size
         n3   = self.pts_PI_22[2].size//self.n_quad[2]
         
-        pts  = self.eval_for_PI(22, fun[1], eval_kind, domain)
+        pts  = self.eval_for_PI(22, fun[1], eval_kind)
         
         rhs2 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta1_eta3(self.wts[0], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, n3, self.n_quad[2]), rhs2)  
@@ -1464,7 +1508,7 @@ class projectors_global_3d:
         n2   = self.pts_PI_23[1].size//self.n_quad[1]
         n3   = self.pts_PI_23[2].size
         
-        pts  = self.eval_for_PI(23, fun[2], eval_kind, domain)
+        pts  = self.eval_for_PI(23, fun[2], eval_kind)
         
         rhs3 = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta1_eta2(self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3), rhs3)
@@ -1476,17 +1520,20 @@ class projectors_global_3d:
             rhs = self.P2.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
         
         # ====== solve for coefficients ============
-        return self.solve_V2(include_bc, rhs)
+        if interp == True:
+            return self.solve_V2(include_bc, rhs)
+        else:
+            return rhs
     
     
     # ======================================        
-    def pi_3(self, fun, include_bc=True, eval_kind='normal', domain=None):
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
         
         n1  = self.pts_PI_3[0].size//self.n_quad[0] 
         n2  = self.pts_PI_3[1].size//self.n_quad[1]
         n3  = self.pts_PI_3[2].size//self.n_quad[2]
         
-        pts = self.eval_for_PI(3, fun, eval_kind, domain)
+        pts = self.eval_for_PI(3, fun, eval_kind)
         
         rhs = np.empty((n1, n2, n3), dtype=float)
         ker_glob.kernel_int_3d_eta1_eta2_eta3(self.wts[0], self.wts[1], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3, self.n_quad[2]), rhs)
@@ -1498,4 +1545,7 @@ class projectors_global_3d:
             rhs = self.P3.dot(rhs.flatten())
         
         # ====== solve for coefficients ============
-        return self.solve_V3(include_bc, rhs)
+        if interp == True:
+            return self.solve_V3(include_bc, rhs)
+        else:
+            return rhs

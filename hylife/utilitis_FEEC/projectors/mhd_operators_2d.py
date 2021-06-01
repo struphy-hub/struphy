@@ -3,17 +3,15 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Class for 3D linear MHD operators.
+Class for 2D linear MHD operators.
 """
 
 
 import numpy as np
 import scipy.sparse as spa
 
-
 import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global_mhd as ker
-#import source_run.kernels_projectors_evaluation as ker_eva
 
 import hylife.utilitis_FEEC.basics.mass_matrices_2d as mass
 
@@ -138,7 +136,8 @@ class operators_mhd:
 
             ker.rhs11_2d(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_3_pts/det_dF, values, row_all, col_all)
 
-            EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[1]))
+            self.EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[1]))
+            self.EF_12.eliminate_zeros()
 
             
             # ====================== 13 - block ([his, int] of DD) ===========================
@@ -161,7 +160,8 @@ class operators_mhd:
 
             ker.rhs11_2d(self.pi1_x_D_i[0], self.pi0_y_D_i[0], self.pi1_x_D_i[1], self.pi0_y_D_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_D[1], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_2_pts/det_dF, values, row_all, col_all)
 
-            EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[2]))
+            self.EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[2]))
+            self.EF_13.eliminate_zeros()
 
             
             # ====================== 21 - block ([int, his] of ND) ===========================
@@ -184,7 +184,8 @@ class operators_mhd:
 
             ker.rhs12_2d(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_3_pts/det_dF, values, row_all, col_all)
 
-            EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[0]))
+            self.EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[0]))
+            self.EF_21.eliminate_zeros()
 
 
             # ====================== 23 - block ([int, his] of DD) ===========================
@@ -207,7 +208,8 @@ class operators_mhd:
 
             ker.rhs12_2d(self.pi0_x_D_i[0], self.pi1_y_D_i[0], self.pi0_x_D_i[1], self.pi1_y_D_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_D[0], self.basis_his_D[1], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_1_pts/det_dF, values, row_all, col_all)
 
-            EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[2]))
+            self.EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[2]))
+            self.EF_23.eliminate_zeros()
 
 
             # ====================== 31 - block ([int, int] of ND) ===========================
@@ -227,7 +229,8 @@ class operators_mhd:
 
             ker.rhs0_2d(self.pi0_x_N_i[0], self.pi0_y_D_i[0], self.pi0_x_N_i[1], self.pi0_y_D_i[1], self.basis_int_N[0], self.basis_int_D[1], -B2_2_pts/det_dF, values, row_all, col_all)
 
-            EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[0]))
+            self.EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[0]))
+            self.EF_31.eliminate_zeros()
 
             
             # ====================== 32 - block ([int, int] of DN) ===========================
@@ -247,10 +250,11 @@ class operators_mhd:
 
             ker.rhs0_2d(self.pi0_x_D_i[0], self.pi0_y_N_i[0], self.pi0_x_D_i[1], self.pi0_y_N_i[1], self.basis_int_D[0], self.basis_int_N[1],  B2_1_pts/det_dF, values, row_all, col_all)
 
-            EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[1]))
+            self.EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[1]))
+            self.EF_32.eliminate_zeros()
 
             # ============================== full operator ==========================================
-            self.rhs_EF = self.pro.P1.dot(spa.bmat([[None, EF_12, EF_13], [EF_21, None, EF_23], [EF_31, EF_32, None]], format='csr').dot(self.pro.space.E2.T))
+            self.rhs_EF = self.pro.P1.dot(spa.bmat([[None, self.EF_12, self.EF_13], [self.EF_21, None, self.EF_23], [self.EF_31, self.EF_32, None]], format='csr').dot(self.pro.space.E2.T))
             self.rhs_EF.eliminate_zeros()
             
         elif self.basis_u == 0:
@@ -284,7 +288,8 @@ class operators_mhd:
 
             ker.rhs12_2d(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
-            F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[0]))
+            self.F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[0]))
+            self.F_11.eliminate_zeros()
 
 
             # ====================== 22 - block ([his, int] of DN) ===========================
@@ -307,7 +312,8 @@ class operators_mhd:
 
             ker.rhs11_2d(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
-            F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[1]))
+            self.F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[1]))
+            self.F_22.eliminate_zeros()
 
 
             # ====================== 33 - block ([his, his] of DD) ===========================
@@ -330,15 +336,16 @@ class operators_mhd:
 
             ker.rhs2_2d(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.subs[0], self.subs[1], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
-            F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[2]))
+            self.F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[2]))
+            self.F_33.eliminate_zeros()
         
             # ==================================== full operator ===================================
             if   which == 'm':
-                self.rhs_MF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
+                self.rhs_MF = self.pro.P2.dot(spa.bmat([[self.F_11, None, None], [None, self.F_22, None], [None, None, self.F_33]], format='csr').dot(self.pro.space.E2.T))
                 self.rhs_MF.eliminate_zeros()
                 
             elif which == 'p':
-                self.rhs_PF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
+                self.rhs_PF = self.pro.P2.dot(spa.bmat([[self.F_11, None, None], [None, self.F_22, None], [None, None, self.F_33]], format='csr').dot(self.pro.space.E2.T))
                 self.rhs_PF.eliminate_zeros()
                 
         elif self.basis_u == 0:
