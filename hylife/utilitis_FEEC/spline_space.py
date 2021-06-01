@@ -80,13 +80,55 @@ class spline_space_1d:
             self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
         
     
+    
+    # ====== spline extraction operators ===============
+    def set_extraction_operators(self, bc=['f', 'f']):
+        
+        # set boundary conditions
+        self.bc = bc
+        
+        n1 = self.NbaseN
+        d1 = self.NbaseD
+
+        # including boundary splines
+        self.E0_all = spa.identity(n1, dtype=float, format='csr')
+        self.E1_all = spa.identity(d1, dtype=float, format='csr')
+
+        # without boundary splines
+        E_NN = spa.identity(n1, format='csr')
+        E_DD = spa.identity(d1, format='csr')
+
+        # remove contributions from N-splines at eta1 = 0
+        if   bc[0] == 'd' and self.spl_kind == False:
+            E_NN = E_NN[1:, :]
+        elif bc[0] == 'd' and self.spl_kind == True:
+            raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+        # remove contributions from N-splines at eta1 = 1
+        if   bc[1] == 'd' and self.spl_kind == False:
+            E_NN = E_NN[:-1, :]
+        elif bc[1] == 'd' and self.spl_kind == True:
+            raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+        self.E0 = E_NN.tocsr().copy()
+        self.E1 = E_DD.tocsr().copy()
+                    
+            
     # =================================================
-    def assemble_M0(self, mapping=None):
-        self.M0 = mass_1d.get_V0(self, mapping)
+    def assemble_M0(self, weight=None):
+        self.M0  = self.E0.dot(mass_1d.get_M(self, 0, 0, weight).dot(self.E0.T))
         
     # =================================================
-    def assemble_M1(self, mapping=None):
-        self.M1 = mass_1d.get_V1(self, mapping)
+    def assemble_M1(self, weight=None):
+        self.M1  = self.E1.dot(mass_1d.get_M(self, 1, 1, weight).dot(self.E1.T))
+        
+    # =================================================
+    def assemble_M01(self, weight=None):
+        self.M01 = self.E0.dot(mass_1d.get_M(self, 0, 1, weight).dot(self.E1.T))
+        
+    # =================================================
+    def assemble_M10(self, weight=None):
+        self.M10 = self.E1.dot(mass_1d.get_M(self, 1, 0, weight).dot(self.E0.T))
     
     
     # =================================================
@@ -400,17 +442,17 @@ class tensor_spline_space:
                 E_DD = spa.identity(d1*d2, format='csr')
                 
                 # remove contributions from N-splines at eta1 = 0
-                if bc[0] == 'd' and self.spl_kind[0] == False:
+                if   bc[0] == 'd' and self.spl_kind[0] == False:
                     E_NN = E_NN[n2:, :]
                     E_ND = E_ND[d2:, :]
                 elif bc[0] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 # remove contributions from N-splines at eta1 = 1
-                if bc[1] == 'd' and self.spl_kind[0] == False:
+                if   bc[1] == 'd' and self.spl_kind[0] == False:
                     E_NN = E_NN[:-n2, :]
                     E_ND = E_ND[:-d2, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
+                elif bc[1] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 self.E0_pol = E_NN.tocsr().copy()
@@ -451,11 +493,11 @@ class tensor_spline_space:
                 E3_DD = polar_splines.E2.copy()
                 
                 # remove contributions from N-splines at eta1 = 1
-                if bc[1] == 'd' and self.spl_kind[0] == False:
+                if   bc[1] == 'd' and self.spl_kind[0] == False:
                     E0_NN = E0_NN[:-n2, :]
                     E1_ND = E1_ND[:-d2, :]
                     E2_ND = E2_ND[:-d2, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
+                elif bc[1] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 self.E0_pol = E0_NN.tocsr().copy()
@@ -498,17 +540,17 @@ class tensor_spline_space:
                 E_DD = spa.identity(d1*d2, format='csr')
                 
                 # remove contributions from N-splines at eta1 = 0
-                if bc[0] == 'd' and self.spl_kind[0] == False:
+                if   bc[0] == 'd' and self.spl_kind[0] == False:
                     E_NN = E_NN[n2:, :]
                     E_ND = E_ND[d2:, :]
                 elif bc[0] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 # remove contributions from N-splines at eta1 = 1
-                if bc[1] == 'd' and self.spl_kind[0] == False:
+                if   bc[1] == 'd' and self.spl_kind[0] == False:
                     E_NN = E_NN[:-n2, :]
                     E_ND = E_ND[:-d2, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
+                elif bc[1] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 self.E0_pol = E_NN.tocsr().copy()
@@ -516,6 +558,7 @@ class tensor_spline_space:
                 self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
                 self.E3_pol = E_DD.tocsr().copy()
                 
+                # expansion in third dimension
                 self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')  
                 E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
                 E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
@@ -533,33 +576,62 @@ class tensor_spline_space:
                 self.polar = True
                 
                 # including boundary splines
-                self.E0_pol_all = polar_splines.E0_pol.copy()
-                self.E1_pol_all = polar_splines.E1_pol.copy()
-                self.E2_pol_all = polar_splines.E2_pol.copy()
-                self.E3_pol_all = polar_splines.E3_pol.copy()                                                        
+                self.E0_pol_all = polar_splines.E0.copy()
+                self.E1_pol_all = polar_splines.E1C.copy()
+                self.E2_pol_all = polar_splines.E1D.copy()
+                self.E3_pol_all = polar_splines.E2.copy()
+                
+                # expansion in third dimension
+                self.E0_all     = spa.kron(self.E0_pol_all, spa.identity(n3), format='csr')  
+                E1_all_1        = spa.kron(self.E1_pol_all, spa.identity(n3), format='csr')
+                E1_all_3        = spa.kron(self.E0_pol_all, spa.identity(d3), format='csr')
+                
+                E2_all_1        = spa.kron(self.E2_pol_all, spa.identity(d3), format='csr')
+                E2_all_3        = spa.kron(self.E3_pol_all, spa.identity(n3), format='csr')
+                self.E3_all     = spa.kron(self.E3_pol_all, spa.identity(d3), format='csr')
+
+                self.E1_all     = spa.bmat([[E1_all_1, None], [None, E1_all_3]], format='csr')
+                self.E2_all     = spa.bmat([[E2_all_1, None], [None, E2_all_3]], format='csr')
+                
+                # including boundary splines
+                #self.E0_pol_all = polar_splines.E0_pol.copy()
+                #self.E1_pol_all = polar_splines.E1_pol.copy()
+                #self.E2_pol_all = polar_splines.E2_pol.copy()
+                #self.E3_pol_all = polar_splines.E3_pol.copy()                                                        
                                                
-                self.E0_all     = polar_splines.E0.copy()
-                self.E1_all     = polar_splines.E1.copy()
-                self.E2_all     = polar_splines.E2.copy()
-                self.E3_all     = polar_splines.E3.copy()
+                #self.E0_all     = polar_splines.E0.copy()
+                #self.E1_all     = polar_splines.E1.copy()
+                #self.E2_all     = polar_splines.E2.copy()
+                #self.E3_all     = polar_splines.E3.copy()
                 
                 # without boundary splines
-                E0_NN = polar_splines.E0_pol.copy()
+                E0_NN = polar_splines.E0.copy()
                 
-                E1_DN = polar_splines.E1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
-                E1_ND = polar_splines.E1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
+                E1_DN = polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
+                E1_ND = polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
                 
-                E2_ND = polar_splines.E2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
-                E2_DN = polar_splines.E2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
+                E2_ND = polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
+                E2_DN = polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
                 
-                E3_DD = polar_splines.E3_pol.copy()
+                E3_DD = polar_splines.E2.copy()
+                
+                # without boundary splines
+                #E0_NN = polar_splines.E0_pol.copy()
+                
+                #E1_DN = polar_splines.E1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
+                #E1_ND = polar_splines.E1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
+                
+                #E2_ND = polar_splines.E2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
+                #E2_DN = polar_splines.E2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
+                
+                #E3_DD = polar_splines.E3_pol.copy()
                 
                 # remove contributions from N-splines at eta1 = 1
-                if bc[1] == 'd' and self.spl_kind[0] == False:
+                if   bc[1] == 'd' and self.spl_kind[0] == False:
                     E0_NN = E0_NN[:-n2, :]
                     E1_ND = E1_ND[:-d2, :]
                     E2_ND = E2_ND[:-d2, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
+                elif bc[1] == 'd' and self.spl_kind[0] == True:
                     raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
                     
                 self.E0_pol = E0_NN.tocsr().copy()
@@ -580,26 +652,13 @@ class tensor_spline_space:
     
     
     
-    # ========= discrete derivatives (2D) =============
-    def set_derivatives_2D(self, mode_n):
-
-        derivatives = der.discrete_derivatives_2D(self, mode_n)
-           
-        # discrete gradient
-        self.G = derivatives.G
-
-        # discrete curl
-        self.C    = derivatives.C
-        self.C_wn = derivatives.C_wn
-        self.C_all = derivatives.C_all
-
-        # discrete div
-        self.D = derivatives.D 
+    # ============ discrete derivatives ===============
+    def set_derivatives(self, mode_n=1):
         
-    # ========= discrete derivatives (3D) =============
-    def set_derivatives_3D(self):
-
-        derivatives = der.discrete_derivatives_3D(self)
+        if self.dim == 2:
+            derivatives = der.discrete_derivatives_2D(self, mode_n)
+        else:
+            derivatives = der.discrete_derivatives_3D(self)
            
         # discrete gradient
         self.G = derivatives.G
@@ -608,7 +667,7 @@ class tensor_spline_space:
         self.C = derivatives.C
 
         # discrete div
-        self.D = derivatives.D 
+        self.D = derivatives.D
     
     # ============== mass matrices (2D) ===============
     def assemble_M0_2D(self, domain):
