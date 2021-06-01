@@ -49,35 +49,30 @@ class initial_mhd:
     # initial magnetic field (y - component)
     def b_ini_y(self, x, y, z):
         
-        by = 0*x
+        amp = 1e-4
+        
+        kx = 0.
+        ky = 0.
+        kz = 0.8
+        
+        by = amp*np.sin(kx*x + ky*y + kz*z)
 
         return by
 
     # initial magnetic field (z - component)
     def b_ini_z(self, x, y, z):
 
-        amp = 1e-3
-        
-        kx = 0.
-        ky = 0.
-        kz = 0.8
-        
-        bz = amp*np.sin(kx*x + ky*y + kz*z)
+        bz = 0*x
 
         return bz
 
     # initial bulk density
-    def rho_ini(self, x, y, z):
+    def r_ini(self, x, y, z):
 
         rho = 0*x
 
         return rho
 
-
-
-    # ===============================================================
-    #                       logical domain
-    # ===============================================================
 
     # ===============================================================
     #                       logical domain
@@ -96,15 +91,15 @@ class initial_mhd:
   
 
     # equilibrium bulk density (3-form on logical domain)
-    def rho3_ini(self, eta1, eta2, eta3=None):
+    def r3_ini(self, eta1, eta2, eta3=None):
         
         if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull(self.rho_ini, eta1, eta2, eta3, '3_form')
+            return self.domain.pull(self.r_ini, eta1, eta2, eta3, '3_form')
         else:
             if isinstance(eta1, float):
-                return self.domain.pull(self.rho_ini, eta1, eta2, 0., '3_form')
+                return self.domain.pull(self.r_ini, eta1, eta2, 0., '3_form')
             else:
-                return self.domain.pull(self.rho_ini, eta1, eta2, np.array([0.]), '3_form')[:, :, 0]
+                return self.domain.pull(self.r_ini, eta1, eta2, np.array([0.]), '3_form')[:, :, 0]
             
 
     # equilibrium current (2-form on logical domain, 1-component)

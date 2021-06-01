@@ -13,9 +13,9 @@ from numpy import exp, pi
 @types('double','double','double','double','double','double')
 def fh_eq_phys(x, y, z, vx, vy, vz):
     
-    v0x = 2.5
+    v0x = 0.
     v0y = 0.
-    v0z = 0.
+    v0z = 2.5
     
     vth = 1.
     
@@ -43,7 +43,7 @@ def nh_eq_phys(x, y, z):
 def jhx_eq(x, y, z):
     
     nh0 = 0.05
-    v0x = 2.5
+    v0x = 0.
     
     return nh0 * v0x
 
@@ -61,7 +61,7 @@ def jhy_eq(x, y, z):
 def jhz_eq(x, y, z):
     
     nh0 = 0.05
-    v0z = 0.
+    v0z = 2.5
     
     return nh0 * v0z
 
@@ -69,9 +69,9 @@ def jhz_eq(x, y, z):
 @types('int','double[:]')
 def eh_eq(kind_map, params_map):
     
-    v0x = 2.5
+    v0x = 0.
     v0y = 0.
-    v0z = 0.
+    v0z = 2.5
     
     vth = 1.
     

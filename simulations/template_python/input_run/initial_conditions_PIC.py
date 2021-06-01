@@ -13,9 +13,9 @@ from numpy import exp, pi
 @types('double','double','double','double','double','double')
 def fh_ini_phys(x, y, z, vx, vy, vz):
     
-    v0x = 2.5
+    v0x = 0.
     v0y = 0.
-    v0z = 0.
+    v0z = 2.5
     
     vth = 1.
     
@@ -48,9 +48,9 @@ def fh_ini(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn
 @types('double','double','double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def sh(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
-    v0x = 2.5
+    v0x = 0.
     v0y = 0.
-    v0z = 0.
+    v0z = 2.5
     
     vth = 1.
     
