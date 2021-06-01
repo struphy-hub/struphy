@@ -293,7 +293,7 @@ class discrete_derivatives_3D:
                 D_pol_1  = D_pol[:, :(2 + (NbaseN[0] - 3)*NbaseD[1]) ]
                 D_pol_2  = D_pol[:,  (2 + (NbaseN[0] - 2)*NbaseD[1]):]
  
-                D_pol    = spa.bmat([[div_pol_1, div_pol_2]], format='csr')
+                D_pol    = spa.bmat([[D_pol_1, D_pol_2]], format='csr')
             
             # final operators
             self.G = spa.bmat([[spa.kron(G_pol, spa.identity(NbaseN[2]))], [spa.kron(G_pol_3, self.grad_1d[2])]], format='csr')
