@@ -112,7 +112,7 @@ class domain:
                 self.params_map = params_map
             
         # ======= colella ==========
-        elif kind == 'colella':
+        elif kind_map == 'colella':
             self.kind_map   = 12
             
             if params_map == None:
@@ -121,7 +121,7 @@ class domain:
                 self.params_map = params_map
                 
         # ======= colella ==========
-        elif kind == 'orthogonal':
+        elif kind_map == 'orthogonal':
             self.kind_map   = 13
             
             if params_map == None:
@@ -130,7 +130,7 @@ class domain:
                 self.params_map = params_map
                 
         # ====== hollow torus ======
-        elif kind == 'hollow torus':
+        elif kind_map == 'hollow torus':
             self.kind_map   = 14
             
             if params_map == None:
