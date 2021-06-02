@@ -43,7 +43,7 @@ class spline_space_1d:
         kind of spline space (True = periodic, False = clamped)
         
     n_quad : int
-        optional: number of Gauss-Legendre quadrature points per element for integrations
+        number of Gauss-Legendre quadrature points per element for integrations (optional)
     """
     
     def __init__(self, Nel, p, spl_kind, n_quad=None):
@@ -134,20 +134,20 @@ class spline_space_1d:
     # =================================================
     def evaluate_N(self, eta, coeff):
         """
-        Evaluates the spline space (N) at the point eta for the coefficients coeff.
+        Evaluates the spline space (N) at the point(s) eta for given coefficients coeff.
 
         Parameters
         ----------
-        eta : double
-            evaluation point
+        eta : double or array_like
+            evaluation point(s)
         
         coeff : array_like
             FEM coefficients
 
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta
+        value : double or array_like
+            evaluated FEM field at the point(s) eta
         """
         
         if isinstance(eta, np.ndarray):
@@ -172,22 +172,63 @@ class spline_space_1d:
         
         
     # =================================================
-    def evaluate_dN(self, eta, coeff):
+    def evaluate_D(self, eta, coeff):
         """
-        Evaluates the spline space (N) at the point eta for the coefficients coeff.
+        Evaluates the spline space (D) at the point(s) eta for given coefficients coeff.
 
         Parameters
         ----------
-        eta : double
-            evaluation point
+        eta : double or array_like
+            evaluation point(s)
         
         coeff : array_like
             FEM coefficients
 
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta
+        value : double or array_like
+            evaluated FEM field at the point(s) eta
+        """
+        
+        if isinstance(eta, np.ndarray):
+            
+            if eta.ndim == 1:
+                values = np.empty(eta.size, dtype=float)
+
+                for i in range(eta.size):
+                    values[i] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i])
+                    
+            elif eta.ndim == 2:
+                values = np.empty(eta.shape, dtype=float)
+                
+                for i in range(eta.shape[0]):
+                    for j in range(eta.shape[1]):
+                        values[i, j] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i, j])
+                    
+            return values
+        
+        else:
+            return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
+    
+    
+    
+    # =================================================
+    def evaluate_dN(self, eta, coeff):
+        """
+        Evaluates the dervivative of the spline space (N) at the point(s) eta for the coefficients coeff.
+
+        Parameters
+        ----------
+        eta : double or array_like
+            evaluation point(s)
+        
+        coeff : array_like
+            FEM coefficients
+
+        Returns
+        -------
+        value : double or array_like
+            evaluated FEM field at the point(s) eta
         """
         
         if isinstance(eta, np.ndarray):
@@ -213,47 +254,18 @@ class spline_space_1d:
     
     
     # =================================================
-    def evaluate_D(self, eta, coeff):
+    def plot_splines(self, n_pts=500, which='B-splines'):
         """
-        Evaluates the spline space (D) at the point eta for the coefficients coeff.
-
+        Plots all basis functions.
+        
         Parameters
         ----------
-        eta : double
-            evaluation point
-        
-        coeff : array_like
-            FEM coefficients
-
-        Returns
-        -------
-        value : double
-            evaluated FEM field at the point eta
-        """
-        
-        if isinstance(eta, np.ndarray):
+        n_pts : int
+            number of points for plotting (optinal, default=500)
             
-            if eta.ndim == 1:
-                values = np.empty(eta.size, dtype=float)
-
-                for i in range(eta.size):
-                    values[i] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i])
-                    
-            elif eta.ndim == 2:
-                values = np.empty(eta.shape, dtype=float)
-                
-                for i in range(eta.shape[0]):
-                    for j in range(eta.shape[1]):
-                        values[i, j] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i, j])
-                    
-            return values
-        
-        else:
-            return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
-        
-        
-    # =================================================
-    def plot_splines(self, n_pts, which='B-splines'):
+        which : string
+            which basis to plot. B-splines (N) or M-splines (D) (optional, default='B-splines')
+        """
 
         etaplot = np.linspace(0., 1., n_pts)
 
@@ -291,7 +303,7 @@ class tensor_spline_space:
         1d B-spline spaces from which the tensor_product B-spline space is built 
     """
     
-    def __init__(self, spline_spaces, ):
+    def __init__(self, spline_spaces):
         
         self.spaces   = spline_spaces                            # 1D B-spline spaces
         self.dim      = len(self.spaces)                         # number of 1D B-spline spaces (= dimension)
