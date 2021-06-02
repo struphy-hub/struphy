@@ -28,15 +28,15 @@ class operators_mhd:
         # parameters
         self.basis_u = basis_u
         
-        # non-vanishing 1D indices of expressions pi0(N), pi0(D), pi1(N) and pi1(D)
+        # non-vanishing 1D indices of expressions R0(N), R0(D), R1(N) and R1(D)
         projectors_1d = [pro.projectors_global_1d(space, n_quad) for space, n_quad in zip(self.pro.space.spaces, self.pro.n_quad)]
         
-        self.pi0_x_N_i, self.pi0_x_D_i, self.pi1_x_N_i, self.pi1_x_D_i = projectors_1d[0].projection_matrices_1d_reduced()
-        self.pi0_y_N_i, self.pi0_y_D_i, self.pi1_y_N_i, self.pi1_y_D_i = projectors_1d[1].projection_matrices_1d_reduced()
+        self.pi0_x_N_i, self.pi0_x_D_i, self.pi1_x_N_i, self.pi1_x_D_i = projectors_1d[0].dofs_1d_bases()
+        self.pi0_y_N_i, self.pi0_y_D_i, self.pi1_y_N_i, self.pi1_y_D_i = projectors_1d[1].dofs_1d_bases()
         
         # non-vanishing 1D indices of expressions pi0(NN), pi0(DN), pi0(ND), pi0(DD), pi1(NN), pi1(DN), pi1(ND) and pi0(DD)
-        #self.pi0_x_NN_i, self.pi0_x_DN_i, self.pi0_x_ND_i, self.pi0_x_DD_i, self.pi1_x_NN_i, self.pi1_x_DN_i, self.pi1_x_ND_i, self.pi1_x_DD_i = projectors_1d[0].projection_matrices_1d()
-        #self.pi0_y_NN_i, self.pi0_y_DN_i, self.pi0_y_ND_i, self.pi0_y_DD_i, self.pi1_y_NN_i, self.pi1_y_DN_i, self.pi1_y_ND_i, self.pi1_y_DD_i = projectors_1d[1].projection_matrices_1d()
+        #self.pi0_x_NN_i, self.pi0_x_DN_i, self.pi0_x_ND_i, self.pi0_x_DD_i, self.pi1_x_NN_i, self.pi1_x_DN_i, self.pi1_x_ND_i, self.pi1_x_DD_i = projectors_1d[0].dofs_1d_bases_products()
+        #self.pi0_y_NN_i, self.pi0_y_DN_i, self.pi0_y_ND_i, self.pi0_y_DD_i, self.pi1_y_NN_i, self.pi1_y_DN_i, self.pi1_y_ND_i, self.pi1_y_DD_i = projectors_1d[1].dofs_1d_bases_products()
         
         kind_splines = [False, True]
         
@@ -46,7 +46,7 @@ class operators_mhd:
         self.basis_int_N = [bsp.collocation_matrix(T, p    , x_int, bc, normalize=kind_splines[0]) for T, p, x_int, bc in zip(self.pro.space.T, self.pro.space.p, self.x_int, self.pro.space.spl_kind)]
         self.basis_int_D = [bsp.collocation_matrix(t, p - 1, x_int, bc, normalize=kind_splines[1]) for t, p, x_int, bc in zip(self.pro.space.t, self.pro.space.p, self.x_int, self.pro.space.spl_kind)]
         
-        # remove small values
+        # remove small values resulting from round-off errors
         self.basis_int_N[0][self.basis_int_N[0] < 1e-10] = 0.
         self.basis_int_N[1][self.basis_int_N[1] < 1e-10] = 0.
 
