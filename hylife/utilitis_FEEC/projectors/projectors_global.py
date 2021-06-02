@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Classes for global projectors in 1D and 3D based on spline interpolation and histopolation.
+Classes for projectors in 1D, 2D and 3D based on global spline interpolation and histopolation.
 """
 
 import numpy as np
@@ -29,53 +29,37 @@ class projectors_global_1d:
         
     n_quad : int
         number of quadrature points per integration interval for histopolations
-        
-    polar : boolean
-        whether there is a polar singularity in the mapping
     """
     
-    def __init__(self, spline_space, n_quad, polar=False):
+    def __init__(self, spline_space, n_quad):
         
-        self.kind     = 'global'
+        self.space  = spline_space     # 1D B-splines space
+        self.n_quad = n_quad           # number of quadrature point per integration interval
+        self.kind   = 'global'         # kind of projector (global vs. local)
         
-        self.space    = spline_space          # 1D spline space
-        self.T        = spline_space.T        # knot vector
-        self.p        = spline_space.p        # spline degree
-        self.bc       = spline_space.spl_kind # boundary conditions
-        
-        self.NbaseN   = spline_space.NbaseN  # number of basis functions (N)
-        self.NbaseD   = spline_space.NbaseD  # number of basis functions (D)
-        
-        self.el_b     = spline_space.el_b    # element boundaries
-        
-        self.n_quad   = n_quad               # number of quadrature point per integration interval
-        
-        self.polar    = polar                # whether polar splines are used in the poloidal plane
+        n1 = self.space.NbaseN
+        d1 = self.space.NbaseD
         
         # Gauss - Legendre quadrature points and weights in (-1, 1)
-        self.pts_loc  = np.polynomial.legendre.leggauss(self.n_quad)[0]  
-        self.wts_loc  = np.polynomial.legendre.leggauss(self.n_quad)[1]
+        self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]  
+        self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
         
         # set interpolation points (Greville points)
-        self.x_int    = bsp.greville(self.T, self.p, self.bc)
+        self.x_int = bsp.greville(self.space.T, self.space.p, self.space.spl_kind)
         
         # set histopolation grid
-        if self.bc == False:
+        if self.space.spl_kind == False:
             self.x_his = np.copy(self.x_int)
         else:
-            self.x_his = np.append(self.x_int, self.el_b[-1] + self.x_int[0])
+            self.x_his = np.append(self.x_int, self.space.el_b[-1] + self.x_int[0])
               
         # quadrature grid and weights
         self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
-        self.pts           = self.pts%self.el_b[-1]
+        self.pts           = self.pts%self.space.el_b[-1]
         
-        # intepolation and histopolation_matrix
-        self.N     = spa.csr_matrix(bsp.collocation_matrix(self.T, self.p, self.x_int, self.bc))
-        self.D     = spa.csr_matrix(bsp.histopolation_matrix(self.T, self.p, self.x_int, self.bc))
-                       
-        # shift first interplation point in radial direction away from pole
-        #if self.bc == False and self.polar == True:
-         #   self.x_int[0] += 0.001
+        # interpolation and histopolation_matrix
+        self.N     = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind))
+        self.D     = spa.csr_matrix(bsp.histopolation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind))
         
         # LU decompositions
         self.N_LU  = spa.linalg.splu(self.N.tocsc())
@@ -90,14 +74,15 @@ class projectors_global_1d:
     def rhs_0(self, fun):
         return fun(self.x_int)
     
-    # evaluate integrals betwenn interpolation points
+    # evaluate integrals between interpolation points
     def rhs_1(self, fun):
         
         # evaluate function at quadrature points
         mat_f  = fun(self.pts.flatten()).reshape(self.pts.shape[0], self.pts.shape[1])
-        values = np.zeros(self.NbaseD, dtype=float)
+        values = np.zeros(self.space.NbaseD, dtype=float)
         
-        for i in range(self.NbaseD):
+        # compute integrals
+        for i in range(self.space.NbaseD):
             values[i] = ker_glob.kernel_int_1d(self.n_quad, self.wts[i], mat_f[i])
                 
         return values
@@ -111,266 +96,269 @@ class projectors_global_1d:
         return self.D_LU.solve(self.rhs_1(fun))
     
     
-    # projection matrices of products of basis functions: pi0_i(A_j*B_k) and pi1_i(A_j*B_k)
-    def projection_matrices_1d(self, params_map=None, kind='rhs', bc_kind=['free', 'free']):
     
-        PI0_NN = np.empty((self.NbaseN, self.NbaseN, self.NbaseN), dtype=float)
-        PI0_DN = np.empty((self.NbaseN, self.NbaseD, self.NbaseN), dtype=float)
-        PI0_DD = np.empty((self.NbaseN, self.NbaseD, self.NbaseD), dtype=float)
+    def pts_1d_bases(self):
+        """
+        basis functions evaluated at point sets: pts0_i(N_j), pts1_i(N_j), pts0_i(D_j) and pts1_i(D_j).
+        
+        pts0 : evaluation at greville points
+        pts1 : evaluation at quadrature points between greville points
+        
+        returns scipy.sparse matrix
+        """
+        
+        kind_splines = [False, True]
+        
+        pts0_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.x_int, self.space.spl_kind, kind_splines[0]))
+        pts0_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.x_int, self.space.spl_kind, kind_splines[1]))
+        
+        pts1_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.pts.flatten(), self.space.spl_kind, kind_splines[0]))
+        pts1_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.pts.flatten(), self.space.spl_kind, kind_splines[1]))
+        
+        return pts0_N, pts0_D, pts1_N, pts1_D
+    
+    
+    
+    def dofs_1d_bases(self):
+        """
+        computes degrees of freedom of basis functions.
+        
+        R0_i(N_j)
+        R1_i(N_j)
+        
+        R0_i(D_j)
+        R1_i(D_j)
+        
+        R0 : evaluation at greville points
+        R1 : integral between greville points
+        """
+        
+        R0_N = np.empty((self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R1_N = np.empty((self.space.NbaseD, self.space.NbaseN), dtype=float)
+        
+        R0_D = np.empty((self.space.NbaseN, self.space.NbaseD), dtype=float)
+        R1_D = np.empty((self.space.NbaseD, self.space.NbaseD), dtype=float)
 
-        PI1_NN = np.empty((self.NbaseD, self.NbaseN, self.NbaseN), dtype=float)
-        PI1_DN = np.empty((self.NbaseD, self.NbaseD, self.NbaseN), dtype=float)
-        PI1_DD = np.empty((self.NbaseD, self.NbaseD, self.NbaseD), dtype=float)
+
+        # ========= R0_N and R1_N =============
+        cj = np.zeros(self.space.NbaseN, dtype=float)
+
+        for j in range(self.space.NbaseN):
+
+            cj[:] = 0.
+            cj[j] = 1.
+
+            N_j = lambda eta : self.space.evaluate_N(eta, cj)
+
+            R0_N[:, j] = self.rhs_0(N_j)
+            R1_N[:, j] = self.rhs_1(N_j)
+            
+        # ========= R0_D and R1_D =============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+
+        for j in range(self.space.NbaseD):
+
+            cj[:] = 0.
+            cj[j] = 1.
+
+            D_j = lambda eta : self.space.evaluate_D(eta, cj)
+
+            R0_D[:, j] = self.rhs_0(D_j)
+            R1_D[:, j] = self.rhs_1(D_j)
+            
+        R0_N_indices = np.nonzero(R0_N)
+        R0_D_indices = np.nonzero(R0_D)
+        R1_N_indices = np.nonzero(R1_N)
+        R1_D_indices = np.nonzero(R1_D)
+        
+        return R0_N_indices, R0_D_indices, R1_N_indices, R1_D_indices
+    
+    
+    
+    def dofs_1d_bases_products(self):
+        """
+        computes degrees of freedom of products of basis functions.
+        
+        R0_i(N_j*N_k)
+        R0_i(D_j*N_k)
+        R0_i(N_j*D_k)
+        R0_i(D_j*D_k)
+        
+        R1_i(N_j*N_k)
+        R1_i(D_j*N_k)
+        R1_i(N_j*D_k)
+        R1_i(D_j*D_k)
+        
+        R0 : evaluation at greville points
+        R1 : integral between greville points
+        """
+    
+        R0_NN = np.empty((self.space.NbaseN, self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R0_DN = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseN), dtype=float)
+        R0_DD = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseD), dtype=float)
+
+        R1_NN = np.empty((self.space.NbaseD, self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R1_DN = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseN), dtype=float)
+        R1_DD = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseD), dtype=float)
 
 
-        # ========= PI0__NN and PI1_NN =============
-        ci = np.zeros(self.NbaseN, dtype=float)
-        cj = np.zeros(self.NbaseN, dtype=float)
+        # ========= R0_NN and R1_NN ==============
+        cj = np.zeros(self.space.NbaseN, dtype=float)
+        ck = np.zeros(self.space.NbaseN, dtype=float)
 
-        for i in range(self.NbaseN):
-            for j in range(self.NbaseN):
+        for j in range(self.space.NbaseN):
+            for k in range(self.space.NbaseN):
 
-                ci[:] = 0.
                 cj[:] = 0.
+                ck[:] = 0.
 
-                ci[i] = 1.
                 cj[j] = 1.
+                ck[k] = 1.
                 
-                if self.bc == False and self.polar == True:
-                    fun = lambda eta : self.space.evaluate_N(eta, ci)*self.space.evaluate_N(eta, cj)/(eta*2*np.pi*params_map[2]*params_map[1]**2)
-                else:
-                    fun = lambda eta : self.space.evaluate_N(eta, ci)*self.space.evaluate_N(eta, cj)
+                N_jN_k = lambda eta : self.space.evaluate_N(eta, cj)*self.space.evaluate_N(eta, ck)
 
-                if kind == 'rhs':
-                    PI0_NN[:, i, j] = self.rhs_0(fun)
-                    PI1_NN[:, i, j] = self.rhs_1(fun)
-                else:
-                    PI0_NN[:, i, j] = self.pi_0(fun)
-                    PI1_NN[:, i, j] = self.pi_1(fun)
+                R0_NN[:, j, k] = self.rhs_0(N_jN_k)
+                R1_NN[:, j, k] = self.rhs_1(N_jN_k)
 
 
+        # ========= R0_DN and R1_DN ==============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+        ck = np.zeros(self.space.NbaseN, dtype=float)
 
-        # ========= PI0__DN and PI1_DN =============
-        ci = np.zeros(self.NbaseD, dtype=float)
-        cj = np.zeros(self.NbaseN, dtype=float)
+        for j in range(self.space.NbaseD):
+            for k in range(self.space.NbaseN):
 
-        for i in range(self.NbaseD):
-            for j in range(self.NbaseN):
-
-                ci[:] = 0.
                 cj[:] = 0.
+                ck[:] = 0.
 
-                ci[i] = 1.
                 cj[j] = 1.
+                ck[k] = 1.
                 
-                if self.bc == False and self.polar == True:
-                    fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_N(eta, cj)/(eta*2*np.pi*params_map[2]*params_map[1]**2)
-                else:
-                    fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_N(eta, cj)
+                D_jN_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_N(eta, ck)
 
-                if kind == 'rhs':
-                    PI0_DN[:, i, j] = self.rhs_0(fun)
-                    PI1_DN[:, i, j] = self.rhs_1(fun)
-                else:
-                    PI0_DN[:, i, j] = self.pi_0(fun)
-                    PI1_DN[:, i, j] = self.pi_1(fun)
+                R0_DN[:, j, k] = self.rhs_0(D_jN_k)
+                R1_DN[:, j, k] = self.rhs_1(D_jN_k)
 
 
+        # ========= R0_DD and R1_DD =============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+        ck = np.zeros(self.space.NbaseD, dtype=float)
 
-        # ========= PI0__DD and PI1_DD =============
-        ci = np.zeros(self.NbaseD, dtype=float)
-        cj = np.zeros(self.NbaseD, dtype=float)
+        for j in range(self.space.NbaseD):
+            for k in range(self.space.NbaseD):
 
-        for i in range(self.NbaseD):
-            for j in range(self.NbaseD):
-
-                ci[:] = 0.
                 cj[:] = 0.
+                ck[:] = 0.
 
-                ci[i] = 1.
                 cj[j] = 1.
+                ck[k] = 1.
                 
-                if self.bc == False and self.polar == True:
-                    fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_D(eta, cj)/(eta*2*np.pi*params_map[2]*params_map[1]**2)
-                else:
-                    fun = lambda eta : self.space.evaluate_D(eta, ci)*self.space.evaluate_D(eta, cj)
-
-                if kind == 'rhs':
-                    PI0_DD[:, i, j] = self.rhs_0(fun)
-                    PI1_DD[:, i, j] = self.rhs_1(fun)
-                else:
-                    PI0_DD[:, i, j] = self.pi_0(fun)
-                    PI1_DD[:, i, j] = self.pi_1(fun)
+                D_jD_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_D(eta, ck)
+                
+                R0_DD[:, j, k] = self.rhs_0(D_jD_k)
+                R1_DD[:, j, k] = self.rhs_1(D_jD_k)
 
 
-        PI0_ND = np.transpose(PI0_DN, (0, 2, 1))
-        PI1_ND = np.transpose(PI1_DN, (0, 2, 1))
+        R0_ND = np.transpose(R0_DN, (0, 2, 1))
+        R1_ND = np.transpose(R1_DN, (0, 2, 1))
 
 
-        # remove contributions from first and last N-splines
-        if bc_kind[0] == 'dirichlet':
-            PI0_NN[:,  :,  0] = 0.
-            PI0_NN[:,  0,  :] = 0.
-            PI0_DN[:,  :,  0] = 0.
-            PI0_ND[:,  0,  :] = 0.
+        # find non-zero entries
+        R0_NN_indices = np.nonzero(R0_NN)
+        R0_DN_indices = np.nonzero(R0_DN)
+        R0_ND_indices = np.nonzero(R0_ND)
+        R0_DD_indices = np.nonzero(R0_DD)
 
-            PI1_NN[:,  :,  0] = 0.
-            PI1_NN[:,  0,  :] = 0.
-            PI1_DN[:,  :,  0] = 0.
-            PI1_ND[:,  0,  :] = 0.
-
-        if bc_kind[1] == 'dirichlet':    
-            PI0_NN[:,  :, -1] = 0.
-            PI0_NN[:, -1,  :] = 0.
-            PI0_DN[:,  :, -1] = 0.
-            PI0_ND[:, -1,  :] = 0.
-
-            PI1_NN[:,  :, -1] = 0.
-            PI1_NN[:, -1,  :] = 0.
-            PI1_DN[:,  :, -1] = 0.
-            PI1_ND[:, -1,  :] = 0.
-
-
-        PI0_NN_indices = np.nonzero(PI0_NN)
-        PI0_DN_indices = np.nonzero(PI0_DN)
-        PI0_ND_indices = np.nonzero(PI0_ND)
-        PI0_DD_indices = np.nonzero(PI0_DD)
-
-        PI1_NN_indices = np.nonzero(PI1_NN)
-        PI1_DN_indices = np.nonzero(PI1_DN)
-        PI1_ND_indices = np.nonzero(PI1_ND)
-        PI1_DD_indices = np.nonzero(PI1_DD)
+        R1_NN_indices = np.nonzero(R1_NN)
+        R1_DN_indices = np.nonzero(R1_DN)
+        R1_ND_indices = np.nonzero(R1_ND)
+        R1_DD_indices = np.nonzero(R1_DD)
         
-        PI0_NN_i_red = np.empty(PI0_NN_indices[0].size, dtype=int)
-        PI0_DN_i_red = np.empty(PI0_DN_indices[0].size, dtype=int)
-        PI0_ND_i_red = np.empty(PI0_ND_indices[0].size, dtype=int)
-        PI0_DD_i_red = np.empty(PI0_DD_indices[0].size, dtype=int)
+        R0_NN_i_red = np.empty(R0_NN_indices[0].size, dtype=int)
+        R0_DN_i_red = np.empty(R0_DN_indices[0].size, dtype=int)
+        R0_ND_i_red = np.empty(R0_ND_indices[0].size, dtype=int)
+        R0_DD_i_red = np.empty(R0_DD_indices[0].size, dtype=int)
 
-        PI1_NN_i_red = np.empty(PI1_NN_indices[0].size, dtype=int)
-        PI1_DN_i_red = np.empty(PI1_DN_indices[0].size, dtype=int)
-        PI1_ND_i_red = np.empty(PI1_ND_indices[0].size, dtype=int)
-        PI1_DD_i_red = np.empty(PI1_DD_indices[0].size, dtype=int)
+        R1_NN_i_red = np.empty(R1_NN_indices[0].size, dtype=int)
+        R1_DN_i_red = np.empty(R1_DN_indices[0].size, dtype=int)
+        R1_ND_i_red = np.empty(R1_ND_indices[0].size, dtype=int)
+        R1_DD_i_red = np.empty(R1_DD_indices[0].size, dtype=int)
         
         # ================================
-        nv = self.NbaseN*PI0_NN_indices[1] + PI0_NN_indices[2]
+        nv = self.space.NbaseN*R0_NN_indices[1] + R0_NN_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI0_NN_indices[0].size):
-            PI0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R0_NN_indices[0].size):
+            R0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseN*PI0_DN_indices[1] + PI0_DN_indices[2]
+        nv = self.space.NbaseN*R0_DN_indices[1] + R0_DN_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI0_DN_indices[0].size):
-            PI0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R0_DN_indices[0].size):
+            R0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseD*PI0_ND_indices[1] + PI0_ND_indices[2]
+        nv = self.space.NbaseD*R0_ND_indices[1] + R0_ND_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI0_ND_indices[0].size):
-            PI0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R0_ND_indices[0].size):
+            R0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseD*PI0_DD_indices[1] + PI0_DD_indices[2]
+        nv = self.space.NbaseD*R0_DD_indices[1] + R0_DD_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI0_DD_indices[0].size):
-            PI0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R0_DD_indices[0].size):
+            R0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseN*PI1_NN_indices[1] + PI1_NN_indices[2]
+        nv = self.space.NbaseN*R1_NN_indices[1] + R1_NN_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI1_NN_indices[0].size):
-            PI1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R1_NN_indices[0].size):
+            R1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseN*PI1_DN_indices[1] + PI1_DN_indices[2]
+        nv = self.space.NbaseN*R1_DN_indices[1] + R1_DN_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI1_DN_indices[0].size):
-            PI1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R1_DN_indices[0].size):
+            R1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseD*PI1_ND_indices[1] + PI1_ND_indices[2]
+        nv = self.space.NbaseD*R1_ND_indices[1] + R1_ND_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI1_ND_indices[0].size):
-            PI1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(R1_ND_indices[0].size):
+            R1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.NbaseD*PI1_DD_indices[1] + PI1_DD_indices[2]
+        nv = self.space.NbaseD*R1_DD_indices[1] + R1_DD_indices[2]
         un = np.unique(nv)
         
-        for i in range(PI1_DD_indices[0].size):
-            PI1_DD_i_red[i] = np.nonzero(un == nv[i])[0] 
+        for i in range(R1_DD_indices[0].size):
+            R1_DD_i_red[i] = np.nonzero(un == nv[i])[0] 
             
             
-        PI0_NN_indices = np.vstack((PI0_NN_indices[0], PI0_NN_indices[1], PI0_NN_indices[2], PI0_NN_i_red))
-        PI0_DN_indices = np.vstack((PI0_DN_indices[0], PI0_DN_indices[1], PI0_DN_indices[2], PI0_DN_i_red))
-        PI0_ND_indices = np.vstack((PI0_ND_indices[0], PI0_ND_indices[1], PI0_ND_indices[2], PI0_ND_i_red))
-        PI0_DD_indices = np.vstack((PI0_DD_indices[0], PI0_DD_indices[1], PI0_DD_indices[2], PI0_DD_i_red))
+        R0_NN_indices = np.vstack((R0_NN_indices[0], R0_NN_indices[1], R0_NN_indices[2], R0_NN_i_red))
+        R0_DN_indices = np.vstack((R0_DN_indices[0], R0_DN_indices[1], R0_DN_indices[2], R0_DN_i_red))
+        R0_ND_indices = np.vstack((R0_ND_indices[0], R0_ND_indices[1], R0_ND_indices[2], R0_ND_i_red))
+        R0_DD_indices = np.vstack((R0_DD_indices[0], R0_DD_indices[1], R0_DD_indices[2], R0_DD_i_red))
 
-        PI1_NN_indices = np.vstack((PI1_NN_indices[0], PI1_NN_indices[1], PI1_NN_indices[2], PI1_NN_i_red))
-        PI1_DN_indices = np.vstack((PI1_DN_indices[0], PI1_DN_indices[1], PI1_DN_indices[2], PI1_DN_i_red))
-        PI1_ND_indices = np.vstack((PI1_ND_indices[0], PI1_ND_indices[1], PI1_ND_indices[2], PI1_ND_i_red))
-        PI1_DD_indices = np.vstack((PI1_DD_indices[0], PI1_DD_indices[1], PI1_DD_indices[2], PI1_DD_i_red))
+        R1_NN_indices = np.vstack((R1_NN_indices[0], R1_NN_indices[1], R1_NN_indices[2], R1_NN_i_red))
+        R1_DN_indices = np.vstack((R1_DN_indices[0], R1_DN_indices[1], R1_DN_indices[2], R1_DN_i_red))
+        R1_ND_indices = np.vstack((R1_ND_indices[0], R1_ND_indices[1], R1_ND_indices[2], R1_ND_i_red))
+        R1_DD_indices = np.vstack((R1_DD_indices[0], R1_DD_indices[1], R1_DD_indices[2], R1_DD_i_red))
         
 
-        #return PI0_NN, PI0_DN, PI0_ND, PI0_DD, PI1_NN, PI1_DN, PI1_ND, PI1_DD, PI0_NN_indices, PI0_DN_indices, PI0_ND_indices, PI0_DD_indices, PI1_NN_indices, PI1_DN_indices, PI1_ND_indices, PI1_DD_indices
+        return R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices 
         
-        return PI0_NN_indices, PI0_DN_indices, PI0_ND_indices, PI0_DD_indices, PI1_NN_indices, PI1_DN_indices, PI1_ND_indices, PI1_DD_indices 
-    
-    
-    
-    # projection matrices of products basis functions: pi0_i(A_j) and pi1_i(A_j) for A = N or A = D
-    def projection_matrices_1d_reduced(self):
+        #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
         
-        PI0_N = np.empty((self.NbaseN, self.NbaseN), dtype=float)
-        PI0_D = np.empty((self.NbaseN, self.NbaseD), dtype=float)
-
-        PI1_N = np.empty((self.NbaseD, self.NbaseN), dtype=float)
-        PI1_D = np.empty((self.NbaseD, self.NbaseD), dtype=float)
-
-
-        # ========= PI0_N and PI1_N =============
-        ci = np.zeros(self.NbaseN, dtype=float)
-
-        for i in range(self.NbaseN):
-
-            ci[:] = 0.
-            ci[i] = 1.
-
-            fun = lambda eta : self.space.evaluate_N(eta, ci)
-
-            PI0_N[:, i] = self.rhs_0(fun)
-            PI1_N[:, i] = self.rhs_1(fun)
-            
-        # ========= PI0_D and PI1_D =============
-        ci = np.zeros(self.NbaseD, dtype=float)
-
-        for i in range(self.NbaseD):
-
-            ci[:] = 0.
-            ci[i] = 1.
-
-            fun = lambda eta : self.space.evaluate_D(eta, ci)
-
-            PI0_D[:, i] = self.rhs_0(fun)
-            PI1_D[:, i] = self.rhs_1(fun)
-            
-        PI0_N_indices = np.nonzero(PI0_N)
-        PI0_D_indices = np.nonzero(PI0_D)
-        PI1_N_indices = np.nonzero(PI1_N)
-        PI1_D_indices = np.nonzero(PI1_D)
-        
-        return PI0_N_indices, PI0_D_indices, PI1_N_indices, PI1_D_indices
 
     
 
-    
 # ======================= 2d ====================================
 class projectors_global_2d:
     """
@@ -383,9 +371,6 @@ class projectors_global_2d:
         
     n_quad : int
         number of Gauss-Legendre quadrature points per integration interval for histopolations
-        
-    polar_splines : polar_splines_2d
-        class for polar splines in the poloidal plane (optional)
     """
     
     def __init__(self, tensor_space, n_quad):
@@ -860,13 +845,10 @@ class projectors_global_3d:
     Parameters
     ----------
     tensor_space : tensor_spline_space
-        a 3d tensor-product space of B-splines
+        a 3d tensor-product space of B-splines (set_extraction_operators must have been called)
         
     n_quad : int
         number of Gauss-Legendre quadrature points per integration interval for histopolations
-        
-    polar_splines : polar_splines_3d
-        class for polar splines in the poloidal plane (optional)
     """
     
     def __init__(self, tensor_space, n_quad):
