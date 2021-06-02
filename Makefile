@@ -31,14 +31,11 @@ DER  := hylife/utilitis_FEEC/derivatives/kernels_derivatives
 LAC  := hylife/linear_algebra/core
 LAT  := hylife/linear_algebra/kernels_tensor_product
 
-#EQM  := $(all_sim)/$(run_dir)/input_run/equilibrium_MHD
 EQP  := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
-#ICM  := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
 ICP  := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
 
 KCV  := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
 
-#KPV  := $(all_sim)/$(run_dir)/source_run/kernels_projectors_evaluation
 KPL  := hylife/utilitis_FEEC/projectors/kernels_projectors_local
 KPG  := hylife/utilitis_FEEC/projectors/kernels_projectors_global
 KPLM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
@@ -99,23 +96,14 @@ $(LAC)$(SO_EXT) : $(LAC).py
 $(LAT)$(SO_EXT) : $(LAT).py
 	pyccel $< $(FLAGS)
     
-#$(EQM)$(SO_EXT) : $(EQM).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
-#	pyccel $< $(FLAGS)
-    
 $(EQP)$(SO_EXT) : $(EQP).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
 	pyccel $< $(FLAGS)
-
-#$(ICM)$(SO_EXT) : $(ICM).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
-#	pyccel $< $(FLAGS)
     
 $(ICP)$(SO_EXT) : $(ICP).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KCV)$(SO_EXT) : $(KCV).py $(M3)$(SO_EXT) $(EQP)$(SO_EXT)
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-
-#$(KPV)$(SO_EXT) : $(KPV).py $(M3)$(SO_EXT) $(EQM)$(SO_EXT) $(ICM)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
 $(KPL)$(SO_EXT) : $(KPL).py
 	pyccel $< $(FLAGS)

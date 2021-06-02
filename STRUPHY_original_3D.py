@@ -29,13 +29,13 @@ import scipy.sparse  as spa
 import scipy.special as sp
 
 # load global hylife modules
-import hylife.geometry.polar_splines as pol_spl
 import hylife.geometry.domain_3d     as dom
+import hylife.geometry.polar_splines as pol_spl
 
 import hylife.utilitis_FEEC.spline_space as spl
 
-import hylife.utilitis_FEEC.projectors.projectors_global  as pro
-import hylife.utilitis_FEEC.projectors.mhd_operators_3d   as mhd
+import hylife.utilitis_FEEC.projectors.projectors_global       as pro
+import hylife.utilitis_FEEC.projectors.mhd_operators_3d_global as mhd
 
 import hylife.utilitis_PIC.sobol_seq    as sobol
 import hylife.utilitis_PIC.pusher       as pic_pusher
@@ -45,7 +45,7 @@ import hylife.utilitis_PIC.sampling     as pic_sample
 import hylife.dispersion_relations.MHD_eigenvalues_2D as eig_2d
 
 # load local input files
-import input_run.equilibrium_PIC        as eq_PIC
+import input_run.equilibrium_PIC        as equ_PIC
 import input_run.equilibrium_MHD        as equ_MHD
 import input_run.initial_conditions_MHD as init_MHD
 
@@ -149,6 +149,9 @@ energies     = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 
 
 energies_loc = {'U' : np.empty(1, dtype=float), 'B' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float), 'f' : np.empty(1, dtype=float)}
 
+# energies after Hamiltonian steps
+energies_H   = {'U' : np.empty(1, dtype=float), 'p' : np.empty(1, dtype=float)}
+
 # snapshots of distribution function via particle binning
 n_bins       = {'eta1_vx' : [32, 64]}
 bin_edges    = {'eta1_vx' : [np.linspace(0., 1., n_bins['eta1_vx'][0] + 1), np.linspace(0., 5., n_bins['eta1_vx'][1] + 1)]}
@@ -163,6 +166,9 @@ fh           = {'eta1_vx' : np.empty((n_bins['eta1_vx'][0], n_bins['eta1_vx'][1]
 # 1d B-spline spline spaces for finite elements
 spaces_FEM = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel, p, spl_kind, nq_el)]
 
+# 2d tensor-product B-spline space for polar splines (if used)
+tensor_space_pol = spl.tensor_spline_space(spaces_FEM[:2])
+
 # 3d tensor-product B-spline space for finite elements
 tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
 # =======================================================================
@@ -171,28 +177,35 @@ tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
 # ========= geometry in case of spline mapping ==========================
 if geometry == 'spline' or polar == True:
 
-    X = lambda eta1, eta2, eta3 : 1*eta1*np.cos(2*np.pi*eta2)
-    Y = lambda eta1, eta2, eta3 : 1*eta1*np.sin(2*np.pi*eta2)
-    Z = lambda eta1, eta2, eta3 : params_map[0]*eta3
+    #X = lambda eta1, eta2, eta3 : 1*eta1*np.cos(2*np.pi*eta2)
+    #Y = lambda eta1, eta2, eta3 : 1*eta1*np.sin(2*np.pi*eta2)
+    #Z = lambda eta1, eta2, eta3 : params_map[0]*eta3
                                
-    cx, cy, cz = dom.interp_mapping(Nel_MAP, p_MAP, spl_kind_MAP, X, Y, Z)
+    #cx, cy, cz = dom.interp_mapping(Nel_MAP, p_MAP, spl_kind_MAP, X, Y, Z)
+    
+    X = lambda eta1, eta2 : 1*eta1*np.cos(2*np.pi*eta2) + 0
+    Y = lambda eta1, eta2 : 1*eta1*np.sin(2*np.pi*eta2)
+    
+    cx, cy = dom.interp_mapping(Nel_MAP[:2], p_MAP[:2], spl_kind_MAP[:2], X, Y)
+    
+    # create domain object
+    domain = dom.domain(geometry, params_map, Nel_MAP[:2], p_MAP[:2], spl_kind_MAP[:2], cx, cy)
 
     # create polar splines in poloidal plane
     if polar == True:
-        polar_splines = pol_spl.polar_splines(tensor_space_FEM, cx, cy)
+        polar_splines = pol_spl.polar_splines_2D(tensor_space_pol, domain.cx[:, :, 0], domain.cy[:, :, 0])
     else:
         polar_splines = None
-        
-    # create domain object
-    domain = dom.domain(geometry, params_map, Nel_MAP[:2], p_MAP[:2], spl_kind_MAP[:2], cx[:, :, 0], cy[:, :, 0])
-        
+          
 else:
+    
+    # create domain object
+    domain = dom.domain(geometry, params_map)
     
     # create polar splines in poloidal plane
     polar_splines = None
     
-    # create domain object
-    domain = dom.domain(geometry, params_map)
+    
     
 # for plotting
 import matplotlib.pyplot as plt
@@ -203,72 +216,27 @@ xplot = domain.evaluate(etaplot[0], etaplot[1], etaplot[2], 'x')
 yplot = domain.evaluate(etaplot[0], etaplot[1], etaplot[2], 'y')
 zplot = domain.evaluate(etaplot[0], etaplot[1], etaplot[2], 'z')
 
-E1, E2, E3 = np.meshgrid(etaplot[0], etaplot[1], etaplot[2], indexing='ij')    
+E1, E2, E3 = np.meshgrid(etaplot[0], etaplot[1], etaplot[2], indexing='ij')
+
+# load MHD equilibrium
+eq_MHD = equ_MHD.equilibrium_mhd(domain)
 # =======================================================================
+
 
 #plt.scatter(domain.cx[:, :, 0].flatten(), domain.cy[:, :, 0].flatten())
 #plt.axis('square')
 #plt.show()
 #sys.exit()
 
-# ==================== matrices =========================================
-# set boundary conditions and extraction operators
+#plt.plot(etaplot[0], eq_MHD.q(etaplot[0]))
+#plt.plot(etaplot[0], eq_MHD.r0_eq(etaplot[0], etaplot[1])[:, 50])
+#plt.show()
+#sys.exit()
+
+# ======= set extraction operators and discrete derivatives ============= 
 tensor_space_FEM.set_extraction_operators(bc, polar_splines)
-
-if mpi_rank == 0: 
-    
-    # set discrete derivatives
-    tensor_space_FEM.set_derivatives_3D()
-    
-    # assemble mass matrices in space of discrete 2-forms (V2) and discrete 3-forms (V3)
-    tensor_space_FEM.assemble_M2(domain)
-    tensor_space_FEM.assemble_M3(domain)
-
-    if basis_u == 0:
-        # mass matrix in space of discrete contravariant vector fields using the V0 basis (NNN)
-        tensor_space_FEM.assemble_Mv0(domain)
-        
-    print('assembly of mass matrices done!')
-# ========================================================================
-    
-
-# ================== linear MHD operators ================================
-# load equilibrium
-eq_MHD = equ_MHD.equilibrium_mhd(domain)
-
-# create 3d projector
-pro_3d = pro.projectors_global_3d(tensor_space_FEM, nq_pr)
-
-# projection of input equilibrium
-r3_eq = pro_3d.pi_3(eq_MHD.rho3_eq, include_bc=True, eval_kind='tp')
-r0_eq = pro_3d.pi_0(eq_MHD.rho0_eq, include_bc=True, eval_kind='tp')
-
-p3_eq = pro_3d.pi_3(eq_MHD.p3_eq, include_bc=True, eval_kind='tp')
-p0_eq = pro_3d.pi_0(eq_MHD.p0_eq, include_bc=True, eval_kind='tp')
-
-b2_eq = pro_3d.pi_2([eq_MHD.b2_eq_1, eq_MHD.b2_eq_2, eq_MHD.b2_eq_3], include_bc=True, eval_kind='tp')
-j2_eq = pro_3d.pi_2([eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3], include_bc=True, eval_kind='tp')
-
-if mpi_rank == 0:  
-    # interface for semi-discrete linear MHD operators
-    MHD = mhd.operators_mhd(pro_3d, dt, gamma, loc_jeq, basis_u)
-    
-    # assemble right-hand sides of projection matrices
-    MHD.assemble_rhs_EF(domain, [eq_MHD.b2_eq_1, eq_MHD.b2_eq_2, eq_MHD.b2_eq_3])
-    MHD.assemble_rhs_F( domain, 'm', eq_MHD.rho3_eq)
-    MHD.assemble_rhs_F( domain, 'p', eq_MHD.p3_eq)
-    MHD.assemble_rhs_PR(domain,  eq_MHD.p3_eq)
-    
-    if basis_u == 0:
-        MHD.assemble_rhs_W(domain, eq_MHD.rho3_eq)
-        MHD.assemble_rhs_F(domain, 'j')
-    
-    MHD.assemble_TF_V2(domain, [eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3])
-    
-    # create liner MHD operators as scipy.sparse.linalg.LinearOperator
-    MHD.setOperators()
+tensor_space_FEM.set_derivatives()
 # =======================================================================
-
 
 
 # ======= reserve memory for FEM cofficients (all MPI processes) ========
@@ -294,7 +262,6 @@ N_dof_3form = tensor_space_FEM.E3.shape[0]
 # initial conditions (density, pressure, magnetic field, velocity)
 r3 = np.zeros(N_dof_3form, dtype=float)
 p3 = np.zeros(N_dof_3form, dtype=float)
-
 b2 = np.zeros(N_dof_2form, dtype=float)
 
 if   basis_u == 0:
@@ -303,6 +270,9 @@ if   basis_u == 0:
 elif basis_u == 2:
     up     = np.zeros(N_dof_2form, dtype=float)
     up_old = np.zeros(N_dof_2form, dtype=float)
+    
+# create 3d projector
+pro_3d = pro.projectors_global_3d(tensor_space_FEM, nq_pr)
 # =======================================================================
 
 
@@ -310,7 +280,7 @@ elif basis_u == 2:
 if False:
     U2_ini = eig_2d.solve_ev_problem_FEEC_2D([Nel[:2], p[:2], spl_kind[:2], nq_el[:2], nq_pr[:2], bc], domain, eq_MHD, gamma, 1)
 
-    up[:]  = pro_3d.pi_2(U2_ini, include_bc=False, eval_kind='points')
+    up[:]  = pro_3d.pi_2(U2_ini, include_bc=False, eval_kind='points', interp=True)
 # ========================================================================
 
 #plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[:, :, 0], levels=50, cmap='jet')
@@ -328,22 +298,22 @@ if False:
 if True:
     ini_MHD = init_MHD.initial_mhd(domain)
     
-    r3[:] = pro_3d.pi_3(ini_MHD.rho3_ini, include_bc=False, eval_kind='tp')
-    p3[:] = pro_3d.pi_3(ini_MHD.p3_ini, include_bc=False, eval_kind='tp')
+    r3[:] = pro_3d.pi_3(ini_MHD.r3_ini, include_bc=False, eval_kind='tensor_product', interp=True)
+    p3[:] = pro_3d.pi_3(ini_MHD.p3_ini, include_bc=False, eval_kind='tensor_product', interp=True)
 
-    b2[:] = pro_3d.pi_2([ini_MHD.b2_ini_1, ini_MHD.b2_ini_2, ini_MHD.b2_ini_3], include_bc=False, eval_kind='tp')
+    b2[:] = pro_3d.pi_2([ini_MHD.b2_ini_1, ini_MHD.b2_ini_2, ini_MHD.b2_ini_3], include_bc=False, eval_kind='tensor_product', interp=True)
 
     if   basis_u == 0:
 
-        up_1  = pro_3d.pi_0(ini_MHD.u_ini_1, include_bc=False, eval_kind='tp')
-        up_2  = pro_3d.pi_0(ini_MHD.u_ini_2, include_bc=True , eval_kind='tp')
-        up_3  = pro_3d.pi_0(ini_MHD.u_ini_3, include_bc=True , eval_kind='tp')
+        up_1  = pro_3d.pi_0(ini_MHD.u_ini_1, include_bc=False, eval_kind='tensor_product', interp=True)
+        up_2  = pro_3d.pi_0(ini_MHD.u_ini_2, include_bc=True , eval_kind='tensor_product', interp=True)
+        up_3  = pro_3d.pi_0(ini_MHD.u_ini_3, include_bc=True , eval_kind='tensor_product', interp=True)
 
         up[:] = np.concatenate((up_1, up_2, up_3))
 
     elif basis_u == 2:    
 
-        up[:] = pro_3d.pi_2([ini_MHD.u2_ini_1, ini_MHD.u2_ini_2, ini_MHD.u2_ini_3], include_bc=False, eval_kind='tp')
+        up[:] = pro_3d.pi_2([ini_MHD.u2_ini_1, ini_MHD.u2_ini_2, ini_MHD.u2_ini_3], include_bc=False, eval_kind='tensor_product', interp=True)
 
 
 #plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[:, :, 0], levels=50, cmap='jet')
@@ -355,6 +325,9 @@ if True:
 #
 #print(abs(tensor_space_FEM.D.dot(up)).max())
 #
+
+#plt.plot(etaplot[2], tensor_space_FEM.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], b2)[10, 10, :])
+#plt.show()
 #sys.exit()
         
         
@@ -434,6 +407,55 @@ if False:
 
 print('projection of initial conditions and equilibrium done!')
 # ========================================================================
+
+
+
+# ================= mass matrices ========================================
+if mpi_rank == 0: 
+    
+    # assemble mass matrices in space of discrete 2-forms (V2) and discrete 3-forms (V3)
+    tensor_space_FEM.assemble_M2(domain)
+    tensor_space_FEM.assemble_M3(domain)
+
+    if basis_u == 0:
+        # mass matrix in space of discrete contravariant vector fields using the V0 basis (NNN)
+        tensor_space_FEM.assemble_Mv0(domain)
+        
+    print('assembly of mass matrices done!')
+# ========================================================================
+    
+
+# ================== linear MHD operators ================================
+# projection of input equilibrium
+r3_eq = pro_3d.pi_3(eq_MHD.r3_eq, include_bc=True, eval_kind='tensor_product', interp=True)
+r0_eq = pro_3d.pi_0(eq_MHD.r0_eq, include_bc=True, eval_kind='tensor_product', interp=True)
+
+p3_eq = pro_3d.pi_3(eq_MHD.p3_eq, include_bc=True, eval_kind='tensor_product', interp=True)
+p0_eq = pro_3d.pi_0(eq_MHD.p0_eq, include_bc=True, eval_kind='tensor_product', interp=True)
+
+b2_eq = pro_3d.pi_2([eq_MHD.b2_eq_1, eq_MHD.b2_eq_2, eq_MHD.b2_eq_3], include_bc=True, eval_kind='tensor_product', interp=True)
+j2_eq = pro_3d.pi_2([eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3], include_bc=True, eval_kind='tensor_product', interp=True)
+
+if mpi_rank == 0:  
+    # interface for semi-discrete linear MHD operators
+    MHD = mhd.operators_mhd(pro_3d, dt, gamma, loc_jeq, basis_u)
+    
+    # assemble right-hand sides of projection matrices
+    MHD.assemble_rhs_EF(domain     , [eq_MHD.b2_eq_1, eq_MHD.b2_eq_2, eq_MHD.b2_eq_3])
+    MHD.assemble_rhs_F( domain, 'm',  eq_MHD.r3_eq)
+    MHD.assemble_rhs_F( domain, 'p',  eq_MHD.p3_eq)
+    MHD.assemble_rhs_PR(domain     ,  eq_MHD.p3_eq)
+    
+    if basis_u == 0:
+        MHD.assemble_rhs_W(domain, eq_MHD.r3_eq)
+        MHD.assemble_rhs_F(domain, 'j')
+    
+    MHD.assemble_TF_V2(domain, [eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3])
+    
+    # create liner MHD operators as scipy.sparse.linalg.LinearOperator
+    MHD.setOperators()
+# =======================================================================
+
 
 
     
@@ -522,13 +544,16 @@ if mpi_rank == 0:
     energies['U'][0] = 1/2*up.dot(MHD.A(up))
     energies['B'][0] = 1/2*b2.dot(tensor_space_FEM.M2.dot(b2))
     energies['p'][0] = 1/(gamma - 1)*sum(p3.flatten())
+    
+    energies_H['U'][0] = energies['U'][0]
+    energies_H['p'][0] = energies['p'][0]
 
 energies_loc['f'][0] = particles_loc[6].dot(particles_loc[3]**2 + particles_loc[4]**2 + particles_loc[5]**2)/(2*Np)
 mpi_comm.Reduce(energies_loc['f'], energies['f'], op=MPI.SUM, root=0)
 
 # subtract equilibrium hot ion energy for analaytical mappings and full-f
 if geometry != 'spline':
-    energies['f'] += (control - 1)*eq_PIC.eh_eq(domain.kind_map, domain.params_map)
+    energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)
     
 # initial distribution function
 fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
@@ -561,13 +586,6 @@ if mpi_rank == 0:
         print('ILU of S6_local done!', timeb - timea)
 # ===============================================================================
 
-
-#print('nnz S2_ILU : ', MHD.S2_ILU.nnz)
-#print('nnz S2_LU : ' , MHD.S2_LU.nnz)
-
-#print('expected : ', (3*Nel[0]*Nel[1]*Nel[2])**2)
-
-#sys.exit()
 
 
 # ==================== time integrator ==========================================
@@ -768,6 +786,10 @@ def update():
     #       step 6 (1 : update rh, u and pr from non - Hamiltonian MHD terms)
     # ====================================================================================
     if add_pressure == True and mpi_rank == 0:
+        
+        # save energies after Hamiltonian steps
+        energies_H['U'][0] = 1/2*up.dot(MHD.A(up))
+        energies_H['p'][0] = 1/(gamma - 1)*sum(p3.flatten())
 
         timea = time.time()
         
@@ -814,7 +836,7 @@ def update():
 
     # subtract equilibrium hot ion energy for analaytical mappings and full-f
     if geometry != 'spline':
-        energies['f'] += (control - 1)*eq_PIC.eh_eq(domain.kind_map, domain.params_map)
+        energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)
 
     # distribution function
     fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
@@ -917,6 +939,9 @@ if time_int == True:
             file.create_dataset('energies/magnetic'               , (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('energies/bulk_internal'          , (1,), maxshape=(None,), dtype=float, chunks=True)
             file.create_dataset('energies/energetic'              , (1,), maxshape=(None,), dtype=float, chunks=True)
+            
+            file.create_dataset('energies/bulk_kinetic_H'         , (1,), maxshape=(None,), dtype=float, chunks=True)
+            file.create_dataset('energies/bulk_internal_H'        , (1,), maxshape=(None,), dtype=float, chunks=True)
 
             # elapsed times of different parts of the code
             file.create_dataset('times_elapsed/total'             , (1,), maxshape=(None,), dtype=float, chunks=True)
@@ -1019,6 +1044,9 @@ if time_int == True:
             file['energies/magnetic'][0]          = energies['B'][0]
             file['energies/bulk_internal'][0]     = energies['p'][0]
             file['energies/energetic'][0]         = energies['f'][0]
+            
+            file['energies/bulk_kinetic_H'][0]    = energies_H['U'][0]
+            file['energies/bulk_internal_H'][0]   = energies_H['p'][0]
             
             file['pressure'][0]                   = tensor_space_FEM.extract_3form(p3)
             file['density'][0]                    = tensor_space_FEM.extract_3form(r3)
@@ -1214,6 +1242,11 @@ if time_int == True:
             file['energies/magnetic'][-1]      = energies['B'][0]
             file['energies/bulk_internal'][-1] = energies['p'][0]
             file['energies/energetic'][-1]     = energies['f'][0]
+            
+            file['energies/bulk_kinetic_H'].resize(file['energies/bulk_kinetic_H'].shape[0] + 1, axis = 0)
+            file['energies/bulk_internal_H'].resize(file['energies/bulk_internal_H'].shape[0] + 1, axis = 0)
+            file['energies/bulk_kinetic_H'][-1]  = energies_H['U'][0]
+            file['energies/bulk_internal_H'][-1] = energies_H['p'][0]
 
             # elapsed times of different parts of the code
             file['times_elapsed/total'].resize(file['times_elapsed/total'].shape[0] + 1, axis = 0)
@@ -1249,8 +1282,8 @@ if time_int == True:
             file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
             file['pressure'][-1] = tensor_space_FEM.extract_3form(p3)
             
-            #file['density'].resize(file['density'].shape[0] + 1, axis = 0)
-            #file['density'][-1] = tensor_space_FEM.extract_3form(r3)
+            file['density'].resize(file['density'].shape[0] + 1, axis = 0)
+            file['density'][-1] = tensor_space_FEM.extract_3form(r3)
             
             b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2)
             file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
@@ -1273,8 +1306,8 @@ if time_int == True:
             file['velocity_field/3_component'][-1] = up_ten_3
             
             # other diagnostics
-            #file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
-            #file['magnetic_field/divergence'][-1] = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
+            file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
+            file['magnetic_field/divergence'][-1] = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
 
             file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
             file['bulk_mass'][-1] = sum(r3.flatten())
