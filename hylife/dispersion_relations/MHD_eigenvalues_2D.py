@@ -5,8 +5,8 @@ import scipy.sparse  as spa
 
 import hylife.utilitis_FEEC.spline_space as spl
 
-import hylife.utilitis_FEEC.projectors.projectors_global as pro
-import hylife.utilitis_FEEC.projectors.mhd_operators_2d  as mhd
+import hylife.utilitis_FEEC.projectors.projectors_global       as pro
+import hylife.utilitis_FEEC.projectors.mhd_operators_2d_global as mhd
 
 import hylife.geometry.domain_3d     as dom
 import hylife.geometry.polar_splines as pol
