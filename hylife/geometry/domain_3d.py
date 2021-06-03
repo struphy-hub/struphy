@@ -23,6 +23,22 @@ import hylife.utilitis_FEEC.bsplines  as bsp
 
 # ==================================================
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
+    '''
+    Interpolates the mapping (X, Y, Z) on the given spline space.
+
+    Parameters:
+        Nel, p, spl_kind: array-like
+            defining the spline space
+
+        X, Y: callable
+            either X(xi1, xi2) in 2D or X(xi1, xi2, xi3) in 3D
+
+        Z: callable Z(xi1, xi2, xi3)
+
+    Returns:
+        cx, cy (, cz): np.array
+            spline coefficients
+    '''
     
     # number of basis functions
     NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl_kind)]
@@ -71,6 +87,42 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
 # ==================================================
 class domain:
+    '''
+    Defines the mapped domain.
+
+    Available mappings:
+        'spline': general spline mapping 
+        'spline cylinder': 2D square-to-disk as spline
+        'spline torus':
+        'cuboid':
+        'hollow cylinder':
+        'colella':
+        'orthogonal':
+        'hollow torus':
+
+    Methods:
+        evaluate(eta1, eta2, eta3, kind_fun)
+        push(a, eta1, eta2, eta3, kind_fun) 
+        pull(a, eta1, eta2, eta3, kind_fun) 
+            kind_fun refers to keys_map.
+            a can be callable or array-like.
+
+    Attributes: 
+        kind_map: integer
+            values <10 indicate a spline mapping
+
+        params_map: array-like
+            mapping parameters
+
+        Nel, p, NbaseN, T:
+            parameters of spline mapping
+
+        cx, cy, cz: np.array
+            spline coefficients
+
+        keys_map, keys_pull, keys_push: dictionary
+
+    '''
     
     def __init__(self, kind_map, params_map=None, Nel=None, p=None, spl_kind=None, cx=None, cy=None, cz=None):
         
@@ -199,6 +251,9 @@ class domain:
     
     # ================================
     def evaluate(self, eta1, eta2, eta3, kind_fun):
+        '''
+        Evaluate mapping. Depending on the dimension of eta1 either point-wise, tensor-product or general. 
+        '''
         
         # point-wise evaluation
         if isinstance(eta1, float):
@@ -227,6 +282,10 @@ class domain:
        
     # ================================
     def pull(self, a, eta1, eta2, eta3, kind_fun):
+        '''
+        Pullback of p-forms. Depending on the dimension of eta1 either point-wise, tensor-product or general.
+        a can be callable a(x, y, z) or array-like.
+        '''
         
         # point-wise evaluation
         if isinstance(eta1, float):
@@ -305,6 +364,10 @@ class domain:
     
     # ================================
     def push(self, a, eta1, eta2, eta3, kind_fun):
+        '''
+        Push-forward of p-forms. Depending on the dimension of eta1 either point-wise, tensor-product or general.
+        a can be callable a(x, y, z) or array-like.
+        '''
         
         # point-wise evaluation
         if isinstance(eta1, float):
