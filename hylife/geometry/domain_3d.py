@@ -24,16 +24,16 @@ import hylife.utilitis_FEEC.bsplines  as bsp
 # ==================================================
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     '''
-    Interpolates the mapping (X, Y, Z) on the given spline space.
+    Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
 
     Parameters:
         Nel, p, spl_kind: array-like
             defining the spline space
 
         X, Y: callable
-            either X(xi1, xi2) in 2D or X(xi1, xi2, xi3) in 3D
+            either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D
 
-        Z: callable Z(xi1, xi2, xi3)
+        Z: callable Z(eta1, eta2, eta3)
 
     Returns:
         cx, cy (, cz): np.array

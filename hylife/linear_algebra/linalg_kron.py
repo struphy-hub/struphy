@@ -1,4 +1,5 @@
 from scipy.sparse.linalg import splu
+from scipy.linalg import solve_circulant 
 
 def kron_matvec_3d(kmat, vec3d):
     """
@@ -103,4 +104,61 @@ def kron_solve_3d(kmat,rhs):
     
     res = ((splu(kmat[2]).solve(((splu(kmat[1]).solve(((splu(kmat[0]).solve(rhs.reshape(r0, r1*r2))).T).reshape(r1, r2*r0))).T).reshape(r2, r0*r1))).T).reshape(r0, r1, r2)
     
+    return res
+
+
+def kron_fftsolve_3d(cvec,rhs):
+    ''' Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
+        but system is only solved in each direction.
+        
+        solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
+        
+        implemented as three matrix-matrix solve with intermediate reshape and transpose.
+        step1(r1*r2,r0) <= ( A(r0,r0)^-1 *   reshaped_rhs(r0,r1*r2) )^T
+        step2(r2*r0,r1) <= ( B(r1,r1)^-1 * reshaped_step1(r1,r2*r0) )^T
+        step3(r0*r1*r2) <= ( C(r2,r2)^-1 * reshaped_step2(r2,r0*r1) )^T
+        res <= reshaped_step3(r0,r1,r2)
+        
+        no overhead of numpy reshape command, as they do NOT copy the data.
+
+        COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
+        Let r = (r_ijk) be a 3D matrix of size M*N*O.
+        ravel(r) = [r_111, r112, ... , r_MNO] (row major always --> last index runs fastest)
+        reshape(ravel(r), (M, N*O)) = [[r_111, r112, ... , r_1NO], 
+                                        [r_211, r212, ... , r_2NO], 
+                                        ...,
+                                        [r_M11, rM12, ... , r_MNO]]
+
+    Parameters
+        ----------
+        cvec   : 3 vectors of size (r0),(r1),(r2) defining 3 circulant matrices for each direction,       
+            
+        rhs   : 3d array of size (r0,r1,r2), right-hand size
+            
+
+        Returns
+        -------
+        res : 3d array of size (r0,r1,r2), solution 
+
+    '''    
+    r0,r1,r2 = rhs.shape
+    res=(
+            (
+                solve_circulant(cvec[2], 
+                    (
+                        (
+                            solve_circulant(cvec[1], 
+                                (
+                                    (
+                                        solve_circulant(cvec[0],
+                                            rhs.reshape(r0,r1*r2)
+                                        )
+                                    ).T
+                                ).reshape(r1,r2*r0)
+                            )
+                        ).T
+                    ).reshape(r2,r0*r1)
+                )
+            ).T
+        ).reshape(r0,r1,r2)
     return res
