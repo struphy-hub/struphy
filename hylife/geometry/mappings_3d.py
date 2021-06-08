@@ -2,8 +2,8 @@
 #
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
-"""
-Basic functions for point-wise evaluation of a 3d analytical or discrete spline mapping and its corresponding geometric quantities:
+"""Module of accelerated functions for point-wise evaluation of a 3d analytical mapping
+or discrete spline mapping, and its corresponding metric coefficients:
 
 - f      : mapping x_i = f_i(eta1, eta2, eta3)
 - df     : Jacobian matrix df_i/deta_j
@@ -38,7 +38,7 @@ import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva_3d
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3). 
+    """Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3), i=1,2,3. 
     
     Parameters:
     -----------
@@ -181,54 +181,25 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns one of the nine components of the Jacobian matrix df_ij = df_i/deta_j of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
+    """Point-wise evaluation of ij-th component of the Jacobian matrix df_ij = df_i/deta_j (i,j=1,2,3). 
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    component : int
-        11 : (dx/deta1), 12 : (dx/deta2), 13 : (dx/deta3)
-        21 : (dy/deta1), 22 : (dy/deta2), 23 : (dy/deta3)
-        31 : (dz/deta1), 32 : (dz/deta2), 33 : (dz/deta3)
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        component:              int                 11 : (df1/deta1), 12 : (df1/deta2), 13 : (df1/deta3)
+                                                    21 : (df2/deta1), 22 : (df2/deta2), 23 : (df2/deta3)
+                                                    31 : (df3/deta1), 32 : (df3/deta2), 33 : (df3/deta3)
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value df_ij(eta1, eta2, eta3)
     """
     
     value = 0.
@@ -453,54 +424,22 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
 # =======================================================================
 @types('double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns the Jacobian determinant det(df) = df/deta1.(df/deta2 x df/deta3) of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
+    """Point-wise evaluation of Jacobian determinant det(df) = df/deta1.(df/deta2 x df/deta3). 
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component
-                 
-    Returns
-    -------
-    value : double
-        the Jacobian determinant dF/deta1 . ( dF/deta2 x dF/deta3)
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value of Jacobian determinant det(df)(eta1, eta2, eta3)
     """
     
     value = 0.
@@ -525,58 +464,29 @@ def det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, c
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def df_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns one of the nine components of the inverse Jacobian matrix of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions.  
+    """Point-wise evaluation of ij-th component of the inverse Jacobian matrix df^(-1)_ij (i,j=1,2,3). 
     
-    the 3 x 3 inverse is computed directly from df, using the cross product of the columns of df:
+    The 3 x 3 inverse is computed directly from df, using the cross product of the columns of df:
 
                             | [ (df/deta2) x (df/deta3) ]^T |
     (df)^(-1) = 1/det_df *  | [ (df/deta3) x (df/deta1) ]^T |
                             | [ (df/deta1) x (df/deta2) ]^T |
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    component : int
-        the component of the inverse Jacobian matrix
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        component:              int                 index ij (11, 12, 13, 21, 22, 23, 31, 32, 33)
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value df^(-1)_ij(eta1, eta2, eta3)
     """
     
     value = 0.
@@ -622,52 +532,23 @@ def df_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn,
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def g(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns one of the nine components of the metric tensor g = df^T * df of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
+    """Point-wise evaluation of ij-th component of metric tensor g_ij = sum_k (df^T)_ik (df)_kj (i,j,k=1,2,3). 
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    component : int
-        the component of the metric tensor
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component 
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        component:              int                 index ij (11, 12, 13, 21, 22, 23, 31, 32, 33)
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value g_ij(eta1, eta2, eta3)
     """
     
     value = 0.
@@ -723,52 +604,23 @@ def g(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def g_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns one of the nine components of the inverse metric tensor g_inv = df^(-1) * df^(-T) of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions.
+    """Point-wise evaluation of ij-th component of inverse metric tensor g^(-1)_ij = sum_k (df^-1)_ik (df^-T)_kj (i,j,k=1,2,3). 
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    component : int
-        the component of the inverse metric tensor
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component 
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        component:              int                 index ij (11, 12, 13, 21, 22, 23, 31, 32, 33)
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value g^(-1)_ij(eta1, eta2, eta3) 
     """
     
     value = 0.
@@ -824,6 +676,30 @@ def g_inv(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, 
 # ==========================================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def mappings_all(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+    '''Point-wise evaluation of
+        - f      : mapping x_i = f_i(eta1, eta2, eta3)
+        - df     : Jacobian matrix df_i/deta_j
+        - det_df : Jacobian determinant det(df)
+        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+        - g      : metric tensor df^T * df 
+        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+    
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            point value of mapping/metric coefficient at (eta1, eta2, eta3)
+    '''
     
     value = 0.
     
@@ -925,7 +801,31 @@ def mappings_all(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3
 # ==========================================================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
 def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
+    '''Matrix-wise evaluation of
+        - f      : mapping x_i = f_i(eta1, eta2, eta3)
+        - df     : Jacobian matrix df_i/deta_j
+        - det_df : Jacobian determinant det(df)
+        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+        - g      : metric tensor df^T * df 
+        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
     
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1]
+        kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        mat_f:  ndarray
+            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
+    '''
+
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]

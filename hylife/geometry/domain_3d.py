@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Class to handle mapped 3d domains.
+Module to handle mapped 3d domains.
 """
 
 
@@ -89,25 +89,25 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
 # ==================================================
 class domain:
-    '''
-    Defines the mapped domain.
+    '''Defines the mapped domain.
 
     Available mappings:
     -------------------
-        'spline': general spline mapping 
-        'spline cylinder': 2D square-to-disk as spline
-        'spline torus':
-        'cuboid':
-        'hollow cylinder':
-        'colella':
-        'orthogonal':
-        'hollow torus':
+        - kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
+        - kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+        - kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
+
+        - kind_map = 10 : cuboid. params_map = [lx, ly, lz].
+        - kind_map = 11 : hollow cylinder. params_map = [a1, a2, lz].
+        - kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
+        - kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
+        - kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
 
     Methods:
     --------
-        evaluate
-        push
-        pull 
+        evaluate(eta1, eta2, eta3, kind_fun)
+        push(a, eta1, eta2, eta3, kind_fun)
+        pull(a, eta1, eta2, eta3, kind_fun)
 
     Attributes:
     -----------
@@ -117,14 +117,82 @@ class domain:
         params_map: array-like
             mapping parameters
 
-        Nel, p, NbaseN, T: list
+        Nel, p, NbaseN, T: lists
             usual parameters of spline mapping
 
         cx, cy, cz: np.array
             spline coefficients
 
-        keys_map, keys_pull, keys_push: dictionary
+        keys_map: dictionary
+            keys point to values for kind_fun in the 'evaluate' method.
+            'x' : 1
+            'y' : 2
+            'z' : 3
+            'det_df' : 4 
+            'df_11' : 11
+            'df_12' : 12
+            'df_13' : 13 
+            'df_21' : 14
+            'df_22' : 15
+            'df_23' : 16 
+            'df_31' : 17
+            'df_32' : 18
+            'df_33' : 19 
+            'df_inv_11' : 21
+            'df_inv_12' : 22
+            'df_inv_13' : 23
+            'df_inv_21' : 24
+            'df_inv_22' : 25
+            'df_inv_23' : 26 
+            'df_inv_31' : 27
+            'df_inv_32' : 28
+            'df_inv_33' : 29 
+            'g_11' : 31
+            'g_12' : 32
+            'g_13' : 33
+            'g_21' : 34
+            'g_22' : 35
+            'g_23' : 36
+            'g_31' : 37
+            'g_32' : 38
+            'g_33' : 39
+            'g_inv_11' : 41
+            'g_inv_12' : 42
+            'g_inv_13' : 43
+            'g_inv_21' : 44
+            'g_inv_22' : 45
+            'g_inv_23' : 46
+            'g_inv_31' : 47
+            'g_inv_32' : 48
+            'g_inv_33' : 49
 
+        keys_pull: dictionary
+            keys point to possible values for kind_fun in 'pull' method.
+            '0_form' : 0
+            '3_form' : 3
+            '1_form_1' : 11
+            '1_form_2' : 12
+            '1_form_3' : 13
+            '2_form_1' : 21
+            '2_form_2' : 22
+            '2_form_3' : 23
+            'vector_1' : 31
+            'vector_2' : 32
+            'vector_3' : 33
+
+        keys_push: dictionary
+            keys point to possible values for kind_fun in 'push' method.
+            '0_form' : 0
+            '3_form' : 3
+            '1_form_1' : 11
+            '1_form_2' : 12
+            '1_form_3' : 13
+            '2_form_1' : 21
+            '2_form_2' : 22
+            '2_form_3' : 23
+            'vector_1' : 31 
+            'vector_2' : 32
+            'vector_3' : 33
     '''
     
     def __init__(self, kind_map, params_map=None, Nel=None, p=None, spl_kind=None, cx=None, cy=None, cz=None):
@@ -243,19 +311,52 @@ class domain:
             
         
         # keys for evaluating mapping related quantities
-        self.keys_map  = {'x' : 1, 'y' : 2, 'z' : 3, 'det_df' : 4, 'df_11' : 11, 'df_12' : 12, 'df_13' : 13, 'df_21' : 14, 'df_22' : 15, 'df_23' : 16, 'df_31' : 17, 'df_32' : 18, 'df_33' : 19, 'df_inv_11' : 21, 'df_inv_12' : 22, 'df_inv_13' : 23, 'df_inv_21' : 24, 'df_inv_22' : 25, 'df_inv_23' : 26, 'df_inv_31' : 27, 'df_inv_32' : 28, 'df_inv_33' : 29, 'g_11' : 31, 'g_12' : 32, 'g_13' : 33, 'g_21' : 34, 'g_22' : 35, 'g_23' : 36, 'g_31' : 37, 'g_32' : 38, 'g_33' : 39, 'g_inv_11' : 41, 'g_inv_12' : 42, 'g_inv_13' : 43, 'g_inv_21' : 44, 'g_inv_22' : 45, 'g_inv_23' : 46, 'g_inv_31' : 47, 'g_inv_32' : 48, 'g_inv_33' : 49}
+        self.keys_map  = {
+            'x' : 1, 'y' : 2, 'z' : 3, 'det_df' : 4, 
+            'df_11' : 11, 'df_12' : 12, 'df_13' : 13, 
+            'df_21' : 14, 'df_22' : 15, 'df_23' : 16, 
+            'df_31' : 17, 'df_32' : 18, 'df_33' : 19, 
+            'df_inv_11' : 21, 'df_inv_12' : 22, 'df_inv_13' : 23,
+            'df_inv_21' : 24, 'df_inv_22' : 25, 'df_inv_23' : 26, 
+            'df_inv_31' : 27, 'df_inv_32' : 28, 'df_inv_33' : 29, 
+            'g_11' : 31, 'g_12' : 32, 'g_13' : 33, 'g_21' : 34,
+            'g_22' : 35, 'g_23' : 36, 'g_31' : 37, 'g_32' : 38, 'g_33' : 39, 
+            'g_inv_11' : 41, 'g_inv_12' : 42, 'g_inv_13' : 43, 'g_inv_21' : 44,
+            'g_inv_22' : 45, 'g_inv_23' : 46, 'g_inv_31' : 47, 'g_inv_32' : 48,
+            'g_inv_33' : 49
+            }
         
         # keys for performing pull-backs
-        self.keys_pull = {'0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33}
+        self.keys_pull = {
+            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, 
+            '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23,
+            'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33
+            }
         
         # keys for performing push-forwards
-        self.keys_push = {'0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33}
+        self.keys_push = {
+            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, '1_form_3' : 13,
+            '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 'vector_1' : 31, 
+            'vector_2' : 32, 'vector_3' : 33
+            }
        
     
     # ================================
     def evaluate(self, eta1, eta2, eta3, kind_fun):
-        '''
-        Evaluate mapping. Depending on the dimension of eta1 either point-wise, tensor-product or general. 
+        '''Evaluate mapping/metric coefficients. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or general.
+
+        Parameters:
+        -----------
+            eta1, eta2, eta3:   array-like
+                logical coordinates at which to evaluate
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: ndarray
+                mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
         '''
         
         # point-wise evaluation
@@ -285,9 +386,22 @@ class domain:
        
     # ================================
     def pull(self, a, eta1, eta2, eta3, kind_fun):
-        '''
-        Pullback of p-forms. Depending on the dimension of eta1 either point-wise, tensor-product or general.
-        a can be callable a(x, y, z) or array-like.
+        '''Pullback of p-forms. 
+        Depending on the dimension of eta1 either point-wise, tensor-product or general.
+
+        Parameters:
+        -----------
+            a:  callable or array-like
+                the function a(x, y, z) to be pulled back (can be one component of a p-form)
+            eta1, eta2, eta3:   array-like
+                logical coordinates to which to pull back
+            kind_fun:   integer
+                which p-form pull back to apply, see keys_pull
+
+        Returns:
+        --------
+            values: ndarray
+                pullback of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
         
         # point-wise evaluation
@@ -367,9 +481,22 @@ class domain:
     
     # ================================
     def push(self, a, eta1, eta2, eta3, kind_fun):
-        '''
-        Push-forward of p-forms. Depending on the dimension of eta1 either point-wise, tensor-product or general.
-        a can be callable a(x, y, z) or array-like.
+        '''Push-forward of p-forms. 
+        Depending on the dimension of eta1 either point-wise, tensor-product or general.
+        
+        Parameters:
+        -----------
+            a:  callable or array-like
+                the function a(eta1, eta2, eta3) to be pushed forward (can be one component of a p-form)
+            eta1, eta2, eta3:   array-like
+                logical coordinates at which to push forward
+            kind_fun:   integer
+                which p-form push forward to apply, see keys_push
+
+        Returns:
+        --------
+            values: ndarray
+                push forward of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
         
         # point-wise evaluation
