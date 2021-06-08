@@ -38,52 +38,23 @@ import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva_3d
 # =======================================================================
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    """
-    returns one of the three components of an analytical (kind_map >= 10) or discrete (kind_map < 10) mapping x, y, z = f(eta1, eta2, eta3) in three space dimensions. 
+    """Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3). 
     
-    Parameters
-    ----------
-    eta1 : double
-        1st logical coordinate in [0, 1]
-        
-    eta2 : double
-        2nd logical coordinate in [0, 1]
-        
-    eta3 : double
-        3rd logical coordinate in [0, 1]
-        
-    component : int
-        physical coordinate (1 : x, 2 : y, 3 : z)
-        
-    kind_map : int
-        kind of mapping
-        
-    params_map : array_like
-        parameters for the mapping
-        
-    tn1 : array_like
-        spline knot vector in 1-direction
-        
-    tn2 : array_like
-        spline knot vector in 2-direction
-        
-    tn3 : array_like
-        spline knot vector in 3-direction
-        
-    pn : array_like
-        spline degrees in all directions
-        
-    nbase_n : array_like
-        number of splines in all directions
-        
-    cx : array_like
-        control points of x-component
-        
-    cy : array_like
-        control points of y-component
-        
-    cz : array_like
-        control points of z-component
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double              logical coordinates in [0, 1]
+        component:              int                 Cartesian coordinate (1: x, 2: y, 3: z)
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        value:  float
+            Cartesian coordinate x_i = f_i(eta1, eta2, eta3)
     """
    
    

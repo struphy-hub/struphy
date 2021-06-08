@@ -3,7 +3,22 @@
 # Copyright 2020 Florian Holderied
 
 """
-Basic functions for point-wise evaluation of a 2d B-spline basis.
+Acccelerated functions for point-wise evaluation of tensor product B-splines.
+
+S(eta1, eta2, eta3) = sum_ijk c_ijk * B_i(eta1) * B_j(eta2) * B_k(eta3)     with c_ijk in R.
+
+Possible combinations for tensor product (BBB):
+(NNN)
+(dN/deta NN)
+(N dN/deta N)
+(NN dN/deta)
+(DNN)
+(NDN)
+(NND)
+(NDD)
+(DND)
+(DDN)
+(DDD) 
 """
 
 from pyccel.decorators import types
@@ -15,6 +30,21 @@ import hylife.utilitis_FEEC.bsplines_kernels as bsp
 # =============================================================================
 @types('int','int','int','double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]')
 def evaluation_kernel(p1, p2, p3, basis1, basis2, basis3, span1, span2, span3, nbase1, nbase2, nbase3, coeff):
+    '''Summing non-zero contributions.
+
+    Parameters:
+    -----------
+        p1, p2, p3:                 int                 spline degrees
+        basis1, basis2, basis3:     double[:]           pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2,3)
+        span1, span2, span3:        int                 knot span indices from 'find_span'
+        nbase1, nbase2, nbase3:     int                 dimensions of univariate spline spaces 
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+
+    Returns:
+    --------
+    value: float
+        Value of B-spline at point (eta1, eta2, eta3).
+    '''
     
     value = 0.
     
@@ -33,6 +63,21 @@ def evaluation_kernel(p1, p2, p3, basis1, basis2, basis3, span1, span2, span3, n
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (NNN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:                  double[:]           knot vectors
+        pn1, pn2, pn3:                  int                 spline degrees
+        nbase_n1, nbase_n2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NNN)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -65,6 +110,21 @@ def evaluate_n_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_diffn_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (dN/deta NN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:                  double[:]           knot vectors
+        pn1, pn2, pn3:                  int                 spline degrees
+        nbase_n1, nbase_n2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (dN/deta NN)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -97,6 +157,21 @@ def evaluate_diffn_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_diffn_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (N dN/deta N)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:                  double[:]           knot vectors
+        pn1, pn2, pn3:                  int                 spline degrees
+        nbase_n1, nbase_n2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (N dN/deta N)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -129,6 +204,21 @@ def evaluate_n_diffn_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_n_diffn(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (NN dN/deta)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:                  double[:]           knot vectors
+        pn1, pn2, pn3:                  int                 spline degrees
+        nbase_n1, nbase_n2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NN dN/deta)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -161,6 +251,21 @@ def evaluate_n_n_diffn(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_d_n_n(td1, tn2, tn3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (DNN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        td1, tn2, tn3:                  double[:]           knot vectors
+        pd1, pn2, pn3:                  int                 spline degrees
+        nbase_d1, nbase_n2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DNN)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_d1 = bsp.find_span(td1, pd1, eta1)
@@ -195,6 +300,21 @@ def evaluate_d_n_n(td1, tn2, tn3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_d_n(tn1, td2, tn3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (NDN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, td2, tn3:                  double[:]           knot vectors
+        pn1, pd2, pn3:                  int                 spline degrees
+        nbase_n1, nbase_d2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NDN)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -229,6 +349,21 @@ def evaluate_n_d_n(tn1, td2, tn3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_n_d(tn1, tn2, td3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (NND)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, td3:                  double[:]           knot vectors
+        pn1, pn2, pd3:                  int                 spline degrees
+        nbase_n1, nbase_n2, nbase_d3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NND)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -263,6 +398,21 @@ def evaluate_n_n_d(tn1, tn2, td3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (NDD)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, td2, td3:                  double[:]           knot vectors
+        pn1, pd2, pd3:                  int                 spline degrees
+        nbase_n1, nbase_d2, nbase_d3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NDD)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_n1 = bsp.find_span(tn1, pn1, eta1)
@@ -299,6 +449,21 @@ def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (DND)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        td1, tn2, td3:                  double[:]           knot vectors
+        pd1, pn2, pd3:                  int                 spline degrees
+        nbase_d1, nbase_n2, nbase_d3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DND)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_d1 = bsp.find_span(td1, pd1, eta1)
@@ -334,6 +499,21 @@ def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_d_d_n(td1, td2, tn3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (DDN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        td1, td2, tn3:                  double[:]           knot vectors
+        pd1, pd2, pn3:                  int                 spline degrees
+        nbase_d1, nbase_d2, nbase_n3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DDN)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_d1 = bsp.find_span(td1, pd1, eta1)
@@ -369,6 +549,21 @@ def evaluate_d_d_n(td1, td2, tn3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, coeff, eta1, eta2, eta3):
+    '''Point-wise evaluation of (DDD)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        td1, td2, td3:                  double[:]           knot vectors
+        pd1, pd2, pd3:                  int                 spline degrees
+        nbase_d1, nbase_d2, nbase_d3:   int                 dimensions of univariate spline spaces 
+        coeff:                          double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:               double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DDD)-tensor-product spline at point (eta1, eta2, eta3).
+    '''
 
     # find knot span indices
     span_d1 = bsp.find_span(td1, pd1, eta1)
@@ -405,6 +600,24 @@ def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:]','double[:]','double[:]','double[:,:,:]','int')
 def evaluate_tensor_product(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, values, kind):
+    '''Tensor product evaluation (meshgrid) of tensor product splines (3d). 
+
+    Parameters:
+    -----------
+        t1, t2, t3:                 double[:]           knot vectors
+        p1, p2, p3:                 int                 spline degrees
+        nbase_1, nbase_2, nbase_3:  int                 dimensions of univariate spline spaces 
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double[:]           1d arrays of points of evaluation in respective direction
+        kind:                       int                 which tensor product spline, 
+                                                        0: (NNN), 11: (DNN), 12: (NDN), 13: (NND),
+                                                        21: (NDD), 22: (DND), 23: (DDN), 3: (DDD)
+
+    Returns:
+    --------
+        values:                     double[:, :, :]     values of spline at points from 
+                                                        np.meshgrid(eta1, eta2, eta3, indexing='ij').
+    '''
     
     for i1 in range(len(eta1)):
         for i2 in range(len(eta2)):
@@ -439,6 +652,24 @@ def evaluate_tensor_product(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, c
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','int','double[:,:,:]','int')
 def evaluate_matrix(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, n1, n2, n3, values, kind):
+    '''Matrix evaluation of tensor product splines (3d). 
+
+    Parameters:
+    -----------
+        t1, t2, t3:                 double[:]           knot vectors
+        p1, p2, p3:                 int                 spline degrees
+        nbase_1, nbase_2, nbase_3:  int                 dimensions of univariate spline spaces 
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double[:, :, :]     points of evaluation
+        n1, n2, n3:                 int                 eta1.shape = (n1, n2, n3)
+        kind:                       int                 which tensor product spline, 
+                                                        0: (NNN), 11: (DNN), 12: (NDN), 13: (NND),
+                                                        21: (NDD), 22: (DND), 23: (DDN), 3: (DDD)
+
+    Returns:
+    --------
+        values:                     double[:, :, :]     values of spline at points (eta1, eta2, eta3).
+    '''
     
     for i1 in range(n1):
         for i2 in range(n2):

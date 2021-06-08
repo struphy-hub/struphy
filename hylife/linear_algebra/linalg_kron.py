@@ -1,9 +1,25 @@
+'''Matrix-vector product and solvers for matrices with a 3D Kronecker product structure.
+
+    M_ijkmno = A_im * B_jn * C_ko
+    
+    where matrices A, B, C stem from 1D problems.
+
+    COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
+        Let r = (r_ijk) be a 3D matrix of size M*N*O.
+        ravel(r) = [r_111, r112, ... , r_MNO] (row major always --> last index runs fastest)
+        reshape(ravel(r), (M, N*O)) = [[r_111, r112, ... , r_1NO], 
+                                        [r_211, r212, ... , r_2NO], 
+                                        ...,
+                                        [r_M11, rM12, ... , r_MNO]]
+'''
+
+
 from scipy.sparse.linalg import splu
 from scipy.linalg import solve_circulant 
 
+
 def kron_matvec_3d(kmat, vec3d):
-    """
-    matrix-vector product with 3d kronecker matrix with 3d vectors.
+    """3D Kronecker matrix-vector product.
     
     res_ijk = (A_im * B_jn * C_ko) * vec3d_mno
 
@@ -40,8 +56,7 @@ def kron_matvec_3d(kmat, vec3d):
 
 
 def kron_lusolve_3d(kmatlu, rhs):
-    """ 
-    solve for 3d vector, matrix would be a 3d kronecker matrix, but LU is only solved in each direction.
+    """ 3D Kronecker LU solver.
         
     solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
 
@@ -74,8 +89,7 @@ def kron_lusolve_3d(kmatlu, rhs):
 
 
 def kron_solve_3d(kmat,rhs):
-    """
-    Solve for 3d vector, matrix would be a 3d kronecker matrix, but system is only solved in each direction.
+    """3D Kronecker solver.
         
     solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
 
@@ -108,26 +122,17 @@ def kron_solve_3d(kmat,rhs):
 
 
 def kron_fftsolve_3d(cvec,rhs):
-    ''' Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
-        but system is only solved in each direction.
-        
-        solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
-        
-        implemented as three matrix-matrix solve with intermediate reshape and transpose.
-        step1(r1*r2,r0) <= ( A(r0,r0)^-1 *   reshaped_rhs(r0,r1*r2) )^T
-        step2(r2*r0,r1) <= ( B(r1,r1)^-1 * reshaped_step1(r1,r2*r0) )^T
-        step3(r0*r1*r2) <= ( C(r2,r2)^-1 * reshaped_step2(r2,r0*r1) )^T
-        res <= reshaped_step3(r0,r1,r2)
-        
-        no overhead of numpy reshape command, as they do NOT copy the data.
-
-        COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
-        Let r = (r_ijk) be a 3D matrix of size M*N*O.
-        ravel(r) = [r_111, r112, ... , r_MNO] (row major always --> last index runs fastest)
-        reshape(ravel(r), (M, N*O)) = [[r_111, r112, ... , r_1NO], 
-                                        [r_211, r212, ... , r_2NO], 
-                                        ...,
-                                        [r_M11, rM12, ... , r_MNO]]
+    '''3D Kronecker fft solver for circulant matrices.
+    
+    solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
+    
+    implemented as three matrix-matrix solve with intermediate reshape and transpose.
+    step1(r1*r2,r0) <= ( A(r0,r0)^-1 *   reshaped_rhs(r0,r1*r2) )^T
+    step2(r2*r0,r1) <= ( B(r1,r1)^-1 * reshaped_step1(r1,r2*r0) )^T
+    step3(r0*r1*r2) <= ( C(r2,r2)^-1 * reshaped_step2(r2,r0*r1) )^T
+    res <= reshaped_step3(r0,r1,r2)
+    
+    no overhead of numpy reshape command, as they do NOT copy the data.
 
     Parameters
         ----------

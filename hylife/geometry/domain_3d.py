@@ -27,6 +27,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
 
     Parameters:
+    -----------
         Nel, p, spl_kind: array-like
             defining the spline space
 
@@ -36,6 +37,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         Z: callable Z(eta1, eta2, eta3)
 
     Returns:
+    --------
         cx, cy (, cz): np.array
             spline coefficients
     '''
@@ -91,6 +93,7 @@ class domain:
     Defines the mapped domain.
 
     Available mappings:
+    -------------------
         'spline': general spline mapping 
         'spline cylinder': 2D square-to-disk as spline
         'spline torus':
@@ -101,21 +104,21 @@ class domain:
         'hollow torus':
 
     Methods:
-        evaluate(eta1, eta2, eta3, kind_fun)
-        push(a, eta1, eta2, eta3, kind_fun) 
-        pull(a, eta1, eta2, eta3, kind_fun) 
-            kind_fun refers to keys_map.
-            a can be callable or array-like.
+    --------
+        evaluate
+        push
+        pull 
 
-    Attributes: 
+    Attributes:
+    -----------
         kind_map: integer
             values <10 indicate a spline mapping
 
         params_map: array-like
             mapping parameters
 
-        Nel, p, NbaseN, T:
-            parameters of spline mapping
+        Nel, p, NbaseN, T: list
+            usual parameters of spline mapping
 
         cx, cy, cz: np.array
             spline coefficients
