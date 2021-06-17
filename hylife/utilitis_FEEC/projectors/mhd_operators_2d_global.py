@@ -259,7 +259,21 @@ class operators_mhd:
             
         elif self.basis_u == 0:
             print('not yet implemented!')
-            
+    
+    
+    # =================================================================
+    def assemble_MF(self, domain, r3_eq):
+        
+        eta3 = np.array([0.])
+        
+        if self.basis_u == 2:
+            if callable(r3_eq):
+                weight = lambda eta1, eta2: r3_eq(eta1, eta2)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))[:, :, 0]
+            else:
+                weight = lambda eta1, eta2: self.pro.space.evaluate_DD(eta1, eta2, r3_eq, 'V3')/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))[:, :, 0]
+                
+            self.MF = mass.get_M2(self.pro.space, domain, weight)
+
             
     # =================================================================
     def assemble_rhs_F(self, domain, c3_eq, which):
