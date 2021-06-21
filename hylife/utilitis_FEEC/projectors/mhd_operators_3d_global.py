@@ -19,6 +19,26 @@ import hylife.utilitis_FEEC.projectors.projectors_global as pro
 
 
 class operators_mhd:
+    """
+    Global linear MHD operators.
+    
+    Parameters
+    ----------
+    projectors_3d : projectors_global_3d
+        3d global commuting projectors object
+        
+    dt : double
+        time step
+        
+    gamma : double
+        adiabatic gas index
+        
+    loc_jeq : string
+        whether to solve j_eq x B term in second (step_2) or sixth (step_6) sub-step in time integration scheme
+        
+    basis_u : int
+        formulation for MHD bulk velocity (0: vector field, 1: 1-form, 2: 2-form)
+    """
     
     def __init__(self, projectors_3d, dt, gamma, loc_jeq, basis_u):
         
@@ -38,7 +58,7 @@ class operators_mhd:
         self.pi0_y_N_i, self.pi0_y_D_i, self.pi1_y_N_i, self.pi1_y_D_i = projectors_1d[1].dofs_1d_bases()
         self.pi0_z_N_i, self.pi0_z_D_i, self.pi1_z_N_i, self.pi1_z_D_i = projectors_1d[2].dofs_1d_bases()
         
-        # non-vanishing 1D indices of expressions pi0(NN), pi0(DN), pi0(ND), pi0(DD), pi1(NN), pi1(DN), pi1(ND) and pi0(DD)
+        # non-vanishing 1D indices of expressions R0(NN), R0(DN), R0(ND), R0(DD), R1(NN), R1(DN), R1(ND) and R1(DD)
         #self.pi0_x_NN_i, self.pi0_x_DN_i, self.pi0_x_ND_i, self.pi0_x_DD_i, self.pi1_x_NN_i, self.pi1_x_DN_i, self.pi1_x_ND_i, self.pi1_x_DD_i = projectors_1d[0].dofs_1d_bases_products()
         #self.pi0_y_NN_i, self.pi0_y_DN_i, self.pi0_y_ND_i, self.pi0_y_DD_i, self.pi1_y_NN_i, self.pi1_y_DN_i, self.pi1_y_ND_i, self.pi1_y_DD_i = projectors_1d[1].dofs_1d_bases_products()
         #self.pi0_z_NN_i, self.pi0_z_DN_i, self.pi0_z_ND_i, self.pi0_z_DD_i, self.pi1_z_NN_i, self.pi1_z_DN_i, self.pi1_z_ND_i, self.pi1_z_DD_i = projectors_1d[2].dofs_1d_bases_products()
@@ -46,73 +66,23 @@ class operators_mhd:
         kind_splines = [False, True]
         
         # 1D collocation matrices for interpolation in format (point, global basis function)
-        self.x_int = [np.copy(pro.x_int) for pro in projectors_1d]
+        x_int_1d = [np.copy(pro.x_int) for pro in projectors_1d]
         
-        self.basis_int_N = [bsp.collocation_matrix(T, p    , x_int, bc, normalize=kind_splines[0]) for T, p, x_int, bc in zip(self.pro.space.T, self.pro.space.p, self.x_int, self.pro.space.spl_kind)]
-        self.basis_int_D = [bsp.collocation_matrix(t, p - 1, x_int, bc, normalize=kind_splines[1]) for t, p, x_int, bc in zip(self.pro.space.t, self.pro.space.p, self.x_int, self.pro.space.spl_kind)]
+        self.basis_int_N = [bsp.collocation_matrix(T, p    , x_int, bc, normalize=kind_splines[0]) for T, p, x_int, bc in zip(self.pro.space.T, self.pro.space.p, x_int_1d, self.pro.space.spl_kind)]
+        self.basis_int_D = [bsp.collocation_matrix(t, p - 1, x_int, bc, normalize=kind_splines[1]) for t, p, x_int, bc in zip(self.pro.space.t, self.pro.space.p, x_int_1d, self.pro.space.spl_kind)]
         
         # remove small values resulting from round-off errors
-        self.basis_int_N[0][self.basis_int_N[0] < 1e-10] = 0.
-        self.basis_int_N[1][self.basis_int_N[1] < 1e-10] = 0.
-        self.basis_int_N[2][self.basis_int_N[2] < 1e-10] = 0.
+        self.basis_int_N[0][self.basis_int_N[0] < 1e-12] = 0.
+        self.basis_int_N[1][self.basis_int_N[1] < 1e-12] = 0.
+        self.basis_int_N[2][self.basis_int_N[2] < 1e-12] = 0.
 
-        self.basis_int_D[0][self.basis_int_D[0] < 1e-10] = 0.
-        self.basis_int_D[1][self.basis_int_D[1] < 1e-10] = 0.
-        self.basis_int_D[2][self.basis_int_D[2] < 1e-10] = 0.
-        
-        # 1D integration sub-intervals, quadrature points and weights
-        self.x_his = [0, 0, 0]
-        self.subs  = [0, 0, 0]
-        self.pts   = [0, 0, 0]
-        self.wts   = [0, 0, 0]
-
-        for dim in range(3):
-            
-            # compute quadrature grid for clamped splines
-            if self.pro.space.spl_kind[dim] == False:
-
-                # even spline degree
-                if self.pro.space.p[dim]%2 == 0:
-                    self.x_his[dim] = np.union1d(self.x_int[dim], self.pro.space.el_b[dim])
-
-                # odd spline degree
-                else:
-                    self.x_his[dim] = np.copy(self.x_int[dim])
-            
-            # compute quadrature grid for periodic splines
-            else:
-
-                # even spline degree
-                if self.pro.space.p[dim]%2 == 0:
-                    self.x_his[dim] = np.union1d(self.x_int[dim], self.pro.space.el_b[dim][1:])
-                    self.x_his[dim] = np.append(self.x_his[dim], self.pro.space.el_b[dim][-1] + self.x_his[dim][0])
-
-                # odd spline degree
-                else:
-                    self.x_his[dim] = np.append(self.x_int[dim], self.pro.space.el_b[dim][-1])
-
-            self.pts[dim], self.wts[dim] = bsp.quadrature_grid(self.x_his[dim], projectors_1d[dim].pts_loc, projectors_1d[dim].wts_loc)
-            self.pts[dim]                = self.pts[dim]%1.
-
-            # compute number of sub-intervals for integrations (even degree)
-            if self.pro.space.p[dim]%2 == 0:
-                self.subs[dim] = 2*np.ones(projectors_1d[dim].pts.shape[0], dtype=int)
-
-                if self.pro.space.spl_kind[dim] == False:
-                    self.subs[dim][:self.pro.space.p[dim]//2 ] = 1
-                    self.subs[dim][-self.pro.space.p[dim]//2:] = 1
-
-            # compute number of sub-intervals for integrations (odd degree)
-            else:
-                self.subs[dim] = 1*np.ones(projectors_1d[dim].pts.shape[0], dtype=int)
+        self.basis_int_D[0][self.basis_int_D[0] < 1e-12] = 0.
+        self.basis_int_D[1][self.basis_int_D[1] < 1e-12] = 0.
+        self.basis_int_D[2][self.basis_int_D[2] < 1e-12] = 0.
                 
-        # evaluate basis functions on quadrature points in format (interval, local quad. point, global basis function)
-        self.basis_his_N = [bsp.collocation_matrix(T, p    , pts.flatten(), bc, normalize=kind_splines[0]).reshape(pts.shape[0], pts.shape[1], NbaseN) for T, p, pts, bc, NbaseN in zip(self.pro.space.T, self.pro.space.p, self.pts, self.pro.space.spl_kind, self.pro.space.NbaseN)]
-        self.basis_his_D = [bsp.collocation_matrix(t, p - 1, pts.flatten(), bc, normalize=kind_splines[1]).reshape(pts.shape[0], pts.shape[1], NbaseD) for t, p, pts, bc, NbaseD in zip(self.pro.space.t, self.pro.space.p, self.pts, self.pro.space.spl_kind, self.pro.space.NbaseD)]
-        
-        # shift first interpolation point in radial direction away from pole
-        if self.pro.space.polar == True:
-            self.x_int[0][0] += 0.00001
+        # evaluate basis functions at quadrature points in format (interval, local quad. point, global basis function)
+        self.basis_his_N = [bsp.collocation_matrix(T, p    , pts.flatten(), bc, normalize=kind_splines[0]).reshape(pts.shape[0], pts.shape[1], NbaseN) for T, p, pts, bc, NbaseN in zip(self.pro.space.T, self.pro.space.p, self.pro.pts, self.pro.space.spl_kind, self.pro.space.NbaseN)]
+        self.basis_his_D = [bsp.collocation_matrix(t, p - 1, pts.flatten(), bc, normalize=kind_splines[1]).reshape(pts.shape[0], pts.shape[1], NbaseD) for t, p, pts, bc, NbaseD in zip(self.pro.space.t, self.pro.space.p, self.pro.pts, self.pro.space.spl_kind, self.pro.space.NbaseD)]
     
     
     # =================================================================
@@ -123,139 +93,157 @@ class operators_mhd:
             # ====================== 12 - block ([his, int, int] of DND) ===========================
             # evaluate equilibrium magnetic field (3-component) at interpolation and quadrature points
             if callable(b2_eq[2]):
-                B2_3_pts = b2_eq[2](self.pts[0].flatten(), self.x_int[1], self.x_int[2])
+                B2_3_pts = b2_eq[2](self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2])
             else:
-                B2_3_pts = self.pro.space.evaluate_DDN(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_eq)
+                B2_3_pts = self.pro.space.evaluate_DDN(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], b2_eq)
                 
-            B2_3_pts = B2_3_pts.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            B2_3_pts = B2_3_pts.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
 
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df'))
-            det_dF = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            det_dF = abs(domain.evaluate(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], 'det_df'))
+            det_dF = det_dF.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_D_i[0].size, dtype=int)
 
-            ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi0_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi0_z_D_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_3_pts/det_dF, values, row_all, col_all)
+            ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi0_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi0_z_D_i[1], self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_3_pts/det_dF, values, row_all, col_all)
 
             EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[1]))
+            
+            self.EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[1]))
+            self.EF_12.eliminate_zeros()
 
             
             # ====================== 13 - block ([his, int, int] of DDN) ===========================
             # evaluate equilibrium magnetic field (2-component) at interpolation and quadrature points
             if callable(b2_eq[1]):
-                B2_2_pts = b2_eq[1](self.pts[0].flatten(), self.x_int[1], self.x_int[2])
+                B2_2_pts = b2_eq[1](self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2])
             else:
-                B2_2_pts = self.pro.space.evaluate_DND(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_eq)
+                B2_2_pts = self.pro.space.evaluate_DND(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], b2_eq)
 
-            B2_2_pts = B2_2_pts.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            B2_2_pts = B2_2_pts.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df'))
-            det_dF = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            det_dF = abs(domain.evaluate(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], 'det_df'))
+            det_dF = det_dF.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi0_y_D_i[1], self.pi0_z_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_2_pts/det_dF, values, row_all, col_all)
+            ker.rhs11(self.pi1_x_D_i[0], self.pi0_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi0_y_D_i[1], self.pi0_z_N_i[1], self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_2_pts/det_dF, values, row_all, col_all)
 
             EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[2]))
+            
+            self.EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_2form[2]))
+            self.EF_13.eliminate_zeros()
 
             
             # ====================== 21 - block ([int, his, int] of NDD) ===========================
             # evaluate equilibrium magnetic field (3-component) at interpolation and quadrature points
             if callable(b2_eq[2]):
-                B2_3_pts = b2_eq[2](self.x_int[0], self.pts[1].flatten(), self.x_int[2])
+                B2_3_pts = b2_eq[2](self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2])
             else:
-                B2_3_pts = self.pro.space.evaluate_DDN(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_eq)
+                B2_3_pts = self.pro.space.evaluate_DDN(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], b2_eq)
 
-            B2_3_pts = B2_3_pts.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            B2_3_pts = B2_3_pts.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df'))
-            det_dF = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], 'det_df'))
+            det_dF = det_dF.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_D_i[0].size, dtype=int)
 
-            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi0_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi0_z_D_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.basis_int_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_3_pts/det_dF, values, row_all, col_all)
+            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi0_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi0_z_D_i[1], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_N[0], self.basis_his_D[1], self.basis_int_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_3_pts/det_dF, values, row_all, col_all)
 
             EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[0]))
+            
+            self.EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[0]))
+            self.EF_21.eliminate_zeros()
 
 
             # ====================== 23 - block ([int, his, int] of DDN) ===========================
             # evaluate equilibrium magnetic field (1-component) at interpolation and quadrature points
             if callable(b2_eq[0]):
-                B2_1_pts = b2_eq[0](self.x_int[0], self.pts[1].flatten(), self.x_int[2])
+                B2_1_pts = b2_eq[0](self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2])
             else:
-                B2_1_pts = self.pro.space.evaluate_NDD(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_eq)
+                B2_1_pts = self.pro.space.evaluate_NDD(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], b2_eq)
 
-            B2_1_pts = B2_1_pts.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            B2_1_pts = B2_1_pts.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df'))
-            det_dF = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], 'det_df'))
+            det_dF = det_dF.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs12(self.pi0_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi0_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_D[0], self.basis_his_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_1_pts/det_dF, values, row_all, col_all)
+            ker.rhs12(self.pi0_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi0_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_D[0], self.basis_his_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_1_pts/det_dF, values, row_all, col_all)
 
             EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[2]))
+            
+            self.EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_2form[2]))
+            self.EF_23.eliminate_zeros()
 
 
             # ====================== 31 - block ([int, int, his] of NDD) ===========================
             # evaluate equilibrium magnetic field (2-component) at interpolation and quadrature points
             if callable(b2_eq[1]):
-                B2_2_pts = b2_eq[1](self.x_int[0], self.x_int[1], self.pts[2].flatten())
+                B2_2_pts = b2_eq[1](self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten())
             else:
-                B2_2_pts = self.pro.space.evaluate_DND(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_eq)
+                B2_2_pts = self.pro.space.evaluate_DND(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), b2_eq)
 
-            B2_2_pts = B2_2_pts.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            B2_2_pts = B2_2_pts.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df'))
-            det_dF = det_dF.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), 'det_df'))
+            det_dF = det_dF.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
 
-            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi0_y_D_i[1], self.pi1_z_D_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_N[0], self.basis_int_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_2_pts/det_dF, values, row_all, col_all)
+            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi0_y_D_i[1], self.pi1_z_D_i[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_N[0], self.basis_int_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_2_pts/det_dF, values, row_all, col_all)
 
             EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[0]))
+            
+            self.EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[0]))
+            self.EF_31.eliminate_zeros()
 
             
             # ====================== 32 - block ([int, int, his] of DND) ===========================
             # evaluate equilibrium magnetic field (1-component) at interpolation and quadrature points
             if callable(b2_eq[0]):
-                B2_1_pts = b2_eq[0](self.x_int[0], self.x_int[1], self.pts[2].flatten())
+                B2_1_pts = b2_eq[0](self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten())
             else:
-                B2_1_pts = self.pro.space.evaluate_NDD(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_eq)
+                B2_1_pts = self.pro.space.evaluate_NDD(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), b2_eq)
 
-            B2_1_pts = B2_1_pts.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            B2_1_pts = B2_1_pts.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df'))
-            det_dF = det_dF.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), 'det_df'))
+            det_dF = det_dF.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
 
-            ker.rhs13(self.pi0_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi0_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_D[0], self.basis_int_N[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_1_pts/det_dF, values, row_all, col_all)
+            ker.rhs13(self.pi0_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi0_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_D[0], self.basis_int_N[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_1_pts/det_dF, values, row_all, col_all)
 
             EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[1]))
+            
+            self.EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_2form[1]))
+            self.EF_32.eliminate_zeros()
 
             # ============================== full operator ==========================================
             self.rhs_EF = self.pro.P1.dot(spa.bmat([[None, EF_12, EF_13], [EF_21, None, EF_23], [EF_31, EF_32, None]], format='csr').dot(self.pro.space.E2.T))
@@ -266,18 +254,18 @@ class operators_mhd:
             # ====================== 12 - block ([his, int, int] of NNN) ===========================
             # evaluate equilibrium magnetic field (3-component) at interpolation and quadrature points
             if callable(b2_eq[2]):
-                B2_3_pts = b2_eq[2](self.pts[0].flatten(), self.x_int[1], self.x_int[2])
+                B2_3_pts = b2_eq[2](self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2])
             else:
-                B2_3_pts = self.pro.space.evaluate_DDN(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_eq)
+                B2_3_pts = self.pro.space.evaluate_DDN(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], b2_eq)
                 
-            B2_3_pts = B2_3_pts.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            B2_3_pts = B2_3_pts.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values   = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs11(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi0_z_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_3_pts, values, row_all, col_all)
+            ker.rhs11(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi0_z_N_i[1], self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_3_pts, values, row_all, col_all)
 
             EF_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_0form))
 
@@ -285,18 +273,18 @@ class operators_mhd:
             # ====================== 13 - block ([his, int, int] of NNN) ===========================
             # evaluate equilibrium magnetic field (2-component) at interpolation and quadrature points
             if callable(b2_eq[1]):
-                B2_2_pts = b2_eq[1](self.pts[0].flatten(), self.x_int[1], self.x_int[2])
+                B2_2_pts = b2_eq[1](self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2])
             else:
-                B2_2_pts = self.pro.space.evaluate_DND(self.pts[0].flatten(), self.x_int[1], self.x_int[2], b2_eq)
+                B2_2_pts = self.pro.space.evaluate_DND(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], b2_eq)
 
-            B2_2_pts = B2_2_pts.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
+            B2_2_pts = B2_2_pts.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values   = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs11(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi0_z_N_i[1], self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_2_pts, values, row_all, col_all)
+            ker.rhs11(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi0_z_N_i[1], self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_N[0], self.basis_int_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_2_pts, values, row_all, col_all)
 
             EF_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[0], self.pro.space.Ntot_0form))
 
@@ -304,18 +292,18 @@ class operators_mhd:
             # ====================== 21 - block ([int, his, int] of NNN) ===========================
             # evaluate equilibrium magnetic field (3-component) at interpolation and quadrature points
             if callable(b2_eq[2]):
-                B2_3_pts = b2_eq[2](self.x_int[0], self.pts[1].flatten(), self.x_int[2])
+                B2_3_pts = b2_eq[2](self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2])
             else:
-                B2_3_pts = self.pro.space.evaluate_DDN(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_eq)
+                B2_3_pts = self.pro.space.evaluate_DDN(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], b2_eq)
 
-            B2_3_pts = B2_3_pts.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            B2_3_pts = B2_3_pts.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values   = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_3_pts, values, row_all, col_all)
+            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_3_pts, values, row_all, col_all)
 
             EF_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_0form))
 
@@ -323,18 +311,18 @@ class operators_mhd:
             # ====================== 23 - block ([int, his, int] of NNN) ===========================
             # evaluate equilibrium magnetic field (1-component) at interpolation and quadrature points
             if callable(b2_eq[0]):
-                B2_1_pts = b2_eq[0](self.x_int[0], self.pts[1].flatten(), self.x_int[2])
+                B2_1_pts = b2_eq[0](self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2])
             else:
-                B2_1_pts = self.pro.space.evaluate_NDD(self.x_int[0], self.pts[1].flatten(), self.x_int[2], b2_eq)
+                B2_1_pts = self.pro.space.evaluate_NDD(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], b2_eq)
 
-            B2_1_pts = B2_1_pts.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            B2_1_pts = B2_1_pts.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values   = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_1_pts, values, row_all, col_all)
+            ker.rhs12(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_1_pts, values, row_all, col_all)
 
             EF_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[1], self.pro.space.Ntot_0form))
 
@@ -342,18 +330,18 @@ class operators_mhd:
             # ====================== 31 - block ([int, int, his] of NNN) ===========================
             # evaluate equilibrium magnetic field (2-component) at interpolation and quadrature points
             if callable(b2_eq[1]):
-                B2_2_pts = b2_eq[1](self.x_int[0], self.x_int[1], self.pts[2].flatten())
+                B2_2_pts = b2_eq[1](self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten())
             else:
-                B2_2_pts = self.pro.space.evaluate_DND(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_eq)
+                B2_2_pts = self.pro.space.evaluate_DND(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), b2_eq)
 
-            B2_2_pts = B2_2_pts.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            B2_2_pts = B2_2_pts.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values   = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
 
-            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_2_pts, values, row_all, col_all)
+            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, -B2_2_pts, values, row_all, col_all)
 
             EF_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_0form))
 
@@ -361,18 +349,18 @@ class operators_mhd:
             # ====================== 32 - block ([int, int, his] of NNN) ===========================
             # evaluate equilibrium magnetic field (1-component) at interpolation and quadrature points
             if callable(b2_eq[0]):
-                B2_1_pts = b2_eq[0](self.x_int[0], self.x_int[1], self.pts[2].flatten())
+                B2_1_pts = b2_eq[0](self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten())
             else:
-                B2_1_pts = self.pro.space.evaluate_NDD(self.x_int[0], self.x_int[1], self.pts[2].flatten(), b2_eq)
+                B2_1_pts = self.pro.space.evaluate_NDD(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), b2_eq)
 
-            B2_1_pts = B2_1_pts.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            B2_1_pts = B2_1_pts.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values   = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=float)
             row_all  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
             col_all  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
 
-            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_1_pts, values, row_all, col_all)
+            ker.rhs13(self.pi0_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD,  B2_1_pts, values, row_all, col_all)
 
             EF_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_1form[2], self.pro.space.Ntot_0form))
             
@@ -381,6 +369,8 @@ class operators_mhd:
             self.rhs_EF = self.rhs_EF.dot(spa.bmat([[self.pro.space.E0.T, None, None], [None, self.pro.space.E0_all.T, None], [None, None, self.pro.space.E0_all.T]])).tocsr()
             self.rhs_EF.eliminate_zeros()
             
+    
+    
     
     # =================================================================
     def assemble_rhs_F(self, domain, which, c3_eq=None):
@@ -403,100 +393,109 @@ class operators_mhd:
             # ====================== 11 - block ([int, his, his] of NDD) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if callable(c3_eq):
-                EQ = c3_eq(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten())
+                EQ = c3_eq(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten())
             else:
-                EQ = self.pro.space.evaluate_DDD(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), c3_eq)
+                EQ = self.pro.space.evaluate_DDD(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), c3_eq)
 
-            EQ = EQ.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
+            EQ = EQ.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), 'det_df'))
-            det_dF = det_dF.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
+            det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), 'det_df'))
+            det_dF = det_dF.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
 
-            ker.rhs21(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.subs[1], self.subs[2], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[1], self.wts[2], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
+            ker.rhs21(self.pi0_x_N_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi0_x_N_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.pro.subs[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[1], self.pro.wts[2], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
             F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[0]))
+            
+            self.F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[0]))
+            self.F_11.eliminate_zeros()
 
 
             # ====================== 22 - block ([his, int, his] of DND) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if callable(c3_eq):
-                EQ = c3_eq(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten())
+                EQ = c3_eq(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten())
             else:
-                EQ = self.pro.space.evaluate_DDD(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), c3_eq)
+                EQ = self.pro.space.evaluate_DDD(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten(), c3_eq)
                 
-            EQ = EQ.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            EQ = EQ.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), 'det_df'))
-            det_dF = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            det_dF = abs(domain.evaluate(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten(), 'det_df'))
+            det_dF = det_dF.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_D_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
 
-            ker.rhs22(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.subs[0], self.subs[2], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[0], self.wts[2], self.basis_his_D[0], self.basis_int_N[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
+            ker.rhs22(self.pi1_x_D_i[0], self.pi0_y_N_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi0_y_N_i[1], self.pi1_z_D_i[1], self.pro.subs[0], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[0], self.pro.wts[2], self.basis_his_D[0], self.basis_int_N[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
             F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[1]))
+            
+            self.F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[1]))
+            self.F_22.eliminate_zeros()
 
 
             # ====================== 33 - block ([his, his, int] of DDN) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if callable(c3_eq):
-                EQ = c3_eq(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2])
+                EQ = c3_eq(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2])
             else:
-                EQ = self.pro.space.evaluate_DDD(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], c3_eq)
+                EQ = self.pro.space.evaluate_DDD(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2], c3_eq)
 
-            EQ = EQ.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            EQ = EQ.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
             
             # evaluate Jacobian determinant at at interpolation and quadrature points
-            det_dF = abs(domain.evaluate(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], 'det_df'))
-            det_dF = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            det_dF = abs(domain.evaluate(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2], 'det_df'))
+            det_dF = det_dF.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs23(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.subs[0], self.subs[1], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[0], self.wts[1], self.basis_his_D[0], self.basis_his_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
+            ker.rhs23(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi0_z_N_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi0_z_N_i[1], self.pro.subs[0], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[0], self.pro.wts[1], self.basis_his_D[0], self.basis_his_D[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ/det_dF, values, row_all, col_all)
 
             F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[2]))
+            
+            self.F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[2]))
+            self.F_33.eliminate_zeros()
         
             # ==================================== full operator ===================================
             if   which == 'm':
-                self.rhs_FM = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
-                self.rhs_FM.eliminate_zeros()
+                self.rhs_MF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
+                self.rhs_MF.eliminate_zeros()
                 
             elif which == 'p':
-                self.rhs_FP = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
-                self.rhs_FP.eliminate_zeros()
+                self.rhs_PF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(self.pro.space.E2.T))
+                self.rhs_PF.eliminate_zeros()
                 
         elif self.basis_u == 0:
             
             # ====================== 11 - block ([int, his, his] of NNN) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if which == 'j':
-                EQ = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), 'det_df')
+                EQ = domain.evaluate(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), 'det_df')
             else:
                 if callable(c3_eq):
-                    EQ = c3_eq(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten())
+                    EQ = c3_eq(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten())
                 else:
-                    EQ = self.pro.space.evaluate_DDD(self.x_int[0], self.pts[1].flatten(), self.pts[2].flatten(), c3_eq)
+                    EQ = self.pro.space.evaluate_DDD(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), c3_eq)
 
-            EQ = EQ.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
+            EQ = EQ.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi0_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
 
-            ker.rhs21(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi1_z_N_i[1], self.subs[1], self.subs[2], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[1], self.wts[2], self.basis_int_N[0], self.basis_his_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
+            ker.rhs21(self.pi0_x_N_i[0], self.pi1_y_N_i[0], self.pi1_z_N_i[0], self.pi0_x_N_i[1], self.pi1_y_N_i[1], self.pi1_z_N_i[1], self.pro.subs[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[1], self.pro.wts[2], self.basis_int_N[0], self.basis_his_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
 
             F_11 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_0form))
 
@@ -504,21 +503,21 @@ class operators_mhd:
             # ====================== 22 - block ([his, int, his] of NNN) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if which == 'j':
-                EQ = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), 'det_df')
+                EQ = domain.evaluate(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten(), 'det_df')
             else:
                 if callable(c3_eq):
-                    EQ = c3_eq(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten())
+                    EQ = c3_eq(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten())
                 else:
-                    EQ = self.pro.space.evaluate_DDD(self.pts[0].flatten(), self.x_int[1], self.pts[2].flatten(), c3_eq)
+                    EQ = self.pro.space.evaluate_DDD(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.pts[2].flatten(), c3_eq)
                 
-            EQ = EQ.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+            EQ = EQ.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi1_z_N_i[0].size, dtype=int)
 
-            ker.rhs22(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.subs[0], self.subs[2], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[0], self.wts[2], self.basis_his_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
+            ker.rhs22(self.pi1_x_N_i[0], self.pi0_y_N_i[0], self.pi1_z_N_i[0], self.pi1_x_N_i[1], self.pi0_y_N_i[1], self.pi1_z_N_i[1], self.pro.subs[0], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[0], self.pro.wts[2], self.basis_his_N[0], self.basis_int_N[1], self.basis_his_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
 
             F_22 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_0form))
 
@@ -526,21 +525,21 @@ class operators_mhd:
             # ====================== 33 - block ([his, his, int] of NNN) ===========================
             # evaluate equilibrium density/pressure at interpolation and quadrature points
             if which == 'j':
-                EQ = domain.evaluate(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], 'det_df')
+                EQ = domain.evaluate(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2], 'det_df')
             else:
                 if callable(c3_eq):
-                    EQ = c3_eq(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2])
+                    EQ = c3_eq(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2])
                 else:
-                    EQ = self.pro.space.evaluate_DDD(self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2], c3_eq)
+                    EQ = self.pro.space.evaluate_DDD(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.x_int[2], c3_eq)
 
-            EQ = EQ.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
+            EQ = EQ.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
 
             # assemble sparse matrix
             values  = np.empty(self.pi1_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
             row_all = np.empty(self.pi1_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
             col_all = np.empty(self.pi1_x_N_i[0].size*self.pi1_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=int)
 
-            ker.rhs23(self.pi1_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.subs[0], self.subs[1], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[0], self.wts[1], self.basis_his_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
+            ker.rhs23(self.pi1_x_N_i[0], self.pi1_y_N_i[0], self.pi0_z_N_i[0], self.pi1_x_N_i[1], self.pi1_y_N_i[1], self.pi0_z_N_i[1], self.pro.subs[0], self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[0], self.pro.wts[1], self.basis_his_N[0], self.basis_his_N[1], self.basis_int_N[2], self.pro.space.NbaseN, self.pro.space.NbaseD, EQ, values, row_all, col_all)
 
             F_33 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_0form))
         
@@ -548,29 +547,53 @@ class operators_mhd:
             E_temp = spa.bmat([[self.pro.space.E0, None, None], [None, self.pro.space.E0_all, None], [None, None, self.pro.space.E0_all]], format='csr')
             
             if   which == 'm':
-                self.rhs_FM = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
-                self.rhs_FM.eliminate_zeros()
+                self.rhs_MF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
+                self.rhs_MF.eliminate_zeros()
                 
             elif which == 'p':
-                self.rhs_FP = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
-                self.rhs_FP.eliminate_zeros()
+                self.rhs_PF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
+                self.rhs_PF.eliminate_zeros()
                 
             elif which == 'j':
-                self.rhs_FG = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
-                self.rhs_FG.eliminate_zeros()
+                self.rhs_JF = self.pro.P2.dot(spa.bmat([[F_11, None, None], [None, F_22, None], [None, None, F_33]], format='csr').dot(E_temp.T))
+                self.rhs_JF.eliminate_zeros()
             
+    
+    
+    # =================================================================
+    def assemble_MF(self, domain, r3_eq):
+        
+        if self.basis_u == 2:
+            
+            if callable(r3_eq):
+                weight = lambda eta1, eta2, eta3: r3_eq(eta1, eta2, eta3)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+            else:
+                weight = lambda eta1, eta2, eta3: self.pro.space.evaluate_DDD(eta1, eta2, eta3, r3_eq)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+                
+            self.MF = mass.get_M2(self.pro.space, domain, weight)
+            
+        elif self.basis_u == 0:
+            
+            if callable(r3_eq):
+                weight = lambda eta1, eta2, eta3: r3_eq(eta1, eta2, eta3)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+            else:
+                weight = lambda eta1, eta2, eta3: self.pro.space.evaluate_DDD(eta1, eta2, eta3, r3_eq)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+                
+            self.MF = mass.get_Mv0(self.pro.space, domain, weight)
+    
+    
     # =================================================================
     def assemble_rhs_W(self, domain, r3_eq):
         
         # ====================== ([int, int, int] of NNN) ===========================
         # evaluate equilibrium density at quadrature points
         if callable(r3_eq):
-            EQ = r3_eq(self.x_int[0], self.x_int[1], self.x_int[2])
+            EQ = r3_eq(self.pro.x_int[0], self.pro.x_int[1], self.pro.x_int[2])
         else:
-            EQ = self.pro.space.evaluate_DDD(self.x_int[0], self.x_int[1], self.x_int[2], r3_eq)
+            EQ = self.pro.space.evaluate_DDD(self.pro.x_int[0], self.pro.x_int[1], self.pro.x_int[2], r3_eq)
         
         # evaluate Jacobian determinant at interpolation points
-        det_dF = abs(domain.evaluate(self.x_int[0], self.x_int[1], self.x_int[2], 'det_df'))
+        det_dF = abs(domain.evaluate(self.pro.x_int[0], self.pro.x_int[1], self.pro.x_int[2], 'det_df'))
         
         # assemble sparse matrix
         values  = np.empty(self.pi0_x_N_i[0].size*self.pi0_y_N_i[0].size*self.pi0_z_N_i[0].size, dtype=float)
@@ -593,22 +616,22 @@ class operators_mhd:
         # ====================== ([his, his, his] of DDD) ===========================
         # evaluate equilibrium pressure at quadrature points
         if callable(p3_eq):
-            PR_eq = p3_eq(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten())
+            PR_eq = p3_eq(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.pts[2].flatten())
         else:
-            PR_eq = self.pro.space.evaluate_DDD(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), p3_eq)
+            PR_eq = self.pro.space.evaluate_DDD(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), p3_eq)
             
-        PR_eq = PR_eq.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
+        PR_eq = PR_eq.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
         
         # evaluate Jacobian determinant at at interpolation and quadrature points
-        det_dF = abs(domain.evaluate(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), 'det_df'))
-        det_dF = det_dF.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1])
+        det_dF = abs(domain.evaluate(self.pro.pts[0].flatten(), self.pro.pts[1].flatten(), self.pro.pts[2].flatten(), 'det_df'))
+        det_dF = det_dF.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
         
         # assemble sparse matrix
         values  = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=float)
         row_all = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
         col_all = np.empty(self.pi1_x_D_i[0].size*self.pi1_y_D_i[0].size*self.pi1_z_D_i[0].size, dtype=int)
         
-        ker.rhs3(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.subs[0], self.subs[1], self.subs[2], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[0], self.wts[1], self.wts[2], self.basis_his_D[0], self.basis_his_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, PR_eq/det_dF, values, row_all, col_all)
+        ker.rhs3(self.pi1_x_D_i[0], self.pi1_y_D_i[0], self.pi1_z_D_i[0], self.pi1_x_D_i[1], self.pi1_y_D_i[1], self.pi1_z_D_i[1], self.pro.subs[0], self.pro.subs[1], self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[0], self.pro.wts[1], self.pro.wts[2], self.basis_his_D[0], self.basis_his_D[1], self.basis_his_D[2], self.pro.space.NbaseN, self.pro.space.NbaseD, PR_eq/det_dF, values, row_all, col_all)
         
         self.rhs_PR = self.pro.P3.dot(spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_3form, self.pro.space.Ntot_3form)).dot(self.pro.space.E3.T))
         self.rhs_PR.eliminate_zeros()
@@ -627,13 +650,13 @@ class operators_mhd:
         f1_1, f1_2, f1_3 = np.split(self.pro.P1.T.dot(self.pro.apply_IinvT_V1(f1)), [self.pro.space.Ntot_1form_cum[0], self.pro.space.Ntot_1form_cum[1]])
         
         # evaluate Jacobian determinant at point sets
-        det_DF_hii = domain.evaluate(self.pts[0].flatten(), self.x_int[1], self.x_int[2], 'det_df')
-        det_DF_ihi = domain.evaluate(self.x_int[0], self.pts[1].flatten(), self.x_int[2], 'det_df')
-        det_DF_iih = domain.evaluate(self.x_int[0], self.x_int[1], self.pts[2].flatten(), 'det_df')
+        det_DF_hii = domain.evaluate(self.pro.pts[0].flatten(), self.pro.x_int[1], self.pro.x_int[2], 'det_df')
+        det_DF_ihi = domain.evaluate(self.pro.x_int[0], self.pro.pts[1].flatten(), self.pro.x_int[2], 'det_df')
+        det_DF_iih = domain.evaluate(self.pro.x_int[0], self.pro.x_int[1], self.pro.pts[2].flatten(), 'det_df')
         
-        det_DF_hii = det_DF_hii.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.x_int[1].size, self.x_int[2].size)
-        det_DF_ihi = det_DF_ihi.reshape(self.x_int[0].size, self.pts[1].shape[0], self.pts[1].shape[1], self.x_int[2].size)
-        det_DF_iih = det_DF_iih.reshape(self.x_int[0].size, self.x_int[1].size, self.pts[2].shape[0], self.pts[2].shape[1])
+        det_DF_hii = det_DF_hii.reshape(self.pro.pts[0].shape[0], self.pro.pts[0].shape[1], self.pro.x_int[1].size, self.pro.x_int[2].size)
+        det_DF_ihi = det_DF_ihi.reshape(self.pro.x_int[0].size, self.pro.pts[1].shape[0], self.pro.pts[1].shape[1], self.pro.x_int[2].size)
+        det_DF_iih = det_DF_iih.reshape(self.pro.x_int[0].size, self.pro.x_int[1].size, self.pro.pts[2].shape[0], self.pro.pts[2].shape[1])
         
         
         # ====================== 12 - block ([int, int, his] of ND DN DD) ===========================
@@ -643,7 +666,7 @@ class operators_mhd:
         row_all = np.empty((self.pi0_x_ND_i[3].max() + 1)*(self.pi0_y_DN_i[3].max() + 1)*(self.pi1_z_DD_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi0_x_ND_i[3].max() + 1)*(self.pi0_y_DN_i[3].max() + 1)*(self.pi1_z_DD_i[3].max() + 1), dtype=int)
         
-        ker.rhs13_f(self.pi0_x_ND_i, self.pi0_y_DN_i, self.pi1_z_DD_i, self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_N[0], self.basis_int_D[0], self.basis_int_D[1], self.basis_int_N[1], self.basis_his_D[2], self.basis_his_D[2], 1/det_DF_iih, f1_3, values, row_all, col_all)
+        ker.rhs13_f(self.pi0_x_ND_i, self.pi0_y_DN_i, self.pi1_z_DD_i, self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_N[0], self.basis_int_D[0], self.basis_int_D[1], self.basis_int_N[1], self.basis_his_D[2], self.basis_his_D[2], 1/det_DF_iih, f1_3, values, row_all, col_all)
         
         A_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[1]))
         
@@ -655,7 +678,7 @@ class operators_mhd:
         row_all = np.empty((self.pi0_x_ND_i[3].max() + 1)*(self.pi1_y_DD_i[3].max() + 1)*(self.pi0_z_DN_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi0_x_ND_i[3].max() + 1)*(self.pi1_y_DD_i[3].max() + 1)*(self.pi0_z_DN_i[3].max() + 1), dtype=int)
         
-        ker.rhs12_f(self.pi0_x_ND_i, self.pi1_y_DD_i, self.pi0_z_DN_i, self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_N[0], self.basis_int_D[0], self.basis_his_D[1], self.basis_his_D[1], self.basis_int_D[2], self.basis_int_N[2], 1/det_DF_ihi, -f1_2, values, row_all, col_all)
+        ker.rhs12_f(self.pi0_x_ND_i, self.pi1_y_DD_i, self.pi0_z_DN_i, self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_N[0], self.basis_int_D[0], self.basis_his_D[1], self.basis_his_D[1], self.basis_int_D[2], self.basis_int_N[2], 1/det_DF_ihi, -f1_2, values, row_all, col_all)
         
         A_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[2]))
         
@@ -666,7 +689,7 @@ class operators_mhd:
         row_all = np.empty((self.pi0_x_DN_i[3].max() + 1)*(self.pi0_y_ND_i[3].max() + 1)*(self.pi1_z_DD_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi0_x_DN_i[3].max() + 1)*(self.pi0_y_ND_i[3].max() + 1)*(self.pi1_z_DD_i[3].max() + 1), dtype=int)
         
-        ker.rhs13_f(self.pi0_x_DN_i, self.pi0_y_ND_i, self.pi1_z_DD_i, self.subs[2], np.append(0, np.cumsum(self.subs[2] - 1)[:-1]), self.wts[2], self.basis_int_D[0], self.basis_int_N[0], self.basis_int_N[1], self.basis_int_D[1], self.basis_his_D[2], self.basis_his_D[2], 1/det_DF_iih, -f1_3, values, row_all, col_all)
+        ker.rhs13_f(self.pi0_x_DN_i, self.pi0_y_ND_i, self.pi1_z_DD_i, self.pro.subs[2], np.append(0, np.cumsum(self.pro.subs[2] - 1)[:-1]), self.pro.wts[2], self.basis_int_D[0], self.basis_int_N[0], self.basis_int_N[1], self.basis_int_D[1], self.basis_his_D[2], self.basis_his_D[2], 1/det_DF_iih, -f1_3, values, row_all, col_all)
         
         A_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[0]))
         
@@ -678,7 +701,7 @@ class operators_mhd:
         row_all = np.empty((self.pi1_x_DD_i[3].max() + 1)*(self.pi0_y_ND_i[3].max() + 1)*(self.pi0_z_DN_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi1_x_DD_i[3].max() + 1)*(self.pi0_y_ND_i[3].max() + 1)*(self.pi0_z_DN_i[3].max() + 1), dtype=int)
         
-        ker.rhs11_f(self.pi1_x_DD_i, self.pi0_y_ND_i, self.pi0_z_DN_i, self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[1], self.basis_int_D[2], self.basis_int_N[2], 1/det_DF_hii, f1_1, values, row_all, col_all)
+        ker.rhs11_f(self.pi1_x_DD_i, self.pi0_y_ND_i, self.pi0_z_DN_i, self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[1], self.basis_int_D[2], self.basis_int_N[2], 1/det_DF_hii, f1_1, values, row_all, col_all)
         
         A_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[2]))
         
@@ -690,7 +713,7 @@ class operators_mhd:
         row_all = np.empty((self.pi0_x_DN_i[3].max() + 1)*(self.pi1_y_DD_i[3].max() + 1)*(self.pi0_z_ND_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi0_x_DN_i[3].max() + 1)*(self.pi1_y_DD_i[3].max() + 1)*(self.pi0_z_ND_i[3].max() + 1), dtype=int)
         
-        ker.rhs12_f(self.pi0_x_DN_i, self.pi1_y_DD_i, self.pi0_z_ND_i, self.subs[1], np.append(0, np.cumsum(self.subs[1] - 1)[:-1]), self.wts[1], self.basis_int_D[0], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[1], self.basis_int_N[2], self.basis_int_D[2], 1/det_DF_ihi, f1_2, values, row_all, col_all)
+        ker.rhs12_f(self.pi0_x_DN_i, self.pi1_y_DD_i, self.pi0_z_ND_i, self.pro.subs[1], np.append(0, np.cumsum(self.pro.subs[1] - 1)[:-1]), self.pro.wts[1], self.basis_int_D[0], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[1], self.basis_int_N[2], self.basis_int_D[2], 1/det_DF_ihi, f1_2, values, row_all, col_all)
         
         A_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[0]))
         
@@ -702,7 +725,7 @@ class operators_mhd:
         row_all = np.empty((self.pi1_x_DD_i[3].max() + 1)*(self.pi0_y_DN_i[3].max() + 1)*(self.pi0_z_ND_i[3].max() + 1), dtype=int)
         col_all = np.empty((self.pi1_x_DD_i[3].max() + 1)*(self.pi0_y_DN_i[3].max() + 1)*(self.pi0_z_ND_i[3].max() + 1), dtype=int)
         
-        ker.rhs11_f(self.pi1_x_DD_i, self.pi0_y_DN_i, self.pi0_z_ND_i, self.subs[0], np.append(0, np.cumsum(self.subs[0] - 1)[:-1]), self.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[1], self.basis_int_N[2], self.basis_int_D[2], 1/det_DF_hii, -f1_1, values, row_all, col_all)
+        ker.rhs11_f(self.pi1_x_DD_i, self.pi0_y_DN_i, self.pi0_z_ND_i, self.pro.subs[0], np.append(0, np.cumsum(self.pro.subs[0] - 1)[:-1]), self.pro.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[1], self.basis_int_N[2], self.basis_int_D[2], 1/det_DF_hii, -f1_1, values, row_all, col_all)
         
         A_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[1]))
         
@@ -727,29 +750,29 @@ class operators_mhd:
     def __EF_transposed(self, e):
         return self.rhs_EF.T.dot(self.pro.apply_IinvT_V1(e))
     
-    # ======================================
-    def __FM(self, u):
-        return self.pro.solve_V2(False, self.rhs_FM.dot(u))
+    ## ======================================
+    #def __MF(self, u):
+    #    return self.pro.solve_V2(False, self.rhs_MF.dot(u))
+    
+    ## ======================================
+    #def __MF_transposed(self, u):
+    #    return self.rhs_MF.T.dot(self.pro.apply_IinvT_V2(u))
     
     # ======================================
-    def __FM_transposed(self, u):
-        return self.rhs_FM.T.dot(self.pro.apply_IinvT_V2(u))
+    def __PF(self, u):
+        return self.pro.solve_V2(False, self.rhs_PF.dot(u))
     
     # ======================================
-    def __FP(self, u):
-        return self.pro.solve_V2(False, self.rhs_FP.dot(u))
+    def __PF_transposed(self, u):
+        return self.rhs_PF.T.dot(self.pro.apply_IinvT_V2(u))
     
     # ======================================
-    def __FP_transposed(self, u):
-        return self.rhs_FP.T.dot(self.pro.apply_IinvT_V2(u))
+    def __JF(self, u):
+        return self.pro.solve_V2(False, self.rhs_JF.dot(u))
     
     # ======================================
-    def __FG(self, u):
-        return self.pro.solve_V2(False, self.rhs_FG.dot(u))
-    
-    # ======================================
-    def __FG_transposed(self, u):
-        return self.rhs_FG.T.dot(self.pro.apply_IinvT_V2(u))
+    def __JF_transposed(self, u):
+        return self.rhs_JF.T.dot(self.pro.apply_IinvT_V2(u))
     
     # ======================================
     def __PR(self, f3):
@@ -795,24 +818,32 @@ class operators_mhd:
     
     # ======================================
     def __A(self, u):
+        
         if self.basis_u == 2:
-            return 1/2*(self.__FM_transposed(self.pro.space.M2.dot(u)) + self.pro.space.M2.dot(self.__FM(u)))
+            #return 1/2*(self.__FM_transposed(self.pro.space.M2.dot(u)) + self.pro.space.M2.dot(self.__FM(u)))
+            return self.MF.dot(u)
+        
         elif self.basis_u == 0:
-            return 1/2*(self.__W_transposed(self.pro.space.Mv.dot(u)) + self.pro.space.Mv.dot(self.__W(u)))
+            #return 1/2*(self.__W_transposed(self.pro.space.Mv.dot(u)) + self.pro.space.Mv.dot(self.__W(u)))
+            return self.MF.dot(u)
     
     # ======================================
     def __A_transposed(self, u):
+        
         if self.basis_u == 2:
-            return 1/2*(self.__FM_transposed(self.pro.space.M2.dot(u)) + self.pro.space.M2.dot(self.__FM(u)))
+            #return 1/2*(self.__FM_transposed(self.pro.space.M2.dot(u)) + self.pro.space.M2.dot(self.__FM(u)))
+            return self.MF.dot(u)
+        
         elif self.basis_u == 0:
-            return 1/2*(self.__W_transposed(self.pro.space.Mv.dot(u)) + self.pro.space.Mv.dot(self.__W(u)))
+            #return 1/2*(self.__W_transposed(self.pro.space.Mv.dot(u)) + self.pro.space.Mv.dot(self.__W(u)))
+            return self.MF.dot(u)
     
     # ======================================
     def __L(self, u):
         if self.basis_u == 2:
-            return -self.pro.space.D.dot(self.__FP(u)) - (self.gamma - 1)*self.__PR(self.pro.space.D.dot(u))
+            return -self.pro.space.D.dot(self.__PF(u)) - (self.gamma - 1)*self.__PR(self.pro.space.D.dot(u))
         elif self.basis_u == 0:
-            return -self.pro.space.D.dot(self.__FP(u)) - (self.gamma - 1)*self.__PR(self.pro.space.D.dot(self.__FG(u)))
+            return -self.pro.space.D.dot(self.__PF(u)) - (self.gamma - 1)*self.__PR(self.pro.space.D.dot(self.__JF(u)))
     
     
     # ======================================
@@ -841,19 +872,19 @@ class operators_mhd:
         if self.basis_u == 2:
             out = self.__A(u) - self.dt**2/4*self.pro.space.D.T.dot(self.pro.space.M3.dot(self.__L(u)))
         elif self.basis_u == 0:
-            out = self.__A(u) - self.dt**2/4*self.__FG_transposed(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.__L(u))))
+            out = self.__A(u) - self.dt**2/4*self.__JF_transposed(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.__L(u))))
 
         return out
     
     # ======================================
     def setOperators(self):
         
-        self.FM = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], self.pro.space.E2.shape[0]), matvec=self.__FM, rmatvec=self.__FM_transposed)
+        #self.FM = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], self.pro.space.E2.shape[0]), matvec=self.__FM, rmatvec=self.__FM_transposed)
         
-        self.FP = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], self.pro.space.E2.shape[0]), matvec=self.__FP, rmatvec=self.__FP_transposed)
+        self.PF = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], self.pro.space.E2.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
         
         if self.basis_u == 0:
-            self.FG = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], 3*self.pro.space.E0.shape[0]), matvec=self.__FG, rmatvec=self.__FG_transposed)
+            self.JF = spa.linalg.LinearOperator((self.pro.space.E2.shape[0], 3*self.pro.space.E0.shape[0]), matvec=self.__JF, rmatvec=self.__JF_transposed)
         
         self.EF = spa.linalg.LinearOperator((self.pro.space.E1.shape[0], self.pro.space.E2.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
         
@@ -897,9 +928,10 @@ class operators_mhd:
             # MHD bulk velocity is a 2-form
             if   self.basis_u == 2:
                 out = self.A(u) + self.dt**2/4*self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u))) + self.dt*self.pro.space.D.T.dot(self.pro.space.M3.dot(p)) + self.dt*self.TF(b)
+            
             # MHD bulk velocity is a 0-form
             elif self.basis_u == 0:
-                out = self.A(u) + self.dt**2/4*self.FG.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u)))) + self.dt*self.FG.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(p)))
+                out = self.A(u) + self.dt**2/4*self.JF.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u)))) + self.dt*self.JF.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(p)))
                 
         # without J_eq x B
         elif self.loc_jeq == 'step_2':
@@ -907,9 +939,10 @@ class operators_mhd:
             # MHD bulk velocity is a 2-form
             if   self.basis_u == 2:
                 out = self.A(u) + self.dt**2/4*self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u))) + self.dt*self.pro.space.D.T.dot(self.pro.space.M3.dot(p))
+            
             # MHD bulk velocity is a 0-form
             elif self.basis_u == 0:
-                out = self.A(u) + self.dt**2/4*self.FG.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u)))) + self.dt*self.FG.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(p)))
+                out = self.A(u) + self.dt**2/4*self.JF.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(self.L(u)))) + self.dt*self.JF.T(self.pro.space.D.T.dot(self.pro.space.M3.dot(p)))
                 
         else:
             raise ValueError('J_eq x B term can only be assigned to step 2 and step 6')
@@ -919,51 +952,56 @@ class operators_mhd:
     # ======================================
     def setPreconditionerA(self, drop_tol, fill_fac):
         
-        if self.basis_u == 2:
-            FM_local = self.pro.I2_inv_approx.dot(self.rhs_FM)
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(FM_local)).tolil()
-        elif self.basis_u == 0:
-            FM_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
-            FM_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
-            FM_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
-            FM_local = spa.bmat([[FM_local_1, None, None], [None, FM_local_2, None], [None, None, FM_local_3]], format='csr')
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(FM_local)).tolil()
+        ## MHD bulk velocity is a 2-form
+        #if self.basis_u == 2:
+        #    MF_local = self.pro.I2_inv_approx.dot(self.rhs_MF)
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(MF_local)).tolil()
+        #
+        ## MHD bulk velocity is a 0-form
+        #elif self.basis_u == 0:
+        #    MF_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
+        #    MF_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
+        #    MF_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
+        #    MF_local = spa.bmat([[MF_local_1, None, None], [None, MF_local_2, None], [None, None, MF_local_3]], format='csr')
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(MF_local)).tolil()
 
-        del FM_local
-
-        A_ILU = spa.linalg.spilu(A_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
-        self.A_PRE = spa.linalg.LinearOperator(A_local.shape, lambda x : A_ILU.solve(x))
+        #A_ILU = spa.linalg.spilu(A_local.tocsc(), drop_tol=drop_tol, fill_factor=fill_fac)
+        
+        A_ILU = spa.linalg.spilu(self.MF.tocsc(), drop_tol=drop_tol, fill_factor=fill_fac)
+        
+        self.A_PRE = spa.linalg.LinearOperator(self.MF.shape, lambda x : A_ILU.solve(x))
         
         
     # ======================================
     def setPreconditionerS2(self, drop_tol, fill_fac):
         
-        if self.basis_u == 2:
-            FM_local = self.pro.I2_inv_approx.dot(self.rhs_FM)
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(FM_local)).tolil()
-        elif self.basis_u == 0:
-            FM_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
-            FM_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
-            FM_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
-            FM_local = spa.bmat([[FM_local_1, None, None], [None, FM_local_2, None], [None, None, FM_local_3]], format='csr')
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(FM_local)).tolil()
-
-        del FM_local
+        ## MHD bulk velocity is a 2-form
+        #if self.basis_u == 2:
+        #    MF_local = self.pro.I2_inv_approx.dot(self.rhs_MF)
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(MF_local)).tolil()
+        #
+        ## MHD bulk velocity is a 0-form
+        #elif self.basis_u == 0:
+        #    MF_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
+        #    MF_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
+        #    MF_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
+        #    MF_local = spa.bmat([[MF_local_1, None, None], [None, MF_local_2, None], [None, None, MF_local_3]], format='csr')
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(MF_local)).tolil()
         
         EF_local = self.pro.I1_inv_approx.dot(self.rhs_EF)
         
         # without J_eq x B
         if self.loc_jeq == 'step_6':
-            S2_local = (A_local + self.dt**2/4*EF_local.T.dot(self.pro.space.C.T.dot(self.pro.space.M2.dot(self.pro.space.C.dot(EF_local))))).tolil()
+            S2_local = (self.MF + self.dt**2/4*EF_local.T.dot(self.pro.space.C.T.dot(self.pro.space.M2.dot(self.pro.space.C.dot(EF_local))))).tolil()
             
         # with J_eq x B
         elif self.loc_jeq == 'step_2':
-            S2_local = (A_local + self.dt**2/4*EF_local.T.dot(self.pro.space.C.T.dot(self.pro.space.M2.dot(self.pro.space.C.dot(EF_local)))) + self.dt**2/4*self.mat_TF.dot(self.pro.space.C.dot(EF_local))).tolil()
+            S2_local = (self.MF + self.dt**2/4*EF_local.T.dot(self.pro.space.C.T.dot(self.pro.space.M2.dot(self.pro.space.C.dot(EF_local)))) + self.dt**2/4*self.mat_TF.dot(self.pro.space.C.dot(EF_local))).tolil()
             
         else:
             raise ValueError('J_eq x B term can only be assigned to step 2 and step 6')
         
-        del A_local, EF_local
+        del EF_local
 
         S2_ILU = spa.linalg.spilu(S2_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
         #self.S2_LU  = spa.linalg.splu(S2_local.tocsc())
@@ -973,42 +1011,45 @@ class operators_mhd:
     # ======================================
     def setPreconditionerS6(self, drop_tol, fill_fac):
         
-        if self.basis_u == 2:
-            FM_local = self.pro.I2_inv_approx.dot(self.rhs_FM)
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(FM_local)).tolil()
-        elif self.basis_u == 0:
-            FM_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
-            FM_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
-            FM_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
-            FM_local = spa.bmat([[FM_local_1, None, None], [None, FM_local_2, None], [None, None, FM_local_3]], format='csr')
-            A_local  = 1/2*(FM_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(FM_local)).tolil()
-
-        del FM_local
+        ## MHD bulk velocity is a 2-form
+        #if self.basis_u == 2:
+        #    MF_local = self.pro.I2_inv_approx.dot(self.rhs_MF)
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.M2) + self.pro.space.M2.dot(MF_local)).tolil()
+        #
+        ## MHD bulk velocity is a 0-form
+        #elif self.basis_u == 0:
+        #    MF_local_1 = self.pro.I0_inv_approx.dot(self.rhs_W11)
+        #    MF_local_2 = self.pro.I0_all_inv_approx.dot(self.rhs_W22)
+        #    MF_local_3 = self.pro.I0_all_inv_approx.dot(self.rhs_W33)
+        #    MF_local = spa.bmat([[MF_local_1, None, None], [None, MF_local_2, None], [None, None, MF_local_3]], format='csr')
+        #    A_local  = 1/2*(MF_local.T.dot(self.pro.space.Mv) + self.pro.space.Mv.dot(MF_local)).tolil()
         
-        
+        # MHD bulk velocity is a 2-form
         if self.basis_u == 2:
-            FP_local = self.pro.I2_inv_approx.dot(self.rhs_FP)
+            
+            PF_local = self.pro.I2_inv_approx.dot(self.rhs_PF)
             PR_local = self.pro.I3_inv_approx.dot(self.rhs_PR)
 
-            L_local  = -self.pro.space.D.dot(FP_local) - (self.gamma - 1)*PR_local.dot(self.pro.space.D)
+            L_local  = -self.pro.space.D.dot(PF_local) - (self.gamma - 1)*PR_local.dot(self.pro.space.D)
 
-            del FP_local, PR_local
+            del PF_local, PR_local
 
-            S6_local = (A_local - self.dt**2/4*self.pro.space.D.T.dot(self.pro.space.M3.dot(L_local))).tolil()
-
-            del A_local
+            S6_local = (self.MF - self.dt**2/4*self.pro.space.D.T.dot(self.pro.space.M3.dot(L_local))).tolil()
+        
+        # MHD bulk velocity is a 0-form
         elif self.basis_u == 0:
-            FP_local = self.pro.I2_inv_approx.dot(self.rhs_FP)
-            FG_local = self.pro.I2_inv_approx.dot(self.rhs_FG)
+            
+            PF_local = self.pro.I2_inv_approx.dot(self.rhs_PF)
+            JF_local = self.pro.I2_inv_approx.dot(self.rhs_JF)
             PR_local = self.pro.I3_inv_approx.dot(self.rhs_PR)
             
-            L_local  = -self.pro.space.D.dot(FP_local) - (self.gamma - 1)*PR_local.dot(self.pro.space.D.dot(FG_local))
+            L_local  = -self.pro.space.D.dot(PF_local) - (self.gamma - 1)*PR_local.dot(self.pro.space.D.dot(JF_local))
 
-            del FP_local, PR_local
+            del PF_local, PR_local
 
-            S6_local = (A_local - self.dt**2/4*FG_local.T.dot(self.pro.space.D.T.dot(self.pro.space.M3.dot(L_local)))).tolil()
+            S6_local = (self.MF - self.dt**2/4*JF_local.T.dot(self.pro.space.D.T.dot(self.pro.space.M3.dot(L_local)))).tolil()
 
-            del A_local, FG_local
+            del JF_local
 
         S6_ILU = spa.linalg.spilu(S6_local.tocsc(), drop_tol=drop_tol , fill_factor=fill_fac)
         self.S6_PRE = spa.linalg.LinearOperator(S6_local.shape, lambda x : S6_ILU.solve(x))

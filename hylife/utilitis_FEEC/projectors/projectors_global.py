@@ -47,27 +47,59 @@ class projectors_global_1d:
         # set interpolation points (Greville points)
         self.x_int = bsp.greville(self.space.T, self.space.p, self.space.spl_kind)
         
-        # set histopolation grid
+        # set histopolation grid and number of sub-intervals for clamped splines
         if self.space.spl_kind == False:
-            self.x_his = np.copy(self.x_int)
+            
+            # even spline degree
+            if self.space.p%2 == 0:
+                self.x_his = np.union1d(self.x_int, self.space.el_b)
+                self.subs  = 2*np.ones(self.x_int.size - 1, dtype=int)
+                
+                self.subs[:self.space.p//2 ] = 1
+                self.subs[-self.space.p//2:] = 1
+
+            # odd spline degree
+            else:
+                self.x_his = np.copy(self.x_int)
+                self.subs  = 1*np.ones(self.x_int.size - 1, dtype=int)
+                
+        # set histopolation grid and number of sub-intervals for periodic splines
         else:
-            self.x_his = np.append(self.x_int, self.space.el_b[-1] + self.x_int[0])
+            
+            # even spline degree
+            if self.space.p%2 == 0:
+                self.x_his = np.union1d(self.x_int, self.space.el_b[1:])
+                self.x_his = np.append(self.x_his, self.space.el_b[-1] + self.x_his[0])
+                self.subs  = 2*np.ones(self.x_int.size, dtype=int)
+
+            # odd spline degree
+            else:
+                self.x_his = np.append(self.x_int, self.space.el_b[-1])
+                self.subs  = 1*np.ones(self.x_int.size, dtype=int)
               
-        # quadrature grid and weights
+        self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
+        
+        # quadrature points and weights
         self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
         self.pts           = self.pts%self.space.el_b[-1]
         
         # interpolation and histopolation_matrix
-        self.N     = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind))
-        self.D     = spa.csr_matrix(bsp.histopolation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind))
+        self.N = bsp.collocation_matrix(  self.space.T, self.space.p, self.x_int, self.space.spl_kind)
+        self.D = bsp.histopolation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind)
+        
+        self.N[self.N < 1e-12] = 0.
+        self.D[self.D < 1e-12] = 0.
+        
+        self.N = spa.csr_matrix(self.N)
+        self.D = spa.csr_matrix(self.D)
         
         # LU decompositions
-        self.N_LU  = spa.linalg.splu(self.N.tocsc())
-        self.D_LU  = spa.linalg.splu(self.D.tocsc())
+        self.N_LU = spa.linalg.splu(self.N.tocsc())
+        self.D_LU = spa.linalg.splu(self.D.tocsc())
         
-        # inverse intepolation and histopolation_matrix
-        self.N_inv = np.linalg.inv(self.N.toarray())
-        self.D_inv = np.linalg.inv(self.D.toarray())
+        # LU decompositions of transposed
+        self.N_T_LU = spa.linalg.splu(self.N.T.tocsc())
+        self.D_T_LU = spa.linalg.splu(self.D.T.tocsc())
         
     
     # evaluate function at interpolation points    
@@ -83,7 +115,11 @@ class projectors_global_1d:
         
         # compute integrals
         for i in range(self.space.NbaseD):
-            values[i] = ker_glob.kernel_int_1d(self.n_quad, self.wts[i], mat_f[i])
+            value = 0.
+            for j in range(self.subs[i]):
+                value += ker_glob.kernel_int_1d(self.n_quad, self.wts[i + j + self.subs_cum[i]], mat_f[i + j + self.subs_cum[i]])
+                
+            values[i] = value
                 
         return values
     
@@ -357,7 +393,7 @@ class projectors_global_1d:
         #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
         
 
-    
+        
 
 # ======================= 2d ====================================
 class projectors_global_2d:
@@ -477,53 +513,86 @@ class projectors_global_2d:
         # set interpolation points (Greville points)
         self.x_int = [bsp.greville(T, p, spl_kind) for T, p, spl_kind in zip(self.space.T, self.space.p, self.space.spl_kind)]
         
-        # set histopolation grid, quadrature points and weights
-        self.x_his = [0, 0]
-        self.pts   = [0, 0]
-        self.wts   = [0, 0]
+        # set histopolation grid and number of sub-intervals
+        self.x_his    = [0, 0]
+        self.subs     = [0, 0]
+        self.subs_cum = [0, 0]
+        self.pts      = [0, 0]
+        self.wts      = [0, 0]
         
-        for a in range(2):
-            if self.space.spl_kind[a] == False:
-                self.x_his[a] = np.copy(self.x_int[a])
+        for dim in range(2):
+        
+            # clamped splines
+            if self.space.spl_kind[dim] == False:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+                    self.subs[dim][:self.space.p[dim]//2 ] = 1
+                    self.subs[dim][-self.space.p[dim]//2:] = 1
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.copy(self.x_int[dim])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+            # periodic splines
             else:
-                self.x_his[a] = np.append(self.x_int[a], self.space.el_b[a][-1] + self.x_int[a][0])
-            
-            # quadrature grid and weights
-            self.pts[a], self.wts[a] = bsp.quadrature_grid(self.x_his[a], self.pts_loc[a], self.wts_loc[a])
-            self.pts[a]              = self.pts[a]%self.space.el_b[a][-1]
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim][1:])
+                    self.x_his[dim] = np.append(self.x_his[dim], self.space.el_b[dim][-1] + self.x_his[dim][0])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size, dtype=int)
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.append(self.x_int[dim], self.space.el_b[dim][-1])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size, dtype=int)
+
+            self.subs_cum[dim] = np.append(0, np.cumsum(self.subs[dim] - 1)[:-1])
+
+            # quadrature points and weights
+            self.pts[dim], self.wts[dim] = bsp.quadrature_grid(self.x_his[dim], self.pts_loc[dim], self.wts_loc[dim])
+            self.pts[dim]                = self.pts[dim]%self.space.el_b[dim][-1]
         
-        # 1D interpolation and histopolation matrices
+        
+        # interpolation and histopolation_matrix
         self.N = [bsp.collocation_matrix(  T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
         self.D = [bsp.histopolation_matrix(T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
         
-        # remove small values
-        self.N[0][self.N[0] < 1e-10] = 0.
-        self.N[1][self.N[1] < 1e-10] = 0.
-
-        self.D[0][self.D[0] < 1e-10] = 0.
-        self.D[1][self.D[1] < 1e-10] = 0.
+        self.N[0][self.N[0] < 1e-12] = 0.
+        self.N[1][self.N[1] < 1e-12] = 0.
+        
+        self.D[0][self.D[0] < 1e-12] = 0.
+        self.D[1][self.D[1] < 1e-12] = 0.
         
         self.N = [spa.csr_matrix(N) for N in self.N]
         self.D = [spa.csr_matrix(D) for D in self.D]
         
-        # LU decompositions and inverses of 1D interpolation and histopolation matrices
-        self.N_LU  = [spa.linalg.splu(N.tocsc()) for N in self.N]
-        self.D_LU  = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        # LU decompositions of 1D (transposed) interpolation and histopolation matrices
+        self.N_LU = [spa.linalg.splu(N.tocsc()) for N in self.N]
+        self.D_LU = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        
+        self.N_T_LU = [spa.linalg.splu(N.T.tocsc()) for N in self.N]
+        self.D_T_LU = [spa.linalg.splu(D.T.tocsc()) for D in self.D]
         
         self.N_inv = [np.linalg.inv(N.toarray()) for N in self.N]
         self.D_inv = [np.linalg.inv(D.toarray()) for D in self.D]
         
         # 2D interpolation/histopolation matrices in poloidal plane
-        NN          = spa.kron(self.N[0], self.N[1], format='csr')
-        DN          = spa.kron(self.D[0], self.N[1], format='csr')
-        ND          = spa.kron(self.N[0], self.D[1], format='csr')
-        DD          = spa.kron(self.D[0], self.D[1], format='csr')
+        NN = spa.kron(self.N[0], self.N[1], format='csr')
+        DN = spa.kron(self.D[0], self.N[1], format='csr')
+        ND = spa.kron(self.N[0], self.D[1], format='csr')
+        DD = spa.kron(self.D[0], self.D[1], format='csr')
         
-        DN_ND       = spa.bmat([[DN, None], [None, ND]], format='csr')
-        ND_DN       = spa.bmat([[ND, None], [None, DN]], format='csr')
+        DN_ND = spa.bmat([[DN, None], [None, ND]], format='csr')
+        ND_DN = spa.bmat([[ND, None], [None, DN]], format='csr')
         
-        DN_ND_NN    = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
-        ND_DN_DD    = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
+        DN_ND_NN = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
+        ND_DN_DD = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
         
         self.I0_pol     = self.P0_pol.dot(NN.dot(self.space.E0_pol.T)).tocsr()
         self.I0_pol_all = self.P0_pol_all.dot(NN.dot(self.space.E0_pol_all.T)).tocsr()
@@ -537,12 +606,12 @@ class projectors_global_2d:
         self.I3_pol     = self.P3_pol.dot(DD.dot(self.space.E3_pol.T)).tocsr()
         self.I3_pol_all = self.P3_pol_all.dot(DD.dot(self.space.E3_pol_all.T)).tocsr()
         
-        self.I0         = self.P0.dot(NN.dot(self.space.E0.T)).tocsr()
-        self.I1         = self.P1.dot(DN_ND_NN.dot(self.space.E1.T)).tocsr()
-        self.I2         = self.P2.dot(ND_DN_DD.dot(self.space.E2.T)).tocsr()
-        self.I3         = self.P3.dot(DD.dot(self.space.E3.T)).tocsr()
-
-        # LU decompositions and inverses in poloidal plane
+        self.I0 = self.P0.dot(NN.dot(self.space.E0.T)).tocsr()
+        self.I1 = self.P1.dot(DN_ND_NN.dot(self.space.E1.T)).tocsr()
+        self.I2 = self.P2.dot(ND_DN_DD.dot(self.space.E2.T)).tocsr()
+        self.I3 = self.P3.dot(DD.dot(self.space.E3.T)).tocsr()
+        
+        # LU decompositions in poloidal plane
         self.I0_pol_LU = spa.linalg.splu(self.I0_pol.tocsc())
         self.I1_pol_LU = spa.linalg.splu(self.I1_pol.tocsc())
         self.I2_pol_LU = spa.linalg.splu(self.I2_pol.tocsc())
@@ -553,10 +622,10 @@ class projectors_global_2d:
         self.I2_pol_all_LU = spa.linalg.splu(self.I2_pol_all.tocsc())
         self.I3_pol_all_LU = spa.linalg.splu(self.I3_pol_all.tocsc())
         
-        self.I0_pol_inv = np.linalg.inv(self.I0_pol.toarray())
-        self.I1_pol_inv = np.linalg.inv(self.I1_pol.toarray())
-        self.I2_pol_inv = np.linalg.inv(self.I2_pol.toarray())
-        self.I3_pol_inv = np.linalg.inv(self.I3_pol.toarray())
+        self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+        self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
+        self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
+        self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
 
         # shift first radial interpolation point away from pole
         if self.space.polar == True:
@@ -652,10 +721,16 @@ class projectors_global_2d:
             if eval_kind == 'meshgrid':
                 pts1, pts2  = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij')
                 mat_f[:, :] = fun(pts1, pts2)
-            
+                
             # tensor-product evaluation is done by input function
-            else:
+            elif eval_kind == 'tensor_product':
                 mat_f[:, :] = fun(pts_PI[0], pts_PI[1])
+                
+            # point-wise evaluation
+            else:
+                for i1 in range(pts_PI[0].size):
+                    for i2 in range(pts_PI[1].size):
+                        mat_f[i1, i2] = fun(pts_PI[0][i1], pts_PI[1][i2])
         
         # internal function call
         else:
@@ -741,8 +816,8 @@ class projectors_global_2d:
         
         pts  = self.eval_for_PI(11, fun[0], eval_kind)
         
-        rhs1 = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta1(self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs1)
+        rhs1 = np.empty((self.subs[0].size, n2), dtype=float)
+        ker_glob.kernel_int_2d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs1)
             
         # ====== integrate along 2-direction =======
         n1   = self.pts_PI_1_2[0].size
@@ -750,8 +825,8 @@ class projectors_global_2d:
         
         pts  = self.eval_for_PI(12, fun[1], eval_kind)
         
-        rhs2 = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta2(self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs2)
+        rhs2 = np.empty((n1, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs2)
         
         # ====== interpolation of third component ==
         rhs3 = self.eval_for_PI(0, fun[2], eval_kind)
@@ -777,8 +852,8 @@ class projectors_global_2d:
         
         pts  = self.eval_for_PI(21, fun[0], eval_kind)
         
-        rhs1 = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta2(self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs1)
+        rhs1 = np.empty((n1, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs1)
         
         # ====== integrate along 1-direction =======
         n1   = self.pts_PI_2_2[0].size//self.n_quad[0] 
@@ -786,8 +861,8 @@ class projectors_global_2d:
         
         pts  = self.eval_for_PI(22, fun[1], eval_kind)
         
-        rhs2 = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta1(self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs2)
+        rhs2 = np.empty((self.subs[0].size, n2), dtype=float)
+        ker_glob.kernel_int_2d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs2)
         
         # ====== integrate in 1-2-plane ============
         n1   = self.pts_PI_2_3[0].size//self.n_quad[0] 
@@ -795,8 +870,8 @@ class projectors_global_2d:
         
         pts  = self.eval_for_PI(23, fun[2], eval_kind)
         
-        rhs3 = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta1_eta2(self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs3)
+        rhs3 = np.empty((self.subs[0].size, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs3)
             
         # ====== apply extraction operator =========
         if include_bc == True:
@@ -818,8 +893,8 @@ class projectors_global_2d:
         
         pts = self.eval_for_PI(3, fun, eval_kind)
         
-        rhs = np.empty((n1, n2), dtype=float)
-        ker_glob.kernel_int_2d_eta1_eta2(self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs)
+        rhs = np.empty((self.subs[0].size, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs)
         
         # ====== apply extraction operator =========
         if include_bc == True:
@@ -930,17 +1005,6 @@ class projectors_global_3d:
 
             self.P1_all     = spa.bmat([[P1_all_1, None], [None, P1_all_3]], format='csr')
             self.P2_all     = spa.bmat([[P2_all_1, None], [None, P2_all_3]], format='csr')
-
-            # including boundary splines
-            #self.P0_pol_all = self.space.polar_splines.P0_pol.copy()
-            #self.P1_pol_all = self.space.polar_splines.P1_pol.copy()
-            #self.P2_pol_all = self.space.polar_splines.P2_pol.copy()
-            #self.P3_pol_all = self.space.polar_splines.P3_pol.copy()                                                        
-
-            #self.P0_all     = self.space.polar_splines.P0.copy()
-            #self.P1_all     = self.space.polar_splines.P1.copy()
-            #self.P2_all     = self.space.polar_splines.P2.copy()
-            #self.P3_all     = self.space.polar_splines.P3.copy()
             
             # without boundary splines
             P0_NN = self.space.polar_splines.P0.copy()
@@ -952,17 +1016,6 @@ class projectors_global_3d:
             P2_DN = self.space.polar_splines.P1D.copy()[ (2 + (n1 - 2)*d2):, :]
 
             P3_DD = self.space.polar_splines.P2.copy()
-
-            # without boundary splines
-            #P0_NN = self.space.polar_splines.P0_pol.copy()
-
-            #P1_DN = self.space.polar_splines.P1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
-            #P1_ND = self.space.polar_splines.P1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
-
-            #P2_ND = self.space.polar_splines.P2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
-            #P2_DN = self.space.polar_splines.P2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
-
-            #P3_DD = self.space.polar_splines.P3_pol.copy()
 
             # remove contributions from N-splines at eta1 = 1
             if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
@@ -994,59 +1047,90 @@ class projectors_global_3d:
         self.wts_loc = [np.polynomial.legendre.leggauss(n_quad)[1] for n_quad in self.n_quad]
         
         # set interpolation points (Greville points)
-        self.x_int = [bsp.greville(T, p, bc) for T, p, bc in zip(self.space.T, self.space.p, self.space.spl_kind)]
+        self.x_int = [bsp.greville(T, p, spl_kind) for T, p, spl_kind in zip(self.space.T, self.space.p, self.space.spl_kind)]
         
-        # set histopolation grid
-        self.x_his = [0, 0, 0]
-        self.pts   = [0, 0, 0]
-        self.wts   = [0, 0, 0]
+        # set histopolation grid and number of sub-intervals
+        self.x_his    = [0, 0, 0]
+        self.subs     = [0, 0, 0]
+        self.subs_cum = [0, 0, 0]
+        self.pts      = [0, 0, 0]
+        self.wts      = [0, 0, 0]
         
-        for a in range(3):
-            if self.space.spl_kind[a] == False:
-                self.x_his[a] = np.copy(self.x_int[a])
-            else:
-                self.x_his[a] = np.append(self.x_int[a], self.space.el_b[a][-1] + self.x_int[a][0])
-            
-            # quadrature grid and weights
-            self.pts[a], self.wts[a] = bsp.quadrature_grid(self.x_his[a], self.pts_loc[a], self.wts_loc[a])
-            self.pts[a]              = self.pts[a]%self.space.el_b[a][-1]
+        for dim in range(3):
+        
+            # clamped splines
+            if self.space.spl_kind[dim] == False:
 
-        
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+                    self.subs[dim][:self.space.p[dim]//2 ] = 1
+                    self.subs[dim][-self.space.p[dim]//2:] = 1
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.copy(self.x_int[dim])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+            # periodic splines
+            else:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim][1:])
+                    self.x_his[dim] = np.append(self.x_his[dim], self.space.el_b[dim][-1] + self.x_his[dim][0])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size, dtype=int)
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.append(self.x_int[dim], self.space.el_b[dim][-1])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size, dtype=int)
+
+            self.subs_cum[dim] = np.append(0, np.cumsum(self.subs[dim] - 1)[:-1])
+
+            # quadrature points and weights
+            self.pts[dim], self.wts[dim] = bsp.quadrature_grid(self.x_his[dim], self.pts_loc[dim], self.wts_loc[dim])
+            self.pts[dim]                = self.pts[dim]%self.space.el_b[dim][-1]
+
         
         # 1D interpolation and histopolation matrices
         self.N = [bsp.collocation_matrix(  T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
         self.D = [bsp.histopolation_matrix(T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
         
-        # remove small values
-        self.N[0][self.N[0] < 1e-10] = 0.
-        self.N[1][self.N[1] < 1e-10] = 0.
-        self.N[2][self.N[2] < 1e-10] = 0.
+        self.N[0][self.N[0] < 1e-12] = 0.
+        self.N[1][self.N[1] < 1e-12] = 0.
+        self.N[2][self.N[2] < 1e-12] = 0.
 
-        self.D[0][self.D[0] < 1e-10] = 0.
-        self.D[1][self.D[1] < 1e-10] = 0.
-        self.D[2][self.D[2] < 1e-10] = 0.
+        self.D[0][self.D[0] < 1e-12] = 0.
+        self.D[1][self.D[1] < 1e-12] = 0.
+        self.D[2][self.D[2] < 1e-12] = 0.
         
         self.N = [spa.csr_matrix(N) for N in self.N]
         self.D = [spa.csr_matrix(D) for D in self.D]
         
-        # LU decompositions and inverses of 1D interpolation and histopolation matrices
-        self.N_LU  = [spa.linalg.splu(N.tocsc()) for N in self.N]
-        self.D_LU  = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        # LU decompositions of 1D (transposed) interpolation and histopolation matrices
+        self.N_LU = [spa.linalg.splu(N.tocsc()) for N in self.N]
+        self.D_LU = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        
+        self.N_T_LU = [spa.linalg.splu(N.T.tocsc()) for N in self.N]
+        self.D_T_LU = [spa.linalg.splu(D.T.tocsc()) for D in self.D]
         
         self.N_inv = [np.linalg.inv(N.toarray()) for N in self.N]
         self.D_inv = [np.linalg.inv(D.toarray()) for D in self.D]
         
         # 2D interpolation/histopolation matrices in poloidal plane
-        NN          = spa.kron(self.N[0], self.N[1], format='csr')
-        DN          = spa.kron(self.D[0], self.N[1], format='csr')
-        ND          = spa.kron(self.N[0], self.D[1], format='csr')
-        DD          = spa.kron(self.D[0], self.D[1], format='csr')
+        NN = spa.kron(self.N[0], self.N[1], format='csr')
+        DN = spa.kron(self.D[0], self.N[1], format='csr')
+        ND = spa.kron(self.N[0], self.D[1], format='csr')
+        DD = spa.kron(self.D[0], self.D[1], format='csr')
         
-        DN_ND       = spa.bmat([[DN, None], [None, ND]], format='csr')
-        ND_DN       = spa.bmat([[ND, None], [None, DN]], format='csr')
+        DN_ND = spa.bmat([[DN, None], [None, ND]], format='csr')
+        ND_DN = spa.bmat([[ND, None], [None, DN]], format='csr')
         
-        DN_ND_NN    = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
-        ND_DN_DD    = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
+        DN_ND_NN = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
+        ND_DN_DD = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
         
         self.I0_pol     = self.P0_pol.dot(NN.dot(self.space.E0_pol.T)).tocsr()
         self.I0_pol_all = self.P0_pol_all.dot(NN.dot(self.space.E0_pol_all.T)).tocsr()
@@ -1060,7 +1144,7 @@ class projectors_global_3d:
         self.I3_pol     = self.P3_pol.dot(DD.dot(self.space.E3_pol.T)).tocsr()
         self.I3_pol_all = self.P3_pol_all.dot(DD.dot(self.space.E3_pol_all.T)).tocsr()
 
-        # LU decompositions and inverses in poloidal plane
+        # LU decompositions in poloidal plane
         self.I0_pol_LU = spa.linalg.splu(self.I0_pol.tocsc())
         self.I1_pol_LU = spa.linalg.splu(self.I1_pol.tocsc())
         self.I2_pol_LU = spa.linalg.splu(self.I2_pol.tocsc())
@@ -1071,12 +1155,12 @@ class projectors_global_3d:
         self.I2_pol_all_LU = spa.linalg.splu(self.I2_pol_all.tocsc())
         self.I3_pol_all_LU = spa.linalg.splu(self.I3_pol_all.tocsc())
         
-        self.I0_pol_inv = np.linalg.inv(self.I0_pol.toarray())
-        self.I1_pol_inv = np.linalg.inv(self.I1_pol.toarray())
-        self.I2_pol_inv = np.linalg.inv(self.I2_pol.toarray())
-        self.I3_pol_inv = np.linalg.inv(self.I3_pol.toarray())
+        self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+        self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
+        self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
+        self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
         
-        self.I0_pol_all_inv = np.linalg.inv(self.I0_pol_all.toarray())
+        self.I0_pol_all_T_LU = spa.linalg.splu(self.I0_pol_all.T.tocsc())
         
         # shift first radial interpolation point away from pole
         if self.space.polar == True:
@@ -1153,18 +1237,20 @@ class projectors_global_3d:
     # ========================================
     def assemble_approx_inv(self, tol):
         
-        I0_pol_inv_approx = np.copy(self.I0_pol_inv)
-        I1_pol_inv_approx = np.copy(self.I1_pol_inv)
-        I2_pol_inv_approx = np.copy(self.I2_pol_inv)
-        I3_pol_inv_approx = np.copy(self.I3_pol_inv)
-        
-        I0_pol_all_inv_approx = np.copy(self.I0_pol_all_inv)
-
+        # poloidal direction
+        I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
         I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.
+        
+        I1_pol_inv_approx = np.linalg.inv(self.I1_pol.toarray())
         I1_pol_inv_approx[np.abs(I1_pol_inv_approx) < tol] = 0.
+        
+        I2_pol_inv_approx = np.linalg.inv(self.I2_pol.toarray())
         I2_pol_inv_approx[np.abs(I2_pol_inv_approx) < tol] = 0.
+        
+        I3_pol_inv_approx = np.linalg.inv(self.I3_pol.toarray())
         I3_pol_inv_approx[np.abs(I3_pol_inv_approx) < tol] = 0.
         
+        I0_pol_all_inv_approx = np.linalg.inv(self.I0_pol_all.toarray())
         I0_pol_all_inv_approx[np.abs(I0_pol_all_inv_approx) < tol] = 0.
         
         I0_pol_inv_approx = spa.csr_matrix(I0_pol_inv_approx)
@@ -1173,7 +1259,8 @@ class projectors_global_3d:
         I3_pol_inv_approx = spa.csr_matrix(I3_pol_inv_approx)
         
         I0_pol_all_inv_approx = spa.csr_matrix(I0_pol_all_inv_approx)
-
+        
+        # toroidal direction
         N_inv_z_approx = np.copy(self.N_inv[2])
         D_inv_z_approx = np.copy(self.D_inv[2])
 
@@ -1182,7 +1269,8 @@ class projectors_global_3d:
         
         N_inv_z_approx = spa.csr_matrix(N_inv_z_approx)
         D_inv_z_approx = spa.csr_matrix(D_inv_z_approx)
-        
+
+        # tensor-product poloidal x toroidal
         self.I0_inv_approx = spa.kron(I0_pol_inv_approx, N_inv_z_approx, format='csr')
 
         self.I1_inv_approx = spa.bmat([[spa.kron(I1_pol_inv_approx, N_inv_z_approx), None], [None, spa.kron(I0_pol_inv_approx, D_inv_z_approx)]], format='csr') 
@@ -1363,10 +1451,10 @@ class projectors_global_3d:
         
         if include_bc == False:
             rhs = rhs.reshape(self.P0_pol.shape[0], self.space.NbaseN[2])
-            return self.I0_pol_inv.T.dot(self.N_inv[2].T.dot(rhs.T).T).flatten()
+            return self.I0_pol_T_LU.solve(self.N_T_LU[2].solve(rhs.T).T).flatten()
         else:
             rhs = rhs.reshape(self.P0_pol_all.shape[0], self.space.NbaseN[2])
-            return self.I0_pol_all_inv.T.dot(self.N_inv[2].T.dot(rhs.T).T).flatten()
+            return self.I0_pol_all_T_LU.solve(self.N_T_LU[2].solve(rhs.T).T).flatten()
         
     
     # ======================================
@@ -1374,9 +1462,9 @@ class projectors_global_3d:
         
         rhs1 = rhs[:self.P1_pol.shape[0]*self.space.NbaseN[2] ].reshape(self.P1_pol.shape[0], self.space.NbaseN[2])
         rhs3 = rhs[ self.P1_pol.shape[0]*self.space.NbaseN[2]:].reshape(self.P0_pol.shape[0], self.space.NbaseD[2])
-
-        rhs1 = self.I1_pol_inv.T.dot(self.N_inv[2].T.dot(rhs1.T).T)
-        rhs3 = self.I0_pol_inv.T.dot(self.D_inv[2].T.dot(rhs3.T).T)
+        
+        rhs1 = self.I1_pol_T_LU.solve(self.N_T_LU[2].solve(rhs1.T).T)
+        rhs3 = self.I0_pol_T_LU.solve(self.D_T_LU[2].solve(rhs3.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs3.flatten()))
     
@@ -1385,9 +1473,9 @@ class projectors_global_3d:
                 
         rhs1 = rhs[:self.P2_pol.shape[0]*self.space.NbaseD[2] ].reshape(self.P2_pol.shape[0], self.space.NbaseD[2])
         rhs3 = rhs[ self.P2_pol.shape[0]*self.space.NbaseD[2]:].reshape(self.P3_pol.shape[0], self.space.NbaseN[2])
-
-        rhs1 = self.I2_pol_inv.T.dot(self.D_inv[2].T.dot(rhs1.T).T)
-        rhs3 = self.I3_pol_inv.T.dot(self.N_inv[2].T.dot(rhs3.T).T)
+        
+        rhs1 = self.I2_pol_T_LU.solve(self.D_T_LU[2].solve(rhs1.T).T)
+        rhs3 = self.I3_pol_T_LU.solve(self.N_T_LU[2].solve(rhs3.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs3.flatten()))
     
@@ -1396,7 +1484,7 @@ class projectors_global_3d:
         
         rhs = rhs.reshape(self.P3_pol.shape[0], self.space.NbaseD[2])
         
-        return self.I3_pol_inv.T.dot(self.D_inv[2].T.dot(rhs.T).T).flatten()  
+        return self.I3_pol_T_LU.solve(self.D_T_LU[2].solve(rhs.T).T).flatten()  
     
     
     # ======================================        
@@ -1428,8 +1516,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(11, fun[0], eval_kind)
         
-        rhs1 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta1(self.wts[0], pts.reshape(n1, self.n_quad[0], n2, n3), rhs1)
+        rhs1 = np.empty((self.subs[0].size, n2, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2, n3), rhs1)
             
         # ====== integrate along 2-direction =======
         n1   = self.pts_PI_12[0].size
@@ -1438,8 +1526,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(12, fun[1], eval_kind)
         
-        rhs2 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta2(self.wts[1], pts.reshape(n1, n2, self.n_quad[1], n3), rhs2)
+        rhs2 = np.empty((n1, self.subs[1].size, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1], n3), rhs2)
         
         # ====== integrate along 3-direction =======
         n1   = self.pts_PI_13[0].size
@@ -1448,8 +1536,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(13, fun[2], eval_kind)
         
-        rhs3 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta3(self.wts[2], pts.reshape(n1, n2, n3, self.n_quad[2]), rhs3)
+        rhs3 = np.empty((n1, n2, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta3(self.subs[2], self.subs_cum[2], self.wts[2], pts.reshape(n1, n2, n3, self.n_quad[2]), rhs3)
         
         # ====== apply extraction operator =========
         if include_bc == True:
@@ -1474,8 +1562,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(21, fun[0], eval_kind)
         
-        rhs1 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta2_eta3(self.wts[1], self.wts[2], pts.reshape(n1, n2, self.n_quad[1], n3, self.n_quad[2]), rhs1)   
+        rhs1 = np.empty((n1, self.subs[1].size, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta2_eta3(self.subs[1], self.subs[2], self.subs_cum[1], self.subs_cum[2], self.wts[1], self.wts[2], pts.reshape(n1, n2, self.n_quad[1], n3, self.n_quad[2]), rhs1)   
         # ====== integrate in 1-3-plane =======
         n1   = self.pts_PI_22[0].size//self.n_quad[0] 
         n2   = self.pts_PI_22[1].size
@@ -1483,8 +1571,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(22, fun[1], eval_kind)
         
-        rhs2 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta1_eta3(self.wts[0], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, n3, self.n_quad[2]), rhs2)  
+        rhs2 = np.empty((self.subs[0].size, n2, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta3(self.subs[0], self.subs[2], self.subs_cum[0], self.subs_cum[2], self.wts[0], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, n3, self.n_quad[2]), rhs2)  
         # ====== integrate in 1-2-plane =======
         n1   = self.pts_PI_23[0].size//self.n_quad[0] 
         n2   = self.pts_PI_23[1].size//self.n_quad[1]
@@ -1492,8 +1580,8 @@ class projectors_global_3d:
         
         pts  = self.eval_for_PI(23, fun[2], eval_kind)
         
-        rhs3 = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta1_eta2(self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3), rhs3)
+        rhs3 = np.empty((self.subs[0].size, self.subs[1].size, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3), rhs3)
         
         # ====== apply extraction operator =========
         if include_bc == True:
@@ -1517,8 +1605,8 @@ class projectors_global_3d:
         
         pts = self.eval_for_PI(3, fun, eval_kind)
         
-        rhs = np.empty((n1, n2, n3), dtype=float)
-        ker_glob.kernel_int_3d_eta1_eta2_eta3(self.wts[0], self.wts[1], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3, self.n_quad[2]), rhs)
+        rhs = np.empty((self.subs[0].size, self.subs[1].size, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs[0], self.subs[1], self.subs[2], self.subs_cum[0], self.subs_cum[1], self.subs_cum[2], self.wts[0], self.wts[1], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3, self.n_quad[2]), rhs)
             
         # ====== apply extraction operator =========
         if include_bc == True:
