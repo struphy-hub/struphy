@@ -702,25 +702,34 @@ class tensor_spline_space:
 
     def assemble_M3_2D(self, domain):
         self.M3 = mass_2d.get_M3(self, domain)
+        
+    def assemble_Mv_2D(self, domain):
+        self.Mv = mass_2d.get_Mv(self, domain)
+        
+    def assemble_M1_2D_blocks(self, domain):
+        self.M1_12, self.M1_33 = mass_2d.get_M1(self, domain, blocks=True)
+        
+    def assemble_M2_2D_blocks(self, domain):
+        self.M2_12, self.M2_33 = mass_2d.get_M2(self, domain, blocks=True)
+        
+    def assemble_Mv_2D_blocks(self, domain):
+        self.Mv_12, self.Mv_33 = mass_2d.get_Mv(self, domain, blocks=True)
     
     # ============== mass matrices (3D) ===============
-    def assemble_M0( self, domain):
-        self.M0 = mass_3d.get_M0( self, domain)
+    def assemble_M0(self, domain):
+        self.M0 = mass_3d.get_M0(self, domain)
 
-    def assemble_M1( self, domain):
-        self.M1 = mass_3d.get_M1( self, domain)
+    def assemble_M1(self, domain):
+        self.M1 = mass_3d.get_M1(self, domain)
 
-    def assemble_M2( self, domain):
-        self.M2 = mass_3d.get_M2( self, domain)
+    def assemble_M2(self, domain):
+        self.M2 = mass_3d.get_M2(self, domain)
 
-    def assemble_M3( self, domain):
-        self.M3 = mass_3d.get_M3( self, domain)
+    def assemble_M3(self, domain):
+        self.M3 = mass_3d.get_M3(self, domain)
 
-    def assemble_Mv0(self, domain):
-        self.Mv = mass_3d.get_Mv0(self, domain)
-
-    def assemble_Mv2(self, domain):
-        self.Mv = mass_3d.get_Mv2(self, domain)
+    def assemble_Mv(self, domain, basis):
+        self.Mv = mass_3d.get_Mv(self, domain, basis)
     
     # ========= extraction of coefficients =========
     def extract_0form(self, coeff):
