@@ -7,8 +7,8 @@ from pyccel.decorators import types
 
 
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','int','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
-def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, nbase1, nbase2, nbase3, mat, mat_fun):
+@types('int','int','int','int','int','int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]')
+def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1, nj2, nj3, w1, w2, w3, bi1, bi2, bi3, bj1, bj2, bj3, ind_base1, ind_base2, ind_base3, mat, mat_fun):
     
     mat[:, :, :, :, :, :] = 0.
      
@@ -37,7 +37,7 @@ def kernel_mass(nel1, nel2, nel3, p1, p2, p3, nq1, nq2, nq3, ni1, ni2, ni3, nj1,
                                                     
                                                     value += wvol * bi * bj
 
-                                        mat[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2, (ie3 + il3)%nbase3, p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
+                                        mat[ind_base1[ie1, il1], ind_base2[ie2, il2], ind_base3[ie3, il3], p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
     #$ omp end do
     #$ omp end parallel
     
