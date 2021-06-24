@@ -219,21 +219,8 @@ class operators_mhd:
             
         elif self.basis_u == 0:
             print('not yet implemented!')
-    
-    
-    # =================================================================
-    def assemble_MF(self, domain, r3_eq):
         
-        eta3 = np.array([0.])
         
-        if self.basis_u == 2:
-            if callable(r3_eq):
-                weight = lambda eta1, eta2: r3_eq(eta1, eta2)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))[:, :, 0]
-            else:
-                weight = lambda eta1, eta2: self.pro.space.evaluate_DD(eta1, eta2, r3_eq, 'V3')/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))[:, :, 0]
-                
-            self.MF = mass.get_M2(self.pro.space, domain, weight)
-
             
     # =================================================================
     def assemble_rhs_F(self, domain, c3_eq, which):
@@ -355,8 +342,36 @@ class operators_mhd:
         self.rhs_PR.eliminate_zeros()
         
         
+    
     # =================================================================
-    def assemble_TF_V1(self, domain, b2_eq):
+    def assemble_MR(self, domain, r3_eq):
+        
+        eta3 = np.array([0.])
+        
+        if callable(r3_eq):
+            rho0_eq = lambda eta1, eta2: r3_eq(eta1, eta2)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df')[:, :, 0])
+        else:
+            rho0_eq = lambda eta1, eta2: self.pro.space.evaluate_DD(eta1, eta2, r3_eq, 'V3')/abs(domain.evaluate(eta1, eta2, eta3, 'det_df')[:, :, 0])
+        
+        weight11 = lambda eta1, eta2 :rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_11')[:, :, 0]
+        weight12 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_12')[:, :, 0]
+        weight13 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_13')[:, :, 0]
+
+        weight21 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_21')[:, :, 0]
+        weight22 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_22')[:, :, 0]
+        weight23 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_23')[:, :, 0]
+
+        weight31 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_31')[:, :, 0]
+        weight32 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_32')[:, :, 0]
+        weight33 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_33')[:, :, 0]
+        
+        weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
+        
+        self.MR = mass.get_M2(self.pro.space, domain, False, weights)
+    
+    
+    # =================================================================
+    def assemble_JB_weak(self, domain, b2_eq):
         
         if callable(b2_eq):
             raiseValueError('given equilibrium magnetic field must be given in terms of FEM coefficients')
@@ -400,7 +415,7 @@ class operators_mhd:
         
         ker.rhs0_f_2d(self.pi0_x_ND_i, self.pi0_y_DN_i, self.basis_int_N[0], self.basis_int_D[0], self.basis_int_D[1], self.basis_int_N[1], 1/det_DF_ii, f1_3, values, row_all, col_all)
         
-        A_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[1]))
+        JB_12 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[1]))
         
         
         # ====================== 13 - block ([int, his] of ND DD) ===========================
@@ -410,7 +425,7 @@ class operators_mhd:
         
         ker.rhs12_f_2d(self.pi0_x_ND_i, self.pi1_y_DD_i, self.pro.subs[1], self.pro.subs_cum[1], self.pro.wts[1], self.basis_int_N[0], self.basis_int_D[0], self.basis_his_D[1], self.basis_his_D[1], 1/det_DF_ih, -f1_2, values, row_all, col_all)
         
-        A_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[2]))
+        JB_13 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[0], self.pro.space.Ntot_2form[2]))
         
         
         # ====================== 21 - block ([int, int] of DN ND) ===========================
@@ -420,7 +435,7 @@ class operators_mhd:
         
         ker.rhs0_f_2d(self.pi0_x_DN_i, self.pi0_y_ND_i, self.basis_int_D[0], self.basis_int_N[0], self.basis_int_N[1], self.basis_int_D[1], 1/det_DF_ii, -f1_3, values, row_all, col_all)
         
-        A_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[0]))
+        JB_21 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[0]))
         
         
         # ====================== 23 - block ([his, int] of DD ND) ===========================
@@ -430,7 +445,7 @@ class operators_mhd:
         
         ker.rhs11_f_2d(self.pi1_x_DD_i, self.pi0_y_ND_i, self.pro.subs[0], self.pro.subs_cum[0], self.pro.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_N[1], self.basis_int_D[1], 1/det_DF_hi, f1_1, values, row_all, col_all)
         
-        A_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[2]))
+        JB_23 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[1], self.pro.space.Ntot_2form[2]))
         
         
         # ====================== 31 - block ([int, his] of DN DD) ===========================
@@ -440,7 +455,7 @@ class operators_mhd:
         
         ker.rhs12_f_2d(self.pi0_x_DN_i, self.pi1_y_DD_i, self.pro.subs[1], self.pro.subs_cum[1], self.pro.wts[1], self.basis_int_D[0], self.basis_int_N[0], self.basis_his_D[1], self.basis_his_D[1], 1/det_DF_ih, f1_2, values, row_all, col_all)
         
-        A_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[0]))
+        JB_31 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[0]))
         
         
         # ====================== 32 - block ([his, int] of DD DN) ===========================
@@ -450,15 +465,49 @@ class operators_mhd:
         
         ker.rhs11_f_2d(self.pi1_x_DD_i, self.pi0_y_DN_i, self.pro.subs[0], self.pro.subs_cum[0], self.pro.wts[0], self.basis_his_D[0], self.basis_his_D[0], self.basis_int_D[1], self.basis_int_N[1], 1/det_DF_hi, -f1_1, values, row_all, col_all)
         
-        A_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[1]))
+        JB_32 = spa.csr_matrix((values, (row_all, col_all)), shape=(self.pro.space.Ntot_2form[2], self.pro.space.Ntot_2form[1]))
         
         # ==================================== full operator ================================
-        self.mat_TF = (self.pro.space.E2.dot(spa.bmat([[None, A_12, A_13], [A_21, None, A_23], [A_31, A_32, None]], format='csr').dot(self.pro.space.E2.T))).T
-        self.mat_TF.eliminate_zeros()
+        self.mat_JB = (self.pro.space.E2.dot(spa.bmat([[None, A_12, A_13], [A_21, None, A_23], [A_31, A_32, None]], format='csr').dot(self.pro.space.E2.T))).T
+        self.mat_JB.eliminate_zeros()
         
         
     # =================================================================
-    def assemble_TF_V2(self, domain, j2_eq):
+    def assemble_JB_strong(self, domain, j2_eq):
         
-        self.mat_TF = mass.get_M2_a(self.pro.space, domain, j2_eq)
-        self.mat_TF.eliminate_zeros()
+        eta3 = np.array([0.])
+        
+        if callable(j2_eq[0]):
+            
+            weight11 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight12 = lambda eta1, eta2: -j2_eq[2](eta1, eta2)
+            weight13 = lambda eta1, eta2:  j2_eq[1](eta1, eta2)
+            
+            weight21 = lambda eta1, eta2:  j2_eq[2](eta1, eta2)
+            weight22 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight23 = lambda eta1, eta2: -j2_eq[0](eta1, eta2)
+            
+            weight31 = lambda eta1, eta2: -j2_eq[1](eta1, eta2)
+            weight32 = lambda eta1, eta2:  j2_eq[0](eta1, eta2)
+            weight33 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+        
+        else:
+            
+            weight11 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight12 = lambda eta1, eta2: -self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')
+            weight13 = lambda eta1, eta2:  self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')
+            
+            weight21 = lambda eta1, eta2:  self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')
+            weight22 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight23 = lambda eta1, eta2: -self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')
+            
+            weight31 = lambda eta1, eta2: -self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')
+            weight32 = lambda eta1, eta2:  self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')
+            weight33 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+
+        weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
+
+        self.mat_JB = mass.get_M2(self.pro.space, domain, False, weights)
+        
+        #self.mat_JB = mass.get_M2_a(self.pro.space, domain, j2_eq)
+        #self.mat_JB.eliminate_zeros()
