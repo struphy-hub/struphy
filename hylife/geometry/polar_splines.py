@@ -68,7 +68,7 @@ class polar_splines_2D:
             for j in range(n1):
                 self.E1C_1[(d0 - 1)*n1 + s, j] = self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j]
                 
-        self.E1C_1[:(d0 - 1)*n1, n1:] = np.identity((d0 - 1)*n1)
+        self.E1C_1[:(d0 - 1)*n1, n1:] = spa.identity((d0 - 1)*n1)
         self.E1C_1 = self.E1C_1.tocsr()
 
         # 2nd component
@@ -77,7 +77,7 @@ class polar_splines_2D:
                 self.E1C_2[(d0 - 1)*n1 + s,      j] = 0.
                 self.E1C_2[(d0 - 1)*n1 + s, n1 + j] = self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j]
 
-        self.E1C_2[((d0 - 1)*n1 + 2):, 2*d1:] = np.identity((n0 - 2)*d1)
+        self.E1C_2[((d0 - 1)*n1 + 2):, 2*d1:] = spa.identity((n0 - 2)*d1)
         self.E1C_2 = self.E1C_2.tocsr()
         
         # combined first and second component
@@ -118,7 +118,7 @@ class polar_splines_2D:
                 self.E1D_1[s,      j] = 0.
                 self.E1D_1[s, n1 + j] = (self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
                 
-        self.E1D_1[2:(2 + (n0 - 2)*d1), 2*n1:] = np.identity((n0 - 2)*d1)
+        self.E1D_1[2:(2 + (n0 - 2)*d1), 2*n1:] = spa.identity((n0 - 2)*d1)
         self.E1D_1 = self.E1D_1.tocsr()
 
         # 2nd component
@@ -126,7 +126,7 @@ class polar_splines_2D:
             for j in range(n1):
                 self.E1D_2[s, j] = -(self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j])
                 
-        self.E1D_2[(2 + (n0 - 2)*d1):, 1*n1:] = np.identity((d0 - 1)*n1)
+        self.E1D_2[(2 + (n0 - 2)*d1):, 1*n1:] = spa.identity((d0 - 1)*n1)
         self.E1D_2 = self.E1D_2.tocsr()
 
         # combined first and second component
@@ -148,7 +148,7 @@ class polar_splines_2D:
         # =========== extraction operators for discrete 2-forms ===================
         self.E2 = spa.lil_matrix((self.Nbase2, d0*d1), dtype=float)
         
-        self.E2[:, 1*d1:] = np.identity((d0 - 1)*d1)
+        self.E2[:, 1*d1:] = spa.identity((d0 - 1)*d1)
         self.E2 = self.E2.tocsr()
         
         # 3rd component
