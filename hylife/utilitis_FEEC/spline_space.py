@@ -51,19 +51,23 @@ class spline_space_1d:
         self.Nel      = Nel                                              # number of elements
         self.p        = p                                                # spline degree
         self.spl_kind = spl_kind                                         # kind of spline space (periodic or clamped)
-        self.n_quad   = n_quad                                           # number of Gauss-Legendre points per element
         
         self.el_b     = np.linspace(0., 1., Nel + 1)                     # element boundaries
         self.delta    = 1/self.Nel                                       # element length
          
         self.T        = bsp.make_knots(self.el_b, self.p, self.spl_kind) # spline knot vector for B-splines (N)
-        self.t        = self.T[1:-1]                                     # reduced knot vector for M-splines (D)
+        self.t        = self.T[1:-1]                                     # spline knot vector for M-splines (D)
         
         self.NbaseN   = len(self.T) - self.p - 1 - self.spl_kind*self.p  # total number of B-splines (N)
         self.NbaseD   = self.NbaseN - 1 + self.spl_kind                  # total number of M-splines (D)
         
+        # global indices of non-vanishing splines in each element in format (Nel, global index)
+        self.indN     = (np.indices((self.Nel, self.p + 1 - 0))[1] + np.arange(self.Nel)[:, None])%self.NbaseN
+        self.indD     = (np.indices((self.Nel, self.p + 1 - 1))[1] + np.arange(self.Nel)[:, None])%self.NbaseD
         
         if n_quad != None:
+            
+            self.n_quad  = n_quad                                          # number of Gauss-Legendre points per element
             
             self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0] # Gauss-Legendre points  (GLQP) in (-1, 1)
             self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1] # Gauss-Legendre weights (GLQW) in (-1, 1)
@@ -300,38 +304,43 @@ class tensor_spline_space:
     Parameters
     ----------
     spline_spaces : list of spline_space_1d
-        1d B-spline spaces from which the tensor_product B-spline space is built 
+        1d B-spline spaces from which the tensor_product B-spline space is built
     """
     
+
     def __init__(self, spline_spaces):
         
         self.spaces   = spline_spaces                            # 1D B-spline spaces
         self.dim      = len(self.spaces)                         # number of 1D B-spline spaces (= dimension)
         
-        self.T        = [spl.T        for spl in self.spaces]    # knot vectors
-        self.p        = [spl.p        for spl in self.spaces]    # spline degrees
+        self.Nel      = [spl.Nel      for spl in self.spaces]    # number of elements
+        self.p        = [spl.p        for spl in self.spaces]    # spline degree
         self.spl_kind = [spl.spl_kind for spl in self.spaces]    # kind of spline space (periodic or clamped)
         
-        
         self.el_b     = [spl.el_b     for spl in self.spaces]    # element boundaries
-        self.Nel      = [spl.Nel      for spl in self.spaces]    # number of elements
-        self.delta    = [spl.delta    for spl in self.spaces]    # element length
-        self.t        = [spl.t        for spl in self.spaces]    # reduced knot vectors for M-splines (D)
+        self.delta    = [spl.delta    for spl in self.spaces]    # element lengths
         
-        self.NbaseN   = [spl.NbaseN   for spl in self.spaces]    # total number of basis functions (N)
-        self.NbaseD   = [spl.NbaseD   for spl in self.spaces]    # total number of basis functions (D)
+        self.T        = [spl.T        for spl in self.spaces]    # spline knot vector for B-splines (N)
+        self.t        = [spl.t        for spl in self.spaces]    # spline knot vector for M-splines (D)
+        
+        self.NbaseN   = [spl.NbaseN   for spl in self.spaces]    # total number of B-splines (N)
+        self.NbaseD   = [spl.NbaseD   for spl in self.spaces]    # total number of M-splines (D)
+        
+        # global indices of non-vanishing splines in each element in format (Nel, global index)
+        self.indN     = [spl.indN     for spl in self.spaces]
+        self.indD     = [spl.indD     for spl in self.spaces]
         
         if self.spaces[0].n_quad != None:
             
             self.n_quad  = [spl.n_quad  for spl in self.spaces]  # number of Gauss-Legendre quadrature points per element
-
-            self.n_pts   = [spl.n_pts   for spl in self.spaces]  # total number of quadrature points
-
+            
             self.pts_loc = [spl.pts_loc for spl in self.spaces]  # Gauss-Legendre quadrature points  (GLQP) in (-1, 1)
             self.wts_loc = [spl.wts_loc for spl in self.spaces]  # Gauss-Legendre quadrature weights (GLQW) in (-1, 1)
 
             self.pts     = [spl.pts     for spl in self.spaces]  # global GLQP in format (element, local point)
             self.wts     = [spl.wts     for spl in self.spaces]  # global GLQW in format (element, local point)
+            
+            self.n_pts   = [spl.n_pts   for spl in self.spaces]  # total number of quadrature points
 
             # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
             self.basisN  = [spl.basisN  for spl in self.spaces] 
@@ -693,25 +702,34 @@ class tensor_spline_space:
 
     def assemble_M3_2D(self, domain):
         self.M3 = mass_2d.get_M3(self, domain)
+        
+    def assemble_Mv_2D(self, domain):
+        self.Mv = mass_2d.get_Mv(self, domain)
+        
+    def assemble_M1_2D_blocks(self, domain):
+        self.M1_12, self.M1_33 = mass_2d.get_M1(self, domain, blocks=True)
+        
+    def assemble_M2_2D_blocks(self, domain):
+        self.M2_12, self.M2_33 = mass_2d.get_M2(self, domain, blocks=True)
+        
+    def assemble_Mv_2D_blocks(self, domain):
+        self.Mv_12, self.Mv_33 = mass_2d.get_Mv(self, domain, blocks=True)
     
     # ============== mass matrices (3D) ===============
-    def assemble_M0( self, domain):
-        self.M0 = mass_3d.get_M0( self, domain)
+    def assemble_M0(self, domain):
+        self.M0 = mass_3d.get_M0(self, domain)
 
-    def assemble_M1( self, domain):
-        self.M1 = mass_3d.get_M1( self, domain)
+    def assemble_M1(self, domain):
+        self.M1 = mass_3d.get_M1(self, domain)
 
-    def assemble_M2( self, domain):
-        self.M2 = mass_3d.get_M2( self, domain)
+    def assemble_M2(self, domain):
+        self.M2 = mass_3d.get_M2(self, domain)
 
-    def assemble_M3( self, domain):
-        self.M3 = mass_3d.get_M3( self, domain)
+    def assemble_M3(self, domain):
+        self.M3 = mass_3d.get_M3(self, domain)
 
-    def assemble_Mv0(self, domain):
-        self.Mv = mass_3d.get_Mv0(self, domain)
-
-    def assemble_Mv2(self, domain):
-        self.Mv = mass_3d.get_Mv2(self, domain)
+    def assemble_Mv(self, domain, basis):
+        self.Mv = mass_3d.get_Mv(self, domain, basis)
     
     # ========= extraction of coefficients =========
     def extract_0form(self, coeff):
@@ -797,7 +815,7 @@ class tensor_spline_space:
     
 
     # =================================================
-    def evaluate_NN(self, eta1, eta2, coeff, which):
+    def evaluate_NN(self, eta1, eta2, coeff, which=None):
         """
         Evaluates the spline space (NN) with coefficients 'coeff' at the point eta = (eta1, eta2).
 
@@ -822,9 +840,9 @@ class tensor_spline_space:
         """
         
         # extract coefficients
-        if which == 'V0':
+        if   which == 'V0':
             coeff = self.extract_0form(coeff)
-        else:
+        elif which == 'V1':
             coeff = self.extract_1form(coeff)[2]
         
         # evaluate FEM field at given points
@@ -846,7 +864,7 @@ class tensor_spline_space:
     
     
     # =================================================
-    def evaluate_DN(self, eta1, eta2, coeff, which):
+    def evaluate_DN(self, eta1, eta2, coeff, which=None):
         """
         Evaluates the spline space (DN) with coefficients 'coeff' at the point eta = (eta1, eta2).
 
@@ -871,9 +889,9 @@ class tensor_spline_space:
         """
         
         # extract coefficients
-        if which == 'V1':
+        if   which == 'V1':
             coeff = self.extract_1form(coeff)[0]
-        else:
+        elif which == 'V2':
             coeff = self.extract_2form(coeff)[1]
         
         # evaluate FEM field at given points
@@ -895,7 +913,7 @@ class tensor_spline_space:
     
     
     # =================================================
-    def evaluate_ND(self, eta1, eta2, coeff, which):
+    def evaluate_ND(self, eta1, eta2, coeff, which=None):
         """
         Evaluates the spline space (ND) with coefficients 'coeff' at the point eta = (eta1, eta2).
 
@@ -920,9 +938,9 @@ class tensor_spline_space:
         """
         
         # extract coefficients
-        if which == 'V1':
+        if   which == 'V1':
             coeff = self.extract_1form(coeff)[1]
-        else:
+        elif which == 'V2':
             coeff = self.extract_2form(coeff)[0]
         
         # evaluate FEM field at given points
@@ -944,7 +962,7 @@ class tensor_spline_space:
     
     
     # =================================================
-    def evaluate_DD(self, eta1, eta2, coeff, which):
+    def evaluate_DD(self, eta1, eta2, coeff, which=None):
         """
         Evaluates the spline space (DD) with coefficients 'coeff' at the point eta = (eta1, eta2).
 
@@ -969,9 +987,9 @@ class tensor_spline_space:
         """
         
         # extract coefficients
-        if which == 'V2':
+        if   which == 'V2':
             coeff = self.extract_2form(coeff)[2]
-        else:
+        elif which == 'V3':
             coeff = self.extract_3form(coeff)
             
         

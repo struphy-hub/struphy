@@ -390,14 +390,6 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         
         da = a2 - a1
         
-        if   component == 1:
-            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3)
-        elif component == 2:
-            value =  (a1 + eta1 * da) * sin(2*pi*eta2)
-        elif component == 3:
-            value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
-        
-        
         if   component == 11:
             value = da * cos(2*pi*eta2) * cos(2*pi*eta3)
         elif component == 12:

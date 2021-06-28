@@ -94,7 +94,9 @@ add_pressure   = params['add_pressure']
 loc_jeq        = params['loc_jeq']
 gamma          = params['gamma']
 
-# ILU preconditioners for linear systems
+# preconditioners for linear systems
+PRE            = params['PRE']
+
 drop_tol_S2    = params['drop_tol_S2']
 fill_fac_S2    = params['fill_fac_S2']
 
@@ -109,6 +111,11 @@ tol1           = params['tol1']
 tol2           = params['tol2']
 tol3           = params['tol3']
 tol6           = params['tol6']
+
+maxiter1       = params['maxiter1']
+maxiter2       = params['maxiter2']
+maxiter3       = params['maxiter3']
+maxiter6       = params['maxiter6']
 
 # particles
 add_PIC        = params['add_PIC']
@@ -183,7 +190,7 @@ if geometry == 'spline' or polar == True:
                                
     #cx, cy, cz = dom.interp_mapping(Nel_MAP, p_MAP, spl_kind_MAP, X, Y, Z)
     
-    X = lambda eta1, eta2 : 1*eta1*np.cos(2*np.pi*eta2) + 0
+    X = lambda eta1, eta2 : 1*eta1*np.cos(2*np.pi*eta2) + 10.0
     Y = lambda eta1, eta2 : 1*eta1*np.sin(2*np.pi*eta2)
     
     cx, cy = dom.interp_mapping(Nel_MAP[:2], p_MAP[:2], spl_kind_MAP[:2], X, Y)
@@ -278,14 +285,16 @@ pro_3d = pro.projectors_global_3d(tensor_space_FEM, nq_pr)
 
 # ===== initialization with 2d eigenfunctions ===========================
 if False:
-    U2_ini = eig_2d.solve_ev_problem_FEEC_2D([Nel[:2], p[:2], spl_kind[:2], nq_el[:2], nq_pr[:2], bc], domain, eq_MHD, gamma, 1)
+    U2_ini = eig_2d.solve_ev_problem_FEEC_2D([Nel[:2], p[:2], spl_kind[:2], nq_el[:2], nq_pr[:2], bc], domain, eq_MHD, gamma, -1, 1, 1482)
+    
+    print(np.sqrt(U2_ini[3])*10)
 
-    up[:]  = pro_3d.pi_2(U2_ini, include_bc=False, eval_kind='points', interp=True)
+    up[:]  = pro_3d.pi_2(U2_ini, include_bc=False, eval_kind='tensor_product', interp=True)
 # ========================================================================
 
-#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[:, :, 0], levels=50, cmap='jet')
+#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], np.array([0.03]), up)[:, :, 0], levels=50, cmap='jet')
 
-#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], U2_ini[0](etaplot[0], etaplot[1], 0.), levels=50, cmap='jet')
+#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], U2_ini[0](etaplot[0], etaplot[1], np.array([0.03]))[:, :, 0], levels=50, cmap='jet')
 
 #plt.axis('square')
 #plt.colorbar()
@@ -295,7 +304,7 @@ if False:
 
 
 # ==== initialization with projection of input functions ===============
-if True:
+if False:
     ini_MHD = init_MHD.initial_mhd(domain)
     
     r3[:] = pro_3d.pi_3(ini_MHD.r3_ini, include_bc=False, eval_kind='tensor_product', interp=True)
@@ -332,7 +341,7 @@ if True:
         
         
 # ===== initialization with white noise on periodic domain =============
-if False:
+if True:
     np.random.seed(1607)
 
     p3_temp = np.empty(N_3form   , dtype=float)
@@ -404,6 +413,11 @@ if False:
     up[:] = np.concatenate((u1_temp.flatten(), u2_temp.flatten(), u3_temp.flatten()))
     b2[:] = np.concatenate((b1_temp.flatten(), b2_temp.flatten(), b3_temp.flatten()))
     r3[:] = r3_temp.flatten()
+    
+    #p3[:] = np.random.rand(p3.size)
+    #up[:] = np.random.rand(up.size)
+    #b2[:] = 0.
+    #r3[:] = 0.
 
 print('projection of initial conditions and equilibrium done!')
 # ========================================================================
@@ -419,7 +433,7 @@ if mpi_rank == 0:
 
     if basis_u == 0:
         # mass matrix in space of discrete contravariant vector fields using the V0 basis (NNN)
-        tensor_space_FEM.assemble_Mv0(domain)
+        tensor_space_FEM.assemble_Mv(domain, basis_u)
         
     print('assembly of mass matrices done!')
 # ========================================================================
@@ -449,11 +463,19 @@ if mpi_rank == 0:
     if basis_u == 0:
         MHD.assemble_rhs_W(domain, eq_MHD.r3_eq)
         MHD.assemble_rhs_F(domain, 'j')
+        
+    print('assembly of MHD projection operators done!')
+        
+    # assemble mass matrix weighted with 0-form density
+    MHD.assemble_MR(domain, eq_MHD.r3_eq)    
     
-    MHD.assemble_TF_V2(domain, [eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3])
+    # assemble mass matrix weighted with Jeq x
+    MHD.assemble_JB_strong(domain, [eq_MHD.j2_eq_1, eq_MHD.j2_eq_2, eq_MHD.j2_eq_3])
     
     # create liner MHD operators as scipy.sparse.linalg.LinearOperator
     MHD.setOperators()
+    
+    print('assembly of all MHD operators done!')
 # =======================================================================
 
 
@@ -567,23 +589,24 @@ print('initial diagnostics done')
 if mpi_rank == 0:
     
     # assemble approximate inverse interpolation/histopolation matrices
-    pro_3d.assemble_approx_inv(tol_approx_reduced)
+    if PRE == 'ILU':
+        pro_3d.assemble_approx_inv(tol_approx_reduced)
     
     timea = time.time()
-    MHD.setPreconditionerA(drop_tol_A, fill_fac_A)
+    MHD.setPreconditionerA(domain, PRE, drop_tol_A, fill_fac_A)
     timeb = time.time()
-    print('ILU of A_local done!', timeb - timea)
+    print('Preconditioner for A done!', timeb - timea)
     
     timea = time.time()
-    MHD.setPreconditionerS2(drop_tol_S2, fill_fac_S2)
+    MHD.setPreconditionerS2(domain, PRE, drop_tol_S2, fill_fac_S2)
     timeb = time.time()
-    print('ILU of S2_local done!', timeb - timea)
+    print('Preconditioner for S2 done!', timeb - timea)
     
     if add_pressure == True:
         timea = time.time()
-        MHD.setPreconditionerS6(drop_tol_S6, fill_fac_S6)
+        MHD.setPreconditionerS6(domain, PRE, drop_tol_S6, fill_fac_S6)
         timeb = time.time()
-        print('ILU of S6_local done!', timeb - timea)
+        print('Preconditioner for S6 done!', timeb - timea)
 # ===============================================================================
 
 
@@ -628,7 +651,7 @@ def update():
             LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) - dt/2*mat.dot(x))
             RHS = MHD.A(up) + dt/2*mat.dot(up)
             
-            up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, M=MHD.A_PRE)
+            up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, maxiter=maxiter1, M=MHD.A_PRE)
             print('linear solver step 1 : ', info)
             
             timeb = time.time()
@@ -651,12 +674,17 @@ def update():
         
         # RHS of linear system
         RHS = MHD.RHS2(up, b2)
+        
+        num_iters = 0
+        def count_iters(xk):
+            nonlocal num_iters
+            num_iters += 1
                 
         # solve linear system with gmres method and values from last time step as initial guess (weak)
         timea = time.time()
             
-        up[:], info = spa.linalg.gmres(MHD.S2, RHS, x0=up, tol=tol2, maxiter=100, M=MHD.S2_PRE)
-        print('linear solver step 2 : ', info)
+        up[:], info = spa.linalg.gmres(MHD.S2, RHS, x0=up, tol=tol2, maxiter=maxiter2, M=MHD.S2_PRE, callback=count_iters)
+        print('linear solver step 2 : ', info, num_iters)
         
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
@@ -707,7 +735,7 @@ def update():
             LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) + dt**2/4*mat.dot(x))
             RHS = MHD.A(up) - dt**2/4*mat.dot(up) + dt*vec
             
-            up[:], info = spa.linalg.cg(LHS, RHS, x0=up, tol=tol3, M=MHD.A_PRE)
+            up[:], info = spa.linalg.cg(LHS, RHS, x0=up, tol=tol3, maxiter=maxiter3, M=MHD.A_PRE)
             print('linear solver step 3 : ', info)
             
             timeb = time.time()
@@ -765,7 +793,9 @@ def update():
         
         b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
         
-        pic_pusher.pusher_step5(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        #pic_pusher.pusher_step5(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        pic_pusher.pusher_step5_ana(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        
             
         timeb = time.time()
         times_elapsed['pusher_step5'] = timeb - timea
@@ -799,11 +829,16 @@ def update():
         # RHS of linear system
         RHS = MHD.RHS6(up, p3, b2)
         
+        num_iters = 0
+        def count_iters(xk):
+            nonlocal num_iters
+            num_iters += 1
+        
         # solve linear system with conjugate gradient squared method and values from last time step as initial guess
         timea = time.time()
             
-        up[:], info = spa.linalg.gmres(MHD.S6, RHS, x0=up, tol=tol6, maxiter=100, M=MHD.S6_PRE)
-        print('linear solver step 6 : ', info)
+        up[:], info = spa.linalg.gmres(MHD.S6, RHS, x0=up, tol=tol6, maxiter=maxiter6, M=MHD.S6_PRE, callback=count_iters)
+        print('linear solver step 6 : ', info, num_iters)
         
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
@@ -812,7 +847,7 @@ def update():
         p3[:] = p3 + dt*MHD.L((up + up_old)/2)
         
         # update density
-        r3[:] = r3 - dt*tensor_space_FEM.D.dot(MHD.FM((up + up_old)/2))
+        r3[:] = r3 - dt*tensor_space_FEM.D.dot(MHD.MF((up + up_old)/2))
 
         timeb = time.time()
         times_elapsed['update_step6'] = timeb - timea

@@ -28,7 +28,8 @@ class equilibrium_mhd:
     # equilibrium magnetic field (y - component)
     def b_eq_y(self, x, y, z):
         
-        by = 0*x
+        b0 = 1.
+        by = b0 - 0*x
 
         return by
 

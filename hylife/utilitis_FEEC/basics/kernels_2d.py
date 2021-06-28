@@ -5,10 +5,10 @@
 
 from pyccel.decorators import types
 
-    
+
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','double[:,:,:,:]','double[:,:,:,:]')
-def kernel_mass(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1, bi2, bj1, bj2, nbase1, nbase2, mat, mat_fun):
+@types('int','int','int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:,:]','int[:,:]','double[:,:,:,:]','double[:,:,:,:]')
+def kernel_mass(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1, bi2, bj1, bj2, ind_base1, ind_base2, mat, mat_fun):
     
     mat[:, :, :, :] = 0.
      
@@ -33,16 +33,16 @@ def kernel_mass(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, nj1, nj2, w1, w2, bi1, b
 
                                     value += wvol * bi * bj
 
-                            mat[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2, p1 + jl1 - il1, p2 + jl2 - il2] += value
+                            mat[ind_base1[ie1, il1], ind_base2[ie2, il2], p1 + jl1 - il1, p2 + jl2 - il2] += value
     #$ omp end do
     #$ omp end parallel
     
-    ierr = 0    
-
+    ierr = 0
+    
     
 # ==========================================================================================          
-@types('int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','int','int','double[:,:]','double[:,:,:,:]')
-def kernel_inner(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, nbase1, nbase2, mat, mat_fun):
+@types('int','int','int','int','int','int','int','int','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:,:,:]')
+def kernel_inner(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, ind_base1, ind_base2, mat, mat_fun):
     
     mat[:, :] = 0.
     
@@ -64,7 +64,7 @@ def kernel_inner(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, nbase
 
                             value += wvol * bi
 
-                    mat[(ie1 + il1)%nbase1, (ie2 + il2)%nbase2] += value
+                    mat[ind_base1[ie1, il1], ind_base2[ie2, il2]] += value
     #$ omp end do
     #$ omp end parallel
     
@@ -74,8 +74,8 @@ def kernel_inner(nel1, nel2, p1, p2, nq1, nq2, ni1, ni2, w1, w2, bi1, bi2, nbase
 
     
 # ==========================================================================================          
-@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]')
-def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
+@types('int[:]','int[:]','int[:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]')
+def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, ind_basei1, ind_basei2, ind_basej1, ind_basej2, error, mat_f1, mat_f2, mat_c1, mat_c2, mat_map):
     
     
     #$ omp parallel
@@ -98,12 +98,12 @@ def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, err
                     for il1 in range(p[0] + 1 - ni[0]):
                         for il2 in range(p[1] + 1 - ni[1]):
 
-                            bi += mat_c1[(ie1 + il1)%nbi[0], (ie2 + il2)%nbi[1]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+                            bi += mat_c1[ind_basei1[ie1, il1], ind_basei2[ie2, il2]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
 
                     for jl1 in range(p[0] + 1 - nj[0]):
                         for jl2 in range(p[1] + 1 - nj[1]):
 
-                            bj += mat_c2[(ie1 + jl1)%nbj[0], (ie2 + jl2)%nbj[1]] * bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2]
+                            bj += mat_c2[ind_basej1[ie1, jl1], ind_basej2[ie2, jl2]] * bj1[ie1, jl1, 0, q1] * bj2[ie2, jl2, 0, q2]
 
 
                     # compare this value to exact one and add contribution to error in element
@@ -116,13 +116,11 @@ def kernel_l2error(nel, p, nq, w1, w2, ni, nj, bi1, bi2, bj1, bj2, nbi, nbj, err
     
     
 # ==========================================================================================
-@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','int[:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]')        
-def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, nbase, bi1, bi2, b_eva):
+@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','int[:,:]','int[:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]')        
+def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, ind_base1, ind_base2, bi1, bi2, b_eva):
     
     b_eva[:, :, :, :] = 0.
     
-    #$ omp parallel
-    #$ omp do private (ie1, ie2, q1, q2, il1, il2)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
                 
@@ -132,8 +130,6 @@ def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, nbase, bi1, bi2, b_eva):
                     for il1 in range(p[0] + 1 - ns[0]):
                         for il2 in range(p[1] + 1 - ns[1]):
 
-                            b_eva[ie1, q1, ie2, q2] += b_coeff[(ie1 + il1)%nbase[0], (ie2 + il2)%nbase[1]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
-    #$ omp end do
-    #$ omp end parallel
+                            b_eva[ie1, q1, ie2, q2] += b_coeff[ind_base1[ie1, il1], ind_base2[ie2, il2]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
     
     ierr = 0

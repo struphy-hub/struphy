@@ -55,29 +55,28 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     I_pts  = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
     
     # 1D interpolation matrices
-    I_mat  = [bsp.collocation_matrix(T, p, I_pts, kind) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+    I_mat  = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
     
     # 2D interpolation
     if len(Nel) == 2:
-        I = np.kron(I_mat[0], I_mat[1])
+        I = spa.kron(I_mat[0], I_mat[1], format='csc')
         
         I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
         
-        cx = np.linalg.solve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
-        cy = np.linalg.solve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
         
         return cx, cy
     
     # 3D interpolation
     elif len(Nel) == 3:
-        #I = np.kron(np.kron(I_mat[0], I_mat[1]), I_mat[2])
-        I = np.kron(I_mat[0], np.kron(I_mat[1], I_mat[2]))
+        I = spa.kron(I_mat[0], spa.kron(I_mat[1], I_mat[2]), format='csc')
         
         I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
         
-        cx = np.linalg.solve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
-        cy = np.linalg.solve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
-        cz = np.linalg.solve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
+        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
         
         return cx, cy, cz
     
