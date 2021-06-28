@@ -2,7 +2,6 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-#all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife/particle_pusher_2020_12
 all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
 run_dir=sim_2021_06_02_1
 # =================================================
@@ -48,46 +47,45 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 ##### grid construction #####
 #############################
 
-# number of elements, clamped (False) or periodic (True) spline and spline degrees (finite elements)
-Nel       : [2, 2, 16] 
+# number of elements, clamped (False) or periodic (True) splines and spline degrees
+Nel       : [4, 6, 64] 
 spl_kind  : [True, True, True]
-p         : [1, 1, 3]
+p         : [2, 3, 3]
 
-# boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = 'd', free boundary = 'f')
+# boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = d, free boundary = f)
 bc : [f, f]
 
 # tolerance for approximation of inverse interpolation/histopolation matrices
 tol_approx_reduced : 0.1
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [4, 4, 6]
-nq_pr : [4, 4, 6]
+nq_el : [10, 10, 6]
+nq_pr : [10, 10, 6]
 
 # polar splines in poloidal plane
 polar : False
 
 # basis for bulk velocity
-basis_u : 2
+basis_u : 0
 
-# ----> for analytical geometry: kind of mapping (1: slab, 2: hollow cylinder, 3: colella) and parameters
-#geometry   :  0
-#params_map : [0.5, 3.141592654, 10.36725576]
-#params_map : [7.853981634, 7.853981634, 1.]
-#params_map  : [1., 1., 1.]
-
+# ----> for analytical geometry: kind of mapping (cuboid, spline cylinder, etc., see mappings_3d.py) and parameters
 geometry   : cuboid
-params_map : [1., 1., 7.853981634]
-#params_map : [0.5, 3.141592654, 10.36725576]
+#params_map : [1., 1., 7.853981634]
+params_map : [1., 6.283185307, 62.83185307]
+#params_map : [1., 1., 62.83185307]
 #params_map : [10.36725576, 10.36725576, 1.]
 
 #geometry   : spline cylinder
 #params_map : [31.41592653589793]  
 #params_map : [7.853981634, 1., 1.]
 
-# ----> for spline geometry: number of elements, boundary conditions and spline degrees
-Nel_MAP      : [2, 2, 16] 
-spl_kind_MAP : [False, False, False]
-p_MAP        : [1, 1, 3] 
+#geometry   : spline torus
+#params_map : []  
+
+# ----> for spline geometry: number of elements, clamped (False) or periodic (True) splines and spline degrees
+Nel_MAP      : [32, 24, 8] 
+spl_kind_MAP : [False, True, False]
+p_MAP        : [2, 3, 3] 
 
 
 #############################
@@ -96,8 +94,8 @@ p_MAP        : [1, 1, 3]
 
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
-dt       : 0.1
-Tend     : 200
+dt       : 0.15
+Tend     : 180
 max_time : 1000.
 
 
@@ -105,7 +103,10 @@ max_time : 1000.
 ##### linear solvers ##########
 ###############################
 
-# ILUs (default: drop_tol=1e-4, fill_fac=10.)
+# used pre-conditioner (ILU or FFT)
+PRE : FFT 
+
+# for ILUs: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
 # From scipy: "To improve the better approximation to the inverse, you may need to increase fill_factor AND decrease drop_tol."
 drop_tol_S2 : 0.0001
 fill_fac_S2 : 10.
@@ -117,10 +118,16 @@ drop_tol_S6 : 0.0001
 fill_fac_S6 : 10.
 
 # tolerances for iterative solvers (default: tol=1e-8)
-tol1        : 0.00000001
-tol2        : 0.00000000000001
-tol3        : 0.00000001
-tol6        : 0.00000001
+tol1 : 0.00000001
+tol2 : 0.00000001
+tol3 : 0.00000001
+tol6 : 0.00000001
+
+# maximum number of iterations
+maxiter1 : 100
+maxiter2 : 1000
+maxiter3 : 100
+maxiter6 : 1000
 
 
 ###############################
@@ -128,7 +135,7 @@ tol6        : 0.00000001
 ###############################
 
 # add sub-step 6 to simulation?
-add_pressure : False
+add_pressure : True
 
 # location of jeq X B term (step_2 or step_6) 
 loc_jeq : step_6
@@ -141,13 +148,13 @@ gamma : 1.6666666666666667
 ###############################
 
 # add kinetic terms to simulation?
-add_PIC : True    
+add_PIC : False    
 
 # total number of particles
-Np : 128000
+Np : 10
 
 # control variate? 
-control : True  
+control : False  
 
 # shift of Maxwellian 
 v0 : [0., 0., 2.5]
@@ -256,7 +263,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 4 python3 STRUPHY.py
+mpirun -n 1 python3 STRUPHY.py
 #export OMP_NUM_THREADS=1
 #python3 STRUPHY.py
 # =================================================
