@@ -13,11 +13,10 @@ import scipy.sparse as spa
 import hylife.utilitis_FEEC.bsplines as bsp
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global_mhd as ker
 
-import hylife.utilitis_FEEC.basics.mass_matrices_3d as mass
+import hylife.utilitis_FEEC.basics.mass_matrices_3d     as mass
+import hylife.utilitis_FEEC.basics.mass_matrices_3d_pre as mass_pre
 
 import hylife.utilitis_FEEC.projectors.projectors_global as pro
-
-import hylife.utilitis_FEEC.spline_space as spl
 
 import hylife.geometry.domain_3d as dom
 
@@ -1001,9 +1000,9 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.A_PRE = mass.get_M2_PRE_3(self.pro.space, domain)
+                self.A_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
             elif self.basis_u == 0:
-                self.A_PRE = mass.get_Mv_PRE_3(self.pro.space, domain)
+                self.A_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
          
     
     # ======================================
@@ -1042,9 +1041,9 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.S2_PRE = mass.get_M2_PRE_3(self.pro.space, domain)
+                self.S2_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
             elif self.basis_u == 0:
-                self.S2_PRE = mass.get_Mv_PRE_3(self.pro.space, domain)
+                self.S2_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
 
  
     # ======================================
@@ -1100,6 +1099,6 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.S6_PRE = mass.get_M2_PRE_3(self.pro.space, domain)
+                self.S6_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
             elif self.basis_u == 0:
-                self.S6_PRE = mass.get_Mv_PRE_3(self.pro.space, domain)
+                self.S6_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
