@@ -30,14 +30,14 @@ echo "Your current run is here:      " $all_sim/$run_dir
 export PYTHONPATH="${PYTHONPATH}:$path_root"
 export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
 
-echo $PYTHONPATH
+#echo $PYTHONPATH
 # =================================================
 
 # ========== clean simulation folder ==============
-rm $all_sim/$run_dir/STRUPHY.py
-rm $all_sim/$run_dir/*.hdf5
-rm $all_sim/$run_dir/sim*.*
-rm $all_sim/$run_dir/batch*.*
+rm -f $all_sim/$run_dir/STRUPHY.py
+rm -f $all_sim/$run_dir/*.hdf5
+rm -f $all_sim/$run_dir/sim*.*
+rm -f $all_sim/$run_dir/batch*.*
 # =================================================
 
 
@@ -227,7 +227,7 @@ EOF
 # == create source_run folder and copy subroutines into it
 SDIR=$all_sim/$run_dir/source_run
 
-mkdir $SDIR
+mkdir -p $SDIR
 
 cp hylife/utilitis_FEEC/control_variates/kernels_control_variate.py $SDIR/kernels_control_variate.py
 cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
