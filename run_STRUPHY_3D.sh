@@ -3,8 +3,8 @@
 # ============== set simulation folders ===========
 path_root=$(pwd)
 #all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife/particle_pusher_2020_12
-all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2021_06_02_1
+all_sim=$HOME/Desktop/PLASMA/WORK/HYLIFE/STRUPHY_simulations
+run_dir=tests_2
 # =================================================
 
 # ======= name of main code =======================
