@@ -3,7 +3,7 @@
 # Copyright 2020 Florian Holderied
 
 """
-Modules to compute L2 - errors in 3d.
+Modules to compute L2-errors of discrete p-forms with analytical forms in 3D.
 """
 
 import numpy        as np
@@ -13,46 +13,23 @@ import hylife.utilitis_FEEC.basics.kernels_3d as ker
 
 
 # ======= error in V0 ====================
-def l2_error_V0(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     """
-    Computes the 3d L2-error (NNN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3) with coefficients coeff with the function fun.
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Computes the 3D L2-error of (fun - fun_h) of the analytical function fun with the discrete function fun_h living in a 3D tensor product B-spline space of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    fun : callable
-        0-form for which the L2-error in V0 shall be computed
+    domain : domain
+        domain object defining the geometry
+        
+    fun : callable or np.ndarray
+        the 0-form with which the error shall be computed
         
     coeff : array_like
-        coefficients of the B-spline space
-        
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
-        
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+        the FEM coefficients of the discrete 0-form
     """
       
     p      = tensor_space_FEM.p       # spline degrees
@@ -65,67 +42,47 @@ def l2_error_V0(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
-    # evaluation of Jacobian determinant at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
+    # extract coefficients to tensor-product space
+    coeff  = tensor_space_FEM.extract_0form(coeff)
     
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 1, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 1)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
-    mat_f     = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    # evaluation of given 0-form at quadrature points
+    mat_f  = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    
+    if callable(fun):
+        quad_mesh      = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    else:
+        mat_f[:, :, :] = fun
     
     # compute error
     error = np.zeros(Nel, dtype=float)
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 0], [0, 0, 0], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], [NbaseN[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseN[2]], error, mat_f, mat_f, coeff, coeff, mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 0], [0, 0, 0], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], [NbaseN[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseN[2]], error, mat_f, mat_f, coeff, coeff, det_df)
                 
     return np.sqrt(error.sum())
 
 
 # ======= error in V1 ====================
-def l2_error_V1(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     """
-    Computes the 3d L2-error (DNN, NDN, NND) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3) with coefficients coeff with the function fun.
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Computes the 3D L2-error of (fun - fun_h) of the analytical function fun with the discrete function fun_h living in a 3D tensor product B-spline space of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    fun : list of callables
-        components of 1-form for which the L2-error in V1 shall be computed
+    domain : domain
+        domain object defining the geometry
+        
+    fun : list of callables or np.ndarrays
+        the three 1-form components with which the error shall be computed
         
     coeff : list of array_like
-        coefficients of the B-spline space
-        
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
-        
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+        the FEM coefficients of the discrete components
     """
       
     p      = tensor_space_FEM.p       # spline degrees
@@ -140,110 +97,81 @@ def l2_error_V1(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
-    mat_f1    = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
-    mat_f2    = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
-    mat_f3    = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    # extract coefficients to tensor-product space
+    coeff1, coeff2, coeff3 = tensor_space_FEM.extract_1form(coeff)
     
-    # evaluation of mapping at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    
+    # evaluation of given 1-form components at quadrature points
+    mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f2 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    
+    if callable(fun[0]):
+        quad_mesh       = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
+        mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+        mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+        mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    else:
+        mat_f1[:, :, :] = fun[0]
+        mat_f2[:, :, :] = fun[1]
+        mat_f3[:, :, :] = fun[2]
     
     # compute error
     error = np.zeros(Nel, dtype=float)
     
-    # 1 * f1 * G^11 * sqrt(g) * f1
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 11, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 11)
+    # 1 * f1 * G^11 * |det(DF)| * f1
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_11')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [1, 0, 0], basisD[0], basisN[1], basisN[2], basisD[0], basisN[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseD[0], NbaseN[1], NbaseN[2]], error, mat_f1, mat_f1, coeff[0], coeff[0], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [1, 0, 0], basisD[0], basisN[1], basisN[2], basisD[0], basisN[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseD[0], NbaseN[1], NbaseN[2]], error, mat_f1, mat_f1, coeff1, coeff1, 1*g_inv*det_df)
     
-    # 2 * f1 * G^12 * sqrt(g) * f2
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 12, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 12)
+    # 2 * f1 * G^12 * |det(DF)| * f2
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_12')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 1, 0], basisD[0], basisN[1], basisN[2], basisN[0], basisD[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], error, mat_f1, mat_f2, coeff[0], coeff[1], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 1, 0], basisD[0], basisN[1], basisN[2], basisN[0], basisD[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], error, mat_f1, mat_f2, coeff1, coeff2, 2*g_inv*det_df)
     
-    # 2 * f1 * G^13 * sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 14, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 14)
+    # 2 * f1 * G^13 * |det(DF)| * f3
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_13')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 0, 1], basisD[0], basisN[1], basisN[2], basisN[0], basisN[1], basisD[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f1, mat_f3, coeff[0], coeff[2], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 0], [0, 0, 1], basisD[0], basisN[1], basisN[2], basisN[0], basisN[1], basisD[2], [NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f1, mat_f3, coeff1, coeff3, 2*g_inv*det_df)
     
-    # 1 * f2 * G^22 * sqrt(g) * f2
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 13, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 13)
+    # 1 * f2 * G^22 * |det(DF)| * f2
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_22')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 1, 0], basisN[0], basisD[1], basisN[2], basisN[0], basisD[1], basisN[2], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], error, mat_f2, mat_f2, coeff[1], coeff[1], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 1, 0], basisN[0], basisD[1], basisN[2], basisN[0], basisD[1], basisN[2], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], error, mat_f2, mat_f2, coeff2, coeff2, 1*g_inv*det_df)
     
-    # 2 * f2 * G^23 * sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 15, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 15)
+    # 2 * f2 * G^23 * |det(DF)| * f3
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_23')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 0, 1], basisN[0], basisD[1], basisN[2], basisN[0], basisN[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f2, mat_f3, coeff[1], coeff[2], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 0], [0, 0, 1], basisN[0], basisD[1], basisN[2], basisN[0], basisN[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f2, mat_f3, coeff2, coeff3, 2*g_inv*det_df)
     
-    # 1 * f3 * G^33 * sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 16, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 16)
+    # 1 * f3 * G^33 * |det(DF)| * f3
+    g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_inv_33')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 1], [0, 0, 1], basisN[0], basisN[1], basisD[2], basisN[0], basisN[1], basisD[2], [NbaseN[0], NbaseN[1], NbaseD[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f3, mat_f3, coeff[2], coeff[2], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 0, 1], [0, 0, 1], basisN[0], basisN[1], basisD[2], basisN[0], basisN[1], basisD[2], [NbaseN[0], NbaseN[1], NbaseD[2]], [NbaseN[0], NbaseN[1], NbaseD[2]], error, mat_f3, mat_f3, coeff3, coeff3, 1*g_inv*det_df)
                 
     return np.sqrt(error.sum())
 
 
 # ======= error in V2 ====================
-def l2_error_V2(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     """
-    Computes the 3d L2-error (NDD, DND, DDN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3) with coefficients coeff with the function fun.
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Computes the 3D L2-error of (fun - fun_h) of the analytical function fun with the discrete function fun_h living in a 3D tensor product B-spline space of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    fun : list of callables
-        components of 2-form for which the L2-error in V2 shall be computed
+    domain : domain
+        domain object defining the geometry
+        
+    fun : list of callables or np.ndarrays
+        the three 2-form components with which the error shall be computed
         
     coeff : list of array_like
-        coefficients of the B-spline space
-        
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
-        
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+        the FEM coefficients of the discrete components
     """
       
     p      = tensor_space_FEM.p       # spline degrees
@@ -258,110 +186,81 @@ def l2_error_V2(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
-    mat_f1    = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
-    mat_f2    = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
-    mat_f3    = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    # extract coefficients to tensor-product space
+    coeff1, coeff2, coeff3 = tensor_space_FEM.extract_2form(coeff)
     
-    # evaluation of mapping at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    
+    # evaluation of given 2-form components at quadrature points
+    mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f2 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    
+    if callable(fun[0]):
+        quad_mesh       = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
+        mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+        mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+        mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    else:
+        mat_f1[:, :, :] = fun[0]
+        mat_f2[:, :, :] = fun[1]
+        mat_f3[:, :, :] = fun[2]
     
     # compute error
     error = np.zeros(Nel, dtype=float)
     
-    # 1 * f1 * G_11 / sqrt(g) * f1
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 21, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 21)
+    # 1 * f1 * G_11 / |det(DF)| * f1
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_11')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [0, 1, 1], basisN[0], basisD[1], basisD[2], basisN[0], basisD[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseN[0], NbaseD[1], NbaseD[2]], error, mat_f1, mat_f1, coeff[0], coeff[0], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [0, 1, 1], basisN[0], basisD[1], basisD[2], basisN[0], basisD[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseN[0], NbaseD[1], NbaseD[2]], error, mat_f1, mat_f1, coeff1, coeff1, 1*g/det_df)
     
-    # 2 * f1 * G_12 / sqrt(g) * f2
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 22, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 22)
+    # 2 * f1 * G_12 / |det(DF)| * f2
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_12')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 0, 1], basisN[0], basisD[1], basisD[2], basisD[0], basisN[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], error, mat_f1, mat_f2, coeff[0], coeff[1], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 0, 1], basisN[0], basisD[1], basisD[2], basisD[0], basisN[1], basisD[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], error, mat_f1, mat_f2, coeff1, coeff2, 2*g/det_df)
     
-    # 2 * f1 * G_13 / sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 24, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 24)
+    # 2 * f1 * G_13 / |det(DF)| * f3
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_13')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 1, 0], basisN[0], basisD[1], basisD[2], basisD[0], basisD[1], basisN[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f1, mat_f3, coeff[0], coeff[2], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [0, 1, 1], [1, 1, 0], basisN[0], basisD[1], basisD[2], basisD[0], basisD[1], basisN[2], [NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f1, mat_f3, coeff1, coeff3, 2*g/det_df)
     
-    # 1 * f2 * G_22 / sqrt(g) * f2
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 23, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 23)
+    # 1 * f2 * G_22 / |det(DF)| * f2
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_22')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 0, 1], basisD[0], basisN[1], basisD[2], basisD[0], basisN[1], basisD[2], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], error, mat_f2, mat_f2, coeff[1], coeff[1], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 0, 1], basisD[0], basisN[1], basisD[2], basisD[0], basisN[1], basisD[2], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], error, mat_f2, mat_f2, coeff2, coeff2, 1*g/det_df)
     
-    # 2 * f2 * G_23 / sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 25, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 25)
+    # 2 * f2 * G_23 / |det(DF)| * f3
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_23')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 1, 0], basisD[0], basisN[1], basisD[2], basisD[0], basisD[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f2, mat_f3, coeff[1], coeff[2], 2*mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 0, 1], [1, 1, 0], basisD[0], basisN[1], basisD[2], basisD[0], basisD[1], basisN[2], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f2, mat_f3, coeff2, coeff3, 2*g/det_df)
     
-    # 1 * f3 * G_33 / sqrt(g) * f3
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 26, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 26)
+    # 1 * f3 * G_33 / |det(DF)| * f3
+    g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'g_33')
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 0], [1, 1, 0], basisD[0], basisD[1], basisN[2], basisD[0], basisD[1], basisN[2], [NbaseD[0], NbaseD[1], NbaseN[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f3, mat_f3, coeff[2], coeff[2], mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 0], [1, 1, 0], basisD[0], basisD[1], basisN[2], basisD[0], basisD[1], basisN[2], [NbaseD[0], NbaseD[1], NbaseN[2]], [NbaseD[0], NbaseD[1], NbaseN[2]], error, mat_f3, mat_f3, coeff3, coeff3, 1*g/det_df)
                 
     return np.sqrt(error.sum())
 
 
 # ======= error in V3 ====================
-def l2_error_V3(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     """
-    Computes the 3d L2-error (DDD) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3) with coefficients coeff with the function fun.
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Computes the 3D L2-error of (fun - fun_h) of the analytical function fun with the discrete function fun_h living in a 3D tensor product B-spline space of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    fun : callable
-        component of 3-form for which the L2-error in V0 shall be computed
+    domain : domain
+        domain object defining the geometry
+        
+    fun : callable or np.ndarray
+        the 3-form component with which the error shall be computed
         
     coeff : array_like
-        coefficients of the B-spline space
-        
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
-        
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+        the FEM coefficients of the discrete function
     """
       
     p      = tensor_space_FEM.p       # spline degrees
@@ -374,21 +273,24 @@ def l2_error_V3(tensor_space_FEM, fun, coeff, mapping, kind_map=None, params_map
     
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
-    # evaluation of Jacobian determinant at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
+    # extract coefficients to tensor-product space
+    coeff  = tensor_space_FEM.extract_3form(coeff)
     
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2)
+    # evaluation of |det(DF)| at quadrature points in format (Nel1*nq1, Nel2*nq2, Nel3*nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
     
-    # evaluation of function at quadrature points
-    quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
-    mat_f     = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    # evaluation of given 3-form component at quadrature points
+    mat_f  = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    
+    if callable(fun):
+        quad_mesh      = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
+        mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
+    else:
+        mat_f[:, :, :] = fun
     
     # compute error
     error = np.zeros(Nel, dtype=float)
 
-    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 1], [1, 1, 1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], [NbaseD[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseD[2]], error, mat_f, mat_f, coeff, coeff, mat_map)
+    ker.kernel_l2error(Nel, p, n_quad, wts[0], wts[1], wts[2], [1, 1, 1], [1, 1, 1], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], [NbaseD[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseD[2]], error, mat_f, mat_f, coeff, coeff, 1/det_df)
                 
     return np.sqrt(error.sum())

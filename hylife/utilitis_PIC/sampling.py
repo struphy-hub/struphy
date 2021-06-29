@@ -1,9 +1,6 @@
 # import pyccel decorators
 from pyccel.decorators import types
 
-# import modules for mapping related quantities
-import hylife.geometry.mappings_analytical as mapping
-
 # import input files for simulation setup
 import input_run.equilibrium_PIC        as eq_pic
 import input_run.initial_conditions_PIC as ini_pic
@@ -48,14 +45,14 @@ def set_particles_symmetric(numbers, particles, np):
         
     
 # ==============================================================================
-@types('double[:,:]','int','double[:]','double[:]','int','double[:]')
-def compute_weights_ini(particles, np, w0, s0, kind_map, params_map):
+@types('double[:,:]','int','double[:]','double[:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def compute_weights_ini(particles, np, w0, s0, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     #$ omp parallel
     #$ omp do private (ip)
     for ip in range(np):
-        s0[ip] = ini_pic.sh(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)
-        w0[ip] = ini_pic.fh_ini(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)/s0[ip]
+        s0[ip] = ini_pic.sh(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
+        w0[ip] = ini_pic.fh_ini(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)/s0[ip]
     #$ omp end do
     #$ omp end parallel
     
@@ -63,13 +60,13 @@ def compute_weights_ini(particles, np, w0, s0, kind_map, params_map):
     
     
 # ==============================================================================
-@types('double[:,:]','int','double[:]','double[:]','int','double[:]')
-def update_weights(particles, np, w0, s0, kind_map, params_map):
+@types('double[:,:]','int','double[:]','double[:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def update_weights(particles, np, w0, s0, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz):
     
     #$ omp parallel
     #$ omp do private (ip)
     for ip in range(np):
-        particles[6, ip] = w0[ip] - eq_pic.fh_eq(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map)/s0[ip]
+        particles[6, ip] = w0[ip] - eq_pic.fh_eq(particles[0, ip], particles[1, ip], particles[2, ip], particles[3, ip], particles[4, ip], particles[5, ip], kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)/s0[ip]
     #$ omp end do
     #$ omp end parallel
     

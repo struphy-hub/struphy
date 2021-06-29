@@ -1,133 +1,809 @@
 from pyccel.decorators import types
 
+from numpy import shape
 
 
 
-#==============================================================================================================================
-@types('int','int','int','int','int','int','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi0(n1, n2, n3, pl1, pl2, pl3, b1, b2, b3, mat, rhs):
+# ===========================================================================================================
+#                                                   1d
+# ===========================================================================================================
+
+
+
+# =============================================================================
+@types('int[:]','int[:]','double[:,:]','double[:]','double[:]')
+def rhs0_1d(row1, col1, bsp1, mat_eq, rhs):
     
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
-                
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
-                            rhs[ie1, ie2, ie3, il1, il2, il3] = b1[ie1, il1, 0, 0] * b2[ie2, il2, 0, 0] * b3[ie3, il3, 0, 0] * mat[ie1, ie2, ie3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi1_1(n1, n2, n3, pl1, pl2, pl3, ies_1, il_add_1, nq1, w1, b1, b2, b3, mat, rhs_1):
-
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
-                
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
-                            for q1 in range(nq1):
-                                rhs_1[ies_1[ie1], ie2, ie3, il1 + il_add_1[ie1], il2, il3] += w1[ie1, q1] * b1[ie1, il1, 0, q1] * b2[ie2, il2, 0, 0] * b3[ie3, il3, 0, 0] * mat[ie1*nq1 + q1, ie2, ie3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi1_2(n1, n2, n3, pl1, pl2, pl3, ies_2, il_add_2, nq2, w2, b1, b2, b3, mat, rhs_2):
+    n_rows_1 = len(row1)
     
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
-                
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
-                            for q2 in range(nq2):
-                                rhs_2[ie1, ies_2[ie2], ie3, il1, il2 + il_add_2[ie2], il3] += w2[ie2, q2] * b1[ie1, il1, 0, 0] * b2[ie2, il2, 0, q2] * b3[ie3, il3, 0, 0] * mat[ie1, ie2*nq2 + q2, ie3]
-#============================================================================================================================== 
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi1_3(n1, n2, n3, pl1, pl2, pl3, ies_3, il_add_3, nq3, w3, b1, b2, b3, mat, rhs_3):
+    for i1 in range(n_rows_1):   
+        rhs[i1] = bsp1[row1[i1], col1[i1]] * mat_eq[row1[i1]]
+        
+        
+        
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','double[:]')
+def rhs1_1d(row1, col1, subs1, subs_cum1, wts1, bsp1, mat_eq, rhs):
     
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
+    n_rows_1 = len(row1)
+    
+    nq1 = shape(wts1)[1]
+    
+    for i1 in range(n_rows_1): 
                 
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
+        value = 0.
+
+        for j1 in range(subs1[row1[i1]]):
+            for q1 in range(nq1):
+                value += wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1]
+
+        rhs[i1] = value
+        
+        
+# =============================================================================                
+@types('int[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]')
+def rhs0_f_1d(indices1, bsp11, bsp12, mat_eq, f, rhs, row, col):
+    
+    rhs[:] = 0.
+    
+    for i1 in range(len(indices1[0])):
+        
+        i = indices1[3, i1]
+        
+        rhs[i] += f[indices1[0, i1]] * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]] * mat_eq[indices1[0, i1]]
+        
+        row[i]  = indices1[1, i1]
+        col[i]  = indices1[2, i1]
+
+        
+# =============================================================================                
+@types('int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:]','double[:]','int[:]','int[:]')
+def rhs1_f_1d(indices1, subs1, subs_cum1, wts1, bsp11, bsp12, mat_eq, f, rhs, row, col):  
+        
+    nq1 = shape(wts1)[1]
+    
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+                
+        value = 0.
+
+        for j1 in range(subs1[indices1[0, i1]]):
+            for q1 in range(nq1):
+                value += wts1[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1] * bsp11[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1, indices1[1, i1]] * bsp12[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1, indices1[2, i1]] * mat_eq[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1]
+                
+        i = indices1[3, i1]
+
+        rhs[i] += f[indices1[0, i1]] * value
+        
+        row[i]  = indices1[1, i1]
+        col[i]  = indices1[2, i1]
+
+
+
+        
+# ===========================================================================================================
+#                                                   2d
+# ===========================================================================================================        
+        
+
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','int[:]','int[:]')
+def rhs0_2d(row1, row2, col1, col2, bsp1, bsp2, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    
+    n1i, n1j = shape(bsp1)
+    n2i, n2j = shape(bsp2)
+    
+    for i1 in range(n_rows_1):
+        for i2 in range(n_rows_2):
+                
+            i      = n_rows_2*i1 + i2
+
+            bsp    = bsp1[row1[i1], col1[i1]] * bsp2[row2[i2], col2[i2]]
+
+            rhs[i] = bsp * mat_eq[row1[i1], row2[i2]]
+
+            row[i] = n2i*row1[i1] + row2[i2]
+            col[i] = n2j*col1[i1] + col2[i2]
+        
+
+        
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs11_2d(row1, row2, col1, col2, subs1, subs_cum1, wts1, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_n[1]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[1]
+    
+    nq1 = shape(wts1)[1]
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+                
+            value = 0.
+
+            for j1 in range(subs1[row1[i1]]):
+                for q1 in range(nq1):
+                    value += wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * bsp1[row1[i1] + j1 +  subs_cum1[row1[i1]], q1, col1[i1]] * mat_eq[row1[i1] + j1 +  subs_cum1[row1[i1]], q1, row2[i2]]
+
+            i        = n_rows_2*i1 + i2
+
+            rhs[i]   = value * bsp2[row2[i2], col2[i2]]
+
+            row[i]   = n2i*row1[i1] + row2[i2]
+            col[i]   = n2j*col1[i1] + col2[i2]
+        
+        
+
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs12_2d(row1, row2, col1, col2, subs2, subs_cum2, wts2, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    
+    n1i = nbase_n[0]
+    n2i = nbase_d[1]
+    
+    n1j = shape(bsp1)[1]
+    n2j = shape(bsp2)[2]
+    
+    nq2 = shape(wts2)[1]
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+                
+            value = 0.
+
+            for j2 in range(subs2[row2[i2]]):
+                for q2 in range(nq2):
+                    value += wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2] * bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]] * mat_eq[row1[i1], row2[i2] + j2 + subs_cum2[row2[i2]], q2]
+
+            i        = n_rows_2*i1 + i2
+
+            rhs[i]   = value * bsp1[row1[i1], col1[i1]]
+
+            row[i]   = n2i*row1[i1] + row2[i2]
+            col[i]   = n2j*col1[i1] + col2[i2]      
+
+
+
+            
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs2_2d(row1, row2, col1, col2, subs1, subs2, subs_cum1, subs_cum2, wts1, wts2, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_d[1]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[2]
+    
+    nq1 = shape(wts1)[1]
+    nq2 = shape(wts2)[1]
+    
+    for i1 in range(n_rows_1):
+        for i2 in range(n_rows_2):
+                
+            value = 0.
+
+            for j1 in range(subs1[row1[i1]]):
+                for j2 in range(subs2[row2[i2]]):
+                    for q1 in range(nq1):
+                        for q2 in range(nq2):
+
+                            w_vol  = wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2]
+
+                            basis  = bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]]
+
+                            value += w_vol * basis * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1, row2[i2] + j2 + subs_cum2[row2[i2]], q2]
+
+
+            i      = n_rows_2*i1 + i2
+
+            rhs[i] = value
+
+            row[i] = n2i*row1[i1] + row2[i2]
+            col[i] = n2j*col1[i1] + col2[i2]
+            
+            
+                
+# =============================================================================                
+@types('int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
+def rhs0_f_2d(indices1, indices2, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    
+    n1i = shape(bsp11)[1]
+    n2i = shape(bsp21)[1]
+    
+    n1j = shape(bsp12)[1]
+    n2j = shape(bsp22)[1]
+    
+    rhs[:] = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+                
+            i = nv2*indices1[3, i1] + indices2[3, i2]
+
+            rhs[i] += f[indices1[0, i1], indices2[0, i2]] * mat_eq[indices1[0, i1], indices2[0, i2]] * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]] * bsp21[indices2[0, i2], indices2[1, i2]] * bsp22[indices2[0, i2], indices2[2, i2]]
+
+            row[i]  = n2i*indices1[1, i1] + indices2[1, i2]
+            col[i]  = n2j*indices1[2, i1] + indices2[2, i2]
+                
+                
+                
+                
+                
+# =============================================================================                
+@types('int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
+def rhs11_f_2d(indices1, indices2, subs1, subs_cum1, wts1, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+        
+    nq1 = shape(wts1)[1]
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    
+    n1i = shape(bsp11)[2]
+    n2i = shape(bsp21)[1]
+    
+    n1j = shape(bsp12)[2]
+    n2j = shape(bsp22)[1]
+    
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+                
+            value = 0.
+
+            for j1 in range(subs1[indices1[0, i1]]):
+                for q1 in range(nq1):
+                    value += wts1[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1] * bsp11[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1, indices1[1, i1]] * bsp12[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1, indices1[2, i1]] * mat_eq[indices1[0, i1] + j1 + subs_cum1[indices1[0, i1]], q1, indices2[0, i2]]
+
+            i = nv2*indices1[3, i1] + indices2[3, i2]
+
+            rhs[i] += f[indices1[0, i1], indices2[0, i2]] * value * bsp21[indices2[0, i2], indices2[1, i2]] * bsp22[indices2[0, i2], indices2[2, i2]]
+
+            row[i]  = n2i*indices1[1, i1] + indices2[1, i2]
+            col[i]  = n2j*indices1[2, i1] + indices2[2, i2]          
+                
+                
+                
+
+# =============================================================================                
+@types('int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
+def rhs12_f_2d(indices1, indices2, subs2, subs_cum2, wts2, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+        
+    nq2 = shape(wts2)[1]
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    
+    n1i = shape(bsp11)[1]
+    n2i = shape(bsp21)[2]
+    
+    n1j = shape(bsp12)[1]
+    n2j = shape(bsp22)[2]
+    
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+                
+            value = 0.
+
+            for j2 in range(subs2[indices2[0, i2]]):
+                for q2 in range(nq2):
+                    value += wts2[indices2[0, i2] + j2 + subs_cum2[indices2[0, i2]], q2] * bsp21[indices2[0, i2] + j2 + subs_cum2[indices2[0, i2]], q2, indices2[1, i2]] * bsp22[indices2[0, i2] + j2 + subs_cum2[indices2[0, i2]], q2, indices2[2, i2]] * mat_eq[indices1[0, i1], indices2[0, i2] + j2 + subs_cum2[indices2[0, i2]], q2]
+
+            i = nv2*indices1[3, i1] + indices2[3, i2]
+
+            rhs[i] += f[indices1[0, i1], indices2[0, i2]] * value * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]]
+
+            row[i]  = n2i*indices1[1, i1] + indices2[1, i2]
+            col[i]  = n2j*indices1[2, i1] + indices2[2, i2]
+                
+                
+                
+
+                
+                
+# ===========================================================================================================
+#                                                   3d
+# ===========================================================================================================                
+                
+                
+                
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i, n1j = shape(bsp1)
+    n2i, n2j = shape(bsp2)
+    n3i, n3j = shape(bsp3)
+    
+    for i1 in range(n_rows_1):
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                i      = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                bsp    = bsp1[row1[i1], col1[i1]] * bsp2[row2[i2], col2[i2]] * bsp3[row3[i3], col3[i3]]
+                
+                rhs[i] = bsp * mat_eq[row1[i1], row2[i2], row3[i3]]
+                
+                row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
+                
+                
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs11(row1, row2, row3, col1, col2, col3, n_row_sub1, sub1_cum, wts1, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_n[1]
+    n3i = nbase_n[2]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[1]
+    n3j = shape(bsp3)[1]
+    
+    nq1 = shape(wts1)[1]
+    
+    counter1 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter1 = sub1_cum[row1[i1]]
+                
+                for j1 in range(n_row_sub1[row1[i1]]):
+                    for q1 in range(nq1):
+                        value += wts1[row1[i1] + j1 + counter1, q1] * bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2], row3[i3]]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i]   = value * bsp2[row2[i2], col2[i2]]* bsp3[row3[i3], col3[i3]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
+                
+                
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs12(row1, row2, row3, col1, col2, col3, n_row_sub2, sub2_cum, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_n[0]
+    n2i = nbase_d[1]
+    n3i = nbase_n[2]
+    
+    n1j = shape(bsp1)[1]
+    n2j = shape(bsp2)[2]
+    n3j = shape(bsp3)[1]
+    
+    nq2 = shape(wts2)[1]
+    
+    counter2 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter2 = sub2_cum[row2[i2]]
+                
+                for j2 in range(n_row_sub2[row2[i2]]):
+                    for q2 in range(nq2):
+                        value += wts2[row2[i2] + j2 + counter2, q2] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * mat_eq[row1[i1], row2[i2] + j2 + counter2, q2, row3[i3]]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i]   = value * bsp1[row1[i1], col1[i1]] * bsp3[row3[i3], col3[i3]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
+    
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs13(row1, row2, row3, col1, col2, col3, n_row_sub3, sub3_cum, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_n[0]
+    n2i = nbase_n[1]
+    n3i = nbase_d[2]
+    
+    n1j = shape(bsp1)[1]
+    n2j = shape(bsp2)[1]
+    n3j = shape(bsp3)[2]
+    
+    nq3 = shape(wts3)[1]
+    
+    counter3 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter3 = sub3_cum[row3[i3]]
+                
+                for j3 in range(n_row_sub3[row3[i3]]):
+                    for q3 in range(nq3):
+                        value += wts3[row3[i3] + j3 + counter3, q3] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]] * mat_eq[row1[i1], row2[i2], row3[i3] + j3 + counter3, q3]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i]   = value * bsp1[row1[i1], col1[i1]] * bsp2[row2[i2], col2[i2]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
+
+                
+
+                              
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs21(row1, row2, row3, col1, col2, col3, n_row_sub2, n_row_sub3, sub2_cum, sub3_cum, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_n[0]
+    n2i = nbase_d[1]
+    n3i = nbase_d[2]
+    
+    n1j = shape(bsp1)[1]
+    n2j = shape(bsp2)[2]
+    n3j = shape(bsp3)[2]
+    
+    nq2 = shape(wts2)[1]
+    nq3 = shape(wts3)[1]
+    
+    counter2 = 0
+    counter3 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter2 = sub2_cum[row2[i2]]
+                counter3 = sub3_cum[row3[i3]]
+                
+                for j2 in range(n_row_sub2[row2[i2]]):
+                    for q2 in range(nq2):
+                        for j3 in range(n_row_sub3[row3[i3]]):
                             for q3 in range(nq3):
-                                rhs_3[ie1, ie2, ies_3[ie3], il1, il2, il3 + il_add_3[ie3]] += w3[ie3, q3] * b1[ie1, il1, 0, 0] * b2[ie2, il2, 0, 0] * b3[ie3, il3, 0, q3] * mat[ie1, ie2, ie3*nq3 + q3]
-#============================================================================================================================== 
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi2_1(n1, n2, n3, pl1, pl2, pl3, ies_2, ies_3, il_add_2, il_add_3, nq2, nq3, w2, w3, b1, b2, b3, mat, rhs_1):
-    
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
+                                
+                                w_vol  = wts2[row2[i2] + j2 + counter2, q2] * wts3[row3[i3] + j3 + counter3, q3]
+                                
+                                basis  = bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                
+                                value += w_vol * basis * mat_eq[row1[i1], row2[i2] + j2 + counter2, q2, row3[i3] + j3 + counter3, q3]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
+                rhs[i]   = value * bsp1[row1[i1], col1[i1]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]                
+                
+                
+                
+                
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs22(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub3, sub1_cum, sub3_cum, wts1, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_n[1]
+    n3i = nbase_d[2]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[1]
+    n3j = shape(bsp3)[2]
+    
+    nq1 = shape(wts1)[1]
+    nq3 = shape(wts3)[1]
+    
+    counter1 = 0
+    counter3 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter1 = sub1_cum[row1[i1]]
+                counter3 = sub3_cum[row3[i3]]
+                
+                for j1 in range(n_row_sub1[row1[i1]]):
+                    for q1 in range(nq1):
+                        for j3 in range(n_row_sub3[row3[i3]]):
+                            for q3 in range(nq3):
+                                
+                                w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts3[row3[i3] + j3 + counter3, q3]
+                                
+                                basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                
+                                value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2], row3[i3] + j3 + counter3, q3]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i]   = value * bsp2[row2[i2], col2[i2]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]          
+                
+                
+                
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs23(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, sub1_cum, sub2_cum, wts1, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+    
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_d[1]
+    n3i = nbase_n[2]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[2]
+    n3j = shape(bsp3)[1]
+    
+    nq1 = shape(wts1)[1]
+    nq2 = shape(wts2)[1]
+    
+    counter1 = 0
+    counter2 = 0
+    
+    for i1 in range(n_rows_1): 
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
+                
+                value = 0.
+                
+                counter1 = sub1_cum[row1[i1]]
+                counter2 = sub2_cum[row2[i2]]
+                
+                for j1 in range(n_row_sub1[row1[i1]]):
+                    for q1 in range(nq1):
+                        for j2 in range(n_row_sub2[row2[i2]]):
                             for q2 in range(nq2):
-                                for q3 in range(nq3):
-                                    
-                                    rhs_1[ie1, ies_2[ie2], ies_3[ie3], il1, il2 + il_add_2[ie2], il3 + il_add_3[ie3]] += w2[ie2, q2] * w3[ie3, q3] * b1[ie1, il1, 0, 0] * b2[ie2, il2, 0, q2] * b3[ie3, il3, 0, q3] * mat[ie1, ie2*nq2 + q2, ie3*nq3 + q3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi2_2(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_3, il_add_1, il_add_3, nq1, nq3, w1, w3, b1, b2, b3, mat, rhs_2):
+                                
+                                w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts2[row2[i2] + j2 + counter2, q2]
+                                
+                                basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]]
+                                
+                                value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2] + j2 + counter2, q2, row3[i3]]
+                        
+                i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i]   = value * bsp3[row3[i3], col3[i3]]
+                
+                row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
+                
+                
+                             
+# =============================================================================
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:,:]','double[:]','int[:]','int[:]')
+def rhs3(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, n_row_sub3, sub1_cum, sub2_cum, sub3_cum, wts1, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
+    n_rows_1 = len(row1)
+    n_rows_2 = len(row2)
+    n_rows_3 = len(row3)
+    
+    n1i = nbase_d[0]
+    n2i = nbase_d[1]
+    n3i = nbase_d[2]
+    
+    n1j = shape(bsp1)[2]
+    n2j = shape(bsp2)[2]
+    n3j = shape(bsp3)[2]
+    
+    nq1 = shape(wts1)[1]
+    nq2 = shape(wts2)[1]
+    nq3 = shape(wts3)[1]
+    
+    counter1 = 0
+    counter2 = 0
+    counter3 = 0
+    
+    for i1 in range(n_rows_1):
+        for i2 in range(n_rows_2):
+            for i3 in range(n_rows_3):
                 
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
-                            for q1 in range(nq1):
-                                for q3 in range(nq3):
-                                    
-                                    rhs_2[ies_1[ie1], ie2, ies_3[ie3], il1 + il_add_1[ie1], il2, il3 + il_add_3[ie3]] += w1[ie1, q1] * w3[ie3, q3] * b1[ie1, il1, 0, q1] * b2[ie2, il2, 0, 0] * b3[ie3, il3, 0, q3] * mat[ie1*nq1 + q1, ie2, ie3*nq3 + q3]
-#==============================================================================================================================
-
-
-
-#==============================================================================================================================
-@types('int','int','int','int','int','int','int[:]','int[:]','int[:]','int[:]','int','int','double[:,:](order=F)','double[:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:,:](order=F)','double[:,:,:](order=F)','double[:,:,:,:,:,:](order=F)')
-def kernel_pi2_3(n1, n2, n3, pl1, pl2, pl3, ies_1, ies_2, il_add_1, il_add_2, nq1, nq2, w1, w2, b1, b2, b3, mat, rhs_3):
-
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
+                value = 0.
                 
-                for il1 in range(pl1):
-                    for il2 in range(pl2):
-                        for il3 in range(pl3):
-                            
-                            for q1 in range(nq1):
-                                for q2 in range(nq2):
-                                    
-                                    rhs_3[ies_1[ie1], ies_2[ie2], ie3, il1 + il_add_1[ie1], il2 + il_add_2[ie2], il3] += w1[ie1, q1] * w2[ie2, q2] * b1[ie1, il1, 0, q1] * b2[ie2, il2, 0, q2] * b3[ie3, il3, 0, 0] * mat[ie1*nq1 + q1, ie2*nq2 + q2, ie3]
-#==============================================================================================================================
+                counter1 = sub1_cum[row1[i1]]
+                counter2 = sub2_cum[row2[i2]]
+                counter3 = sub3_cum[row3[i3]]
+                
+                for j1 in range(n_row_sub1[row1[i1]]):
+                    for q1 in range(nq1):
+                        for j2 in range(n_row_sub2[row2[i2]]):
+                            for q2 in range(nq2):
+                                for j3 in range(n_row_sub3[row3[i3]]):
+                                    for q3 in range(nq3):
+                                        
+                                        w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts2[row2[i2] + j2 + counter2, q2] * wts3[row3[i3] + j3 + counter3, q3]
+                                        
+                                        basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                        
+                                        value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2] + j2 + counter2, q2, row3[i3] + j3 + counter3, q3]
+                
+                
+                i      = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
+                
+                rhs[i] = value
+                
+                row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]                    
+                    
+                    
+# =============================================================================                
+@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs11_f(indices1, indices2, indices3, n_row_sub1, sub1_cum, wts1, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+        
+    nq1 = shape(wts1)[1]
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    nv3 = max(indices3[3]) + 1
+    
+    n1i = shape(bsp11)[2]
+    n2i = shape(bsp21)[1]
+    n3i = shape(bsp31)[1]
+    
+    n1j = shape(bsp12)[2]
+    n2j = shape(bsp22)[1]
+    n3j = shape(bsp32)[1]
+    
+    counter1 = 0
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+            for i3 in range(len(indices3[0])):
+                
+                value = 0.
+                
+                counter1 = sub1_cum[indices1[0, i1]]
+                
+                for j1 in range(n_row_sub1[indices1[0, i1]]):
+                    for q1 in range(nq1):
+                        value += wts1[indices1[0, i1] + j1 + counter1, q1] * bsp11[indices1[0, i1] + j1 + counter1, q1, indices1[1, i1]] * bsp12[indices1[0, i1] + j1 + counter1, q1, indices1[2, i1]] * mat_eq[indices1[0, i1] + j1 + counter1, q1, indices2[0, i2], indices3[0, i3]]
+                        
+                i = nv2*nv3*indices1[3, i1] + nv3*indices2[3, i2] + indices3[3, i3]
+                
+                rhs[i] += f[indices1[0, i1], indices2[0, i2], indices3[0, i3]] * value * bsp21[indices2[0, i2], indices2[1, i2]] * bsp22[indices2[0, i2], indices2[2, i2]] * bsp31[indices3[0, i3], indices3[1, i3]] * bsp32[indices3[0, i3], indices3[2, i3]]
+                
+                row[i]  = n2i*n3i*indices1[1, i1] + n3i*indices2[1, i2] + indices3[1, i3]
+                col[i]  = n2j*n3j*indices1[2, i1] + n3j*indices2[2, i2] + indices3[2, i3]
+    
+    
+# =============================================================================                
+@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs12_f(indices1, indices2, indices3, n_row_sub2, sub2_cum, wts2, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+        
+    nq2 = shape(wts2)[1]
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    nv3 = max(indices3[3]) + 1
+    
+    n1i = shape(bsp11)[1]
+    n2i = shape(bsp21)[2]
+    n3i = shape(bsp31)[1]
+    
+    n1j = shape(bsp12)[1]
+    n2j = shape(bsp22)[2]
+    n3j = shape(bsp32)[1]
+    
+    counter2 = 0
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+            for i3 in range(len(indices3[0])):
+                
+                value = 0.
+                
+                counter2 = sub2_cum[indices2[0, i2]]
+                
+                for j2 in range(n_row_sub2[indices2[0, i2]]):
+                    for q2 in range(nq2):
+                        value += wts2[indices2[0, i2] + j2 + counter2, q2] * bsp21[indices2[0, i2] + j2 + counter2, q2, indices2[1, i2]] * bsp22[indices2[0, i2] + j2 + counter2, q2, indices2[2, i2]] * mat_eq[indices1[0, i1], indices2[0, i2] + j2 + counter2, q2, indices3[0, i3]]
+                        
+                i = nv2*nv3*indices1[3, i1] + nv3*indices2[3, i2] + indices3[3, i3]
+                
+                rhs[i] += f[indices1[0, i1], indices2[0, i2], indices3[0, i3]] * value * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]] * bsp31[indices3[0, i3], indices3[1, i3]] * bsp32[indices3[0, i3], indices3[2, i3]]
+                
+                row[i]  = n2i*n3i*indices1[1, i1] + n3i*indices2[1, i2] + indices3[1, i3]
+                col[i]  = n2j*n3j*indices1[2, i1] + n3j*indices2[2, i2] + indices3[2, i3]
+                
+                
+# =============================================================================                
+@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
+def rhs13_f(indices1, indices2, indices3, n_row_sub3, sub3_cum, wts3, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+        
+    nq3 = shape(wts3)[1]
+    
+    nv1 = max(indices1[3]) + 1
+    nv2 = max(indices2[3]) + 1
+    nv3 = max(indices3[3]) + 1
+    
+    n1i = shape(bsp11)[1]
+    n2i = shape(bsp21)[1]
+    n3i = shape(bsp31)[2]
+    
+    n1j = shape(bsp12)[1]
+    n2j = shape(bsp22)[1]
+    n3j = shape(bsp32)[2]
+    
+    counter3 = 0
+    rhs[:]   = 0.
+    
+    for i1 in range(len(indices1[0])):
+        for i2 in range(len(indices2[0])):
+            for i3 in range(len(indices3[0])):
+                
+                value = 0.
+                
+                counter3 = sub3_cum[indices3[0, i3]]
+                
+                for j3 in range(n_row_sub3[indices3[0, i3]]):
+                    for q3 in range(nq3):
+                        value += wts3[indices3[0, i3] + j3 + counter3, q3] * bsp31[indices3[0, i3] + j3 + counter3, q3, indices3[1, i3]] * bsp32[indices3[0, i3] + j3 + counter3, q3, indices3[2, i3]] * mat_eq[indices1[0, i1], indices2[0, i2], indices3[0, i3] + j3 + counter3, q3]
+                        
+                i = nv2*nv3*indices1[3, i1] + nv3*indices2[3, i2] + indices3[3, i3]
+                
+                rhs[i] += f[indices1[0, i1], indices2[0, i2], indices3[0, i3]] * value * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]] * bsp21[indices2[0, i2], indices2[1, i2]] * bsp22[indices2[0, i2], indices2[2, i2]]
+                
+                row[i]  = n2i*n3i*indices1[1, i1] + n3i*indices2[1, i2] + indices3[1, i3]
+                col[i]  = n2j*n3j*indices1[2, i1] + n3j*indices2[2, i2] + indices3[2, i3]

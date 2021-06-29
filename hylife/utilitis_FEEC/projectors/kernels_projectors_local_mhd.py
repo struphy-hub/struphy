@@ -362,7 +362,7 @@ def kernel_pi3(n, n_quad, n_his, n_nvbf, i_glo1, i_glo2, i_glo3, c_loc1, c_loc2,
                                         for q1 in range(n_quad[0]):
                                             for q2 in range(n_quad[1]):
                                                 for q3 in range(n_quad[2]):
-                                                    wvol = wts1[x_his_ind1[i1, j1], q1] * wts2[x_his_ind2[i2, j2], q2] * wts3[x_his_ind2[i3, j3], q3]
+                                                    wvol = wts1[x_his_ind1[i1, j1], q1] * wts2[x_his_ind2[i2, j2], q2] * wts3[x_his_ind3[i3, j3], q3]
                                                     f_int += wvol * bs1[x_his_ind1[i1, j1], q1, k1] * bs2[x_his_ind2[i2, j2], q2, k2] * bs3[x_his_ind3[i3, j3], q3, k3] * mat_eq[x_his_ind1[i1, j1], q1, x_his_ind2[i2, j2], q2, x_his_ind3[i3, j3], q3]
                                                 
                                         tau[k1, k2, k3, c1, c2, c3] += coeff * f_int
