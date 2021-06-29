@@ -2,8 +2,8 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=/home/
-run_dir=sim_name
+all_sim=$HOME/simulations
+run_dir=sim_1
 # =================================================
 
 # ======= name of main code =======================
@@ -92,7 +92,7 @@ p_MAP        : [1, 1, 3]
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
 dt       : 0.1
-Tend     : 200
+Tend     : 1.
 max_time : 1000.
 
 
@@ -269,7 +269,7 @@ echo "Start of STRUPHY:"
 # interactive run on an interactive node on e.g. Draco or Cobra (indicate number of MPI processes after -n)
 #export OMP_NUM_THREADS=4
 #export OMP_PLACES=cores
-#srun -n 1 python3 STRUPHY.py
+#srun -n 4 -p interactive python3 STRUPHY.py > STRUPHY.out
 
 # for run on a local machine (indicate number of MPI processes after -n)
 mpirun -n 1 python3 STRUPHY.py

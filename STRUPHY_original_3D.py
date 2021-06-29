@@ -53,7 +53,7 @@ import input_run.initial_conditions_MHD as init_MHD
 identifier = 'sed_replace_run_dir'   
 
 with open('parameters_sed_replace_run_dir.yml') as file:
-    params = yaml.load(file)
+    params = yaml.load(file, Loader=yaml.FullLoader)
 
 
 # mesh generation
@@ -215,7 +215,7 @@ else:
     
     
 # for plotting
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
     
 etaplot = [np.linspace(0., 1., 100), np.linspace(0., 1., 100), np.linspace(0., 1., 10)]
 
