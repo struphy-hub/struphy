@@ -240,6 +240,7 @@ export SYMPY_USE_CACHE=no
 # ============== run Makefile =====================
 if [ "$make" = true ]
 then
+echo "Pre-compilation:"
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 fi
 # =================================================
@@ -259,6 +260,8 @@ sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 
 
 cd $all_sim/$run_dir
+
+echo "Start of STRUPHY:"
 
 # job submission via SLURM
 #sbatch batch_$run_dir.sh
