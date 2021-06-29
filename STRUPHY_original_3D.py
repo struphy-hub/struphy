@@ -304,7 +304,7 @@ if False:
 
 
 # ==== initialization with projection of input functions ===============
-if False:
+if True:
     ini_MHD = init_MHD.initial_mhd(domain)
     
     r3[:] = pro_3d.pi_3(ini_MHD.r3_ini, include_bc=False, eval_kind='tensor_product', interp=True)
@@ -341,7 +341,7 @@ if False:
         
         
 # ===== initialization with white noise on periodic domain =============
-if True:
+if False:
     np.random.seed(1607)
 
     p3_temp = np.empty(N_3form   , dtype=float)
