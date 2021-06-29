@@ -8,7 +8,6 @@ mpi4py==3.0.3
 mpmath==1.2.1
 numpy==1.19.5
 Pillow==8.2.0
-pkg-resources==0.0.0
 pyccel==0.10.1
 pyparsing==2.4.7
 python-dateutil==2.8.1
