@@ -1,847 +1,1621 @@
-'''
- Module that provides projectors for commuting diagrams in the de Rham sequence, based on
- inter-/histopolation of b-splines at Greville points. 
- Periodic and Dirichlet boundary conditions are available.
- 
- Written 2019/20 by Florian Holderied and Stefan Possanner
-'''
+# coding: utf-8
+#
+# Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
-import numpy              as np
-import scipy.sparse       as sparse
-from scipy.sparse.linalg import splu
+"""
+Classes for projectors in 1D, 2D and 3D based on global spline interpolation and histopolation.
+"""
+
+import numpy as np
+import scipy.sparse as spa
 
 import hylife.utilitis_FEEC.bsplines as bsp
-import hylife.utilitis_FEEC.kernels_projectors_global as kernels
+
+import hylife.utilitis_FEEC.projectors.kernels_projectors_global as ker_glob
+
+from   hylife.linear_algebra.linalg_kron import kron_lusolve_3d
 
 
-# ===================================================================
-class projectors_3d:
+
+# ======================= 1d ====================================
+class projectors_global_1d:
+    """
+    Global commuting projectors pi_0 and pi_1 in 1d.
     
-    '''
-    Commuting projectors for the 3D de Rham complex, based on inter-/histopolation of b-splines
-    at Greville points. 
-
     Parameters
     ----------
-    T : list of 1D array_like
-        Knot vectors defining the spline basis.
+    spline_space : spline_space_1d
+        a 1d space of B-splines
+        
+    n_quad : int
+        number of quadrature points per integration interval for histopolations
+    """
     
-    p : list of int
-        Spline degrees.
+    def __init__(self, spline_space, n_quad):
         
-    bc : list of boolean
-        Boundary conditions (True = periodic, False = clamped)
+        self.space  = spline_space     # 1D B-splines space
+        self.n_quad = n_quad           # number of quadrature point per integration interval
+        self.kind   = 'global'         # kind of projector (global vs. local)
         
-    Nq : list of int
-        Number of quadratute points per element in each direction.
+        n1 = self.space.NbaseN
+        d1 = self.space.NbaseD
         
-    Returns
-    -------
-    self.T : list of 1D array_like
-        Knot vectors defining the spline basis in each direction.
-             
-    self.p : list of int
-        Spline degrees in each direction.
-             
-    self.bc : list boolean
-        Boundary conditions (True = periodic, False = clamped) in each direction.
+        # Gauss - Legendre quadrature points and weights in (-1, 1)
+        self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]  
+        self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
         
-    self.Nq : list of int
-        Number of quadratute points per element in each direction.
-              
-    self.el_b : list of 1D array_like
-        Element boundaries in each direction.
+        # set interpolation points (Greville points)
+        self.x_int = bsp.greville(self.space.T, self.space.p, self.space.spl_kind)
         
-    self.greville : list of 1D array_like
-        Greville points in each direction.
-                
-    self.Nel : list of int
-        Number of elements.
-              
-    self.NbaseN : list of int
-        Number of N-spline basis functions.
-                  
-    self.NbaseD : list of int
-        Number of D-spline basis functions. 
-                
-    self.quad_loc : list of array_like
-        Local Gauss-Legendre quadrature points and weights
-                    
-    self.delta : list of float
-        Grid spacings.
-                 
-    self.grid : list of array_like
-        Grid points.
-                
-    self.pts : list of array_like
-        Gauss-Legendre quadrature points between Greville points.
-               
-    self.wts : list of array_like
-        Gauss-Legendre quadrature weights between Greville points.
-               
-    self.N : list of array_like (sparse)
-        Collocation matrices for N-splines in each direction.
-             
-    self.D : list of array_like (sparse)
-        Collocation matrices for D-splines in each direction.
-             
-    Returns methods (described in detail below)
-    ---------------------------------
-    self.NNN_LU
-    self.DNN_LU
-    self.NDN_LU
-    self.NND_LU
-    self.NDD_LU
-    self.DND_LU
-    self.DDN_LU
-    self.DDD_LU
-    self.PI_0  : Projection on the space V0 via inter-inter-inter-polation in x1-x2-x3.
-    self.PI_11 : FIRST  component of projection on the space V1 via histo-inter-inter-polation.
-    self.PI_12 : SECOND component of projection on the space V1 via inter-histo-inter-polation.
-    self.PI_13 : THIRD  component of projection on the space V1 via inter-inter-histo-polation.
-    self.PI_21 : FIRST  component of projection on the space V2 via inter-histo-histo-polation.
-    self.PI_22 : SECOND component of projection on the space V2 via histo-inter-histo-polation.
-    self.PI_23 : THIRD  component of projection on the space V2 via histo-histo-inter-polation.
-    self.PI_3  : Projection on the space V3 via histo-histo-histo-polation in x1-x2-x3.
-    '''
-    
-    def __init__(self, T, p, bc, Nq):
-        
-        self.T         = T
-        self.p         = p
-        self.bc        = bc
-        self.Nq        = Nq
-        self.el_b      = [bsp.breakpoints(T_i, p_i) for T_i, p_i in zip(T, p)]
-        self.greville  = [bsp.greville(T_i, p_i, bc_i) for T_i, p_i, bc_i in zip(T, p, bc)]
-        self.Nel       = [len(el_b_i) - 1 for el_b_i in self.el_b]
-        self.NbaseN    = [Nel_i + p_i - bc_i*p_i for Nel_i, p_i, bc_i in zip(self.Nel, p, bc)]
-        self.NbaseD    = [NbaseN_i - (1 - bc_i) for NbaseN_i, bc_i in zip(self.NbaseN, bc)]
-        self.quad_loc  = [np.polynomial.legendre.leggauss(Nq_i) for Nq_i in Nq] 
-        self.delta     = [el_b_i[1] - el_b_i[0] for el_b_i in self.el_b] 
-
-        # Quadrature grids in cells defined by consecutive Greville points in each direction
-        self.pts = []
-        self.wts = []
-        for a in range(3):
+        # set histopolation grid and number of sub-intervals for clamped splines
+        if self.space.spl_kind == False:
             
-            if self.bc[a]:
-                xgrid = np.append( self.greville[a], self.el_b[a][-1] + self.greville[a][0] )
+            # even spline degree
+            if self.space.p%2 == 0:
+                self.x_his = np.union1d(self.x_int, self.space.el_b)
+                self.subs  = 2*np.ones(self.x_int.size - 1, dtype=int)
+                
+                self.subs[:self.space.p//2 ] = 1
+                self.subs[-self.space.p//2:] = 1
+
+            # odd spline degree
             else:
-                xgrid = self.greville[a]
-            
-            pts_a, wts_a = bsp.quadrature_grid( xgrid , self.quad_loc[a][0],
-                                                        self.quad_loc[a][1] )
-            
-            self.pts.append(pts_a)
-            self.wts.append(wts_a)
-        
-        # Collocation matrices for N-splines in each direction
-        self.N = [sparse.csc_matrix(bsp.collocation_matrix(T_i, p_i, greville_i, bc_i)) 
-                  for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.greville, self.bc)]
-        
-        # evaluation of basis at quadrature points pts
-        #self.Nq = [sparse.csc_matrix(bsp.collocation_matrix(T_i, p_i, pts_i.flatten(), bc_i)) 
-        #          for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.pts, self.bc)]
-        
-        # Histopolation matrices for D-splines in each direction
-        self.D = [sparse.csc_matrix(bsp.histopolation_matrix(T_i[1:-1], p_i-1, greville_i, bc_i, True)) 
-                  for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.greville, self.bc)]
-        
-        # Histopolation basis evaluated at quadrature points pts
-        #self.Dq = [sparse.csc_matrix(bsp.histopolation_matrix(T_i[1:-1], p_i-1, pts_i.flatten(), bc_i, True))  #
-        #          for T_i, p_i, greville_i, bc_i in zip(self.T, self.p, self.pts, self.bc)]
-        
-         
-    # ======================================
-    def NNN_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrices in x1, x2, x3 in sparse format.
-        '''
-
-        self.NNN_LU = splu( sparse.kron( sparse.kron( self.N[0], self.N[1] ), self.N[2], format='csc' ) )
-        
-    # ======================================
-    def DNN_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrices in x2, x3 and
-        histopolation matrix in x1 in sparse format.
-        '''
-        
-        self.DNN_LU = splu( sparse.kron( sparse.kron( self.D[0], self.N[1] ), self.N[2], format='csc' ) )
-        
-    # ======================================
-    def NDN_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrices in x1, x3 and 
-        histopolation matrix in x2 in sparse format.
-        '''
-
-        self.NDN_LU = splu( sparse.kron( sparse.kron( self.N[0], self.D[1] ), self.N[2], format='csc' ) )
-        
-    # ======================================
-    def NND_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrices in x1, x2 and
-        histopolation matrix in x3 in sparse format.
-        '''
-
-        self.NND_LU = splu( sparse.kron( sparse.kron( self.N[0], self.N[1] ), self.D[2], format='csc' ) )
-        
-    # ======================================
-    def NDD_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrix in x1 and 
-        histopolation matrices in x2, x3 in sparse format.
-        '''
-
-        self.NDD_LU = splu( sparse.kron( sparse.kron( self.N[0], self.D[1] ), self.D[2], format='csc' ) )
-        
-    # ======================================
-    def DND_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrix in x2 and 
-        histopolation matrices in x1, x3 in sparse format.
-        '''
-
-        self.DND_LU = splu( sparse.kron( sparse.kron( self.D[0], self.N[1] ), self.D[2], format='csc' ) )
-        
-    # ======================================
-    def DDN_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of collocation matrix in x3 and
-        histopolation matrices in x1, x2 in sparse format.
-        '''
-        
-        self.DDN_LU = splu( sparse.kron( sparse.kron( self.D[0], self.D[1] ), self.N[2], format='csc' ) )
-        
-    # ======================================
-    def DDD_LU(self):
-        
-        '''
-        LU decompostion of Kronecker product of histopolation matrices in x1, x2, x3 in sparse format.
-        '''
-
-        self.DDD_LU = splu( sparse.kron( sparse.kron( self.D[0], self.D[1] ), self.D[2], format='csc' ) )
-
-# ======================================
-    def assemble_V0(self):
-        
-        self.NNN_LU()
-        
-    # ======================================
-    def assemble_V1(self):
-        
-        self.DNN_LU()
-        self.NDN_LU()
-        self.NND_LU()
-        
-    
-    # ======================================    
-    def assemble_V2(self):
+                self.x_his = np.copy(self.x_int)
+                self.subs  = 1*np.ones(self.x_int.size - 1, dtype=int)
                 
-        self.NDD_LU()
-        self.DND_LU()
-        self.DDN_LU()
-        
-    
-    # ======================================
-    def assemble_V3(self):
-        
-        self.DDD_LU()
-
-    # ======================================        
-    def PI_0(self, fun):
-        
-        '''
-        Projection on the space V0 via inter-inter-inter-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the 0-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = np.empty( (n[0], n[1], n[2]) )
-        
-        for i in range(n[0]):
-            for j in range(n[1]):
-                for k in range(n[2]):
-                    rhs[i, j, k] = fun( self.greville[0][i], self.greville[1][j], self.greville[2][k] )
-                               
-        coeffs = self.NNN_LU.solve(rhs.flatten())
-        
-        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseN[2] )
-    
-    # ======================================
-    def PI_11(self, fun):
-        
-        '''
-        FIRST component of projection on the space V1 via histo-inter-inter-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the FIRST component of the 1-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-            
-        rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2]) )
-                    
-        for j in range(n[1]):
-            for k in range(n[2]):
-
-                integrand = lambda xi1 : fun( xi1, self.greville[1][j], self.greville[2][k] )
-
-                rhs[:, j, k] = integrate_1d(self.pts[0], self.wts[0], integrand)
-
-
-        ## alternative, using a 3D kernel
-        #
-        #integrand = np.empty((self.pts[0].shape[0], n[1], n[2],self.pts[0].shape[1]))
-        #for i in range(self.pts[0].shape[0]):
-        #    for j in range(n[1]):
-        #        for k in range(n[2]):
-        #            for p in range(self.pts[0].shape[1]):
-        #               integrand[i,j,k,p]=fun[0](self.pts[0,i,p],self.greville[1][j], self.greville[2][k])
-        #
-        #kernel_int_1d_ext_xi1(self.wts[0], integrand, rhs[0][:, :, :]  )
-                
-        coeffs = self.DNN_LU.solve(rhs.flatten()) 
-        
-        return coeffs.reshape( self.NbaseD[0], self.NbaseN[1], self.NbaseN[2] )
-    
-    # ======================================
-    def PI_12(self, fun):
-        
-        '''
-        SECOND component of projection on the space V1 via inter-histo-inter-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the SECOND component of the 1-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-            
-        rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2]) )
-
-        for i in range(n[0]):
-            for k in range(n[2]):
-
-                integrand = lambda xi2 : fun( self.greville[0][i], xi2, self.greville[2][k] )
-
-                rhs[i, :, k] = integrate_1d(self.pts[1], self.wts[1], integrand)
-                
-        coeffs = self.NDN_LU.solve(rhs.flatten()) 
-        
-        return  coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseN[2] )
-    
-    # ======================================
-    def PI_13(self, fun):
-        
-        '''
-        THIRD component of projection on the space V1 via inter-inter-histo-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the THIRD component of the 1-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-            
-        rhs = np.empty( (n[0], n[1], n[2] - 1 + self.bc[2]) )
-                    
-        for i in range(n[0]):
-            for j in range(n[1]):
-
-                integrand = lambda xi3 : fun( self.greville[0][i], self.greville[1][j], xi3 )
-
-                rhs[i, j, :] = integrate_1d(self.pts[2], self.wts[2], integrand)
-                
-        coeffs = self.NND_LU.solve(rhs.flatten()) 
-        
-        return coeffs.reshape( self.NbaseN[0], self.NbaseN[1], self.NbaseD[2] )
-    
-    # ======================================
-    def PI_21(self, fun):
-        
-        '''
-        FIRST component of projection on the space V2 via inter-histo-histo-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the FIRST component of the 2-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = np.empty( (n[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]) )
-        
-        for i in range(n[0]):
-            
-            integrand = lambda xi2, xi3 : fun( self.greville[0][i], xi2, xi3 )
-            
-            rhs[i, :, :] = integrate_2d([self.pts[1], self.pts[2]], 
-                                        [self.wts[1], self.wts[2]], integrand )
-            
-        coeffs = self.NDD_LU.solve(rhs.flatten()) 
-        
-        return coeffs.reshape( self.NbaseN[0], self.NbaseD[1], self.NbaseD[2] )
-    
-    # ======================================
-    def PI_22(self, fun):
-        
-        '''
-        SECOND component of projection on the space V2 via histo-inter-histo-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the SECOND component of the 2-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = np.empty( (n[0] - 1 + self.bc[0], n[1], n[2] - 1 + self.bc[2]) )
-            
-        for j in range(n[1]):
-            
-            integrand = lambda xi1, xi3 : fun(xi1, self.greville[1][j], xi3)
-            
-            rhs[:, j, :] = integrate_2d([self.pts[0], self.pts[2]], 
-                                        [self.wts[0], self.wts[2]], integrand)
-        
-        coeffs = self.DND_LU.solve(rhs.flatten())
-        
-        return coeffs.reshape(self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
-    
-    # ======================================
-    def PI_23(self, fun):
-        
-        '''
-        THIRD component of projection on the space V2 via histo-histo-inter-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the THIRD component of the 2-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-        
-        n = [greville.size for greville in self.greville]
-        
-        rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2]))
-            
-        for k in range(n[2]):
-            
-            integrand = lambda xi1, xi2 : fun(xi1, xi2, self.greville[2][k])
-            
-            rhs[:, :, k] = integrate_2d([self.pts[0], self.pts[1]], 
-                                        [self.wts[0], self.wts[1]], integrand)
-            
-        coeffs = self.DDN_LU.solve(rhs.flatten())
-        
-        return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
-    
-    # ======================================
-    def PI_3(self, fun):
-        
-        '''
-        Projection on the space V3 via histo-histo-histo-polation in x1-x2-x3.
-        
-        Parameters
-        ----------
-        fun : callable
-            fun(x1,x2,x3) \in R is the 3-form to be projected.
-
-        Returns
-        -------
-        coeffs : 3D array_like
-            Finite element coefficients obtained by projection.
-        '''
-
-        n = [greville.size for greville in self.greville]
-
-        rhs = np.empty((n[0] - 1 + self.bc[0], n[1] - 1 + self.bc[1], n[2] - 1 + self.bc[2]))
-
-        rhs[:, :, :] = integrate_3d([self.pts[0], self.pts[1], self.pts[2]],
-                                    [self.wts[0], self.wts[1], self.wts[2]], fun)
-
-        coeffs = self.DDD_LU.solve(rhs.flatten())
-
-        return coeffs.reshape(self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
-# ===================================================================
-
-
-
-# ===================================================================
-class projectors_1d:
-    
-    '''
-    Projectors for the 1D commuting diagram, based on inter-/histopolation of b-splines
-    at Greville points. 
-    
-    Written 2019/20 by Florian Holderied, Stefan Possanner 
-    
-    Parameters
-    ----------
-    T : 1D array_like
-        Knot vectors defining the spline basis.
-    
-    p : int
-        Spline degrees.
-        
-    bc : boolean
-        Boundary conditions (True = periodic, False = clamped)
-        
-    Nq : int
-        Number of quadratute points per element.
-        
-    Returns
-    -------
-    self.T : 1D array_like
-        Knot vectors defining the spline basis.
-             
-    self.p : int
-        Spline degree.
-             
-    self.bc : boolean
-        Boundary conditions (True = periodic, False = clamped).
-        
-    self.Nq : int
-        Number of quadrature points per element.
-              
-    self.el_b : 1D array_like
-        Element boundaries.
-        
-    self.greville : 1D array_like
-        Greville points.
-                
-    self.Nel : int
-        Number of elements.
-              
-    self.NbaseN : int
-        Number of N-spline basis functions.
-                  
-    self.NbaseD : int
-        Number of D-spline basis functions. 
-                
-    self.quad_loc : array_like
-        Local Gauss-Legendre quadrature points and weights
-                    
-    self.delta : float
-        Grid spacings.
-                 
-    self.grid : array_like
-        Grid points.
-                
-    self.pts : array_like
-        Gauss-Legendre quadrature points between Greville points.
-               
-    self.wts : array_like
-        Gauss-Legendre quadrature weights between Greville points.
-               
-    self.N : array_like (sparse)
-        Collocation matrix for N-splines.
-             
-    self.D : array_like (sparse)
-        Collocation matrix for D-splines.
-             
-    Returns methods (described in detail below)
-    ---------------------------------
-    self.N_LU
-    self.D_LU
-    self.PI_0  : Projection on the space V0 via interpolation.
-    self.PI_1  : Projection on the space V1 via histopolation.
-    '''
-    
-    def __init__(self, T, p, bc, Nq):
-        
-        self.T         = T
-        self.p         = p
-        self.bc        = bc
-        self.Nq        = Nq
-        self.el_b      = bsp.breakpoints(self.T, self.p)
-        self.greville  = bsp.greville(self.T, self.p, self.bc)
-        self.Nel       = len(self.el_b) - 1
-        self.NbaseN    = self.Nel + self.p - self.bc*self.p
-        self.NbaseD    = self.NbaseN - (1 - self.bc)
-        self.quad_loc  = np.polynomial.legendre.leggauss(self.Nq)
-        self.delta     = self.el_b[1] - self.el_b[0]
-         
-        # Quadrature grids in cells defined by consecutive Greville points   
-        if bc:
-            xgrid = np.append( self.greville, self.el_b[-1] + self.greville[0] )
+        # set histopolation grid and number of sub-intervals for periodic splines
         else:
-            xgrid = self.greville
+            
+            # even spline degree
+            if self.space.p%2 == 0:
+                self.x_his = np.union1d(self.x_int, self.space.el_b[1:])
+                self.x_his = np.append(self.x_his, self.space.el_b[-1] + self.x_his[0])
+                self.subs  = 2*np.ones(self.x_int.size, dtype=int)
 
-        self.pts, self.wts = bsp.quadrature_grid( xgrid , self.quad_loc[0], self.quad_loc[1] )
+            # odd spline degree
+            else:
+                self.x_his = np.append(self.x_int, self.space.el_b[-1])
+                self.subs  = 1*np.ones(self.x_int.size, dtype=int)
+              
+        self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
         
-        # Collocation matrix for N-splines and its LU decomposition in sparse format 
-        self.N    = sparse.csc_matrix(bsp.collocation_matrix(T, p, self.greville, bc)) 
-        self.N_LU = splu(self.N)
-        # Histopolation matrix for D-splines and its LU decomposition in sparse format
-        self.D = sparse.csc_matrix(bsp.histopolation_matrix(T[1:-1], p-1, self.greville, bc, True)) 
-        self.D_LU = splu(self.D)          
+        # quadrature points and weights
+        self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
+        self.pts           = self.pts%self.space.el_b[-1]
+        
+        # interpolation and histopolation_matrix
+        self.N = bsp.collocation_matrix(  self.space.T, self.space.p, self.x_int, self.space.spl_kind)
+        self.D = bsp.histopolation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind)
+        
+        self.N[self.N < 1e-12] = 0.
+        self.D[self.D < 1e-12] = 0.
+        
+        self.N = spa.csr_matrix(self.N)
+        self.D = spa.csr_matrix(self.D)
+        
+        # LU decompositions
+        self.N_LU = spa.linalg.splu(self.N.tocsc())
+        self.D_LU = spa.linalg.splu(self.D.tocsc())
+        
+        # LU decompositions of transposed
+        self.N_T_LU = spa.linalg.splu(self.N.T.tocsc())
+        self.D_T_LU = spa.linalg.splu(self.D.T.tocsc())
+        
     
-    # ======================================        
-    def PI_0(self, fun):
+    # evaluate function at interpolation points    
+    def rhs_0(self, fun):
+        return fun(self.x_int)
+    
+    # evaluate integrals between interpolation points
+    def rhs_1(self, fun):
         
-        '''
-        Projection on the space V0 via interpolation.
+        # evaluate function at quadrature points
+        mat_f  = fun(self.pts.flatten()).reshape(self.pts.shape[0], self.pts.shape[1])
+        values = np.zeros(self.space.NbaseD, dtype=float)
+        
+        # compute integrals
+        for i in range(self.space.NbaseD):
+            value = 0.
+            for j in range(self.subs[i]):
+                value += ker_glob.kernel_int_1d(self.n_quad, self.wts[i + j + self.subs_cum[i]], mat_f[i + j + self.subs_cum[i]])
+                
+            values[i] = value
+                
+        return values
+    
+    # pi_0 projector
+    def pi_0(self, fun):
+        return self.N_LU.solve(self.rhs_0(fun))
+    
+    # pi_1 projector
+    def pi_1(self, fun):
+        return self.D_LU.solve(self.rhs_1(fun))
+    
+    
+    
+    def pts_1d_bases(self):
+        """
+        basis functions evaluated at point sets: pts0_i(N_j), pts1_i(N_j), pts0_i(D_j) and pts1_i(D_j).
+        
+        pts0 : evaluation at greville points
+        pts1 : evaluation at quadrature points between greville points
+        
+        returns scipy.sparse matrix
+        """
+        
+        kind_splines = [False, True]
+        
+        pts0_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.x_int, self.space.spl_kind, kind_splines[0]))
+        pts0_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.x_int, self.space.spl_kind, kind_splines[1]))
+        
+        pts1_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.pts.flatten(), self.space.spl_kind, kind_splines[0]))
+        pts1_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.pts.flatten(), self.space.spl_kind, kind_splines[1]))
+        
+        return pts0_N, pts0_D, pts1_N, pts1_D
+    
+    
+    
+    def dofs_1d_bases(self):
+        """
+        computes degrees of freedom of basis functions.
+        
+        R0_i(N_j)
+        R1_i(N_j)
+        
+        R0_i(D_j)
+        R1_i(D_j)
+        
+        R0 : evaluation at greville points
+        R1 : integral between greville points
+        """
+        
+        R0_N = np.empty((self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R1_N = np.empty((self.space.NbaseD, self.space.NbaseN), dtype=float)
+        
+        R0_D = np.empty((self.space.NbaseN, self.space.NbaseD), dtype=float)
+        R1_D = np.empty((self.space.NbaseD, self.space.NbaseD), dtype=float)
+
+
+        # ========= R0_N and R1_N =============
+        cj = np.zeros(self.space.NbaseN, dtype=float)
+
+        for j in range(self.space.NbaseN):
+
+            cj[:] = 0.
+            cj[j] = 1.
+
+            N_j = lambda eta : self.space.evaluate_N(eta, cj)
+
+            R0_N[:, j] = self.rhs_0(N_j)
+            R1_N[:, j] = self.rhs_1(N_j)
+            
+        # ========= R0_D and R1_D =============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+
+        for j in range(self.space.NbaseD):
+
+            cj[:] = 0.
+            cj[j] = 1.
+
+            D_j = lambda eta : self.space.evaluate_D(eta, cj)
+
+            R0_D[:, j] = self.rhs_0(D_j)
+            R1_D[:, j] = self.rhs_1(D_j)
+            
+        R0_N_indices = np.nonzero(R0_N)
+        R0_D_indices = np.nonzero(R0_D)
+        R1_N_indices = np.nonzero(R1_N)
+        R1_D_indices = np.nonzero(R1_D)
+        
+        return R0_N_indices, R0_D_indices, R1_N_indices, R1_D_indices
+    
+    
+    
+    def dofs_1d_bases_products(self):
+        """
+        computes degrees of freedom of products of basis functions.
+        
+        R0_i(N_j*N_k)
+        R0_i(D_j*N_k)
+        R0_i(N_j*D_k)
+        R0_i(D_j*D_k)
+        
+        R1_i(N_j*N_k)
+        R1_i(D_j*N_k)
+        R1_i(N_j*D_k)
+        R1_i(D_j*D_k)
+        
+        R0 : evaluation at greville points
+        R1 : integral between greville points
+        """
+    
+        R0_NN = np.empty((self.space.NbaseN, self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R0_DN = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseN), dtype=float)
+        R0_DD = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseD), dtype=float)
+
+        R1_NN = np.empty((self.space.NbaseD, self.space.NbaseN, self.space.NbaseN), dtype=float)
+        R1_DN = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseN), dtype=float)
+        R1_DD = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseD), dtype=float)
+
+
+        # ========= R0_NN and R1_NN ==============
+        cj = np.zeros(self.space.NbaseN, dtype=float)
+        ck = np.zeros(self.space.NbaseN, dtype=float)
+
+        for j in range(self.space.NbaseN):
+            for k in range(self.space.NbaseN):
+
+                cj[:] = 0.
+                ck[:] = 0.
+
+                cj[j] = 1.
+                ck[k] = 1.
+                
+                N_jN_k = lambda eta : self.space.evaluate_N(eta, cj)*self.space.evaluate_N(eta, ck)
+
+                R0_NN[:, j, k] = self.rhs_0(N_jN_k)
+                R1_NN[:, j, k] = self.rhs_1(N_jN_k)
+
+
+        # ========= R0_DN and R1_DN ==============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+        ck = np.zeros(self.space.NbaseN, dtype=float)
+
+        for j in range(self.space.NbaseD):
+            for k in range(self.space.NbaseN):
+
+                cj[:] = 0.
+                ck[:] = 0.
+
+                cj[j] = 1.
+                ck[k] = 1.
+                
+                D_jN_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_N(eta, ck)
+
+                R0_DN[:, j, k] = self.rhs_0(D_jN_k)
+                R1_DN[:, j, k] = self.rhs_1(D_jN_k)
+
+
+        # ========= R0_DD and R1_DD =============
+        cj = np.zeros(self.space.NbaseD, dtype=float)
+        ck = np.zeros(self.space.NbaseD, dtype=float)
+
+        for j in range(self.space.NbaseD):
+            for k in range(self.space.NbaseD):
+
+                cj[:] = 0.
+                ck[:] = 0.
+
+                cj[j] = 1.
+                ck[k] = 1.
+                
+                D_jD_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_D(eta, ck)
+                
+                R0_DD[:, j, k] = self.rhs_0(D_jD_k)
+                R1_DD[:, j, k] = self.rhs_1(D_jD_k)
+
+
+        R0_ND = np.transpose(R0_DN, (0, 2, 1))
+        R1_ND = np.transpose(R1_DN, (0, 2, 1))
+
+
+        # find non-zero entries
+        R0_NN_indices = np.nonzero(R0_NN)
+        R0_DN_indices = np.nonzero(R0_DN)
+        R0_ND_indices = np.nonzero(R0_ND)
+        R0_DD_indices = np.nonzero(R0_DD)
+
+        R1_NN_indices = np.nonzero(R1_NN)
+        R1_DN_indices = np.nonzero(R1_DN)
+        R1_ND_indices = np.nonzero(R1_ND)
+        R1_DD_indices = np.nonzero(R1_DD)
+        
+        R0_NN_i_red = np.empty(R0_NN_indices[0].size, dtype=int)
+        R0_DN_i_red = np.empty(R0_DN_indices[0].size, dtype=int)
+        R0_ND_i_red = np.empty(R0_ND_indices[0].size, dtype=int)
+        R0_DD_i_red = np.empty(R0_DD_indices[0].size, dtype=int)
+
+        R1_NN_i_red = np.empty(R1_NN_indices[0].size, dtype=int)
+        R1_DN_i_red = np.empty(R1_DN_indices[0].size, dtype=int)
+        R1_ND_i_red = np.empty(R1_ND_indices[0].size, dtype=int)
+        R1_DD_i_red = np.empty(R1_DD_indices[0].size, dtype=int)
+        
+        # ================================
+        nv = self.space.NbaseN*R0_NN_indices[1] + R0_NN_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R0_NN_indices[0].size):
+            R0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseN*R0_DN_indices[1] + R0_DN_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R0_DN_indices[0].size):
+            R0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseD*R0_ND_indices[1] + R0_ND_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R0_ND_indices[0].size):
+            R0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseD*R0_DD_indices[1] + R0_DD_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R0_DD_indices[0].size):
+            R0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseN*R1_NN_indices[1] + R1_NN_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R1_NN_indices[0].size):
+            R1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseN*R1_DN_indices[1] + R1_DN_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R1_DN_indices[0].size):
+            R1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseD*R1_ND_indices[1] + R1_ND_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R1_ND_indices[0].size):
+            R1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+            
+        # ================================
+        nv = self.space.NbaseD*R1_DD_indices[1] + R1_DD_indices[2]
+        un = np.unique(nv)
+        
+        for i in range(R1_DD_indices[0].size):
+            R1_DD_i_red[i] = np.nonzero(un == nv[i])[0] 
+            
+            
+        R0_NN_indices = np.vstack((R0_NN_indices[0], R0_NN_indices[1], R0_NN_indices[2], R0_NN_i_red))
+        R0_DN_indices = np.vstack((R0_DN_indices[0], R0_DN_indices[1], R0_DN_indices[2], R0_DN_i_red))
+        R0_ND_indices = np.vstack((R0_ND_indices[0], R0_ND_indices[1], R0_ND_indices[2], R0_ND_i_red))
+        R0_DD_indices = np.vstack((R0_DD_indices[0], R0_DD_indices[1], R0_DD_indices[2], R0_DD_i_red))
+
+        R1_NN_indices = np.vstack((R1_NN_indices[0], R1_NN_indices[1], R1_NN_indices[2], R1_NN_i_red))
+        R1_DN_indices = np.vstack((R1_DN_indices[0], R1_DN_indices[1], R1_DN_indices[2], R1_DN_i_red))
+        R1_ND_indices = np.vstack((R1_ND_indices[0], R1_ND_indices[1], R1_ND_indices[2], R1_ND_i_red))
+        R1_DD_indices = np.vstack((R1_DD_indices[0], R1_DD_indices[1], R1_DD_indices[2], R1_DD_i_red))
+        
+
+        return R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices 
+        
+        #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
+        
+
+        
+
+# ======================= 2d ====================================
+class projectors_global_2d:
+    """
+    Global commuting projectors pi_0, pi_1, pi_2 and pi_3 in 2d.
+    
+    Parameters
+    ----------
+    tensor_space : tensor_spline_space
+        a 2d tensor-product space of B-splines (set_extraction_operators must have been called)
+        
+    n_quad : int
+        number of Gauss-Legendre quadrature points per integration interval for histopolations
+    """
+    
+    def __init__(self, tensor_space, n_quad):
+        
+        self.space  = tensor_space     # 2D tensor-product B-splines space
+        self.n_quad = n_quad           # number of quadrature point per integration interval
+        self.kind   = 'global'         # kind of projector (global vs. local)
+        
+        n1, n2 = self.space.NbaseN
+        d1, d2 = self.space.NbaseD
+        
+        # standard domain
+        if self.space.polar == False:
+            
+            # including boundary splines
+            self.P0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
+            self.P1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
+            self.P2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
+            self.P3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
+
+            self.P0_all     =            self.P0_pol_all.copy()
+            self.P1_all     = spa.bmat([[self.P1_pol_all, None], [None, self.P0_pol_all]], format='csr')
+            self.P2_all     = spa.bmat([[self.P2_pol_all, None], [None, self.P3_pol_all]], format='csr')
+            self.P3_all     =            self.P3_pol_all.copy()
+
+            # without boundary splines
+            P_NN = spa.identity(n1*n2, format='csr')
+            P_DN = spa.identity(d1*n2, format='csr')
+            P_ND = spa.identity(n1*d2, format='csr')
+            P_DD = spa.identity(d1*d2, format='csr')
+
+            # remove contributions from N-splines at eta1 = 0
+            if   self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
+                P_NN = P_NN[n2:, :]
+                P_ND = P_ND[d2:, :]
+            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            # remove contributions from N-splines at eta1 = 1
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+                P_NN = P_NN[:-n2, :]
+                P_ND = P_ND[:-d2, :]
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            self.P0_pol = P_NN.tocsr().copy()
+            self.P1_pol = spa.bmat([[P_DN, None], [None, P_ND]], format='csr')
+            self.P2_pol = spa.bmat([[P_ND, None], [None, P_DN]], format='csr')
+            self.P3_pol = P_DD.tocsr().copy()
+
+            self.P0     =            self.P0_pol.copy()
+            self.P1     = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
+            self.P2     = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
+            self.P3     =            self.P3_pol.copy()
+        
+        # polar domain
+        else:
+            
+            # including boundary splines
+            self.P0_pol_all = self.space.polar_splines.P0.copy()
+            self.P1_pol_all = self.space.polar_splines.P1C.copy()
+            self.P2_pol_all = self.space.polar_splines.P1D.copy()
+            self.P3_pol_all = self.space.polar_splines.P2.copy()
+
+            self.P0_all     =            self.P0_pol_all.copy()
+            self.P1_all     = spa.bmat([[self.P1_pol_all, None], [None, self.P0_pol_all]], format='csr')
+            self.P2_all     = spa.bmat([[self.P2_pol_all, None], [None, self.P3_pol_all]], format='csr')
+            self.P3_all     =            self.P3_pol_all.copy()
+
+            # without boundary splines
+            P0_NN = self.space.polar_splines.P0.copy()
+
+            P1_DN = self.space.polar_splines.P1C.copy()[:(0 + (d1 - 1)*d2) , :]
+            P1_ND = self.space.polar_splines.P1C.copy()[ (0 + (d1 - 1)*d2):, :]
+
+            P2_ND = self.space.polar_splines.P1D.copy()[:(2 + (n1 - 2)*d2) , :]
+            P2_DN = self.space.polar_splines.P1D.copy()[ (2 + (n1 - 2)*d2):, :]
+
+            P3_DD = self.space.polar_splines.P2.copy()
+
+            # remove contributions from N-splines at eta1 = 1
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+                P0_NN = P0_NN[:-n2, :]
+                P1_ND = P1_ND[:-d2, :]
+                P2_ND = P2_ND[:-d2, :]
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            self.P0_pol = P0_NN.tocsr().copy()
+            self.P1_pol = spa.bmat([[P1_DN], [P1_ND]], format='csr')
+            self.P2_pol = spa.bmat([[P2_ND], [P2_DN]], format='csr')
+            self.P3_pol = P3_DD.tocsr().copy()
+
+            self.P0     =            self.P0_pol.copy()
+            self.P1     = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
+            self.P2     = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
+            self.P3     =            self.P3_pol.copy()
+        
+            
+        # Gauss - Legendre quadrature points and weights in (-1, 1)
+        self.pts_loc = [np.polynomial.legendre.leggauss(n_quad)[0] for n_quad in self.n_quad]
+        self.wts_loc = [np.polynomial.legendre.leggauss(n_quad)[1] for n_quad in self.n_quad]
+        
+        # set interpolation points (Greville points)
+        self.x_int = [bsp.greville(T, p, spl_kind) for T, p, spl_kind in zip(self.space.T, self.space.p, self.space.spl_kind)]
+        
+        # set histopolation grid and number of sub-intervals
+        self.x_his    = [0, 0]
+        self.subs     = [0, 0]
+        self.subs_cum = [0, 0]
+        self.pts      = [0, 0]
+        self.wts      = [0, 0]
+        
+        for dim in range(2):
+        
+            # clamped splines
+            if self.space.spl_kind[dim] == False:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+                    self.subs[dim][:self.space.p[dim]//2 ] = 1
+                    self.subs[dim][-self.space.p[dim]//2:] = 1
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.copy(self.x_int[dim])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+            # periodic splines
+            else:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim][1:])
+                    self.x_his[dim] = np.append(self.x_his[dim], self.space.el_b[dim][-1] + self.x_his[dim][0])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size, dtype=int)
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.append(self.x_int[dim], self.space.el_b[dim][-1])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size, dtype=int)
+
+            self.subs_cum[dim] = np.append(0, np.cumsum(self.subs[dim] - 1)[:-1])
+
+            # quadrature points and weights
+            self.pts[dim], self.wts[dim] = bsp.quadrature_grid(self.x_his[dim], self.pts_loc[dim], self.wts_loc[dim])
+            self.pts[dim]                = self.pts[dim]%self.space.el_b[dim][-1]
+        
+        
+        # interpolation and histopolation_matrix
+        self.N = [bsp.collocation_matrix(  T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
+        self.D = [bsp.histopolation_matrix(T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
+        
+        self.N[0][self.N[0] < 1e-12] = 0.
+        self.N[1][self.N[1] < 1e-12] = 0.
+        
+        self.D[0][self.D[0] < 1e-12] = 0.
+        self.D[1][self.D[1] < 1e-12] = 0.
+        
+        self.N = [spa.csr_matrix(N) for N in self.N]
+        self.D = [spa.csr_matrix(D) for D in self.D]
+        
+        # LU decompositions of 1D (transposed) interpolation and histopolation matrices
+        self.N_LU = [spa.linalg.splu(N.tocsc()) for N in self.N]
+        self.D_LU = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        
+        self.N_T_LU = [spa.linalg.splu(N.T.tocsc()) for N in self.N]
+        self.D_T_LU = [spa.linalg.splu(D.T.tocsc()) for D in self.D]
+        
+        self.N_inv = [np.linalg.inv(N.toarray()) for N in self.N]
+        self.D_inv = [np.linalg.inv(D.toarray()) for D in self.D]
+        
+        # 2D interpolation/histopolation matrices in poloidal plane
+        NN = spa.kron(self.N[0], self.N[1], format='csr')
+        DN = spa.kron(self.D[0], self.N[1], format='csr')
+        ND = spa.kron(self.N[0], self.D[1], format='csr')
+        DD = spa.kron(self.D[0], self.D[1], format='csr')
+        
+        DN_ND = spa.bmat([[DN, None], [None, ND]], format='csr')
+        ND_DN = spa.bmat([[ND, None], [None, DN]], format='csr')
+        
+        DN_ND_NN = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
+        ND_DN_DD = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
+        
+        self.I0_pol     = self.P0_pol.dot(NN.dot(self.space.E0_pol.T)).tocsr()
+        self.I0_pol_all = self.P0_pol_all.dot(NN.dot(self.space.E0_pol_all.T)).tocsr()
+        
+        self.I1_pol     = self.P1_pol.dot(DN_ND.dot(self.space.E1_pol.T)).tocsr()
+        self.I1_pol_all = self.P1_pol_all.dot(DN_ND.dot(self.space.E1_pol_all.T)).tocsr()
+        
+        self.I2_pol     = self.P2_pol.dot(ND_DN.dot(self.space.E2_pol.T)).tocsr()
+        self.I2_pol_all = self.P2_pol_all.dot(ND_DN.dot(self.space.E2_pol_all.T)).tocsr()
+       
+        self.I3_pol     = self.P3_pol.dot(DD.dot(self.space.E3_pol.T)).tocsr()
+        self.I3_pol_all = self.P3_pol_all.dot(DD.dot(self.space.E3_pol_all.T)).tocsr()
+        
+        self.I0 = self.P0.dot(NN.dot(self.space.E0.T)).tocsr()
+        self.I1 = self.P1.dot(DN_ND_NN.dot(self.space.E1.T)).tocsr()
+        self.I2 = self.P2.dot(ND_DN_DD.dot(self.space.E2.T)).tocsr()
+        self.I3 = self.P3.dot(DD.dot(self.space.E3.T)).tocsr()
+        
+        # LU decompositions in poloidal plane
+        self.I0_pol_LU = spa.linalg.splu(self.I0_pol.tocsc())
+        self.I1_pol_LU = spa.linalg.splu(self.I1_pol.tocsc())
+        self.I2_pol_LU = spa.linalg.splu(self.I2_pol.tocsc())
+        self.I3_pol_LU = spa.linalg.splu(self.I3_pol.tocsc())
+        
+        self.I0_pol_all_LU = spa.linalg.splu(self.I0_pol_all.tocsc())
+        self.I1_pol_all_LU = spa.linalg.splu(self.I1_pol_all.tocsc())
+        self.I2_pol_all_LU = spa.linalg.splu(self.I2_pol_all.tocsc())
+        self.I3_pol_all_LU = spa.linalg.splu(self.I3_pol_all.tocsc())
+        
+        self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+        self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
+        self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
+        self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
+
+        # shift first radial interpolation point away from pole
+        if self.space.polar == True:
+            self.x_int[0][0] += 0.00001
+        
+        # collection of the point sets for different 2D projectors
+        self.pts_PI_0   = [self.x_int[0]        , self.x_int[1]        ]
+        
+        self.pts_PI_1_1 = [self.pts[0].flatten(), self.x_int[1]        ]
+        self.pts_PI_1_2 = [self.x_int[0]        , self.pts[1].flatten()]
+        self.pts_PI_1_3 = [self.x_int[0]        , self.x_int[1]        ]
+        
+        self.pts_PI_2_1 = [self.x_int[0]        , self.pts[1].flatten()]
+        self.pts_PI_2_2 = [self.pts[0].flatten(), self.x_int[1]        ]
+        self.pts_PI_2_3 = [self.pts[0].flatten(), self.pts[1].flatten()]
+        
+        self.pts_PI_3   = [self.pts[0].flatten(), self.pts[1].flatten()]
+        
+        
+    # ========================================    
+    def getpts_for_PI(self, comp):
+        """
+        Get the needed point sets for a given projector.
         
         Parameters
         ----------
-        fun : callable
-            fun(x) \in R is the 0-form to be projected.
-
+        comp: int
+            which projector, one of (0, 11, 12, 13, 21, 22, 23, 3).
+        
         Returns
         -------
-        coeffs : 1D array_like
-            Finite element coefficients obtained by projection.
-        '''
+        pts_PI : list of 1d arrays 
+            the 1D point sets.
+        """
         
-        n = self.greville.size
+        if   comp == 0:
+            pts_PI = self.pts_PI_0
         
-        rhs = np.empty(n)
+        elif comp == 11:
+            pts_PI = self.pts_PI_1_1 
+        elif comp == 12:
+            pts_PI = self.pts_PI_1_2
+        elif comp == 13:
+            pts_PI = self.pts_PI_1_3
+            
+        elif comp == 21:
+            pts_PI = self.pts_PI_2_1 
+        elif comp == 22:
+            pts_PI = self.pts_PI_2_2
+        elif comp == 23:
+            pts_PI = self.pts_PI_2_3
         
-        for i in range(n):
-            rhs[i] = fun(self.greville[i])
-                              
-        return self.N_LU.solve(rhs)
+        elif comp == 3:
+            pts_PI = self.pts_PI_3
+            
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return pts_PI
+    
+    # ======================================        
+    def eval_for_PI(self, comp, fun, eval_kind):
+        """
+        Evaluates the callable "fun" at the points corresponding to the projector, and returns the result as 2d array "mat_f".
+            
+        Parameters
+        ----------
+        comp: int
+            which projector, one of (0, 11, 12, 13, 21, 22, 23, 3).
+            
+        fun : callable
+            the function fun(eta1, eta2) to project
+               
+        Returns
+        -------
+        mat_f : 2d array
+            function evaluated on a 2d meshgrid contstructed from the 1d point sets.
+        """
+        
+        # get intepolation and quadrature points
+        pts_PI = self.getpts_for_PI(comp)
+        
+        # number of evaluation points in each direction
+        n_pts  = [pts_PI[0].size, pts_PI[1].size]
+
+        # array of evaluated function
+        mat_f  = np.empty((n_pts[0], n_pts[1]), dtype=float)
+        
+        # external function call if a callable is passed
+        if callable(fun):
+            
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2  = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij')
+                mat_f[:, :] = fun(pts1, pts2)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :] = fun(pts_PI[0], pts_PI[1])
+                
+            # point-wise evaluation
+            else:
+                for i1 in range(pts_PI[0].size):
+                    for i2 in range(pts_PI[1].size):
+                        mat_f[i1, i2] = fun(pts_PI[0][i1], pts_PI[1][i2])
+        
+        # internal function call
+        else:
+            print('no internal 2D function implemented!')
+       
+        return mat_f
     
     
     # ======================================
-    def PI_1(self, fun):
+    def solve_V0(self, include_bc, rhs):
         
-        '''
-        Projection on the space V1 via histopolation.
+        # solve system
+        if include_bc == True:
+            coeffs = self.I0_pol_all_LU.solve(rhs)
+        else:
+            coeffs = self.I0_pol_LU.solve(rhs)
+            
+        return coeffs
+    
+    
+    # ======================================
+    def solve_V1(self, include_bc, rhs):
+
+        # solve system
+        if include_bc == True:
+            coeffs1 = self.I1_pol_all_LU.solve(rhs[:self.P1_pol_all.shape[0] ])
+            coeffs3 = self.I0_pol_all_LU.solve(rhs[ self.P1_pol_all.shape[0]:])
+        else:
+            coeffs1 = self.I1_pol_LU.solve(rhs[:self.P1_pol.shape[0] ])
+            coeffs3 = self.I0_pol_LU.solve(rhs[ self.P1_pol.shape[0]:])
+            
+        return np.concatenate((coeffs1, coeffs3))
+    
+    # ======================================
+    def solve_V2(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            coeffs1 = self.I2_pol_all_LU.solve(rhs[:self.P2_pol_all.shape[0] ])
+            coeffs3 = self.I3_pol_all_LU.solve(rhs[ self.P2_pol_all.shape[0]:])
+        else:
+            coeffs1 = self.I2_pol_LU.solve(rhs[:self.P2_pol.shape[0] ])
+            coeffs3 = self.I3_pol_LU.solve(rhs[ self.P2_pol.shape[0]:])
+            
+        return np.concatenate((coeffs1, coeffs3))
+    
+    # ======================================
+    def solve_V3(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            coeffs = self.I3_pol_all_LU.solve(rhs)
+        else:
+            coeffs = self.I3_pol_LU.solve(rhs)
+            
+        return coeffs
+        
+    
+    # ======================================        
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        #  ==== evaluate on tensor-product grid ====
+        rhs = self.eval_for_PI(0, fun, eval_kind)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P0_pol_all.dot(rhs.flatten())
+        else:
+            rhs = self.P0_pol.dot(rhs.flatten())
+        
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V0(include_bc, rhs)
+        else:
+            return rhs
+    
+    # ======================================        
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        # ====== integrate along 1-direction =======
+        n1   = self.pts_PI_1_1[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_1_1[1].size 
+        
+        pts  = self.eval_for_PI(11, fun[0], eval_kind)
+        
+        rhs1 = np.empty((self.subs[0].size, n2), dtype=float)
+        ker_glob.kernel_int_2d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs1)
+            
+        # ====== integrate along 2-direction =======
+        n1   = self.pts_PI_1_2[0].size
+        n2   = self.pts_PI_1_2[1].size//self.n_quad[1]  
+        
+        pts  = self.eval_for_PI(12, fun[1], eval_kind)
+        
+        rhs2 = np.empty((n1, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs2)
+        
+        # ====== interpolation of third component ==
+        rhs3 = self.eval_for_PI(0, fun[2], eval_kind)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P1_all.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+        else:
+            rhs = self.P1.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+            
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V1(include_bc, rhs)
+        else:
+            return rhs
+        
+    # ======================================        
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        # ====== integrate along 2-direction =======
+        n1   = self.pts_PI_2_1[0].size
+        n2   = self.pts_PI_2_1[1].size//self.n_quad[1]  
+        
+        pts  = self.eval_for_PI(21, fun[0], eval_kind)
+        
+        rhs1 = np.empty((n1, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1]), rhs1)
+        
+        # ====== integrate along 1-direction =======
+        n1   = self.pts_PI_2_2[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_2_2[1].size 
+        
+        pts  = self.eval_for_PI(22, fun[1], eval_kind)
+        
+        rhs2 = np.empty((self.subs[0].size, n2), dtype=float)
+        ker_glob.kernel_int_2d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2), rhs2)
+        
+        # ====== integrate in 1-2-plane ============
+        n1   = self.pts_PI_2_3[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_2_3[1].size//self.n_quad[1]
+        
+        pts  = self.eval_for_PI(23, fun[2], eval_kind)
+        
+        rhs3 = np.empty((self.subs[0].size, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs3)
+            
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P2_all.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+        else:
+            rhs = self.P2.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+            
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V2(include_bc, rhs)
+        else:
+            return rhs
+        
+    # ======================================        
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        n1  = self.pts_PI_3[0].size//self.n_quad[0] 
+        n2  = self.pts_PI_3[1].size//self.n_quad[1]
+        
+        pts = self.eval_for_PI(3, fun, eval_kind)
+        
+        rhs = np.empty((self.subs[0].size, self.subs[1].size), dtype=float)
+        ker_glob.kernel_int_2d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1]), rhs)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P3_pol_all.dot(rhs.flatten())
+        else:
+            rhs = self.P3_pol.dot(rhs.flatten())
+            
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V3(include_bc, rhs)
+        else:
+            return rhs
+    
+    
+    
+
+    
+# ======================= 3d ====================================
+class projectors_global_3d:
+    """
+    Global commuting projectors pi_0, pi_1, pi_2 and pi_3 in 3d.
+    
+    Parameters
+    ----------
+    tensor_space : tensor_spline_space
+        a 3d tensor-product space of B-splines (set_extraction_operators must have been called)
+        
+    n_quad : int
+        number of Gauss-Legendre quadrature points per integration interval for histopolations
+    """
+    
+    def __init__(self, tensor_space, n_quad):
+        
+        self.space  = tensor_space     # 3D tensor-product B-splines space
+        self.n_quad = n_quad           # number of quadrature point per integration interval
+        self.kind   = 'global'         # kind of projector (global vs. local)
+        
+        n1, n2, n3 = self.space.NbaseN
+        d1, d2, d3 = self.space.NbaseD
+        
+        # standard domain
+        if self.space.polar == False:
+
+            # including boundary splines
+            self.P0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
+            self.P1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
+            self.P2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
+            self.P3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
+
+            self.P0_all     = spa.identity(self.space.Ntot_0form       , dtype=float, format='csr')
+            self.P1_all     = spa.identity(self.space.Ntot_1form_cum[2], dtype=float, format='csr')
+            self.P2_all     = spa.identity(self.space.Ntot_2form_cum[2], dtype=float, format='csr')
+            self.P3_all     = spa.identity(self.space.Ntot_3form       , dtype=float, format='csr')
+
+            # without boundary splines
+            P_NN = spa.identity(n1*n2, format='csr')
+            P_DN = spa.identity(d1*n2, format='csr')
+            P_ND = spa.identity(n1*d2, format='csr')
+            P_DD = spa.identity(d1*d2, format='csr')
+
+            # remove contributions from N-splines at eta1 = 0
+            if self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
+                P_NN = P_NN[n2:, :]
+                P_ND = P_ND[d2:, :]
+            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            # remove contributions from N-splines at eta1 = 1
+            if self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+                P_NN = P_NN[:-n2, :]
+                P_ND = P_ND[:-d2, :]
+            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            self.P0_pol = P_NN.tocsr().copy()
+            self.P1_pol = spa.bmat([[P_DN, None], [None, P_ND]], format='csr')
+            self.P2_pol = spa.bmat([[P_ND, None], [None, P_DN]], format='csr')
+            self.P3_pol = P_DD.tocsr().copy()
+
+            self.P0     = spa.kron(self.P0_pol, spa.identity(n3), format='csr')  
+            P1_1        = spa.kron(self.P1_pol, spa.identity(n3), format='csr')
+            P1_3        = spa.kron(self.P0_pol, spa.identity(d3), format='csr')
+
+            P2_1        = spa.kron(self.P2_pol, spa.identity(d3), format='csr')
+            P2_3        = spa.kron(self.P3_pol, spa.identity(n3), format='csr')
+            self.P3     = spa.kron(self.P3_pol, spa.identity(d3), format='csr')
+
+            self.P1     = spa.bmat([[P1_1, None], [None, P1_3]], format='csr')
+            self.P2     = spa.bmat([[P2_1, None], [None, P2_3]], format='csr')
+
+        # polar domain
+        else:
+            
+            # including boundary splines
+            self.P0_pol_all = self.space.polar_splines.P0.copy()
+            self.P1_pol_all = self.space.polar_splines.P1C.copy()
+            self.P2_pol_all = self.space.polar_splines.P1D.copy()
+            self.P3_pol_all = self.space.polar_splines.P2.copy()
+            
+            # expansion in third dimension
+            self.P0_all     = spa.kron(self.P0_pol_all, spa.identity(n3), format='csr')  
+            P1_all_1        = spa.kron(self.P1_pol_all, spa.identity(n3), format='csr')
+            P1_all_3        = spa.kron(self.P0_pol_all, spa.identity(d3), format='csr')
+
+            P2_all_1        = spa.kron(self.P2_pol_all, spa.identity(d3), format='csr')
+            P2_all_3        = spa.kron(self.P3_pol_all, spa.identity(n3), format='csr')
+            self.P3_all     = spa.kron(self.P3_pol_all, spa.identity(d3), format='csr')
+
+            self.P1_all     = spa.bmat([[P1_all_1, None], [None, P1_all_3]], format='csr')
+            self.P2_all     = spa.bmat([[P2_all_1, None], [None, P2_all_3]], format='csr')
+            
+            # without boundary splines
+            P0_NN = self.space.polar_splines.P0.copy()
+
+            P1_DN = self.space.polar_splines.P1C.copy()[:(0 + (d1 - 1)*d2) , :]
+            P1_ND = self.space.polar_splines.P1C.copy()[ (0 + (d1 - 1)*d2):, :]
+
+            P2_ND = self.space.polar_splines.P1D.copy()[:(2 + (n1 - 2)*d2) , :]
+            P2_DN = self.space.polar_splines.P1D.copy()[ (2 + (n1 - 2)*d2):, :]
+
+            P3_DD = self.space.polar_splines.P2.copy()
+
+            # remove contributions from N-splines at eta1 = 1
+            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+                P0_NN = P0_NN[:-n2, :]
+                P1_ND = P1_ND[:-d2, :]
+                P2_ND = P2_ND[:-d2, :]
+            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+                raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
+
+            self.P0_pol = P0_NN.tocsr().copy()
+            self.P1_pol = spa.bmat([[P1_DN], [P1_ND]], format='csr')
+            self.P2_pol = spa.bmat([[P2_ND], [P2_DN]], format='csr')
+            self.P3_pol = P3_DD.tocsr().copy()
+
+            self.P0     = spa.kron(self.P0_pol, spa.identity(n3), format='csr')  
+            P1_1        = spa.kron(self.P1_pol, spa.identity(n3), format='csr')
+            P1_3        = spa.kron(self.P0_pol, spa.identity(d3), format='csr')
+
+            P2_1        = spa.kron(self.P2_pol, spa.identity(d3), format='csr')
+            P2_3        = spa.kron(self.P3_pol, spa.identity(n3), format='csr')
+            self.P3     = spa.kron(self.P3_pol, spa.identity(d3), format='csr')
+
+            self.P1     = spa.bmat([[P1_1, None], [None, P1_3]], format='csr')
+            self.P2     = spa.bmat([[P2_1, None], [None, P2_3]], format='csr')
+            
+
+        # Gauss - Legendre quadrature points and weights in (-1, 1)
+        self.pts_loc = [np.polynomial.legendre.leggauss(n_quad)[0] for n_quad in self.n_quad]
+        self.wts_loc = [np.polynomial.legendre.leggauss(n_quad)[1] for n_quad in self.n_quad]
+        
+        # set interpolation points (Greville points)
+        self.x_int = [bsp.greville(T, p, spl_kind) for T, p, spl_kind in zip(self.space.T, self.space.p, self.space.spl_kind)]
+        
+        # set histopolation grid and number of sub-intervals
+        self.x_his    = [0, 0, 0]
+        self.subs     = [0, 0, 0]
+        self.subs_cum = [0, 0, 0]
+        self.pts      = [0, 0, 0]
+        self.wts      = [0, 0, 0]
+        
+        for dim in range(3):
+        
+            # clamped splines
+            if self.space.spl_kind[dim] == False:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+                    self.subs[dim][:self.space.p[dim]//2 ] = 1
+                    self.subs[dim][-self.space.p[dim]//2:] = 1
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.copy(self.x_int[dim])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size - 1, dtype=int)
+
+            # periodic splines
+            else:
+
+                # even spline degree
+                if self.space.p[dim]%2 == 0:
+                    self.x_his[dim] = np.union1d(self.x_int[dim], self.space.el_b[dim][1:])
+                    self.x_his[dim] = np.append(self.x_his[dim], self.space.el_b[dim][-1] + self.x_his[dim][0])
+                    self.subs[dim]  = 2*np.ones(self.x_int[dim].size, dtype=int)
+
+                # odd spline degree
+                else:
+                    self.x_his[dim] = np.append(self.x_int[dim], self.space.el_b[dim][-1])
+                    self.subs[dim]  = 1*np.ones(self.x_int[dim].size, dtype=int)
+
+            self.subs_cum[dim] = np.append(0, np.cumsum(self.subs[dim] - 1)[:-1])
+
+            # quadrature points and weights
+            self.pts[dim], self.wts[dim] = bsp.quadrature_grid(self.x_his[dim], self.pts_loc[dim], self.wts_loc[dim])
+            self.pts[dim]                = self.pts[dim]%self.space.el_b[dim][-1]
+
+        
+        # 1D interpolation and histopolation matrices
+        self.N = [bsp.collocation_matrix(  T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
+        self.D = [bsp.histopolation_matrix(T, p, x, spl_kind) for T, p, x, spl_kind in zip(self.space.T, self.space.p, self.x_int, self.space.spl_kind)]
+        
+        self.N[0][self.N[0] < 1e-12] = 0.
+        self.N[1][self.N[1] < 1e-12] = 0.
+        self.N[2][self.N[2] < 1e-12] = 0.
+
+        self.D[0][self.D[0] < 1e-12] = 0.
+        self.D[1][self.D[1] < 1e-12] = 0.
+        self.D[2][self.D[2] < 1e-12] = 0.
+        
+        self.N = [spa.csr_matrix(N) for N in self.N]
+        self.D = [spa.csr_matrix(D) for D in self.D]
+        
+        # LU decompositions of 1D (transposed) interpolation and histopolation matrices
+        self.N_LU = [spa.linalg.splu(N.tocsc()) for N in self.N]
+        self.D_LU = [spa.linalg.splu(D.tocsc()) for D in self.D]
+        
+        self.N_T_LU = [spa.linalg.splu(N.T.tocsc()) for N in self.N]
+        self.D_T_LU = [spa.linalg.splu(D.T.tocsc()) for D in self.D]
+        
+        self.N_inv = [np.linalg.inv(N.toarray()) for N in self.N]
+        self.D_inv = [np.linalg.inv(D.toarray()) for D in self.D]
+        
+        # 2D interpolation/histopolation matrices in poloidal plane
+        NN = spa.kron(self.N[0], self.N[1], format='csr')
+        DN = spa.kron(self.D[0], self.N[1], format='csr')
+        ND = spa.kron(self.N[0], self.D[1], format='csr')
+        DD = spa.kron(self.D[0], self.D[1], format='csr')
+        
+        DN_ND = spa.bmat([[DN, None], [None, ND]], format='csr')
+        ND_DN = spa.bmat([[ND, None], [None, DN]], format='csr')
+        
+        DN_ND_NN = spa.bmat([[DN, None, None], [None, ND, None], [None, None, NN]], format='csr')
+        ND_DN_DD = spa.bmat([[ND, None, None], [None, DN, None], [None, None, DD]], format='csr')
+        
+        self.I0_pol     = self.P0_pol.dot(NN.dot(self.space.E0_pol.T)).tocsr()
+        self.I0_pol_all = self.P0_pol_all.dot(NN.dot(self.space.E0_pol_all.T)).tocsr()
+        
+        self.I1_pol     = self.P1_pol.dot(DN_ND.dot(self.space.E1_pol.T)).tocsr()
+        self.I1_pol_all = self.P1_pol_all.dot(DN_ND.dot(self.space.E1_pol_all.T)).tocsr()
+        
+        self.I2_pol     = self.P2_pol.dot(ND_DN.dot(self.space.E2_pol.T)).tocsr()
+        self.I2_pol_all = self.P2_pol_all.dot(ND_DN.dot(self.space.E2_pol_all.T)).tocsr()
+       
+        self.I3_pol     = self.P3_pol.dot(DD.dot(self.space.E3_pol.T)).tocsr()
+        self.I3_pol_all = self.P3_pol_all.dot(DD.dot(self.space.E3_pol_all.T)).tocsr()
+
+        # LU decompositions in poloidal plane
+        self.I0_pol_LU = spa.linalg.splu(self.I0_pol.tocsc())
+        self.I1_pol_LU = spa.linalg.splu(self.I1_pol.tocsc())
+        self.I2_pol_LU = spa.linalg.splu(self.I2_pol.tocsc())
+        self.I3_pol_LU = spa.linalg.splu(self.I3_pol.tocsc())
+        
+        self.I0_pol_all_LU = spa.linalg.splu(self.I0_pol_all.tocsc())
+        self.I1_pol_all_LU = spa.linalg.splu(self.I1_pol_all.tocsc())
+        self.I2_pol_all_LU = spa.linalg.splu(self.I2_pol_all.tocsc())
+        self.I3_pol_all_LU = spa.linalg.splu(self.I3_pol_all.tocsc())
+        
+        self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+        self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
+        self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
+        self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
+        
+        self.I0_pol_all_T_LU = spa.linalg.splu(self.I0_pol_all.T.tocsc())
+        
+        # shift first radial interpolation point away from pole
+        if self.space.polar == True:
+            self.x_int[0][0] += 0.00001
+        
+        # collection of the point sets for different 3D projectors
+        self.pts_PI_0  = [self.x_int[0]        , self.x_int[1]        , self.x_int[2]        ]
+        
+        self.pts_PI_11 = [self.pts[0].flatten(), self.x_int[1]        , self.x_int[2]        ]
+        self.pts_PI_12 = [self.x_int[0]        , self.pts[1].flatten(), self.x_int[2]        ]
+        self.pts_PI_13 = [self.x_int[0]        , self.x_int[1]        , self.pts[2].flatten()]
+        
+        self.pts_PI_21 = [self.x_int[0]        , self.pts[1].flatten(), self.pts[2].flatten()]
+        self.pts_PI_22 = [self.pts[0].flatten(), self.x_int[1]        , self.pts[2].flatten()]
+        self.pts_PI_23 = [self.pts[0].flatten(), self.pts[1].flatten(), self.x_int[2]        ]
+        
+        self.pts_PI_3  = [self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten()]    
+    
+    
+    # ========================================
+    def assemble_approx_inv_V2(self):
+        
+        self.N_approx = [0, 0, 0]
+        self.D_approx = [0, 0, 0]
+        
+        for a in range(3):
+            self.N_approx[a] = np.copy(self.N[a].toarray())
+            self.D_approx[a] = np.copy(self.D[a].toarray())
+            
+            if self.bc[a] == False:
+                diagN = self.N[a].diagonal()
+                diagD = self.D[a].diagonal()
+                
+                self.N_approx[a][:, :] = 0.
+                self.D_approx[a][:, :] = 0.
+                
+                np.fill_diagonal(self.N_approx[a], diagN)
+                np.fill_diagonal(self.D_approx[a], diagD)
+                
+            else:
+                self.N_approx[a][np.abs(self.N_approx[a]) < (self.N_approx[a].max() - 0.01)] = 0.
+                self.D_approx[a][np.abs(self.D_approx[a]) < (self.D_approx[a].max() - 0.01)] = 0.
+                
+            self.N_approx[a] = spa.csr_matrix(self.N_approx[a])
+            self.D_approx[a] = spa.csr_matrix(self.D_approx[a])
+                
+        self.I0_approx = self.P0.dot(spa.kron(self.N_approx[0], spa.kron(self.N_approx[1], self.N_approx[2])).dot(self.tensor_space.E0.T)).tocsr()
+        
+        a = spa.kron(self.D_approx[0], spa.kron(self.N_approx[1], self.N_approx[2]))
+        b = spa.kron(self.N_approx[0], spa.kron(self.D_approx[1], self.N_approx[2]))
+        c = spa.kron(self.N_approx[0], spa.kron(self.N_approx[1], self.D_approx[2]))
+        
+        d = spa.bmat([[a, None, None], [None, b, None], [None, None, c]])
+        
+        self.I1_approx = self.P1.dot(d.dot(self.tensor_space.E1.T)).tocsr()
+        
+        a = spa.kron(self.N_approx[0], spa.kron(self.D_approx[1], self.D_approx[2]))
+        b = spa.kron(self.D_approx[0], spa.kron(self.N_approx[1], self.D_approx[2]))
+        c = spa.kron(self.D_approx[0], spa.kron(self.D_approx[1], self.N_approx[2]))
+        
+        d = spa.bmat([[a, None, None], [None, b, None], [None, None, c]])
+        
+        self.I2_approx = self.P2.dot(d.dot(self.tensor_space.E2.T)).tocsr()
+        
+        self.I3_approx = self.P3.dot(spa.kron(self.D_approx[0], spa.kron(self.D_approx[1], self.D_approx[2])).dot(self.tensor_space.E3.T))
+        
+        self.I1_inv_approx = spa.linalg.inv(self.I1_approx.tocsc()).tocsr()
+        self.I2_inv_approx = spa.linalg.inv(self.I2_approx.tocsc()).tocsr()
+        self.I3_inv_approx = spa.linalg.inv(self.I3_approx.tocsc()).tocsr()
+    
+    
+    
+    
+    # ========================================
+    def assemble_approx_inv(self, tol):
+        
+        # poloidal direction
+        I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
+        I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.
+        
+        I1_pol_inv_approx = np.linalg.inv(self.I1_pol.toarray())
+        I1_pol_inv_approx[np.abs(I1_pol_inv_approx) < tol] = 0.
+        
+        I2_pol_inv_approx = np.linalg.inv(self.I2_pol.toarray())
+        I2_pol_inv_approx[np.abs(I2_pol_inv_approx) < tol] = 0.
+        
+        I3_pol_inv_approx = np.linalg.inv(self.I3_pol.toarray())
+        I3_pol_inv_approx[np.abs(I3_pol_inv_approx) < tol] = 0.
+        
+        I0_pol_all_inv_approx = np.linalg.inv(self.I0_pol_all.toarray())
+        I0_pol_all_inv_approx[np.abs(I0_pol_all_inv_approx) < tol] = 0.
+        
+        I0_pol_inv_approx = spa.csr_matrix(I0_pol_inv_approx)
+        I1_pol_inv_approx = spa.csr_matrix(I1_pol_inv_approx)
+        I2_pol_inv_approx = spa.csr_matrix(I2_pol_inv_approx)
+        I3_pol_inv_approx = spa.csr_matrix(I3_pol_inv_approx)
+        
+        I0_pol_all_inv_approx = spa.csr_matrix(I0_pol_all_inv_approx)
+        
+        # toroidal direction
+        N_inv_z_approx = np.copy(self.N_inv[2])
+        D_inv_z_approx = np.copy(self.D_inv[2])
+
+        N_inv_z_approx[np.abs(N_inv_z_approx) < tol] = 0.
+        D_inv_z_approx[np.abs(D_inv_z_approx) < tol] = 0.
+        
+        N_inv_z_approx = spa.csr_matrix(N_inv_z_approx)
+        D_inv_z_approx = spa.csr_matrix(D_inv_z_approx)
+
+        # tensor-product poloidal x toroidal
+        self.I0_inv_approx = spa.kron(I0_pol_inv_approx, N_inv_z_approx, format='csr')
+
+        self.I1_inv_approx = spa.bmat([[spa.kron(I1_pol_inv_approx, N_inv_z_approx), None], [None, spa.kron(I0_pol_inv_approx, D_inv_z_approx)]], format='csr') 
+        self.I2_inv_approx = spa.bmat([[spa.kron(I2_pol_inv_approx, D_inv_z_approx), None], [None, spa.kron(I3_pol_inv_approx, N_inv_z_approx)]], format='csr')
+        
+        self.I3_inv_approx = spa.kron(I3_pol_inv_approx, D_inv_z_approx, format='csr')
+        
+        self.I0_all_inv_approx = spa.kron(I0_pol_all_inv_approx, N_inv_z_approx, format='csr')
+    
+    
+        
+    # ========================================    
+    def getpts_for_PI(self, comp):
+        """
+        Get the needed point sets for a given projector.
         
         Parameters
         ----------
-        fun : callable
-            fun(x) \in R is the 1-form to be projected.
-
+        comp: int
+            which projector, one of (0, 11, 12, 13, 21, 22, 23, 3).
+        
         Returns
         -------
-        coeffs : 1D array_like
-            Finite element coefficients obtained by projection.
-        '''
-
-        n = self.greville.size
-
-        rhs = np.empty(n - 1 + self.bc)
-
-        rhs[:] = integrate_1d(self.pts, self.wts, fun)
-
-        return self.D_LU.solve(rhs)
-# ===================================================================
-
-
-
-# ===================================================================
-def integrate_1d(points, weights, fun):
-    """
-    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 1d.
-    
-    Parameters
-    ----------
-    points : 2d np.array
-        quadrature points in format (element, local point)
+        pts_PI : list of 1d arrays 
+            the 1D point sets.
+        """
         
-    weights : 2d np.array
-        quadrature weights in format (element, local point)
-    
-    fun : callable
-        1d function to be integrated
+        if   comp == 0:
+            pts_PI = self.pts_PI_0
         
-    Returns
-    -------
-    f_int : np.array
-        the value of the integration in each element
-    """
-    
-    n1  = points.shape[0]
-    nq1 = points.shape[1]
-    
-    f_int = np.empty(n1)
-    mat_f = np.empty(nq1)
-    
-    for ie1 in range(n1):
-        
-        w1   = weights[ie1, :]
-        #Pts1 = points[ie1, :]
-        #mat_f[:] = fun(Pts)
-        mat_f[:] = fun(points[ie1, :])
-        
-        #for i in range(nq1):
-        #    mat_f[i] = fun(points[ie1,i])
-        
-        f_int[ie1] = kernels.kernel_int_1d(nq1, w1, mat_f)
+        elif comp == 11:
+            pts_PI = self.pts_PI_11 
+        elif comp == 12:
+            pts_PI = self.pts_PI_12
+        elif comp == 13:
+            pts_PI = self.pts_PI_13
             
-    return f_int
-# ===================================================================
-
-
-
-# ===================================================================
-def integrate_2d(points, weights, fun):
-    """
-    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 2d.
-    
-    Parameters
-    ----------
-    points : list of 2d np.arrays
-        quadrature points in format (element, local point)
+        elif comp == 21:
+            pts_PI = self.pts_PI_21 
+        elif comp == 22:
+            pts_PI = self.pts_PI_22
+        elif comp == 23:
+            pts_PI = self.pts_PI_23
         
-    weights : list of 2d np.arrays
-        quadrature weights in format (element, local point)
-    
-    fun : callable
-        2d function to be integrated
-        
-    Returns
-    -------
-    f_int : np.array
-        the value of the integration in each element
-    """
-    
-    pts1, pts2 = points
-    wts1, wts2 = weights
-    
-    n1 = pts1.shape[0]
-    n2 = pts2.shape[0]
-    
-    nq1 = pts1.shape[1]
-    nq2 = pts2.shape[1]
-        
-    f_int = np.empty((n1, n2))
-    mat_f = np.empty((nq1, nq2))
-    f_loc = np.array([0.])
-    
-    for ie1 in range(n1):
-        for ie2 in range(n2):
+        elif comp == 3:
+            pts_PI = self.pts_PI_3
             
-            w1 = wts1[ie1, :]
-            w2 = wts2[ie2, :]
-            
-            Pts1, Pts2 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], indexing='ij')
-            mat_f[:, :] = fun(Pts1, Pts2)
-            #mat_f[:, :] = fun(pts1[ie1], pts2[ie2])
-            #for i, xi in enumerate(pts1[ie1, :]):
-                #for j, yj in enumerate(pts2[ie2, :]):
-                    #mat_f[i,j] = fun(xi,yj)
+        else:
+            raise ValueError ("wrong projector specified")
 
-            #kernels.kernel_int_2d_new(nq1, nq2, w1, w2, mat_f, f_loc)
-            #f_int[ie1, ie2] = f_loc
-            f_int[ie1, ie2] = kernels.kernel_int_2d(nq1, nq2, w1, w2, mat_f)
-            
-    return f_int
-# ===================================================================
-
-
-
-# ===================================================================
-def integrate_3d(points, weights, fun):
-    """
-    Integrates the function 'fun' over the quadrature grid defined by (points, weights) in 3d.
+        return pts_PI
     
-    Parameters
-    ----------
-    points : list of 2d np.arrays
-        quadrature points in format (element, local point)
+    
+    # ======================================        
+    def eval_for_PI(self, comp, fun, eval_kind):
+        """
+        Evaluates the callable "fun" at the points corresponding to the projector, and returns the result as 3d array "mat_f".
+            
+        Parameters
+        ----------
+        comp: int
+            which projector, one of (0, 11, 12, 13, 21, 22, 23, 3).
+            
+        fun : callable
+            the function fun(eta1, eta2, eta3) to project
+            
+        eval_kind : string
+            function evaluation at interpolation/quadrature points ('meshgrid', 'tensor_product' or point-wise)
+               
+        Returns
+        -------
+        mat_f : 3d array
+            function evaluated on a 3d meshgrid contstructed from the 1d point sets.
+        """
         
-    weights : list of 2d np.arrays
-        quadrature weights in format (element, local point)
-    
-    fun : callable
-        3d function to be integrated
+        # get intepolation and quadrature points
+        pts_PI = self.getpts_for_PI(comp)
         
-    Returns
-    -------
-    f_int : np.array
-        the value of the integration in each element
-    """
-    
-    pts1, pts2, pts3 = points
-    wts1, wts2, wts3 = weights
-    
-    n1 = pts1.shape[0]
-    n2 = pts2.shape[0]
-    n3 = pts3.shape[0]
-    
-    nq1 = pts1.shape[1]
-    nq2 = pts2.shape[1]
-    nq3 = pts3.shape[1]
-      
-    f_int = np.empty((n1, n2, n3))
-    mat_f = np.empty((nq1, nq2, nq3))
-    
-    for ie1 in range(n1):
-        for ie2 in range(n2):
-            for ie3 in range(n3):
-            
-                w1 = wts1[ie1, :]
-                w2 = wts2[ie2, :]
-                w3 = wts3[ie3, :]
+        # number of evaluation points in each direction
+        n_pts  = [pts_PI[0].size, pts_PI[1].size, pts_PI[2].size]
 
-                Pts1, Pts2, Pts3 = np.meshgrid(pts1[ie1, :], pts2[ie2, :], pts3[ie3, :], indexing='ij')
-                mat_f[:, :, :]   = fun(Pts1, Pts2, Pts3)
-                #mat_f[:, :, :] = fun(pts1[ie1], pts2[ie2], pts3[ie3])
+        # array of evaluated function
+        mat_f  = np.empty((n_pts[0], n_pts[1], n_pts[2]), dtype=float)
+        
+        # external function call if a callable is passed
+        if callable(fun):
+            
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
+                mat_f[:, :, :]   = fun(pts1, pts2, pts3)
                 
-                #for i, xi in enumerate(pts1[ie1, :]):
-                #    for j, yj in enumerate(pts2[ie2, :]):
-                #        for k, zj in enumerate(pts3[ie3, :]):
-                #            mat_f[i,j,k] = fun(xi,yj,zj)
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun(pts_PI[0], pts_PI[1], pts_PI[2])
+                
+            # point-wise evaluation
+            else:
+                for i1 in range(pts_PI[0].size):
+                    for i2 in range(pts_PI[1].size):
+                        for i3 in range(pts_PI[2].size):
+                            mat_f[i1, i2, i3] = fun(pts_PI[0][i1], pts_PI[1][i2], pts_PI[2][i3])
+            
+        
+        # internal function call
+        else:
+            print('no internal 3D function implemented!')
+       
+        return mat_f
+    
+    
+    # ======================================
+    def solve_V0(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            rhs = rhs.reshape(self.P0_pol_all.shape[0], self.space.NbaseN[2])
+            coeffs = self.N_LU[2].solve(self.I0_pol_all_LU.solve(rhs).T).T
+        else:
+            rhs = rhs.reshape(self.P0_pol.shape[0], self.space.NbaseN[2])
+            coeffs = self.N_LU[2].solve(self.I0_pol_LU.solve(rhs).T).T
+            
+        return coeffs.flatten()
+    
+    # ======================================
+    def solve_V1(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            rhs1 = rhs[:self.P1_pol_all.shape[0]*self.space.NbaseN[2] ].reshape(self.P1_pol_all.shape[0], self.space.NbaseN[2])
+            rhs3 = rhs[ self.P1_pol_all.shape[0]*self.space.NbaseN[2]:].reshape(self.P0_pol_all.shape[0], self.space.NbaseD[2])
 
-                f_int[ie1, ie2, ie3] = kernels.kernel_int_3d(nq1, nq2, nq3, w1, w2, w3, mat_f)
+            coeffs1 = self.N_LU[2].solve(self.I1_pol_all_LU.solve(rhs1).T).T
+            coeffs3 = self.D_LU[2].solve(self.I0_pol_all_LU.solve(rhs3).T).T
+        else:
+            rhs1 = rhs[:self.P1_pol.shape[0]*self.space.NbaseN[2] ].reshape(self.P1_pol.shape[0], self.space.NbaseN[2])
+            rhs3 = rhs[ self.P1_pol.shape[0]*self.space.NbaseN[2]:].reshape(self.P0_pol.shape[0], self.space.NbaseD[2])
 
-    return f_int
-# ===================================================================
+            coeffs1 = self.N_LU[2].solve(self.I1_pol_LU.solve(rhs1).T).T
+            coeffs3 = self.D_LU[2].solve(self.I0_pol_LU.solve(rhs3).T).T
+        
+        return np.concatenate((coeffs1.flatten(), coeffs3.flatten()))
+    
+    # ======================================
+    def solve_V2(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            rhs1 = rhs[:self.P2_pol_all.shape[0]*self.space.NbaseD[2] ].reshape(self.P2_pol_all.shape[0], self.space.NbaseD[2])
+            rhs3 = rhs[ self.P2_pol_all.shape[0]*self.space.NbaseD[2]:].reshape(self.P3_pol_all.shape[0], self.space.NbaseN[2])
+
+            coeffs1 = self.D_LU[2].solve(self.I2_pol_all_LU.solve(rhs1).T).T
+            coeffs3 = self.N_LU[2].solve(self.I3_pol_all_LU.solve(rhs3).T).T
+        else:
+            rhs1 = rhs[:self.P2_pol.shape[0]*self.space.NbaseN[2] ].reshape(self.P2_pol.shape[0], self.space.NbaseD[2])
+            rhs3 = rhs[ self.P2_pol.shape[0]*self.space.NbaseN[2]:].reshape(self.P3_pol.shape[0], self.space.NbaseN[2])
+
+            coeffs1 = self.D_LU[2].solve(self.I2_pol_LU.solve(rhs1).T).T
+            coeffs3 = self.N_LU[2].solve(self.I3_pol_LU.solve(rhs3).T).T
+        
+        return np.concatenate((coeffs1.flatten(), coeffs3.flatten()))
+        
+    # ======================================
+    def solve_V3(self, include_bc, rhs):
+        
+        # solve system
+        if include_bc == True:
+            rhs = rhs.reshape(self.P3_pol_all.shape[0], self.space.NbaseD[2])
+            coeffs = self.D_LU[2].solve(self.I3_pol_all_LU.solve(rhs).T).T
+        else:
+            rhs = rhs.reshape(self.P3_pol.shape[0], self.space.NbaseD[2])
+            coeffs = self.D_LU[2].solve(self.I3_pol_LU.solve(rhs).T).T
+            
+        return coeffs.flatten()
+        
+    # ======================================
+    def apply_IinvT_V0(self, rhs, include_bc=False):
+        
+        if include_bc == False:
+            rhs = rhs.reshape(self.P0_pol.shape[0], self.space.NbaseN[2])
+            return self.I0_pol_T_LU.solve(self.N_T_LU[2].solve(rhs.T).T).flatten()
+        else:
+            rhs = rhs.reshape(self.P0_pol_all.shape[0], self.space.NbaseN[2])
+            return self.I0_pol_all_T_LU.solve(self.N_T_LU[2].solve(rhs.T).T).flatten()
+        
+    
+    # ======================================
+    def apply_IinvT_V1(self, rhs):
+        
+        rhs1 = rhs[:self.P1_pol.shape[0]*self.space.NbaseN[2] ].reshape(self.P1_pol.shape[0], self.space.NbaseN[2])
+        rhs3 = rhs[ self.P1_pol.shape[0]*self.space.NbaseN[2]:].reshape(self.P0_pol.shape[0], self.space.NbaseD[2])
+        
+        rhs1 = self.I1_pol_T_LU.solve(self.N_T_LU[2].solve(rhs1.T).T)
+        rhs3 = self.I0_pol_T_LU.solve(self.D_T_LU[2].solve(rhs3.T).T)
+        
+        return np.concatenate((rhs1.flatten(), rhs3.flatten()))
+    
+    # ======================================
+    def apply_IinvT_V2(self, rhs):
+                
+        rhs1 = rhs[:self.P2_pol.shape[0]*self.space.NbaseD[2] ].reshape(self.P2_pol.shape[0], self.space.NbaseD[2])
+        rhs3 = rhs[ self.P2_pol.shape[0]*self.space.NbaseD[2]:].reshape(self.P3_pol.shape[0], self.space.NbaseN[2])
+        
+        rhs1 = self.I2_pol_T_LU.solve(self.D_T_LU[2].solve(rhs1.T).T)
+        rhs3 = self.I3_pol_T_LU.solve(self.N_T_LU[2].solve(rhs3.T).T)
+        
+        return np.concatenate((rhs1.flatten(), rhs3.flatten()))
+    
+    # ======================================
+    def apply_IinvT_V3(self, rhs):
+        
+        rhs = rhs.reshape(self.P3_pol.shape[0], self.space.NbaseD[2])
+        
+        return self.I3_pol_T_LU.solve(self.D_T_LU[2].solve(rhs.T).T).flatten()  
+    
+    
+    # ======================================        
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        #  ==== evaluate on tensor-product grid ====
+        rhs = self.eval_for_PI(0, fun, eval_kind)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P0_all.dot(rhs.flatten())
+        else:
+            rhs = self.P0.dot(rhs.flatten())
+        
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V0(include_bc, rhs)
+        else:
+            return rhs
+    
+    
+    # ======================================        
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        # ====== integrate along 1-direction =======
+        n1   = self.pts_PI_11[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_11[1].size 
+        n3   = self.pts_PI_11[2].size
+        
+        pts  = self.eval_for_PI(11, fun[0], eval_kind)
+        
+        rhs1 = np.empty((self.subs[0].size, n2, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta1(self.subs[0], self.subs_cum[0], self.wts[0], pts.reshape(n1, self.n_quad[0], n2, n3), rhs1)
+            
+        # ====== integrate along 2-direction =======
+        n1   = self.pts_PI_12[0].size
+        n2   = self.pts_PI_12[1].size//self.n_quad[1]  
+        n3   = self.pts_PI_12[2].size
+        
+        pts  = self.eval_for_PI(12, fun[1], eval_kind)
+        
+        rhs2 = np.empty((n1, self.subs[1].size, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta2(self.subs[1], self.subs_cum[1], self.wts[1], pts.reshape(n1, n2, self.n_quad[1], n3), rhs2)
+        
+        # ====== integrate along 3-direction =======
+        n1   = self.pts_PI_13[0].size
+        n2   = self.pts_PI_13[1].size  
+        n3   = self.pts_PI_13[2].size//self.n_quad[2]
+        
+        pts  = self.eval_for_PI(13, fun[2], eval_kind)
+        
+        rhs3 = np.empty((n1, n2, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta3(self.subs[2], self.subs_cum[2], self.wts[2], pts.reshape(n1, n2, n3, self.n_quad[2]), rhs3)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P1_all.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+        else:
+            rhs = self.P1.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+            
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V1(include_bc, rhs)
+        else:
+            return rhs
+            
+
+    # ======================================        
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        # ====== integrate in 2-3-plane =======
+        n1   = self.pts_PI_21[0].size
+        n2   = self.pts_PI_21[1].size//self.n_quad[1] 
+        n3   = self.pts_PI_21[2].size//self.n_quad[2]
+        
+        pts  = self.eval_for_PI(21, fun[0], eval_kind)
+        
+        rhs1 = np.empty((n1, self.subs[1].size, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta2_eta3(self.subs[1], self.subs[2], self.subs_cum[1], self.subs_cum[2], self.wts[1], self.wts[2], pts.reshape(n1, n2, self.n_quad[1], n3, self.n_quad[2]), rhs1)   
+        # ====== integrate in 1-3-plane =======
+        n1   = self.pts_PI_22[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_22[1].size
+        n3   = self.pts_PI_22[2].size//self.n_quad[2]
+        
+        pts  = self.eval_for_PI(22, fun[1], eval_kind)
+        
+        rhs2 = np.empty((self.subs[0].size, n2, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta3(self.subs[0], self.subs[2], self.subs_cum[0], self.subs_cum[2], self.wts[0], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, n3, self.n_quad[2]), rhs2)  
+        # ====== integrate in 1-2-plane =======
+        n1   = self.pts_PI_23[0].size//self.n_quad[0] 
+        n2   = self.pts_PI_23[1].size//self.n_quad[1]
+        n3   = self.pts_PI_23[2].size
+        
+        pts  = self.eval_for_PI(23, fun[2], eval_kind)
+        
+        rhs3 = np.empty((self.subs[0].size, self.subs[1].size, n3), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta2(self.subs[0], self.subs[1], self.subs_cum[0], self.subs_cum[1], self.wts[0], self.wts[1], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3), rhs3)
+        
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P2_all.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+        else:
+            rhs = self.P2.dot(np.concatenate((rhs1.flatten(), rhs2.flatten(), rhs3.flatten())))
+        
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V2(include_bc, rhs)
+        else:
+            return rhs
+    
+    
+    # ======================================        
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+        
+        n1  = self.pts_PI_3[0].size//self.n_quad[0] 
+        n2  = self.pts_PI_3[1].size//self.n_quad[1]
+        n3  = self.pts_PI_3[2].size//self.n_quad[2]
+        
+        pts = self.eval_for_PI(3, fun, eval_kind)
+        
+        rhs = np.empty((self.subs[0].size, self.subs[1].size, self.subs[2].size), dtype=float)
+        ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs[0], self.subs[1], self.subs[2], self.subs_cum[0], self.subs_cum[1], self.subs_cum[2], self.wts[0], self.wts[1], self.wts[2], pts.reshape(n1, self.n_quad[0], n2, self.n_quad[1], n3, self.n_quad[2]), rhs)
+            
+        # ====== apply extraction operator =========
+        if include_bc == True:
+            rhs = self.P3_all.dot(rhs.flatten())
+        else:
+            rhs = self.P3.dot(rhs.flatten())
+        
+        # ====== solve for coefficients ============
+        if interp == True:
+            return self.solve_V3(include_bc, rhs)
+        else:
+            return rhs

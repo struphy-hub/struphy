@@ -1,9 +1,9 @@
 # coding: utf-8
 #
-# Copyright 2020 Florian Holderied
+# Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Modules to compute mass matrices 3d.
+Modules to compute mass matrices in 3D.
 """
 
 
@@ -12,47 +12,30 @@ import scipy.sparse as spa
 
 import hylife.utilitis_FEEC.basics.kernels_3d as ker
 
+import hylife.linear_algebra.linalg_kron as linkron
+
+
 
 # ================ mass matrix in V0 ===========================
-def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def get_M0(tensor_space_FEM, domain, weight=None):
     """
-    Assembles the 3d mass matrix (NNN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Assembles the 3D mass matrix [[NNN NNN]] * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
+    domain : domain
+        domain object defining the geometry
         
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+    weight : callable
+        optional additional weight function
     """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
+    indN   = tensor_space_FEM.indN    # global indices of local non-vanishing basis functions in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -60,80 +43,66 @@ def mass_V0(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # evaluation of Jacobian determinant at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
-    
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 1, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 1)
+    # evaluation of weight function at quadrature points
+    if weight == None:
+        mat_w = np.ones(det_df.shape, dtype=float)
+    else:
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()).reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # assembly of global mass matrix
-    M = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    Ni = tensor_space_FEM.Nbase_0form
+    Nj = tensor_space_FEM.Nbase_0form
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], M, mat_map)
+    M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    
+    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], M, mat_w*det_df)
               
     # conversion to sparse matrix
-    indices = np.indices((NbaseN[0], NbaseN[1], NbaseN[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+    indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
     
-    shift   = [np.arange(NbaseN) - p for NbaseN, p in zip(NbaseN, p)]
+    shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
     
-    row     = (NbaseN[1]*NbaseN[2]*indices[0] + NbaseN[2]*indices[1] + indices[2]).flatten()
+    row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
     
-    col1    = (indices[3] + shift[0][:, None, None, None, None, None])%NbaseN[0]
-    col2    = (indices[4] + shift[1][None, :, None, None, None, None])%NbaseN[1]
-    col3    = (indices[5] + shift[2][None, None, :, None, None, None])%NbaseN[2]
+    col1    = (indices[3] + shift[0][:, None, None, None, None, None])%Nj[0]
+    col2    = (indices[4] + shift[1][None, :, None, None, None, None])%Nj[1]
+    col3    = (indices[5] + shift[2][None, None, :, None, None, None])%Nj[2]
 
-    col     = NbaseN[1]*NbaseN[2]*col1 + NbaseN[2]*col2 + col3
+    col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
                 
-    M       = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseN[0]*NbaseN[1]*NbaseN[2], NbaseN[0]*NbaseN[1]*NbaseN[2]))
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
     M.eliminate_zeros()
-                
-    return M
+    
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E0.dot(M.dot(tensor_space_FEM.E0.T)).tocsr()
+
 
 
 # ================ mass matrix in V1 ===========================
-def mass_V1(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def get_M1(tensor_space_FEM, domain, weights=None):
     """
-    Assembles the 3d mass matrix (DNN, NDN, NND) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Assembles the 3D mass matrix [[DNN DNN, DNN NDN, DNN NND], [NDN DNN, NDN NDN, NDN NND], [NND DNN, NND NDN, NND NND]] * G^(-1) * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
+    domain : domain
+        domain object defining the geometry
         
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+    weights : callable
+        optional additional weight functions
     """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
+    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index) 
+    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -142,116 +111,85 @@ def mass_V1(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # blocks   11         21         22         31         32          33
-    Nbi1 = [NbaseD[0], NbaseN[0], NbaseN[0], NbaseN[0], NbaseN[0], NbaseN[0]]
-    Nbi2 = [NbaseN[1], NbaseD[1], NbaseD[1], NbaseN[1], NbaseN[1], NbaseN[1]]
-    Nbi3 = [NbaseN[2], NbaseN[2], NbaseN[2], NbaseD[2], NbaseD[2], NbaseD[2]]
+    # indices and basis functions of components of a 2-form
+    ind   = [[indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]]] 
+    basis = [[basisD[0], basisN[1], basisN[2]], [basisN[0], basisD[1], basisN[2]], [basisN[0], basisN[1], basisD[2]]]
+    ns    = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     
-    Nbj1 = [NbaseD[0], NbaseD[0], NbaseN[0], NbaseD[0], NbaseN[0], NbaseN[0]]
-    Nbj2 = [NbaseN[1], NbaseN[1], NbaseD[1], NbaseN[1], NbaseD[1], NbaseN[1]]
-    Nbj3 = [NbaseN[2], NbaseN[2], NbaseN[2], NbaseN[2], NbaseN[2], NbaseD[2]]
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # basis functions of components of a 1 - form
-    basis = [[basisD[0], basisN[1], basisN[2]], 
-             [basisN[0], basisD[1], basisN[2]], 
-             [basisN[0], basisN[1], basisD[2]]]
-    
-    ns    = [[1, 0, 0], 
-             [0, 1, 0], 
-             [0, 0, 1]]
-    
-    # mappings at quadrature points
-    mat_map   = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
-    kind_funs = [11, 12, 13, 14, 15, 16]
+    # keys for components of inverse metric tensor
+    kind_funs = [['g_inv_11', 'g_inv_12', 'g_inv_13'], ['g_inv_21', 'g_inv_22', 'g_inv_23'], ['g_inv_31', 'g_inv_32', 'g_inv_33']]
     
     # blocks of global mass matrix
-    M = [np.zeros((Nbi1, Nbi2, Nbi3, 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float) for Nbi1, Nbi2, Nbi3 in zip(Nbi1, Nbi2, Nbi3)]
-    
-    # assembly of blocks 11, 21, 22, 31, 32, 33
-    counter = 0
+    M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     
     for a in range(3):
-        for b in range(a + 1):
+        for b in range(3):
             
-            # evaluate mapping (Ginv * sqrt(g)) at quadrature points
-            if   mapping == 0:
-                ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, kind_funs[counter], kind_map, params_map)
-            elif mapping == 1:
-                ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, kind_funs[counter])
+            Ni = tensor_space_FEM.Nbase_1form[a]
+            Nj = tensor_space_FEM.Nbase_1form[b]
             
-            ni1, ni2, ni3 = ns[a]
-            nj1, nj2, nj3 = ns[b]
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
             
-            bi1, bi2, bi3 = basis[a]
-            bj1, bj2, bj3 = basis[b]
-            
-            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, nj1, nj2, nj3, wts[0], wts[1], wts[2], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M[counter], mat_map)
-            
-            indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
-            
-            shift1  = np.arange(Nbi1[counter]) - p[0]
-            shift2  = np.arange(Nbi2[counter]) - p[1]
-            shift3  = np.arange(Nbi3[counter]) - p[2]
-            
-            row     = (Nbi2[counter]*Nbi3[counter]*indices[0] + Nbi3[counter]*indices[1] + indices[2]).flatten()
-            
-            col1    = (indices[3] + shift1[:, None, None, None, None, None])%Nbj1[counter]
-            col2    = (indices[4] + shift2[None, :, None, None, None, None])%Nbj2[counter]
-            col3    = (indices[5] + shift3[None, None, :, None, None, None])%Nbj3[counter]
-            
-            col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
-            
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
-            M[counter].eliminate_zeros()
-            
-            counter += 1
-                       
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+            # evaluate metric tensor at quadrature points
+            if weights == None:
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+            else:
+                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
                 
-    return M
+            mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+            
+            # assemble block if weight is not zero
+            if np.any(mat_w):
+                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
+            
+            # convert to sparse matrix
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            
+            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            
+            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            
+            col1    = (indices[3] + shift[0][:, None, None, None, None, None])%Nj[0]
+            col2    = (indices[4] + shift[1][None, :, None, None, None, None])%Nj[1]
+            col3    = (indices[5] + shift[2][None, None, :, None, None, None])%Nj[2]
+            
+            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            
+            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b].eliminate_zeros()
+        
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+                
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E1.dot(M.dot(tensor_space_FEM.E1.T)).tocsr()
+
 
 
 # ================ mass matrix in V2 ===========================
-def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def get_M2(tensor_space_FEM, domain, weights=None):
     """
-    Assembles the 3d mass matrix (NDD, DND, DDN) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Assembles the 3D mass matrix [[NDD NDD, NDD DND, NDD DDN], [DND NDD, DND DND, DND DDN], [DDN NDD, DDN DND, DDN DDN]] * G / |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
+    domain : domain
+        domain object defining the geometry
         
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+    weights : callable
+        optional additional weight functions
     """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
+    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index) 
+    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -260,115 +198,84 @@ def mass_V2(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
-    # blocks   11         21         22         31         32          33
-    Nbi1   = [NbaseN[0], NbaseD[0], NbaseD[0], NbaseD[0], NbaseD[0], NbaseD[0]]
-    Nbi2   = [NbaseD[1], NbaseN[1], NbaseN[1], NbaseD[1], NbaseD[1], NbaseD[1]]
-    Nbi3   = [NbaseD[2], NbaseD[2], NbaseD[2], NbaseN[2], NbaseN[2], NbaseN[2]]
+    # indices and basis functions of components of a 2-form
+    ind   = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]] 
+    basis = [[basisN[0], basisD[1], basisD[2]], [basisD[0], basisN[1], basisD[2]], [basisD[0], basisD[1], basisN[2]]]
+    ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
     
-    Nbj1   = [NbaseN[0], NbaseN[0], NbaseD[0], NbaseN[0], NbaseD[0], NbaseD[0]]
-    Nbj2   = [NbaseD[1], NbaseD[1], NbaseN[1], NbaseD[1], NbaseN[1], NbaseD[1]]
-    Nbj3   = [NbaseD[2], NbaseD[2], NbaseD[2], NbaseD[2], NbaseD[2], NbaseN[2]]
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # basis functions of components of a 2 - form
-    basis = [[basisN[0], basisD[1], basisD[2]], 
-             [basisD[0], basisN[1], basisD[2]], 
-             [basisD[0], basisD[1], basisN[2]]]
-    
-    ns    = [[0, 1, 1], 
-             [1, 0, 1], 
-             [1, 1, 0]]
-    
-    # mappings at quadrature points
-    mat_map   = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
-    kind_funs = [21, 22, 23, 24, 25, 26]
+    # keys for components of metric tensor
+    kind_funs = [['g_11', 'g_12', 'g_13'], ['g_21', 'g_22', 'g_23'], ['g_31', 'g_32', 'g_33']]
     
     # blocks of global mass matrix
-    M = [np.zeros((Nbi1, Nbi2, Nbi3, 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float) for Nbi1, Nbi2, Nbi3 in zip(Nbi1, Nbi2, Nbi3)]
-    
-    # assembly of blocks 11, 21, 22, 31, 32, 33
-    counter = 0
+    M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     
     for a in range(3):
-        for b in range(a + 1):
+        for b in range(3):
             
-            # evaluate mapping (G / sqrt(g)) at quadrature points
-            if   mapping == 0:
-                ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, kind_funs[counter], kind_map, params_map)
-            elif mapping == 1:
-                ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, kind_funs[counter])
+            Ni = tensor_space_FEM.Nbase_2form[a]
+            Nj = tensor_space_FEM.Nbase_2form[b]
             
-            ni1, ni2, ni3 = ns[a]
-            nj1, nj2, nj3 = ns[b]
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
             
-            bi1, bi2, bi3 = basis[a]
-            bj1, bj2, bj3 = basis[b]
-            
-            ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, nj1, nj2, nj3, wts[0], wts[1], wts[2], bi1, bi2, bi3, bj1, bj2, bj3, Nbi1[counter], Nbi2[counter], Nbi3[counter], M[counter], mat_map)
-            
-            indices = np.indices((Nbi1[counter], Nbi2[counter], Nbi3[counter], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
-            
-            shift1  = np.arange(Nbi1[counter]) - p[0]
-            shift2  = np.arange(Nbi2[counter]) - p[1]
-            shift3  = np.arange(Nbi3[counter]) - p[2]
-            
-            row     = (Nbi2[counter]*Nbi3[counter]*indices[0] + Nbi3[counter]*indices[1] + indices[2]).flatten()
-            
-            col1    = (indices[3] + shift1[:, None, None, None, None, None])%Nbj1[counter]
-            col2    = (indices[4] + shift2[None, :, None, None, None, None])%Nbj2[counter]
-            col3    = (indices[5] + shift3[None, None, :, None, None, None])%Nbj3[counter]
-            
-            col     = Nbj2[counter]*Nbj3[counter]*col1 + Nbj3[counter]*col2 + col3
-            
-            M[counter] = spa.csc_matrix((M[counter].flatten(), (row, col.flatten())), shape=(Nbi1[counter]*Nbi2[counter]*Nbi3[counter], Nbj1[counter]*Nbj2[counter]*Nbj3[counter]))
-            M[counter].eliminate_zeros()
-            
-            counter += 1
-                       
-    M = spa.bmat([[M[0], M[1].T, M[3].T], [M[1], M[2], M[4].T], [M[3], M[4], M[5]]], format='csc')
+            # evaluate metric tensor at quadrature points
+            if weights == None:
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+            else:
+                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
                 
-    return M
+            mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+            
+            # assemble block if weight is not zero
+            if np.any(mat_w):
+                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w/det_df)
+            
+            # convert to sparse matrix
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            
+            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            
+            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            
+            col1    = (indices[3] + shift[0][:, None, None, None, None, None])%Nj[0]
+            col2    = (indices[4] + shift[1][None, :, None, None, None, None])%Nj[1]
+            col3    = (indices[5] + shift[2][None, None, :, None, None, None])%Nj[2]
+            
+            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            
+            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b].eliminate_zeros()
+        
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+                
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E2.dot(M.dot(tensor_space_FEM.E2.T)).tocsr()
+
 
 
 # ================ mass matrix in V3 ===========================
-def mass_V3(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+def get_M3(tensor_space_FEM, domain, weight=None):
     """
-    Assembles the 3d mass matrix (DDD) of the given tensor product B-spline spaces of multi-degree (p1, p2, p3).
-    
-    In case of an analytical mapping, all quantities related to the mapping are called from hylife.geometry.mappings_analytical which contains a collection of analytical mappings. One must pass the parameters kind_map and params_map.
-    
-    In case of a discrete mapping, one must pass an additional tensor product B-spline space together with control points cx, cy and cz which together define the mapping.
+    Assembles the 3D mass matrix [[DDD DDD]] of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
     tensor_space_FEM : tensor_spline_space
         tensor product B-spline space for finite element spaces
         
-    mapping : int
-        0 : analytical mapping
-        1 : discrete mapping
+    domain : domain
+        domain object defining the geometry
         
-    kind_map : int
-        type of mapping in case of analytical mapping
-        
-    params_map : list of doubles
-        parameters for the mapping in case of analytical mapping
-        
-    tensor_space_F : tensor_spline_space
-        tensor product B-spline space for discrete mapping in case of discrete mapping
-        
-    cx : array_like
-        x control points in case of discrete mapping
-        
-    cy : array_like
-        y control points in case of discrete mapping
-        
-    cz : array_like
-        z control points in case of discrete mapping
+    weight : callable
+        optional additional weight function
     """
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (N)
+    indD   = tensor_space_FEM.indD    # global indices of local non-vanishing basis functions in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -376,34 +283,140 @@ def mass_V3(tensor_space_FEM, mapping, kind_map=None, params_map=None, tensor_sp
     
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # evaluation of 1 / Jacobian determinant at quadrature points
-    mat_map = np.empty((Nel[0], Nel[1], Nel[2], n_quad[0], n_quad[1], n_quad[2]), dtype=float)
-    
-    if   mapping == 0:
-        ker.kernel_evaluation_ana(Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2, kind_map, params_map)
-    elif mapping == 1:
-        ker.kernel_evaluation_dis(tensor_space_F.T[0], tensor_space_F.T[1], tensor_space_F.T[2], tensor_space_F.p, tensor_space_F.NbaseN, cx, cy, cz, Nel, n_quad, pts[0], pts[1], pts[2], mat_map, 2)
+    # evaluation of weight function at quadrature points
+    if weight == None:
+        mat_w = np.ones(det_df.shape, dtype=float)
+    else:
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()).reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
     # assembly of global mass matrix
-    M = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    Ni = tensor_space_FEM.Nbase_3form
+    Nj = tensor_space_FEM.Nbase_3form
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], M, mat_map)
+    M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+    
+    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], M, mat_w/det_df)
               
     # conversion to sparse matrix
-    indices   = np.indices((NbaseD[0], NbaseD[1], NbaseD[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+    indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
     
-    shift     = [np.arange(NbaseD) - p for NbaseD, p in zip(NbaseD, p)]
+    shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
     
-    row       = (NbaseD[1]*NbaseD[2]*indices[0] + NbaseD[2]*indices[1] + indices[2]).flatten()
+    row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
     
-    col1      = (indices[3] + shift[0][:, None, None, None, None, None])%NbaseD[0]
-    col2      = (indices[4] + shift[1][None, :, None, None, None, None])%NbaseD[1]
-    col3      = (indices[5] + shift[2][None, None, :, None, None, None])%NbaseD[2]
+    col1    = (indices[3] + shift[0][:, None, None, None, None, None])%Nj[0]
+    col2    = (indices[4] + shift[1][None, :, None, None, None, None])%Nj[1]
+    col3    = (indices[5] + shift[2][None, None, :, None, None, None])%Nj[2]
 
-    col       = NbaseD[1]*NbaseD[2]*col1 + NbaseD[2]*col2 + col3
+    col     = Nj[1]*Ni[2]*col1 + Ni[2]*col2 + col3
                 
-    M         = spa.csc_matrix((M.flatten(), (row, col.flatten())), shape=(NbaseD[0]*NbaseD[1]*NbaseD[2], NbaseD[0]*NbaseD[1]*NbaseD[2]))
+    M       = spa.csr_matrix((M.flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
     M.eliminate_zeros()
                 
-    return M
+    # apply spline extraction operator and return
+    return tensor_space_FEM.E3.dot(M.dot(tensor_space_FEM.E3.T)).tocsr()
+
+
+
+
+# ================ mass matrix for vector fields in V2 ===========================
+def get_Mv(tensor_space_FEM, domain, bs, weights=None):
+    """
+    Assembles the 3D mass matrix [[NNN NNN, NNN NNN, NNN NNN], [NNN NNN, NNN NNN, NNN NNN], [NNN NNN, NNN NNN, NNN NNN]] * G * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    
+    Parameters
+    ----------
+    tensor_space_FEM : tensor_spline_space
+        tensor product B-spline space for finite element spaces
+        
+    domain : domain
+        domain object defining the geometry
+        
+    weights : callable
+        optional additional weight functions
+    """
+    
+    p      = tensor_space_FEM.p       # spline degrees
+    Nel    = tensor_space_FEM.Nel     # number of elements
+    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index) 
+    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
+    
+    n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
+    pts    = tensor_space_FEM.pts     # global quadrature points
+    wts    = tensor_space_FEM.wts     # global quadrature weights
+    
+    basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points (N)
+    basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
+    
+    # indices and basis functions of components of a 2-form
+    if bs == 0:
+        ind   = [[indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]], [indN[0], indN[1], indN[2]]] 
+        basis = [[basisN[0], basisN[1], basisN[2]], [basisN[0], basisN[1], basisN[2]], [basisN[0], basisN[1], basisN[2]]]
+        ns    = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        
+    elif bs == 2:
+        ind   = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]] 
+        basis = [[basisN[0], basisD[1], basisD[2]], [basisD[0], basisN[1], basisD[2]], [basisD[0], basisD[1], basisN[2]]]
+        ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
+    
+    # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
+    det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+    
+    # keys for components of metric tensor
+    kind_funs = [['g_11', 'g_12', 'g_13'], ['g_21', 'g_22', 'g_23'], ['g_31', 'g_32', 'g_33']]
+    
+    # blocks of global mass matrix
+    M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    
+    for a in range(3):
+        for b in range(3):
+            
+            if bs == 0:
+                Ni = tensor_space_FEM.Nbase_0form
+                Nj = tensor_space_FEM.Nbase_0form
+            elif bs == 2:
+                Ni = tensor_space_FEM.Nbase_2form[a]
+                Nj = tensor_space_FEM.Nbase_2form[b]
+            
+            M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            
+            # evaluate metric tensor at quadrature points
+            if weights == None:
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b]) 
+            else:
+                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten(), pts[2].flatten())
+                
+            mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
+            
+            # assemble block if weight is not zero
+            if np.any(mat_w):
+                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
+                
+            # convert to sparse matrix
+            indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
+            
+            shift   = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            
+            row     = (Ni[1]*Ni[2]*indices[0] + Ni[2]*indices[1] + indices[2]).flatten()
+            
+            col1    = (indices[3] + shift[0][:, None, None, None, None, None])%Nj[0]
+            col2    = (indices[4] + shift[1][None, :, None, None, None, None])%Nj[1]
+            col3    = (indices[5] + shift[2][None, None, :, None, None, None])%Nj[2]
+            
+            col     = Nj[1]*Nj[2]*col1 + Nj[2]*col2 + col3
+            
+            M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
+            M[a][b].eliminate_zeros()
+                    
+    # apply spline extraction operator and return
+    E = spa.bmat([[tensor_space_FEM.E0, None, None], [None, tensor_space_FEM.E0_all, None], [None, None, tensor_space_FEM.E0_all]], format='csr')
+    
+    M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
+                
+    # apply spline extraction operator and return
+    return E.dot(M.dot(E.T))

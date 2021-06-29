@@ -1,46 +1,42 @@
-# Welcome to hylife!
+# Welcome to Hylife!
 
 *The Python Finite Element library for structure-preserving fluid-kinetic hybrid simulations.*
 
-hylife provides
+Currently, there is 1 code delivered with the Hylife repository:
 
-- discrete de Rham sequence in 1,2 or 3 dimensions
-- tensor-product B-spline basis functions
-- commuting projectors based on inter-/histopolation at Greville points
-- grad, curl, div operators
-- Fortran kernels generated via [pyccel](https://github.com/pyccel/pyccel)
-- pullback and push-forward to mapped domain
-- C^1 analytical mappings and C^1 IGA-compatible spline mappings
-- particle sampling routines
-- particle accumulation routines 
-- basis evaluation routines
+- STRUPHY_3D (STRUcture-Preserving HYbrid code for MHD-kinetic current coupling)
 
-Currently, there is 1 code delivered with the hylife repository:
+# Requirements
 
-- STRUPHY (STRUcture-Preserving HYbrid code for MHD-kinetic current coupling)
-
-## Getting Started
-
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. 
-
-### Prerequisites
-
-The requirements are the same as for Pyccel and can be found here:
-
-- [Pyccel: https://github.com/pyccel/pyccel](https://github.com/pyccel/pyccel)
-
-### Installing Pyccel
-
-We recommend using pyccel version 0.10.1. 
-
-Installation in development mode: Choose a directory for the `pyccel` repository, go there and execute the following commands:
-
+* Working gfortran compiler
 ```
-git clone https://github.com/pyccel/pyccel.git
-cd pyccel
-git checkout v0.10.1
-python3 -m pip install --user -e .
+sudo apt install gfortran
 ```
+
+* [Python3: python.org](https://python.org)
+
+* Python packages:
+```
+pip3 install numpy
+pip3 install mpi4py
+pip3 install h5py
+pip3 install PyYAML
+pip3 install scipy
+pip3 install matplotlib
+python3 -m pip install pyccel==0.10.1
+```
+
+These can be installed with
+```
+python3 -m pip install -r requirements.txt
+```
+
+* In case there are problems with the installation of mpi4py type
+```
+sudo apt install libopenmpi-dev
+```
+<!---
+## Installing Pyccel
 
 In order to be able to execute `pyccel` globally you need to add its path to your `$PATH` variable:
 
@@ -54,42 +50,43 @@ In order to test the installation go to an arbitrary directory and type `pyccel 
 ```
 pyccel 0.9.16 from ...your_pyccel_location.../pyccel/pyccel (python 3.8)
 ```
+-->
 
-Specifics for the HPC systems `cobra` and `draco` at IPP:
+Specifics for the HPC system `cobra` at IPP:
 
-- on `cobra` use the module `anaconda/3/2020.02` for installing pyccel and loading mpi4py.
-- on `draco` use the module `anaconda/3/5.1` for installing pyccel and loading mpi4py.
+- use the module `anaconda/3/2020.02` for installing pyccel and loading mpi4py.
 
-### Installing Hylife
 
-Choose a directory for your `hylife` repository and execute the following command there:
 
+# Installing Hylife
 ```
 git clone https://gitlab.mpcdf.mpg.de/clapp/hylife.git
 ```
 
-### Setting up STRUPHY
+# Setting up STRUPHY
 
 In order to get the STRUPHY code running perform the following steps:
 
-1. Create a directory that will contain all your STRUPHY simulations. The absolute path to this directory will be called `$all_sim` in what follows. This directory need not be located in your hylife repository. Specific simulations, i.e. their input and output files, will be stored in subfolders of `$all_sim`. Let us call one such subfolder `name_of_run` in the following.
+1. Create a folder `my_output` for STRUPHY output. Output of specific simulations e.g. `sim_1`, `sim_2`, etc. will be stored in `my_output/sim_1`, `my_output/sim_2`, etc..
   
 2. In your hylife repository execute
   ```
-  cp -r simulations/template_analytical $all_sim/name_of_run
+  cp -r simulations/template_python path_to_my_output/sim_1
   ```
-  This copies a simulation template from your `hylife` repository to your simulation folder located at `$all_sim` and creates a folder `name_of_run` for the current simulation.
-  Simulation input, output and source files for the current simulation will be in `$all_sim/name_of_run`.
+  This copies a simulation template from your `hylife` repository to your simulation folder `sim_1`.
   
-3. In your hylife repository, in the file `run_STRUPHY.sh` set the correct paths in lines 5 and 6
+3. In your hylife repository, in the file `run_STRUPHY_3D.sh` set the correct paths in lines 5 and 6
   ```
-  all_sim=$all_sim 
-  run_dir=name_of_run
+  all_sim=path_to_my_output
+  run_dir=sim_1
   ```
   
-4. STRUPHY can now be run by executing `./run_STRUPHY.sh` in your hylife repository. Results will be stored in `$all_sim/name_of_run`.
-  
+4. In your hylife repository run STRUPHY with
+  ```
+  ./run_STRUPHY_3D.sh
+  ```
 
+<!---
 ## Running tests
 
 Explain how to run the automated tests for this system
@@ -143,4 +140,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * Hat tip to anyone whose code was used
 * Inspiration
 * etc
-
+-->

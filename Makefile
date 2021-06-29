@@ -13,27 +13,40 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 # SOURCE FILES
 #--------------------------------------
 
-BK  := hylife/utilitis_FEEC/bsplines_kernels
-BEV := hylife/utilitis_FEEC/basics/spline_evaluation_3d
-MA  := hylife/geometry/mappings_analytical
-MD  := hylife/geometry/mappings_discrete
-PBA := hylife/geometry/pull_back_analytical
-PBD := hylife/geometry/pull_back_discrete
-EQM := $(all_sim)/$(run_dir)/input_run/equilibrium_MHD
-EQP := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
-ICM := $(all_sim)/$(run_dir)/input_run/initial_conditions_MHD
-ICP := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
-KCV := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
-KM  := hylife/utilitis_FEEC/basics/kernels_3d
-KPL := hylife/utilitis_FEEC/projectors/kernels_projectors_local
-KPV := $(all_sim)/$(run_dir)/source_run/kernels_projectors_local_eva
-KPM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
-LA  := hylife/linear_algebra/core
-PP  := $(all_sim)/$(run_dir)/source_run/pusher
-PA  := $(all_sim)/$(run_dir)/source_run/accumulation_kernels
-PS  := $(all_sim)/$(run_dir)/source_run/sampling
+BK   := hylife/utilitis_FEEC/bsplines_kernels
+BEV1 := hylife/utilitis_FEEC/basics/spline_evaluation_1d
+BEV2 := hylife/utilitis_FEEC/basics/spline_evaluation_2d
+BEV3 := hylife/utilitis_FEEC/basics/spline_evaluation_3d
 
-SOURCES := $(BK).py $(BEV).py $(MA).py $(MD).py $(PBA).py $(PBD).py $(EQM).py $(EQP).py $(ICM).py $(ICP).py $(KCV).py $(KM).py $(KPL).py $(KPV).py $(KPM).py $(LA).py $(PP).py $(PA).py $(PS).py
+M3   := hylife/geometry/mappings_3d
+MF3  := hylife/geometry/mappings_3d_fast
+PB3  := hylife/geometry/pullback_3d
+PF3  := hylife/geometry/pushforward_3d
+
+KM2  := hylife/utilitis_FEEC/basics/kernels_2d
+KM3  := hylife/utilitis_FEEC/basics/kernels_3d
+
+DER  := hylife/utilitis_FEEC/derivatives/kernels_derivatives
+
+LAC  := hylife/linear_algebra/core
+LAT  := hylife/linear_algebra/kernels_tensor_product
+
+EQP  := $(all_sim)/$(run_dir)/input_run/equilibrium_PIC
+ICP  := $(all_sim)/$(run_dir)/input_run/initial_conditions_PIC
+
+KCV  := $(all_sim)/$(run_dir)/source_run/kernels_control_variate
+
+KPL  := hylife/utilitis_FEEC/projectors/kernels_projectors_local
+KPG  := hylife/utilitis_FEEC/projectors/kernels_projectors_global
+KPLM := hylife/utilitis_FEEC/projectors/kernels_projectors_local_mhd
+KPGM := hylife/utilitis_FEEC/projectors/kernels_projectors_global_mhd
+
+PP   := hylife/utilitis_PIC/pusher
+PA   := hylife/utilitis_PIC/accumulation_kernels
+PS   := $(all_sim)/$(run_dir)/source_run/sampling
+
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(EQP).py $(ICP).py $(KCV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(PP).py $(PA).py $(PS).py
+
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -47,58 +60,70 @@ all: $(OUTPUTS)
 $(BK)$(SO_EXT) : $(BK).py
 	pyccel $< $(FLAGS)
     
-$(BEV)$(SO_EXT) : $(BEV).py $(BK)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(MA)$(SO_EXT) : $(MA).py
+$(BEV1)$(SO_EXT) : $(BEV1).py $(BK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(MD)$(SO_EXT) : $(MD).py $(BEV)$(SO_EXT)
+$(BEV2)$(SO_EXT) : $(BEV2).py $(BK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(PBA)$(SO_EXT) : $(PBA).py $(MA)$(SO_EXT)
+$(BEV3)$(SO_EXT) : $(BEV3).py $(BK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(PBD)$(SO_EXT) : $(PBD).py $(MD)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(EQM)$(SO_EXT) : $(EQM).py $(MA)$(SO_EXT)
+$(M3)$(SO_EXT) : $(M3).py $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(EQP)$(SO_EXT) : $(EQP).py $(MA)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(ICM)$(SO_EXT) : $(ICM).py $(MA)$(SO_EXT)
+$(MF3)$(SO_EXT) : $(MF3).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(ICP)$(SO_EXT) : $(ICP).py $(MA)$(SO_EXT)
+$(PB3)$(SO_EXT) : $(PB3).py $(M3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(KCV)$(SO_EXT) : $(KCV).py $(MA)$(SO_EXT) $(MD)$(SO_EXT) $(EQP)$(SO_EXT) $(EQM)$(SO_EXT)
+$(PF3)$(SO_EXT) : $(PF3).py $(M3)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(KM2)$(SO_EXT) : $(KM2).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-
-$(KM)$(SO_EXT) : $(KM).py $(MA)$(SO_EXT) $(MD)$(SO_EXT)
+    
+$(KM3)$(SO_EXT) : $(KM3).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(DER)$(SO_EXT) : $(DER).py
+	pyccel $< $(FLAGS)
+    
+$(LAC)$(SO_EXT) : $(LAC).py
+	pyccel $< $(FLAGS)
+    
+$(LAT)$(SO_EXT) : $(LAT).py
+	pyccel $< $(FLAGS)
+    
+$(EQP)$(SO_EXT) : $(EQP).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(ICP)$(SO_EXT) : $(ICP).py $(M3)$(SO_EXT) $(PB3)$(SO_EXT)
+	pyccel $< $(FLAGS)
+    
+$(KCV)$(SO_EXT) : $(KCV).py $(M3)$(SO_EXT) $(EQP)$(SO_EXT)
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
 $(KPL)$(SO_EXT) : $(KPL).py
 	pyccel $< $(FLAGS)
     
-$(KPV)$(SO_EXT) : $(KPV).py $(MA)$(SO_EXT) $(MD)$(SO_EXT) $(EQM)$(SO_EXT) $(ICM)$(SO_EXT)
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(KPM)$(SO_EXT) : $(KPM).py
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(LA)$(SO_EXT) : $(LA).py
+$(KPG)$(SO_EXT) : $(KPG).py
 	pyccel $< $(FLAGS)
+        
+$(KPLM)$(SO_EXT) : $(KPLM).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(KPGM)$(SO_EXT) : $(KPGM).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
-$(PP)$(SO_EXT) : $(PP).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(LA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV)$(SO_EXT)
+$(PP)$(SO_EXT) : $(PP).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PA)$(SO_EXT) : $(PA).py $(MA)$(SO_EXT) $(EQM)$(SO_EXT) $(LA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV)$(SO_EXT)
+$(PA)$(SO_EXT) : $(PA).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PS)$(SO_EXT) : $(PS).py $(MA)$(SO_EXT) $(EQP)$(SO_EXT) $(ICP)$(SO_EXT)
+$(PS)$(SO_EXT) : $(PS).py $(EQP)$(SO_EXT) $(ICP)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 
@@ -115,6 +140,7 @@ clean:
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
 	rm -rf hylife/utilitis_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
 	rm -rf hylife/utilitis_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
+	rm -rf hylife/utilitis_FEEC/derivatives/__pyccel__ hylife/utilitis_FEEC/derivatives/__pycache__
 	rm -rf hylife/utilitis_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
 	rm -rf hylife/utilitis_FEEC/control_variates/__pyccel__ hylife/utilitis_FEEC/control_variates/__pycache__
 	rm -rf hylife/utilitis_PIC/__pyccel__ hylife/utilitis_PIC/__pycache__
