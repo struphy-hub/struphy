@@ -2,8 +2,8 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=/home/florian/Schreibtisch/PHD/02_Projekte/simulations_hylife
-run_dir=sim_2021_06_29_1
+all_sim=/home/
+run_dir=sim_name
 # =================================================
 
 # ======= name of main code =======================
@@ -269,7 +269,7 @@ cd $all_sim/$run_dir
 #srun -n 1 python3 STRUPHY.py
 
 # for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 4 python3 STRUPHY.py
+mpirun -n 1 python3 STRUPHY.py
 #export OMP_NUM_THREADS=1
 #python3 STRUPHY.py
 # =================================================
