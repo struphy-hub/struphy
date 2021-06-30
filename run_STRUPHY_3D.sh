@@ -2,7 +2,7 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/simulations
+all_sim=$HOME/my_output
 run_dir=sim_1
 # =================================================
 
@@ -10,7 +10,7 @@ run_dir=sim_1
 code_name=STRUPHY_original_3D.py
 # =================================================
 
-# ============== if you want to use OpenMp ========
+# ============== if you want to use OpenMP ========
 flag_openmp_mhd=
 flag_openmp_pic=--openmp
 # =================================================
@@ -69,12 +69,9 @@ basis_u : 0
 geometry   : cuboid
 params_map : [1., 1., 7.853981634]
 #params_map : [1., 6.283185307, 62.83185307]
-#params_map : [1., 1., 62.83185307]
-#params_map : [10.36725576, 10.36725576, 1.]
 
 #geometry   : spline cylinder
 #params_map : [31.41592653589793]  
-#params_map : [7.853981634, 1., 1.]
 
 #geometry   : spline torus
 #params_map : []  
@@ -92,7 +89,7 @@ p_MAP        : [1, 1, 3]
 # do time integration?, time step, simulation time and maximum runtime of program (in minutes)
 time_int : True
 dt       : 0.1
-Tend     : 1.
+Tend     : 10.
 max_time : 1000.
 
 
@@ -100,19 +97,19 @@ max_time : 1000.
 ##### linear solvers ##########
 ###############################
 
-# used pre-conditioner (ILU or FFT)
+# pre-conditioner for linear systems (ILU or FFT)
 PRE : FFT 
 
-# for ILUs: set tolerance for approximation of inverse interpolation/histopolation matrices
-tol_approx_reduced : 0.1
+# for ILUs: set tolerance for approximation of inverse interpolation/histopolation matrices (drop values < tol_inv)
+tol_inv : 0.1
 
 # for ILUs: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
 # From scipy: "To improve the better approximation to the inverse, you may need to increase fill_factor AND decrease drop_tol."
-drop_tol_S2 : 0.0001
-fill_fac_S2 : 10.
-
 drop_tol_A  : 0.0001
 fill_fac_A  : 10.
+
+drop_tol_S2 : 0.0001
+fill_fac_S2 : 10.
 
 drop_tol_S6 : 0.0001
 fill_fac_S6 : 10.
@@ -135,7 +132,7 @@ maxiter6 : 1000
 ###############################
 
 # add sub-step 6 to simulation?
-add_pressure : False
+add_step_6 : False
 
 # location of jeq X B term (step_2 or step_6) 
 loc_jeq : step_6
@@ -257,22 +254,24 @@ sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 
 
 # ================== run the code =================
-
-
 cd $all_sim/$run_dir
 
 echo "Start of STRUPHY:"
 
-# job submission via SLURM
+# option 1: job submission via SLURM
 #sbatch batch_$run_dir.sh
 
-# interactive run on an interactive node on e.g. Draco or Cobra (indicate number of MPI processes after -n)
-#export OMP_NUM_THREADS=4
-#export OMP_PLACES=cores
+# option 2 : interactive run on an interactive node on e.g. Cobra (either pure MPI or pure OpenMP)
+#export OMP_NUM_THREADS=1
 #srun -n 4 -p interactive python3 STRUPHY.py > STRUPHY.out
 
-# for run on a local machine (indicate number of MPI processes after -n)
-mpirun -n 1 python3 STRUPHY.py
+#export OMP_NUM_THREADS=4
+#python3 STRUPHY.py
+
+# option 3: run on a local machine e.g. laptop (either pure MPI or OpenMP)
+#export OMP_NUM_THREADS=1
+#mpirun -n 4 python3 STRUPHY.py
+
 #export OMP_NUM_THREADS=1
 #python3 STRUPHY.py
 # =================================================

@@ -69,9 +69,6 @@ bc             = params['bc']
 # representation of MHD bulk velocity
 basis_u        = params['basis_u']
 
-# projectors
-tol_approx_reduced = params['tol_approx_reduced']
-
 # time integration
 time_int       = params['time_int']
 dt             = params['dt']
@@ -90,18 +87,20 @@ spl_kind_MAP   = params['spl_kind_MAP']
 p_MAP          = params['p_MAP']
 
 # general
-add_pressure   = params['add_pressure']
+add_step_6     = params['add_step_6']
 loc_jeq        = params['loc_jeq']
 gamma          = params['gamma']
 
 # preconditioners for linear systems
 PRE            = params['PRE']
 
-drop_tol_S2    = params['drop_tol_S2']
-fill_fac_S2    = params['fill_fac_S2']
+tol_inv        = params['tol_inv']
 
 drop_tol_A     = params['drop_tol_A']
 fill_fac_A     = params['fill_fac_A']
+
+drop_tol_S2    = params['drop_tol_S2']
+fill_fac_S2    = params['fill_fac_S2']
 
 drop_tol_S6    = params['drop_tol_S6']
 fill_fac_S6    = params['fill_fac_S6']
@@ -184,12 +183,14 @@ tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
 # ========= geometry in case of spline mapping ==========================
 if geometry == 'spline' or polar == True:
 
+    # ========= 3D discrete mapping ===========
     #X = lambda eta1, eta2, eta3 : 1*eta1*np.cos(2*np.pi*eta2)
     #Y = lambda eta1, eta2, eta3 : 1*eta1*np.sin(2*np.pi*eta2)
     #Z = lambda eta1, eta2, eta3 : params_map[0]*eta3
                                
     #cx, cy, cz = dom.interp_mapping(Nel_MAP, p_MAP, spl_kind_MAP, X, Y, Z)
     
+    # ========= 2D discrete mapping ===========
     X = lambda eta1, eta2 : 1*eta1*np.cos(2*np.pi*eta2) + 10.0
     Y = lambda eta1, eta2 : 1*eta1*np.sin(2*np.pi*eta2)
     
@@ -290,17 +291,19 @@ if False:
     print(np.sqrt(U2_ini[3])*10)
 
     up[:]  = pro_3d.pi_2(U2_ini, include_bc=False, eval_kind='tensor_product', interp=True)
+
+    
+    #plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], np.array([0.03]), up)[:, :, 0], levels=50, cmap='jet')
+
+    #plt.contourf(xplot[:, :, 0], yplot[:, :, 0], U2_ini[0](etaplot[0], etaplot[1], np.array([0.03]))[:, :, 0], levels=50, cmap='jet')
+
+    #plt.axis('square')
+    #plt.colorbar()
+    #plt.show()
+
+    #sys.exit()
 # ========================================================================
 
-#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], np.array([0.03]), up)[:, :, 0], levels=50, cmap='jet')
-
-#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], U2_ini[0](etaplot[0], etaplot[1], np.array([0.03]))[:, :, 0], levels=50, cmap='jet')
-
-#plt.axis('square')
-#plt.colorbar()
-#plt.show()
-
-#sys.exit()
 
 
 # ==== initialization with projection of input functions ===============
@@ -325,19 +328,19 @@ if True:
         up[:] = pro_3d.pi_2([ini_MHD.u2_ini_1, ini_MHD.u2_ini_2, ini_MHD.u2_ini_3], include_bc=False, eval_kind='tensor_product', interp=True)
 
 
-#plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[:, :, 0], levels=50, cmap='jet')
-#plt.colorbar()
-#plt.show()
-#
-#plt.plot(zplot[10, 10, :], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[10, 10, :])
-#plt.show()
-#
-#print(abs(tensor_space_FEM.D.dot(up)).max())
-#
+    #plt.contourf(xplot[:, :, 0], yplot[:, :, 0], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[:, :, 0], levels=50, cmap='jet')
+    #plt.colorbar()
+    #plt.show()
+    #
+    #plt.plot(zplot[10, 10, :], tensor_space_FEM.evaluate_NDD(etaplot[0], etaplot[1], etaplot[2], up)[10, 10, :])
+    #plt.show()
+    #
+    #print(abs(tensor_space_FEM.D.dot(up)).max())
+    #
 
-#plt.plot(etaplot[2], tensor_space_FEM.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], b2)[10, 10, :])
-#plt.show()
-#sys.exit()
+    #plt.plot(etaplot[2], tensor_space_FEM.evaluate_DND(etaplot[0], etaplot[1], etaplot[2], b2)[10, 10, :])
+    #plt.show()
+    #sys.exit()
         
         
 # ===== initialization with white noise on periodic domain =============
@@ -590,7 +593,7 @@ if mpi_rank == 0:
     
     # assemble approximate inverse interpolation/histopolation matrices
     if PRE == 'ILU':
-        pro_3d.assemble_approx_inv(tol_approx_reduced)
+        pro_3d.assemble_approx_inv(tol_inv)
     
     timea = time.time()
     MHD.setPreconditionerA(domain, PRE, drop_tol_A, fill_fac_A)
@@ -602,7 +605,7 @@ if mpi_rank == 0:
     timeb = time.time()
     print('Preconditioner for S2 done!', timeb - timea)
     
-    if add_pressure == True:
+    if add_step_6 == True:
         timea = time.time()
         MHD.setPreconditionerS6(domain, PRE, drop_tol_S6, fill_fac_S6)
         timeb = time.time()
@@ -614,8 +617,17 @@ if mpi_rank == 0:
 # ==================== time integrator ==========================================
 times_elapsed = {'total' : 0., 'accumulation_step1' : 0., 'accumulation_step3' : 0., 'pusher_step3' : 0., 'pusher_step4' : 0., 'pusher_step5' : 0., 'control_step1' : 0., 'control_step3' : 0., 'control_weights' : 0., 'update_step1u' : 0., 'update_step2u' : 0., 'update_step2b' : 0., 'update_step3u' : 0.,'update_step6' : 0.}
 
+
     
 def update():
+    
+    # === counter for number of interation steps in iterative solvers ===
+    num_iters = 0
+    
+    def count_iters(xk):
+        nonlocal num_iters
+        num_iters += 1
+    # ===================================================================
     
     global up, up_old, b2, b2_eq, p3, r3, particles_loc
     
@@ -643,16 +655,19 @@ def update():
             mat   = acc.assemble_step1(Np, b2 + b2_eq)
             timeb = time.time()
             times_elapsed['control_step1'] = timeb - timea
+            
+            # RHS of linear system
+            RHS = MHD.A(up) + dt/2*mat.dot(up)
+            
+            # LHS of linear system
+            LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) - dt/2*mat.dot(x))
                 
             # solve linear system with gmres method and values from last time step as initial guess 
             timea = time.time()
             
-            # LHS and RHS of linear system
-            LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) - dt/2*mat.dot(x))
-            RHS = MHD.A(up) + dt/2*mat.dot(up)
-            
-            up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, maxiter=maxiter1, M=MHD.A_PRE)
-            print('linear solver step 1 : ', info)
+            num_iters = 0
+            up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, maxiter=maxiter1, M=MHD.A_PRE, callback=count_iters)
+            print('linear solver step 1 : ', info, num_iters)
             
             timeb = time.time()
             times_elapsed['update_step1u'] = timeb - timea
@@ -675,14 +690,10 @@ def update():
         # RHS of linear system
         RHS = MHD.RHS2(up, b2)
         
-        num_iters = 0
-        def count_iters(xk):
-            nonlocal num_iters
-            num_iters += 1
-                
         # solve linear system with gmres method and values from last time step as initial guess (weak)
         timea = time.time()
             
+        num_iters = 0
         up[:], info = spa.linalg.gmres(MHD.S2, RHS, x0=up, tol=tol2, maxiter=maxiter2, M=MHD.S2_PRE, callback=count_iters)
         print('linear solver step 2 : ', info, num_iters)
         
@@ -728,15 +739,18 @@ def update():
             timeb    = time.time()
             times_elapsed['control_step3'] = timeb - timea
             
+            # RHS of linear system
+            RHS = MHD.A(up) - dt**2/4*mat.dot(up) + dt*vec
+            
+            # LHS of linear system
+            LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) + dt**2/4*mat.dot(x))
+            
             # solve linear system with conjugate gradient method (A + dt**2*mat/4 is a symmetric positive definite matrix) with an incomplete LU decomposition of A as preconditioner and values from last time step as initial guess
             timea = time.time()
             
-            # LHS and RHS of linear system
-            LHS = spa.linalg.LinearOperator(MHD.A.shape, lambda x : MHD.A(x) + dt**2/4*mat.dot(x))
-            RHS = MHD.A(up) - dt**2/4*mat.dot(up) + dt*vec
-            
-            up[:], info = spa.linalg.cg(LHS, RHS, x0=up, tol=tol3, maxiter=maxiter3, M=MHD.A_PRE)
-            print('linear solver step 3 : ', info)
+            num_iters = 0
+            up[:], info = spa.linalg.cg(LHS, RHS, x0=up, tol=tol3, maxiter=maxiter3, M=MHD.A_PRE, callback=count_iters)
+            print('linear solver step 3 : ', info, num_iters)
             
             timeb = time.time()
             times_elapsed['update_step3u'] = timeb - timea
@@ -815,7 +829,7 @@ def update():
     # ====================================================================================
     #       step 6 (1 : update rh, u and pr from non - Hamiltonian MHD terms)
     # ====================================================================================
-    if add_pressure == True and mpi_rank == 0:
+    if add_step_6 == True and mpi_rank == 0:
         
         # save energies after Hamiltonian steps
         energies_H['U'][0] = 1/2*up.dot(MHD.A(up))
@@ -829,14 +843,10 @@ def update():
         # RHS of linear system
         RHS = MHD.RHS6(up, p3, b2)
         
-        num_iters = 0
-        def count_iters(xk):
-            nonlocal num_iters
-            num_iters += 1
-        
         # solve linear system with conjugate gradient squared method and values from last time step as initial guess
         timea = time.time()
             
+        num_iters = 0
         up[:], info = spa.linalg.gmres(MHD.S6, RHS, x0=up, tol=tol6, maxiter=maxiter6, M=MHD.S6_PRE, callback=count_iters)
         print('linear solver step 6 : ', info, num_iters)
         
