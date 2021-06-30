@@ -8,14 +8,20 @@ Currently, there is 1 code delivered with the Hylife repository:
 
 # Requirements
 
+* Linux or MacOS
+
 * Working gfortran compiler
 ```
 sudo apt install gfortran
 ```
 
-* [Python3: python.org](https://python.org)
+* Python3: is standard in most newer Linux distributions, otherwise found at [python.org](https://python.org)
 
-* Python packages:
+* Necessary Python packages can be installed with
+```
+python3 -m pip install -r requirements.txt
+```
+This performs essentially
 ```
 pip3 install numpy
 pip3 install mpi4py
@@ -24,11 +30,6 @@ pip3 install PyYAML
 pip3 install scipy
 pip3 install matplotlib
 python3 -m pip install pyccel==0.10.1
-```
-
-These can be installed with
-```
-python3 -m pip install -r requirements.txt
 ```
 
 * In case there are problems with the installation of mpi4py type
