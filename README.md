@@ -1,4 +1,4 @@
-# Welcome to Hylife!
+# Welcome to Hylife repo!
 
 *The Python Finite Element library for structure-preserving fluid-kinetic hybrid simulations.*
 
