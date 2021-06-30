@@ -13,12 +13,15 @@ import hylife.geometry.polar_splines as pol
 
 
 # numerical solution of the general ideal MHD eigenvalue problem in a cylinder using a 2d commuting diagram with B-splines
-def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
+def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n, return_kind=0, mode=0):
     """
     Parameters
     ----------
     num_params : list
         numerical parameters : num_params[0] : Nel, num_params[1] : p, num_params[2] : spl_kind, num_params[3] : nq_el, num_params[4] : nq_pr, num_params[5] : bc
+        
+    return_kind : int
+        what to return : 0 (eigenvalues and eigenfunctions), 11 (real part of eigenfunction 'mode' as callable), 12 (imaginary part of eigenfunction 'mode' as callable), 2 (eigenfunction 'mode' solved as initial-value problem)
     """
    
     # set up 1d spline spaces and create 2d tensor-product space
@@ -64,13 +67,13 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
     
     
     # projection of equilibrium profiles
-    #b1    = projectors_2d.pi_1(B1, True , 'tp')
-    #b2    = projectors_2d.pi_2(B2, True , 'tp')
-    #b2_bc = projectors_2d.pi_2(B2, False, 'tp')
+    #b1    = projectors_2d.pi_1(B1, True , 'tensor_product')
+    #b2    = projectors_2d.pi_2(B2, True , 'tensor_product')
+    #b2_bc = projectors_2d.pi_2(B2, False, 'tensor_product')
     
-    #j2    = projectors_2d.pi_2(J2, True , 'tp')
-    #r3    = projectors_2d.pi_3(R3, True , 'tp')
-    #p3    = projectors_2d.pi_3(P3, True , 'tp')
+    #j2    = projectors_2d.pi_2(J2, True , 'tensor_product')
+    #r3    = projectors_2d.pi_3(R3, True , 'tensor_product')
+    #p3    = projectors_2d.pi_3(P3, True , 'tensor_product')
     
     # equilibrium current curl(b1)
     #j2 = space_2d_nobc.C.dot(b1)
@@ -78,23 +81,30 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
     #return j2
     
     MHD = mhd.operators_mhd(projectors_2d, 2)
-    MHD.assemble_rhs_EF(domain, B2)
-    MHD.assemble_rhs_F( domain, R3, 'm')
+    
+    # assemble right-hand sides of projection matrices
+    MHD.assemble_rhs_EF(domain, B2     )
     MHD.assemble_rhs_F( domain, P3, 'p')
-    MHD.assemble_rhs_PR(domain, P3)
-    MHD.assemble_TF_V2( domain, J2)
+    MHD.assemble_rhs_PR(domain, P3     )
+    
+    # assemble mass matrix weighted with 0-form density
+    MHD.assemble_MR(domain, R3)
+    
+    # assemble mass matrix weighted with Jeq x
+    MHD.assemble_JB_strong(domain, J2)
+    
+    # final operators
+    A  = MHD.MR.copy()
     
     EF = spa.linalg.inv(projectors_2d.I1.tocsc()).dot(MHD.rhs_EF).tocsr()
-    MF = spa.linalg.inv(projectors_2d.I2.tocsc()).dot(MHD.rhs_MF).tocsr()
     PF = spa.linalg.inv(projectors_2d.I2.tocsc()).dot(MHD.rhs_PF).tocsr()
     PR = spa.linalg.inv(projectors_2d.I3.tocsc()).dot(MHD.rhs_PR).tocsr()
-    
-    MF = (space_2d.M2.dot(MF) + MF.T.dot(space_2d.M2))/2
     
     L  = -space_2d.D.dot(PF) - (gamma - 1)*PR.dot(space_2d.D)
 
     # ========================= solve eigenvalue problem ========================================
-    MAT = np.linalg.inv(MF.toarray()).dot(EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF)))).toarray() + MHD.mat_TF.dot(space_2d.C.dot(EF)).toarray() - space_2d.D.conjugate().T.dot(space_2d.M3.dot(L)).toarray())
+    #MAT = np.linalg.inv(A.toarray()).dot(EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF)))).toarray() + MHD.mat_JB.dot(space_2d.C.dot(EF)).toarray() - space_2d.D.conjugate().T.dot(space_2d.M3.dot(L)).toarray())
+    MAT = spa.linalg.inv(A.tocsc()).dot(EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF)))) + MHD.mat_JB.dot(space_2d.C.dot(EF)) - space_2d.D.conjugate().T.dot(space_2d.M3.dot(L))).toarray()
     
     print('operator assembly done')
     
@@ -102,21 +112,28 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
     
     print('eigenstates calculated')
     
-    return omega2, eig_vals
+    if return_kind == 0:
+        return omega2, eig_vals
     
-    mode1 = 785
-    print(np.real(omega2[mode1]))
+    if return_kind == 11:
+
+        U2_1 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_ND(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) - np.kron(space_2d.evaluate_ND(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+        U2_2 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_DN(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) - np.kron(space_2d.evaluate_DN(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+        U2_3 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_DD(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) - np.kron(space_2d.evaluate_DD(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+
+        return U2_1, U2_2, U2_3, np.real(omega2[mode])
     
-    
-    U2_1 = lambda eta1, eta2, eta3 : space_2d.evaluate_ND(eta1, eta2, np.real(eig_vals[:, mode1]), 'V2')*np.cos(2*np.pi*n*eta3) - space_2d.evaluate_ND(eta1, eta2, np.imag(eig_vals[:, mode1]), 'V2')*np.sin(2*np.pi*n*eta3)
-    U2_2 = lambda eta1, eta2, eta3 : space_2d.evaluate_DN(eta1, eta2, np.real(eig_vals[:, mode1]), 'V2')*np.cos(2*np.pi*n*eta3) - space_2d.evaluate_DN(eta1, eta2, np.imag(eig_vals[:, mode1]), 'V2')*np.sin(2*np.pi*n*eta3)
-    U2_3 = lambda eta1, eta2, eta3 : space_2d.evaluate_DD(eta1, eta2, np.real(eig_vals[:, mode1]), 'V2')*np.cos(2*np.pi*n*eta3) - space_2d.evaluate_DD(eta1, eta2, np.imag(eig_vals[:, mode1]), 'V2')*np.sin(2*np.pi*n*eta3)
-    
-    return U2_1, U2_2, U2_3
+    if return_kind == 12:
+
+        U2_1 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_ND(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) + np.kron(space_2d.evaluate_ND(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+        U2_2 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_DN(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) + np.kron(space_2d.evaluate_DN(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+        U2_3 = lambda eta1, eta2, eta3 : np.kron(space_2d.evaluate_DD(eta1, eta2, np.imag(eig_vals[:, mode]), 'V2')[:, :, None], np.cos(2*np.pi*n*eta3)) + np.kron(space_2d.evaluate_DD(eta1, eta2, np.real(eig_vals[:, mode]), 'V2')[:, :, None], np.sin(2*np.pi*n*eta3))
+
+        return U2_1, U2_2, U2_3, np.real(omega2[mode])
     
     # ======================== solve initial value problem ======================================
-    dt   = 1.0
-    Tend = 200.
+    dt   = 4.0
+    Tend = 1000.
     Nt   = int(Tend/dt)
     
     eU = np.zeros(Nt + 1, dtype=complex)
@@ -125,23 +142,23 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
     b_coeff = np.zeros((Nt + 1, space_2d.M2.shape[0]), dtype=complex)
     p_coeff = np.zeros((Nt + 1, space_2d.M3.shape[0]), dtype=complex)
     
-    m = -1
+    #m = -1
     
-    u2_1_ini = lambda eta1, eta2 :  np.sin(np.pi*eta1)*np.cos(m*2*np.pi*eta2)
-    u2_2_ini = lambda eta1, eta2 : -np.cos(np.pi*eta1)*np.pi*np.sin(m*2*np.pi*eta2)/(2*np.pi*m)
+    #u2_1_ini = lambda eta1, eta2 :  np.sin(np.pi*eta1)*np.cos(m*2*np.pi*eta2)
+    #u2_2_ini = lambda eta1, eta2 : -np.cos(np.pi*eta1)*np.pi*np.sin(m*2*np.pi*eta2)/(2*np.pi*m)
     
     #sigma = 0.02
     
     #u2_1_ini = lambda eta1, eta2 : np.exp(-(eta1 - 0.5)**2/sigma)*np.cos(m*2*np.pi*eta2)
     #u2_2_ini = lambda eta1, eta2 : -np.exp(-(eta1 - 0.5)**2/sigma)*(-2*(eta1 - 0.5)/sigma)*np.sin(m*2*np.pi*eta2)/(2*np.pi*m)
     #u2_2_ini = lambda eta1, eta2 : np.zeros(eta1.shape, dtype=float)
-    u2_3_ini = lambda eta1, eta2 : np.zeros(eta1.shape, dtype=float)
+    #u2_3_ini = lambda eta1, eta2 : np.zeros(eta1.shape, dtype=float)
     
     
     
     # initialization
-    #u_coeff[0] = eig_vals[:, mode1]
-    u_coeff[0, :] = projectors_2d.pi_2([u2_1_ini, u2_2_ini, u2_3_ini], False, 'normal')
+    u_coeff[0] = eig_vals[:, mode1]
+    #u_coeff[0, :] = projectors_2d.pi_2([u2_1_ini, u2_2_ini, u2_3_ini], False, 'normal')
     
     #return u_coeff[0]
     
@@ -152,12 +169,18 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
     
     #u_coeff[0] = np.random.rand(u_coeff[0].size)
     
-    eU[0] = u_coeff[0].dot(MF.dot(np.conj(u_coeff[0])))
+    eU[0] = u_coeff[0].dot(A.dot(np.conj(u_coeff[0])))
     
-    S2    = MF + dt**2/4*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF)))) + 0*dt**2/4*MHD.mat_TF.dot(space_2d.C.dot(EF))
+    loc_jeq = 'step_2'
+    
+    S2 = A + dt**2/4*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF))))
+    
+    if loc_jeq == 'step_2':
+        S2 += dt**2/4*MHD.mat_JB.dot(space_2d.C.dot(EF))
+    
+    S6 = A - dt**2/4*space_2d.D.conjugate().T.dot(space_2d.M3.dot(L))
+    
     S2_LU = spa.linalg.splu(S2.tocsc())
-    
-    S6    = MF - dt**2/4*space_2d.D.conjugate().T.dot(space_2d.M3.dot(L))
     S6_LU = spa.linalg.splu(S6.tocsc())
     
     print('start time integration')
@@ -168,7 +191,13 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
             print(i)
         
         # update 1
-        rhs = MF.dot(u_coeff[i]) - dt**2/4*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF.dot(u_coeff[i]))))) - 0*dt**2/4*MHD.mat_TF.dot(space_2d.C.dot(EF.dot(u_coeff[i]))) + dt*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(b_coeff[i]))) + 0*dt*MHD.mat_TF.dot(b_coeff[i])
+        rhs  = A.dot(u_coeff[i]) 
+        rhs -= dt**2/4*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(space_2d.C.dot(EF.dot(u_coeff[i])))))
+        rhs += dt*EF.T.dot(space_2d.C.conjugate().T.dot(space_2d.M2.dot(b_coeff[i])))
+        
+        if loc_jeq == 'step_2': 
+            rhs -= dt**2/4*MHD.mat_JB.dot(space_2d.C.dot(EF.dot(u_coeff[i])))
+            rhs += dt*MHD.mat_JB.dot(b_coeff[i])
         
         u_coeff[i + 1] = S2_LU.solve(rhs)
         
@@ -177,13 +206,17 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n):
         # update 2
         u_old = np.copy(u_coeff[i + 1])
         
-        #rhs = MF.dot(u_old) + dt**2/4*space_2d.D.conjugate().T.dot(space_2d.M3.dot(L.dot(u_old))) + dt*space_2d.D.conjugate().T.dot(space_2d.M3.dot(p_coeff[i]))
-        rhs = MF.dot(u_old) + dt**2/4*space_2d.D.conjugate().T.dot(space_2d.M3.dot(L.dot(u_old))) + dt*space_2d.D.conjugate().T.dot(space_2d.M3.dot(p_coeff[i])) + dt*MHD.mat_TF.dot(b_coeff[i + 1])
+        rhs  = A.dot(u_old)
+        rhs += dt**2/4*space_2d.D.conjugate().T.dot(space_2d.M3.dot(L.dot(u_old)))
+        rhs += dt*space_2d.D.conjugate().T.dot(space_2d.M3.dot(p_coeff[i]))
+        
+        if loc_jeq == 'step_6': 
+            rhs += dt*MHD.mat_JB.dot(b_coeff[i + 1])
         
         u_coeff[i + 1] = S6_LU.solve(rhs)
         
         p_coeff[i + 1] = p_coeff[i] + dt/2*L.dot(u_coeff[i + 1] + u_old)
         
-        eU[i + 1] = u_coeff[i + 1].dot(MF.dot(np.conj(u_coeff[i + 1])))
+        eU[i + 1] = u_coeff[i + 1].dot(A.dot(np.conj(u_coeff[i + 1])))
     
     return eU, u_coeff

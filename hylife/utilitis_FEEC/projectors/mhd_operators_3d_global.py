@@ -992,9 +992,9 @@ class operators_mhd:
 
             #A_ILU = spa.linalg.spilu(A_local.tocsc(), drop_tol=drop_tol, fill_factor=fill_fac)
 
-            A_ILU = spa.linalg.spilu(self.MF.tocsc(), drop_tol=drop_tol, fill_factor=fill_fac)
+            A_ILU = spa.linalg.spilu(self.MR.tocsc(), drop_tol=drop_tol, fill_factor=fill_fac)
 
-            self.A_PRE = spa.linalg.LinearOperator(self.MF.shape, lambda x : A_ILU.solve(x))
+            self.A_PRE = spa.linalg.LinearOperator(self.MR.shape, lambda x : A_ILU.solve(x))
             
         # FFT preconditioner
         elif which == 'FFT':
