@@ -7,13 +7,11 @@ Classes for local projectors in 1D and 3D based on quasi-spline interpolation an
 """
 
 import numpy as np
+import scipy.sparse as spa
 
 import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_local as ker_loc
-
-import source_run.kernels_projectors_evaluation as ker_eva
-
 
 
 
@@ -632,22 +630,22 @@ class projectors_local_3d:
     
     def __init__(self, tensor_space, n_quad):
         
-        self.kind    = 'local'              # kind of projector
+        self.kind    = 'local'               # kind of projector
         
-        self.tensor_space = tensor_space    # 3D tensor-product B-splines space
+        self.tensor_space = tensor_space     # 3D tensor-product B-splines space
         
-        self.T       = tensor_space.T       # knot vector
-        self.p       = tensor_space.p       # spline degree
-        self.bc      = tensor_space.bc      # boundary conditions
-        self.el_b    = tensor_space.el_b    # element boundaries
+        self.T       = tensor_space.T        # knot vector
+        self.p       = tensor_space.p        # spline degree
+        self.bc      = tensor_space.spl_kind # boundary conditions
+        self.el_b    = tensor_space.el_b     # element boundaries
         
-        self.Nel     = tensor_space.Nel     # number of elements
-        self.NbaseN  = tensor_space.NbaseN  # number of basis functions (N)
-        self.NbaseD  = tensor_space.NbaseD  # number of basis functions (D)
+        self.Nel     = tensor_space.Nel      # number of elements
+        self.NbaseN  = tensor_space.NbaseN   # number of basis functions (N)
+        self.NbaseD  = tensor_space.NbaseD   # number of basis functions (D)
         
-        self.n_quad  = n_quad               # number of quadrature point per integration interval
+        self.n_quad  = n_quad                # number of quadrature point per integration interval
         
-        sefl.polar   = False                # local projectors for polar splines are not implemented yet
+        self.polar   = False                 # local projectors for polar splines are not implemented yet
         
         # Gauss - Legendre quadrature points and weights in (-1, 1)
         self.pts_loc = [np.polynomial.legendre.leggauss(n_quad)[0] for n_quad in self.n_quad]
@@ -1089,14 +1087,20 @@ class projectors_local_3d:
                 
     
     # projector on space V0 (interpolation)
-    def pi_0(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid'):
         """
         Local projector on the discrete space V0.
         
         Parameters
         ----------
         fun : callable
-            the function (0-form) to be projected. If None, the function is called internally from the simulation input folder. 
+            the function (0-form) to be projected.
+            
+        include_bc : boolean
+            whether the boundary coefficients in the first logical direction are included
+            
+        eval_kind : string
+            kind of evaluation of function at interpolation/quadrature points ('meshgrid', 'tensor_product', 'point_wise')
             
         Returns
         -------
@@ -1105,55 +1109,60 @@ class projectors_local_3d:
         """
             
         # interpolation points
-        x_int1   = np.unique(self.x_int[0].flatten())
-        x_int2   = np.unique(self.x_int[1].flatten())
-        x_int3   = np.unique(self.x_int[2].flatten())
+        x_int1 = np.unique(self.x_int[0].flatten())
+        x_int2 = np.unique(self.x_int[1].flatten())
+        x_int3 = np.unique(self.x_int[2].flatten())
         
         # evaluation of function at interpolation points
-        mat_f    = np.empty((x_int1.size, x_int2.size, x_int3.size), dtype=float)
+        mat_f  = np.empty((x_int1.size, x_int2.size, x_int3.size), dtype=float)
         
-        # internal function call
-        if fun == None:
+        # external function call if a callable is passed
+        if callable(fun):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
+                mat_f[:, :, :]   = fun(pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun(x_int1, x_int2, x_int3)
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(x_int1.size):
+                    for i2 in range(x_int2.size):
+                        for i3 in range(x_int3.size):
+                            mat_f[i1, i2, i3] = fun(x_int1[i1], x_int2[i2], x_int3[i3])
             
-            ker_eva.kernel_eva(x_int1, x_int2, x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-                       
-        # external function call
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(x_int1, x_int2, x_int3, indexing='ij')
-            mat_f[:, :, :] = fun(xx, yy, zz)
-            
+            print('no internal 3D function implemented!')
+        
         # coefficients
         lambdas = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi0_3d(self.NbaseN, self.p, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_int_indices[2], mat_f, lambdas)
                                 
-        return lambdas
+        return lambdas.flatten()
     
     
     # projector on space V1 ([histo, inter, inter], [inter, histo, inter], [inter, inter, histo])
-    def pi_1(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid'):
         """
         Local projector on the discrete space V1.
         
         Parameters
         ----------
         fun : list of callables
-            the function (1-form) to be projected. If None, the function is called internally from the simulation input folder. 
+            the function (1-form) to be projected
             
+        include_bc : boolean
+            whether the boundary coefficients in the first logical direction are included
+            
+        eval_kind : string
+            kind of evaluation of function at interpolation/quadrature points ('meshgrid', 'tensor_product', 'point_wise')
+                
         Returns
         -------
         lambdas : list of array_like
@@ -1161,40 +1170,39 @@ class projectors_local_3d:
         """
         
         # interpolation points
-        x_int1    = np.unique(self.x_int[0].flatten())
-        x_int2    = np.unique(self.x_int[1].flatten())
-        x_int3    = np.unique(self.x_int[2].flatten())
+        x_int1 = np.unique(self.x_int[0].flatten())
+        x_int2 = np.unique(self.x_int[1].flatten())
+        x_int3 = np.unique(self.x_int[2].flatten())
         
         # ======== 1-component ========
         
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((self.pts[0].flatten().size, x_int2.size, x_int3.size), dtype=float)
         
-        # internal function call
-        if fun[0] == None:
+        # external function call if a callable is passed
+        if callable(fun[0]):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
+                mat_f[:, :, :]   = fun[0](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[0](self.pts[0].flatten(), x_int2, x_int3)
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(self.pts[0].size):
+                    for i2 in range(x_int2.size):
+                        for i3 in range(x_int3.size):
+                            mat_f[i1, i2, i3] = fun[0](self.pts[0].flatten()[i1], x_int2[i2], x_int3[i3])
             
-            ker_eva.kernel_eva(self.pts[0].flatten(), x_int2, x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        # external function call
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, x_int3, indexing='ij')
-            mat_f[:, :, :] = fun[0](xx, yy, zz)
+            print('no internal 3D function implemented!')
         
-        # coefficients
+        # compute coefficients
         lambdas1 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi11_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_int_indices[2], self.wts[0], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, x_int3.size), lambdas1)
@@ -1205,31 +1213,30 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((x_int1.size, self.pts[1].flatten().size, x_int3.size), dtype=float)
         
-        # internal function call
-        if fun[1] == None:
+        # external function call if a callable is passed
+        if callable(fun[1]):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
+                mat_f[:, :, :]   = fun[1](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[1](x_int1, self.pts[1].flatten(), x_int3)
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(x_int1.size):
+                    for i2 in range(self.pts[1].size):
+                        for i3 in range(x_int3.size):
+                            mat_f[i1, i2, i3] = fun[1](x_int1[i1], self.pts[1].flatten()[i2], x_int3[i3])
             
-            ker_eva.kernel_eva(x_int1, self.pts[1].flatten(), x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        # external function call
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f[:, :, :] = fun[1](xx, yy, zz)
+            print('no internal 3D function implemented!')
         
-        # coefficients
+        # compute coefficients
         lambdas2  = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
         
         ker_loc.kernel_pi12_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_i[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[1], mat_f.reshape(x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas2)
@@ -1240,48 +1247,53 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((x_int1.size, x_int1.size, self.pts[2].flatten().size), dtype=float)
         
-        # internal function call
-        if fun[1] == None:
-        
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
-            else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+        # external function call if a callable is passed
+        if callable(fun[2]):
             
-            ker_eva.kernel_eva(x_int1, x_int2, self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        # external function call
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
+                mat_f[:, :, :]   = fun[2](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[2](x_int1, x_int2, self.pts[2].flatten())
+                
+            # point-wise evaluation
+            else:
+                for i1 in range(x_int1.size):
+                    for i2 in range(xint2.size):
+                        for i3 in range(self.pts[2].size):
+                            mat_f[i1, i2, i3] = fun[2](x_int1[i1], x_int2[i2], self.pts[2].flatten()[i3])
+            
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(x_int1, x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f[:, :, :] = fun[2](xx, yy, zz)
+            print('no internal 3D function implemented!')
         
-        # coefficients
+        # compute coefficients
         lambdas3  = np.zeros((self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
         ker_loc.kernel_pi13_3d([self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_i[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[2], mat_f.reshape(x_int1.size, x_int2.size, self.pts[2][:, 0].shape[0], self.pts[2].shape[1]), lambdas3)
         
-        return lambdas1, lambdas2, lambdas3
+        return np.concatenate((lambdas1.flatten(), lambdas2.flatten(), lambdas3.flatten()))
         
         
     # projector on space V1 ([inter, histo, histo], [histo, inter, histo], [histo, histo, inter])
-    def pi_2(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid'):
         """
         Local projector on the discrete space V2.
         
         Parameters
         ----------
         fun : list of callables
-            the function (2-form) to be projected. If None, the function is called internally from the simulation input folder. 
+            the function (2-form) to be projected
             
+        include_bc : boolean
+            whether the boundary coefficients in the first logical direction are included
+            
+        eval_kind : string
+            kind of evaluation of function at interpolation/quadrature points ('meshgrid', 'tensor_product', 'point_wise')
+                
         Returns
         -------
         lambdas : list of array_like
@@ -1293,37 +1305,35 @@ class projectors_local_3d:
         x_int2 = np.unique(self.x_int[1].flatten())
         x_int3 = np.unique(self.x_int[2].flatten())
         
-        
         # ======== 1-component ========
         
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((x_int1.size, self.pts[1].flatten().size, self.pts[2].flatten().size), dtype=float)
         
-        # internal function call
-        if fun[0] == None:
+        # external function call if a callable is passed
+        if callable(fun[0]):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
+                mat_f[:, :, :]   = fun[0](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[0](x_int1, self.pts[1].flatten(), self.pts[2].flatten())
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(x_int1.size):
+                    for i2 in range(self.pts[1].size):
+                        for i3 in range(self.pts[2].size):
+                            mat_f[i1, i2, i3] = fun[0](x_int1[i1], self.pts[1].flatten()[i2], self.pts[2].flatten()[i3])
             
-            ker_eva.kernel_eva(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        # external function call
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(x_int1, self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f[:, :, :] = fun[0](xx, yy, zz)
+            print('no internal 3D function implemented!')
         
-        # coefficients
+        # compute coefficients
         lambdas1 = np.zeros((self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
         
         ker_loc.kernel_pi21_3d([self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_i[0], self.coeff_h[1], self.coeff_h[2], self.coeffi_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_int_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[1], self.wts[2], mat_f.reshape(x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]), lambdas1)
@@ -1334,34 +1344,33 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((self.pts[0].flatten().size, x_int2.size, self.pts[2].flatten().size), dtype=float)
         
-        # internal function call
-        if fun[1] == None:
+        # external function call if a callable is passed
+        if callable(fun[1]):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
+                mat_f[:, :, :]   = fun[1](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[1](self.pts[0].flatten(), x_int2, self.pts[2].flatten())
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(self.pts[0].size):
+                    for i2 in range(x_int2.size):
+                        for i3 in range(self.pts[2].size):
+                            mat_f[i1, i2, i3] = fun[1](self.pts[0].flatten()[i1], x_int2[i2], self.pts[2].flatten()[i3])
             
-            ker_eva.kernel_eva(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
-        # external function call
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), x_int2, self.pts[2].flatten(), indexing='ij')
-            mat_f[:, :, :] = fun[1](xx, yy, zz)
+            print('no internal 3D function implemented!')
         
-        # coefficients
+        # compute coefficients
         lambdas2 = np.zeros((self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]), dtype=float)
         
-        ker_loc.kernel_pi22_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2],shape[1]), lambdas2)
+        ker_loc.kernel_pi22_3d([self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_i[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffi_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_int_indices[1], self.x_his_indices[2], self.wts[0], self.wts[2], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2].shape[1]), lambdas2)
         
         
         # ======== 3-component ========
@@ -1369,48 +1378,53 @@ class projectors_local_3d:
         # evaluation of function at interpolation/quadrature points
         mat_f = np.empty((self.pts[0].flatten().size, self.pts[1].flatten().size, x_int3.size), dtype=float)
         
-        # internal function call
-        if fun[2] == None:
+        # external function call if a callable is passed
+        if callable(fun[2]):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
+                mat_f[:, :, :]   = fun[2](pts1, pts2, pts3)
+                
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun[2](self.pts[0].flatten(), self.pts[1].flatten(), x_int3)
+                
+            # point-wise evaluation
             else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
+                for i1 in range(self.pts[0].size):
+                    for i2 in range(self.pts[1].size):
+                        for i3 in range(x_int3.size):
+                            mat_f[i1, i2, i3] = fun[2](self.pts[0].flatten()[i1], self.pts[1].flatten()[i2], x_int3[i3])
             
-            ker_eva.kernel_eva(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
-        
+        # internal function call
         else:
-            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), x_int3, indexing='ij')
-            mat_f[:, :, :] = fun[2](xx, yy, zz)
-        
+            print('no internal 3D function implemented!')
         
         # compute coefficients
         lambdas3 = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]), dtype=float)
     
         ker_loc.kernel_pi23_3d([self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]], self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_i[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffi_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_int_indices[2], self.wts[0], self.wts[1], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size), lambdas3)
         
-        return lambdas1, lambdas2, lambdas3
+        return np.concatenate((lambdas1.flatten(), lambdas2.flatten(), lambdas3.flatten()))
     
     
     # projector on space V3 (histopolation)
-    def pi_3(self, fun, kind_fun=None, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None):
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid'):
         """
         Local projector on the discrete space V3.
         
         Parameters
         ----------
         fun : callable
-            the function (3-form) to be projected. If None, the function is called internally from the simulation input folder. 
+            the function (3-form) to be projected
             
+        include_bc : boolean
+            whether the boundary coefficients in the first logical direction are included
+            
+        eval_kind : string
+            kind of evaluation of function at interpolation/quadrature points ('meshgrid', 'tensor_product', 'point_wise')
+                
         Returns
         -------
         lambdas : array_like
@@ -1418,36 +1432,34 @@ class projectors_local_3d:
         """
         
         # evaluation of function at quadrature points
-        mat_f = np.empty((self.pts[0].flatten().size, self.pts[0].flatten().size, self.pts[0].flatten().size), dtype=float)
+        mat_f = np.empty((self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size), dtype=float)
         
-        # internal function call
-        if fun == None:
+        # external function call if a callable is passed
+        if callable(fun):
             
-            # create dummy variables
-            if kind_map == 0:
-                T_F        =  tensor_space_F.T
-                p_F        =  tensor_space_F.p
-                NbaseN_F   =  tensor_space_F.NbaseN
-                params_map =  np.zeros((1,  ), dtype=float)
-            else:
-                T_F        = [np.zeros((1,     ), dtype=float), np.zeros(1, dtype=float), np.zeros(1, dtype=float)]
-                p_F        =  np.zeros((1,     ), dtype=int)
-                NbaseN_F   =  np.zeros((1,     ), dtype=int)
-                cx         =  np.zeros((1, 1, 1), dtype=float)
-                cy         =  np.zeros((1, 1, 1), dtype=float)
-                cz         =  np.zeros((1, 1, 1), dtype=float)
-            
-            ker_eva.kernel_eva(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), mat_f, kind_fun, kind_map, params_map, T_F[0], T_F[1], T_F[2], p_F, NbaseN_F, cx, cy, cz)
+            # create a meshgrid and evaluate function on point set
+            if eval_kind == 'meshgrid':
+                pts1, pts2, pts3 = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
+                mat_f[:, :, :]   = fun(pts1, pts2, pts3)
                 
-        # external function call
-        else:
-            xx, yy, zz     = np.meshgrid(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing='ij')
-            mat_f[:, :, :] = fun(xx, yy, zz)
+            # tensor-product evaluation is done by input function
+            elif eval_kind == 'tensor_product':
+                mat_f[:, :, :] = fun(self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten())
+                
+            # point-wise evaluation
+            else:
+                for i1 in range(self.pts[0].size):
+                    for i2 in range(self.pts[1].size):
+                        for i3 in range(self.pts[2].size):
+                            mat_f[i1, i2, i3] = fun(self.pts[0].flatten()[i1], self.pts[1].flatten()[i2], self.pts[2].flatten()[i3])
             
+        # internal function call
+        else:
+            print('no internal 3D function implemented!')
         
         # compute coefficients
         lambdas = np.zeros((self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]), dtype=float)
             
         ker_loc.kernel_pi3_3d(self.NbaseD, self.p, self.n_quad, self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.coeffh_indices[0], self.coeffh_indices[1], self.coeffh_indices[2], self.x_his_indices[0], self.x_his_indices[1], self.x_his_indices[2], self.wts[0], self.wts[1], self.wts[2], mat_f.reshape(self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]), lambdas)
                                 
-        return lambdas
+        return lambdas.flatten()
