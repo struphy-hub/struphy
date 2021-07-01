@@ -37,15 +37,12 @@ class projectors_global_1d:
         self.n_quad = n_quad           # number of quadrature point per integration interval
         self.kind   = 'global'         # kind of projector (global vs. local)
         
-        n1 = self.space.NbaseN
-        d1 = self.space.NbaseD
-        
         # Gauss - Legendre quadrature points and weights in (-1, 1)
         self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]  
         self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
         
         # set interpolation points (Greville points)
-        self.x_int = bsp.greville(self.space.T, self.space.p, self.space.spl_kind)
+        self.x_int = self.space.greville
         
         # set histopolation grid and number of sub-intervals for clamped splines
         if self.space.spl_kind == False:
@@ -94,7 +91,7 @@ class projectors_global_1d:
         self.D = spa.csr_matrix(self.D)
         
         # LU decompositions
-        self.N_LU = spa.linalg.splu(self.N.tocsc())
+        self.N_LU = spa.linalg.splu(self.N.tocsc()) # why csc?
         self.D_LU = spa.linalg.splu(self.D.tocsc())
         
         # LU decompositions of transposed
@@ -130,7 +127,14 @@ class projectors_global_1d:
     # pi_1 projector
     def pi_1(self, fun):
         return self.D_LU.solve(self.rhs_1(fun))
+
+    # pi_0 projector with discrete input
+    def pi_0_v2(self, dofs0):
+        return self.N_LU.solve(dofs0)
     
+    # pi_1 projector with discrete input
+    def pi_1_v2(self, dofs1):
+        return self.D_LU.solve(dofs1)
     
     
     def pts_1d_bases(self):
@@ -152,7 +156,6 @@ class projectors_global_1d:
         pts1_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.pts.flatten(), self.space.spl_kind, kind_splines[1]))
         
         return pts0_N, pts0_D, pts1_N, pts1_D
-    
     
     
     def dofs_1d_bases(self):
@@ -208,7 +211,6 @@ class projectors_global_1d:
         R1_D_indices = np.nonzero(R1_D)
         
         return R0_N_indices, R0_D_indices, R1_N_indices, R1_D_indices
-    
     
     
     def dofs_1d_bases_products(self):
@@ -393,7 +395,6 @@ class projectors_global_1d:
         #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
         
 
-        
 
 # ======================= 2d ====================================
 class projectors_global_2d:

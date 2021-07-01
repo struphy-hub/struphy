@@ -381,7 +381,154 @@ class domain:
             raise ValueError('given evaluation points are in wrong shape')
             
         return values
+
+
+    # ================================
+    def evaluate_12(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 12-plane at one point eta3. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta1, eta2:   array-like
+                logical coordinates in plane at eta3 
+            eta3:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1[:, :, None], E2 = eta2[:, :, None], E3 = eta3*np.ones(E1.shape)
+        '''
         
+        # point-wise evaluation
+        if isinstance(eta1, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+        
+        # array evaluation
+        elif isinstance(eta1, np.ndarray):
+            
+            # tensor-product evaluation
+            if eta1.ndim == 1:
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+            
+            # general evaluation
+            else:
+                E1 = eta1[:, :, None]
+                E2 = eta2[:, :, None]
+                E3 = eta3*np.ones(E1.shape)
+                
+            values = np.empty((E1.shape[0], E1.shape[1], 1), dtype=float)
+                
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+        else:
+            raise ValueError('given evaluation points are in wrong shape')
+            
+        return np.squeeze(values)
+
+
+    # ================================
+    def evaluate_13(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 13-plane at one point eta2. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta1, eta3:   array-like
+                logical coordinates in plane at eta3 
+            eta2:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1[:, None, :], E2 = eta2*np.ones(E1.shape), E3 = eta3[:, None, :]
+        '''
+
+        # point-wise evaluation
+        if isinstance(eta1, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+        
+        # array evaluation
+        elif isinstance(eta1, np.ndarray):
+            
+            # tensor-product evaluation
+            if eta1.ndim == 1:
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+            
+            # general evaluation
+            else:
+                E1 = eta1[:, None, :]
+                E2 = eta2*np.ones(E1.shape)
+                E3 = eta3[:, None, :]
+
+            values = np.empty((E1.shape[0], 1, E1.shape[2]), dtype=float)
+                
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+        else:
+            raise ValueError('given evaluation points are in wrong shape')
+            
+        return np.squeeze(values)
+
+
+    # ================================
+    def evaluate_23(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 23-plane at one point eta1. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta2, eta3:   array-like
+                logical coordinates in plane at eta3 
+            eta1:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1*np.ones(E2.shape), E2 = eta2[None, :, :], E3 = eta3[None, :, :]
+        '''
+
+        # point-wise evaluation
+        if isinstance(eta2, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+        
+        # array evaluation
+        elif isinstance(eta2, np.ndarray):
+            
+            # tensor-product evaluation
+            if eta2.ndim == 1:
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+            
+            # general evaluation
+            else:
+                E2 = eta2[None, :, :]
+                E3 = eta3[None, :, :]
+                E1 = eta1*np.ones(E2.shape)
+
+            values = np.empty((1, E1.shape[1], E1.shape[2]), dtype=float)
+                
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+        else:
+            raise ValueError('given evaluation points are in wrong shape')
+            
+        return np.squeeze(values)
+
        
     # ================================
     def pull(self, a, eta1, eta2, eta3, kind_fun):

@@ -57,6 +57,8 @@ class spline_space_1d:
          
         self.T        = bsp.make_knots(self.el_b, self.p, self.spl_kind) # spline knot vector for B-splines (N)
         self.t        = self.T[1:-1]                                     # spline knot vector for M-splines (D)
+
+        self.greville = bsp.greville(self.T, self.p, self.spl_kind)      # greville points
         
         self.NbaseN   = len(self.T) - self.p - 1 - self.spl_kind*self.p  # total number of B-splines (N)
         self.NbaseD   = self.NbaseN - 1 + self.spl_kind                  # total number of M-splines (D)
