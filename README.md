@@ -92,7 +92,7 @@ In order to get the STRUPHY code (at the moment only `STUPHY_cc_lin_6D.py`) runn
   ```
   ./run_STRUPHY_cc_lin_6D.sh
   ```
-  This will create some output stored in `path_to_myoutput/sim_1/results_sim_1.hdf5´.
+  This will create some output stored in `path_to_my_output/sim_1/results_sim_1.hdf5`.
 
 <!---
 ## Running tests
