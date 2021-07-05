@@ -7,7 +7,7 @@ run_dir=sim_1
 # =================================================
 
 # ======= name of main code =======================
-code_name=STRUPHY_original_3D.py
+code_name=STRUPHY_cc_lin_6D.py
 # =================================================
 
 # ============== if you want to use OpenMP ========
@@ -33,7 +33,7 @@ export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
 # =================================================
 
 # ========== clean simulation folder ==============
-rm -f $all_sim/$run_dir/STRUPHY.py
+rm -f $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
 rm -f $all_sim/$run_dir/*.hdf5
 rm -f $all_sim/$run_dir/sim*.*
 rm -f $all_sim/$run_dir/batch*.*
@@ -195,7 +195,7 @@ cat >$all_sim/$run_dir/batch_$run_dir.sh <<'EOF'
 # Initial working directory:
 #SBATCH -D ./
 # Job Name:
-#SBATCH -J test_struphy
+#SBATCH -J STRUPHY_cc_lin_6D
 #
 # Number of nodes and MPI tasks per node:
 #SBATCH --nodes=1
@@ -215,7 +215,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export OMP_PLACES=cores 
 
 # Run the program:
-srun python3 STRUPHY.py > test.out
+srun python3 STRUPHY_cc_lin_6D.py > test.out
 EOF
 # =================================================
 
@@ -247,9 +247,9 @@ fi
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp $code_name $all_sim/$run_dir/STRUPHY.py
+cp $code_name $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
 
-sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
+sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
 # =================================================
 
 
@@ -263,15 +263,15 @@ echo "Start of STRUPHY:"
 
 # option 2 : interactive run on an interactive node on e.g. Cobra (either pure MPI or pure OpenMP)
 #export OMP_NUM_THREADS=1
-#srun -n 4 -p interactive python3 STRUPHY.py > STRUPHY.out
+#srun -n 4 -p interactive python3 STRUPHY_cc_lin_6D.py > STRUPHY_cc_lin_6D.out
 
 #export OMP_NUM_THREADS=4
-#python3 STRUPHY.py
+#python3 STRUPHY_cc_lin_6D.py
 
 # option 3: run on a local machine e.g. laptop (either pure MPI or OpenMP)
 #export OMP_NUM_THREADS=1
-#mpirun -n 4 python3 STRUPHY.py
+#mpirun -n 4 python3 STRUPHY_cc_lin_6D.py
 
 #export OMP_NUM_THREADS=1
-#python3 STRUPHY.py
+#python3 STRUPHY_cc_lin_6D.py
 # =================================================

@@ -66,26 +66,33 @@ git clone https://gitlab.mpcdf.mpg.de/clapp/hylife.git
 
 # Setting up STRUPHY
 
-In order to get the STRUPHY code running perform the following steps:
+In order to get the STRUPHY code (at the moment only `STUPHY_cc_lin_6D.py`) running perform the following steps:
 
-1. Create a folder `my_output` for STRUPHY output. Output of specific simulations e.g. `sim_1`, `sim_2`, etc. will be stored in `my_output/sim_1`, `my_output/sim_2`, etc..
+1. In your `Hylife` repository execute
+  ```
+  ./STRUPHY_init.sh
+  ```
+  This copies the main code `STRUPHY_cc_lin_6D.py` and an execution script `run_STRUPHY_cc_lin_6D.sh` to your repository.
+
+2. Create a folder `my_output` for STRUPHY output. Output of specific simulations e.g. `sim_1`, `sim_2`, etc. will be stored in `my_output/sim_1`, `my_output/sim_2`, etc..
   
-2. In your hylife repository execute
+3. In your `Hylife` repository execute
   ```
   cp -r simulations/template_python path_to_my_output/sim_1
   ```
-  This copies a simulation template from your `hylife` repository to your simulation folder `sim_1`.
+  This copies a simulation template from your `Hylife` repository to your simulation folder `sim_1`.
   
-3. In your hylife repository, in the file `run_STRUPHY_3D.sh` set the correct paths in lines 5 and 6
+4. In your `Hylife` repository, in the file `run_STRUPHY_cc_lin_6D.sh` set the correct paths in lines 5 and 6
   ```
   all_sim=path_to_my_output
   run_dir=sim_1
   ```
   
-4. In your hylife repository run STRUPHY with
+5. In your `Hylife` repository run STRUPHY with
   ```
-  ./run_STRUPHY_3D.sh
+  ./run_STRUPHY_cc_lin_6D.sh
   ```
+  This will create some output stored in `path_to_myoutput/sim_1/results_sim_1.hdf5´.
 
 <!---
 ## Running tests
