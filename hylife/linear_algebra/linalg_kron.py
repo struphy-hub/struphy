@@ -245,8 +245,34 @@ def kron_fftsolve_3d(cvec,rhs):
     return res
 
 
+#---------------------- 2d ---------------------------------
+def kron_lusolve_2d(kmatlu, rhs):
+    """ 2D Kronecker LU solver.
+        
+    solve for x: (A_im * B_jn) * x_mn =  rhs_ij
+    
+    Parameters
+    ----------
+    kmatlu : 2 already LU decompositions of sparse matrices for each direction, 
+              of size (r0,r0),(r1,r1)
+
+    rhs : 2d array of size (r0,r1), right-hand size
+
+    Returns
+    -------
+    res : 2d array of size (r0,r1), solution 
+    """
+    
+    res = (kmatlu[1].solve((kmatlu[0].solve(rhs)).T)).T
+        
+    return res
+
+
 def kron_fftsolve_2d(A_LU, b_vec, rhs):
-    ''' Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
+    ''' 
+    ALERT: docstring wrong.
+    
+    Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
         but system is only solved in each direction.
         
         solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk
