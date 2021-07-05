@@ -13,6 +13,7 @@ import hylife.utilitis_FEEC.bsplines as bsp
 
 import hylife.utilitis_FEEC.projectors.kernels_projectors_global as ker_glob
 
+from   hylife.linear_algebra.linalg_kron import kron_lusolve_2d
 from   hylife.linear_algebra.linalg_kron import kron_lusolve_3d
 
 
@@ -22,13 +23,80 @@ class projectors_global_1d:
     """
     Global commuting projectors pi_0 and pi_1 in 1d.
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     spline_space : spline_space_1d
-        a 1d space of B-splines
+        A 1d space of B-splines and corresponding D-splines.
         
     n_quad : int
-        number of quadrature points per integration interval for histopolations
+        Number of Gauss-Legendre quadrature points per integration interval for histopolation.
+
+    Attributes:
+    -----------
+    space : spline_space_1d
+        The input space.
+
+    n_quad : int
+        The input number of quadrature points.
+
+    kind : str
+        Kind of projector = 'global'.
+
+    pts_loc : 1d array
+        Gauss-Legendre quadrature points in (-1, 1).
+
+    wts_loc : 1d array
+        Gauss-Legendre quadrature weights in (-1, 1).
+
+    x_int : 1d array
+        Interpolation points = Greville points of space.
+
+    x_his : 1d array
+        Integration cell boundaries for histolpolation.
+
+    subs : 1d array
+        Number of integration intervals per cell to achieve exact integration of splines:
+        subs[:]=1 for odd spline degree
+        subs[:]=2 for even splines degree and periodic bc (some boundary changes are made for clamped)
+
+    subs_cum : list
+        Cumulative sum of subs, starting with 0.
+
+    pts : 2d array
+        Quadrature points in format (element, quad point) 
+
+    wts : 2d array
+        Quadrature weights in format (element, quad weight)
+
+    N : sparse csr matrix
+        Collocation matrix N_j(x_i).
+
+    D : sparse csr matrix
+        Histopolation matrix int_(x_i)^(x_i+1) D_j dx.
+
+    N_LU : sparce csc matrix
+        LU decompositions of N.
+
+    D_LU : sparce csc matrix
+        LU decompositions of D.
+
+    N_T_LU : sparse csc matrix
+        LU decompositions of transpose N.
+
+    D_T_LU : sparse csc matrix
+        LU decompositions of transpose D.
+
+    Methods:
+    --------
+    dofs_0
+    dofs_1
+    pi_0 (obsolete)
+    pi_1 (obsolete)
+    pi_0_v2
+    pi_1_v2
+    bases_at_pts
+    dofs_1d_bases
+    dofs_1d_bases_products
     """
     
     def __init__(self, spline_space, n_quad):
@@ -100,11 +168,18 @@ class projectors_global_1d:
         
     
     # evaluate function at interpolation points    
-    def rhs_0(self, fun):
+    def dofs_0(self, fun):
+        '''
+        Evaluate the callable fun at interpolation points, f[i] = fun(x_i).
+        '''
         return fun(self.x_int)
     
     # evaluate integrals between interpolation points
-    def rhs_1(self, fun):
+    def dofs_1(self, fun):
+        '''
+        Integrate the callable fun between interpolation points, f[i] = int_(x_i)^(x_i+1) fun(x) dx.
+        Gauss-Legendre integration with n_quad points is used.
+        '''
         
         # evaluate function at quadrature points
         mat_f  = fun(self.pts.flatten()).reshape(self.pts.shape[0], self.pts.shape[1])
@@ -122,29 +197,39 @@ class projectors_global_1d:
     
     # pi_0 projector
     def pi_0(self, fun):
-        return self.N_LU.solve(self.rhs_0(fun))
-    
+        return self.N_LU.solve(self.dofs_0(fun)) # obsolete
     # pi_1 projector
     def pi_1(self, fun):
-        return self.D_LU.solve(self.rhs_1(fun))
+        return self.D_LU.solve(self.dofs_1(fun)) # obsolete
 
     # pi_0 projector with discrete input
-    def pi_0_v2(self, dofs0):
-        return self.N_LU.solve(dofs0)
+    def pi_0_v2(self, dofs_0):
+        '''
+        Returns the solution of the interpolation problem N.x = dofs_0 .
+        '''
+        return self.N_LU.solve(dofs_0)
     
     # pi_1 projector with discrete input
-    def pi_1_v2(self, dofs1):
-        return self.D_LU.solve(dofs1)
+    def pi_1_v2(self, dofs_1):
+        '''
+        Returns the solution of the histopolation problem D.x = dofs_1 .
+        '''
+        return self.D_LU.solve(dofs_1)
     
     
-    def pts_1d_bases(self):
+    def bases_at_pts(self):
         """
-        basis functions evaluated at point sets: pts0_i(N_j), pts1_i(N_j), pts0_i(D_j) and pts1_i(D_j).
+        Basis functions evaluated at point sets for projectors: 
+
+        N_j[ x_int[i] ]
+        N_j[ pts.flatten[i] ]
+
+        D_j[ x_int[i] ]
+        D_j[ pts.flatten[i] ]
         
-        pts0 : evaluation at greville points
-        pts1 : evaluation at quadrature points between greville points
+        Recall pts : Quadrature points in format (element, quad point) 
         
-        returns scipy.sparse matrix
+        Returns 4 scipy.sparse csr matrices.
         """
         
         kind_splines = [False, True]
@@ -160,16 +245,18 @@ class projectors_global_1d:
     
     def dofs_1d_bases(self):
         """
-        computes degrees of freedom of basis functions.
+        Computes degrees of freedom of basis functions.
         
-        R0_i(N_j)
-        R1_i(N_j)
+        dofs_0_i(N_j)
+        dofs_1_i(N_j)
         
-        R0_i(D_j)
-        R1_i(D_j)
+        dofs_0_i(D_j)
+        dofs_1_i(D_j)
         
-        R0 : evaluation at greville points
-        R1 : integral between greville points
+        dofs_0 : evaluation at greville points
+        dofs_1 : integral between greville points
+
+        Returns 4 numpy arrays.
         """
         
         R0_N = np.empty((self.space.NbaseN, self.space.NbaseN), dtype=float)
@@ -189,8 +276,8 @@ class projectors_global_1d:
 
             N_j = lambda eta : self.space.evaluate_N(eta, cj)
 
-            R0_N[:, j] = self.rhs_0(N_j)
-            R1_N[:, j] = self.rhs_1(N_j)
+            R0_N[:, j] = self.dofs_0(N_j)
+            R1_N[:, j] = self.dofs_1(N_j)
             
         # ========= R0_D and R1_D =============
         cj = np.zeros(self.space.NbaseD, dtype=float)
@@ -202,8 +289,8 @@ class projectors_global_1d:
 
             D_j = lambda eta : self.space.evaluate_D(eta, cj)
 
-            R0_D[:, j] = self.rhs_0(D_j)
-            R1_D[:, j] = self.rhs_1(D_j)
+            R0_D[:, j] = self.dofs_0(D_j)
+            R1_D[:, j] = self.dofs_1(D_j)
             
         R0_N_indices = np.nonzero(R0_N)
         R0_D_indices = np.nonzero(R0_D)
@@ -215,20 +302,24 @@ class projectors_global_1d:
     
     def dofs_1d_bases_products(self):
         """
-        computes degrees of freedom of products of basis functions.
+        DISCLAIMER: this routine is not finished and should not be used.
+
+        Computes degrees of freedom of products of basis functions.
         
-        R0_i(N_j*N_k)
-        R0_i(D_j*N_k)
-        R0_i(N_j*D_k)
-        R0_i(D_j*D_k)
+        dofs_0_i(N_j*N_k)
+        dofs_0_i(D_j*N_k)
+        dofs_0_i(N_j*D_k)
+        dofs_0_i(D_j*D_k)
         
-        R1_i(N_j*N_k)
-        R1_i(D_j*N_k)
-        R1_i(N_j*D_k)
-        R1_i(D_j*D_k)
+        dofs_1_i(N_j*N_k)
+        dofs_1_i(D_j*N_k)
+        dofs_1_i(N_j*D_k)
+        dofs_1_i(D_j*D_k)
         
-        R0 : evaluation at greville points
-        R1 : integral between greville points
+        dofs_0 : evaluation at greville points
+        dofs_1 : integral between greville points
+
+        Returns 8 numpy arrays of the form ().
         """
     
         R0_NN = np.empty((self.space.NbaseN, self.space.NbaseN, self.space.NbaseN), dtype=float)
@@ -254,9 +345,11 @@ class projectors_global_1d:
                 ck[k] = 1.
                 
                 N_jN_k = lambda eta : self.space.evaluate_N(eta, cj)*self.space.evaluate_N(eta, ck)
+                # There are two evaluation routines at the moment: spline_evaluation_1d (pyccel) and spline_space_1d (slow).
+                # The slow one is used here.
 
-                R0_NN[:, j, k] = self.rhs_0(N_jN_k)
-                R1_NN[:, j, k] = self.rhs_1(N_jN_k)
+                R0_NN[:, j, k] = self.dofs_0(N_jN_k) # These matrices are full and should not be assembled.
+                R1_NN[:, j, k] = self.dofs_1(N_jN_k)
 
 
         # ========= R0_DN and R1_DN ==============
@@ -274,8 +367,8 @@ class projectors_global_1d:
                 
                 D_jN_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_N(eta, ck)
 
-                R0_DN[:, j, k] = self.rhs_0(D_jN_k)
-                R1_DN[:, j, k] = self.rhs_1(D_jN_k)
+                R0_DN[:, j, k] = self.dofs_0(D_jN_k)
+                R1_DN[:, j, k] = self.dofs_1(D_jN_k)
 
 
         # ========= R0_DD and R1_DD =============
@@ -293,8 +386,8 @@ class projectors_global_1d:
                 
                 D_jD_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_D(eta, ck)
                 
-                R0_DD[:, j, k] = self.rhs_0(D_jD_k)
-                R1_DD[:, j, k] = self.rhs_1(D_jD_k)
+                R0_DD[:, j, k] = self.dofs_0(D_jD_k)
+                R1_DD[:, j, k] = self.dofs_1(D_jD_k)
 
 
         R0_ND = np.transpose(R0_DN, (0, 2, 1))
@@ -394,6 +487,183 @@ class projectors_global_1d:
         
         #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
         
+
+
+# ======================= 2d for tensor products ====================================
+class projectors_tensor_2d:
+    """
+    Global commuting projectors pi_0, pi_1, pi_2 in 2d.
+    
+    Parameters:
+    -----------
+    proj_1d : list of two "projectors_global_1d" objects
+
+    Methods:
+    --------
+    eval_for_PI:    evaluation at point sets.
+    dofs:           degrees of freedom sigma.
+    PI_mat:         Kronecker solve of projection problem.
+    """
+
+    def __init__(self, proj_1d):
+
+        self.pts_PI = {'0': None, '11': None, '12': None, '2': None}
+
+        # collection of the point sets for different 2D projectors
+        self.pts_PI['0']  = [proj_1d[0].x_int,
+                             proj_1d[1].x_int
+                             ]
+        self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].x_int
+                             ]
+        self.pts_PI['12'] = [proj_1d[0].x_int,
+                             proj_1d[1].pts.flatten()
+                             ]
+        self.pts_PI['2']  = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].pts.flatten()
+                             ] 
+
+        self.ne1, self.nq1 = proj_1d[0].pts.shape
+        self.ne2, self.nq2 = proj_1d[1].pts.shape
+
+        self.wts1 = proj_1d[0].wts
+        self.wts2 = proj_1d[1].wts
+
+        self.subs1     = proj_1d[0].subs
+        self.subs_cum1 = proj_1d[0].subs_cum
+        self.subs2     = proj_1d[1].subs
+        self.subs_cum2 = proj_1d[1].subs_cum
+
+        self.n1 = proj_1d[0].space.NbaseN
+        self.d1 = proj_1d[0].space.NbaseD
+        self.n2 = proj_1d[1].space.NbaseN
+        self.d2 = proj_1d[1].space.NbaseD
+
+        self.N_LU1 = proj_1d[0].N_LU
+        self.D_LU1 = proj_1d[0].D_LU
+        self.N_LU2 = proj_1d[1].N_LU
+        self.D_LU2 = proj_1d[1].D_LU
+
+    # ======================================        
+    def eval_for_PI(self, comp, fun):
+        '''
+        Evaluate the callable fun at the points corresponding to the projector comp.
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12' or '2'.
+
+        fun : callable
+            fun(eta1, eta2)
+
+        Returns the 2d numpy array f(eta1_i, eta2_j).
+        '''
+        
+        pts_PI = self.pts_PI[comp]
+            
+        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
+
+        #mat_f = np.empty( (pts_PI[0].size, pts_PI[1].size) )
+        #mat_f[:, :] = fun(pts1, pts2)
+
+        return fun(pts1, pts2)
+
+    # ======================================        
+    def dofs(self, comp, mat_f):
+        '''
+        Compute the degrees of freedom (rhs) for the projector comp.
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12' or '2'.
+
+        mat_f : 2d numpy array
+            Function values f(x_i, y_j) at the points set of the projector (from eval_for_PI).
+
+        Returns
+        -------
+        rhs : 2d numpy array 
+            The degrees of freedom sigma_ij.
+        '''
+
+        assert mat_f.shape==(self.pts_PI[comp][0].size, 
+                             self.pts_PI[comp][1].size
+                             )
+
+        if comp=='0':
+            rhs = mat_f
+
+        elif comp=='11':
+            rhs = np.empty( (self.d1, self.n2) )
+
+            ker_glob.kernel_int_2d_eta1(self.subs1, self.subs_cum1, self.wts1,
+                                        mat_f.reshape(self.ne1, self.nq1, self.n2), rhs
+                                        )
+        elif comp=='12':
+            rhs = np.empty( (self.n1, self.d2) )
+            
+            ker_glob.kernel_int_2d_eta2(self.subs2, self.subs_cum2, self.wts2,
+                                        mat_f.reshape(self.n1, self.ne2, self.nq2), rhs
+                                        )
+        elif comp=='2':
+            rhs = np.empty( (self.d1, self.d2) )
+            
+            ker_glob.kernel_int_2d_eta1_eta2(self.subs1, self.subs2, self.subs_cum1, self.subs_cum2,
+                                             self.wts1, self.wts2, 
+                                             mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2), rhs
+                                             )
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return rhs
+
+    # ======================================        
+    def PI_mat(self, comp, rhs):
+        '''
+        Kronecker solve of the projection problem I.coeffs = rhs
+
+        Parameters:
+        -----------
+        comp : str
+            Which projector: '0', '11', '12' or '2'.
+
+        rhs : 2d numpy array 
+            The degrees of freedom sigma_ij.
+
+        Returns:
+        --------
+        coeffs : 2d numpy array
+            The spline coefficients c_ij obtained by projection.
+        '''
+
+        if comp=='0':
+            assert rhs.shape==(self.n1, self.n2) 
+            coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
+        elif comp=='11':
+            assert rhs.shape==(self.d1, self.n2) 
+            coeffs = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
+        elif comp=='12':
+            assert rhs.shape==(self.n1, self.d2) 
+            coeffs = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
+        elif comp=='2':
+            assert rhs.shape==(self.d1, self.d2)  
+            coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        else:
+            raise ValueError ("wrong projector specified")
+            
+        return coeffs
+
+    
+
+
+# ======================= 3d for tensor products ====================================
+#class projectors_tensor_3d:
+    
+
+    
+    
 
 
 # ======================= 2d ====================================
