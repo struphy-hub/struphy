@@ -580,7 +580,7 @@ class projectors_tensor_2d:
             Which projector: '0', '11', '12' or '2'.
 
         mat_f : 2d numpy array
-            Function values f(x_i, y_j) at the points set of the projector (from eval_for_PI).
+            Function values f(eta1_i, eta2_j) at the points set of the projector (from eval_for_PI).
 
         Returns
         -------
@@ -657,9 +657,244 @@ class projectors_tensor_2d:
 
     
 
-
 # ======================= 3d for tensor products ====================================
-#class projectors_tensor_3d:
+class projectors_tensor_3d:
+    """
+    Global commuting projectors pi_0, pi_1, pi_2, pi_3 in 3d.
+    
+    Parameters:
+    -----------
+    proj_1d : list of three "projectors_global_1d" objects
+
+    Methods:
+    --------
+    eval_for_PI:    evaluation at point sets.
+    dofs:           degrees of freedom sigma.
+    PI_mat:         Kronecker solve of projection problem.
+    """
+
+    def __init__(self, proj_1d):
+
+        self.pts_PI = {'0': None, '11': None, '12': None, '13': None
+                                , '21': None, '22': None, '23': None, '3': None}
+
+        # collection of the point sets for different 2D projectors
+        self.pts_PI['0']  = [proj_1d[0].x_int,
+                             proj_1d[1].x_int,
+                             proj_1d[2].x_int
+                             ]
+        self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].x_int,
+                             proj_1d[2].x_int
+                             ]
+        self.pts_PI['12'] = [proj_1d[0].x_int,
+                             proj_1d[1].pts.flatten(),
+                             proj_1d[2].x_int
+                             ]
+        self.pts_PI['13'] = [proj_1d[0].x_int,
+                             proj_1d[1].x_int,
+                             proj_1d[2].pts.flatten()
+                             ]
+        self.pts_PI['21'] = [proj_1d[0].x_int,
+                             proj_1d[1].pts.flatten(),
+                             proj_1d[2].pts.flatten()
+                             ]
+        self.pts_PI['22'] = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].x_int,
+                             proj_1d[2].pts.flatten()
+                             ]
+        self.pts_PI['23'] = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].pts.flatten(),
+                             proj_1d[2].x_int
+                             ]
+        self.pts_PI['3']  = [proj_1d[0].pts.flatten(),
+                             proj_1d[1].pts.flatten(),
+                             proj_1d[2].pts.flatten()
+                             ] 
+
+        self.ne1, self.nq1 = proj_1d[0].pts.shape
+        self.ne2, self.nq2 = proj_1d[1].pts.shape
+        self.ne3, self.nq3 = proj_1d[2].pts.shape
+
+        self.wts1 = proj_1d[0].wts
+        self.wts2 = proj_1d[1].wts
+        self.wts3 = proj_1d[2].wts
+
+        self.subs1     = proj_1d[0].subs
+        self.subs_cum1 = proj_1d[0].subs_cum
+        self.subs2     = proj_1d[1].subs
+        self.subs_cum2 = proj_1d[1].subs_cum
+        self.subs3     = proj_1d[2].subs
+        self.subs_cum3 = proj_1d[2].subs_cum
+
+        self.n1 = proj_1d[0].space.NbaseN
+        self.d1 = proj_1d[0].space.NbaseD
+        self.n2 = proj_1d[1].space.NbaseN
+        self.d2 = proj_1d[1].space.NbaseD
+        self.n3 = proj_1d[2].space.NbaseN
+        self.d3 = proj_1d[2].space.NbaseD
+
+        self.N_LU1 = proj_1d[0].N_LU
+        self.D_LU1 = proj_1d[0].D_LU
+        self.N_LU2 = proj_1d[1].N_LU
+        self.D_LU2 = proj_1d[1].D_LU
+        self.N_LU3 = proj_1d[2].N_LU
+        self.D_LU3 = proj_1d[2].D_LU
+
+    # ======================================        
+    def eval_for_PI(self, comp, fun):
+        '''
+        Evaluate the callable fun at the points corresponding to the projector comp.
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        fun : callable
+            fun(eta1, eta2, eta3)
+
+        Returns the 3d numpy array f(eta1_i, eta2_j, eta3_k).
+        '''
+        
+        pts_PI = self.pts_PI[comp]
+            
+        pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
+
+        #mat_f = np.empty( (pts_PI[0].size, pts_PI[1].size) )
+        #mat_f[:, :] = fun(pts1, pts2)
+
+        return fun(pts1, pts2, pts3)
+
+    # ======================================        
+    def dofs(self, comp, mat_f):
+        '''
+        Compute the degrees of freedom (rhs) for the projector comp.
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        mat_f : 3d numpy array
+            Function values f(eta1_i, eta2_j, eta3_k) at the points set of the projector (from eval_for_PI).
+
+        Returns
+        -------
+        rhs : 3d numpy array 
+            The degrees of freedom sigma_ijk.
+        '''
+
+        assert mat_f.shape==(self.pts_PI[comp][0].size, 
+                             self.pts_PI[comp][1].size,
+                             self.pts_PI[comp][2].size
+                             )
+
+        if comp=='0':
+            rhs = mat_f
+
+        elif comp=='11':
+            rhs = np.empty( (self.d1, self.n2, self.n3) )
+
+            ker_glob.kernel_int_3d_eta1(self.subs1, self.subs_cum1, self.wts1,
+                                        mat_f.reshape(self.ne1, self.nq1, self.n2, self.n3), rhs
+                                        )
+        elif comp=='12':
+            rhs = np.empty( (self.n1, self.d2, self.n3) )
+            
+            ker_glob.kernel_int_3d_eta2(self.subs2, self.subs_cum2, self.wts2,
+                                        mat_f.reshape(self.n1, self.ne2, self.nq2, self.n3), rhs
+                                        )
+        elif comp=='13':
+            rhs = np.empty( (self.n1, self.n2, self.d3) )
+            
+            ker_glob.kernel_int_3d_eta3(self.subs3, self.subs_cum3, self.wts3,
+                                        mat_f.reshape(self.n1, self.n2, self.ne3, self.nq3), rhs
+                                        )
+        elif comp=='21':
+            rhs = np.empty( (self.n1, self.d2, self.d3) )
+            
+            ker_glob.kernel_int_3d_eta2_eta3(self.subs2, self.subs3,
+                                             self.subs_cum2, self.subs_cum3,
+                                             self.wts2, self.wts3, 
+                  mat_f.reshape(self.n1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
+                                                 )
+        elif comp=='22':
+            rhs = np.empty( (self.d1, self.n2, self.d3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta3(self.subs1, self.subs3,
+                                             self.subs_cum1, self.subs_cum3,
+                                             self.wts1, self.wts3, 
+                  mat_f.reshape(self.ne1, self.nq1, self.n2, self.ne3, self.nq3), rhs
+                                                 )
+        elif comp=='23':
+            rhs = np.empty( (self.d1, self.d2, self.n3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta2(self.subs1, self.subs2,
+                                             self.subs_cum1, self.subs_cum2,
+                                             self.wts1, self.wts2, 
+                  mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.n3), rhs
+                                                 )
+        elif comp=='3':
+            rhs = np.empty( (self.d1, self.d2, self.d3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs1, self.subs2, self.subs3,
+                                                  self.subs_cum1, self.subs_cum2, self.subs_cum3,
+                                                  self.wts1, self.wts2, self.wts3, 
+                  mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
+                                                 )
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return rhs
+
+    # ======================================        
+    def PI_mat(self, comp, rhs):
+        '''
+        Kronecker solve of the projection problem I.coeffs = rhs
+
+        Parameters:
+        -----------
+        comp : str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        rhs : 3d numpy array 
+            The degrees of freedom sigma_ijk.
+
+        Returns:
+        --------
+        coeffs : 3d numpy array
+            The spline coefficients c_ijk obtained by projection.
+        '''
+
+        if comp=='0':
+            assert rhs.shape==(self.n1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
+        elif comp=='11':
+            assert rhs.shape==(self.d1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
+        elif comp=='12':
+            assert rhs.shape==(self.n1, self.d2, self.n3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
+        elif comp=='13':
+            assert rhs.shape==(self.n1, self.n2, self.d3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
+        elif comp=='21':
+            assert rhs.shape==(self.n1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
+        elif comp=='22':
+            assert rhs.shape==(self.d1, self.n2, self.d3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
+        elif comp=='23':
+            assert rhs.shape==(self.d1, self.d2, self.n3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
+        elif comp=='3':
+            assert rhs.shape==(self.d1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
+        else:
+            raise ValueError ("wrong projector specified")
+            
+        return coeffs
     
 
     

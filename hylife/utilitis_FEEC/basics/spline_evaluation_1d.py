@@ -147,3 +147,31 @@ def evaluate_diffn(tn, pn, nbase_n, coeff, eta):
     value  = evaluation_kernel(pn, bn, span_n, nbase_n, coeff)
 
     return value
+
+
+# ========================================================
+@types('double[:]','int','int','double[:]','double[:]','double[:]','int')
+def evaluate_vector(t, p, nbase, coeff, eta, values, kind):
+    '''Vector evaluation of N-spline or D-spline. 
+
+    Parameters:
+    -----------
+        tn:         double[:]   knot vector
+        pn:         int         spline degree
+        nbase:      int         dimension of spline space 
+        coeff:      double[:]   spline coefficients
+        eta:        double[:]   1d array of points of evaluation
+        kind:       int         which spline: 0: (N), 1: (D) 
+
+    Returns:
+    --------
+        values:     double[:]   value of spline at points eta
+    '''
+    
+    for i in range(len(eta)):
+        # V0 - space
+        if kind == 0:
+            values[i] = evaluate_n(t, p, nbase, coeff, eta[i])
+        # V1 - space
+        elif kind == 1:
+            values[i] = evaluate_d(t, p, nbase, coeff, eta[i])
