@@ -112,36 +112,35 @@ class projectors_global_1d:
         # set interpolation points (Greville points)
         self.x_int = self.space.greville
         
-        # set histopolation grid and number of sub-intervals for clamped splines
-        if self.space.spl_kind == False:
+        # set number of sub-intervals per integration interval between Greville points and integration boundaries
+        self.subs = np.ones(self.space.NbaseD, dtype=int)
+        self.x_his = np.array([self.x_int[0]])
             
-            # even spline degree
-            if self.space.p%2 == 0:
-                self.x_his = np.union1d(self.x_int, self.space.el_b)
-                self.subs  = 2*np.ones(self.x_int.size - 1, dtype=int)
+        for i in range(self.space.NbaseD):
+            for br in self.space.el_b:
                 
-                self.subs[:self.space.p//2 ] = 1
-                self.subs[-self.space.p//2:] = 1
+                # left and right integration boundaries
+                if self.space.spl_kind == False:
+                    xl = self.x_int[i]
+                    xr = self.x_int[i + 1]
+                else:  
+                    xl = self.x_int[i]
+                    xr = self.x_int[(i + 1)%self.space.NbaseD]
+                    if i == self.space.NbaseD - 1:
+                        xr += self.space.el_b[-1]
 
-            # odd spline degree
-            else:
-                self.x_his = np.copy(self.x_int)
-                self.subs  = 1*np.ones(self.x_int.size - 1, dtype=int)
-                
-        # set histopolation grid and number of sub-intervals for periodic splines
-        else:
-            
-            # even spline degree
-            if self.space.p%2 == 0:
-                self.x_his = np.union1d(self.x_int, self.space.el_b[1:])
-                self.x_his = np.append(self.x_his, self.space.el_b[-1] + self.x_his[0])
-                self.subs  = 2*np.ones(self.x_int.size, dtype=int)
-
-            # odd spline degree
-            else:
-                self.x_his = np.append(self.x_int, self.space.el_b[-1])
-                self.subs  = 1*np.ones(self.x_int.size, dtype=int)
-              
+                # compute subs and x_his
+                if (br > xl + 1e-10) and (br < xr - 1e-10):
+                    self.subs[i] += 1
+                    self.x_his = np.append(self.x_his, br)
+                elif br >= xr - 1e-10:
+                    self.x_his = np.append(self.x_his, xr)
+                    break
+        
+        if self.space.spl_kind == True and self.space.p%2 == 0:
+            self.x_his = np.append(self.x_his, self.space.el_b[-1] + self.x_his[0])            
+        
+        # cumulative number of sub-intervals for conversion local interval --> global interval
         self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
         
         # quadrature points and weights

@@ -12,8 +12,7 @@ def test_projectors_1d():
     import matplotlib.pyplot as plt
 
     from hylife.utilitis_FEEC.projectors import projectors_global    as proj
-    from hylife.utilitis_FEEC.basics     import spline_evaluation_1d as eval
-
+    
     # test arbitrary function
     f_per = lambda eta : np.cos(2*np.pi*eta)
     f_cla = lambda eta : np.exp(eta) - 2.*np.cos(eta/.1)
@@ -47,27 +46,17 @@ def test_projectors_1d():
             dofs1_per = proj_per.dofs_1(f_per)
             dofs1_cla = proj_cla.dofs_1(f_cla)
 
-            #c0_per = proj_per.pi_0(f_per)
-            #c0_cla = proj_cla.pi_0(f_cla)
-            #c1_per = proj_per.pi_1(f_per)
-            #c1_cla = proj_cla.pi_1(f_cla)
-
             c0_per = proj_per.pi_0_v2(dofs0_per)
             c0_cla = proj_cla.pi_0_v2(dofs0_cla)
             c1_per = proj_per.pi_1_v2(dofs1_per)
             c1_cla = proj_cla.pi_1_v2(dofs1_cla)
 
             # compute error:
-            f0_h_per = []
-            f0_h_cla = []
-            f1_h_per = []
-            f1_h_cla = []
-            for eta in eta_v:
-                f0_h_per.append(eval.evaluate_n(Vh_per.T, Vh_per.p,     Vh_per.NbaseN, c0_per, eta))
-                f0_h_cla.append(eval.evaluate_n(Vh_cla.T, Vh_cla.p,     Vh_cla.NbaseN, c0_cla, eta))
-                f1_h_per.append(eval.evaluate_d(Vh_per.t, Vh_per.p - 1, Vh_per.NbaseD, c1_per, eta))
-                f1_h_cla.append(eval.evaluate_d(Vh_cla.t, Vh_cla.p - 1, Vh_cla.NbaseD, c1_cla, eta))
-
+            f0_h_per = Vh_per.evaluate_N(eta_v, c0_per)
+            f0_h_cla = Vh_cla.evaluate_N(eta_v, c0_cla)
+            f1_h_per = Vh_per.evaluate_D(eta_v, c1_per)
+            f1_h_cla = Vh_cla.evaluate_D(eta_v, c1_cla)
+            
             err0_per.append(np.abs(np.max(f0_h_per - f_per(eta_v))))
             err0_cla.append(np.abs(np.max(f0_h_cla - f_cla(eta_v))))
             err1_per.append(np.abs(np.max(f1_h_per - f_per(eta_v))))
@@ -124,6 +113,19 @@ def test_projectors_1d():
             # projectors
             proj_per = proj.projectors_global_1d(Vh_per, nq)
             proj_cla = proj.projectors_global_1d(Vh_cla, nq)
+            
+            #print('periodic subs : ', proj_per.subs)
+            #print('clamped subs : ', proj_cla.subs)
+            
+            #print('periodic x_his : ', proj_per.x_his)
+            #print('periodic x_his2 : ', proj_per.x_his2)
+            #
+            #print()
+            #
+            #print('clamped x_his : ', proj_cla.x_his)
+            #print('clamped x_his2 : ', proj_cla.x_his2)
+            #
+            #print()
 
             f0_per = np.zeros(Vh_per.NbaseN)
             f1_per = np.zeros(Vh_per.NbaseD)
@@ -138,64 +140,60 @@ def test_projectors_1d():
             # basis functions V0 periodic
             for i in range(Vh_per.NbaseN): 
                 f0_per[i] = 1.
-                def f(eta):
-                    values = np.empty(eta.shape)
-                    eval.evaluate_vector(Vh_per.T, Vh_per.p, Vh_per.NbaseN, f0_per, eta, values, 0)
-                    return values
+                
+                f = lambda eta : Vh_per.evaluate_N(eta, f0_per)
+                
                 dofs0_per = proj_per.dofs_0(f)
                 c0_per = proj_per.pi_0_v2(dofs0_per)
 
                 if np.max(np.abs(f0_per - c0_per)) > err0_per[0]:
-                   err0_per = [np.max(np.abs(f0_per - c0_per)), i]
+                    err0_per = [np.max(np.abs(f0_per - c0_per)), i]
                 #assert np.allclose(f0_per, c0_per, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
                 f0_per[i] = 0.
 
             # basis functions V1 periodic
             for i in range(Vh_per.NbaseD): 
                 f1_per[i] = 1.
-                def f(eta):
-                    values = np.empty(eta.shape)
-                    eval.evaluate_vector(Vh_per.t, Vh_per.p - 1, Vh_per.NbaseD, f1_per, eta, values, 1)
-                    return values
+                
+                f = lambda eta : Vh_per.evaluate_D(eta, f1_per)
+                
                 dofs1_per = proj_per.dofs_1(f)
                 c1_per = proj_per.pi_1_v2(dofs1_per)
 
                 if np.max(np.abs(f1_per - c1_per)) > err1_per[0]:
-                   err1_per = [np.max(np.abs(f1_per - c1_per)), i]
+                    err1_per = [np.max(np.abs(f1_per - c1_per)), i]
                 #assert np.allclose(f1_per, c1_per, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
                 f1_per[i] = 0.
 
             # basis functions V0 clamped
             for i in range(Vh_cla.NbaseN): 
                 f0_cla[i] = 1.
-                def f(eta):
-                    values = np.empty(eta.shape)
-                    eval.evaluate_vector(Vh_cla.T, Vh_cla.p, Vh_cla.NbaseN, f0_cla, eta, values, 0)
-                    return values
+                
+                f = lambda eta : Vh_cla.evaluate_N(eta, f0_cla)
+                
                 dofs0_cla = proj_cla.dofs_0(f)
                 c0_cla = proj_cla.pi_0_v2(dofs0_cla)
 
                 if np.max(np.abs(f0_cla - c0_cla)) > err0_cla[0]:
-                   err0_cla = [np.max(np.abs(f0_cla - c0_cla)), i]
+                    err0_cla = [np.max(np.abs(f0_cla - c0_cla)), i]
                 #assert np.allclose(f0_cla, c0_cla, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
                 f0_cla[i] = 0.
 
             # basis functions V1 clamped
             for i in range(Vh_cla.NbaseD): 
                 f1_cla[i] = 1.
-                def f(eta):
-                    values = np.empty(eta.shape)
-                    eval.evaluate_vector(Vh_cla.t, Vh_cla.p - 1, Vh_cla.NbaseD, f1_cla, eta, values, 1)
-                    return values
+                
+                f = lambda eta : Vh_cla.evaluate_D(eta, f1_cla)
+                
                 dofs1_cla = proj_cla.dofs_1(f)
                 c1_cla = proj_cla.pi_1_v2(dofs1_cla)
 
                 if np.max(np.abs(f1_cla - c1_cla)) > err1_cla[0]:
-                   err1_cla = [np.max(np.abs(f1_cla - c1_cla)), i]
+                    err1_cla = [np.max(np.abs(f1_cla - c1_cla)), i]
                 #assert np.allclose(f1_cla, c1_cla, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
                 f1_cla[i] = 0.
 
-            print('p: {0:2d}, nq: {1:2d},   maxerr V0_per: {2:4.2e} at i={3:2d},   maxerr V1_per: {4:4.2e} at i={5:2d},   maxerr V0_cla: {4:4.2e} at i={5:2d},   maxerr V1_cla: {4:4.2e} at i={5:2d}'.format(
+            print('p: {0:2d}, nq: {1:2d},   maxerr V0_per: {2:4.2e} at i={3:2d},   maxerr V1_per: {4:4.2e} at i={5:2d},   maxerr V0_cla: {6:4.2e} at i={7:2d},   maxerr V1_cla: {8:4.2e} at i={9:2d}'.format(
                 p, nq,
                 err0_per[0], err0_per[1],
                 err1_per[0], err1_per[1],

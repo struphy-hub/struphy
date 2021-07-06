@@ -144,7 +144,7 @@ class spline_space_1d:
 
         Parameters
         ----------
-        eta : double or array_like
+        eta : double or np.ndarray
             evaluation point(s)
         
         coeff : array_like
@@ -160,16 +160,11 @@ class spline_space_1d:
             
             if eta.ndim == 1:
                 values = np.empty(eta.size, dtype=float)
-
-                for i in range(eta.size):
-                    values[i] = eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta[i])
-                    
-            elif eta.ndim == 2:
-                values = np.empty(eta.shape, dtype=float)
                 
-                for i in range(eta.shape[0]):
-                    for j in range(eta.shape[1]):
-                        values[i, j] = eva_1d.evaluate_n(self.T, self.p, self.NbaseN, coeff, eta[i, j])
+                eva_1d.evaluate_vector(self.T, self.p, self.NbaseN, coeff, eta, values, 0)
+
+            else:
+                raise ValueError('eta must be a 1d numpy array')
                     
             return values
         
@@ -184,7 +179,7 @@ class spline_space_1d:
 
         Parameters
         ----------
-        eta : double or array_like
+        eta : double or np.ndarray
             evaluation point(s)
         
         coeff : array_like
@@ -200,16 +195,11 @@ class spline_space_1d:
             
             if eta.ndim == 1:
                 values = np.empty(eta.size, dtype=float)
-
-                for i in range(eta.size):
-                    values[i] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i])
-                    
-            elif eta.ndim == 2:
-                values = np.empty(eta.shape, dtype=float)
                 
-                for i in range(eta.shape[0]):
-                    for j in range(eta.shape[1]):
-                        values[i, j] = eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta[i, j])
+                eva_1d.evaluate_vector(self.t, self.p - 1, self.NbaseD, coeff, eta, values, 1)
+
+            else:
+                raise ValueError('eta must be a 1d numpy array')
                     
             return values
         
@@ -244,14 +234,10 @@ class spline_space_1d:
 
                 for i in range(eta.size):
                     values[i] = eva_1d.evaluate_diffn(self.T, self.p, self.NbaseN, coeff, eta[i])
-                    
-            elif eta.ndim == 2:
-                values = np.empty(eta.shape, dtype=float)
-                
-                for i in range(eta.shape[0]):
-                    for j in range(eta.shape[1]):
-                        values[i, j] = eva_1d.evaluate_diffn(self.T, self.p, self.NbaseN, coeff, eta[i, j])
-                    
+                         
+            else:
+                raise ValueError('eta must be a 1d numpy array')
+                           
             return values
         
         else:
