@@ -43,10 +43,10 @@ class spline_space_1d:
         kind of spline space (True = periodic, False = clamped)
         
     n_quad : int
-        number of Gauss-Legendre quadrature points per element for integrations (optional)
+        number of Gauss-Legendre quadrature points per grid cell (defined by break points)
     """
     
-    def __init__(self, Nel, p, spl_kind, n_quad=None):
+    def __init__(self, Nel, p, spl_kind, n_quad=6):
         
         self.Nel      = Nel                                              # number of elements
         self.p        = p                                                # spline degree
@@ -66,24 +66,22 @@ class spline_space_1d:
         # global indices of non-vanishing splines in each element in format (Nel, global index)
         self.indN     = (np.indices((self.Nel, self.p + 1 - 0))[1] + np.arange(self.Nel)[:, None])%self.NbaseN
         self.indD     = (np.indices((self.Nel, self.p + 1 - 1))[1] + np.arange(self.Nel)[:, None])%self.NbaseD
-        
-        if n_quad != None:
             
-            self.n_quad  = n_quad                                          # number of Gauss-Legendre points per element
-            
-            self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0] # Gauss-Legendre points  (GLQP) in (-1, 1)
-            self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1] # Gauss-Legendre weights (GLQW) in (-1, 1)
+        self.n_quad  = n_quad  # number of Gauss-Legendre points per grid cell (defined by break points)
         
-            # global GLQP in format (element, local point) and total number of GLQP
-            self.pts     = bsp.quadrature_grid(self.el_b, self.pts_loc, self.wts_loc)[0]
-            self.n_pts   = self.pts.flatten().size
+        self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0] # Gauss-Legendre points  (GLQP) in (-1, 1)
+        self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1] # Gauss-Legendre weights (GLQW) in (-1, 1)
+    
+        # global GLQP in format (element, local point) and total number of GLQP
+        self.pts     = bsp.quadrature_grid(self.el_b, self.pts_loc, self.wts_loc)[0]
+        self.n_pts   = self.pts.flatten().size
 
-            # global GLQW in format (element, local point)
-            self.wts     = bsp.quadrature_grid(self.el_b, self.pts_loc, self.wts_loc)[1]
+        # global GLQW in format (element, local point)
+        self.wts     = bsp.quadrature_grid(self.el_b, self.pts_loc, self.wts_loc)[1]
 
-            # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
-            self.basisN  = bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False)
-            self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
+        # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
+        self.basisN  = bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False)
+        self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
         
     
     
@@ -317,22 +315,20 @@ class tensor_spline_space:
         # global indices of non-vanishing splines in each element in format (Nel, global index)
         self.indN     = [spl.indN     for spl in self.spaces]
         self.indD     = [spl.indD     for spl in self.spaces]
+            
+        self.n_quad  = [spl.n_quad  for spl in self.spaces]  # number of Gauss-Legendre quadrature points per element
         
-        if self.spaces[0].n_quad != None:
-            
-            self.n_quad  = [spl.n_quad  for spl in self.spaces]  # number of Gauss-Legendre quadrature points per element
-            
-            self.pts_loc = [spl.pts_loc for spl in self.spaces]  # Gauss-Legendre quadrature points  (GLQP) in (-1, 1)
-            self.wts_loc = [spl.wts_loc for spl in self.spaces]  # Gauss-Legendre quadrature weights (GLQW) in (-1, 1)
+        self.pts_loc = [spl.pts_loc for spl in self.spaces]  # Gauss-Legendre quadrature points  (GLQP) in (-1, 1)
+        self.wts_loc = [spl.wts_loc for spl in self.spaces]  # Gauss-Legendre quadrature weights (GLQW) in (-1, 1)
 
-            self.pts     = [spl.pts     for spl in self.spaces]  # global GLQP in format (element, local point)
-            self.wts     = [spl.wts     for spl in self.spaces]  # global GLQW in format (element, local point)
-            
-            self.n_pts   = [spl.n_pts   for spl in self.spaces]  # total number of quadrature points
+        self.pts     = [spl.pts     for spl in self.spaces]  # global GLQP in format (element, local point)
+        self.wts     = [spl.wts     for spl in self.spaces]  # global GLQW in format (element, local point)
+        
+        self.n_pts   = [spl.n_pts   for spl in self.spaces]  # total number of quadrature points
 
-            # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
-            self.basisN  = [spl.basisN  for spl in self.spaces] 
-            self.basisD  = [spl.basisD  for spl in self.spaces]
+        # basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
+        self.basisN  = [spl.basisN  for spl in self.spaces] 
+        self.basisD  = [spl.basisD  for spl in self.spaces]
         
         
         # number of basis functions of discrete tensor-product p-forms in 2D
