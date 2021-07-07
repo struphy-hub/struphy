@@ -11,6 +11,8 @@ def test_polar_splines_2D():
     import hylife.geometry.polar_splines as pol
     
     import hylife.utilitis_FEEC.spline_space as spl
+
+    from hylife.utilitis_FEEC.projectors import projectors_global as proj
     
     # parameters
     Nel        = [4, 6]            # number of elements (number of elements in angular direction must be a multiple of 3)
@@ -43,8 +45,15 @@ def test_polar_splines_2D():
     #X = lambda eta1, eta2 : 1/eps*(1 - np.sqrt(1 + eps*(eps + 2*eta1*np.cos(2*np.pi*eta2))))
     #Y = lambda eta1, eta2 : e*1/np.sqrt(1 - eps**2/4)*eta1*np.sin(2*np.pi*eta2)/(1 + eps*X(eta1, eta2))
 
+    # interpolate mapping (apply Pi_0)
+    proj_eta1 = proj.projectors_global_1d(space_1d[0])
+    proj_eta2 = proj.projectors_global_1d(space_1d[1])
+    proj_2d   = proj.projectors_tensor_2d([proj_eta1, proj_eta2])
+
+    cx = proj_2d.PI_0(X)
+    cy = proj_2d.PI_0(Y)
+
     # create domain                              
-    cx, cy = dom.interp_mapping(Nel, p, spl_kind, X, Y)
     domain = dom.domain(geometry, params_map, Nel, p, spl_kind, cx, cy)
     
     # plot the control points and the grid
@@ -61,7 +70,7 @@ def test_polar_splines_2D():
     for j in range(space_2d.el_b[1].size):
         plt.plot(grid_x[:, j], grid_y[:, j], 'k')
 
-    plt.scatter(domain.cx[:, :, 0].flatten(), domain.cy[:, :, 0].flatten(), s=5, color='r')
+    plt.scatter(domain.cx[:, :, 0].flatten(), domain.cy[:, :, 0].flatten(), s=30, color='r')
 
     plt.axis('square')
     plt.xlabel('x [m]')
@@ -83,22 +92,15 @@ def test_polar_splines_2D():
     etaplot = [np.linspace(0., 1., 200), np.linspace(0., 1., 200), np.linspace(0., 1., 1)]
     xplot   = [domain.evaluate(etaplot[0], etaplot[1], etaplot[2], 'x')[:, :, 0], domain.evaluate(etaplot[0], etaplot[1], etaplot[2], 'y')[:, :, 0]]
     
-    fig1 = plt.figure()
-    fig1.set_figheight(10)
-    fig1.set_figwidth(10)
+    fig = plt.figure()
+    fig.set_figheight(10)
+    fig.set_figwidth(10)
     
-    fig2 = plt.figure()
-    fig2.set_figheight(10)
-    fig2.set_figwidth(10)
+    ax1 = fig.add_subplot(221, projection='3d')
+    ax2 = fig.add_subplot(222, projection='3d')
+    ax3 = fig.add_subplot(223, projection='3d')
     
-    fig3 = plt.figure()
-    fig3.set_figheight(10)
-    fig3.set_figwidth(10)
-    
-    ax1 = fig1.add_subplot(111, projection='3d')
-    ax2 = fig2.add_subplot(111, projection='3d')
-    ax3 = fig3.add_subplot(111, projection='3d')
-    
+    # coeffs in polar basis
     c0_pol1 = np.zeros(space_2d.E0.shape[0], dtype=float)
     c0_pol2 = np.zeros(space_2d.E0.shape[0], dtype=float)
     c0_pol3 = np.zeros(space_2d.E0.shape[0], dtype=float)

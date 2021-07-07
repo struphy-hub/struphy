@@ -90,16 +90,16 @@ class projectors_global_1d:
     --------
     dofs_0
     dofs_1
-    pi_0 (obsolete)
-    pi_1 (obsolete)
-    pi_0_v2
-    pi_1_v2
+    pi_0 
+    pi_1 
+    pi_0_mat
+    pi_1_mat
     bases_at_pts
     dofs_1d_bases
     dofs_1d_bases_products
     """
     
-    def __init__(self, spline_space, n_quad):
+    def __init__(self, spline_space, n_quad=6):
         
         self.space  = spline_space     # 1D B-splines space
         self.n_quad = n_quad           # number of quadrature point per integration interval
@@ -196,20 +196,20 @@ class projectors_global_1d:
     
     # pi_0 projector
     def pi_0(self, fun):
-        return self.N_LU.solve(self.dofs_0(fun)) # obsolete
+        return self.N_LU.solve(self.dofs_0(fun)) 
     # pi_1 projector
     def pi_1(self, fun):
-        return self.D_LU.solve(self.dofs_1(fun)) # obsolete
+        return self.D_LU.solve(self.dofs_1(fun)) 
 
     # pi_0 projector with discrete input
-    def pi_0_v2(self, dofs_0):
+    def pi_0_mat(self, dofs_0):
         '''
         Returns the solution of the interpolation problem N.x = dofs_0 .
         '''
         return self.N_LU.solve(dofs_0)
     
     # pi_1 projector with discrete input
-    def pi_1_v2(self, dofs_1):
+    def pi_1_mat(self, dofs_1):
         '''
         Returns the solution of the histopolation problem D.x = dofs_1 .
         '''
@@ -501,7 +501,11 @@ class projectors_tensor_2d:
     --------
     eval_for_PI:    evaluation at point sets.
     dofs:           degrees of freedom sigma.
-    PI_mat:         Kronecker solve of projection problem.
+    PI_mat:         Kronecker solve of projection problem, dofs input.
+    PI:             De Rham commuting projectors.
+    PI_0:           projects callable from V_0
+    PI_1:           projects callable from V_1
+    PI_2:           projects callable from V_2
     """
 
     def __init__(self, proj_1d):
@@ -543,6 +547,7 @@ class projectors_tensor_2d:
         self.N_LU2 = proj_1d[1].N_LU
         self.D_LU2 = proj_1d[1].D_LU
 
+
     # ======================================        
     def eval_for_PI(self, comp, fun):
         '''
@@ -567,6 +572,7 @@ class projectors_tensor_2d:
         #mat_f[:, :] = fun(pts1, pts2)
 
         return fun(pts1, pts2)
+
 
     # ======================================        
     def dofs(self, comp, mat_f):
@@ -618,6 +624,7 @@ class projectors_tensor_2d:
 
         return rhs
 
+
     # ======================================        
     def PI_mat(self, comp, rhs):
         '''
@@ -654,6 +661,131 @@ class projectors_tensor_2d:
             
         return coeffs
 
+
+    # ======================================        
+    def PI(self, comp, fun):
+        '''
+        De Rham commuting projectors.
+
+        Parameters:
+        -----------
+        comp : str
+            Which projector: '0', '11', '12' or '2'.
+
+        fun : callable 
+            fun(eta1, eta2).
+
+        Returns:
+        --------
+        coeffs : 2d numpy array
+            The spline coefficients c_ij obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI(comp, fun)
+        rhs   = self.dofs(comp, mat_f) 
+
+        if comp=='0':
+            assert rhs.shape==(self.n1, self.n2) 
+            coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
+        elif comp=='11':
+            assert rhs.shape==(self.d1, self.n2) 
+            coeffs = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
+        elif comp=='12':
+            assert rhs.shape==(self.n1, self.d2) 
+            coeffs = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
+        elif comp=='2':
+            assert rhs.shape==(self.d1, self.d2)  
+            coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        else:
+            raise ValueError ("wrong projector specified")
+            
+        return coeffs
+
+
+    # ======================================        
+    def PI_0(self, fun):
+        '''
+        De Rham commuting projector Pi_0.
+
+        Parameters:
+        -----------
+        fun : callable 
+            Element in V_0 continuous space, fun(eta1, eta2).
+
+        Returns:
+        --------
+        coeffs : 2d numpy array
+            The spline coefficients c_ij obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI('0', fun)
+        rhs   = self.dofs('0', mat_f) 
+
+        assert rhs.shape==(self.n1, self.n2) 
+        coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
+        
+        return coeffs
+
+
+    # ======================================        
+    def PI_1(self, fun1, fun2):
+        '''
+        De Rham commuting projector Pi_1 acting on fun = (fun1, fun2) in V_1.
+
+        Parameters:
+        -----------
+        fun1 : callable 
+            First component of element in V_1 continuous space, fun1(eta1, eta2).
+        fun2 : callable 
+            Second component of element in V_1 continuous space, fun2(eta1, eta2).
+
+        Returns:
+        --------
+        coeffs1 : 2d numpy array
+            The spline coefficients c_ij obtained by projection of fun1 on DN.
+        coeffs2 : 2d numpy array
+            The spline coefficients c_ij obtained by projection of fun2 on ND.
+        '''
+
+        mat_f = self.eval_for_PI('11', fun1)
+        rhs   = self.dofs('11', mat_f) 
+
+        assert rhs.shape==(self.d1, self.n2) 
+        coeffs1 = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
+
+        mat_f = self.eval_for_PI('12', fun2)
+        rhs   = self.dofs('12', mat_f) 
+
+        assert rhs.shape==(self.n1, self.d2) 
+        coeffs2 = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
+            
+        return coeffs1, coeffs2
+
+
+    # ======================================        
+    def PI_2(self, fun):
+        '''
+        De Rham commuting projector Pi_2.
+
+        Parameters:
+        -----------
+        fun : callable 
+            Element in V_2 continuous space, fun(eta1, eta2).
+
+        Returns:
+        --------
+        coeffs : 2d numpy array
+            The spline coefficients c_ij obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI('2', fun)
+        rhs   = self.dofs('2', mat_f) 
+
+        assert rhs.shape==(self.d1, self.d2) 
+        coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        
+        return coeffs
+
     
 
 # ======================= 3d for tensor products ====================================
@@ -669,7 +801,12 @@ class projectors_tensor_3d:
     --------
     eval_for_PI:    evaluation at point sets.
     dofs:           degrees of freedom sigma.
-    PI_mat:         Kronecker solve of projection problem.
+    PI_mat:         Kronecker solve of projection problem, dofs input.
+    PI:             De Rham commuting projectors.
+    PI_0:           projects callable from V_0
+    PI_1:           projects callable from V_1
+    PI_2:           projects callable from V_2
+    PI_3:           projects callable from V_3
     """
 
     def __init__(self, proj_1d):
@@ -740,6 +877,7 @@ class projectors_tensor_3d:
         self.N_LU3 = proj_1d[2].N_LU
         self.D_LU3 = proj_1d[2].D_LU
 
+
     # ======================================        
     def eval_for_PI(self, comp, fun):
         '''
@@ -764,6 +902,7 @@ class projectors_tensor_3d:
         #mat_f[:, :] = fun(pts1, pts2)
 
         return fun(pts1, pts2, pts3)
+
 
     # ======================================        
     def dofs(self, comp, mat_f):
@@ -847,6 +986,7 @@ class projectors_tensor_3d:
 
         return rhs
 
+
     # ======================================        
     def PI_mat(self, comp, rhs):
         '''
@@ -896,7 +1036,196 @@ class projectors_tensor_3d:
         return coeffs
     
 
-    
+# ======================================        
+    def PI(self, comp, fun):
+        '''
+        De Rham commuting projectors.
+
+        Parameters:
+        -----------
+        comp : str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        fun : callable 
+            f(eta1, eta2, eta3)
+
+        Returns:
+        --------
+        coeffs : 3d numpy array
+            The spline coefficients c_ijk obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI(comp, fun)
+        rhs   = self.dofs(comp, mat_f) 
+
+        if comp=='0':
+            assert rhs.shape==(self.n1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
+        elif comp=='11':
+            assert rhs.shape==(self.d1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
+        elif comp=='12':
+            assert rhs.shape==(self.n1, self.d2, self.n3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
+        elif comp=='13':
+            assert rhs.shape==(self.n1, self.n2, self.d3) 
+            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
+        elif comp=='21':
+            assert rhs.shape==(self.n1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
+        elif comp=='22':
+            assert rhs.shape==(self.d1, self.n2, self.d3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
+        elif comp=='23':
+            assert rhs.shape==(self.d1, self.d2, self.n3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
+        elif comp=='3':
+            assert rhs.shape==(self.d1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
+        else:
+            raise ValueError ("wrong projector specified")
+            
+        return coeffs
+
+
+    # ======================================        
+    def PI_0(self, fun):
+        '''
+        De Rham commuting projector Pi_0.
+
+        Parameters:
+        -----------
+        fun : callable 
+            Element in V_0 continuous space, f(eta1, eta2, eta3)
+
+        Returns:
+        --------
+        coeffs : 3d numpy array
+            The spline coefficients c_ijk obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI('0', fun)
+        rhs   = self.dofs('0', mat_f) 
+
+        assert rhs.shape==(self.n1, self.n2, self.n3) 
+        coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
+            
+        return coeffs
+
+
+    # ======================================        
+    def PI_1(self, fun1, fun2, fun3):
+        '''
+        De Rham commuting projector Pi_1 acting on fun = (fun1, fun2, fun3) in V_1.
+
+        Parameters:
+        -----------
+        fun1 : callable 
+            First component of element in V_1 continuous space, fun1(eta1, eta2, eta3).
+        fun2 : callable 
+            Second component of element in V_1 continuous space, fun2(eta1, eta2, eta3).
+        fun3 : callable 
+            Thirs component of element in V_1 continuous space, fun3(eta1, eta2, eta3).
+
+        Returns:
+        --------
+        coeffs1 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun1 on DNN.
+        coeffs2 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun2 on NDN.
+        coeffs3 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun3 on NND.
+        '''
+
+        mat_f = self.eval_for_PI('11', fun1)
+        rhs   = self.dofs('11', mat_f) 
+
+        assert rhs.shape==(self.d1, self.n2, self.n3) 
+        coeffs1 = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
+
+        mat_f = self.eval_for_PI('12', fun2)
+        rhs   = self.dofs('12', mat_f) 
+
+        assert rhs.shape==(self.n1, self.d2, self.n3) 
+        coeffs2 = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
+            
+        mat_f = self.eval_for_PI('13', fun3)
+        rhs   = self.dofs('13', mat_f) 
+
+        assert rhs.shape==(self.n1, self.n2, self.d3) 
+        coeffs3 = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
+            
+        return coeffs1, coeffs2, coeffs3
+
+
+    # ======================================        
+    def PI_2(self, fun1, fun2, fun3):
+        '''
+        De Rham commuting projector Pi_2 acting on fun = (fun1, fun2, fun3) in V_2.
+
+        Parameters:
+        -----------
+        fun1 : callable 
+            First component of element in V_2 continuous space, fun1(eta1, eta2, eta3).
+        fun2 : callable 
+            Second component of element in V_2 continuous space, fun2(eta1, eta2, eta3).
+        fun3 : callable 
+            Thirs component of element in V_2 continuous space, fun3(eta1, eta2, eta3).
+
+        Returns:
+        --------
+        coeffs1 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun1 on NDD.
+        coeffs2 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun2 on DND.
+        coeffs3 : 3d numpy array
+            The spline coefficients c_ijk obtained by projection of fun3 on DDN.
+        '''
+
+        mat_f = self.eval_for_PI('21', fun1)
+        rhs   = self.dofs('21', mat_f) 
+
+        assert rhs.shape==(self.n1, self.d2, self.d3) 
+        coeffs1 = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
+
+        mat_f = self.eval_for_PI('22', fun2)
+        rhs   = self.dofs('22', mat_f) 
+
+        assert rhs.shape==(self.d1, self.n2, self.d3) 
+        coeffs2 = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
+
+        mat_f = self.eval_for_PI('23', fun3)
+        rhs   = self.dofs('23', mat_f) 
+
+        assert rhs.shape==(self.d1, self.d2, self.n3) 
+        coeffs3 = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
+            
+        return coeffs1, coeffs2, coeffs3
+
+
+    # ======================================        
+    def PI_3(self, fun):
+        '''
+        De Rham commuting projector Pi_3.
+
+        Parameters:
+        -----------
+        fun : callable 
+            Element in V_3 continuous space, f(eta1, eta2, eta3)
+
+        Returns:
+        --------
+        coeffs : 3d numpy array
+            The spline coefficients c_ijk obtained by projection.
+        '''
+
+        mat_f = self.eval_for_PI('3', fun)
+        rhs   = self.dofs('3', mat_f) 
+
+        assert rhs.shape==(self.d1, self.d2, self.d3) 
+        coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
+            
+        return coeffs
     
 
 

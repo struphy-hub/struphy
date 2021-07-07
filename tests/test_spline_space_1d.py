@@ -9,8 +9,8 @@ def test_evaluation():
 
     eta_v = np.linspace(0, 1, 200)
 
-    Nel = 16
-    for p in range(2,9):
+    Nel = 10
+    for p in range(1,7):
 
         # spline spaces
         Vh_per = spl.spline_space_1d(Nel, p, spl_kind=True)
@@ -72,14 +72,13 @@ def test_evaluation():
         plt.plot(Vh_cla.greville, np.zeros(Vh_cla.greville.shape), 'ro', label='greville')
         plt.plot(Vh_cla.el_b, np.zeros(Vh_cla.el_b.shape), 'k+', label='breaks')
 
-        assert S1_cla[-1] == 1.0*p*Nel
+        assert np.allclose(S1_cla[-1], 1.0*p*Nel)
 
         plt.title('M-splines, clamped, for p={0:2d}, Nel={1:4d}'.format(p, Nel))
         plt.legend()
         
 
-
-    plt.show()
+    #plt.show()
 
 
 if __name__ == '__main__':

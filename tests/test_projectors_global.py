@@ -1,3 +1,6 @@
+from matplotlib.pyplot import subplot
+
+
 def test_projectors_1d():
     '''
     1) test order of convergence
@@ -14,24 +17,26 @@ def test_projectors_1d():
     from hylife.utilitis_FEEC.projectors import projectors_global    as proj
     
     # test arbitrary function
-    f_per = lambda eta : np.cos(2*np.pi*eta)
-    f_cla = lambda eta : np.exp(eta) - 2.*np.cos(eta/.1)
+    f_per = lambda eta : np.cos(2*np.pi*eta/.2)
+    f_cla = lambda eta : np.exp(2.*eta) - 2.*np.cos(2*np.pi*eta/.2)
 
     eta_v = np.linspace(0, 1, 200)
 
+    fig, axs = plt.subplots(2, 2)
+
     print('1) convergence test:')
     # 1) convergence test
-    for p in range(1,2): 
-        err0_per = [1.]
-        err0_cla = [1.]
-        err1_per = [1.]
-        err1_cla = [1.]
+    for p in range(1,7): 
+        err0_per = [10.]
+        err0_cla = [10.]
+        err1_per = [10.]
+        err1_cla = [10.]
 
         order0_per = []
         order0_cla = []
         order1_per = []
         order1_cla = []
-        for Nel in [2**n for n in range(5,6)]:
+        for Nel in [2**n for n in range(5,9)]:
     
             # spline spaces
             Vh_per = spl.spline_space_1d(Nel, p, spl_kind=True)
@@ -41,15 +46,28 @@ def test_projectors_1d():
             proj_per = proj.projectors_global_1d(Vh_per, 6)
             proj_cla = proj.projectors_global_1d(Vh_cla, 6)
 
+            # callable as input
+            c0_per = proj_per.pi_0(f_per)
+            c0_cla = proj_cla.pi_0(f_cla)
+            c1_per = proj_per.pi_1(f_per)
+            c1_cla = proj_cla.pi_1(f_cla)
+
+            # dofs as input
             dofs0_per = proj_per.dofs_0(f_per)
             dofs0_cla = proj_cla.dofs_0(f_cla)
             dofs1_per = proj_per.dofs_1(f_per)
             dofs1_cla = proj_cla.dofs_1(f_cla)
 
-            c0_per = proj_per.pi_0_v2(dofs0_per)
-            c0_cla = proj_cla.pi_0_v2(dofs0_cla)
-            c1_per = proj_per.pi_1_v2(dofs1_per)
-            c1_cla = proj_cla.pi_1_v2(dofs1_cla)
+            c0_per_mat = proj_per.pi_0_mat(dofs0_per)
+            c0_cla_mat = proj_cla.pi_0_mat(dofs0_cla)
+            c1_per_mat = proj_per.pi_1_mat(dofs1_per)
+            c1_cla_mat = proj_cla.pi_1_mat(dofs1_cla)
+
+            # result must be the same
+            assert np.allclose(c0_per, c0_per_mat, atol=1e-14)
+            assert np.allclose(c0_cla, c0_cla_mat, atol=1e-14)
+            assert np.allclose(c1_per, c1_per_mat, atol=1e-14)
+            assert np.allclose(c1_cla, c1_cla_mat, atol=1e-14)
 
             # compute error:
             f0_h_per = Vh_per.evaluate_N(eta_v, c0_per)
@@ -79,26 +97,31 @@ def test_projectors_1d():
                     err1_cla[-1], order1_cla[-1])
                     )
 
-            if False:
-                plt.figure()
-                plt.plot(eta_v, f_per(eta_v), 'r', label='per')
-                plt.plot(eta_v, f_cla(eta_v), 'r', label='cla')
-                plt.plot(eta_v, f0_h_per, 'b--', label='f0h_per')
-                plt.plot(eta_v, f0_h_cla, 'm--', label='f0h_cla')
-                plt.plot(eta_v, f1_h_per, 'b--', label='f1h_per')
-                plt.plot(eta_v, f1_h_cla, 'g--', label='f1h_cla')
-                plt.title('p: {0:2d}, Nel: {1:4d}'.format(p, Nel))
-                plt.legend()
-                plt.autoscale(enable=True, axis='x', tight=True)
+            if p<3 and Nel==2**5:
+                axs.flatten()[2*p-2].plot(eta_v, f_per(eta_v), 'r', label='f')
+                axs.flatten()[2*p-2].plot(eta_v, f0_h_per, 'b--', label='f0h_per')
+                axs.flatten()[2*p-2].plot(eta_v, f1_h_per, 'k--', label='f1h_per')
+                axs.flatten()[2*p-2].set_title('p: {0:2d}, Nel: {1:4d}, periodic'.format(p, Nel))
+                axs.flatten()[2*p-2].legend()
+                axs.flatten()[2*p-2].autoscale(enable=True, axis='x', tight=True)
+
+                axs.flatten()[2*p-1].plot(eta_v, f_cla(eta_v), 'r', label='f')
+                axs.flatten()[2*p-1].plot(eta_v, f0_h_cla, 'b--', label='f0h_cla')
+                axs.flatten()[2*p-1].plot(eta_v, f1_h_cla, 'k--', label='f1h_cla')
+                axs.flatten()[2*p-1].set_title('p: {0:2d}, Nel: {1:4d}, non-periodic'.format(p, Nel))
+                axs.flatten()[2*p-1].legend()
+                axs.flatten()[2*p-1].autoscale(enable=True, axis='x', tight=True)
 
         print()
 
-        assert np.all(order0_per[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.15 )
-        assert np.all(order0_cla[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.15 )
-        assert np.all(order1_per[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.15 )
-        assert np.all(order1_cla[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.15 )
+        assert np.all(order0_per[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.3 )
+        assert np.all(order0_cla[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.3 )
+        assert np.all(order1_per[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.3 )
+        assert np.all(order1_cla[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.3 )
+
 
     #plt.show()
+
 
     print('2) projector test:')
     # 2) projector test
@@ -113,19 +136,6 @@ def test_projectors_1d():
             # projectors
             proj_per = proj.projectors_global_1d(Vh_per, nq)
             proj_cla = proj.projectors_global_1d(Vh_cla, nq)
-            
-            #print('periodic subs : ', proj_per.subs)
-            #print('clamped subs : ', proj_cla.subs)
-            
-            #print('periodic x_his : ', proj_per.x_his)
-            #print('periodic x_his2 : ', proj_per.x_his2)
-            #
-            #print()
-            #
-            #print('clamped x_his : ', proj_cla.x_his)
-            #print('clamped x_his2 : ', proj_cla.x_his2)
-            #
-            #print()
 
             f0_per = np.zeros(Vh_per.NbaseN)
             f1_per = np.zeros(Vh_per.NbaseD)
@@ -143,8 +153,15 @@ def test_projectors_1d():
                 
                 f = lambda eta : Vh_per.evaluate_N(eta, f0_per)
                 
+                # callable as input
+                c0_per = proj_per.pi_0(f)
+
+                # dofs as input
                 dofs0_per = proj_per.dofs_0(f)
-                c0_per = proj_per.pi_0_v2(dofs0_per)
+                c0_per_mat = proj_per.pi_0_mat(dofs0_per)
+
+                # result must be the same
+                assert np.allclose(c0_per, c0_per_mat, atol=1e-14)
 
                 if np.max(np.abs(f0_per - c0_per)) > err0_per[0]:
                     err0_per = [np.max(np.abs(f0_per - c0_per)), i]
@@ -157,8 +174,15 @@ def test_projectors_1d():
                 
                 f = lambda eta : Vh_per.evaluate_D(eta, f1_per)
                 
+                # callable as input
+                c1_per = proj_per.pi_1(f)
+
+                # dofs as input
                 dofs1_per = proj_per.dofs_1(f)
-                c1_per = proj_per.pi_1_v2(dofs1_per)
+                c1_per_mat = proj_per.pi_1_mat(dofs1_per)
+
+                # result must be the same
+                assert np.allclose(c1_per, c1_per_mat, atol=1e-14)
 
                 if np.max(np.abs(f1_per - c1_per)) > err1_per[0]:
                     err1_per = [np.max(np.abs(f1_per - c1_per)), i]
@@ -171,8 +195,15 @@ def test_projectors_1d():
                 
                 f = lambda eta : Vh_cla.evaluate_N(eta, f0_cla)
                 
+                # callable as input
+                c0_cla = proj_cla.pi_0(f)
+
+                # dofs as input
                 dofs0_cla = proj_cla.dofs_0(f)
-                c0_cla = proj_cla.pi_0_v2(dofs0_cla)
+                c0_cla_mat = proj_cla.pi_0_mat(dofs0_cla)
+
+                # result must be the same
+                assert np.allclose(c0_cla, c0_cla_mat, atol=1e-14)
 
                 if np.max(np.abs(f0_cla - c0_cla)) > err0_cla[0]:
                     err0_cla = [np.max(np.abs(f0_cla - c0_cla)), i]
@@ -185,8 +216,15 @@ def test_projectors_1d():
                 
                 f = lambda eta : Vh_cla.evaluate_D(eta, f1_cla)
                 
+                # callable as input
+                c1_cla = proj_cla.pi_1(f)
+
+                # dofs as input
                 dofs1_cla = proj_cla.dofs_1(f)
-                c1_cla = proj_cla.pi_1_v2(dofs1_cla)
+                c1_cla_mat = proj_cla.pi_1_mat(dofs1_cla)
+
+                # result must be the same
+                assert np.allclose(c1_cla, c1_cla_mat, atol=1e-14)
 
                 if np.max(np.abs(f1_cla - c1_cla)) > err1_cla[0]:
                     err1_cla = [np.max(np.abs(f1_cla - c1_cla)), i]
@@ -207,9 +245,6 @@ def test_projectors_1d():
             
 
 
-
-
-
 def test_projectors_2d():
 
     import sys
@@ -223,13 +258,15 @@ def test_projectors_2d():
     from hylife.utilitis_FEEC.basics     import spline_evaluation_2d as eval
 
     # test arbitrary function
-    f = lambda eta1, eta2 : np.cos(2*np.pi*eta2) * ( np.exp(eta1) - 2.*np.cos(eta1/.1) )
+    f = lambda eta1, eta2 : np.cos(2*np.pi*eta2/.2) * ( np.exp(2.*eta1) - 2.*np.cos(2*np.pi*eta1/.2) )
 
-    eta1_v = np.linspace(0, 1, 100)
-    eta2_v = np.linspace(0, 1, 100)
+    eta1_v   = np.linspace(0, 1, 100)
+    eta2_v   = np.linspace(0, 1, 100)
+    ee1, ee2 = np.meshgrid(eta1_v, eta2_v, indexing='ij')
 
+    print('Convergence test 2d:')
     # convergence test
-    for p in range(1,4): 
+    for p in range(1,5): 
         err0  = [1.]
         err11 = [1.]
         err12 = [1.]
@@ -239,11 +276,13 @@ def test_projectors_2d():
         order11 = []
         order12 = []
         order2  = []
-        for Nel in [2**n for n in range(3,9)]:
+        for Nel in [2**n for n in range(4,9)]:
     
             # spline spaces
             Vh_eta1 = spl.spline_space_1d(Nel, p, spl_kind=False)
             Vh_eta2 = spl.spline_space_1d(Nel, p, spl_kind=True)
+
+            Vh_tensor = spl.tensor_spline_space([Vh_eta1, Vh_eta2]) # needed only for evaluation of splines
 
             # projectors
             proj_eta1 = proj.projectors_global_1d(Vh_eta1, 6)
@@ -251,48 +290,50 @@ def test_projectors_2d():
 
             proj_2d = proj.projectors_tensor_2d([proj_eta1, proj_eta2])
 
-            # values of f at point sets
+            # A) callable as input
+            cij_0          = proj_2d.PI_0(f)
+            cij_11, cij_12 = proj_2d.PI_1(f, f)
+            cij_2          = proj_2d.PI_2(f)
+
+            # B) dofs as input
+            # 1) values of f at point sets
             f_pts_0  = proj_2d.eval_for_PI('0', f)  
             f_pts_11 = proj_2d.eval_for_PI('11', f)  
             f_pts_12 = proj_2d.eval_for_PI('12', f)  
             f_pts_2  = proj_2d.eval_for_PI('2', f)    
             
-            # degrees of freedom 
+            # 2) degrees of freedom 
             dofs_0  = proj_2d.dofs('0', f_pts_0)
             dofs_11 = proj_2d.dofs('11', f_pts_11)
             dofs_12 = proj_2d.dofs('12', f_pts_12)
             dofs_2  = proj_2d.dofs('2', f_pts_2)
 
-            # fem coefficients obtained from projection
-            cij_0  = proj_2d.PI_mat('0', dofs_0)
-            cij_11 = proj_2d.PI_mat('11', dofs_11)
-            cij_12 = proj_2d.PI_mat('12', dofs_12)
-            cij_2  = proj_2d.PI_mat('2', dofs_2)
+            # 3) fem coefficients obtained from projection
+            cij_0_mat  = proj_2d.PI_mat('0', dofs_0)
+            cij_11_mat = proj_2d.PI_mat('11', dofs_11)
+            cij_12_mat = proj_2d.PI_mat('12', dofs_12)
+            cij_2_mat  = proj_2d.PI_mat('2', dofs_2)
 
-            # compute error:
+            # result from A) and B) must be the same
+            assert np.allclose(cij_0, cij_0_mat, atol=1e-14)
+            assert np.allclose(cij_11, cij_11_mat, atol=1e-14)
+            assert np.allclose(cij_12, cij_12_mat, atol=1e-14)
+            assert np.allclose(cij_2, cij_2_mat, atol=1e-14)
+
+            # evaluation of splines:
             fh_0  = np.empty((eta1_v.size, eta2_v.size))
             fh_11 = fh_0.copy()
             fh_12 = fh_0.copy()
             fh_2  = fh_0.copy()
             f_mat = fh_0.copy()
 
-            # slow loops:
-            for i, eta1 in enumerate(eta1_v):
-                for j, eta2 in enumerate(eta2_v):
+            fh_0  = Vh_tensor.evaluate_NN(eta1_v, eta2_v, cij_0)
+            fh_11 = Vh_tensor.evaluate_DN(eta1_v, eta2_v, cij_11)
+            fh_12 = Vh_tensor.evaluate_ND(eta1_v, eta2_v, cij_12)
+            fh_2  = Vh_tensor.evaluate_DD(eta1_v, eta2_v, cij_2)
 
-                    fh_0[i, j]  = eval.evaluate_n_n(Vh_eta1.T, Vh_eta2.T, Vh_eta1.p, Vh_eta2.p,
-                                             Vh_eta1.NbaseN, Vh_eta2.NbaseN, cij_0, eta1, eta2)
-
-                    fh_11[i, j] = eval.evaluate_d_n(Vh_eta1.t, Vh_eta2.T, Vh_eta1.p - 1, Vh_eta2.p,
-                                             Vh_eta1.NbaseD, Vh_eta2.NbaseN, cij_11, eta1, eta2)
-
-                    fh_12[i, j] = eval.evaluate_n_d(Vh_eta1.T, Vh_eta2.t, Vh_eta1.p, Vh_eta2.p - 1,
-                                             Vh_eta1.NbaseN, Vh_eta2.NbaseD, cij_12, eta1, eta2)
-
-                    fh_2[i, j]  = eval.evaluate_d_d(Vh_eta1.t, Vh_eta2.t, Vh_eta1.p - 1, Vh_eta2.p - 1,
-                                             Vh_eta1.NbaseD, Vh_eta2.NbaseD, cij_2, eta1, eta2)
-
-                    f_mat[i, j] = f(eta1, eta2)
+            # compute error:
+            f_mat = f(ee1, ee2)
 
             err0.append(np.abs(np.max(fh_0 - f_mat)))
             err11.append(np.abs(np.max(fh_11 - f_mat)))
@@ -307,7 +348,7 @@ def test_projectors_2d():
             #print('look  :', np.max(f_cla(eta_v)), np.min(f_cla(eta_v)))
             #print('look h:', np.max(f0_h_cla), np.min(f0_h_cla))
 
-            if False:
+            if True:
                 print('p: {0:2d}, Nel: {1:4d},   0: {2:8.6f} {3:4.2f},   11: {4:8.6f} {5:4.2f},   12: {6:8.6f} {7:4.2f},   2: {8:8.6f} {9:4.2f}'.format(
                     p, Nel,
                     err0[-1], order0[-1],
@@ -326,6 +367,7 @@ def test_projectors_2d():
         assert np.all(order11[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
         assert np.all(order12[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
         assert np.all(order2[1:]  > (p)*np.ones(len(order0) - 1) - 0.3 )
+
 
     #plt.show()
 
@@ -350,6 +392,9 @@ def test_projectors_3d():
     eta2_v = np.linspace(0, 1, 80)
     eta3_v = np.linspace(0, 1, 80)
 
+    ee1, ee2, ee3 = np.meshgrid(eta1_v, eta2_v, eta3_v, indexing='ij')
+
+    print('Convergence test 3d:')
     # convergence test
     for p in range(1,4): 
         err0  = [10.]
@@ -376,6 +421,8 @@ def test_projectors_3d():
             Vh_eta2 = spl.spline_space_1d(Nel, p, spl_kind=True)
             Vh_eta3 = spl.spline_space_1d(Nel, p, spl_kind=True)
 
+            Vh_tensor = spl.tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) # needed only for evaluation of splines
+
             # projectors
             proj_eta1 = proj.projectors_global_1d(Vh_eta1, 6)
             proj_eta2 = proj.projectors_global_1d(Vh_eta2, 6)
@@ -383,7 +430,14 @@ def test_projectors_3d():
 
             proj_3d = proj.projectors_tensor_3d([proj_eta1, proj_eta2, proj_eta3])
 
-            # values of f at point sets
+            # A) callable as input
+            cijk_0                    = proj_3d.PI_0(f)
+            cijk_11, cijk_12, cijk_13 = proj_3d.PI_1(f, f, f)
+            cijk_21, cijk_22, cijk_23 = proj_3d.PI_2(f, f, f)
+            cijk_3                    = proj_3d.PI_3(f)
+
+            # B) dofs as input
+            # 1) values of f at point sets
             f_pts_0  = proj_3d.eval_for_PI('0', f)  
             f_pts_11 = proj_3d.eval_for_PI('11', f)  
             f_pts_12 = proj_3d.eval_for_PI('12', f)
@@ -393,7 +447,7 @@ def test_projectors_3d():
             f_pts_23 = proj_3d.eval_for_PI('23', f)  
             f_pts_3  = proj_3d.eval_for_PI('3', f)    
             
-            # degrees of freedom 
+            # 2) degrees of freedom 
             dofs_0  = proj_3d.dofs('0', f_pts_0)
             dofs_11 = proj_3d.dofs('11', f_pts_11)
             dofs_12 = proj_3d.dofs('12', f_pts_12)
@@ -403,17 +457,27 @@ def test_projectors_3d():
             dofs_23 = proj_3d.dofs('23', f_pts_23)
             dofs_3  = proj_3d.dofs('3', f_pts_3)
 
-            # fem coefficients obtained from projection
-            cijk_0  = proj_3d.PI_mat('0', dofs_0)
-            cijk_11 = proj_3d.PI_mat('11', dofs_11)
-            cijk_12 = proj_3d.PI_mat('12', dofs_12)
-            cijk_13 = proj_3d.PI_mat('13', dofs_13)
-            cijk_21 = proj_3d.PI_mat('21', dofs_21)
-            cijk_22 = proj_3d.PI_mat('22', dofs_22)
-            cijk_23 = proj_3d.PI_mat('23', dofs_23)
-            cijk_3  = proj_3d.PI_mat('3', dofs_3)
+            # 3) fem coefficients obtained from projection
+            cijk_0_mat  = proj_3d.PI_mat('0', dofs_0)
+            cijk_11_mat = proj_3d.PI_mat('11', dofs_11)
+            cijk_12_mat = proj_3d.PI_mat('12', dofs_12)
+            cijk_13_mat = proj_3d.PI_mat('13', dofs_13)
+            cijk_21_mat = proj_3d.PI_mat('21', dofs_21)
+            cijk_22_mat = proj_3d.PI_mat('22', dofs_22)
+            cijk_23_mat = proj_3d.PI_mat('23', dofs_23)
+            cijk_3_mat  = proj_3d.PI_mat('3', dofs_3)
 
-            # compute error:
+            # result from A) and B) must be the same
+            assert np.allclose(cijk_0, cijk_0_mat, atol=1e-14)
+            assert np.allclose(cijk_11, cijk_11_mat, atol=1e-14)
+            assert np.allclose(cijk_12, cijk_12_mat, atol=1e-14)
+            assert np.allclose(cijk_13, cijk_13_mat, atol=1e-14)
+            assert np.allclose(cijk_21, cijk_21_mat, atol=1e-14)
+            assert np.allclose(cijk_22, cijk_22_mat, atol=1e-14)
+            assert np.allclose(cijk_23, cijk_23_mat, atol=1e-14)
+            assert np.allclose(cijk_3, cijk_3_mat, atol=1e-14)
+
+            # evaluation of splines:
             fh_0  = np.empty((eta1_v.size, eta2_v.size, eta3_v.size))
             fh_11 = fh_0.copy()
             fh_12 = fh_0.copy()
@@ -424,52 +488,17 @@ def test_projectors_3d():
             fh_3  = fh_0.copy()
             f_mat = fh_0.copy()
 
-            # slow loops:
-            for i, eta1 in enumerate(eta1_v):
-                for j, eta2 in enumerate(eta2_v):
-                    for k, eta3 in enumerate(eta3_v):
+            fh_0  = Vh_tensor.evaluate_NNN(eta1_v, eta2_v, eta3_v, cijk_0)
+            fh_11 = Vh_tensor.evaluate_DNN(eta1_v, eta2_v, eta3_v, cijk_11)
+            fh_12 = Vh_tensor.evaluate_NDN(eta1_v, eta2_v, eta3_v, cijk_12)
+            fh_13 = Vh_tensor.evaluate_NND(eta1_v, eta2_v, eta3_v, cijk_13)
+            fh_21 = Vh_tensor.evaluate_NDD(eta1_v, eta2_v, eta3_v, cijk_21)
+            fh_22 = Vh_tensor.evaluate_DND(eta1_v, eta2_v, eta3_v, cijk_22)
+            fh_23 = Vh_tensor.evaluate_DDN(eta1_v, eta2_v, eta3_v, cijk_23)
+            fh_3  = Vh_tensor.evaluate_DDD(eta1_v, eta2_v, eta3_v, cijk_3)
 
-                        fh_0[i, j, k]   = eval.evaluate_n_n_n(Vh_eta1.T, Vh_eta2.T, Vh_eta3.T,
-                                                              Vh_eta1.p, Vh_eta2.p, Vh_eta3.p,
-                                                              Vh_eta1.NbaseN, Vh_eta2.NbaseN, Vh_eta3.NbaseN,
-                                                              cijk_0, eta1, eta2, eta3)
-
-                        fh_11[i, j, k]  = eval.evaluate_d_n_n(Vh_eta1.t, Vh_eta2.T, Vh_eta3.T,
-                                                              Vh_eta1.p - 1, Vh_eta2.p, Vh_eta3.p,
-                                                              Vh_eta1.NbaseD, Vh_eta2.NbaseN, Vh_eta3.NbaseN,
-                                                              cijk_11, eta1, eta2, eta3)
-
-                        fh_12[i, j, k]  = eval.evaluate_n_d_n(Vh_eta1.T, Vh_eta2.t, Vh_eta3.T,
-                                                              Vh_eta1.p, Vh_eta2.p - 1, Vh_eta3.p,
-                                                              Vh_eta1.NbaseN, Vh_eta2.NbaseD, Vh_eta3.NbaseN,
-                                                              cijk_12, eta1, eta2, eta3)
-
-                        fh_13[i, j, k]  = eval.evaluate_n_n_d(Vh_eta1.T, Vh_eta2.T, Vh_eta3.t,
-                                                              Vh_eta1.p, Vh_eta2.p, Vh_eta3.p - 1,
-                                                              Vh_eta1.NbaseN, Vh_eta2.NbaseN, Vh_eta3.NbaseD,
-                                                              cijk_13, eta1, eta2, eta3)
-
-                        fh_21[i, j, k]  = eval.evaluate_n_d_d(Vh_eta1.T, Vh_eta2.t, Vh_eta3.t,
-                                                              Vh_eta1.p, Vh_eta2.p - 1, Vh_eta3.p - 1,
-                                                              Vh_eta1.NbaseN, Vh_eta2.NbaseD, Vh_eta3.NbaseD,
-                                                              cijk_21, eta1, eta2, eta3) 
-
-                        fh_22[i, j, k]  = eval.evaluate_d_n_d(Vh_eta1.t, Vh_eta2.T, Vh_eta3.t,
-                                                              Vh_eta1.p - 1, Vh_eta2.p, Vh_eta3.p - 1,
-                                                              Vh_eta1.NbaseD, Vh_eta2.NbaseN, Vh_eta3.NbaseD,
-                                                              cijk_22, eta1, eta2, eta3) 
-
-                        fh_23[i, j, k]  = eval.evaluate_d_d_n(Vh_eta1.t, Vh_eta2.t, Vh_eta3.T,
-                                                              Vh_eta1.p - 1, Vh_eta2.p - 1, Vh_eta3.p,
-                                                              Vh_eta1.NbaseD, Vh_eta2.NbaseD, Vh_eta3.NbaseN,
-                                                              cijk_23, eta1, eta2, eta3) 
-
-                        fh_3[i, j, k]   = eval.evaluate_d_d_d(Vh_eta1.t, Vh_eta2.t, Vh_eta3.t,
-                                                              Vh_eta1.p - 1, Vh_eta2.p - 1, Vh_eta3.p - 1,
-                                                              Vh_eta1.NbaseD, Vh_eta2.NbaseD, Vh_eta3.NbaseD,
-                                                              cijk_3, eta1, eta2, eta3)     
-
-                        f_mat[i, j, k] = f(eta1, eta2, eta3)
+            # compute error
+            f_mat = f(ee1, ee2, ee3)
 
             err0.append(np.abs(np.max(fh_0 - f_mat)))
             err11.append(np.abs(np.max(fh_11 - f_mat)))
@@ -492,7 +521,7 @@ def test_projectors_3d():
             #print('look  :', np.max(f_cla(eta_v)), np.min(f_cla(eta_v)))
             #print('look h:', np.max(f0_h_cla), np.min(f0_h_cla))
 
-            if False:
+            if True:
                 print('p: {0:2d}, Nel: {1:2d},   0: {2:6.4f} {3:4.2f},   11: {4:6.4f} {5:4.2f},   12: {6:6.4f} {7:4.2f},   13: {8:6.4f} {9:4.2f},   21: {10:6.4f} {11:4.2f},   22: {12:6.4f} {13:4.2f},   23: {14:6.4f} {15:4.2f},  3: {16:6.4f} {17:4.2f}'.format(
                     p, Nel,
                     err0[-1], order0[-1],
@@ -520,11 +549,12 @@ def test_projectors_3d():
         assert np.all(order23[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
         assert np.all(order3[1:]  > (p)*np.ones(len(order0) - 1) - 0.3 )
 
+
     #plt.show()
 
 
 
 if __name__ == '__main__':
     test_projectors_1d()
-    #test_projectors_2d()
-    #test_projectors_3d()
+    test_projectors_2d()
+    test_projectors_3d()
