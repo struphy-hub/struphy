@@ -485,7 +485,7 @@ class projectors_global_1d:
         return R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices 
         
         #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
-        
+
 
 
 # ======================= 2d for tensor products ====================================
@@ -718,11 +718,7 @@ class projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection.
         '''
 
-        mat_f = self.eval_for_PI('0', fun)
-        rhs   = self.dofs('0', mat_f) 
-
-        assert rhs.shape==(self.n1, self.n2) 
-        coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
+        coeffs = self.PI('0', fun)
         
         return coeffs
 
@@ -747,17 +743,8 @@ class projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection of fun2 on ND.
         '''
 
-        mat_f = self.eval_for_PI('11', fun1)
-        rhs   = self.dofs('11', mat_f) 
-
-        assert rhs.shape==(self.d1, self.n2) 
-        coeffs1 = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
-
-        mat_f = self.eval_for_PI('12', fun2)
-        rhs   = self.dofs('12', mat_f) 
-
-        assert rhs.shape==(self.n1, self.d2) 
-        coeffs2 = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
+        coeffs1 = self.PI('11', fun1)
+        coeffs2 = self.PI('12', fun2)
             
         return coeffs1, coeffs2
 
@@ -778,15 +765,11 @@ class projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection.
         '''
 
-        mat_f = self.eval_for_PI('2', fun)
-        rhs   = self.dofs('2', mat_f) 
-
-        assert rhs.shape==(self.d1, self.d2) 
-        coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        coeffs = self.PI('2', fun)
         
         return coeffs
 
-    
+
 
 # ======================= 3d for tensor products ====================================
 class projectors_tensor_3d:
@@ -1034,9 +1017,9 @@ class projectors_tensor_3d:
             raise ValueError ("wrong projector specified")
             
         return coeffs
-    
 
-# ======================================        
+
+    # ======================================        
     def PI(self, comp, fun):
         '''
         De Rham commuting projectors.
@@ -1104,12 +1087,8 @@ class projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection.
         '''
 
-        mat_f = self.eval_for_PI('0', fun)
-        rhs   = self.dofs('0', mat_f) 
+        coeffs = self.PI('0', fun)
 
-        assert rhs.shape==(self.n1, self.n2, self.n3) 
-        coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
-            
         return coeffs
 
 
@@ -1137,24 +1116,10 @@ class projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection of fun3 on NND.
         '''
 
-        mat_f = self.eval_for_PI('11', fun1)
-        rhs   = self.dofs('11', mat_f) 
+        coeffs1 = self.PI('11', fun1)
+        coeffs2 = self.PI('12', fun2)
+        coeffs3 = self.PI('13', fun3)
 
-        assert rhs.shape==(self.d1, self.n2, self.n3) 
-        coeffs1 = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
-
-        mat_f = self.eval_for_PI('12', fun2)
-        rhs   = self.dofs('12', mat_f) 
-
-        assert rhs.shape==(self.n1, self.d2, self.n3) 
-        coeffs2 = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
-            
-        mat_f = self.eval_for_PI('13', fun3)
-        rhs   = self.dofs('13', mat_f) 
-
-        assert rhs.shape==(self.n1, self.n2, self.d3) 
-        coeffs3 = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
-            
         return coeffs1, coeffs2, coeffs3
 
 
@@ -1182,24 +1147,10 @@ class projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection of fun3 on DDN.
         '''
 
-        mat_f = self.eval_for_PI('21', fun1)
-        rhs   = self.dofs('21', mat_f) 
+        coeffs1 = self.PI('21', fun1)
+        coeffs2 = self.PI('22', fun2)
+        coeffs3 = self.PI('23', fun3)
 
-        assert rhs.shape==(self.n1, self.d2, self.d3) 
-        coeffs1 = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
-
-        mat_f = self.eval_for_PI('22', fun2)
-        rhs   = self.dofs('22', mat_f) 
-
-        assert rhs.shape==(self.d1, self.n2, self.d3) 
-        coeffs2 = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
-
-        mat_f = self.eval_for_PI('23', fun3)
-        rhs   = self.dofs('23', mat_f) 
-
-        assert rhs.shape==(self.d1, self.d2, self.n3) 
-        coeffs3 = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
-            
         return coeffs1, coeffs2, coeffs3
 
 
@@ -1219,14 +1170,10 @@ class projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection.
         '''
 
-        mat_f = self.eval_for_PI('3', fun)
-        rhs   = self.dofs('3', mat_f) 
+        coeffs = self.PI('3', fun)
 
-        assert rhs.shape==(self.d1, self.d2, self.d3) 
-        coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
-            
         return coeffs
-    
+
 
 
 # ======================= 2d ====================================
@@ -1741,11 +1688,11 @@ class projectors_global_2d:
             return self.solve_V3(include_bc, rhs)
         else:
             return rhs
-    
-    
-    
 
-    
+
+
+
+
 # ======================= 3d ====================================
 class projectors_global_3d:
     """
