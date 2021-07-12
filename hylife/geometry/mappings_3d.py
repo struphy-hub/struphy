@@ -789,7 +789,7 @@ def mappings_all(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3
     
     return value
 
-                
+
 # ==========================================================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
 def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
@@ -800,7 +800,7 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
         - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
         - g      : metric tensor df^T * df 
         - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
-    
+
     Parameters:
     -----------
         eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1]
@@ -821,7 +821,7 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
@@ -839,7 +839,7 @@ def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1
         - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
         - g      : metric tensor df^T * df 
         - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
-    
+
     Parameters:
     -----------
         eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1] produced from sparse meshgrid
@@ -860,7 +860,7 @@ def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
