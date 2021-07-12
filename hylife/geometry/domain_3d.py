@@ -364,19 +364,37 @@ class domain:
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
+
+            is_sparse_meshgrid = None
             
             # tensor-product evaluation
             if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                is_sparse_meshgrid = True
             
             # general evaluation
-            else:
+            else: # Detect if sparse or dense
                 E1, E2, E3 = eta1, eta2, eta3
+                values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+                # Distinguish if it is sparse or dense.
+                # Sparse: eta1.shape = (n1,  1,  1)
+                # Dense : eta1.shape = (n1, n2, n3)
+
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    is_sparse_meshgrid = True
+
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    is_sparse_meshgrid = False
+                    
                 
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-                
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                
+                values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+                if is_sparse_meshgrid:
+                    mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                else:
+                    mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         else:
             raise ValueError('given evaluation points are in wrong shape')
             
@@ -582,14 +600,29 @@ class domain:
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
-            
+
+            is_sparse_meshgrid = None
+
             # tensor-product evaluation
             if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                is_sparse_meshgrid = True
             
             # general evaluation
             else:
+
                 E1, E2, E3 = eta1, eta2, eta3
+
+                # Distinguish if it is sparse or dense.
+                # Sparse: eta1.shape = (n1,  1,  1)
+                # Dense : eta.shape = (n1, n2, n3)
+
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    is_sparse_meshgrid = True
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    is_sparse_meshgrid = False
                 
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
             
@@ -616,8 +649,11 @@ class domain:
                     a_in = np.array([a(X, Y, Z)])
                 else:
                     a_in = np.array([a])
-                    
-            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
+            if is_sparse_meshgrid:
+                pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            else:
+                pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         
         else:
             raise ValueError('given evaluation points are in wrong shape')
@@ -667,14 +703,29 @@ class domain:
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
+
+            is_sparse_meshgrid = None
             
             # tensor-product evaluation
             if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                is_sparse_meshgrid = True
             
             # general evaluation
             else:
+
                 E1, E2, E3 = eta1, eta2, eta3
+
+                # Distinguish if it is sparse or dense.
+                # Sparse: eta1.shape = (n1,  1,  1)
+                # Dense : eta.shape = (n1, n2, n3)
+
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    is_sparse_meshgrid = True
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    is_sparse_meshgrid = False
                 
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
             
@@ -692,8 +743,13 @@ class domain:
                 else:
                     a_in = np.array([a])
                     
-            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            if is_sparse_meshgrid:
+                pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            else:
+                pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         
+            
+
         else:
             raise ValueError('given evaluation points are in wrong shape')
     

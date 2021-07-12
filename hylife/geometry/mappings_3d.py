@@ -826,3 +826,42 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
         for i2 in range(n2):
             for i3 in range(n3):
                 mat_f[i1, i2, i3] = mappings_all(eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+
+# ==========================================================================================
+@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
+def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
+    '''Same as `kernel_evluate`, but for sparse meshgrid.
+    Matrix-wise evaluation of
+        - f      : mapping x_i = f_i(eta1, eta2, eta3)
+        - df     : Jacobian matrix df_i/deta_j
+        - det_df : Jacobian determinant det(df)
+        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+        - g      : metric tensor df^T * df 
+        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+    
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1] produced from sparse meshgrid
+        kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        mat_f:  ndarray
+            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
+    '''
+
+    n1 = shape(eta1)[0]
+    n2 = shape(eta2)[1]
+    n3 = shape(eta3)[2]
+    
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                mat_f[i1, i2, i3] = mappings_all(eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
