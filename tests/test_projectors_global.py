@@ -1,7 +1,7 @@
 from matplotlib.pyplot import subplot
 
 
-def test_projectors_1d():
+def test_projectors_1d(plot=False, p_range=4):
     '''
     1) test order of convergence
     2) test projector property, i.e. Pi(basis_function) = basis_function
@@ -26,7 +26,7 @@ def test_projectors_1d():
 
     print('1) convergence test:')
     # 1) convergence test
-    for p in range(1,7): 
+    for p in range(1, p_range): 
         err0_per = [10.]
         err0_cla = [10.]
         err1_per = [10.]
@@ -43,25 +43,25 @@ def test_projectors_1d():
             Vh_cla = spl.spline_space_1d(Nel, p, spl_kind=False)
 
             # projectors
-            proj_per = proj.projectors_global_1d(Vh_per, 6)
-            proj_cla = proj.projectors_global_1d(Vh_cla, 6)
+            Vh_per.set_projectors()
+            Vh_cla.set_projectors()
 
             # callable as input
-            c0_per = proj_per.pi_0(f_per)
-            c0_cla = proj_cla.pi_0(f_cla)
-            c1_per = proj_per.pi_1(f_per)
-            c1_cla = proj_cla.pi_1(f_cla)
+            c0_per = Vh_per.projectors.pi_0(f_per)
+            c0_cla = Vh_cla.projectors.pi_0(f_cla)
+            c1_per = Vh_per.projectors.pi_1(f_per)
+            c1_cla = Vh_cla.projectors.pi_1(f_cla)
 
             # dofs as input
-            dofs0_per = proj_per.dofs_0(f_per)
-            dofs0_cla = proj_cla.dofs_0(f_cla)
-            dofs1_per = proj_per.dofs_1(f_per)
-            dofs1_cla = proj_cla.dofs_1(f_cla)
+            dofs0_per = Vh_per.projectors.dofs_0(f_per)
+            dofs0_cla = Vh_cla.projectors.dofs_0(f_cla)
+            dofs1_per = Vh_per.projectors.dofs_1(f_per)
+            dofs1_cla = Vh_cla.projectors.dofs_1(f_cla)
 
-            c0_per_mat = proj_per.pi_0_mat(dofs0_per)
-            c0_cla_mat = proj_cla.pi_0_mat(dofs0_cla)
-            c1_per_mat = proj_per.pi_1_mat(dofs1_per)
-            c1_cla_mat = proj_cla.pi_1_mat(dofs1_cla)
+            c0_per_mat = Vh_per.projectors.pi_0_mat(dofs0_per)
+            c0_cla_mat = Vh_cla.projectors.pi_0_mat(dofs0_cla)
+            c1_per_mat = Vh_per.projectors.pi_1_mat(dofs1_per)
+            c1_cla_mat = Vh_cla.projectors.pi_1_mat(dofs1_cla)
 
             # result must be the same
             assert np.allclose(c0_per, c0_per_mat, atol=1e-14)
@@ -120,12 +120,13 @@ def test_projectors_1d():
         assert np.all(order1_cla[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.3 )
 
 
-    #plt.show()
+    if plot:
+        plt.show()
 
 
     print('2) projector test:')
     # 2) projector test
-    for p in range(1,9):
+    for p in range(1, p_range):
 
         # spline spaces
         Vh_per = spl.spline_space_1d(32, p, spl_kind=True)
@@ -134,8 +135,8 @@ def test_projectors_1d():
         for nq in range(1,6):
 
             # projectors
-            proj_per = proj.projectors_global_1d(Vh_per, nq)
-            proj_cla = proj.projectors_global_1d(Vh_cla, nq)
+            Vh_per.set_projectors(nq)
+            Vh_cla.set_projectors(nq)
 
             f0_per = np.zeros(Vh_per.NbaseN)
             f1_per = np.zeros(Vh_per.NbaseD)
@@ -154,11 +155,11 @@ def test_projectors_1d():
                 f = lambda eta : Vh_per.evaluate_N(eta, f0_per)
                 
                 # callable as input
-                c0_per = proj_per.pi_0(f)
+                c0_per = Vh_per.projectors.pi_0(f)
 
                 # dofs as input
-                dofs0_per = proj_per.dofs_0(f)
-                c0_per_mat = proj_per.pi_0_mat(dofs0_per)
+                dofs0_per = Vh_per.projectors.dofs_0(f)
+                c0_per_mat = Vh_per.projectors.pi_0_mat(dofs0_per)
 
                 # result must be the same
                 assert np.allclose(c0_per, c0_per_mat, atol=1e-14)
@@ -175,11 +176,11 @@ def test_projectors_1d():
                 f = lambda eta : Vh_per.evaluate_D(eta, f1_per)
                 
                 # callable as input
-                c1_per = proj_per.pi_1(f)
+                c1_per = Vh_per.projectors.pi_1(f)
 
                 # dofs as input
-                dofs1_per = proj_per.dofs_1(f)
-                c1_per_mat = proj_per.pi_1_mat(dofs1_per)
+                dofs1_per = Vh_per.projectors.dofs_1(f)
+                c1_per_mat = Vh_per.projectors.pi_1_mat(dofs1_per)
 
                 # result must be the same
                 assert np.allclose(c1_per, c1_per_mat, atol=1e-14)
@@ -196,11 +197,11 @@ def test_projectors_1d():
                 f = lambda eta : Vh_cla.evaluate_N(eta, f0_cla)
                 
                 # callable as input
-                c0_cla = proj_cla.pi_0(f)
+                c0_cla = Vh_cla.projectors.pi_0(f)
 
                 # dofs as input
-                dofs0_cla = proj_cla.dofs_0(f)
-                c0_cla_mat = proj_cla.pi_0_mat(dofs0_cla)
+                dofs0_cla = Vh_cla.projectors.dofs_0(f)
+                c0_cla_mat = Vh_cla.projectors.pi_0_mat(dofs0_cla)
 
                 # result must be the same
                 assert np.allclose(c0_cla, c0_cla_mat, atol=1e-14)
@@ -217,11 +218,11 @@ def test_projectors_1d():
                 f = lambda eta : Vh_cla.evaluate_D(eta, f1_cla)
                 
                 # callable as input
-                c1_cla = proj_cla.pi_1(f)
+                c1_cla = Vh_cla.projectors.pi_1(f)
 
                 # dofs as input
-                dofs1_cla = proj_cla.dofs_1(f)
-                c1_cla_mat = proj_cla.pi_1_mat(dofs1_cla)
+                dofs1_cla = Vh_cla.projectors.dofs_1(f)
+                c1_cla_mat = Vh_cla.projectors.pi_1_mat(dofs1_cla)
 
                 # result must be the same
                 assert np.allclose(c1_cla, c1_cla_mat, atol=1e-14)
@@ -245,7 +246,7 @@ def test_projectors_1d():
             
 
 
-def test_projectors_2d():
+def test_projectors_2d(p_range=4):
 
     import sys
     sys.path.append('..')
@@ -266,7 +267,7 @@ def test_projectors_2d():
 
     print('Convergence test 2d:')
     # convergence test
-    for p in range(1,5): 
+    for p in range(1, p_range): 
         err0  = [1.]
         err11 = [1.]
         err12 = [1.]
@@ -282,37 +283,37 @@ def test_projectors_2d():
             Vh_eta1 = spl.spline_space_1d(Nel, p, spl_kind=False)
             Vh_eta2 = spl.spline_space_1d(Nel, p, spl_kind=True)
 
-            Vh_tensor = spl.tensor_spline_space([Vh_eta1, Vh_eta2]) # needed only for evaluation of splines
+            Vh_2d = spl.tensor_spline_space([Vh_eta1, Vh_eta2]) 
 
             # projectors
-            proj_eta1 = proj.projectors_global_1d(Vh_eta1, 6)
-            proj_eta2 = proj.projectors_global_1d(Vh_eta2, 6)
+            Vh_eta1.set_projectors()
+            Vh_eta2.set_projectors()
 
-            proj_2d = proj.projectors_tensor_2d([proj_eta1, proj_eta2])
+            Vh_2d.set_projectors()
 
             # A) callable as input
-            cij_0          = proj_2d.PI_0(f)
-            cij_11, cij_12 = proj_2d.PI_1(f, f)
-            cij_2          = proj_2d.PI_2(f)
+            cij_0          = Vh_2d.projectors.PI_0(f)
+            cij_11, cij_12 = Vh_2d.projectors.PI_1(f, f)
+            cij_2          = Vh_2d.projectors.PI_2(f)
 
             # B) dofs as input
             # 1) values of f at point sets
-            f_pts_0  = proj_2d.eval_for_PI('0', f)  
-            f_pts_11 = proj_2d.eval_for_PI('11', f)  
-            f_pts_12 = proj_2d.eval_for_PI('12', f)  
-            f_pts_2  = proj_2d.eval_for_PI('2', f)    
+            f_pts_0  = Vh_2d.projectors.eval_for_PI('0', f)  
+            f_pts_11 = Vh_2d.projectors.eval_for_PI('11', f)  
+            f_pts_12 = Vh_2d.projectors.eval_for_PI('12', f)  
+            f_pts_2  = Vh_2d.projectors.eval_for_PI('2', f)    
             
             # 2) degrees of freedom 
-            dofs_0  = proj_2d.dofs('0', f_pts_0)
-            dofs_11 = proj_2d.dofs('11', f_pts_11)
-            dofs_12 = proj_2d.dofs('12', f_pts_12)
-            dofs_2  = proj_2d.dofs('2', f_pts_2)
+            dofs_0  = Vh_2d.projectors.dofs('0', f_pts_0)
+            dofs_11 = Vh_2d.projectors.dofs('11', f_pts_11)
+            dofs_12 = Vh_2d.projectors.dofs('12', f_pts_12)
+            dofs_2  = Vh_2d.projectors.dofs('2', f_pts_2)
 
             # 3) fem coefficients obtained from projection
-            cij_0_mat  = proj_2d.PI_mat('0', dofs_0)
-            cij_11_mat = proj_2d.PI_mat('11', dofs_11)
-            cij_12_mat = proj_2d.PI_mat('12', dofs_12)
-            cij_2_mat  = proj_2d.PI_mat('2', dofs_2)
+            cij_0_mat  = Vh_2d.projectors.PI_mat('0', dofs_0)
+            cij_11_mat = Vh_2d.projectors.PI_mat('11', dofs_11)
+            cij_12_mat = Vh_2d.projectors.PI_mat('12', dofs_12)
+            cij_2_mat  = Vh_2d.projectors.PI_mat('2', dofs_2)
 
             # result from A) and B) must be the same
             assert np.allclose(cij_0, cij_0_mat, atol=1e-14)
@@ -327,10 +328,10 @@ def test_projectors_2d():
             fh_2  = fh_0.copy()
             f_mat = fh_0.copy()
 
-            fh_0  = Vh_tensor.evaluate_NN(eta1_v, eta2_v, cij_0)
-            fh_11 = Vh_tensor.evaluate_DN(eta1_v, eta2_v, cij_11)
-            fh_12 = Vh_tensor.evaluate_ND(eta1_v, eta2_v, cij_12)
-            fh_2  = Vh_tensor.evaluate_DD(eta1_v, eta2_v, cij_2)
+            fh_0  = Vh_2d.evaluate_NN(eta1_v, eta2_v, cij_0)
+            fh_11 = Vh_2d.evaluate_DN(eta1_v, eta2_v, cij_11)
+            fh_12 = Vh_2d.evaluate_ND(eta1_v, eta2_v, cij_12)
+            fh_2  = Vh_2d.evaluate_DD(eta1_v, eta2_v, cij_2)
 
             # compute error:
             f_mat = f(ee1, ee2)
@@ -373,7 +374,7 @@ def test_projectors_2d():
 
 
 
-def test_projectors_3d():
+def test_projectors_3d(p_range=4):
 
     import sys
     sys.path.append('..')
@@ -396,7 +397,7 @@ def test_projectors_3d():
 
     print('Convergence test 3d:')
     # convergence test
-    for p in range(1,4): 
+    for p in range(1, p_range): 
         err0  = [10.]
         err11 = [10.]
         err12 = [10.]
@@ -421,51 +422,51 @@ def test_projectors_3d():
             Vh_eta2 = spl.spline_space_1d(Nel, p, spl_kind=True)
             Vh_eta3 = spl.spline_space_1d(Nel, p, spl_kind=True)
 
-            Vh_tensor = spl.tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) # needed only for evaluation of splines
+            Vh_3d = spl.tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) 
 
             # projectors
-            proj_eta1 = proj.projectors_global_1d(Vh_eta1, 6)
-            proj_eta2 = proj.projectors_global_1d(Vh_eta2, 6)
-            proj_eta3 = proj.projectors_global_1d(Vh_eta3, 6)
+            Vh_eta1.set_projectors()
+            Vh_eta2.set_projectors()
+            Vh_eta3.set_projectors()
 
-            proj_3d = proj.projectors_tensor_3d([proj_eta1, proj_eta2, proj_eta3])
+            Vh_3d.set_projectors()
 
             # A) callable as input
-            cijk_0                    = proj_3d.PI_0(f)
-            cijk_11, cijk_12, cijk_13 = proj_3d.PI_1(f, f, f)
-            cijk_21, cijk_22, cijk_23 = proj_3d.PI_2(f, f, f)
-            cijk_3                    = proj_3d.PI_3(f)
+            cijk_0                    = Vh_3d.projectors.PI_0(f)
+            cijk_11, cijk_12, cijk_13 = Vh_3d.projectors.PI_1(f, f, f)
+            cijk_21, cijk_22, cijk_23 = Vh_3d.projectors.PI_2(f, f, f)
+            cijk_3                    = Vh_3d.projectors.PI_3(f)
 
             # B) dofs as input
             # 1) values of f at point sets
-            f_pts_0  = proj_3d.eval_for_PI('0', f)  
-            f_pts_11 = proj_3d.eval_for_PI('11', f)  
-            f_pts_12 = proj_3d.eval_for_PI('12', f)
-            f_pts_13 = proj_3d.eval_for_PI('13', f)
-            f_pts_21 = proj_3d.eval_for_PI('21', f)
-            f_pts_22 = proj_3d.eval_for_PI('22', f)
-            f_pts_23 = proj_3d.eval_for_PI('23', f)  
-            f_pts_3  = proj_3d.eval_for_PI('3', f)    
+            f_pts_0  = Vh_3d.projectors.eval_for_PI('0', f)  
+            f_pts_11 = Vh_3d.projectors.eval_for_PI('11', f)  
+            f_pts_12 = Vh_3d.projectors.eval_for_PI('12', f)
+            f_pts_13 = Vh_3d.projectors.eval_for_PI('13', f)
+            f_pts_21 = Vh_3d.projectors.eval_for_PI('21', f)
+            f_pts_22 = Vh_3d.projectors.eval_for_PI('22', f)
+            f_pts_23 = Vh_3d.projectors.eval_for_PI('23', f)  
+            f_pts_3  = Vh_3d.projectors.eval_for_PI('3', f)    
             
             # 2) degrees of freedom 
-            dofs_0  = proj_3d.dofs('0', f_pts_0)
-            dofs_11 = proj_3d.dofs('11', f_pts_11)
-            dofs_12 = proj_3d.dofs('12', f_pts_12)
-            dofs_13 = proj_3d.dofs('13', f_pts_13)
-            dofs_21 = proj_3d.dofs('21', f_pts_21)
-            dofs_22 = proj_3d.dofs('22', f_pts_22)
-            dofs_23 = proj_3d.dofs('23', f_pts_23)
-            dofs_3  = proj_3d.dofs('3', f_pts_3)
+            dofs_0  = Vh_3d.projectors.dofs('0', f_pts_0)
+            dofs_11 = Vh_3d.projectors.dofs('11', f_pts_11)
+            dofs_12 = Vh_3d.projectors.dofs('12', f_pts_12)
+            dofs_13 = Vh_3d.projectors.dofs('13', f_pts_13)
+            dofs_21 = Vh_3d.projectors.dofs('21', f_pts_21)
+            dofs_22 = Vh_3d.projectors.dofs('22', f_pts_22)
+            dofs_23 = Vh_3d.projectors.dofs('23', f_pts_23)
+            dofs_3  = Vh_3d.projectors.dofs('3', f_pts_3)
 
             # 3) fem coefficients obtained from projection
-            cijk_0_mat  = proj_3d.PI_mat('0', dofs_0)
-            cijk_11_mat = proj_3d.PI_mat('11', dofs_11)
-            cijk_12_mat = proj_3d.PI_mat('12', dofs_12)
-            cijk_13_mat = proj_3d.PI_mat('13', dofs_13)
-            cijk_21_mat = proj_3d.PI_mat('21', dofs_21)
-            cijk_22_mat = proj_3d.PI_mat('22', dofs_22)
-            cijk_23_mat = proj_3d.PI_mat('23', dofs_23)
-            cijk_3_mat  = proj_3d.PI_mat('3', dofs_3)
+            cijk_0_mat  = Vh_3d.projectors.PI_mat('0', dofs_0)
+            cijk_11_mat = Vh_3d.projectors.PI_mat('11', dofs_11)
+            cijk_12_mat = Vh_3d.projectors.PI_mat('12', dofs_12)
+            cijk_13_mat = Vh_3d.projectors.PI_mat('13', dofs_13)
+            cijk_21_mat = Vh_3d.projectors.PI_mat('21', dofs_21)
+            cijk_22_mat = Vh_3d.projectors.PI_mat('22', dofs_22)
+            cijk_23_mat = Vh_3d.projectors.PI_mat('23', dofs_23)
+            cijk_3_mat  = Vh_3d.projectors.PI_mat('3', dofs_3)
 
             # result from A) and B) must be the same
             assert np.allclose(cijk_0, cijk_0_mat, atol=1e-14)
@@ -488,14 +489,14 @@ def test_projectors_3d():
             fh_3  = fh_0.copy()
             f_mat = fh_0.copy()
 
-            fh_0  = Vh_tensor.evaluate_NNN(eta1_v, eta2_v, eta3_v, cijk_0)
-            fh_11 = Vh_tensor.evaluate_DNN(eta1_v, eta2_v, eta3_v, cijk_11)
-            fh_12 = Vh_tensor.evaluate_NDN(eta1_v, eta2_v, eta3_v, cijk_12)
-            fh_13 = Vh_tensor.evaluate_NND(eta1_v, eta2_v, eta3_v, cijk_13)
-            fh_21 = Vh_tensor.evaluate_NDD(eta1_v, eta2_v, eta3_v, cijk_21)
-            fh_22 = Vh_tensor.evaluate_DND(eta1_v, eta2_v, eta3_v, cijk_22)
-            fh_23 = Vh_tensor.evaluate_DDN(eta1_v, eta2_v, eta3_v, cijk_23)
-            fh_3  = Vh_tensor.evaluate_DDD(eta1_v, eta2_v, eta3_v, cijk_3)
+            fh_0  = Vh_3d.evaluate_NNN(eta1_v, eta2_v, eta3_v, cijk_0)
+            fh_11 = Vh_3d.evaluate_DNN(eta1_v, eta2_v, eta3_v, cijk_11)
+            fh_12 = Vh_3d.evaluate_NDN(eta1_v, eta2_v, eta3_v, cijk_12)
+            fh_13 = Vh_3d.evaluate_NND(eta1_v, eta2_v, eta3_v, cijk_13)
+            fh_21 = Vh_3d.evaluate_NDD(eta1_v, eta2_v, eta3_v, cijk_21)
+            fh_22 = Vh_3d.evaluate_DND(eta1_v, eta2_v, eta3_v, cijk_22)
+            fh_23 = Vh_3d.evaluate_DDN(eta1_v, eta2_v, eta3_v, cijk_23)
+            fh_3  = Vh_3d.evaluate_DDD(eta1_v, eta2_v, eta3_v, cijk_3)
 
             # compute error
             f_mat = f(ee1, ee2, ee3)
@@ -553,8 +554,168 @@ def test_projectors_3d():
     #plt.show()
 
 
+def test_project_splines():
+    '''Project spline functions on various FEM spaces. 
+    '''
+
+    import os
+    import sys
+    sys.path.append('..') # Because we are inside './test/' directory.
+
+    import numpy as np
+
+    import hylife.geometry.domain_3d as dom
+    import hylife.utilitis_FEEC.projectors.projectors_global as pro
+    import hylife.utilitis_FEEC.spline_space as spl
+
+    Nel      = [16, 16, 8]
+    p        = [1, 1, 2]
+    spl_kind = [False, True, True]
+    n_quad   = p.copy()
+    bc       = ['d', 'd']
+
+    # 1d B-spline spline spaces for finite elements
+    spaces_FEM = [spl.spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+                    for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
+
+    # 3d tensor-product B-spline space for finite elements
+    tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
+
+    # projectors
+    spaces_FEM[0].set_projectors(n_quad[0]) 
+    spaces_FEM[1].set_projectors(n_quad[1])
+    spaces_FEM[2].set_projectors(n_quad[2])
+
+    tensor_space_FEM.set_projectors()
+
+    # Set extraction operators and discrete derivatives 
+    polar_splines = None
+    tensor_space_FEM.set_extraction_operators(bc, polar_splines) # why bc again passed?
+
+    ########################
+    # random spline in V0_h:
+    ########################
+    coeffs = np.random.rand(tensor_space_FEM.Ntot_0form)
+    coeffs = tensor_space_FEM.extract_0form(coeffs)
+
+    def phi_0(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, coeffs)
+
+    # project phi_0 on other spaces:
+    print('projecting phi_0... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_0)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_0, phi_0, phi_0)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_0, phi_0, phi_0)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_0)
+
+    assert np.allclose(c0, coeffs, atol=1e-14)
+
+    ########################
+    # random spline in V1_h:
+    ########################
+    coeffs = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
+    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_1form(coeffs)
+
+    def phi_11(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, coeffs_1)
+
+    def phi_12(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, coeffs_2)
+
+    def phi_13(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, coeffs_3)
+
+    # project phi_11 on other spaces:
+    print('projecting phi_11... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_11)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_11, phi_11, phi_11)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_11, phi_11, phi_11)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_11)
+
+    assert np.allclose(c11, coeffs_1, atol=1e-14)
+
+    # project phi_12 on other spaces:
+    print('projecting phi_12... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_12)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_12, phi_12, phi_12)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_12, phi_12, phi_12)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_12)
+
+    assert np.allclose(c12, coeffs_2, atol=1e-14)
+
+    # project phi_13 on other spaces:
+    print('projecting phi_13... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_13)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_13, phi_13, phi_13)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_13, phi_13, phi_13)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_13)
+
+    assert np.allclose(c13, coeffs_3, atol=1e-14)
+
+    ########################
+    # random spline in V2_h:
+    ########################
+    coeffs = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
+    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_2form(coeffs)
+
+    def phi_21(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, coeffs_1)
+
+    def phi_22(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, coeffs_2)
+
+    def phi_23(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, coeffs_3)
+
+    # project phi_21 on other spaces:
+    print('projecting phi_21... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_21)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_21, phi_21, phi_21)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_21, phi_21, phi_21)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_21)
+
+    assert np.allclose(c21, coeffs_1, atol=1e-14)
+
+    # project phi_22 on other spaces:
+    print('projecting phi_22... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_22)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_22, phi_22, phi_22)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_22, phi_22, phi_22)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_22)
+
+    assert np.allclose(c22, coeffs_2, atol=1e-14)
+
+    # project phi_23 on other spaces:
+    print('projecting phi_23... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_23)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_23, phi_23, phi_23)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_23, phi_23, phi_23)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_23)
+
+    assert np.allclose(c23, coeffs_3, atol=1e-14)
+
+    ########################
+    # random spline in V3_h:
+    ########################
+    coeffs = np.random.rand(tensor_space_FEM.Ntot_3form)
+    coeffs = tensor_space_FEM.extract_3form(coeffs)
+
+    def phi_3(eta1, eta2, eta3):
+        return tensor_space_FEM.evaluate_DDD(eta1, eta2, eta3, coeffs)
+
+    # project phi_3 on other spaces:
+    print('projecting phi_3... ')
+    c0            = tensor_space_FEM.projectors.PI_0(phi_3)
+    c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_3, phi_3, phi_3)
+    c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_3, phi_3, phi_3)
+    c3            = tensor_space_FEM.projectors.PI_3(phi_3)
+
+    assert np.allclose(c3, coeffs, atol=1e-14)
+
+
 
 if __name__ == '__main__':
-    test_projectors_1d()
+    test_projectors_1d(plot=True)
     test_projectors_2d()
     test_projectors_3d()
+    test_project_splines()

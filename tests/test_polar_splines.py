@@ -1,4 +1,4 @@
-def test_polar_splines_2D():
+def test_polar_splines_2D(plot=False):
     
     import sys
     sys.path.append('..')
@@ -121,8 +121,9 @@ def test_polar_splines_2D():
     ax3.set_xlabel('x [m]')
     ax3.set_ylabel('y [m]')
     
-    plt.show()
+    if plot: 
+        plt.show()
     
     
 if __name__ == '__main__':
-    test_polar_splines_2D()
+    test_polar_splines_2D(plot=True)
