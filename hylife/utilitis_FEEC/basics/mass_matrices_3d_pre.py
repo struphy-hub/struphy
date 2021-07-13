@@ -28,9 +28,9 @@ def get_M0_PRE(tensor_space_FEM, domain):
     spaces_pre   = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
     
     # tensor product mass matrices for pre-conditioning
-    spaces_pre[0].set_extraction_operators()
-    spaces_pre[1].set_extraction_operators()
-    spaces_pre[2].set_extraction_operators()
+    #spaces_pre[0].set_extraction_operators()
+    #spaces_pre[1].set_extraction_operators()
+    #spaces_pre[2].set_extraction_operators()
     
     spaces_pre[0].assemble_M0(lambda eta : domain.params_map[0]*np.ones(eta.shape, dtype=float))
     spaces_pre[1].assemble_M0(lambda eta : domain.params_map[1]*np.ones(eta.shape, dtype=float))
@@ -54,9 +54,9 @@ def get_M1_PRE(tensor_space_FEM, domain):
     spaces_pre   = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
     
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
-    spaces_pre[0].set_extraction_operators()
-    spaces_pre[1].set_extraction_operators()
-    spaces_pre[2].set_extraction_operators()
+    #spaces_pre[0].set_extraction_operators()
+    #spaces_pre[1].set_extraction_operators()
+    #spaces_pre[2].set_extraction_operators()
     
     spaces_pre[0].assemble_M0(lambda eta : domain.params_map[0]*np.ones(eta.shape, dtype=float))
     spaces_pre[1].assemble_M0(lambda eta : domain.params_map[1]*np.ones(eta.shape, dtype=float))
@@ -99,9 +99,9 @@ def get_M2_PRE(tensor_space_FEM, domain):
     spaces_pre   = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
     
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
-    spaces_pre[0].set_extraction_operators()
-    spaces_pre[1].set_extraction_operators()
-    spaces_pre[2].set_extraction_operators()
+    #spaces_pre[0].set_extraction_operators()
+    #spaces_pre[1].set_extraction_operators()
+    #spaces_pre[2].set_extraction_operators()
     
     spaces_pre[0].assemble_M0(lambda eta : domain.params_map[0]*np.ones(eta.shape, dtype=float))
     spaces_pre[1].assemble_M0(lambda eta : domain.params_map[1]*np.ones(eta.shape, dtype=float))
@@ -144,9 +144,9 @@ def get_M3_PRE(tensor_space_FEM, domain):
     spaces_pre   = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
     
     # tensor product mass matrices for pre-conditioning
-    spaces_pre[0].set_extraction_operators()
-    spaces_pre[1].set_extraction_operators()
-    spaces_pre[2].set_extraction_operators()
+    #spaces_pre[0].set_extraction_operators()
+    #spaces_pre[1].set_extraction_operators()
+    #spaces_pre[2].set_extraction_operators()
     
     spaces_pre[0].assemble_M1(lambda eta : 1/domain.params_map[0]*np.ones(eta.shape, dtype=float))
     spaces_pre[1].assemble_M1(lambda eta : 1/domain.params_map[1]*np.ones(eta.shape, dtype=float))
@@ -170,9 +170,9 @@ def get_Mv_PRE(tensor_space_FEM, domain):
     spaces_pre   = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel_pre, tensor_space_FEM.p, spl_kind_pre, tensor_space_FEM.n_quad)]
     
     # tensor product mass matrices for pre-conditioning of the three diagonal blocks
-    spaces_pre[0].set_extraction_operators()
-    spaces_pre[1].set_extraction_operators()
-    spaces_pre[2].set_extraction_operators()
+    #spaces_pre[0].set_extraction_operators()
+    #spaces_pre[1].set_extraction_operators()
+    #spaces_pre[2].set_extraction_operators()
     
     spaces_pre[0].assemble_M0(lambda eta : domain.params_map[0]**3*np.ones(eta.shape, dtype=float))
     spaces_pre[1].assemble_M0(lambda eta : domain.params_map[1]*np.ones(eta.shape, dtype=float))
@@ -224,7 +224,7 @@ def get_M0_PRE_3(tensor_space_FEM, domain):
     
     # set extraction operators
     space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    space_tor.set_extraction_operators()
+    #space_tor.set_extraction_operators()
     
     # mass matrices
     space_pol.assemble_M0_2D(domain)
@@ -253,7 +253,7 @@ def get_M1_PRE_3(tensor_space_FEM, domain):
     
     # set extraction operators
     space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    space_tor.set_extraction_operators()
+    #space_tor.set_extraction_operators()
     
     # mass matrices
     space_pol.assemble_M1_2D_blocks(domain)
@@ -295,7 +295,7 @@ def get_M2_PRE_3(tensor_space_FEM, domain):
     
     # set extraction operators
     space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    space_tor.set_extraction_operators()
+    #space_tor.set_extraction_operators()
     
     # mass matrices
     space_pol.assemble_M2_2D_blocks(domain)
@@ -337,7 +337,7 @@ def get_M3_PRE_3(tensor_space_FEM, domain):
     
     # set extraction operators
     space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    space_tor.set_extraction_operators()
+    #space_tor.set_extraction_operators()
     
     # mass matrices
     space_pol.assemble_M3_2D(domain)
@@ -367,7 +367,7 @@ def get_Mv_PRE_3(tensor_space_FEM, domain):
     
     # set extraction operators
     space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    space_tor.set_extraction_operators()
+    #space_tor.set_extraction_operators()
     
     # mass matrices
     space_pol.assemble_Mv_2D_blocks(domain)

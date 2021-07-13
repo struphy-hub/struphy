@@ -23,6 +23,8 @@ import hylife.utilitis_FEEC.basics.mass_matrices_1d as mass_1d
 import hylife.utilitis_FEEC.basics.mass_matrices_2d as mass_2d
 import hylife.utilitis_FEEC.basics.mass_matrices_3d as mass_3d
 
+from  hylife.utilitis_FEEC.projectors import projectors_global 
+
 import hylife.utilitis_FEEC.derivatives.derivatives as der
 
 
@@ -44,14 +46,23 @@ class spline_space_1d:
         
     n_quad : int
         number of Gauss-Legendre quadrature points per grid cell (defined by break points)
+
+    bc : [str, str]
+        boundary conditions at eta1=0.0 and eta1=1.0, 'f' free, 'd' dirichlet (remove boundary spline)
     """
     
-    def __init__(self, Nel, p, spl_kind, n_quad=6):
+    def __init__(self, Nel, p, spl_kind, n_quad=6, bc=['f', 'f']):
         
         self.Nel      = Nel                                              # number of elements
         self.p        = p                                                # spline degree
         self.spl_kind = spl_kind                                         # kind of spline space (periodic or clamped)
         
+        # boundary conditions at eta1=0. and eta1=1. in case clamped
+        if spl_kind:
+            self.bc   = [None, None]                                     
+        else:
+            self.bc   = bc                                               
+
         self.el_b     = np.linspace(0., 1., Nel + 1)                     # element boundaries
         self.delta    = 1/self.Nel                                       # element length
          
@@ -83,58 +94,64 @@ class spline_space_1d:
         self.basisN  = bsp.basis_ders_on_quad_grid(self.T, self.p    , self.pts, 0, normalize=False)
         self.basisD  = bsp.basis_ders_on_quad_grid(self.t, self.p - 1, self.pts, 0, normalize=True)
         
-    
-    
-    # ====== spline extraction operators ===============
-    def set_extraction_operators(self, bc=['f', 'f']):
-        
-        # set boundary conditions
-        self.bc = bc
-        
+        # -------------------------------------------------
+        # Set extraction operators for boundary conditions:
+        # -------------------------------------------------
         n1 = self.NbaseN
         d1 = self.NbaseD
 
-        # including boundary splines
+        # bc = 'f': including boundary splines
         self.E0_all = spa.identity(n1, dtype=float, format='csr')
         self.E1_all = spa.identity(d1, dtype=float, format='csr')
 
-        # without boundary splines
-        E_NN = spa.identity(n1, format='csr')
-        E_DD = spa.identity(d1, format='csr')
+        # bc = 'd': without boundary splines
+        E_NN = self.E0_all.copy()
+        E_DD = self.E1_all.copy()
 
         # remove contributions from N-splines at eta1 = 0
-        if   bc[0] == 'd' and self.spl_kind == False:
+        if   self.bc[0] == 'd':
             E_NN = E_NN[1:, :]
-        elif bc[0] == 'd' and self.spl_kind == True:
-            raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
         # remove contributions from N-splines at eta1 = 1
-        if   bc[1] == 'd' and self.spl_kind == False:
+        if   self.bc[1] == 'd': 
             E_NN = E_NN[:-1, :]
-        elif bc[1] == 'd' and self.spl_kind == True:
-            raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
         self.E0 = E_NN.tocsr().copy()
         self.E1 = E_DD.tocsr().copy()
+
+        print('Spline space set up (1d) done.')
                     
-            
+
+    # functions for setting mass matrices:        
     # =================================================
     def assemble_M0(self, weight=None):
         self.M0  = self.E0.dot(mass_1d.get_M(self, 0, 0, weight).dot(self.E0.T))
+        print('Assembly of M0 (1d) done.')
         
     # =================================================
     def assemble_M1(self, weight=None):
         self.M1  = self.E1.dot(mass_1d.get_M(self, 1, 1, weight).dot(self.E1.T))
+        print('Assembly of M1 (1d) done.')
         
     # =================================================
     def assemble_M01(self, weight=None):
         self.M01 = self.E0.dot(mass_1d.get_M(self, 0, 1, weight).dot(self.E1.T))
+        print('Assembly of M01 (1d) done.')
         
     # =================================================
     def assemble_M10(self, weight=None):
         self.M10 = self.E1.dot(mass_1d.get_M(self, 1, 0, weight).dot(self.E0.T))
+        print('Assembly of M10 (1d) done.')
+
     
+    # functions for setting projectors:        
+    # =================================================
+    def set_projectors(self, nq=6):
+        self.projectors = projectors_global.projectors_global_1d(self, nq)
+        print('Set projectors (1d) done.')
+
     
+    # spline evaluation and plotting
     # =================================================
     def evaluate_N(self, eta, coeff):
         """
@@ -142,7 +159,7 @@ class spline_space_1d:
 
         Parameters
         ----------
-        eta : double or np.ndarray
+        eta : double or ndarray
             evaluation point(s)
         
         coeff : array_like
@@ -153,7 +170,7 @@ class spline_space_1d:
         value : double or array_like
             evaluated FEM field at the point(s) eta
         """
-        
+            
         if isinstance(eta, np.ndarray):
             
             if eta.ndim == 1:
@@ -177,7 +194,7 @@ class spline_space_1d:
 
         Parameters
         ----------
-        eta : double or np.ndarray
+        eta : double or ndarray
             evaluation point(s)
         
         coeff : array_like
@@ -205,7 +222,6 @@ class spline_space_1d:
             return eva_1d.evaluate_d(self.t, self.p - 1, self.NbaseD, coeff, eta)
     
     
-    
     # =================================================
     def evaluate_dN(self, eta, coeff):
         """
@@ -213,10 +229,10 @@ class spline_space_1d:
 
         Parameters
         ----------
-        eta : double or array_like
+        eta : ndarray
             evaluation point(s)
         
-        coeff : array_like
+        coeff : double or array_like
             FEM coefficients
 
         Returns
@@ -224,23 +240,22 @@ class spline_space_1d:
         value : double or array_like
             evaluated FEM field at the point(s) eta
         """
-        
+  
         if isinstance(eta, np.ndarray):
-            
+
             if eta.ndim == 1:
                 values = np.empty(eta.size, dtype=float)
 
                 for i in range(eta.size):
                     values[i] = eva_1d.evaluate_diffn(self.T, self.p, self.NbaseN, coeff, eta[i])
-                         
+                            
             else:
                 raise ValueError('eta must be a 1d numpy array')
-                           
+                            
             return values
-        
+
         else:
             return eva_1d.evaluate_diffn(self.T, self.p, self.NbaseN, coeff, eta)
-    
     
     
     # =================================================
@@ -279,6 +294,11 @@ class spline_space_1d:
 
         else:
             print('only B-splines and M-splines available')
+
+        plt.plot(self.greville, np.zeros(self.greville.shape), 'ro', label='greville')
+        plt.plot(self.el_b, np.zeros(self.el_b.shape), 'k+', label='breaks')
+        plt.title(which + ', spl_kind=' + str(self.spl_kind) + ', p={0:2d}, Nel={1:4d}'.format(self.p, self.Nel))
+        plt.legend()
             
         
         
@@ -407,8 +427,23 @@ class tensor_spline_space:
             self.Ntot_2form_cum = [self.Ntot_2form[0],
                                    self.Ntot_2form[0] + self.Ntot_2form[1],
                                    self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2]]
+
+        print('Tensor space set up ({}d) done.'.format(self.dim))
         
     
+    # function for setting projectors:        
+    # =================================================
+    def set_projectors(self):
+        if self.dim==2:
+            self.projectors = projectors_global.projectors_tensor_2d([space.projectors for space in self.spaces])
+        elif self.dim==3:
+            self.projectors = projectors_global.projectors_tensor_3d([space.projectors for space in self.spaces])
+        else:
+            raise NotImplementedError('only 2d and 3d supported.')
+
+        print('Set projectors ({}d) done.'.format(self.dim))
+                                                   
+
     # ====== spline extraction operators ===============
     def set_extraction_operators(self, bc=['f', 'f'], polar_splines=None):
         
@@ -654,7 +689,8 @@ class tensor_spline_space:
 
                 self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
                 self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')
-    
+
+        print('Set extraction operators ({}d) done.'.format(self.dim))
     
     
     # ============ discrete derivatives ===============
@@ -673,7 +709,10 @@ class tensor_spline_space:
 
         # discrete div
         self.D = derivatives.D
+
+        print('Set derivatives ({}d) done.'.format(self.dim))
     
+
     # ============== mass matrices (2D) ===============
     def assemble_M0_2D(self, domain):
         self.M0 = mass_2d.get_M0(self, domain)
@@ -699,22 +738,29 @@ class tensor_spline_space:
     def assemble_Mv_2D_blocks(self, domain):
         self.Mv_12, self.Mv_33 = mass_2d.get_Mv(self, domain, blocks=True)
     
+
     # ============== mass matrices (3D) ===============
     def assemble_M0(self, domain):
         self.M0 = mass_3d.get_M0(self, domain)
+        print('Assembly of M0 (3d) done.')
 
     def assemble_M1(self, domain):
         self.M1 = mass_3d.get_M1(self, domain)
+        print('Assembly of M1 (3d) done.')
 
     def assemble_M2(self, domain):
         self.M2 = mass_3d.get_M2(self, domain)
+        print('Assembly of M2 (3d) done.')
 
     def assemble_M3(self, domain):
         self.M3 = mass_3d.get_M3(self, domain)
+        print('Assembly of M3 (3d) done.')
 
     def assemble_Mv(self, domain, basis):
         self.Mv = mass_3d.get_Mv(self, domain, basis)
+        print('Assembly of Mv (3d) done.')
     
+
     # ========= extraction of coefficients =========
     def extract_0form(self, coeff):
         
@@ -1024,16 +1070,23 @@ class tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_0form(coeff)
         
-        if isinstance(eta1, np.ndarray):
-            
+        if isinstance(eta1, np.ndarray): 
+
+            # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 0)
+
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
+
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
             
             return values
         
@@ -1071,14 +1124,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 11)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
             
             return values
         
@@ -1116,14 +1175,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 12)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
             
             return values
         
@@ -1161,14 +1226,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 13)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
             
             return values
         
@@ -1206,14 +1277,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 21)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
             
             return values
         
@@ -1251,14 +1328,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 22)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
             
             return values
         
@@ -1296,14 +1379,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 23)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
             
             return values
         
@@ -1341,14 +1430,20 @@ class tensor_spline_space:
         
         if isinstance(eta1, np.ndarray):
             
+            # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0], eta3.shape[0]), dtype=float)
-                
+                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 3)
+            
+            # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
-                
-                eva_3d.evaluate_matrix(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
             
             return values
         
