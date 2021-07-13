@@ -25,6 +25,8 @@ import hylife.utilitis_FEEC.basics.mass_matrices_3d as mass_3d
 
 from  hylife.utilitis_FEEC.projectors import projectors_global 
 
+from  hylife.geometry import polar_splines 
+
 import hylife.utilitis_FEEC.derivatives.derivatives as der
 
 
@@ -318,7 +320,12 @@ class tensor_spline_space:
         
         self.spaces   = spline_spaces                            # 1D B-spline spaces
         self.dim      = len(self.spaces)                         # number of 1D B-spline spaces (= dimension)
+
+        # polar splines can be set below
+        self.polar    = False
         
+        # input from 1d spaces
+        # ====================
         self.Nel      = [spl.Nel      for spl in self.spaces]    # number of elements
         self.p        = [spl.p        for spl in self.spaces]    # spline degree
         self.spl_kind = [spl.spl_kind for spl in self.spaces]    # kind of spline space (periodic or clamped)
@@ -351,7 +358,7 @@ class tensor_spline_space:
         self.basisD  = [spl.basisD  for spl in self.spaces]
         
         
-        # number of basis functions of discrete tensor-product p-forms in 2D
+        # number of basis functions of discrete tensor-product p-forms in 2D (third direction is analytic)
         if self.dim == 2:
             
             # number of basis functions in each direction
@@ -429,6 +436,111 @@ class tensor_spline_space:
                                    self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2]]
 
         print('Tensor space set up ({}d) done.'.format(self.dim))
+
+
+        # Set extraction operators for boundary conditions:
+        # =================================================
+        self.bc = self.spaces[0].bc
+ 
+        # 2D extraction operators
+        if self.dim == 2:
+            
+            n1, n2 = self.NbaseN
+            d1, d2 = self.NbaseD
+
+            # including boundary splines
+            self.E0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
+            self.E1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
+            self.E2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
+            self.E3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
+            
+            self.E0_all     =            self.E0_pol_all.copy()
+            self.E1_all     = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
+            self.E2_all     = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
+            self.E3_all     =            self.E3_pol_all.copy()
+            
+            # without boundary splines
+            E_NN = spa.identity(n1*n2, format='csr')
+            E_DN = spa.identity(d1*n2, format='csr')
+            E_ND = spa.identity(n1*d2, format='csr')
+            E_DD = spa.identity(d1*d2, format='csr')
+            
+            # remove contributions from N-splines at eta1 = 0
+            if   self.bc[0] == 'd':
+                E_NN = E_NN[n2:, :]
+                E_ND = E_ND[d2:, :]
+                
+            # remove contributions from N-splines at eta1 = 1
+            if   self.bc[1] == 'd':
+                E_NN = E_NN[:-n2, :]
+                E_ND = E_ND[:-d2, :]
+                
+            self.E0_pol = E_NN.tocsr().copy()
+            self.E1_pol = spa.bmat([[E_DN, None], [None, E_ND]], format='csr')
+            self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
+            self.E3_pol = E_DD.tocsr().copy()
+            
+            self.E0     =            self.E0_pol.copy()
+            self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
+            self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
+            self.E3     =            self.E3_pol.copy()
+                
+        # 3D extraction operators    
+        elif self.dim == 3:
+            
+            n1, n2, n3 = self.NbaseN
+            d1, d2, d3 = self.NbaseD
+                
+            # including boundary splines
+            self.E0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
+            self.E1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
+            self.E2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
+            self.E3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
+            
+            self.E0_all     = spa.identity(self.Ntot_0form       , dtype=float, format='csr')
+            self.E1_all     = spa.identity(self.Ntot_1form_cum[2], dtype=float, format='csr')
+            self.E2_all     = spa.identity(self.Ntot_2form_cum[2], dtype=float, format='csr')
+            self.E3_all     = spa.identity(self.Ntot_3form       , dtype=float, format='csr')
+            
+            # without boundary splines
+            E_NN = spa.identity(n1*n2, format='csr')
+            E_DN = spa.identity(d1*n2, format='csr')
+            E_ND = spa.identity(n1*d2, format='csr')
+            E_DD = spa.identity(d1*d2, format='csr')
+            
+            # remove contributions from N-splines at eta1 = 0
+            if   self.bc[0] == 'd':
+                E_NN = E_NN[n2:, :]
+                E_ND = E_ND[d2:, :]
+                
+            # remove contributions from N-splines at eta1 = 1
+            if   self.bc[1] == 'd':
+                E_NN = E_NN[:-n2, :]
+                E_ND = E_ND[:-d2, :]
+                
+            self.E0_pol = E_NN.tocsr().copy()
+            self.E1_pol = spa.bmat([[E_DN, None], [None, E_ND]], format='csr')
+            self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
+            self.E3_pol = E_DD.tocsr().copy()
+            
+            # expansion in third dimension
+            self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')  
+            E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
+            E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
+            
+            E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
+            E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
+            self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
+
+            self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
+            self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')     
+
+        else:     
+            raise NotImplementedError('only 2d and 3d supported.')      
+                
+
+        print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
+
         
     
     # function for setting projectors:        
@@ -442,256 +554,144 @@ class tensor_spline_space:
             raise NotImplementedError('only 2d and 3d supported.')
 
         print('Set projectors ({}d) done.'.format(self.dim))
-                                                   
 
-    # ====== spline extraction operators ===============
-    def set_extraction_operators(self, bc=['f', 'f'], polar_splines=None):
-        
-        # set boundary conditions in first logical direction
-        self.bc = bc
-        
-        # set polar splines
-        self.polar_splines = polar_splines
-        
-        # 2D extraction operators
-        if self.dim == 2:
-            
+
+    # function for setting polar splines:
+    # ===================================
+    def set_polar_splines(self, cx, cy): 
+
+        if self.dim==2:
+
+            self.polar_splines = polar_splines.polar_splines_2D(self, cx, cy)
+
             n1, n2 = self.NbaseN
             d1, d2 = self.NbaseD
 
-            # standard domain
-            if polar_splines == None:
-
-                self.polar = False
-
-                # including boundary splines
-                self.E0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
-                self.E1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
-                self.E2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
-                self.E3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
-                
-                self.E0_all     =            self.E0_pol_all.copy()
-                self.E1_all     = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
-                self.E2_all     = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
-                self.E3_all     =            self.E3_pol_all.copy()
-                
-                # without boundary splines
-                E_NN = spa.identity(n1*n2, format='csr')
-                E_DN = spa.identity(d1*n2, format='csr')
-                E_ND = spa.identity(n1*d2, format='csr')
-                E_DD = spa.identity(d1*d2, format='csr')
-                
-                # remove contributions from N-splines at eta1 = 0
-                if   bc[0] == 'd' and self.spl_kind[0] == False:
-                    E_NN = E_NN[n2:, :]
-                    E_ND = E_ND[d2:, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                # remove contributions from N-splines at eta1 = 1
-                if   bc[1] == 'd' and self.spl_kind[0] == False:
-                    E_NN = E_NN[:-n2, :]
-                    E_ND = E_ND[:-d2, :]
-                elif bc[1] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                self.E0_pol = E_NN.tocsr().copy()
-                self.E1_pol = spa.bmat([[E_DN, None], [None, E_ND]], format='csr')
-                self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
-                self.E3_pol = E_DD.tocsr().copy()
-                
-                self.E0     =            self.E0_pol.copy()
-                self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-                self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-                self.E3     =            self.E3_pol.copy()
-                    
-            # polar domain        
-            else:
-
-                self.polar = True
-                
-                # including boundary splines
-                self.E0_pol_all = polar_splines.E0.copy()
-                self.E1_pol_all = polar_splines.E1C.copy()
-                self.E2_pol_all = polar_splines.E1D.copy()
-                self.E3_pol_all = polar_splines.E2.copy()
-                
-                self.E0_all     =            self.E0_pol_all.copy()
-                self.E1_all     = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
-                self.E2_all     = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
-                self.E3_all     =            self.E3_pol_all.copy()
-                
-                # without boundary splines
-                E0_NN = polar_splines.E0.copy()
-                
-                E1_DN = polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
-                E1_ND = polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
-                
-                E2_ND = polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
-                E2_DN = polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
-                
-                E3_DD = polar_splines.E2.copy()
-                
-                # remove contributions from N-splines at eta1 = 1
-                if   bc[1] == 'd' and self.spl_kind[0] == False:
-                    E0_NN = E0_NN[:-n2, :]
-                    E1_ND = E1_ND[:-d2, :]
-                    E2_ND = E2_ND[:-d2, :]
-                elif bc[1] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                self.E0_pol = E0_NN.tocsr().copy()
-                self.E1_pol = spa.bmat([[E1_DN], [E1_ND]], format='csr')
-                self.E2_pol = spa.bmat([[E2_ND], [E2_DN]], format='csr')
-                self.E3_pol = E3_DD.tocsr().copy()
-                    
-                self.E0     =            self.E0_pol.copy()
-                self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-                self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-                self.E3     =            self.E3_pol.copy()
-                    
-    
-        # 3D extraction operators    
-        if self.dim == 3:
+            # including boundary splines
+            self.E0_pol_all = self.polar_splines.E0.copy()
+            self.E1_pol_all = self.polar_splines.E1C.copy()
+            self.E2_pol_all = self.polar_splines.E1D.copy()
+            self.E3_pol_all = self.polar_splines.E2.copy()
             
+            self.E0_all     =            self.E0_pol_all.copy()
+            self.E1_all     = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
+            self.E2_all     = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
+            self.E3_all     =            self.E3_pol_all.copy()
+            
+            # without boundary splines
+            E0_NN = self.polar_splines.E0.copy()
+            
+            E1_DN = self.polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
+            E1_ND = self.polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
+            
+            E2_ND = self.polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
+            E2_DN = self.polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
+            
+            E3_DD = self.polar_splines.E2.copy()
+            
+            # remove contributions from N-splines at eta1 = 1
+            if self.bc[1] == 'd':
+                E0_NN = E0_NN[:-n2, :]
+                E1_ND = E1_ND[:-d2, :]
+                E2_ND = E2_ND[:-d2, :]
+                
+            self.E0_pol = E0_NN.tocsr().copy()
+            self.E1_pol = spa.bmat([[E1_DN], [E1_ND]], format='csr')
+            self.E2_pol = spa.bmat([[E2_ND], [E2_DN]], format='csr')
+            self.E3_pol = E3_DD.tocsr().copy()
+                
+            self.E0     =            self.E0_pol.copy()
+            self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
+            self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
+            self.E3     =            self.E3_pol.copy()
+
+        elif self.dim==3:
+
+            self.polar_splines = polar_splines.polar_splines(self, cx, cy)
+
             n1, n2, n3 = self.NbaseN
             d1, d2, d3 = self.NbaseD
+
+            # including boundary splines
+            self.E0_pol_all = self.polar_splines.E0.copy()
+            self.E1_pol_all = self.polar_splines.E1C.copy()
+            self.E2_pol_all = self.polar_splines.E1D.copy()
+            self.E3_pol_all = self.polar_splines.E2.copy()
             
-            # standard domain
-            if polar_splines == None:
+            # expansion in third dimension
+            self.E0_all     = spa.kron(self.E0_pol_all, spa.identity(n3), format='csr')  
+            E1_all_1        = spa.kron(self.E1_pol_all, spa.identity(n3), format='csr')
+            E1_all_3        = spa.kron(self.E0_pol_all, spa.identity(d3), format='csr')
+            
+            E2_all_1        = spa.kron(self.E2_pol_all, spa.identity(d3), format='csr')
+            E2_all_3        = spa.kron(self.E3_pol_all, spa.identity(n3), format='csr')
+            self.E3_all     = spa.kron(self.E3_pol_all, spa.identity(d3), format='csr')
 
-                self.polar = False
+            self.E1_all     = spa.bmat([[E1_all_1, None], [None, E1_all_3]], format='csr')
+            self.E2_all     = spa.bmat([[E2_all_1, None], [None, E2_all_3]], format='csr')
+            
+            # including boundary splines
+            #self.E0_pol_all = polar_splines.E0_pol.copy()
+            #self.E1_pol_all = polar_splines.E1_pol.copy()
+            #self.E2_pol_all = polar_splines.E2_pol.copy()
+            #self.E3_pol_all = polar_splines.E3_pol.copy()                                                        
+                                            
+            #self.E0_all     = polar_splines.E0.copy()
+            #self.E1_all     = polar_splines.E1.copy()
+            #self.E2_all     = polar_splines.E2.copy()
+            #self.E3_all     = polar_splines.E3.copy()
+            
+            # without boundary splines
+            E0_NN = self.polar_splines.E0.copy()
+            
+            E1_DN = self.polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
+            E1_ND = self.polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
+            
+            E2_ND = self.polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
+            E2_DN = self.polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
+            
+            E3_DD = self.polar_splines.E2.copy()
+            
+            # without boundary splines
+            #E0_NN = polar_splines.E0_pol.copy()
+            
+            #E1_DN = polar_splines.E1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
+            #E1_ND = polar_splines.E1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
+            
+            #E2_ND = polar_splines.E2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
+            #E2_DN = polar_splines.E2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
+            
+            #E3_DD = polar_splines.E3_pol.copy()
+            
+            # remove contributions from N-splines at eta1 = 1
+            if self.bc[1] == 'd':
+                E0_NN = E0_NN[:-n2, :]
+                E1_ND = E1_ND[:-d2, :]
+                E2_ND = E2_ND[:-d2, :]
                 
-                # including boundary splines
-                self.E0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
-                self.E1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
-                self.E2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
-                self.E3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
-                
-                self.E0_all     = spa.identity(self.Ntot_0form       , dtype=float, format='csr')
-                self.E1_all     = spa.identity(self.Ntot_1form_cum[2], dtype=float, format='csr')
-                self.E2_all     = spa.identity(self.Ntot_2form_cum[2], dtype=float, format='csr')
-                self.E3_all     = spa.identity(self.Ntot_3form       , dtype=float, format='csr')
-                
-                # without boundary splines
-                E_NN = spa.identity(n1*n2, format='csr')
-                E_DN = spa.identity(d1*n2, format='csr')
-                E_ND = spa.identity(n1*d2, format='csr')
-                E_DD = spa.identity(d1*d2, format='csr')
-                
-                # remove contributions from N-splines at eta1 = 0
-                if   bc[0] == 'd' and self.spl_kind[0] == False:
-                    E_NN = E_NN[n2:, :]
-                    E_ND = E_ND[d2:, :]
-                elif bc[0] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                # remove contributions from N-splines at eta1 = 1
-                if   bc[1] == 'd' and self.spl_kind[0] == False:
-                    E_NN = E_NN[:-n2, :]
-                    E_ND = E_ND[:-d2, :]
-                elif bc[1] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                self.E0_pol = E_NN.tocsr().copy()
-                self.E1_pol = spa.bmat([[E_DN, None], [None, E_ND]], format='csr')
-                self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
-                self.E3_pol = E_DD.tocsr().copy()
-                
-                # expansion in third dimension
-                self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')  
-                E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
-                E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
-                
-                E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
-                E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
-                self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
+            self.E0_pol = E0_NN.tocsr().copy()
+            self.E1_pol = spa.bmat([[E1_DN], [E1_ND]], format='csr')
+            self.E2_pol = spa.bmat([[E2_ND], [E2_DN]], format='csr')
+            self.E3_pol = E3_DD.tocsr().copy()
+            
+            self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')  
+            E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
+            E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
+            
+            E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
+            E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
+            self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
 
-                self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
-                self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')
+            self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
+            self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')
 
-            # polar domain
-            else:
+        else:
+            raise NotImplementedError('only 2d and 3d supported.')
 
-                self.polar = True
-                
-                # including boundary splines
-                self.E0_pol_all = polar_splines.E0.copy()
-                self.E1_pol_all = polar_splines.E1C.copy()
-                self.E2_pol_all = polar_splines.E1D.copy()
-                self.E3_pol_all = polar_splines.E2.copy()
-                
-                # expansion in third dimension
-                self.E0_all     = spa.kron(self.E0_pol_all, spa.identity(n3), format='csr')  
-                E1_all_1        = spa.kron(self.E1_pol_all, spa.identity(n3), format='csr')
-                E1_all_3        = spa.kron(self.E0_pol_all, spa.identity(d3), format='csr')
-                
-                E2_all_1        = spa.kron(self.E2_pol_all, spa.identity(d3), format='csr')
-                E2_all_3        = spa.kron(self.E3_pol_all, spa.identity(n3), format='csr')
-                self.E3_all     = spa.kron(self.E3_pol_all, spa.identity(d3), format='csr')
+        self.polar = True
 
-                self.E1_all     = spa.bmat([[E1_all_1, None], [None, E1_all_3]], format='csr')
-                self.E2_all     = spa.bmat([[E2_all_1, None], [None, E2_all_3]], format='csr')
-                
-                # including boundary splines
-                #self.E0_pol_all = polar_splines.E0_pol.copy()
-                #self.E1_pol_all = polar_splines.E1_pol.copy()
-                #self.E2_pol_all = polar_splines.E2_pol.copy()
-                #self.E3_pol_all = polar_splines.E3_pol.copy()                                                        
-                                               
-                #self.E0_all     = polar_splines.E0.copy()
-                #self.E1_all     = polar_splines.E1.copy()
-                #self.E2_all     = polar_splines.E2.copy()
-                #self.E3_all     = polar_splines.E3.copy()
-                
-                # without boundary splines
-                E0_NN = polar_splines.E0.copy()
-                
-                E1_DN = polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
-                E1_ND = polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
-                
-                E2_ND = polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
-                E2_DN = polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
-                
-                E3_DD = polar_splines.E2.copy()
-                
-                # without boundary splines
-                #E0_NN = polar_splines.E0_pol.copy()
-                
-                #E1_DN = polar_splines.E1_pol.copy()[:(0 + (d1 - 1)*d2) , :]
-                #E1_ND = polar_splines.E1_pol.copy()[ (0 + (d1 - 1)*d2):, :]
-                
-                #E2_ND = polar_splines.E2_pol.copy()[:(2 + (n1 - 2)*d2) , :]
-                #E2_DN = polar_splines.E2_pol.copy()[ (2 + (n1 - 2)*d2):, :]
-                
-                #E3_DD = polar_splines.E3_pol.copy()
-                
-                # remove contributions from N-splines at eta1 = 1
-                if   bc[1] == 'd' and self.spl_kind[0] == False:
-                    E0_NN = E0_NN[:-n2, :]
-                    E1_ND = E1_ND[:-d2, :]
-                    E2_ND = E2_ND[:-d2, :]
-                elif bc[1] == 'd' and self.spl_kind[0] == True:
-                    raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
-                    
-                self.E0_pol = E0_NN.tocsr().copy()
-                self.E1_pol = spa.bmat([[E1_DN], [E1_ND]], format='csr')
-                self.E2_pol = spa.bmat([[E2_ND], [E2_DN]], format='csr')
-                self.E3_pol = E3_DD.tocsr().copy()
-                
-                self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')  
-                E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
-                E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
-                
-                E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
-                E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
-                self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
+        print('Set polar splines ({}d) done.'.format(self.dim))
 
-                self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
-                self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')
-
-        print('Set extraction operators ({}d) done.'.format(self.dim))
-    
     
     # ============ discrete derivatives ===============
     def set_derivatives(self, mode_n=1):

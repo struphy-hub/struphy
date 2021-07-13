@@ -46,12 +46,12 @@ def test_polar_splines_2D(plot=False):
     #Y = lambda eta1, eta2 : e*1/np.sqrt(1 - eps**2/4)*eta1*np.sin(2*np.pi*eta2)/(1 + eps*X(eta1, eta2))
 
     # interpolate mapping (apply Pi_0)
-    proj_eta1 = proj.projectors_global_1d(space_1d[0])
-    proj_eta2 = proj.projectors_global_1d(space_1d[1])
-    proj_2d   = proj.projectors_tensor_2d([proj_eta1, proj_eta2])
+    space_1d[0].set_projectors()
+    space_1d[1].set_projectors()
+    space_2d.set_projectors()
 
-    cx = proj_2d.PI_0(X)
-    cy = proj_2d.PI_0(Y)
+    cx = space_2d.projectors.PI_0(X)
+    cy = space_2d.projectors.PI_0(Y)
 
     # create domain                              
     domain = dom.domain(geometry, params_map, Nel, p, spl_kind, cx, cy)
@@ -79,8 +79,8 @@ def test_polar_splines_2D(plot=False):
     # create polar splines by passing the 2D tensor-product space and the control points c^x_ij, c^y_ij 
     polar_splines = pol.polar_splines_2D(space_2d, domain.cx[:, :, 0], domain.cy[:, :, 0])
 
-    # set extraction operators in spaces V0, V1, V2 and V3
-    space_2d.set_extraction_operators(bc, polar_splines)
+    # set extraction operators for polar splines in spaces V0, V1, V2 and V3
+    space_2d.set_polar_splines(cx, cy)
     
     # print dimension of spaces
     print('dimension of space V0 : ', space_2d.E0.shape[1], 'dimension of polar space bar(V0) : ', space_2d.E0.shape[0])
