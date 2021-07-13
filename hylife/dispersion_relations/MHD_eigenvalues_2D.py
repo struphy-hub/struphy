@@ -30,11 +30,13 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, gamma, n, return_k
     space_2d_nobc =  spl.tensor_spline_space(space_1d)
     
     # create polar_splines extraction operators
-    polar_splines = pol.polar_splines_2D(space_2d, domain.cx[:, :, 0], domain.cy[:, :, 0])
+    #polar_splines = pol.polar_splines_2D(space_2d, domain.cx[:, :, 0], domain.cy[:, :, 0])
+    space_2d.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
+    space_2d_nobc.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set boundary conditions and extraction operators
-    space_2d.set_extraction_operators(num_params[5], polar_splines)
-    space_2d_nobc.set_extraction_operators(['f', 'f'], polar_splines)
+    # set boundary conditions and extraction operators --> this is automatic now
+    #space_2d.set_extraction_operators(num_params[5], polar_splines)
+    #space_2d_nobc.set_extraction_operators(['f', 'f'], polar_splines)
     
     # set discrete derivatives
     space_2d.set_derivatives(n)

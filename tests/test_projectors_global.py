@@ -588,9 +588,9 @@ def test_project_splines():
 
     tensor_space_FEM.set_projectors()
 
-    # Set extraction operators and discrete derivatives 
-    polar_splines = None
-    tensor_space_FEM.set_extraction_operators(bc, polar_splines) # why bc again passed?
+    # Set extraction operators (is automatic now) and discrete derivatives 
+    #polar_splines = None
+    #tensor_space_FEM.set_extraction_operators(bc, polar_splines) # why bc again passed?
 
     ########################
     # random spline in V0_h:

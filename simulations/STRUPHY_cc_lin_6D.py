@@ -201,17 +201,12 @@ if geometry == 'spline' or polar == True:
 
     # create polar splines in poloidal plane
     if polar == True:
-        polar_splines = pol_spl.polar_splines_2D(tensor_space_pol, domain.cx[:, :, 0], domain.cy[:, :, 0])
-    else:
-        polar_splines = None
+        tensor_space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
           
 else:
     
     # create domain object
     domain = dom.domain(geometry, params_map)
-    
-    # create polar splines in poloidal plane
-    polar_splines = None
     
     
     
@@ -242,7 +237,7 @@ eq_MHD = equ_MHD.equilibrium_mhd(domain)
 #sys.exit()
 
 # ======= set extraction operators and discrete derivatives ============= 
-tensor_space_FEM.set_extraction_operators(bc, polar_splines)
+#tensor_space_FEM.set_extraction_operators(bc, polar_splines)
 tensor_space_FEM.set_derivatives()
 # =======================================================================
 

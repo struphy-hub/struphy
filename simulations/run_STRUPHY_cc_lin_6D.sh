@@ -272,6 +272,6 @@ echo "Start of STRUPHY:"
 #export OMP_NUM_THREADS=1
 #mpirun -n 4 python3 STRUPHY_cc_lin_6D.py
 
-#export OMP_NUM_THREADS=1
-#python3 STRUPHY_cc_lin_6D.py
+export OMP_NUM_THREADS=1
+python3 STRUPHY_cc_lin_6D.py
 # =================================================

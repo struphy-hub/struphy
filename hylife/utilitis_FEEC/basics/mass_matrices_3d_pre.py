@@ -222,8 +222,8 @@ def get_M0_PRE_3(tensor_space_FEM, domain):
     # 1D space in toroidal direction
     space_tor = tensor_space_FEM.spaces[2]
     
-    # set extraction operators
-    space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
+    # set extraction operators --> this is automatic now
+    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
     #space_tor.set_extraction_operators()
     
     # mass matrices
@@ -251,8 +251,8 @@ def get_M1_PRE_3(tensor_space_FEM, domain):
     # 1D space in toroidal direction
     space_tor = tensor_space_FEM.spaces[2]
     
-    # set extraction operators
-    space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
+    # set extraction operators --> this is automatic now
+    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
     #space_tor.set_extraction_operators()
     
     # mass matrices
@@ -293,8 +293,8 @@ def get_M2_PRE_3(tensor_space_FEM, domain):
     # 1D space in toroidal direction
     space_tor = tensor_space_FEM.spaces[2]
     
-    # set extraction operators
-    space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
+    # set extraction operators --> this is automatic now
+    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
     #space_tor.set_extraction_operators()
     
     # mass matrices
@@ -335,8 +335,8 @@ def get_M3_PRE_3(tensor_space_FEM, domain):
     # 1D space in toroidal direction
     space_tor = tensor_space_FEM.spaces[2]
     
-    # set extraction operators
-    space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
+    # set extraction operators --> this is automatic now
+    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
     #space_tor.set_extraction_operators()
     
     # mass matrices
@@ -365,8 +365,8 @@ def get_Mv_PRE_3(tensor_space_FEM, domain):
     # 1D space in toroidal direction
     space_tor = tensor_space_FEM.spaces[2]
     
-    # set extraction operators
-    space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
+    # set extraction operators --> this is automatic now
+    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
     #space_tor.set_extraction_operators()
     
     # mass matrices
