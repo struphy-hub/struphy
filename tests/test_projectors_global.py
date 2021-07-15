@@ -1,7 +1,7 @@
 from matplotlib.pyplot import subplot
 
 
-def test_projectors_1d(plot=False, p_range=4):
+def test_projectors_1d(plot=False, p_range=2, N_range=7):
     '''
     1) test order of convergence
     2) test projector property, i.e. Pi(basis_function) = basis_function
@@ -36,7 +36,7 @@ def test_projectors_1d(plot=False, p_range=4):
         order0_cla = []
         order1_per = []
         order1_cla = []
-        for Nel in [2**n for n in range(5,9)]:
+        for Nel in [2**n for n in range(5, N_range)]:
     
             # spline spaces
             Vh_per = spl.spline_space_1d(Nel, p, spl_kind=True)
@@ -246,7 +246,7 @@ def test_projectors_1d(plot=False, p_range=4):
             
 
 
-def test_projectors_2d(p_range=4):
+def test_projectors_2d(p_range=2, N_range=7):
 
     import sys
     sys.path.append('..')
@@ -277,7 +277,7 @@ def test_projectors_2d(p_range=4):
         order11 = []
         order12 = []
         order2  = []
-        for Nel in [2**n for n in range(4,9)]:
+        for Nel in [2**n for n in range(4, N_range)]:
     
             # spline spaces
             Vh_eta1 = spl.spline_space_1d(Nel, p, spl_kind=False)
@@ -374,7 +374,7 @@ def test_projectors_2d(p_range=4):
 
 
 
-def test_projectors_3d(p_range=4):
+def test_projectors_3d(p_range=2):
 
     import sys
     sys.path.append('..')
@@ -715,7 +715,7 @@ def test_project_splines():
 
 
 if __name__ == '__main__':
-    test_projectors_1d(plot=True)
-    test_projectors_2d()
-    test_projectors_3d()
+    test_projectors_1d(plot=True, p_range=6, N_range=9)
+    test_projectors_2d(p_range=6, N_range=9)
+    test_projectors_3d(p_range=4)
     test_project_splines()

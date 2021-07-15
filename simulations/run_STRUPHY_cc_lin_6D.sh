@@ -2,7 +2,7 @@
 
 # ============== set simulation folders ===========
 path_root=$(pwd)
-all_sim=$HOME/my_output
+all_sim=$path_root/my_struphy_sims
 run_dir=sim_1
 # =================================================
 
@@ -272,6 +272,8 @@ echo "Start of STRUPHY:"
 #export OMP_NUM_THREADS=1
 #mpirun -n 4 python3 STRUPHY_cc_lin_6D.py
 
-export OMP_NUM_THREADS=1
-python3 STRUPHY_cc_lin_6D.py
+#export OMP_NUM_THREADS=1
+#python3 STRUPHY_cc_lin_6D.py
+
+echo "No run command specified, simulation not started. Go to run_STRUPHY*.sh"
 # =================================================

@@ -1,98 +1,33 @@
-# Welcome to Hylife repo!
+# Welcome to Hylife!
 
 *The Python Finite Element library for structure-preserving fluid-kinetic hybrid simulations.*
 
-Currently, there is 1 code delivered with the Hylife repository:
+Currently, the following plasma codes are delivered with the Hylife repository:
 
-- STRUPHY_3D (STRUcture-Preserving HYbrid code for MHD-kinetic current coupling)
+- [STRUPHY_cc_lin_6D.py](https://gitlab.mpcdf.mpg.de/clapp/hylife/-/wikis/home/struphy_cc_lin_6d) 
 
 # Requirements
 
 * Linux or MacOS
-
-* Working gfortran compiler
-```
-sudo apt install gfortran
-```
-
-* Python3: is standard in most newer Linux distributions, otherwise found at [python.org](https://python.org)
-
-* Necessary Python packages can be installed with
-```
-python3 -m pip install -r requirements.txt
-```
-This performs essentially
-```
-pip3 install numpy
-pip3 install mpi4py
-pip3 install h5py
-pip3 install PyYAML
-pip3 install scipy
-pip3 install matplotlib
-python3 -m pip install pyccel==0.10.1
-```
-
-* In case there are problems with the installation of mpi4py type
+* Non standard libraries: `libopenmpi-dev`
 ```
 sudo apt install libopenmpi-dev
 ```
-<!---
-## Installing Pyccel
-
-In order to be able to execute `pyccel` globally you need to add its path to your `$PATH` variable:
-
+* Recommended: `virtualenv`
 ```
-export PATH="$PATH:$HOME/.local/bin"
+python3 -m pip install --user virtualenv
 ```
 
-If you want to add the path permanently, add the above line to your `.bashrc` file in `$HOME`.
-In order to test the installation go to an arbitrary directory and type `pyccel --version`. You should see something like
+# Quickstart on Linux
 
 ```
-pyccel 0.9.16 from ...your_pyccel_location.../pyccel/pyccel (python 3.8)
+$ git clone git@gitlab.mpcdf.mpg.de:clapp/hylife.git
+$ virtualenv .venv
+$ source .venv/bin/activate
+$ python -m pip install -r requirements.txt
+$ ./STRUPHY_init.sh
+$ ./run_STRUPHY_cc_lin_6D.sh
 ```
--->
-
-Specifics for the HPC system `cobra` at IPP:
-
-- use the module `anaconda/3/2020.02` for installing pyccel and loading mpi4py.
-
-
-
-# Installing Hylife
-```
-git clone https://gitlab.mpcdf.mpg.de/clapp/hylife.git
-```
-
-# Setting up STRUPHY
-
-In order to get the STRUPHY code (at the moment only `STUPHY_cc_lin_6D.py`) running perform the following steps:
-
-1. In your `Hylife` repository execute
-  ```
-  ./STRUPHY_init.sh
-  ```
-  This copies the main code `STRUPHY_cc_lin_6D.py` and an execution script `run_STRUPHY_cc_lin_6D.sh` to your repository.
-
-2. Create a folder `my_output` for STRUPHY output. Output of specific simulations e.g. `sim_1`, `sim_2`, etc. will be stored in `my_output/sim_1`, `my_output/sim_2`, etc..
-  
-3. In your `Hylife` repository execute
-  ```
-  cp -r simulations/template_python path_to_my_output/sim_1
-  ```
-  This copies a simulation template from your `Hylife` repository to your simulation folder `sim_1`.
-  
-4. In your `Hylife` repository, in the file `run_STRUPHY_cc_lin_6D.sh` set the correct paths in lines 5 and 6
-  ```
-  all_sim=path_to_my_output
-  run_dir=sim_1
-  ```
-  
-5. In your `Hylife` repository run STRUPHY with
-  ```
-  ./run_STRUPHY_cc_lin_6D.sh
-  ```
-  This will create some output stored in `path_to_my_output/sim_1/results_sim_1.hdf5`.
 
 <!---
 ## Running tests
