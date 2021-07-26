@@ -23,7 +23,7 @@ python3 -m pip install --user virtualenv
 ```
 $ git clone git@gitlab.mpcdf.mpg.de:clapp/hylife.git
 $ git checkout devel
-$ virtualenv .venv
+$ python3 -m virtualenv .venv
 $ source .venv/bin/activate
 $ python -m pip install -r requirements.txt
 $ ./STRUPHY_init.sh
