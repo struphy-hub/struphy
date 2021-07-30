@@ -27,8 +27,8 @@ before_script:
   - apt-get -y install libopenmpi-dev
   - python --version  # Print out python version for debugging
   - pip install virtualenv
-  - virtualenv venv
-  - source venv/bin/activate
+  - python -m virtualenv .venv
+  - source .venv/bin/activate
   - python -m pip install -r requirements.txt
   - ./STRUPHY_init.sh  # copy struphy files and directories 
   - ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
