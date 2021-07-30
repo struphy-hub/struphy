@@ -7,17 +7,87 @@ Module to handle mapped 3d domains.
 """
 
 
-
 import numpy as np
 import scipy.sparse as spa
+from scipy.sparse.linalg import splu
 
-import matplotlib.pyplot as plt
-
-import hylife.geometry.mappings_3d    as mapping
-import hylife.geometry.pullback_3d    as pb
-import hylife.geometry.pushforward_3d as pf
+import hylife.geometry.mappings_3d       as mapping
+import hylife.geometry.pullback_3d       as pb
+import hylife.geometry.pushforward_3d    as pf
+import hylife.linear_algebra.linalg_kron as linalg
 
 import hylife.utilitis_FEEC.bsplines  as bsp
+
+
+
+# ==================================================
+def spline_interpolation_nd(p, grids_1d, values):
+    '''
+    nd spline interpolation with discrete input (nonuniform).
+
+    The knot vector for the clamped spline interpolant is constructed from grids_1d.
+
+    Parameters:
+    -----------
+        p : list of length n
+            spline degree
+
+        grids_1d : list of n 1d np.arrays
+            interpolation points
+
+        values: nd np.array
+            function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
+
+    Returns:
+    --------
+        coeffs : nd np.array
+            spline coefficients
+
+        T : list
+            Knot vector of spline interpolant
+    '''
+
+    # dimension check
+    for sh, x_grid in zip(values.shape, grids_1d):
+        assert  sh == x_grid.size
+
+    # list of break point arrays
+    breaks = []
+
+    for x_grid, p_i in zip(grids_1d, p):
+
+        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+        if p_i == 1:
+            breaks.append(x_grid)
+        elif p_i%2 == 0:
+            breaks.append( x_grid[p_i//2 - 1:-p_i//2].copy() )
+        else:
+            breaks.append( x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy() )
+
+        # cells must be in interval [0, 1] 
+        breaks[-1][0]  = 0.
+        breaks[-1][-1] = 1.
+
+    # interpolation with clamped splines (periodic=False)
+    T     = [bsp.make_knots(breaks_i, p_i, periodic=False) for breaks_i, p_i in zip(breaks, p)]
+    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False) for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+
+    I_LU  = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat] 
+
+    # dimension check
+    for I, x_grid in zip(I_mat, grids_1d):
+        assert I.shape[0] == x_grid.size
+        assert I.shape[0] == I.shape[1]
+
+    # solve system
+    if len(p) == 1:
+        return I_LU[0].solve(values), T
+    if len(p) == 2:
+        return linalg.kron_lusolve_2d(I_LU, values), T
+    elif len(p) == 3:
+        return linalg.kron_lusolve_3d(I_LU, values), T
+    else:
+        raise AssertionError("Only dimensions < 4 are supported.")
 
 
 
@@ -84,7 +154,8 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         print('wrong number of elements')
         
         return 0.
-        
+
+
 
 # ==================================================
 class domain:

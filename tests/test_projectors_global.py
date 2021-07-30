@@ -1,7 +1,8 @@
 from matplotlib.pyplot import subplot
+from numpy import NaN
 
 
-def test_projectors_1d(plot=False, p_range=2, N_range=7):
+def test_projectors_1d(plot=False, p_range=6, N_range=9):
     '''
     1) test order of convergence
     2) test projector property, i.e. Pi(basis_function) = basis_function
@@ -17,20 +18,20 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
     from hylife.utilitis_FEEC.projectors import projectors_global    as proj
     
     # test arbitrary function
-    f_per = lambda eta : np.cos(2*np.pi*eta/.2)
-    f_cla = lambda eta : np.exp(2.*eta) - 2.*np.cos(2*np.pi*eta/.2)
+    f_per = lambda eta : np.cos(2*np.pi*eta/.5)
+    f_cla = lambda eta : np.exp(2.*eta) - 2.*np.cos(2*np.pi*eta/.5)
 
-    eta_v = np.linspace(0, 1, 200)
-
+    # plot points
+    eta_plot = np.linspace(0, 1, 200)
     fig, axs = plt.subplots(2, 2)
 
     print('1) convergence test:')
     # 1) convergence test
     for p in range(1, p_range): 
-        err0_per = [10.]
-        err0_cla = [10.]
-        err1_per = [10.]
-        err1_cla = [10.]
+        err0_per = [NaN]
+        err0_cla = [NaN]
+        err1_per = [NaN]
+        err1_cla = [NaN]
 
         order0_per = []
         order0_cla = []
@@ -70,24 +71,22 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
             assert np.allclose(c1_cla, c1_cla_mat, atol=1e-14)
 
             # compute error:
-            f0_h_per = Vh_per.evaluate_N(eta_v, c0_per)
-            f0_h_cla = Vh_cla.evaluate_N(eta_v, c0_cla)
-            f1_h_per = Vh_per.evaluate_D(eta_v, c1_per)
-            f1_h_cla = Vh_cla.evaluate_D(eta_v, c1_cla)
+            f0_h_per = Vh_per.evaluate_N(eta_plot, c0_per)
+            f0_h_cla = Vh_cla.evaluate_N(eta_plot, c0_cla)
+            f1_h_per = Vh_per.evaluate_D(eta_plot, c1_per)
+            f1_h_cla = Vh_cla.evaluate_D(eta_plot, c1_cla)
             
-            err0_per.append(np.abs(np.max(f0_h_per - f_per(eta_v))))
-            err0_cla.append(np.abs(np.max(f0_h_cla - f_cla(eta_v))))
-            err1_per.append(np.abs(np.max(f1_h_per - f_per(eta_v))))
-            err1_cla.append(np.abs(np.max(f1_h_cla - f_cla(eta_v))))
+            err0_per.append(np.abs(np.max(f0_h_per - f_per(eta_plot))))
+            err0_cla.append(np.abs(np.max(f0_h_cla - f_cla(eta_plot))))
+            err1_per.append(np.abs(np.max(f1_h_per - f_per(eta_plot))))
+            err1_cla.append(np.abs(np.max(f1_h_cla - f_cla(eta_plot))))
 
             order0_per.append(np.log2(err0_per[-2]/err0_per[-1]))
             order0_cla.append(np.log2(err0_cla[-2]/err0_cla[-1]))
             order1_per.append(np.log2(err1_per[-2]/err1_per[-1]))
             order1_cla.append(np.log2(err1_cla[-2]/err1_cla[-1]))
 
-            #print('look  :', np.max(f_cla(eta_v)), np.min(f_cla(eta_v)))
-            #print('look h:', np.max(f0_h_cla), np.min(f0_h_cla))
-
+            # print to screen
             if True:
                 print('p: {0:2d}, Nel: {1:4d},   0_per: {2:8.6f} {3:4.2f},   0_cla: {4:8.6f} {5:4.2f},   1_per: {6:8.6f} {7:4.2f},   1_cla: {8:8.6f} {9:4.2f}'.format(
                     p, Nel,
@@ -97,27 +96,29 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
                     err1_cla[-1], order1_cla[-1])
                     )
 
+            # make plot
             if p<3 and Nel==2**5:
-                axs.flatten()[2*p-2].plot(eta_v, f_per(eta_v), 'r', label='f')
-                axs.flatten()[2*p-2].plot(eta_v, f0_h_per, 'b--', label='f0h_per')
-                axs.flatten()[2*p-2].plot(eta_v, f1_h_per, 'k--', label='f1h_per')
+                axs.flatten()[2*p-2].plot(eta_plot, f_per(eta_plot), 'r', label='f')
+                axs.flatten()[2*p-2].plot(eta_plot, f0_h_per, 'b--', label='f0h_per')
+                axs.flatten()[2*p-2].plot(eta_plot, f1_h_per, 'k--', label='f1h_per')
                 axs.flatten()[2*p-2].set_title('p: {0:2d}, Nel: {1:4d}, periodic'.format(p, Nel))
                 axs.flatten()[2*p-2].legend()
                 axs.flatten()[2*p-2].autoscale(enable=True, axis='x', tight=True)
 
-                axs.flatten()[2*p-1].plot(eta_v, f_cla(eta_v), 'r', label='f')
-                axs.flatten()[2*p-1].plot(eta_v, f0_h_cla, 'b--', label='f0h_cla')
-                axs.flatten()[2*p-1].plot(eta_v, f1_h_cla, 'k--', label='f1h_cla')
+                axs.flatten()[2*p-1].plot(eta_plot, f_cla(eta_plot), 'r', label='f')
+                axs.flatten()[2*p-1].plot(eta_plot, f0_h_cla, 'b--', label='f0h_cla')
+                axs.flatten()[2*p-1].plot(eta_plot, f1_h_cla, 'k--', label='f1h_cla')
                 axs.flatten()[2*p-1].set_title('p: {0:2d}, Nel: {1:4d}, non-periodic'.format(p, Nel))
                 axs.flatten()[2*p-1].legend()
                 axs.flatten()[2*p-1].autoscale(enable=True, axis='x', tight=True)
 
         print()
 
-        assert np.all(order0_per[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.3 )
-        assert np.all(order0_cla[1:] > (p+1)*np.ones(len(order0_per) - 1) - 0.3 )
-        assert np.all(order1_per[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.3 )
-        assert np.all(order1_cla[1:] >   (p)*np.ones(len(order0_per) - 1) - 0.3 )
+        # check order of covergence
+        assert order0_per[-1] > (p+1) - 0.1 
+        assert order0_cla[-1] > (p+1) - 0.1 
+        assert order1_per[-1] > (p)   - 0.1 
+        assert order1_cla[-1] > (p)   - 0.1
 
 
     if plot:
@@ -166,7 +167,7 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
 
                 if np.max(np.abs(f0_per - c0_per)) > err0_per[0]:
                     err0_per = [np.max(np.abs(f0_per - c0_per)), i]
-                #assert np.allclose(f0_per, c0_per, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
+
                 f0_per[i] = 0.
 
             # basis functions V1 periodic
@@ -187,7 +188,7 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
 
                 if np.max(np.abs(f1_per - c1_per)) > err1_per[0]:
                     err1_per = [np.max(np.abs(f1_per - c1_per)), i]
-                #assert np.allclose(f1_per, c1_per, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
+
                 f1_per[i] = 0.
 
             # basis functions V0 clamped
@@ -208,7 +209,7 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
 
                 if np.max(np.abs(f0_cla - c0_cla)) > err0_cla[0]:
                     err0_cla = [np.max(np.abs(f0_cla - c0_cla)), i]
-                #assert np.allclose(f0_cla, c0_cla, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
+
                 f0_cla[i] = 0.
 
             # basis functions V1 clamped
@@ -229,7 +230,7 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
 
                 if np.max(np.abs(f1_cla - c1_cla)) > err1_cla[0]:
                     err1_cla = [np.max(np.abs(f1_cla - c1_cla)), i]
-                #assert np.allclose(f1_cla, c1_cla, atol=1e-12), 'Basis function {0:2d} failed.'.format(i)
+
                 f1_cla[i] = 0.
 
             print('p: {0:2d}, nq: {1:2d},   maxerr V0_per: {2:4.2e} at i={3:2d},   maxerr V1_per: {4:4.2e} at i={5:2d},   maxerr V0_cla: {6:4.2e} at i={7:2d},   maxerr V1_cla: {8:4.2e} at i={9:2d}'.format(
@@ -240,13 +241,19 @@ def test_projectors_1d(plot=False, p_range=2, N_range=7):
                 err1_cla[0], err1_cla[1])
                 ) 
 
+        # check the projector property pi(pi) = pi
+        assert err0_per[0] < 1e-13
+        assert err1_per[0] < 1e-13
+        assert err0_cla[0] < 1e-13
+        assert err1_cla[0] < 1e-13
+
         print()
 
     print() 
             
 
 
-def test_projectors_2d(p_range=2, N_range=7):
+def test_projectors_2d(p_range=6, N_range=9):
 
     import sys
     sys.path.append('..')
@@ -259,7 +266,7 @@ def test_projectors_2d(p_range=2, N_range=7):
     from hylife.utilitis_FEEC.basics     import spline_evaluation_2d as eval
 
     # test arbitrary function
-    f = lambda eta1, eta2 : np.cos(2*np.pi*eta2/.2) * ( np.exp(2.*eta1) - 2.*np.cos(2*np.pi*eta1/.2) )
+    f = lambda eta1, eta2 : np.cos(2*np.pi*eta2/.5) * ( np.exp(2.*eta1) - 2.*np.cos(2*np.pi*eta1/.5) )
 
     eta1_v   = np.linspace(0, 1, 100)
     eta2_v   = np.linspace(0, 1, 100)
@@ -346,7 +353,7 @@ def test_projectors_2d(p_range=2, N_range=7):
             order12.append(np.log2(err12[-2]/err12[-1]))
             order2.append(np.log2(err2[-2]/err2[-1]))
 
-            #print('look  :', np.max(f_cla(eta_v)), np.min(f_cla(eta_v)))
+            #print('look  :', np.max(f_cla(eta_plot)), np.min(f_cla(eta_plot)))
             #print('look h:', np.max(f0_h_cla), np.min(f0_h_cla))
 
             if True:
@@ -361,20 +368,20 @@ def test_projectors_2d(p_range=2, N_range=7):
             if False:
                 plt.figure()
                 
-
         print()
 
-        assert np.all(order0[1:]  > (p+1)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order11[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order12[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order2[1:]  > (p)*np.ones(len(order0) - 1) - 0.3 )
+        # check order of covergence
+        assert order0[-1]  > (p+1) - 0.1 
+        assert order11[-1] > (p)   - 0.1 
+        assert order12[-1] > (p)   - 0.1 
+        assert order2[-1]  > (p)   - 0.1
 
 
     #plt.show()
 
 
 
-def test_projectors_3d(p_range=2):
+def test_projectors_3d(p_range=6, N_range=7):
 
     import sys
     sys.path.append('..')
@@ -387,7 +394,7 @@ def test_projectors_3d(p_range=2):
     from hylife.utilitis_FEEC.basics     import spline_evaluation_3d as eval
 
     # test arbitrary function
-    f = lambda eta1, eta2, eta3 : np.sin(2*np.pi*eta3/.5) * np.cos(2*np.pi*eta2) * ( np.exp(eta1) - 2.*np.cos(eta1/.1) )
+    f = lambda eta1, eta2, eta3 : np.sin(2*np.pi*eta3/.5) * np.cos(2*np.pi*eta2) * ( np.exp(eta1) - 2.*np.cos(eta1/.5) )
 
     eta1_v = np.linspace(0, 1, 80)
     eta2_v = np.linspace(0, 1, 80)
@@ -415,7 +422,7 @@ def test_projectors_3d(p_range=2):
         order22 = []
         order23 = []
         order3  = []
-        for Nel in [10, 20, 40]:
+        for Nel in [2**n for n in range(4, N_range)]:
     
             # spline spaces
             Vh_eta1 = spl.spline_space_1d(Nel, p, spl_kind=False)
@@ -519,7 +526,7 @@ def test_projectors_3d(p_range=2):
             order23.append(np.log2(err23[-2]/err23[-1]))
             order3.append(np.log2(err3[-2]/err3[-1]))
 
-            #print('look  :', np.max(f_cla(eta_v)), np.min(f_cla(eta_v)))
+            #print('look  :', np.max(f_cla(eta_plot)), np.min(f_cla(eta_plot)))
             #print('look h:', np.max(f0_h_cla), np.min(f0_h_cla))
 
             if True:
@@ -541,14 +548,15 @@ def test_projectors_3d(p_range=2):
 
         print()
 
-        assert np.all(order0[1:]  > (p+1)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order11[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order12[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order13[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order21[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order22[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order23[1:] > (p)*np.ones(len(order0) - 1) - 0.3 )
-        assert np.all(order3[1:]  > (p)*np.ones(len(order0) - 1) - 0.3 )
+        # check order of covergence
+        assert order0[-1]  > (p+1) - 0.2
+        assert order11[-1] > (p)   - 0.2
+        assert order12[-1] > (p)   - 0.2
+        assert order13[-1] > (p)   - 0.2
+        assert order21[-1] > (p)   - 0.2
+        assert order22[-1] > (p)   - 0.2
+        assert order23[-1] > (p)   - 0.2
+        assert order3[-1]  > (p)   - 0.2
 
 
     #plt.show()
@@ -715,7 +723,7 @@ def test_project_splines():
 
 
 if __name__ == '__main__':
-    test_projectors_1d(plot=True, p_range=6, N_range=9)
-    test_projectors_2d(p_range=6, N_range=9)
-    test_projectors_3d(p_range=4)
+    test_projectors_1d(plot=True)
+    test_projectors_2d()
+    test_projectors_3d()
     test_project_splines()
