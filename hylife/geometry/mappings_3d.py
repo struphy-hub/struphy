@@ -15,7 +15,7 @@ or discrete spline mapping, and its corresponding metric coefficients:
 The following geometries are implemented:
 
 - kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
-- kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+- kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [].
 - kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
 
 - kind_map = 10 : cuboid. params_map = [lx, ly, lz].
@@ -75,7 +75,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
     # =========== discrete cylinder =================
     elif kind_map == 1:
         
-        lz = params_map[0]
+        lz = 2*pi*cx[0, 0, 0]
         
         if   component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
@@ -229,7 +229,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
     # ============ discrete cylinder ================
     elif kind_map == 1:
         
-        lz = params_map[0]
+        lz = 2*pi*cx[0, 0, 0]
         
         if   component == 11:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)

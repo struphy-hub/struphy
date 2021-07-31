@@ -192,8 +192,8 @@ def test_divB():
     # Set extraction operators (is automatic now) and discrete derivatives 
     #polar_splines = None
     #tensor_space_FEM.set_extraction_operators(bc, polar_splines)
-    tensor_space_FEM.set_derivatives()
-    print('Set tensor space derivatives done.')
+    #tensor_space_FEM.set_derivatives()
+    #print('Set tensor space derivatives done.')
 
 
 
