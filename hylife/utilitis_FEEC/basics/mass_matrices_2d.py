@@ -49,7 +49,8 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten()).reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+        mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
     Ni = tensor_space_FEM.Nbase_0form
@@ -81,7 +82,7 @@ def get_M0(tensor_space_FEM, domain, weight=None):
 
 
 # ================ mass matrix in V1 ===========================
-def get_M1(tensor_space_FEM, domain, blocks=False, weights=None):
+def get_M1(tensor_space_FEM, domain, weight=None, blocks=False):
     """
     Assembles the 2D mass matrix [[DN DN, DN ND, DN NN], [ND DN, ND ND, ND NN], [NN DN, NN ND, NN NN]] * G^(-1) * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
@@ -93,8 +94,11 @@ def get_M1(tensor_space_FEM, domain, blocks=False, weights=None):
     domain : domain
         domain object defining the geometry
         
-    weights : callable
+    weight : callable
         optional additional weight functions
+        
+    blocks : boolean
+        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -134,10 +138,10 @@ def get_M1(tensor_space_FEM, domain, blocks=False, weights=None):
             M[a][b] = np.zeros((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
             
             # evaluate inverse metric tensor at quadrature points
-            if weights == None:
+            if weight == None:
                 mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
             else:
-                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten())
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -179,9 +183,9 @@ def get_M1(tensor_space_FEM, domain, blocks=False, weights=None):
 
 
 # ================ mass matrix in V2 ===========================
-def get_M2(tensor_space_FEM, domain, blocks=False, weights=None):
+def get_M2(tensor_space_FEM, domain, weight=None, blocks=False):
     """
-    Assembles the 2D mass matrix [[ND ND, ND DN, ND DD], [DN ND, DN DN, DN DD], [DD ND, DD DN, DD DD]] * G * weights / |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
+    Assembles the 2D mass matrix [[ND ND, ND DN, ND DD], [DN ND, DN DN, DN DD], [DD ND, DD DN, DD DD]] * G / |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
     Parameters
     ----------
@@ -191,8 +195,11 @@ def get_M2(tensor_space_FEM, domain, blocks=False, weights=None):
     domain : domain
         domain object defining the geometry
         
-    weights : callable
+    weight : callable
         optional additional weight functions
+        
+    blocks : boolean
+        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -232,10 +239,10 @@ def get_M2(tensor_space_FEM, domain, blocks=False, weights=None):
             M[a][b] = np.zeros((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
             
             # evaluate metric tensor at quadrature points
-            if weights == None:
+            if weight == None:
                 mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
             else:
-                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten())
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -311,7 +318,8 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten()).reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+        mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
     Ni = tensor_space_FEM.Nbase_3form
@@ -343,7 +351,7 @@ def get_M3(tensor_space_FEM, domain, weight=None):
 
 
 # ============= mass matrix of vector field =========================
-def get_Mv(tensor_space_FEM, domain, blocks=False, weights=None):
+def get_Mv(tensor_space_FEM, domain, weight=None, blocks=False):
     """
     Assembles the 2D mass matrix [[NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN]] * G * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from hylife.geometry.domain.
     
@@ -355,8 +363,11 @@ def get_Mv(tensor_space_FEM, domain, blocks=False, weights=None):
     domain : domain
         domain object defining the geometry
         
-    weights : callable
+    weight : callable
         optional additional weight functions
+        
+    blocks : boolean
+        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -394,10 +405,10 @@ def get_Mv(tensor_space_FEM, domain, blocks=False, weights=None):
             M[a][b] = np.zeros((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
             
             # evaluate metric tensor at quadrature points
-            if weights == None:
+            if weight == None:
                 mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
             else:
-                mat_w = weights[a][b](pts[0].flatten(), pts[1].flatten())
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
