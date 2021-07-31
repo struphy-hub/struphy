@@ -36,7 +36,7 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
             coeff, T = dom.spline_interpolation_nd([p], [x_grid], fun(x_grid))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
-            eva.evaluate_vector(T, p, x_grid.size, coeff, eta_plot, fh_plot, 0)
+            eva.evaluate_vector(T[0], p, x_grid.size, coeff, eta_plot, fh_plot, 0)
 
             # error
             err.append(np.max(np.abs(fh_plot - fun(eta_plot))))

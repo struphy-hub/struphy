@@ -15,7 +15,7 @@ def test_polar_splines_2D(plot=False):
     from hylife.utilitis_FEEC.projectors import projectors_global as proj
     
     # parameters
-    Nel        = [4, 6]            # number of elements (number of elements in angular direction must be a multiple of 3)
+    Nel        = [8, 24]           # number of elements (number of elements in angular direction must be a multiple of 3)
     p          = [3, 3]            # splines degrees 
     spl_kind   = [False, True]     # kind of splines (for polar domains always [False, True] which means [clamped, periodic])
     nq_el      = [10, 10]          # number of quadrature points per element for integrations
@@ -29,7 +29,7 @@ def test_polar_splines_2D(plot=False):
     geometry   = 'spline cylinder'
     a          = 1.0
     R0         = 10.0
-    params_map = [2*np.pi*R0]
+    params_map = []
 
     # mapping to be interpolated
     X = lambda eta1, eta2 : a*eta1*np.cos(2*np.pi*eta2)
@@ -77,7 +77,7 @@ def test_polar_splines_2D(plot=False):
     plt.ylabel('y [m]')
 
     # create polar splines by passing the 2D tensor-product space and the control points c^x_ij, c^y_ij 
-    polar_splines = pol.polar_splines_2D(space_2d, domain.cx[:, :, 0], domain.cy[:, :, 0])
+    polar_splines = pol.polar_splines_2D(domain.cx[:, :, 0], domain.cy[:, :, 0])
 
     # set extraction operators for polar splines in spaces V0, V1, V2 and V3
     space_2d.set_polar_splines(cx, cy)
