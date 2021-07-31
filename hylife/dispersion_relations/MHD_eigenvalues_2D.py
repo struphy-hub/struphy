@@ -61,7 +61,7 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, n, project_profile
     
     # set polar splines, discrete derivatives and projectors
     space_2d.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    space_2d.set_projectors(num_params[4])
+    space_2d.set_projectors('general', num_params[4])
     
     print('Initialization done')
     
