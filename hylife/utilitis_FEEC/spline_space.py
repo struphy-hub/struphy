@@ -505,13 +505,25 @@ class tensor_spline_space:
     
     # function for setting projectors:        
     # =================================================
-    def set_projectors(self):
-        if self.dim==2:
-            self.projectors = pro.projectors_tensor_2d([space.projectors for space in self.spaces])
-        elif self.dim==3:
-            self.projectors = pro.projectors_tensor_3d([space.projectors for space in self.spaces])
-        else:
-            raise NotImplementedError('Only 2d and 3d supported.')
+    def set_projectors(self, which='tensor', nq=[6, 6]):
+        
+        if   which == 'tensor':
+        
+            if self.dim==2:
+                self.projectors = pro.projectors_tensor_2d([space.projectors for space in self.spaces])
+            elif self.dim==3:
+                self.projectors = pro.projectors_tensor_3d([space.projectors for space in self.spaces])
+            else:
+                raise NotImplementedError('Only 2d and 3d supported.')
+                
+        elif which == 'general':
+            
+            if self.dim==2:
+                self.projectors = pro.projectors_global_2d(self, nq)
+            elif self.dim==3:
+                self.projectors = pro.projectors_global_3d(self, nq)
+            else:
+                raise NotImplementedError('Only 2d and 3d supported.')
 
         print('Set projectors ({}d) done.'.format(self.dim))
 
