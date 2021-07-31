@@ -322,7 +322,6 @@ def rhs12_f_2d(indices1, indices2, subs2, subs_cum2, wts2, bsp11, bsp12, bsp21, 
                 
 
                 
-                
 # ===========================================================================================================
 #                                                   3d
 # ===========================================================================================================                
@@ -341,6 +340,8 @@ def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row,
     n2i, n2j = shape(bsp2)
     n3i, n3j = shape(bsp3)
     
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, i, bsp)
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -354,10 +355,15 @@ def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row,
                 row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs11(row1, row2, row3, col1, col2, col3, n_row_sub1, sub1_cum, wts1, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs11(row1, row2, row3, col1, col2, col3, subs1, subs_cum1, wts1, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -373,31 +379,34 @@ def rhs11(row1, row2, row3, col1, col2, col3, n_row_sub1, sub1_cum, wts1, bsp1, 
     
     nq1 = shape(wts1)[1]
     
-    counter1 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j1, q1, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter1 = sub1_cum[row1[i1]]
-                
-                for j1 in range(n_row_sub1[row1[i1]]):
+                for j1 in range(subs1[row1[i1]]):
                     for q1 in range(nq1):
-                        value += wts1[row1[i1] + j1 + counter1, q1] * bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2], row3[i3]]
+                        value += wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1, row2[i2], row3[i3]]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
                 rhs[i]   = value * bsp2[row2[i2], col2[i2]]* bsp3[row3[i3], col3[i3]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs12(row1, row2, row3, col1, col2, col3, n_row_sub2, sub2_cum, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs12(row1, row2, row3, col1, col2, col3, subs2, subs_cum2, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -413,30 +422,34 @@ def rhs12(row1, row2, row3, col1, col2, col3, n_row_sub2, sub2_cum, wts2, bsp1, 
     
     nq2 = shape(wts2)[1]
     
-    counter2 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j2, q2, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter2 = sub2_cum[row2[i2]]
-                
-                for j2 in range(n_row_sub2[row2[i2]]):
+                for j2 in range(subs2[row2[i2]]):
                     for q2 in range(nq2):
-                        value += wts2[row2[i2] + j2 + counter2, q2] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * mat_eq[row1[i1], row2[i2] + j2 + counter2, q2, row3[i3]]
+                        value += wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2] * bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]] * mat_eq[row1[i1], row2[i2] + j2 + subs_cum2[row2[i2]], q2, row3[i3]]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
                 rhs[i]   = value * bsp1[row1[i1], col1[i1]] * bsp3[row3[i3], col3[i3]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
+                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
     
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs13(row1, row2, row3, col1, col2, col3, n_row_sub3, sub3_cum, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs13(row1, row2, row3, col1, col2, col3, subs3, subs_cum3, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -452,33 +465,34 @@ def rhs13(row1, row2, row3, col1, col2, col3, n_row_sub3, sub3_cum, wts3, bsp1, 
     
     nq3 = shape(wts3)[1]
     
-    counter3 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j3, q3, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter3 = sub3_cum[row3[i3]]
-                
-                for j3 in range(n_row_sub3[row3[i3]]):
+                for j3 in range(subs3[row3[i3]]):
                     for q3 in range(nq3):
-                        value += wts3[row3[i3] + j3 + counter3, q3] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]] * mat_eq[row1[i1], row2[i2], row3[i3] + j3 + counter3, q3]
+                        value += wts3[row3[i3] + j3 + subs_cum3[row3[i3]], q3] * bsp3[row3[i3] + j3 + subs_cum3[row3[i3]], q3, col3[i3]] * mat_eq[row1[i1], row2[i2], row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
                 rhs[i]   = value * bsp1[row1[i1], col1[i1]] * bsp2[row2[i2], col2[i2]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]   
-
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-
-                              
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs21(row1, row2, row3, col1, col2, col3, n_row_sub2, n_row_sub3, sub2_cum, sub3_cum, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs21(row1, row2, row3, col1, col2, col3, subs2, subs3, subs_cum2, subs_cum3, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -495,42 +509,41 @@ def rhs21(row1, row2, row3, col1, col2, col3, n_row_sub2, n_row_sub3, sub2_cum, 
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
     
-    counter2 = 0
-    counter3 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j2, q2, j3, q3, w_vol, basis, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter2 = sub2_cum[row2[i2]]
-                counter3 = sub3_cum[row3[i3]]
-                
-                for j2 in range(n_row_sub2[row2[i2]]):
+                for j2 in range(subs2[row2[i2]]):
                     for q2 in range(nq2):
-                        for j3 in range(n_row_sub3[row3[i3]]):
+                        for j3 in range(subs3[row3[i3]]):
                             for q3 in range(nq3):
                                 
-                                w_vol  = wts2[row2[i2] + j2 + counter2, q2] * wts3[row3[i3] + j3 + counter3, q3]
+                                w_vol  = wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2] * wts3[row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                                 
-                                basis  = bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                basis  = bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]] * bsp3[row3[i3] + j3 + subs_cum3[row3[i3]], q3, col3[i3]]
                                 
-                                value += w_vol * basis * mat_eq[row1[i1], row2[i2] + j2 + counter2, q2, row3[i3] + j3 + counter3, q3]
+                                value += w_vol * basis * mat_eq[row1[i1], row2[i2] + j2 + subs_cum2[row2[i2]], q2, row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
                 rhs[i]   = value * bsp1[row1[i1], col1[i1]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]                
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-                
-                
-                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs22(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub3, sub1_cum, sub3_cum, wts1, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs22(row1, row2, row3, col1, col2, col3, subs1, subs3, subs_cum1, subs_cum3, wts1, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -547,41 +560,41 @@ def rhs22(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub3, sub1_cum, 
     nq1 = shape(wts1)[1]
     nq3 = shape(wts3)[1]
     
-    counter1 = 0
-    counter3 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j1, q1, j3, q3, w_vol, basis, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter1 = sub1_cum[row1[i1]]
-                counter3 = sub3_cum[row3[i3]]
-                
-                for j1 in range(n_row_sub1[row1[i1]]):
+                for j1 in range(subs1[row1[i1]]):
                     for q1 in range(nq1):
-                        for j3 in range(n_row_sub3[row3[i3]]):
+                        for j3 in range(subs3[row3[i3]]):
                             for q3 in range(nq3):
                                 
-                                w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts3[row3[i3] + j3 + counter3, q3]
+                                w_vol  = wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * wts3[row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                                 
-                                basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                basis  = bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * bsp3[row3[i3] + j3 + subs_cum3[row3[i3]], q3, col3[i3]]
                                 
-                                value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2], row3[i3] + j3 + counter3, q3]
+                                value += w_vol * basis * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1, row2[i2], row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
                 rhs[i]   = value * bsp2[row2[i2], col2[i2]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]          
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-                
-                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs23(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, sub1_cum, sub2_cum, wts1, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs23(row1, row2, row3, col1, col2, col3, subs1, subs2, subs_cum1, subs_cum2, wts1, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -598,28 +611,24 @@ def rhs23(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, sub1_cum, 
     nq1 = shape(wts1)[1]
     nq2 = shape(wts2)[1]
     
-    counter1 = 0
-    counter2 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j1, q1, j2, q2, w_vol, basis, i)
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter1 = sub1_cum[row1[i1]]
-                counter2 = sub2_cum[row2[i2]]
-                
-                for j1 in range(n_row_sub1[row1[i1]]):
+                for j1 in range(subs1[row1[i1]]):
                     for q1 in range(nq1):
-                        for j2 in range(n_row_sub2[row2[i2]]):
+                        for j2 in range(subs2[row2[i2]]):
                             for q2 in range(nq2):
                                 
-                                w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts2[row2[i2] + j2 + counter2, q2]
+                                w_vol  = wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2]
                                 
-                                basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]]
+                                basis  = bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]]
                                 
-                                value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2] + j2 + counter2, q2, row3[i3]]
+                                value += w_vol * basis * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1, row2[i2] + j2 + subs_cum2[row2[i2]], q2, row3[i3]]
                         
                 i        = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
                 
@@ -628,11 +637,15 @@ def rhs23(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, sub1_cum, 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
                 
-                
-                             
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
+    
+    
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs3(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, n_row_sub3, sub1_cum, sub2_cum, sub3_cum, wts1, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs3(row1, row2, row3, col1, col2, col3, subs1, subs2, subs3, subs_cum1, subs_cum2, subs_cum3, wts1, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -650,32 +663,26 @@ def rhs3(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, n_row_sub3,
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
     
-    counter1 = 0
-    counter2 = 0
-    counter3 = 0
-    
+    #$ omp parallel
+    #$ omp do private (i1, i2, i3, value, j1, q1, j2, q2, j3, q3, w_vol, basis, i)
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
                 
                 value = 0.
                 
-                counter1 = sub1_cum[row1[i1]]
-                counter2 = sub2_cum[row2[i2]]
-                counter3 = sub3_cum[row3[i3]]
-                
-                for j1 in range(n_row_sub1[row1[i1]]):
+                for j1 in range(subs1[row1[i1]]):
                     for q1 in range(nq1):
-                        for j2 in range(n_row_sub2[row2[i2]]):
+                        for j2 in range(subs2[row2[i2]]):
                             for q2 in range(nq2):
-                                for j3 in range(n_row_sub3[row3[i3]]):
+                                for j3 in range(subs3[row3[i3]]):
                                     for q3 in range(nq3):
                                         
-                                        w_vol  = wts1[row1[i1] + j1 + counter1, q1] * wts2[row2[i2] + j2 + counter2, q2] * wts3[row3[i3] + j3 + counter3, q3]
+                                        w_vol  = wts1[row1[i1] + j1 + subs_cum1[row1[i1]], q1] * wts2[row2[i2] + j2 + subs_cum2[row2[i2]], q2] * wts3[row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                                         
-                                        basis  = bsp1[row1[i1] + j1 + counter1, q1, col1[i1]] * bsp2[row2[i2] + j2 + counter2, q2, col2[i2]] * bsp3[row3[i3] + j3 + counter3, q3, col3[i3]]
+                                        basis  = bsp1[row1[i1] + j1 + subs_cum1[row1[i1]], q1, col1[i1]] * bsp2[row2[i2] + j2 + subs_cum2[row2[i2]], q2, col2[i2]] * bsp3[row3[i3] + j3 + subs_cum3[row3[i3]], q3, col3[i3]]
                                         
-                                        value += w_vol * basis * mat_eq[row1[i1] + j1 + counter1, q1, row2[i2] + j2 + counter2, q2, row3[i3] + j3 + counter3, q3]
+                                        value += w_vol * basis * mat_eq[row1[i1] + j1 + subs_cum1[row1[i1]], q1, row2[i2] + j2 + subs_cum2[row2[i2]], q2, row3[i3] + j3 + subs_cum3[row3[i3]], q3]
                 
                 
                 i      = n_rows_2*n_rows_3*i1 + n_rows_3*i2 + i3
@@ -683,7 +690,12 @@ def rhs3(row1, row2, row3, col1, col2, col3, n_row_sub1, n_row_sub2, n_row_sub3,
                 rhs[i] = value
                 
                 row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]                    
+                col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
+                
+    #$ omp end do
+    #$ omp end parallel
+    
+    ierr = 0
                     
                     
 # =============================================================================                
@@ -806,4 +818,4 @@ def rhs13_f(indices1, indices2, indices3, n_row_sub3, sub3_cum, wts3, bsp11, bsp
                 rhs[i] += f[indices1[0, i1], indices2[0, i2], indices3[0, i3]] * value * bsp11[indices1[0, i1], indices1[1, i1]] * bsp12[indices1[0, i1], indices1[2, i1]] * bsp21[indices2[0, i2], indices2[1, i2]] * bsp22[indices2[0, i2], indices2[2, i2]]
                 
                 row[i]  = n2i*n3i*indices1[1, i1] + n3i*indices2[1, i2] + indices3[1, i3]
-                col[i]  = n2j*n3j*indices1[2, i1] + n3j*indices2[2, i2] + indices3[2, i3]
+                col[i]  = n2j*n3j*indices1[2, i1] + n3j*indices2[2, i2] + indices3[2, i3]                

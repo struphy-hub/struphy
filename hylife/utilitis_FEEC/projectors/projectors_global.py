@@ -110,7 +110,7 @@ class projectors_global_1d:
         self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
         
         # set interpolation points (Greville points)
-        self.x_int = self.space.greville
+        self.x_int = self.space.greville.copy()
         
         # set number of sub-intervals per integration interval between Greville points and integration boundaries
         self.subs = np.ones(self.space.NbaseD, dtype=int)
@@ -158,7 +158,7 @@ class projectors_global_1d:
         self.D = spa.csr_matrix(self.D)
         
         # LU decompositions
-        self.N_LU = spa.linalg.splu(self.N.tocsc()) # why csc?
+        self.N_LU = spa.linalg.splu(self.N.tocsc())
         self.D_LU = spa.linalg.splu(self.D.tocsc())
         
         # LU decompositions of transposed
@@ -1220,17 +1220,17 @@ class projectors_global_2d:
             P_DD = spa.identity(d1*d2, format='csr')
 
             # remove contributions from N-splines at eta1 = 0
-            if   self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][0] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[n2:, :]
                 P_ND = P_ND[d2:, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][0] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             # remove contributions from N-splines at eta1 = 1
-            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[:-n2, :]
                 P_ND = P_ND[:-d2, :]
-            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P_NN.tocsr().copy()
@@ -1269,11 +1269,11 @@ class projectors_global_2d:
             P3_DD = self.space.polar_splines.P2.copy()
 
             # remove contributions from N-splines at eta1 = 1
-            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == False:
                 P0_NN = P0_NN[:-n2, :]
                 P1_ND = P1_ND[:-d2, :]
                 P2_ND = P2_ND[:-d2, :]
-            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P0_NN.tocsr().copy()
@@ -1688,11 +1688,11 @@ class projectors_global_2d:
             return self.solve_V3(include_bc, rhs)
         else:
             return rhs
+    
+    
+    
 
-
-
-
-
+    
 # ======================= 3d ====================================
 class projectors_global_3d:
     """
@@ -1737,17 +1737,17 @@ class projectors_global_3d:
             P_DD = spa.identity(d1*d2, format='csr')
 
             # remove contributions from N-splines at eta1 = 0
-            if self.space.bc[0] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][0] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[n2:, :]
                 P_ND = P_ND[d2:, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][0] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             # remove contributions from N-splines at eta1 = 1
-            if self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == False:
                 P_NN = P_NN[:-n2, :]
                 P_ND = P_ND[:-d2, :]
-            elif self.space.bc[0] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P_NN.tocsr().copy()
@@ -1799,11 +1799,11 @@ class projectors_global_3d:
             P3_DD = self.space.polar_splines.P2.copy()
 
             # remove contributions from N-splines at eta1 = 1
-            if   self.space.bc[1] == 'd' and self.space.spl_kind[0] == False:
+            if   self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == False:
                 P0_NN = P0_NN[:-n2, :]
                 P1_ND = P1_ND[:-d2, :]
                 P2_ND = P2_ND[:-d2, :]
-            elif self.space.bc[1] == 'd' and self.space.spl_kind[0] == True:
+            elif self.space.bc[0][1] == 'd' and self.space.spl_kind[0] == True:
                 raise ValueError('dirichlet boundary conditions can only be set with clamped splines')
 
             self.P0_pol = P0_NN.tocsr().copy()

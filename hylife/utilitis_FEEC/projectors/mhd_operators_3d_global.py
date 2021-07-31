@@ -620,31 +620,36 @@ class operators_mhd:
         
     
     # =================================================================
-    def assemble_MR(self, domain, r3_eq):
+    def assemble_MR(self, domain, r0_eq):
         
-        if callable(r3_eq):
-            rho0_eq = lambda eta1, eta2, eta3: r3_eq(eta1, eta2, eta3)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+        #if callable(r3_eq):
+        #    rho0_eq = lambda eta1, eta2, eta3 : r3_eq(eta1, eta2, eta3)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+        #else:
+        #    rho0_eq = lambda eta1, eta2, eta3 : self.pro.space.evaluate_DDD(eta1, eta2, eta3, r3_eq)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+        
+        if callable(r0_eq):
+            rho0_eq = lambda eta1, eta2, eta3 : r0_eq(eta1, eta2, eta3)
         else:
-            rho0_eq = lambda eta1, eta2, eta3: self.pro.space.evaluate_DDD(eta1, eta2, eta3, r3_eq)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+            rho0_eq = lambda eta1, eta2, eta3 : self.pro.space.evaluate_NNN(eta1, eta2, eta3, r0_eq)
                                                                                                         
-        weight11 = lambda eta1, eta2, eta3 :rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_11')
-        weight12 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_12')
-        weight13 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_13')
+        weight11 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_11')
+        weight12 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_12')
+        weight13 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_13')
 
-        weight21 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_21')
-        weight22 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_22')
-        weight23 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_23')
+        weight21 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_21')
+        weight22 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_22')
+        weight23 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_23')
 
-        weight31 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_31')
-        weight32 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_32')
-        weight33 = lambda eta1, eta2, eta3: rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_33')
+        weight31 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_31')
+        weight32 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_32')
+        weight33 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_33')
         
-        weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
+        self.weights_MR = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
         
         if   self.basis_u == 2:
-            self.MR = mass.get_M2(self.pro.space, domain   , weights)
+            self.MR = mass.get_M2(self.pro.space, domain, self.weights_MR)
         elif self.basis_u == 0:
-            self.MR = mass.get_Mv(self.pro.space, domain, 0, weights)
+            self.MR = mass.get_Mv(self.pro.space, domain, self.weights_MR)
     
     
     # =================================================================
@@ -778,9 +783,9 @@ class operators_mhd:
         weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
         
         if  self.basis_u == 2:
-            self.mat_JB = mass.get_M2(self.pro.space, domain   , weights)
+            self.mat_JB = mass.get_M2(self.pro.space, domain, weights)
         elif self.basis_u == 0:
-            self.mat_JB = mass.get_Mv(self.pro.space, domain, 0, weights)
+            self.mat_JB = mass.get_Mv(self.pro.space, domain, weights)
         
         #self.mat_JB = mass.get_M2_a(self.pro.space, domain, j2_eq)
         #self.mat_JB.eliminate_zeros()
@@ -972,7 +977,7 @@ class operators_mhd:
         return out
     
     # ======================================
-    def setPreconditionerA(self, domain, which, drop_tol=1e-4, fill_fac=10.):
+    def setPreconditionerA(self, domain, r3_eq, which, drop_tol=1e-4, fill_fac=10.):
         
         # ILU preconditioner
         if which == 'ILU':
@@ -1000,13 +1005,13 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.A_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
+                self.A_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain, self.weights_MR)
             elif self.basis_u == 0:
-                self.A_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
+                self.A_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain, self.weights_MR)
          
     
     # ======================================
-    def setPreconditionerS2(self, domain, which, drop_tol=1e-4, fill_fac=10.):
+    def setPreconditionerS2(self, domain, r3_eq, which, drop_tol=1e-4, fill_fac=10.):
         
         # ILU preconditioner
         if which == 'ILU':
@@ -1041,13 +1046,13 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.S2_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
+                self.S2_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain, self.weights_MR)
             elif self.basis_u == 0:
-                self.S2_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
+                self.S2_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain, self.weights_MR)
 
  
     # ======================================
-    def setPreconditionerS6(self, domain, which, drop_tol=1e-4, fill_fac=10.):
+    def setPreconditionerS6(self, domain, r3_eq, which, drop_tol=1e-4, fill_fac=10.):
         
         # ILU preconditioner
         if which == 'ILU':
@@ -1099,6 +1104,6 @@ class operators_mhd:
         elif which == 'FFT':
             
             if self.basis_u == 2:
-                self.S6_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain)
+                self.S6_PRE = mass_pre.get_M2_PRE_3(self.pro.space, domain, self.weights_MR)
             elif self.basis_u == 0:
-                self.S6_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain)
+                self.S6_PRE = mass_pre.get_Mv_PRE_3(self.pro.space, domain, self.weights_MR)
