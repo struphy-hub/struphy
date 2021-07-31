@@ -14,6 +14,7 @@ import hylife.utilitis_FEEC.spline_space as spl
 
 import hylife.linear_algebra.linalg_kron as linkron
 
+import hylife.utilitis_FEEC.basics.mass_matrices_1d as mass_1d
 
 
 # ================ inverse mass matrix in V0 ===========================
@@ -216,57 +217,48 @@ def get_M0_PRE_3(tensor_space_FEM, domain):
     TODO
     """
     
-    # 2D tensor product space in poloidal plane
-    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]])
+    # create 2D tensor product space in poloidal plane
+    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
     
-    # 1D space in toroidal direction
-    space_tor = tensor_space_FEM.spaces[2]
+    # set extraction operators for polar splines
+    if tensor_space_FEM.polar:
+        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set extraction operators --> this is automatic now
-    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    #space_tor.set_extraction_operators()
-    
-    # mass matrices
+    # assembly of mass matrix in poloidal plane
     space_pol.assemble_M0_2D(domain)
-    space_tor.assemble_M0()
     
     # LU decomposition of poloidal mass matrix
     M0_pol_LU = spa.linalg.splu(space_pol.M0.tocsc())
     
     # vector defining the circulant mass matrix in toroidal direction
-    tor_vec = space_tor.M0.toarray()[:, 0]
+    tor_vec = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M0.shape, matvec=lambda x: linkron.kron_fftsolve_2d(M0_pol_LU, tor_vec, x.reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2])).flatten())
 
 
 # ========== inverse mass matrix in V1 with decomposition poloidal x toroidal ==============
-def get_M1_PRE_3(tensor_space_FEM, domain):
+def get_M1_PRE_3(tensor_space_FEM, domain, weights):
     """
     TODO
     """
     
-    # 2D tensor product space in poloidal plane
-    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]])
+    # create 2D tensor product space in poloidal plane
+    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
     
-    # 1D space in toroidal direction
-    space_tor = tensor_space_FEM.spaces[2]
+    # set extraction operators for polar splines
+    if tensor_space_FEM.polar:
+        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set extraction operators --> this is automatic now
-    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    #space_tor.set_extraction_operators()
-    
-    # mass matrices
-    space_pol.assemble_M1_2D_blocks(domain)
-    space_tor.assemble_M0()
-    space_tor.assemble_M1()
+    # assembly of mass matrix in poloidal plane
+    space_pol.assemble_M1_2D_blocks(domain, weights)
     
     # LU decomposition of poloidal mass matrix
     M1_pol_12_LU = spa.linalg.splu(space_pol.M1_12.tocsc())
     M1_pol_33_LU = spa.linalg.splu(space_pol.M1_33.tocsc())
     
     # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = space_tor.M0.toarray()[:, 0]
-    tor_vec1 = space_tor.M1.toarray()[:, 0]
+    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
+    tor_vec1 = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
     
     def solve(x):
         
@@ -282,33 +274,28 @@ def get_M1_PRE_3(tensor_space_FEM, domain):
 
 
 # ========== inverse mass matrix in V2 with decomposition poloidal x toroidal ==============
-def get_M2_PRE_3(tensor_space_FEM, domain):
+def get_M2_PRE_3(tensor_space_FEM, domain, weights):
     """
     TODO
     """
     
-    # 2D tensor product space in poloidal plane
-    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]])
+    # create 2D tensor product space in poloidal plane
+    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
     
-    # 1D space in toroidal direction
-    space_tor = tensor_space_FEM.spaces[2]
+    # set extraction operators for polar splines
+    if tensor_space_FEM.polar:
+        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set extraction operators --> this is automatic now
-    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    #space_tor.set_extraction_operators()
-    
-    # mass matrices
-    space_pol.assemble_M2_2D_blocks(domain)
-    space_tor.assemble_M0()
-    space_tor.assemble_M1()
+    # assembly of mass matrix in poloidal plane
+    space_pol.assemble_M2_2D_blocks(domain, weights)
     
     # LU decomposition of poloidal mass matrix
     M2_pol_12_LU = spa.linalg.splu(space_pol.M2_12.tocsc())
     M2_pol_33_LU = spa.linalg.splu(space_pol.M2_33.tocsc())
     
     # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = space_tor.M0.toarray()[:, 0]
-    tor_vec1 = space_tor.M1.toarray()[:, 0]
+    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
+    tor_vec1 = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
     
     def solve(x):
         
@@ -329,56 +316,48 @@ def get_M3_PRE_3(tensor_space_FEM, domain):
     TODO
     """
     
-    # 2D tensor product space in poloidal plane
-    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]])
+    # create 2D tensor product space in poloidal plane
+    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
     
-    # 1D space in toroidal direction
-    space_tor = tensor_space_FEM.spaces[2]
+    # set extraction operators for polar splines
+    if tensor_space_FEM.polar:
+        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set extraction operators --> this is automatic now
-    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    #space_tor.set_extraction_operators()
-    
-    # mass matrices
+    # assembly of mass matrix in poloidal plane
     space_pol.assemble_M3_2D(domain)
-    space_tor.assemble_M1()
     
     # LU decomposition of poloidal mass matrix
     M3_pol_LU = spa.linalg.splu(space_pol.M3.tocsc())
     
     # vector defining the circulant mass matrix in toroidal direction
-    tor_vec = space_tor.M1.toarray()[:, 0]
+    tor_vec = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M3.shape, matvec=lambda x: linkron.kron_fftsolve_2d(M3_pol_LU, tor_vec, x.reshape(tensor_space_FEM.E3_pol.shape[0], tensor_space_FEM.NbaseD[2])).flatten())
 
 
 
 # ========== inverse mass matrix in V0^3 with decomposition poloidal x toroidal ==============
-def get_Mv_PRE_3(tensor_space_FEM, domain):
+def get_Mv_PRE_3(tensor_space_FEM, domain, weights):
     """
     TODO
     """
     
-    # 2D tensor product space in poloidal plane
-    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]])
+    # create 2D tensor product space in poloidal plane
+    space_pol = spl.tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
     
-    # 1D space in toroidal direction
-    space_tor = tensor_space_FEM.spaces[2]
+    # set extraction operators for polar splines
+    if tensor_space_FEM.polar:
+        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
-    # set extraction operators --> this is automatic now
-    #space_pol.set_extraction_operators(tensor_space_FEM.bc, tensor_space_FEM.polar_splines)
-    #space_tor.set_extraction_operators()
-    
-    # mass matrices
-    space_pol.assemble_Mv_2D_blocks(domain)
-    space_tor.assemble_M0()
+    # assembly of mass matrix in poloidal plane
+    space_pol.assemble_Mv_2D_blocks(domain, weights)
     
     # LU decomposition of poloidal mass matrix
     Mv_pol_12_LU = spa.linalg.splu(space_pol.Mv_12.tocsc())
     Mv_pol_33_LU = spa.linalg.splu(space_pol.Mv_33.tocsc())
     
     # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = space_tor.M0.toarray()[:, 0]
+    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
     
     def solve(x):
         

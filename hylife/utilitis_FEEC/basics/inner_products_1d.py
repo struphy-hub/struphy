@@ -42,10 +42,10 @@ def inner_prod_V0(spline_space, fun, mapping=None):
     if mapping == None:
         mat_map = np.ones(pts.shape, dtype=float)
     else:
-        mat_map = mapping(pts)
+        mat_map = mapping(pts.flatten()).reshape(pts.shape)
     
     # evaluation of function at quadrature points
-    mat_f   = fun(pts)
+    mat_f   = fun(pts.flatten()).reshape(pts.shape)
     
     # assembly
     F       = np.zeros(NbaseN, dtype=float)
@@ -95,10 +95,10 @@ def inner_prod_V1(spline_space, fun, mapping=None):
     if mapping == None:
         mat_map = np.ones(pts.shape, dtype=float)
     else:
-        mat_map = 1/mapping(pts)
+        mat_map = 1/mapping(pts.flatten()).reshape(pts.shape)
     
     # evaluation of function at quadrature points
-    mat_f   = fun(pts)
+    mat_f   = fun(pts.flatten()).reshape(pts.shape)
     
     # assembly
     F       = np.zeros(NbaseD, dtype=float)

@@ -6,4 +6,4 @@ cp simulations/run_STRUPHY_cc_lin_6D.sh run_STRUPHY_cc_lin_6D.sh
 mkdir -p my_struphy_sims
 
 # copy template 
-cp -r simulations/template_python my_struphy_sims/sim_1
+cp -r simulations/template_slab my_struphy_sims/sim_1

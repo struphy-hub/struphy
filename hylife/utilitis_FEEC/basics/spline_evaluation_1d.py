@@ -170,8 +170,11 @@ def evaluate_vector(t, p, nbase, coeff, eta, values, kind):
     
     for i in range(len(eta)):
         # V0 - space
-        if kind == 0:
+        if   kind == 0:
             values[i] = evaluate_n(t, p, nbase, coeff, eta[i])
         # V1 - space
         elif kind == 1:
             values[i] = evaluate_d(t, p, nbase, coeff, eta[i])
+        # derivative of V0 - space
+        elif kind == 2:
+            values[i] = evaluate_diffn(t, p, nbase, coeff, eta[i])

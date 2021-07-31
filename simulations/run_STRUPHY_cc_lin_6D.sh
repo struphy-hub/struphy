@@ -28,13 +28,11 @@ echo "Your current run is here:      " $all_sim/$run_dir
 # ============ add paths to python ================
 export PYTHONPATH="${PYTHONPATH}:$path_root"
 export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
-
-#echo $PYTHONPATH
 # =================================================
 
 # ========== clean simulation folder ==============
-rm -f $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
-rm -f $all_sim/$run_dir/*.hdf5
+rm -f $all_sim/$run_dir/STRUPHY.py
+rm -f $all_sim/$run_dir/*.hdf5  # IMPORTANT: if this run is a restart, comment this line!
 rm -f $all_sim/$run_dir/sim*.*
 rm -f $all_sim/$run_dir/batch*.*
 # =================================================
@@ -43,64 +41,125 @@ rm -f $all_sim/$run_dir/batch*.*
 # ====== set parameters and create .yml file ======
 cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 
-#############################
-##### grid construction #####
-#############################
-
+# ---------------- mesh parameters -----------------------
 # number of elements, clamped (False) or periodic (True) splines and spline degrees
-Nel       : [2, 2, 16] 
-spl_kind  : [True, True, True]
-p         : [1, 1, 3]
+Nel      : [2, 2, 16] 
+spl_kind : [True, True, True]
+p        : [1, 1, 3]
 
-# boundary conditions for u1 and b1 at eta1 = 0 and eta1 = 1 (homogeneous Dirichlet = d, free boundary = f)
+# boundary conditions for U2_1 (or Uv_1) and B2_1 at eta_1 = 0 and eta_1 = 1 (homogeneous Dirichlet = d, free boundary = f)
 bc : [f, f]
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [10, 10, 6]
-nq_pr : [10, 10, 6]
+nq_el : [6, 6, 6]
+nq_pr : [6, 6, 6]
 
-# polar splines in poloidal plane
+# polar splines in eta_1-eta_2 (usually poloidal) plane?
 polar : False
 
-# basis for bulk velocity
+# representation of MHD bulk velocity (0 : vector field with 0-form basis for each component, 2 : 2-form)
 basis_u : 0
 
-# ----> for analytical geometry: kind of mapping (cuboid, spline cylinder, etc., see mappings_3d.py) and parameters
+# geometry (cuboid, colella, spline cylinder, etc., see mappings_3d.py) and parameters
 geometry   : cuboid
 params_map : [1., 1., 7.853981634]
-#params_map : [1., 6.283185307, 62.83185307]
+
+#geometry   : colella
+#params_map : [1., 1., 0.05, 7.853981634]
 
 #geometry   : spline cylinder
-#params_map : [31.41592653589793]  
-
-#geometry   : spline torus
 #params_map : []  
 
-# ----> for spline geometry: number of elements, clamped (False) or periodic (True) splines and spline degrees
-Nel_MAP      : [2, 2, 16] 
-spl_kind_MAP : [False, False, False]
-p_MAP        : [1, 1, 3] 
+#geometry   : spline torus
+#params_map : []
+# --------------------------------------------------------
 
 
-#############################
-##### time integration ######
-#############################
+# --------------- MHD parameters -------------------------
+# which equilibrium file (currently slab and circular available)
+eq_type : slab
 
-# do time integration?, time step, simulation time and maximum runtime of program (in minutes)
+# <<< parameters for simulations in slab geometry >>>
+B0x    : 0.
+B0y    : 0.
+B0z    : 1.
+rho0   : 1.
+beta_s : 0.
+
+# <<< parameters for simulations in circular geometry (cylinder or circular torus) >>>
+# minor and major radius in m
+a  : 1.
+R0 : 10.
+
+# on-axis toroidal magnetic field in T
+B0 : 1.
+
+# safety factor profile
+q0    : 1.1
+q1    : 1.85
+q_add : 0
+rl    : 1.
+
+# current profile
+bmp0 : 0.
+cg0  : 0.2
+wg0  : 0.3
+bmp1 : 0.
+cg1  : 0.2
+wg1  : 0.3
+bmp2 : 0.
+cg2  : 0.2
+wg2  : 0.3
+
+# add order-eps Shafranov shift?
+shafranov : 0
+
+# density profile
+r1    : 4.
+r2    : 3.
+rho_a : 0.
+
+# pressure profile
+beta : 0.2
+p1   : 0.95
+p2   : 0.05
+# ---------------------------------------------------------
+
+
+# ---------- time integration -----------------------------
+# run mode (0 : MHD eigenvalue solver, 1: initial-value solver with MHD eigenfunction, 2 : initial-value solver with input functions, 3 : initial-value solver with random noise)
+run_mode : 2
+
+# --> parameters for run mode 0 (tor. mode number, projection of eq. profiles?, directory to solve spectrum)
+n_tor    : -1
+profiles : False
+dir_eig  : eigenstates.npy
+
+# --> parameters for run mode 1 (tor. mode number, projection of eq. profiles?, real (11) or imag (12) part, squared eigenfreq.)
+n_tor    : -1
+profiles : False
+eig_kind : 11
+eig_freq : 0.
+
+# --> parameters for run mode 3 (plane for noise: xy, yz or xz)
+plane : yz
+
+# for initial-value-solver: do time integration?, time step, simulation time and maximum runtime of program in minutes
 time_int : True
 dt       : 0.1
 Tend     : 10.
 max_time : 1000.
 
+# location of j_eq X B term (either step_2 or step_6) 
+loc_j_eq : step_6
+# ----------------------------------------------------------
 
-###############################
-##### linear solvers ##########
-###############################
 
+# -------------- linear solvers ----------------------------
 # pre-conditioner for linear systems (ILU or FFT)
 PRE : FFT 
 
-# for ILUs: set tolerance for approximation of inverse interpolation/histopolation matrices (drop values < tol_inv)
+# for ILUs: set tolerance for approximation of inverse interpolation/histopolation matrices (values < tol_inv are set to zero)
 tol_inv : 0.1
 
 # for ILUs: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
@@ -114,7 +173,10 @@ fill_fac_S2 : 10.
 drop_tol_S6 : 0.0001
 fill_fac_S6 : 10.
 
-# tolerances for iterative solvers (default: tol=1e-8)
+# parameters for iterative solvers (default for tolerances: tol=1e-8)
+solver_type_2 : cg
+solver_type_3 : cg
+
 tol1 : 0.00000001
 tol2 : 0.00000001
 tol3 : 0.00000001
@@ -125,32 +187,17 @@ maxiter1 : 1000
 maxiter2 : 1000
 maxiter3 : 1000
 maxiter6 : 1000
+# -----------------------------------------------------------
 
 
-###############################
-####### MHD parameters ########
-###############################
-
-# add sub-step 6 to simulation?
-add_step_6 : False
-
-# location of jeq X B term (step_2 or step_6) 
-loc_jeq : step_6
-
-# adiabatic exponent
-gamma : 1.6666666666666667
-
-###############################
-##### kinetic parameters ######
-###############################
-
+# ---------------- kinetic parameters -----------------------
 # add kinetic terms to simulation?
 add_PIC : True    
 
 # total number of particles
 Np : 128000
 
-# control variate? 
+# control variate (delta-f)? 
 control : True  
 
 # shift of Maxwellian 
@@ -167,19 +214,22 @@ seed : 1234
 
 # directory of particles if loaded externally
 dir_particles : path_to_particles
+# -----------------------------------------------------------
 
-###############################
-##### restart function ########
-###############################
 
+# --------------- restart function --------------------------
 # Is this run a restart?
 restart : False
 
-# number of restart files
+# If yes, number of restart files
 num_restart : 0
 
 # Create restart files at the end of the simulation? 
 create_restart : True
+# -----------------------------------------------------------
+
+# enable plotting
+enable_plotting : False
 
 EOF
 # =================================================
@@ -195,7 +245,7 @@ cat >$all_sim/$run_dir/batch_$run_dir.sh <<'EOF'
 # Initial working directory:
 #SBATCH -D ./
 # Job Name:
-#SBATCH -J STRUPHY_cc_lin_6D
+#SBATCH -J test_struphy
 #
 # Number of nodes and MPI tasks per node:
 #SBATCH --nodes=1
@@ -215,7 +265,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export OMP_PLACES=cores 
 
 # Run the program:
-srun python3 STRUPHY_cc_lin_6D.py > test.out
+srun python3 STRUPHY.py > test.out
 EOF
 # =================================================
 
@@ -247,9 +297,9 @@ fi
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp $code_name $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
+cp $code_name $all_sim/$run_dir/STRUPHY.py
 
-sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY_cc_lin_6D.py
+sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
 
 
@@ -263,17 +313,15 @@ echo "Start of STRUPHY:"
 
 # option 2 : interactive run on an interactive node on e.g. Cobra (either pure MPI or pure OpenMP)
 #export OMP_NUM_THREADS=1
-#srun -n 4 -p interactive python3 STRUPHY_cc_lin_6D.py > STRUPHY_cc_lin_6D.out
+#srun -n 4 -p interactive python3 STRUPHY.py > STRUPHY.out
 
 #export OMP_NUM_THREADS=4
-#python3 STRUPHY_cc_lin_6D.py
+#python3 STRUPHY.py
 
 # option 3: run on a local machine e.g. laptop (either pure MPI or OpenMP)
 #export OMP_NUM_THREADS=1
-#mpirun -n 4 python3 STRUPHY_cc_lin_6D.py
+#mpirun -n 4 python3 STRUPHY.py
 
 #export OMP_NUM_THREADS=1
-#python3 STRUPHY_cc_lin_6D.py
-
-echo "No run command specified, simulation not started. Go to run_STRUPHY*.sh"
+#python3 STRUPHY.py
 # =================================================

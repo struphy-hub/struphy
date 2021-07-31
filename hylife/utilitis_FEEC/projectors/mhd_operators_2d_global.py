@@ -344,30 +344,33 @@ class operators_mhd:
         
     
     # =================================================================
-    def assemble_MR(self, domain, r3_eq):
+    def assemble_MR(self, domain, r0_eq):
         
-        eta3 = np.array([0.])
-        
-        if callable(r3_eq):
-            rho0_eq = lambda eta1, eta2: r3_eq(eta1, eta2)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df')[:, :, 0])
+        #if callable(r3_eq):
+        #    rho0_eq = lambda eta1, eta2, eta3 : r3_eq(eta1, eta2, eta3)/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+        #else:
+        #    rho0_eq = lambda eta1, eta2, eta3 : self.pro.space.evaluate_DD(eta1, eta2, r3_eq, 'V3')[:, :, None]/abs(domain.evaluate(eta1, eta2, eta3, 'det_df'))
+            
+        if callable(r0_eq):
+            rho0_eq = lambda eta1, eta2, eta3 : r0_eq(eta1, eta2, eta3)
         else:
-            rho0_eq = lambda eta1, eta2: self.pro.space.evaluate_DD(eta1, eta2, r3_eq, 'V3')/abs(domain.evaluate(eta1, eta2, eta3, 'det_df')[:, :, 0])
+            rho0_eq = lambda eta1, eta2, eta3 : self.pro.space.evaluate_NN(eta1, eta2, r0_eq, 'V0')[:, :, None]
         
-        weight11 = lambda eta1, eta2 :rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_11')[:, :, 0]
-        weight12 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_12')[:, :, 0]
-        weight13 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_13')[:, :, 0]
+        weight11 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_11')
+        weight12 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_12')
+        weight13 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_13')
 
-        weight21 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_21')[:, :, 0]
-        weight22 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_22')[:, :, 0]
-        weight23 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_23')[:, :, 0]
+        weight21 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_21')
+        weight22 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_22')
+        weight23 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_23')
 
-        weight31 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_31')[:, :, 0]
-        weight32 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_32')[:, :, 0]
-        weight33 = lambda eta1, eta2: rho0_eq(eta1, eta2)*domain.evaluate(eta1, eta2, eta3, 'g_33')[:, :, 0]
+        weight31 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_31')
+        weight32 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_32')
+        weight33 = lambda eta1, eta2, eta3 : rho0_eq(eta1, eta2, eta3)*domain.evaluate(eta1, eta2, eta3, 'g_33')
         
         weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
         
-        self.MR = mass.get_M2(self.pro.space, domain, False, weights)
+        self.MR = mass.get_M2(self.pro.space, domain, weights)
     
     
     # =================================================================
@@ -475,39 +478,34 @@ class operators_mhd:
     # =================================================================
     def assemble_JB_strong(self, domain, j2_eq):
         
-        eta3 = np.array([0.])
-        
         if callable(j2_eq[0]):
             
-            weight11 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
-            weight12 = lambda eta1, eta2: -j2_eq[2](eta1, eta2)
-            weight13 = lambda eta1, eta2:  j2_eq[1](eta1, eta2)
+            weight11 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
+            weight12 = lambda eta1, eta2, eta3 : -j2_eq[2](eta1, eta2, eta3)
+            weight13 = lambda eta1, eta2, eta3 :  j2_eq[1](eta1, eta2, eta3)
             
-            weight21 = lambda eta1, eta2:  j2_eq[2](eta1, eta2)
-            weight22 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
-            weight23 = lambda eta1, eta2: -j2_eq[0](eta1, eta2)
+            weight21 = lambda eta1, eta2, eta3 :  j2_eq[2](eta1, eta2, eta3)
+            weight22 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
+            weight23 = lambda eta1, eta2, eta3 : -j2_eq[0](eta1, eta2, eta3)
             
-            weight31 = lambda eta1, eta2: -j2_eq[1](eta1, eta2)
-            weight32 = lambda eta1, eta2:  j2_eq[0](eta1, eta2)
-            weight33 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight31 = lambda eta1, eta2, eta3 : -j2_eq[1](eta1, eta2, eta3)
+            weight32 = lambda eta1, eta2, eta3 :  j2_eq[0](eta1, eta2, eta3)
+            weight33 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
         
         else:
             
-            weight11 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
-            weight12 = lambda eta1, eta2: -self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')
-            weight13 = lambda eta1, eta2:  self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')
+            weight11 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
+            weight12 = lambda eta1, eta2, eta3 : -self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')[:, :, None]
+            weight13 = lambda eta1, eta2, eta3 :  self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')[:, :, None]
             
-            weight21 = lambda eta1, eta2:  self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')
-            weight22 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
-            weight23 = lambda eta1, eta2: -self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')
+            weight21 = lambda eta1, eta2, eta3 :  self.pro.space.evaluate_DD(eta1, eta2, j2_eq, 'V2')[:, :, None]
+            weight22 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
+            weight23 = lambda eta1, eta2, eta3 : -self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')[:, :, None]
             
-            weight31 = lambda eta1, eta2: -self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')
-            weight32 = lambda eta1, eta2:  self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')
-            weight33 = lambda eta1, eta2:  np.zeros((eta1.size, eta2.size), dtype=float)
+            weight31 = lambda eta1, eta2, eta3 : -self.pro.space.evaluate_DN(eta1, eta2, j2_eq, 'V2')[:, :, None]
+            weight32 = lambda eta1, eta2, eta3 :  self.pro.space.evaluate_ND(eta1, eta2, j2_eq, 'V2')[:, :, None]
+            weight33 = lambda eta1, eta2, eta3 :  np.zeros((eta1.size, eta2.size, eta3.size), dtype=float)
 
         weights = [[weight11, weight12, weight13], [weight21, weight22, weight23], [weight31, weight32, weight33]]
 
-        self.mat_JB = mass.get_M2(self.pro.space, domain, False, weights)
-        
-        #self.mat_JB = mass.get_M2_a(self.pro.space, domain, j2_eq)
-        #self.mat_JB.eliminate_zeros()
+        self.mat_JB = mass.get_M2(self.pro.space, domain, weights)
