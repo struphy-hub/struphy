@@ -164,7 +164,7 @@ class domain:
     Available mappings:
     -------------------
         - kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
-        - kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+        - kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [].
         - kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
 
         - kind_map = 10 : cuboid. params_map = [lx, ly, lz].
@@ -275,11 +275,7 @@ class domain:
         # ===== discrete cylinder ==
         elif kind_map == 'spline cylinder':
             self.kind_map   = 1
-            
-            if params_map == None:
-                self.params_map = [1.]
-            else:
-                self.params_map = params_map
+            self.params_map = []
                 
         # ===== discrete torus =====
         elif kind_map == 'spline torus':
@@ -288,7 +284,7 @@ class domain:
         
         # ======== cuboid ==========
         elif kind_map == 'cuboid':
-            self.kind_map   = 10
+            self.kind_map = 10
             
             if params_map == None:
                 self.params_map = [1., 1., 1.]
@@ -297,7 +293,7 @@ class domain:
         
         # ===== hollow cylinder ====    
         elif kind_map == 'hollow cylinder':
-            self.kind_map   = 11
+            self.kind_map = 11
             
             if params_map == None:
                 self.params_map = [0.5, 1., 1.]
@@ -306,7 +302,7 @@ class domain:
             
         # ======= colella ==========
         elif kind_map == 'colella':
-            self.kind_map   = 12
+            self.kind_map = 12
             
             if params_map == None:
                 self.params_map = [1., 1., 0.05, 1.]
@@ -315,7 +311,7 @@ class domain:
                 
         # ======= colella ==========
         elif kind_map == 'orthogonal':
-            self.kind_map   = 13
+            self.kind_map = 13
             
             if params_map == None:
                 self.params_map = [1., 1., 0.05, 1.]
@@ -324,7 +320,7 @@ class domain:
                 
         # ====== hollow torus ======
         elif kind_map == 'hollow torus':
-            self.kind_map   = 14
+            self.kind_map = 14
             
             if params_map == None:
                 self.params_map = [0.5, 1., 4.]

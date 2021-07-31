@@ -59,7 +59,7 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
     # discrete cylinder
     elif kind_map == 1:
         
-        lz = params_map[0]
+        lz = 2*pi*cx[0, 0, 0]
         
         # evaluate non-vanishing basis functions and its derivatives
         bsp.basis_funs_and_der(tn1, pn[0], eta1, span_n1, l1, r1, b1, d1, der1)
