@@ -136,6 +136,8 @@ clean:
 	rm -rf $(OUTPUTS)
 	rm -rf $(all_sim)/$(run_dir)/input_run/__pyccel__ $(all_sim)/$(run_dir)/input_run/__pycache__
 	rm -rf hylife/__pyccel__ hylife/__pycache__
+	rm -rf hylife/diagnostics/__pyccel__ hylife/diagnostics/__pycache__
+	rm -rf hylife/dispersion_relations/__pyccel__ hylife/dispersion_relations/__pycache__
 	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
 	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
 	rm -rf hylife/utilitis_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__

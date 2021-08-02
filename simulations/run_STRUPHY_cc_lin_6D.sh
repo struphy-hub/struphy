@@ -79,6 +79,9 @@ params_map : [1., 1., 7.853981634]
 # which equilibrium file (currently slab and circular available)
 eq_type : slab
 
+# mass of bulk plasma (in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.)
+Ab : 1.
+
 # <<< parameters for simulations in slab geometry >>>
 B0x    : 0.
 B0y    : 0.
@@ -191,8 +194,15 @@ maxiter6 : 1000
 
 
 # ---------------- kinetic parameters -----------------------
-# add kinetic terms to simulation?
-add_PIC : True    
+# ratio hot/bulk number densities
+nuh : 0.05
+
+# charge and mass of hot ion species in units of elementary charge and proton mass
+Zh : 1.
+Ah : 1.
+
+# coupling parameter alpha = Omega_{cp0}*L0/v_{A0} with L0 = 1 m
+alpha : 1.
 
 # total number of particles
 Np : 128000

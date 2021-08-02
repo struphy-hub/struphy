@@ -9,8 +9,6 @@ import hylife.utilitis_FEEC.spline_space as spl
 import hylife.utilitis_FEEC.basics.mass_matrices_1d  as mass
 import hylife.utilitis_FEEC.basics.inner_products_1d as inner
 
-import hylife.utilitis_FEEC.projectors.projectors_global as proj
-
 
 
 class equilibrium_mhd:
@@ -92,7 +90,9 @@ class equilibrium_mhd:
         
         # calculate Shafranov shift with boundary conditions delta_p(0)=0 and delta(a)=0
         self.spl_space_r = spl.spline_space_1d(self.num_params[0], self.num_params[1], self.num_params[2], self.num_params[3], ['f', 'd'])
-        pro = proj.projectors_global_1d(self.spl_space_r, self.num_params[4])
+        
+        self.spl_space_r.set_projectors(self.num_params[4])
+        
         jac = lambda eta1 : self.a*np.ones(eta1.shape, dtype=float)
         
         # LHS (stiffness matrix)
@@ -113,7 +113,7 @@ class equilibrium_mhd:
         self.Br = lambda r, phi : self.b0*self.delta(r)/(self.R(r, phi)*self.q(r))*np.sin(phi)
         
         # discrete pressure profile
-        self.p_coeff = pro.pi_0(lambda eta1 : self.p_ana(eta1*self.a))
+        self.p_coeff = self.spl_space_r.projectors.pi_0(lambda eta1 : self.p_ana(eta1*self.a))
         self.p = lambda r : self.spl_space_r.evaluate_N(r/self.a, self.p_coeff, 0) 
         
     # -----------------------------------------------------------------------
