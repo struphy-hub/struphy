@@ -54,12 +54,17 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, n, project_profile
         directory to save eigenstates if return_kind = 1
     """
    
-    # set up 1d spline spaces and create 2d tensor-product space
+    # set up 1d spline spaces and corresponding projectors 
     space_1d_1 = spl.spline_space_1d(num_params[0][0], num_params[1][0], num_params[2][0], num_params[3][0], num_params[5])
     space_1d_2 = spl.spline_space_1d(num_params[0][1], num_params[1][1], num_params[2][1], num_params[3][1])
-    space_2d   = spl.tensor_spline_space([space_1d_1, space_1d_2], n)
     
-    # set polar splines, discrete derivatives and projectors
+    space_1d_1.set_projectors(num_params[4][0])
+    space_1d_2.set_projectors(num_params[4][1])
+    
+    # set up 2d tensor-product space
+    space_2d = spl.tensor_spline_space([space_1d_1, space_1d_2], n)
+    
+    # set polar splines and 2d projectors
     space_2d.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     space_2d.set_projectors('general', num_params[4])
     
@@ -74,7 +79,8 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, n, project_profile
     # create additional splines space without boundary conditions and no dependence in third dimension
     space_1d_1_nobc = spl.spline_space_1d(num_params[0][0], num_params[1][0], num_params[2][0], num_params[3][0])
     space_1d_2_nobc = spl.spline_space_1d(num_params[0][1], num_params[1][1], num_params[2][1], num_params[3][1])
-    space_2d_nobc   = spl.tensor_spline_space([space_1d_1_nobc, space_1d_2_nobc], 0)
+    
+    space_2d_nobc = spl.tensor_spline_space([space_1d_1_nobc, space_1d_2_nobc], 0)
     space_2d_nobc.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
     
     # load equilibrium profiles
@@ -101,7 +107,7 @@ def solve_ev_problem_FEEC_2D(num_params, domain, equilibrium, n, project_profile
     print('Loading of MHD equilibrium done')
     
     # create MHD operators
-    MHD = mhd.operators_mhd(space_2d.projectors, 2)
+    MHD = mhd.operators_mhd(space_2d, 2)
     
     # assemble right-hand sides of projection matrices
     MHD.assemble_rhs_EF(domain, B2     )

@@ -19,7 +19,7 @@ def fh_eq_phys(x, y, z, vx, vy, vz):
     
     vth = 1.
     
-    nh0 = 0.05
+    nh0 = 1.
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     
@@ -32,7 +32,7 @@ def fh_eq_phys(x, y, z, vx, vy, vz):
 @types('double','double','double')
 def nh_eq_phys(x, y, z):
     
-    nh0 = 0.05
+    nh0 = 1.
     
     return nh0
 
@@ -42,7 +42,7 @@ def nh_eq_phys(x, y, z):
 @types('double','double','double')
 def jhx_eq(x, y, z):
     
-    nh0 = 0.05
+    nh0 = 1.
     v0x = 0.
     
     return nh0 * v0x
@@ -51,7 +51,7 @@ def jhx_eq(x, y, z):
 @types('double','double','double')
 def jhy_eq(x, y, z):
     
-    nh0 = 0.05
+    nh0 = 1.
     v0y = 0.
     
     return nh0 * v0y
@@ -60,7 +60,7 @@ def jhy_eq(x, y, z):
 @types('double','double','double')
 def jhz_eq(x, y, z):
     
-    nh0 = 0.05
+    nh0 = 1.
     v0z = 2.5
     
     return nh0 * v0z
@@ -75,7 +75,7 @@ def eh_eq(kind_map, params_map):
     
     vth = 1.
     
-    nh0 = 0.05
+    nh0 = 1.
     
     if   kind_map == 10:
         value = nh0/2 * params_map[0] * params_map[1] * params_map[2] * (v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2)

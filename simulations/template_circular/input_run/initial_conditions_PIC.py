@@ -19,7 +19,7 @@ def fh_ini_phys(x, y, z, vx, vy, vz):
     
     vth = 1.
     
-    nh0 = 0.05
+    nh0 = 1.
     
     arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
     

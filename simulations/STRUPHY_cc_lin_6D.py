@@ -116,7 +116,8 @@ maxiter6 = params['maxiter6']
 # --------------------------------------------
 
 # ----------- kinetic parameters -------------
-add_PIC = params['add_PIC']
+nuh     = params['nuh']
+alpha   = params['alpha']
 Np      = params['Np']
 control = params['control']
 v0      = params['v0']                    
@@ -244,10 +245,14 @@ if params['run_mode'] == 0:
 
 
 # ================== FEM spaces ==========================================
-# 1d B-spline spline spaces for finite elements (with boundary conditions for first space)
+# 1d B-spline spline spaces for finite elements (with boundary conditions for first space) with corresponding projectors
 spaces_FEM_1 = spl.spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc)
 spaces_FEM_2 = spl.spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
 spaces_FEM_3 = spl.spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
+
+spaces_FEM_1.set_projectors(nq_pr[0])
+spaces_FEM_2.set_projectors(nq_pr[1])
+spaces_FEM_3.set_projectors(nq_pr[2])
 
 # 3d tensor-product B-spline space for finite elements
 tensor_space_FEM = spl.tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
@@ -468,7 +473,7 @@ b2_eq = tensor_space_FEM.projectors.pi_2(B2_eq, include_bc=True, eval_kind='tens
 
 if mpi_rank == 0:  
     # interface for semi-discrete linear MHD operators
-    MHD = mhd.operators_mhd(tensor_space_FEM.projectors, dt, eq_MHD.gamma, params['loc_j_eq'], basis_u)
+    MHD = mhd.operators_mhd(tensor_space_FEM, dt, eq_MHD.gamma, params['loc_j_eq'], basis_u)
     
     # assemble right-hand sides of projection matrices
     MHD.assemble_rhs_EF(domain     , B2_eq)
@@ -500,7 +505,7 @@ if mpi_rank == 0:
     
 # ======================== create particles ======================================
 # particle accumulator (all processes)
-if add_PIC == True:
+if nuh > 0.:
     acc = pic_accumu.accumulation(tensor_space_FEM, domain, basis_u, mpi_comm, control)
 
 if loading == 'pseudo-random':
@@ -564,7 +569,7 @@ print(mpi_rank, 'particle initialization done!')
 #    up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form((up + up_old)/2)
 #
 #timea = time.time() 
-#pic_pusher.pusher_step3(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
+#pic_pusher.pusher_step3(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
 #timeb = time.time()
 #print('time for pusher step 3 : ', timeb - timea)
 #
@@ -574,7 +579,7 @@ print(mpi_rank, 'particle initialization done!')
 #print('time for pusher step 4 : ', timeb - timea)
 #
 #timea = time.time() 
-#pic_pusher.pusher_step5_ana(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+#pic_pusher.pusher_step5_ana(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
 #timeb = time.time()
 #print('time for pusher step 5 : ', timeb - timea)
 #
@@ -616,7 +621,7 @@ mpi_comm.Reduce(energies_loc['f'], energies['f'], op=MPI.SUM, root=0)
 
 # subtract equilibrium hot ion energy for analaytical mappings and full-f
 if domain.kind_map >= 10:
-    energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)
+    energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)*nuh
     
 # initial distribution function
 fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
@@ -672,7 +677,7 @@ def update():
     # ====================================================================================
     #                           step 1 (1: update u)
     # ====================================================================================
-    if add_PIC == True:
+    if nuh > 0.:
         
         
         # <<<<<<<<<<<<<<<<<<<<< charge accumulation (all processes) <<<<<<<<<<<<<<<<<
@@ -688,7 +693,7 @@ def update():
             
             # build global sparse matrix 
             timea = time.time()
-            mat   = acc.assemble_step1(Np, b2 + b2_eq)
+            mat   = nuh*alpha*params['Zh']/params['Ab']*acc.assemble_step1(Np, b2 + b2_eq)
             timeb = time.time()
             times_elapsed['control_step1'] = timeb - timea
             #print('control_step1 : ', timeb - timea)
@@ -766,7 +771,7 @@ def update():
     # ====================================================================================
     #             step 3 (1 : update u,  2 : update particles velocities V)
     # ====================================================================================
-    if add_PIC == True:
+    if nuh > 0.:
         
         # <<<<<<<<<<<<<<<<<< current accumulation (all processes) <<<<<<<<<<<<
         timea = time.time()
@@ -785,6 +790,8 @@ def update():
             # build global sparse matrix and vector
             timea    = time.time()
             mat, vec = acc.assemble_step3(Np, b2 + b2_eq)
+            mat      = nuh*alpha*params['Zh']/params['Ab']*mat
+            vec      = nuh*alpha*params['Zh']/params['Ab']*vec
             timeb    = time.time()
             times_elapsed['control_step3'] = timeb - timea
             #print('control_step3 : ', timeb - timea)
@@ -829,7 +836,7 @@ def update():
         else:
             up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form((up + up_old)/2)
        
-        pic_pusher.pusher_step3(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
+        pic_pusher.pusher_step3(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
        
         timeb = time.time()
         times_elapsed['pusher_step3'] = timeb - timea
@@ -845,7 +852,7 @@ def update():
     # ====================================================================================
     #             step 4 (1 : update particles positions ETA)
     # ====================================================================================
-    if add_PIC == True:
+    if nuh > 0.:
         timea = time.time()
         pic_pusher.pusher_step4(particles_loc, dt, Np_loc, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
         timeb = time.time()
@@ -860,14 +867,14 @@ def update():
     # ====================================================================================
     #       step 5 (1 : update particle veclocities V, 2 : update particle weights W)
     # ====================================================================================
-    if add_PIC == True:
+    if nuh > 0.:
         
         # push particles
         timea = time.time()
         
         b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
         
-        pic_pusher.pusher_step5_ana(particles_loc, dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        pic_pusher.pusher_step5_ana(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
         
         timeb = time.time()
         times_elapsed['pusher_step5'] = timeb - timea
@@ -941,7 +948,7 @@ def update():
 
     # subtract equilibrium hot ion energy for analaytical mappings and full-f
     if domain.kind_map >= 10:
-        energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)
+        energies['f'] += (control - 1)*equ_PIC.eh_eq(domain.kind_map, domain.params_map)*nuh
 
     # distribution function
     fh_loc['eta1_vx'][:, :] = np.histogram2d(particles_loc[0], particles_loc[3], bins=bin_edges['eta1_vx'], weights=particles_loc[6], normed=False)[0]/(Np*dbin['eta1_vx'][0]*dbin['eta1_vx'][1])
