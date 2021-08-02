@@ -454,6 +454,7 @@ if mpi_rank == 0:
 
 # ================== linear MHD operators ================================
 # projection of input equilibrium
+R0_eq =  eq_MHD.r0_eq
 R3_eq =  eq_MHD.r3_eq
 P3_eq =  eq_MHD.p3_eq
 
@@ -476,13 +477,12 @@ if mpi_rank == 0:
     MHD.assemble_rhs_PR(domain     , P3_eq)
     
     if basis_u == 0:
-        MHD.assemble_rhs_W(domain, R3_eq)
         MHD.assemble_rhs_F(domain, 'j')
         
     print('Assembly of MHD projection operators done!')
         
     # assemble mass matrix weighted with 0-form density
-    MHD.assemble_MR(domain, R3_eq)
+    MHD.assemble_MR(domain, R0_eq)
     
     print('Assembly of weighted mass matrix done (density)!')
     
