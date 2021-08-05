@@ -4,7 +4,7 @@ import scipy as sc
 
 class equilibrium_mhd:
     
-    def __init__(self, domain, b0x=0., b0y=0., b0z=1., rho0=1., beta=100.):
+    def __init__(self, domain, b0x=0., b0y=0., b0z=1., rho0=1., beta=200.):
         
         # geometric parameters
         self.domain = domain  # domain object defining the mapping

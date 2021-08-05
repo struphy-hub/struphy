@@ -971,6 +971,131 @@ class projectors_tensor_3d:
 
 
     # ======================================        
+    def dofs_T(self, comp, mat_dofs):
+        '''
+        Transpose of dofs
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        mat_dofs : 3d numpy array
+            Degrees of freedom.
+
+        Returns
+        -------
+        mat_pts : numpy array 
+            comp == '0' 3d of the form(n1, n2, n3)
+            comp == '11' 4d of the form(ne1, nq1, n2, n3)
+            comp == '12' 4d of the form(n1, n2, nq2, n3)
+            comp == '13' 4d of the form(n1, n2, n3, nq3)
+            comp == '21' 5d of the form(n1, ne2, nq2, ne3, nq3)
+            comp == '22' 5d of the form(ne1, nq1, n2, ne3, nq3)
+            comp == '23' 5d of the form(ne1, nq1, ne2, nq2, n3)
+            comp == '3' 6d of the form(ne1, nq1, ne2, nq2, n3, nq3)
+
+        '''
+        # d1 could be different from n1 in case of non-periodic bc
+        # assert mat_f.shape==(self.pts_PI[comp][0].size, 
+        #                     self.pts_PI[comp][1].size,
+        #                     self.pts_PI[comp][2].size
+        #                     )
+        #                        )
+
+        if comp=='0':
+            rhs = mat_dofs
+
+        elif comp=='11':
+            assert mat_dofs.shape == (self.d1, self.n2, self.n3)
+            
+            #print('f_int shape is', mat_dofs.shape)
+            #print('ne1 = ', self.ne1)
+            #print('nq1 = ', self.nq1)
+            #print('n2 = ', self.n2)
+            #print('n3 = ', self.n3)
+            #print('subs1.shape is ',self.subs1.shape)
+            #print('subs1 is ',self.subs1)
+            #print('subs_cum1.shape is ',self.subs_cum1.shape)
+            #print('subs_cum1 is ',self.subs_cum1)
+            #print('wts1.shape is ', self.wts1.shape)
+            rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
+
+            ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
+                                                  mat_dofs, rhs)
+
+            rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.n3)
+            #print('rhs.shape is', rhs.shape)
+
+        elif comp=='12':
+            assert mat_dofs.shape == (self.n1, self.d2, self.n3)
+
+            rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
+            
+            ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
+                                                  mat_dofs, rhs)
+
+            rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.n3)
+
+        elif comp=='13':
+            assert mat_dofs.shape == (self.n1, self.n2, self.d3)
+
+            rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
+            
+            ker_glob.kernel_int_3d_eta3_transpose(self.subs3, self.subs_cum3, self.wts3,
+                                                  mat_dofs, rhs)
+                                        
+            rhs = rhs.reshape(self.n1, self.n2, self.ne3 * self.nq3)
+
+        elif comp=='21':
+            assert mat_dofs.shape == (self.n1, self.d2, self.d3)
+
+            rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
+            
+            ker_glob.kernel_int_3d_eta2_eta3_transpose(self.subs2, self.subs3,
+                                             self.subs_cum2, self.subs_cum3,
+                                             self.wts2, self.wts3,
+                                             mat_dofs, rhs)
+            rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.ne3 * self.nq3)
+
+        elif comp=='22':
+            assert mat_dofs.shape == (self.d1, self.n2, self.d3)
+
+            rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta3_transpose(self.subs1, self.subs3,
+                                             self.subs_cum1, self.subs_cum3,
+                                             self.wts1, self.wts3,
+                                             mat_dofs, rhs)
+            rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.ne3 * self.nq3)
+
+        elif comp=='23':
+            assert mat_dofs.shape == (self.d1, self.d2, self.n3)
+
+            rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta2_transpose(self.subs1, self.subs2,
+                                             self.subs_cum1, self.subs_cum2,
+                                             self.wts1, self.wts2,
+                                             mat_dofs, rhs)
+            rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.n3)
+            
+        elif comp=='3':
+            assert mat_dofs.shape == (self.d1, self.d2, self.d3)
+
+            rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
+            
+            ker_glob.kernel_int_3d_eta1_eta2_eta3_transpose(self.subs1, self.subs2, self.subs3,
+                                                  self.subs_cum1, self.subs_cum2, self.subs_cum3,
+                                                  self.wts1, self.wts2, self.wts3,
+                                                  mat_dofs, rhs)
+            rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.ne3 * self.nq3)
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return rhs
+
+    # ======================================        
     def PI_mat(self, comp, rhs):
         '''
         Kronecker solve of the projection problem I.coeffs = rhs
