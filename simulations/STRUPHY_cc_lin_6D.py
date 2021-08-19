@@ -709,7 +709,7 @@ def update():
             
             num_iters = 0
             up[:], info = spa.linalg.gmres(LHS, RHS, x0=up, tol=tol1, maxiter=maxiter1, M=MHD.A_PRE, callback=count_iters)
-            print('linear solver step 1 : ', info, num_iters)
+            #print('linear solver step 1 : ', info, num_iters)
             
             timeb = time.time()
             times_elapsed['update_step1u'] = timeb - timea
@@ -747,7 +747,7 @@ def update():
         else:
             raise ValueError('only gmres and cg solvers available')
             
-        print('linear solver step 2 : ', info, num_iters)
+        #print('linear solver step 2 : ', info, num_iters)
         
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
@@ -814,7 +814,7 @@ def update():
             elif solver_type_3 == 'cgs':
                 up[:], info = spa.linalg.cgs(  LHS, RHS, x0=up, tol=tol3, maxiter=maxiter3, M=MHD.A_PRE, callback=count_iters)
                 
-            print('linear solver step 3 : ', info, num_iters)
+            #print('linear solver step 3 : ', info, num_iters)
             
             timeb = time.time()
             times_elapsed['update_step3u'] = timeb - timea
@@ -915,7 +915,7 @@ def update():
             
         num_iters = 0
         up[:], info = spa.linalg.gmres(MHD.S6, RHS, x0=up, tol=tol6, maxiter=maxiter6, M=MHD.S6_PRE, callback=count_iters)
-        print('linear solver step 6 : ', info, num_iters)
+        #print('linear solver step 6 : ', info, num_iters)
         
         timeb = time.time()
         times_elapsed['update_step2u'] = timeb - timea
@@ -1249,8 +1249,10 @@ if params['time_int'] == True:
     # ========================================================================================
     mpi_comm.Barrier()
     if mpi_rank == 0:
-        print('start time integration! (total number of time steps : ' + str(int(Tend/dt)) + ')')
+        print()
+        print('Start time integration:')
     # ========================================================================================
+    time_start = time.time()
     while True:
 
         # synchronize MPI processes and check if simulation end is reached
@@ -1289,13 +1291,15 @@ if params['time_int'] == True:
             # close output file and time loop
             if mpi_rank == 0:
                 file.close()
+                time_end = time.time()
+                print('time of simulation [sec]: ', time_end - time_start)
 
             break
 
         # print number of finished time steps and current energies
-        if mpi_rank == 0 and time_steps_done%1 == 0:
-            print('time steps finished : ' + str(time_steps_done))
-            print('energies : ', energies)
+        if mpi_rank == 0 and time_steps_done%50 == 0:
+            print('time steps finished : ' + str(time_steps_done) + '/' + str(int(Tend/dt)))
+            #print('energies : ', energies)
             
         
 

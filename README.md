@@ -20,14 +20,20 @@ python3 -m pip install --user virtualenv
 
 # Quickstart on Linux
 
+Clone and install:
 ```
 $ git clone git@gitlab.mpcdf.mpg.de:clapp/hylife.git
 $ git checkout devel
 $ python3 -m virtualenv .venv
 $ source .venv/bin/activate
 $ python -m pip install -r requirements.txt
+```
+
+Initialize folders, run default simulation and diagnostics:
+```
 $ ./STRUPHY_init.sh
 $ ./run_STRUPHY_cc_lin_6D.sh
+$ ./diagnostics.sh
 ```
 
 <!---

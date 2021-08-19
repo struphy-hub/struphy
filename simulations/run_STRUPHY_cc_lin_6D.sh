@@ -33,6 +33,7 @@ export PYTHONPATH="${PYTHONPATH}:$all_sim/$run_dir"
 # ========== clean simulation folder ==============
 rm -f $all_sim/$run_dir/STRUPHY.py
 rm -f $all_sim/$run_dir/*.hdf5  # IMPORTANT: if this run is a restart, comment this line!
+rm -f $all_sim/$run_dir/*.yml
 rm -f $all_sim/$run_dir/sim*.*
 rm -f $all_sim/$run_dir/batch*.*
 # =================================================
@@ -43,22 +44,22 @@ cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 
 # ---------------- mesh parameters -----------------------
 # number of elements, clamped (False) or periodic (True) splines and spline degrees
-Nel      : [2, 2, 16] 
+Nel      : [2, 2, 64] 
 spl_kind : [True, True, True]
-p        : [1, 1, 3]
+p        : [1, 1, 2]
 
 # boundary conditions for U2_1 (or Uv_1) and B2_1 at eta_1 = 0 and eta_1 = 1 (homogeneous Dirichlet = d, free boundary = f)
 bc : [f, f]
 
 # number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [6, 6, 6]
-nq_pr : [6, 6, 6]
+nq_el : [2, 2, 4]
+nq_pr : [2, 2, 4]
 
 # polar splines in eta_1-eta_2 (usually poloidal) plane?
 polar : False
 
 # representation of MHD bulk velocity (0 : vector field with 0-form basis for each component, 2 : 2-form)
-basis_u : 0
+basis_u : 2
 
 # geometry (cuboid, colella, spline cylinder, etc., see mappings_3d.py) and parameters
 geometry   : cuboid
@@ -84,10 +85,10 @@ Ab : 1.
 
 # <<< parameters for simulations in slab geometry >>>
 B0x    : 0.
-B0y    : 0.
+B0y    : 1.
 B0z    : 1.
 rho0   : 1.
-beta_s : 0.
+beta_s : 200.
 
 # <<< parameters for simulations in circular geometry (cylinder or circular torus) >>>
 # minor and major radius in m
@@ -130,8 +131,12 @@ p2   : 0.05
 
 
 # ---------- time integration -----------------------------
-# run mode (0 : MHD eigenvalue solver, 1: initial-value solver with MHD eigenfunction, 2 : initial-value solver with input functions, 3 : initial-value solver with random noise)
-run_mode : 2
+# Available run modes of STRUPHY:
+# 0 : MHD eigenvalue solver (1d or 2d)
+# 1 : initial-value solver with MHD eigenfunction
+# 2 : initial-value solver with input functions
+# 3 : initial-value solver with random noise)
+run_mode : 3
 
 # --> parameters for run mode 0 (tor. mode number, projection of eq. profiles?, directory to solve spectrum)
 n_tor    : -1
@@ -150,7 +155,7 @@ plane : yz
 # for initial-value-solver: do time integration?, time step, simulation time and maximum runtime of program in minutes
 time_int : True
 dt       : 0.1
-Tend     : 10.
+Tend     : 100.
 max_time : 1000.
 
 # location of j_eq X B term (either step_2 or step_6) 
@@ -194,8 +199,8 @@ maxiter6 : 1000
 
 
 # ---------------- kinetic parameters -----------------------
-# ratio hot/bulk number densities
-nuh : 0.05
+# ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
+nuh : 0.0
 
 # charge and mass of hot ion species in units of elementary charge and proton mass
 Zh : 1.
@@ -297,6 +302,7 @@ export SYMPY_USE_CACHE=no
 # ============== run Makefile =====================
 if [ "$make" = true ]
 then
+echo
 echo "Pre-compilation:"
 make all_sim=$all_sim run_dir=$run_dir flags_openmp_mhd=$flag_openmp_mhd flags_openmp_pic=$flag_openmp_pic
 fi
@@ -307,7 +313,8 @@ fi
 var1="s|sed_replace_run_dir|"
 var2="|g"
 
-cp $code_name $all_sim/$run_dir/STRUPHY.py
+#cp $code_name $all_sim/$run_dir/STRUPHY.py
+cp simulations/$code_name $all_sim/$run_dir/STRUPHY.py
 
 sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # =================================================
@@ -316,6 +323,7 @@ sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # ================== run the code =================
 cd $all_sim/$run_dir
 
+echo 
 echo "Start of STRUPHY:"
 
 # option 1: job submission via SLURM
@@ -332,6 +340,5 @@ echo "Start of STRUPHY:"
 #export OMP_NUM_THREADS=1
 #mpirun -n 4 python3 STRUPHY.py
 
-#export OMP_NUM_THREADS=1
-#python3 STRUPHY.py
-# =================================================
+export OMP_NUM_THREADS=1
+python3 STRUPHY.py

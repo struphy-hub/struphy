@@ -10,6 +10,8 @@ Basic modules to create tensor-product finite element spaces of univariate B-spl
 import numpy        as np
 import scipy.sparse as spa
 
+import matplotlib
+matplotlib.rcParams.update({'font.size': 16})
 import matplotlib.pyplot as plt
 
 import hylife.utilitis_FEEC.bsplines         as bsp
