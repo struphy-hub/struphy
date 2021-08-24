@@ -7,7 +7,7 @@ run_dir=sim_1
 # =================================================
 
 # ======= name of main code =======================
-code_name=STRUPHY_cc_lin_6D.py
+code_name=STRUPHY_template_hylife.py
 # =================================================
 
 # ============== if you want to use OpenMP ========
@@ -153,10 +153,11 @@ eig_freq : 0.
 plane : yz
 
 # for initial-value-solver: do time integration?, time step, simulation time and maximum runtime of program in minutes
-time_int : True
-dt       : 0.1
-Tend     : 100.
-max_time : 1000.
+time_int   : True
+dt         : 0.1
+Tend       : 100.
+max_time   : 1000.
+split_algo : LieTrotter
 
 # location of j_eq X B term (either step_2 or step_6) 
 loc_j_eq : step_6

@@ -64,9 +64,10 @@ for i, path in enumerate(paths_sims):
     params_map = params['params_map']
 
     # time parameters
-    Tend = params['Tend']
-    dt   = params['dt']
-    Nt   = int(Tend/dt)
+    Tend       = params['Tend']
+    dt         = params['dt']
+    Nt         = int(Tend/dt)
+    split_algo = params['split_algo']
 
     # mesh parameters
     Nel      = params['Nel']
@@ -192,7 +193,7 @@ for i, path in enumerate(paths_sims):
     #plt.ylim((0., 6.))
     plt.xlabel('$k$')
     plt.ylabel('$\omega$')
-    plt.title('Shear Alfven, p=' + str(p[2]))
+    plt.title('Shear Alfven, p=' + str(p[2]) + ', ' + split_algo)
 
     plt.subplot(2, len(paths_sims), len(paths_sims) + i + 1)
     lvls = np.logspace(-15, -3, 27)
@@ -202,6 +203,6 @@ for i, path in enumerate(paths_sims):
     #plt.ylim((0., 6.))
     plt.xlabel('$k$')
     plt.ylabel('$\omega$')
-    plt.title('Compressional, p=' + str(p[2]))
+    plt.title('Magnetosonic, p=' + str(p[2]) + ', ' + split_algo)
 
 plt.show()
