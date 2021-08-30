@@ -45,7 +45,10 @@ PP   := hylife/utilitis_PIC/pusher
 PA   := hylife/utilitis_PIC/accumulation_kernels
 PS   := $(all_sim)/$(run_dir)/source_run/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(EQP).py $(ICP).py $(KCV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(PP).py $(PA).py $(PS).py
+IBK   := hylife/gvec_to_python/hylife/utilities_FEEC/bsplines_kernels
+IBEV1 := hylife/gvec_to_python/hylife/utilities_FEEC/basics/spline_evaluation_1d
+
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(EQP).py $(ICP).py $(KCV).py $(KPL).py $(KPG).py $(KPLM).py $(KPGM).py $(PP).py $(PA).py $(PS).py $(IBK).py $(IBEV1).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -126,6 +129,11 @@ $(PA)$(SO_EXT) : $(PA).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)
 $(PS)$(SO_EXT) : $(PS).py $(EQP)$(SO_EXT) $(ICP)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
+$(IBK)$(SO_EXT) : $(IBK).py
+	pyccel $< $(FLAGS)
+
+$(IBEV1)$(SO_EXT) : $(IBEV1).py $(IBK)$(SO_EXT)
+	pyccel $< $(FLAGS)
 
 #--------------------------------------
 # CLEAN UP
@@ -146,3 +154,5 @@ clean:
 	rm -rf hylife/utilitis_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
 	rm -rf hylife/utilitis_FEEC/control_variates/__pyccel__ hylife/utilitis_FEEC/control_variates/__pycache__
 	rm -rf hylife/utilitis_PIC/__pyccel__ hylife/utilitis_PIC/__pycache__
+	rm -rf hylife/gvec_to_python/hylife/utilities_FEEC/__pyccel__ hylife/gvec_to_python/hylife/utilities_FEEC/__pycache__
+	rm -rf hylife/gvec_to_python/hylife/utilities_FEEC/basics/__pyccel__ hylife/gvec_to_python/hylife/utilities_FEEC/basics/__pycache__
