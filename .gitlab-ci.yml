@@ -29,6 +29,7 @@ before_script:
   - pip install virtualenv
   - python -m virtualenv .venv
   - source .venv/bin/activate
+  - pip install -U pip build wheel pytest coverage
   - python -m pip install -r requirements.txt
   - ./STRUPHY_init.sh  # copy struphy files and directories 
   - ./run_STRUPHY_template_hylife.sh  # pre-compile (pyccel) and exit without starting simulation
@@ -45,10 +46,17 @@ stages:
 
 unittest:
   stage: test
+  artifacts:
+    reports:
+      cobertura: tests/coverage.xml
   script:
     #- python setup.py test
-    - cd tests 
-    - pytest
+    - cd tests
+    - coverage run -m pytest
+    - coverage xml
+    - coverage report --skip-empty
+    - coverage erase
+    - cd ..
 
 #run:
 #  script:
