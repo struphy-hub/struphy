@@ -15,10 +15,9 @@ print('Run diagnostics:', sys.argv[0])
 basedir = os.path.dirname(os.path.realpath(__file__))
 # sys.path.insert(0, os.path.join(basedir, '..'))
 
-# import necessary hylife modules
+# Import necessary hylife modules.
 import hylife.geometry.domain_3d as dom
 import hylife.utilitis_FEEC.spline_space as spl
-import hylife.utilitis_FEEC.projectors.projectors_global as pro
 from hylife.gvec_to_python import GVEC, Form, Profile
 
 
@@ -206,11 +205,11 @@ print('Tensor space set up done.')
 # 3D projection using `projectors_tensor_3d`.
 # ============================================================
 
-# Create 3D projector.
-proj_eta1 = pro.projectors_global_1d(spaces_FEM[0])
-proj_eta2 = pro.projectors_global_1d(spaces_FEM[1])
-proj_eta3 = pro.projectors_global_1d(spaces_FEM[2])
-proj_3d   = pro.projectors_tensor_3d([proj_eta1, proj_eta2, proj_eta3])
+# Create 3D projector. It's not automatic.
+for space in spaces_FEM:
+    space.set_projectors() # def set_projectors(self, nq=6):
+tensor_space_FEM.set_projectors() # def set_projectors(self, which='tensor', nq=[6, 6]):
+proj_3d = tensor_space_FEM.projectors
 print('Create 3D projector done.')
 
 
@@ -235,7 +234,7 @@ print('Computed spline coefficients.')
 
 B2 = gvec.B_2
 
-# This is a stupid idea.
+# This is a stupid idea. Every function call to `B_2` is evaluated 3 times.
 B2_1 = lambda s,u,v: gvec.B_2(s,u,v)[0]
 B2_2 = lambda s,u,v: gvec.B_2(s,u,v)[1]
 B2_3 = lambda s,u,v: gvec.B_2(s,u,v)[2]
@@ -320,6 +319,7 @@ cbar3 = fig.colorbar(img3, ax=ax3_3D, shrink=0.5, pad=0.1, label='B-field magnit
 # ax3_1D.set_ylabel('B-field magnitude $|B|$')
 
 print('Evaluate and plot 3D B-field profiles done.')
+print(' ')
 
 
 
@@ -327,10 +327,23 @@ print('Evaluate and plot 3D B-field profiles done.')
 # 3D Pi_2 projection.
 # ============================================================
 
+print('Test Div B = 0.')
+
 # Do the Pi_2 projection.
 b2_coeff = proj_3d.PI_2(*hat_B2) # Coefficients of projected 2-form.
-# print('b2_coeff[0].shape', b2_coeff[0].shape, 'b2_coeff[1].shape', b2_coeff[1].shape, 'b2_coeff[2].shape', b2_coeff[2].shape)
-print('Pi_2 projection done.')
+print('Shapes of each component of b2 coefficients. 2_1: {}, 2_2: {}, 2_3: {}'.format(b2_coeff[0].shape, b2_coeff[1].shape, b2_coeff[2].shape))
+print('Pi_2 projection of B-field done.')
+
+# Because discrete Div/Curl takes only 1D array.
+b2_coeff_concat = np.concatenate((b2_coeff[0].flatten(), b2_coeff[1].flatten(), b2_coeff[2].flatten()))
+print('Max b2 coeff: {}'.format(np.max(np.abs(b2_coeff_concat))))
+
+# Test `extract_2form()`.
+b2_coeff2_1, b2_coeff2_2, b2_coeff2_3 = tensor_space_FEM.extract_2form(b2_coeff_concat)
+# print('Shapes of each component of b2 coefficients. 2_1: {}, 2_2: {}, 2_3: {}'.format(b2_coeff2_1.shape, b2_coeff2_2.shape, b2_coeff2_3.shape))
+assert np.allclose(b2_coeff[0], b2_coeff2_1)
+assert np.allclose(b2_coeff[1], b2_coeff2_2)
+assert np.allclose(b2_coeff[2], b2_coeff2_3)
 
 
 
@@ -338,15 +351,126 @@ print('Pi_2 projection done.')
 # Show Div B = 0 in both real space and 2-form.
 # ============================================================
 
-b2_coeff_concat = np.concatenate((b2_coeff[0].flatten(), b2_coeff[1].flatten(), b2_coeff[2].flatten()))
-div = tensor_space_FEM.D.dot(b2_coeff_concat)
-print('Maximum error (how close is Div B to 0):', np.max(np.abs(div)))
-# TODO: Try to use `extract_2form()` and `set_projectors()` from `tensor_spline_space` class.
+# Take discrete Div.
+divB = tensor_space_FEM.D.dot(b2_coeff_concat)
+print('Shapes of discrete Div matrix: {}, flattened 2-form coeff: {}, and after taking discrete Div: {}.'.format(tensor_space_FEM.D.shape, b2_coeff_concat.shape, divB.shape))
+print('Maximum error (how close is Div B to 0): {}'.format(np.max(np.abs(divB))))
 
-assert tensor_space_FEM.D.shape[1] == b2_coeff[0].flatten().size + b2_coeff[1].flatten().size + b2_coeff[2].flatten().size, 'Matrix size should match for dicrete divergence.'
-assert np.max(np.abs(div)) < 1e-9, 'Divergence should be zero.'
+assert tensor_space_FEM.D.shape[1] == b2_coeff[0].size + b2_coeff[1].size + b2_coeff[2].size, 'Matrix size should match for dicrete divergence.'
+assert np.max(np.abs(divB)) < 1e-9, 'Divergence of B should be zero.'
+
+print('Test Div B = 0 success.')
+print(' ')
 
 
+
+# ============================================================
+# Check if discrete Curl A1 == B2.
+# ============================================================
+
+print('Test Div Curl A = 0.')
+
+A1 = gvec.A_1
+
+# This is a stupid idea. Every function call to `A_1` is evaluated 3 times.
+A1_1 = lambda s,u,v: gvec.A_1(s,u,v)[0]
+A1_2 = lambda s,u,v: gvec.A_1(s,u,v)[1]
+A1_3 = lambda s,u,v: gvec.A_1(s,u,v)[2]
+
+# Supply a tuple of each A1 components A=(A1,A2,A3).
+if use_B_components:
+
+    A1 = [A1_1, A1_2, A1_3] # Must be a list!
+
+hat_A1 = A1
+
+print('Loaded GVEC 1-form A(s,u,v).')
+
+# Do the Pi_1 projection.
+a1_coeff = proj_3d.PI_1(*hat_A1) # Coefficients of projected 1-form.
+print('Shapes of each component of a1 coefficients. 1_1: {}, 1_2: {}, 1_3: {}'.format(a1_coeff[0].shape, a1_coeff[1].shape, a1_coeff[2].shape))
+print('Pi_1 projection of A-field done.')
+
+# Because discrete Div/Curl takes only 1D array.
+a1_coeff_concat = np.concatenate((a1_coeff[0].flatten(), a1_coeff[1].flatten(), a1_coeff[2].flatten()))
+print('Max a1 coeff: {}'.format(np.max(np.abs(a1_coeff_concat))))
+
+# Take discrete Curl.
+curlA = tensor_space_FEM.C.dot(a1_coeff_concat)
+print('Shapes of discrete Curl matrix: {}, flattened 1-form coeff: {}, and after taking discrete Curl: {}.'.format(tensor_space_FEM.C.shape, a1_coeff_concat.shape, curlA.shape))
+curlA_1, curlA_2, curlA_3 = tensor_space_FEM.extract_2form(curlA)
+print('Shapes of each component of Curl a1 coefficients. 2_1: {}, 2_2: {}, 2_3: {} (== shapes of b2 coefficients)'.format(curlA_1.shape, curlA_2.shape, curlA_3.shape))
+print('Maximum error between B2 and Curl A1: 2_1: {}, 2_2: {}, 2_3: {}'.format(np.max(np.abs(b2_coeff[0] - curlA_1)), np.max(np.abs(b2_coeff[1] - curlA_2)), np.max(np.abs(b2_coeff[2] - curlA_3))))
+assert np.allclose(b2_coeff[0], curlA_1, atol=1e-7)
+assert np.allclose(b2_coeff[1], curlA_2, atol=1e-7)
+assert np.allclose(b2_coeff[2], curlA_3, atol=1e-7)
+
+# Take discrete Div.
+divcurlA = tensor_space_FEM.D.dot(curlA)
+print('Shapes of discrete Div matrix: {}, flattened 2-form coeff: {}, and after taking discrete Div: {}.'.format(tensor_space_FEM.D.shape, curlA.shape, divcurlA.shape))
+print('Maximum error (how close is Div Curl A to 0): {}'.format(np.max(np.abs(divcurlA))))
+
+assert np.max(np.abs(divcurlA)) < 1e-9, 'Divergence of Curl A should be zero.'
+
+print('Test Div Curl A = 0 success.')
+print(' ')
+
+
+
+# ============================================================
+# Compute current Curl B1 == J.
+# ============================================================
+
+print('Test Curl B = J.')
+
+B1 = gvec.B_1
+
+# This is a stupid idea. Every function call to `B_1` is evaluated 3 times.
+B1_1 = lambda s,u,v: gvec.B_1(s,u,v)[0]
+B1_2 = lambda s,u,v: gvec.B_1(s,u,v)[1]
+B1_3 = lambda s,u,v: gvec.B_1(s,u,v)[2]
+
+# Supply a tuple of each B1 components B=(B1,B2,B3).
+if use_B_components:
+
+    B1 = [B1_1, B1_2, B1_3] # Must be a list!
+
+hat_B1 = B1
+
+print('Loaded GVEC 1-form B(s,u,v).')
+
+# Do the Pi_1 projection.
+b1_coeff = proj_3d.PI_1(*hat_B1) # Coefficients of projected 2-form.
+print('Shapes of each component of b1 coefficients. 1_1: {}, 1_2: {}, 1_3: {}'.format(b1_coeff[0].shape, b1_coeff[1].shape, b1_coeff[2].shape))
+print('Pi_1 projection of B-field done.')
+
+# Because discrete Div/Curl takes only 1D array.
+b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+print('Max b1 coeff: {}'.format(np.max(np.abs(b1_coeff_concat))))
+
+# Take discrete Curl.
+curlB = tensor_space_FEM.C.dot(b1_coeff_concat)
+print('Shapes of discrete Curl matrix: {}, flattened 1-form coeff: {}, and after taking discrete Curl: {}.'.format(tensor_space_FEM.C.shape, b1_coeff_concat.shape, curlB.shape))
+curlB_1, curlB_2, curlB_3 = tensor_space_FEM.extract_2form(curlB)
+print('Shapes of each component of J = Curl b1 coefficients. 2_1: {}, 2_2: {}, 2_3: {} (== shapes of b2 coefficients)'.format(curlB_1.shape, curlB_2.shape, curlB_3.shape))
+print('Maximum error (how close is J to 0): {}'.format(np.max(np.abs(curlB))))
+
+# Take discrete Div.
+divJ = tensor_space_FEM.D.dot(curlB)
+print('Shapes of discrete Div matrix: {}, flattened 2-form coeff: {}, and after taking discrete Div: {}.'.format(tensor_space_FEM.D.shape, curlB.shape, divJ.shape))
+print('Maximum error (how close is Div J to 0): {}'.format(np.max(np.abs(divJ))))
+
+# assert np.max(np.abs(divJ)) < 1e-9, 'Divergence of Curl B should be zero.' # Is a failure
+
+# print('Test Curl B = J (= 0 in stellerator) success.')
+print('Test Curl B = J (= 0 in stellerator) failed.')
+print(' ')
+
+
+
+# ============================================================
+# Show the figure.
+# ============================================================
 
 print('Before `tight_layout()`   | hspace: {}; wspace: {}.'.format(fig.subplotpars.hspace, fig.subplotpars.wspace))
 fig.tight_layout()

@@ -40,4 +40,4 @@ my_diagnostics
 my_struphy_sims
 /diagnostics.sh
 /run_STRUPHY*.sh
-/logs
+logs
