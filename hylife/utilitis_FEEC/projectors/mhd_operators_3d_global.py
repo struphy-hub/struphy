@@ -650,6 +650,8 @@ class operators_mhd:
         
         if   self.basis_u == 2:
             self.MR = mass.get_M2(self.space.projectors.space, domain, self.weights_MR)
+        elif self.basis_u == 1:
+            self.MR = mass.get_M1(self.space.projectors.space, domain, self.weights_MR)
         elif self.basis_u == 0:
             self.MR = mass.get_Mv(self.space.projectors.space, domain, self.weights_MR)
     
@@ -1047,10 +1049,12 @@ class operators_mhd:
         # FFT preconditioner
         elif which == 'FFT':
             
-            if self.basis_u == 2:
-                self.S2_PRE = mass_pre.get_M2_PRE_3(self.space.projectors.space, domain, self.weights_MR)
-            elif self.basis_u == 0:
+            if self.basis_u == 0:
                 self.S2_PRE = mass_pre.get_Mv_PRE_3(self.space.projectors.space, domain, self.weights_MR)
+            elif self.basis_u == 1:
+                self.S2_PRE = mass_pre.get_M1_PRE_3(self.space.projectors.space, domain, self.weights_MR)
+            elif self.basis_u == 2:
+                self.S2_PRE = mass_pre.get_M2_PRE_3(self.space.projectors.space, domain, self.weights_MR)
 
  
     # ======================================
@@ -1105,7 +1109,11 @@ class operators_mhd:
         # FFT preconditioner
         elif which == 'FFT':
             
-            if self.basis_u == 2:
-                self.S6_PRE = mass_pre.get_M2_PRE_3(self.space.projectors.space, domain, self.weights_MR)
-            elif self.basis_u == 0:
+            if self.basis_u == 0:
                 self.S6_PRE = mass_pre.get_Mv_PRE_3(self.space.projectors.space, domain, self.weights_MR)
+
+            elif self.basis_u == 1:
+                self.S6_PRE = mass_pre.get_M1_PRE_3(self.space.projectors.space, domain, self.weights_MR)
+
+            elif self.basis_u == 2:
+                self.S6_PRE = mass_pre.get_M2_PRE_3(self.space.projectors.space, domain, self.weights_MR)

@@ -79,6 +79,29 @@ class initial_mhd:
     # ===============================================================
 
     # equilibrium bulk pressure (3-form on logical domain)
+    def p0_ini(self, eta1, eta2, eta3=None):
+        
+        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
+            return self.domain.pull(self.p_ini, eta1, eta2, eta3, '0_form')
+        else:
+            if isinstance(eta1, float):
+                return self.domain.pull(self.p_ini, eta1, eta2, 0., '0_form')
+            else:
+                return self.domain.pull(self.p_ini, eta1, eta2, np.array([0.]), '0_form')[:, :, 0]
+  
+
+    # equilibrium bulk density (3-form on logical domain)
+    def r0_ini(self, eta1, eta2, eta3=None):
+        
+        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
+            return self.domain.pull(self.r_ini, eta1, eta2, eta3, '0_form')
+        else:
+            if isinstance(eta1, float):
+                return self.domain.pull(self.r_ini, eta1, eta2, 0., '0_form')
+            else:
+                return self.domain.pull(self.r_ini, eta1, eta2, np.array([0.]), '0_form')[:, :, 0]
+
+    # equilibrium bulk pressure (3-form on logical domain)
     def p3_ini(self, eta1, eta2, eta3=None):
         
         if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
@@ -101,6 +124,40 @@ class initial_mhd:
             else:
                 return self.domain.pull(self.r_ini, eta1, eta2, np.array([0.]), '3_form')[:, :, 0]
             
+    # equilibrium current (1-form on logical domain, 1-component)
+    def u1_ini_1(self, eta1, eta2, eta3=None):
+        
+        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
+            return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, eta3, '1_form_1')
+        else:
+            if isinstance(eta1, float):
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, 0., '1_form_1')
+            else:
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, np.array([0.]), '1_form_1')[:, :, 0]
+            
+        
+    # equilibrium current (1-form on logical domain, 2-component)
+    def u1_ini_2(self, eta1, eta2, eta3=None):
+        
+        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
+            return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, eta3, '1_form_2')
+        else:
+            if isinstance(eta1, float):
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, 0., '1_form_2')
+            else:
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, np.array([0.]), '1_form_2')[:, :, 0]
+            
+        
+    # equilibrium current (1-form on logical domain, 3-component)
+    def u1_ini_3(self, eta1, eta2, eta3=None):
+        
+        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
+            return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, eta3, '1_form_3')
+        else:
+            if isinstance(eta1, float):
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, 0., '1_form_3')
+            else:
+                return self.domain.pull([self.u_ini_x, self.u_ini_y, self.u_ini_z], eta1, eta2, np.array([0.]), '1_form_3')[:, :, 0]
 
     # equilibrium current (2-form on logical domain, 1-component)
     def u2_ini_1(self, eta1, eta2, eta3=None):

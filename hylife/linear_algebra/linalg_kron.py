@@ -52,7 +52,87 @@ def kron_matvec_3d(kmat, vec3d):
     res = ((kmat[2].dot(((kmat[1].dot(((kmat[0].dot(vec3d.reshape(v0, v1*v2))).T).reshape(v1, v2*k0))).T).reshape(v2, k0*k1))).T).reshape(k0, k1, k2)
     
     return res
+    
+    
+def kron_matvec_3d_1(kmat, vec3d):
+    """
+    """
 
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat.shape[0]
+    
+    res = kmat.dot(vec3d.reshape(v0, v1*v2)).reshape(k0, v1, v2)
+                                                                
+    return res
+
+
+def kron_matvec_3d_2(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k1 = kmat.shape[0]
+    
+    res = ((kmat.dot(((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0)).reshape(k1*v2, v0)).T).reshape(v0, k1, v2)
+    
+    return res
+
+
+def kron_matvec_3d_3(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k2 = kmat.shape[0]
+    
+    res = (kmat.dot((vec3d.reshape(v0*v1, v2)).T).T).reshape(v0, v1, k2)
+                                                                                
+    return res
+
+
+def kron_matvec_3d_23(kmat, vec3d):
+    """
+    """
+
+    v0, v1, v2 = vec3d.shape
+    
+    k1 = kmat[0].shape[0]
+    k2 = kmat[1].shape[0]
+    
+    res = (kmat[1].dot((kmat[0].dot(((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0)).T).reshape(v2, v0*k1)).T).reshape(v0, k1, k2)     
+                                                                
+    return res
+
+
+def kron_matvec_3d_13(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat[0].shape[0]
+    k2 = kmat[1].shape[0]
+    
+    res = (kmat[1].dot((kmat[0].dot(vec3d.reshape(v0, v1*v2)).reshape(k0*v1, v2)).T).T).reshape(k0, v1, k2)
+    
+    return res
+
+
+def kron_matvec_3d_12(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat[0].shape[0]
+    k1 = kmat[1].shape[0]
+    
+    res = ((kmat[1].dot((kmat[0].dot(vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*k0)).reshape(k1*v2, k0)).T).reshape(k0, k1, v2)
+                                                                                
+    return res
 
 
 def kron_matmat_fft_3d(a_vec, b_vec):

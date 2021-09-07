@@ -15,6 +15,10 @@ import hylife.utilitis_FEEC.projectors.kernels_projectors_global as ker_glob
 
 from   hylife.linear_algebra.linalg_kron import kron_lusolve_2d
 from   hylife.linear_algebra.linalg_kron import kron_lusolve_3d
+from   hylife.linear_algebra.linalg_kron import kron_matvec_3d
+from   hylife.linear_algebra.linalg_kron import kron_matvec_3d_1, kron_matvec_3d_2, kron_matvec_3d_3
+from   hylife.linear_algebra.linalg_kron import kron_matvec_3d_23, kron_matvec_3d_13, kron_matvec_3d_12
+
 
 
 
@@ -157,6 +161,14 @@ class projectors_global_1d:
         self.N = spa.csr_matrix(self.N)
         self.D = spa.csr_matrix(self.D)
         
+        # Q-matrix for integration of dofs_1
+        self.Q = np.zeros((self.space.NbaseD, self.wts.size), dtype=float)
+        accul = 0
+        for i in range(self.Q.shape[0]):
+            self.Q[i, accul*n_quad : (accul + self.subs[i])*n_quad] = self.wts[accul : accul + self.subs[i], :].flatten()
+            accul += self.subs[i]
+        self.Q = spa.csr_matrix(self.Q)
+
         # LU decompositions
         self.N_LU = spa.linalg.splu(self.N.tocsc())
         self.D_LU = spa.linalg.splu(self.D.tocsc())
@@ -191,8 +203,18 @@ class projectors_global_1d:
                 value += ker_glob.kernel_int_1d(self.n_quad, self.wts[i + j + self.subs_cum[i]], mat_f[i + j + self.subs_cum[i]])
                 
             values[i] = value
-                
+
         return values
+
+    def dofs_1_mat(self, fun):
+        '''
+        Same as dofs_1, but using matrix instead of kernel.
+        '''
+        
+        # evaluate function at quadrature points
+        mat_f  = fun(self.pts.flatten())
+                
+        return self.Q.dot(mat_f)
     
     # pi_0 projector
     def pi_0(self, fun):
@@ -860,6 +882,10 @@ class projectors_tensor_3d:
         self.N_LU3 = proj_1d[2].N_LU
         self.D_LU3 = proj_1d[2].D_LU
 
+        self.Q1 = proj_1d[0].Q
+        self.Q2 = proj_1d[1].Q
+        self.Q3 = proj_1d[2].Q
+
 
     # ======================================        
     def eval_for_PI(self, comp, fun):
@@ -971,6 +997,74 @@ class projectors_tensor_3d:
 
 
     # ======================================        
+    def dofs_mat(self, comp, mat_f):
+        '''
+        Compute the degrees of freedom (rhs) for the projector comp.
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        mat_f : 3d numpy array
+            Function values f(eta1_i, eta2_j, eta3_k) at the points set of the projector (from eval_for_PI).
+
+        Returns
+        -------
+        rhs : 3d numpy array 
+            The degrees of freedom sigma_ijk.
+        '''
+
+        assert mat_f.shape==(self.pts_PI[comp][0].size, 
+                             self.pts_PI[comp][1].size,
+                             self.pts_PI[comp][2].size
+                             )
+
+        if comp=='0':
+            rhs = mat_f
+
+        elif comp=='11':
+            rhs = np.empty( (self.d1, self.n2, self.n3) )
+            
+            rhs = kron_matvec_3d_1(self.Q1, mat_f)
+
+        elif comp=='12':
+            rhs = np.empty( (self.n1, self.d2, self.n3) )
+            
+            rhs = kron_matvec_3d_2(self.Q2, mat_f)
+
+        elif comp=='13':
+            rhs = np.empty( (self.n1, self.n2, self.d3) )
+            
+            rhs = kron_matvec_3d_3(self.Q3, mat_f)
+
+        elif comp=='21':
+            rhs = np.empty( (self.n1, self.d2, self.d3) )
+            
+            rhs = kron_matvec_3d_23([self.Q2, self.Q3], mat_f)
+
+        elif comp=='22':
+            rhs = np.empty( (self.d1, self.n2, self.d3) )
+            
+            rhs = kron_matvec_3d_13([self.Q1, self.Q3], mat_f)
+
+        elif comp=='23':
+            rhs = np.empty( (self.d1, self.d2, self.n3) )
+            
+            rhs = kron_matvec_3d_12([self.Q1, self.Q2], mat_f)
+
+        elif comp=='3':
+            rhs = np.empty( (self.d1, self.d2, self.d3) )
+            
+            rhs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], mat_f)
+
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return rhs
+
+
+    # ======================================        
     def dofs_T(self, comp, mat_dofs):
         '''
         Transpose of dofs
@@ -996,40 +1090,21 @@ class projectors_tensor_3d:
             comp == '3' 6d of the form(ne1, nq1, ne2, nq2, n3, nq3)
 
         '''
-        # d1 could be different from n1 in case of non-periodic bc
-        # assert mat_f.shape==(self.pts_PI[comp][0].size, 
-        #                     self.pts_PI[comp][1].size,
-        #                     self.pts_PI[comp][2].size
-        #                     )
-        #                        )
 
         if comp=='0':
             rhs = mat_dofs
 
         elif comp=='11':
             assert mat_dofs.shape == (self.d1, self.n2, self.n3)
-            
-            #print('f_int shape is', mat_dofs.shape)
-            #print('ne1 = ', self.ne1)
-            #print('nq1 = ', self.nq1)
-            #print('n2 = ', self.n2)
-            #print('n3 = ', self.n3)
-            #print('subs1.shape is ',self.subs1.shape)
-            #print('subs1 is ',self.subs1)
-            #print('subs_cum1.shape is ',self.subs_cum1.shape)
-            #print('subs_cum1 is ',self.subs_cum1)
-            #print('wts1.shape is ', self.wts1.shape)
             rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
 
             ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
                                                   mat_dofs, rhs)
 
             rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.n3)
-            #print('rhs.shape is', rhs.shape)
 
         elif comp=='12':
             assert mat_dofs.shape == (self.n1, self.d2, self.n3)
-
             rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
             
             ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
@@ -1039,7 +1114,6 @@ class projectors_tensor_3d:
 
         elif comp=='13':
             assert mat_dofs.shape == (self.n1, self.n2, self.d3)
-
             rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
             
             ker_glob.kernel_int_3d_eta3_transpose(self.subs3, self.subs_cum3, self.wts3,
@@ -1049,7 +1123,6 @@ class projectors_tensor_3d:
 
         elif comp=='21':
             assert mat_dofs.shape == (self.n1, self.d2, self.d3)
-
             rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
             
             ker_glob.kernel_int_3d_eta2_eta3_transpose(self.subs2, self.subs3,
@@ -1060,7 +1133,6 @@ class projectors_tensor_3d:
 
         elif comp=='22':
             assert mat_dofs.shape == (self.d1, self.n2, self.d3)
-
             rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
             
             ker_glob.kernel_int_3d_eta1_eta3_transpose(self.subs1, self.subs3,
@@ -1071,7 +1143,6 @@ class projectors_tensor_3d:
 
         elif comp=='23':
             assert mat_dofs.shape == (self.d1, self.d2, self.n3)
-
             rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
             
             ker_glob.kernel_int_3d_eta1_eta2_transpose(self.subs1, self.subs2,
@@ -1082,7 +1153,6 @@ class projectors_tensor_3d:
             
         elif comp=='3':
             assert mat_dofs.shape == (self.d1, self.d2, self.d3)
-
             rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
             
             ker_glob.kernel_int_3d_eta1_eta2_eta3_transpose(self.subs1, self.subs2, self.subs3,
@@ -1090,10 +1160,75 @@ class projectors_tensor_3d:
                                                   self.wts1, self.wts2, self.wts3,
                                                   mat_dofs, rhs)
             rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.ne3 * self.nq3)
+
         else:
             raise ValueError ("wrong projector specified")
 
         return rhs
+
+
+    # ======================================        
+    def dofs_T_mat(self, comp, mat_dofs):
+        '''
+        Transpose of dofs
+            
+        Parameters
+        ----------
+        comp: str
+            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+
+        mat_dofs : 3d numpy array
+            Degrees of freedom.
+
+        Returns
+        -------
+        rhs : 3d numpy array 
+            The degrees of freedom sigma_ijk.
+        '''
+
+        if comp=='0':
+            rhs = mat_dofs
+
+        elif comp=='11':
+            rhs = np.empty( (self.d1, self.n2, self.n3) )
+            
+            rhs = kron_matvec_3d_1(self.Q1.T, mat_dofs)
+
+        elif comp=='12':
+            rhs = np.empty( (self.n1, self.d2, self.n3) )
+            
+            rhs = kron_matvec_3d_2(self.Q2.T, mat_dofs)
+
+        elif comp=='13':
+            rhs = np.empty( (self.n1, self.n2, self.d3) )
+            
+            rhs = kron_matvec_3d_3(self.Q3.T, mat_dofs)
+
+        elif comp=='21':
+            rhs = np.empty( (self.n1, self.d2, self.d3) )
+            
+            rhs = kron_matvec_3d_23([self.Q2.T, self.Q3.T], mat_dofs)
+
+        elif comp=='22':
+            rhs = np.empty( (self.d1, self.n2, self.d3) )
+            
+            rhs = kron_matvec_3d_13([self.Q1.T, self.Q3.T], mat_dofs)
+
+        elif comp=='23':
+            rhs = np.empty( (self.d1, self.d2, self.n3) )
+            
+            rhs = kron_matvec_3d_12([self.Q1.T, self.Q2.T], mat_dofs)
+
+        elif comp=='3':
+            rhs = np.empty( (self.d1, self.d2, self.d3) )
+            
+            rhs = kron_matvec_3d([self.Q1.T, self.Q2.T, self.Q3.T], mat_dofs)
+
+        else:
+            raise ValueError ("wrong projector specified")
+
+        return rhs
+
 
     # ======================================        
     def PI_mat(self, comp, rhs):
