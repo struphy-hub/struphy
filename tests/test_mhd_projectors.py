@@ -1,21 +1,19 @@
-def test_projectors_dot(plot=False):
+def test_1form_projectors_dot():
 
         import sys
         sys.path.append('..')
 
         import numpy as np
-        import hylife.utilitis_FEEC.bsplines as bsp
-        import matplotlib.pyplot as plt
         import time
 
-    
         import hylife.geometry.domain_3d as dom
         import hylife.utilitis_FEEC.spline_space as spl
+        import simulations.template_slab.input_run.equilibrium_MHD    as eq_mhd
 
         from hylife.utilitis_FEEC.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
-        Nel      = [7, 9, 8]
+        Nel      = [7, 7, 7]
         p        = [4, 4, 4]
         spl_kind = [True, True, True]
         n_quad   = p.copy()
@@ -40,60 +38,30 @@ def test_projectors_dot(plot=False):
 
         tensor_space_FEM.set_projectors()
 
-        # mhd projectors dot operator (automatically call "equilibrium_MHD.py")
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain)
+        # mhd projectors dot operator
+        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
-        # x which is going to product with projectors
-        # V0_h
-        x = np.ones(tensor_space_FEM.Ntot_0form)
-        x_N0 = tensor_space_FEM.extract_0form(x)
-        x_N0_flat = x_N0.flatten()
-
-        x = np.random.rand(tensor_space_FEM.Ntot_0form)
-        x_N0_rand = tensor_space_FEM.extract_0form(x)
-        x_N0_rand_flat = x_N0_rand.flatten()
-
-        # V1_h
-        x_1 = np.ones(tensor_space_FEM.Ntot_1form_cum[-1])
-        x_11, x_12, x_13 = tensor_space_FEM.extract_1form(x_1)
-        x_N1 = [x_11, x_12, x_13]
-
-        x_11_flat, x_12_flat, x_13_flat = x_11.flatten(), x_12.flatten(), x_13.flatten()
-        x_N1_conc = np.concatenate((x_11_flat, x_12_flat, x_13_flat))
-
+        # random x which is going to product with projectors
+        x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
         x_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
-        x_11_rand, x_12_rand, x_13_rand = tensor_space_FEM.extract_1form(x_1)
-        x_N1_rand = [x_11_rand, x_12_rand, x_13_rand]
-
-        x_11_rand_flat, x_12_rand_flat, x_13_rand_flat = x_11_rand.flatten(), x_12_rand.flatten(), x_13_rand.flatten()
-        x_N1_rand_conc = np.concatenate((x_11_rand_flat, x_12_rand_flat, x_13_rand_flat))
-
-        # V2_h
-        x_2 = np.ones(tensor_space_FEM.Ntot_2form_cum[-1])
-        x_21, x_22, x_23 = tensor_space_FEM.extract_2form(x_2)
-        x_N2 = [x_21, x_22, x_23]
-
-        x_21_flat, x_22_flat, x_23_flat = x_21.flatten(), x_22.flatten(), x_23.flatten()
-        x_N2_conc = np.concatenate((x_21_flat, x_22_flat, x_23_flat))
-
+        x_11, x_12, x_13 = tensor_space_FEM.extract_1form(x_1)
         x_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
-        x_21_rand, x_22_rand, x_23_rand = tensor_space_FEM.extract_2form(x_2)
-        x_N2_rand = [x_21_rand, x_22_rand, x_23_rand]
+        x_21, x_22, x_23 = tensor_space_FEM.extract_2form(x_2)
+        x_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
 
-        x_21_rand_flat, x_22_rand_flat, x_23_rand_flat = x_21_rand.flatten(), x_22_rand.flatten(), x_23_rand.flatten()
-        x_N2_rand_conc = np.concatenate((x_21_rand_flat, x_22_rand_flat, x_23_rand_flat))
 
         # test conditions
         print()
         print('MHD_equilibrium :')
-        print('p_eq = 1.0')
-        print('r_eq = 1.0')
-        print('b_eq_x = 0')
-        print('b_eq_y = 0')
-        print('b_eq_z = 1.0')
-        print('j_eq_x = 0')
-        print('j_eq_y = 0')
-        print('j_eq_z = 0')
+        print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
+        print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
+        print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
+        print('j_eq_x =', dot_ops.j2_eq_1_fun(0.,0.,0.))
+        print('j_eq_y =', dot_ops.j2_eq_2_fun(0.,0.,0.))
+        print('j_eq_z =', dot_ops.j2_eq_3_fun(0.,0.,0.))
 
         print()
         print('maping  :')
@@ -103,505 +71,229 @@ def test_projectors_dot(plot=False):
         print()
 
         # ========== Identity test ========== #
-        print('Identity test for the projection K, K.T, S, S.T, W and W.T   :')
-        print('Under the condition, p_eq = 1, projection K dot x = x')
-        # projection K 
-        K_dot_x = dot_ops.K_dot(x_N0_rand)
-        assert np.allclose(K_dot_x, x_N0_rand, atol=1e-14)
-        print('Done. K_dot(x_random) == x_random')
+        print('Identity test for the projection operator W1_dot and K1_dot :')
+        print('Calculating projection operator W1_dot, K1_dot, K10_dot and S10_dot with random x is done!')
+        print()
+        # projection W1
+        print('Under the condition, rho_eq = 1 and g_sqrt = 1, projection W1 dot x = x for any x')
+        W1_dot_x = dot_ops.W1_dot(x_2) 
+        assert np.allclose(W1_dot_x, x_2, atol=1e-14)
+        print('Done. W1_dot(x_random) == x_random')
 
-        # projection transpose K
-        transpose_K_dot_x = dot_ops.transpose_K_dot(x_N0_rand)
-        assert np.allclose(transpose_K_dot_x, x_N0_rand, atol=1e-14)
-        print('Done. Transpose_K_dot(x_random) == x_random')
-
-        # projection S
-        print('Under the condition, p_eq = 1, projection S dot x = x')
-        S_dot_x = dot_ops.S_dot(x_N1_rand) 
-        assert np.allclose(S_dot_x[0], x_N1_rand[0], atol=1e-14)
-        assert np.allclose(S_dot_x[1], x_N1_rand[1], atol=1e-14)
-        assert np.allclose(S_dot_x[2], x_N1_rand[2], atol=1e-14)
-        print('Done. S_dot(x_random) == x_random')
-
-        # projection transpose S
-        transpose_S_dot_x = dot_ops.transpose_S_dot(x_N1_rand)  
-        assert np.allclose(transpose_S_dot_x[0], x_N1_rand[0], atol=1e-14)
-        assert np.allclose(transpose_S_dot_x[1], x_N1_rand[1], atol=1e-14)
-        assert np.allclose(transpose_S_dot_x[2], x_N1_rand[2], atol=1e-14)
-        print('Done. Transpose_S_dot(x_random) == x_random')
-
-        # projection W
-        print('Under the conditions, rho_eq = 1 and G_inv = [Identity matrix], projection W dot x = x')
-        W_dot_x = dot_ops.W_dot(x_N1_rand) 
-        assert np.allclose(W_dot_x[0], x_N1_rand[0], atol=1e-14)
-        assert np.allclose(W_dot_x[1], x_N1_rand[1], atol=1e-14)
-        assert np.allclose(W_dot_x[2], x_N1_rand[2], atol=1e-14)
-        print('Done. W_dot(x_random) == x_random')
-
-        # projection transpose W
-        transpose_W_dot_x = dot_ops.transpose_W_dot(x_N1_rand)  
-        assert np.allclose(transpose_W_dot_x[0], x_N1_rand[0], atol=1e-14)
-        assert np.allclose(transpose_W_dot_x[1], x_N1_rand[1], atol=1e-14)
-        assert np.allclose(transpose_W_dot_x[2], x_N1_rand[2], atol=1e-14)
-        print('Done. Transpose_W_dot(x_random) == x_random')
+         # projection K1
+        print('Under the condition, p_eq = 1 and g_sqrt = 1, projection K1 dot x = x for any x')
+        K1_dot_x = dot_ops.K1_dot(x_3)
+        assert np.allclose(K1_dot_x, x_3, atol=1e-14)
+        print('Done. K1_dot(x_random) == x_random')
         print()
 
-        # ========== convergence test ========== #
-        print('Convergence test for the projection Q, P and T :')
+        # projection K10
+        print('Under the condition, p_eq = 1, projection K10 dot x = x for any x')
+        K10_dot_x = dot_ops.K10_dot(x_0)
+        assert np.allclose(K10_dot_x, x_0, atol=1e-14)
+        print('Done. K10_dot(x_random) == x_random')
+        print()
 
+        # projection S10
+        print('Under the condition, p_eq = 1, projection S10 dot x = x for any x')
+        S10_dot_x = dot_ops.S10_dot(x_1)
+        assert np.allclose(S10_dot_x, x_1, atol=1e-14)
+        print('Done. S10_dot(x_random) == x_random')
+        print()
+
+        # ========== comparison test ========== #
+        print('Comparison test with basic projectors for the projection operator Q1_dot, U1_dot, P1_dot, S1_dot ,T1_dot and X1_dot :')
+        print()
         ################
         # dot operator #
         ################
-        # Q
         start = time.time()
-        Q_dot_x = dot_ops.Q_dot(x_N1_rand)
+        # Q1
+        Q1_dot_x = dot_ops.Q1_dot(x_1)
 
-        # P
-        P_dot_x = dot_ops.P_dot(x_N2_rand)
+        # U1
+        U1_dot_x = dot_ops.U1_dot(x_1)
 
-        # T
-        T_dot_x = dot_ops.T_dot(x_N1_rand)
+        # P1
+        P1_dot_x = dot_ops.P1_dot(x_2)
 
-        end = time.time()
-        print('calculating projection Q, P and T using dot operator is done!')
-        print(end-start)
+        # S1
+        S1_dot_x = dot_ops.S1_dot(x_1)
 
-        # PP
-        PP_dot_x = dot_ops.PP_dot(x_N1_rand)
+        # T1
+        T1_dot_x = dot_ops.T1_dot(x_1)
+
+        # X1
+        X1_dot_x = dot_ops.X1_dot(x_1)
         
-        ########
-        # plot #
-        ########
-        # ========== random splines ========== #
+        ####################
+        # Basic projectors #
+        ####################
+        # ========== construct random splines ========== #
+        # V1_h
+        def phi_11(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, x_11)
+
+        def phi_12(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, x_12)
+
+        def phi_13(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, x_13)
         # V2_h
         def phi_21(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, x_N2_rand[0])
+                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, x_21)
 
         def phi_22(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, x_N2_rand[1])
+                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, x_22)
 
         def phi_23(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, x_N2_rand[2])
+                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, x_23)
+ 
+        # Beq_Ginv_lambda1 for T1
+        def Beq_Ginv_lambda1_1(eta1, eta2, eta3) : 
+                return phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3))
+
+        def Beq_Ginv_lambda1_2(eta1, eta2, eta3) : 
+                return phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3))
+        def Beq_Ginv_lambda1_3(eta1, eta2, eta3) : 
+                return phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3))
+
+        # rhoeq_Ginv_lambda1 for Q1
+        def rhoeq_Ginv_lambda1_1(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+        def rhoeq_Ginv_lambda1_2(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+        def rhoeq_Ginv_lambda1_3(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+
+        # gsqrt_Ginv_lambda1 for U1
+        def gsqrt_Ginv_lambda1_1(eta1, eta2, eta3) :  
+                return dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') )
+        def gsqrt_Ginv_lambda1_2(eta1, eta2, eta3) :  
+                return dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') )
+        def gsqrt_Ginv_lambda1_3(eta1, eta2, eta3) :  
+                return dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') )
         
-        # V1_h
-        def phi_11(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, x_N1_rand[0])
+        # jeq_gsqrt_lambda2 for P1
+        def jeq_gsqrt_lambda2_1(eta1, eta2, eta3) :  
+                return phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)
+        def jeq_gsqrt_lambda2_2(eta1, eta2, eta3) :  
+                return phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
+        def jeq_gsqrt_lambda2_3(eta1, eta2, eta3) :  
+                return phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
 
-        def phi_12(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, x_N1_rand[1])
-
-        def phi_13(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, x_N1_rand[2])
-
-        # ========== splines constructed from the dot operator ========== #
-        # construct splines in V2_h with the coeffs from the operator Q_dot    
-        def Q_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, Q_dot_x[0])
-
-        def Q_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, Q_dot_x[1])
-
-        def Q_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, Q_dot_x[2])
-
-        # construct splines in V1_h with the coeffs from the operator P_dot   
-        def P_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, P_dot_x[0])
-
-        def P_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, P_dot_x[1])
-
-        def P_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, P_dot_x[2])
-            
-        # construct splines in V1_h with the coeffs from the operator T_dot    
-        def T_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, T_dot_x[0])
-
-        def T_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, T_dot_x[1])
-
-        def T_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, T_dot_x[2])
-
-        # construct splines in V0_h with the coeffs from the operator PP_dot    
-        def PP_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, PP_dot_x[0])
-
-        def PP_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, PP_dot_x[1])
-
-        def PP_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, PP_dot_x[2])
-
-        # ========== Evaluation for the plot ========== #
-        eta1 = np.linspace(0., 1., 100)
-        eta2 = np.linspace(0., 1., 100)
-        eta3 = np.linspace(0., 1., 100)
-
-        rhoeq_Ginv_lambda1_1_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.rho_eq_fun(eta1, eta2, eta3)
-        rhoeq_Ginv_lambda1_2_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.rho_eq_fun(eta1, eta2, eta3)
-        rhoeq_Ginv_lambda1_3_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.rho_eq_fun(eta1, eta2, eta3) +\
-                                    phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.rho_eq_fun(eta1, eta2, eta3)
-
-        jeq_lambda2_1_plot = phi_22(eta1, eta2, eta3) * -dot_ops.j_eq_z_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) * dot_ops.j_eq_y_fun(eta1, eta2, eta3)
-        jeq_lambda2_2_plot = phi_21(eta1, eta2, eta3) * dot_ops.j_eq_z_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) * dot_ops.j_eq_x_fun(eta1, eta2, eta3)
-        jeq_lambda2_3_plot = phi_21(eta1, eta2, eta3) * -dot_ops.j_eq_y_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) * dot_ops.j_eq_x_fun(eta1, eta2, eta3)
-
-        Beq_Ginv_lambda1_1_plot = phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b_eq_z_fun(eta1, eta2, eta3)) +\
-                                  phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b_eq_z_fun(eta1, eta2, eta3)) +\
-                                  phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b_eq_z_fun(eta1, eta2, eta3))
-        Beq_Ginv_lambda1_2_plot = phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b_eq_x_fun(eta1, eta2, eta3)) +\
-                                  phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b_eq_x_fun(eta1, eta2, eta3)) +\
-                                  phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b_eq_x_fun(eta1, eta2, eta3))
-        Beq_Ginv_lambda1_3_plot = phi_11(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b_eq_y_fun(eta1, eta2, eta3)) +\
-                                  phi_12(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b_eq_y_fun(eta1, eta2, eta3)) +\
-                                  phi_13(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b_eq_y_fun(eta1, eta2, eta3))
-
-        DFinv_T_lambda1_1_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_11') +\
-                                 phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_21') +\
-                                 phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_31')
-        DFinv_T_lambda1_2_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_12') +\
-                                 phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_22') +\
-                                 phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_32')
-        DFinv_T_lambda1_3_plot = phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_13') +\
-                                 phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_23') +\
-                                 phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_33')
-
-        Q_dot_x_1_plot = Q_dot_x_1(eta1, eta2, eta3)
-        Q_dot_x_2_plot = Q_dot_x_2(eta1, eta2, eta3)
-        Q_dot_x_3_plot = Q_dot_x_3(eta1, eta2, eta3)
-                
-        P_dot_x_1_plot = P_dot_x_1(eta1, eta2, eta3)
-        P_dot_x_2_plot = P_dot_x_2(eta1, eta2, eta3)
-        P_dot_x_3_plot = P_dot_x_3(eta1, eta2, eta3)
-                
-        T_dot_x_1_plot = T_dot_x_1(eta1, eta2, eta3)
-        T_dot_x_2_plot = T_dot_x_2(eta1, eta2, eta3)
-        T_dot_x_3_plot = T_dot_x_3(eta1, eta2, eta3)
-
-        PP_dot_x_1_plot = PP_dot_x_1(eta1, eta2, eta3)
-        PP_dot_x_2_plot = PP_dot_x_2(eta1, eta2, eta3)
-        PP_dot_x_3_plot = PP_dot_x_3(eta1, eta2, eta3)
-
-        fig, axs = plt.subplots(4,3, figsize = (10, 12))
-    
-        axs[0,0].plot(eta1, rhoeq_Ginv_lambda1_1_plot[:, 50, 50], 'r', label = 'rhoeq_Ginv_lambda1[V1_h]')
-        axs[0,1].plot(eta2, rhoeq_Ginv_lambda1_2_plot[50, :, 50], 'r', label = 'rhoeq_Ginv_lambda1[V1_h]')
-        axs[0,2].plot(eta3, rhoeq_Ginv_lambda1_3_plot[50, 50, :], 'r', label = 'rhoeq_Ginv_lambda1[V1_h]')
-                
-        axs[0,0].plot(eta1, Q_dot_x_1_plot[:, 50, 50], 'b--', label = 'Q_dot[V2_h]')
-        axs[0,1].plot(eta2, Q_dot_x_2_plot[50, :, 50], 'b--', label = 'Q_dot[V2_h]')
-        axs[0,2].plot(eta3, Q_dot_x_3_plot[50, 50, :], 'b--', label = 'Q_dot[V2_h]')
-                
-        axs[1,0].plot(eta1, jeq_lambda2_1_plot[:, 50, 50], 'r', label = 'jeq_lambda2[V2_h]')
-        axs[1,1].plot(eta2, jeq_lambda2_2_plot[50, :, 50], 'r', label = 'jeq_lambda2[V2_h]')
-        axs[1,2].plot(eta3, jeq_lambda2_3_plot[50, 50, :], 'r', label = 'jeq_lambda2[V2_h]')
-                
-        axs[1,0].plot(eta1, P_dot_x_1_plot[:, 50, 50], 'b--', label = 'P_dot[V1_h]')
-        axs[1,1].plot(eta2, P_dot_x_2_plot[50, :, 50], 'b--', label = 'P_dot[V1_h]')
-        axs[1,2].plot(eta3, P_dot_x_3_plot[50, 50, :], 'b--', label = 'P_dot[V1_h]')
-                
-        axs[2,0].plot(eta1, Beq_Ginv_lambda1_1_plot[:, 50, 50], 'r', label = 'Beq_Ginv_lambda1[V1_h]')
-        axs[2,1].plot(eta2, Beq_Ginv_lambda1_2_plot[50, :, 50], 'r', label = 'Beq_Ginv_lambda1[V1_h]')
-        axs[2,2].plot(eta3, Beq_Ginv_lambda1_3_plot[50, 50, :], 'r', label = 'Beq_Ginv_lambda1[V1_h]')
-                
-        axs[2,0].plot(eta1, T_dot_x_1_plot[:, 50, 50], 'b--', label = 'T_dot[V1_h]')
-        axs[2,1].plot(eta2, T_dot_x_2_plot[50, :, 50], 'b--', label = 'T_dot[V1_h]')
-        axs[2,2].plot(eta3, T_dot_x_3_plot[50, 50, :], 'b--', label = 'T_dot[V1_h]')
-
-        axs[3,0].plot(eta1, DFinv_T_lambda1_1_plot[:, 50, 50], 'r', label = 'DFinv_T_lambda1[V1_h]')
-        axs[3,1].plot(eta2, DFinv_T_lambda1_2_plot[50, :, 50], 'r', label = 'DFinv_T_lambda1[V1_h]')
-        axs[3,2].plot(eta3, DFinv_T_lambda1_3_plot[50, 50, :], 'r', label = 'DFinv_T_lambda1[V1_h]')
-                
-        axs[3,0].plot(eta1, PP_dot_x_1_plot[:, 50, 50], 'b--', label = 'PP_dot[V0_h]')
-        axs[3,1].plot(eta2, PP_dot_x_2_plot[50, :, 50], 'b--', label = 'PP_dot[V0_h]')
-        axs[3,2].plot(eta3, PP_dot_x_3_plot[50, 50, :], 'b--', label = 'PP_dot[V0_h]')
-                
-        axs[0,0].legend()
-        axs[0,1].legend()
-        axs[0,2].legend()
-        axs[1,0].legend()
-        axs[1,1].legend()
-        axs[1,2].legend()
-        axs[2,0].legend()
-        axs[2,1].legend()
-        axs[2,2].legend()
-        axs[3,0].legend()
-        axs[3,1].legend()
-        axs[3,2].legend()
-
-        axs[0,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[0,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[0,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-        axs[1,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[1,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[1,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-        axs[2,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[2,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[2,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-        axs[3,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[3,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[3,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-
-        fig.tight_layout()
-
-        if plot:
-                plt.show()
+        # peq_Ginv_lambda1 for S1
+        def peq_Ginv_lambda1_1(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
+        def peq_Ginv_lambda1_2(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
+        def peq_Ginv_lambda1_3(eta1, eta2, eta3) :  
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
         
+        # DFinv_T_lambda1 for X1
+        def DFinv_T_lambda1_1(eta1, eta2, eta3) : 
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_11') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_21') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_31')
+        def DFinv_T_lambda1_2(eta1, eta2, eta3) :
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_12') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_22') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_32')
+        def DFinv_T_lambda1_3(eta1, eta2, eta3) :
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_13') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_23') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_inv_33')
 
-def test_comparison_with_basic_projector(plot=False):
-        import sys
-        sys.path.append('..')
+        # ========== apply basic projection operator ========== #
+        # project Beq_Ginv_lambda1 on V1_h space [ T1 ]:
+        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(Beq_Ginv_lambda1_1, Beq_Ginv_lambda1_2, Beq_Ginv_lambda1_3)
+        c = np.concatenate((c11.flatten(), c12.flatten(), c13.flatten()))
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import hylife.utilitis_FEEC.bsplines as bsp
+        assert np.allclose(c, T1_dot_x, atol=1e-14)
+        print('pi1 projection of Beq_Ginv_lambda1[ T1 ] using both projectors are identical')
 
-        import hylife.geometry.domain_3d as dom
-        import hylife.utilitis_FEEC.spline_space as spl
-
-        from hylife.utilitis_FEEC.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
-
-        Nel      = [22, 22, 22]
-        p        = [4, 4, 4]
-        spl_kind = [True, True, True]
-        n_quad   = p.copy()
-        bc       = ['d', 'd']
-        kind_map = 'cuboid'
-
-        # test! what cause differences
-        params_map = [1., 1., 1.]
-
-        # 1d B-spline spline spaces for finite elements
-        spaces_FEM = [spl.spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
-                    for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
-
-        # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
-
-        # random coefficients
-        # V0_h
-        coeffs = np.random.rand(tensor_space_FEM.Ntot_0form)
-        coeffs_0 = tensor_space_FEM.extract_0form(coeffs)
-
-        # V1_h
-        coeffs = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
-        coeffs_11, coeffs_12, coeffs_13 = tensor_space_FEM.extract_1form(coeffs)
-
-        # V2_h
-        coeffs = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
-        coeffs_21, coeffs_22, coeffs_23 = tensor_space_FEM.extract_2form(coeffs)
         
-        #####################################################
-        # splines projection from mhd_operator_3d_global_V2 #
-        #####################################################
+        # project rhoeq_Ginv_lambda1 on V1_h space [ Q1 ]:
+        c21, c22, c23 = tensor_space_FEM.projectors.PI_2(rhoeq_Ginv_lambda1_1, rhoeq_Ginv_lambda1_2, rhoeq_Ginv_lambda1_3)
+        c = np.concatenate((c21.flatten(), c22.flatten(), c23.flatten()))
 
-        # 1D commuting projectors
-        spaces_FEM[0].set_projectors(n_quad[0])
-        spaces_FEM[1].set_projectors(n_quad[1])
-        spaces_FEM[2].set_projectors(n_quad[2])
+        assert np.allclose(c, Q1_dot_x, atol=1e-14)
+        print('pi2 projection of rhoeq_Ginv_lambda1[ Q1 ] using both projectors are identical')
 
-        tensor_space_FEM.set_projectors()
+        # project gsqrt_Ginv_lambda1 on V2_h space [ U1 ]:
+        c21, c22, c23 = tensor_space_FEM.projectors.PI_2(gsqrt_Ginv_lambda1_1, gsqrt_Ginv_lambda1_2, gsqrt_Ginv_lambda1_3)
+        c = np.concatenate((c21.flatten(), c22.flatten(), c23.flatten()))
 
-        # domain
-        domain = dom.domain(kind_map)
-        #domain = dom.domain(kind_map, params_map, Nel, p, spl_kind)
+        assert np.allclose(c, U1_dot_x, atol=1e-14)
+        print('pi2 projection of gsqrt_Ginv_lambda1[ U1 ] using both projectors are identical')
 
-        # mhd projectors (automatically call "equilibrium_MHD.py")
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain)
+        # project jeq_gsqrt_lambda2 on V1_h space [ P1 ]:
+        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(jeq_gsqrt_lambda2_1, jeq_gsqrt_lambda2_2, jeq_gsqrt_lambda2_3)
+        c = np.concatenate((c11.flatten(), c12.flatten(), c13.flatten()))
 
-        # pi_1[lambda^2]
-        PI1_lambda2_dot_x = dot_ops.PI1_lambda2_dot([coeffs_21, coeffs_22, coeffs_23])
+        assert np.allclose(c, P1_dot_x, atol=1e-14)
+        print('pi1 projection of jeq_gsqrt_lambda2[ P1 ] using both projectors are identical')
 
-        # pi_2[lambda^1]
-        #PI2_lambda1_dot_x = dot_ops.PI_2_lambda_1_dot([coeffs_11, coeffs_12, coeffs_13])
-        PI2_lambda1_dot_x = dot_ops.PI2_lambda1_dot([coeffs_11, coeffs_12, coeffs_13])
+        # project peq_Ginv_lambda1 on V2_h space [ S1 ]:
+        c21, c22, c23 = tensor_space_FEM.projectors.PI_2(peq_Ginv_lambda1_1, peq_Ginv_lambda1_2, peq_Ginv_lambda1_3)
+        c = np.concatenate((c21.flatten(), c22.flatten(), c23.flatten()))
 
-        ##################################################################
-        # splines projection from projectors_global.projectors_global_1d #
-        ##################################################################
-        # random spline in V1_h
-        def phi_11(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, coeffs_11)
+        assert np.allclose(c, S1_dot_x, atol=1e-14)
+        print('pi2 projection of peq_Ginv_lambda1[ S1 ] using both projectors are identical')
 
-        def phi_12(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, coeffs_12)
+        # project DFinv_T_lambda1 on V0_h space [ X1 ]:
+        c01 = tensor_space_FEM.projectors.PI_0(DFinv_T_lambda1_1)
+        c02 = tensor_space_FEM.projectors.PI_0(DFinv_T_lambda1_2)
+        c03 = tensor_space_FEM.projectors.PI_0(DFinv_T_lambda1_3)
+        c = np.concatenate((c01.flatten(), c02.flatten(), c03.flatten()))
 
-        def phi_13(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, coeffs_13)
-
-        # project phi_11 on V2_h space:
-        c21, c22, c23 = tensor_space_FEM.projectors.PI_2(phi_11, phi_12, phi_13)
-
+        assert np.allclose(c, np.concatenate((X1_dot_x[0], X1_dot_x[1], X1_dot_x[2])), atol=1e-14)
+        print('pi0 projection of DFinv_T_lambda1[ X1 ] using both projectors are identical')
         print()
-        print('Random spline projection test :')
-
-        assert np.allclose(c21, PI2_lambda1_dot_x[0], atol=1e-14)
-        assert np.allclose(c22, PI2_lambda1_dot_x[1], atol=1e-14)
-        assert np.allclose(c23, PI2_lambda1_dot_x[2], atol=1e-14)
-        print('projection of Lambda^1 on V2_h space using both projectors are identical')
 
 
-        # random spline in V2_h
-        def phi_21(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, coeffs_21)
-
-        def phi_22(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, coeffs_22)
-
-        def phi_23(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, coeffs_23)
-
-        # project phi_21 on V1_h space:
-        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(phi_21, phi_22, phi_23)
-
-        assert np.allclose(c11, PI1_lambda2_dot_x[0], atol=1e-14)
-        assert np.allclose(c12, PI1_lambda2_dot_x[1], atol=1e-14)
-        assert np.allclose(c13, PI1_lambda2_dot_x[2], atol=1e-14)
-        print('projection of Lambda^2 on V1_h space using both projectors are identical')
-
-        ##############################
-        # plot the projected splines #
-        ##############################
-        
-        # construct splines in V1_h space with the coeffs from pi_1[ lambda^2]
-        def phi_h_11(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, c11)
-
-        def phi_h_12(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, c12)
-
-        def phi_h_13(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, c13)
-
-        # construct splines in V2_h space with the coeffs from pi_2[ lambda^1]
-        def phi_h_21(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, c21)
-
-        def phi_h_22(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, c22)
-
-        def phi_h_23(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, c23)
-            
-        # construct splines in V1_h space with the coeffs from the operator PI1_lambda2_dot    
-        def PI1_lambda2_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, PI1_lambda2_dot_x[0])
-
-        def PI1_lambda2_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, PI1_lambda2_dot_x[1])
-
-        def PI1_lambda2_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, PI1_lambda2_dot_x[2])
-
-        # construct splines in V2_h space with the coeffs from the operator PI2_lambda1_dot   
-        def PI2_lambda1_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, PI2_lambda1_dot_x[0])
-
-        def PI2_lambda1_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, PI2_lambda1_dot_x[1])
-
-        def PI2_lambda1_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, PI2_lambda1_dot_x[2])
-
-        
-        if plot:
-                eta1 = np.linspace(0., 1., 100)
-                eta2 = np.linspace(0., 1., 100)
-                eta3 = np.linspace(0., 1., 100)
-                
-                phi_11_plot = phi_11(eta1, eta2, eta3)
-                phi_12_plot = phi_12(eta1, eta2, eta3)
-                phi_13_plot = phi_13(eta1, eta2, eta3)
-                
-                phi_21_plot = phi_21(eta1, eta2, eta3)
-                phi_22_plot = phi_22(eta1, eta2, eta3)
-                phi_23_plot = phi_23(eta1, eta2, eta3)
-                
-                phi_h_11_plot = phi_h_11(eta1, eta2, eta3)
-                phi_h_12_plot = phi_h_12(eta1, eta2, eta3)
-                phi_h_13_plot = phi_h_13(eta1, eta2, eta3)
-                
-                phi_h_21_plot = phi_h_21(eta1, eta2, eta3)
-                phi_h_22_plot = phi_h_22(eta1, eta2, eta3)
-                phi_h_23_plot = phi_h_23(eta1, eta2, eta3)
-                
-                PI1_lambda2_1_plot = PI1_lambda2_1(eta1, eta2, eta3)
-                PI1_lambda2_2_plot = PI1_lambda2_2(eta1, eta2, eta3)
-                PI1_lambda2_3_plot = PI1_lambda2_3(eta1, eta2, eta3)
-
-                PI2_lambda1_1_plot = PI2_lambda1_1(eta1, eta2, eta3)
-                PI2_lambda1_2_plot = PI2_lambda1_2(eta1, eta2, eta3)
-                PI2_lambda1_3_plot = PI2_lambda1_3(eta1, eta2, eta3)
-
-                fig, axs = plt.subplots(2,3, figsize = (8, 8))
-                axs[0,0].plot(eta1, phi_11_plot[:, 50, 50], 'r', label = 'random_spline[V1_h]')
-                axs[0,1].plot(eta2, phi_12_plot[50, :, 50], 'r', label = 'random_spline[V1_h]')
-                axs[0,2].plot(eta3, phi_13_plot[50, 50, :], 'r', label = 'random_spline[V1_h]')
-                
-                axs[0,0].plot(eta1, PI2_lambda1_1_plot[:, 50, 50], 'b--', label = 'PI2_lambda1_dot_operator[V2_h]')
-                axs[0,1].plot(eta2, PI2_lambda1_2_plot[50, :, 50], 'b--', label = 'PI2_lambda1_dot_operator[V2_h]')
-                axs[0,2].plot(eta3, PI2_lambda1_3_plot[50, 50, :], 'b--', label = 'PI2_lambda1_dot_operator[V2_h]')
-                
-                axs[0,0].plot(eta1, phi_h_21_plot[:, 50, 50], 'g--', label = 'PI2_lambda1_basic_projector[V2_h]')
-                axs[0,1].plot(eta2, phi_h_22_plot[50, :, 50], 'g--', label = 'PI2_lambda1_basic_projector[V2_h]')
-                axs[0,2].plot(eta3, phi_h_23_plot[50, 50, :], 'g--', label = 'PI2_lambda1_basic_projector[V2_h]')
-                
-                axs[1,0].plot(eta1, phi_21_plot[:, 50, 50], 'r', label = 'random_spline[V2_h]')
-                axs[1,1].plot(eta2, phi_22_plot[50, :, 50], 'r', label = 'random_spline[V2_h]')
-                axs[1,2].plot(eta3, phi_23_plot[50, 50, :], 'r', label = 'random_spline[V2_h]')
-                
-                axs[1,0].plot(eta1, PI1_lambda2_1_plot[:, 50, 50], 'b--', label = 'PI1_lambda2_dot_operator[V1_h]')
-                axs[1,1].plot(eta2, PI1_lambda2_2_plot[50, :, 50], 'b--', label = 'PI1_lambda2_dot_operator[V1_h]')
-                axs[1,2].plot(eta3, PI1_lambda2_3_plot[50, 50, :], 'b--', label = 'PI1_lambda2_dot_operator[V1_h]')
-                
-                axs[1,0].plot(eta1, phi_h_11_plot[:, 50, 50], 'g--', label = 'PI1_lambda2_basic_projector[V1_h]')
-                axs[1,1].plot(eta2, phi_h_12_plot[50, :, 50], 'g--', label = 'PI1_lambda2_basic_projector[V1_h]')
-                axs[1,2].plot(eta3, phi_h_13_plot[50, 50, :], 'g--', label = 'PI1_lambda2_basic_projector[V1_h]')
-
-                axs[0,0].legend()
-                axs[0,1].legend()
-                axs[0,2].legend()
-                axs[1,0].legend()
-                axs[1,1].legend()
-                axs[1,2].legend()
-
-                axs[0,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-                axs[0,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-                axs[0,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-                axs[1,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-                axs[1,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-                axs[1,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-
-                if plot:
-                        plt.show()
-
-
-def test_new_projectors_dot(plot=False):
+def test_2form_projectors_dot():
 
         import sys
         sys.path.append('..')
 
         import numpy as np
-        import hylife.utilitis_FEEC.bsplines as bsp
-        import matplotlib.pyplot as plt
         import time
 
     
         import hylife.geometry.domain_3d as dom
         import hylife.utilitis_FEEC.spline_space as spl
+        import simulations.template_slab.input_run.equilibrium_MHD    as eq_mhd
 
         from hylife.utilitis_FEEC.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
-        Nel      = [7, 8, 6]
-        p        = [4, 5, 3]
+        Nel      = [7, 7, 7]
+        p        = [4, 4, 4]
         spl_kind = [True, True, True]
         n_quad   = p.copy()
         bc       = ['d', 'd']
@@ -625,251 +317,534 @@ def test_new_projectors_dot(plot=False):
 
         tensor_space_FEM.set_projectors()
 
-        # mhd projectors dot operator (automatically call "equilibrium_MHD.py")
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain)
+        # mhd projectors dot operator
+        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
-        # x which is going to product with projectors
-        # V0_h
-        x = np.ones(tensor_space_FEM.Ntot_0form)
-        x_N0 = tensor_space_FEM.extract_0form(x)
-        x_N0_flat = x_N0.flatten()
-
-        x = np.random.rand(tensor_space_FEM.Ntot_0form)
-        x_N0_rand = tensor_space_FEM.extract_0form(x)
-        x_N0_rand_flat = x_N0_rand.flatten()
-
-        # V1_h
-        x_1 = np.ones(tensor_space_FEM.Ntot_1form_cum[-1])
-        x_11, x_12, x_13 = tensor_space_FEM.extract_1form(x_1)
-        x_N1 = [x_11, x_12, x_13]
-
-        x_11_flat, x_12_flat, x_13_flat = x_11.flatten(), x_12.flatten(), x_13.flatten()
-        x_N1_conc = np.concatenate((x_11_flat, x_12_flat, x_13_flat))
-
+        # random x which is going to product with projectors
+        x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
         x_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
-        x_11_rand, x_12_rand, x_13_rand = tensor_space_FEM.extract_1form(x_1)
-        x_N1_rand = [x_11_rand, x_12_rand, x_13_rand]
-
-        x_11_rand_flat, x_12_rand_flat, x_13_rand_flat = x_11_rand.flatten(), x_12_rand.flatten(), x_13_rand.flatten()
-        x_N1_rand_conc = np.concatenate((x_11_rand_flat, x_12_rand_flat, x_13_rand_flat))
-
-        # V2_h
-        x_2 = np.ones(tensor_space_FEM.Ntot_2form_cum[-1])
-        x_21, x_22, x_23 = tensor_space_FEM.extract_2form(x_2)
-        x_N2 = [x_21, x_22, x_23]
-
-        x_21_flat, x_22_flat, x_23_flat = x_21.flatten(), x_22.flatten(), x_23.flatten()
-        x_N2_conc = np.concatenate((x_21_flat, x_22_flat, x_23_flat))
-
+        x_11, x_12, x_13 = tensor_space_FEM.extract_1form(x_1)
         x_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
-        x_21_rand, x_22_rand, x_23_rand = tensor_space_FEM.extract_2form(x_2)
-        x_N2_rand = [x_21_rand, x_22_rand, x_23_rand]
-
-        x_21_rand_flat, x_22_rand_flat, x_23_rand_flat = x_21_rand.flatten(), x_22_rand.flatten(), x_23_rand.flatten()
-        x_N2_rand_conc = np.concatenate((x_21_rand_flat, x_22_rand_flat, x_23_rand_flat))
-
-        # V3_h
-        x = np.ones(tensor_space_FEM.Ntot_3form)
-        x_N3 = tensor_space_FEM.extract_3form(x)
-        x_N3_flat = x_N3.flatten()
-
-        x = np.random.rand(tensor_space_FEM.Ntot_3form)
-        x_N3_rand = tensor_space_FEM.extract_0form(x)
-        x_N3_rand_flat = x_N3_rand.flatten()
+        x_21, x_22, x_23 = tensor_space_FEM.extract_2form(x_2)
+        x_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
 
         # test conditions
         print()
         print('MHD_equilibrium :')
-        print('p_eq = 1.0')
-        print('r_eq = 1.0')
-        print('b_eq_x = 0')
-        print('b_eq_y = 0')
-        print('b_eq_z = 1.0')
-        print('j_eq_x = 0')
-        print('j_eq_y = 0')
-        print('j_eq_z = 1.0')
+        print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
+        print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
+        print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
+        print('j_eq_x =', dot_ops.j2_eq_1_fun(0.,0.,0.))
+        print('j_eq_y =', dot_ops.j2_eq_2_fun(0.,0.,0.))
+        print('j_eq_z =', dot_ops.j2_eq_3_fun(0.,0.,0.))
 
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
         print('params_map = ' + str(domain.params_map))
-
         print()
 
         # ========== Identity test ========== #
-        print('Identity test for the projection Q2, Q2.T, P2, P2.T, M and M.T   :')
+        print('Identity test for the projection Q2_dot, S2_dot and K2_dot :')
+        print('Calculating projection operator Q2_dot, S2_dot and K2_dot with random x is done!')
+        print()
         # projection Q2
-        print('Under the condition, rho_eq = 1 and g_sqrt = 1, projection Q2 dot x = x')
-        Q2_dot_x = dot_ops.Q2_dot(x_N2_rand) 
-        assert np.allclose(Q2_dot_x[0], x_N2_rand[0], atol=1e-14)
-        assert np.allclose(Q2_dot_x[1], x_N2_rand[1], atol=1e-14)
-        assert np.allclose(Q2_dot_x[2], x_N2_rand[2], atol=1e-14)
+        print('Under the condition, rho_eq = 1 and g_sqrt = 1, projection Q2 dot x = x for all x')
+        Q2_dot_x = dot_ops.Q2_dot(x_2) 
+        assert np.allclose(Q2_dot_x, x_2, atol=1e-14)
         print('Done. Q2_dot(x_random) == x_random')
 
-        # projection transpose Q2
-        transpose_Q2_dot_x = dot_ops.transpose_Q2_dot(x_N2_rand)  
-        assert np.allclose(transpose_Q2_dot_x[0], x_N2_rand[0], atol=1e-14)
-        assert np.allclose(transpose_Q2_dot_x[1], x_N2_rand[1], atol=1e-14)
-        assert np.allclose(transpose_Q2_dot_x[2], x_N2_rand[2], atol=1e-14)
-        print('Done. Transpose_Q2_dot(x_random) == x_random')
+        # projection S2
+        print('Under the condition, p_eq = 1 and g_sqrt = 1, projection S2 dot x = x for all x')
+        S2_dot_x = dot_ops.S2_dot(x_2) 
+        assert np.allclose(S2_dot_x, x_2, atol=1e-14)
+        print('Done. S2_dot(x_random) == x_random')
+
+        # projection K2 
+        print('Under the condition, p_eq = 1 and g_sqrt = 1, projection K2 dot x = x for all x')
+        K2_dot_x = dot_ops.K2_dot(x_3)
+        assert np.allclose(K2_dot_x, x_3, atol=1e-14)
+        print('Done. K2_dot(x_random) == x_random')
         print()
 
-        # projection P2
-        print('Under the condition, p_eq = 1 and g_sqrt = 1, projection P2 dot x = x')
-        P2_dot_x = dot_ops.P2_dot(x_N2_rand) 
-        assert np.allclose(P2_dot_x[0], x_N2_rand[0], atol=1e-14)
-        assert np.allclose(P2_dot_x[1], x_N2_rand[1], atol=1e-14)
-        assert np.allclose(P2_dot_x[2], x_N2_rand[2], atol=1e-14)
-        print('Done. P2_dot(x_random) == x_random')
-
-        # projection transpose P2
-        transpose_P2_dot_x = dot_ops.transpose_P2_dot(x_N2_rand)  
-        assert np.allclose(transpose_P2_dot_x[0], x_N2_rand[0], atol=1e-14)
-        assert np.allclose(transpose_P2_dot_x[1], x_N2_rand[1], atol=1e-14)
-        assert np.allclose(transpose_P2_dot_x[2], x_N2_rand[2], atol=1e-14)
-        print('Done. Transpose_P2_dot(x_random) == x_random')
-
-         # projection M 
-        print('Under the condition, p_eq = 1 and g_sqrt = 1, projection M dot x = x')
-        M_dot_x = dot_ops.M_dot(x_N3_rand)
-        assert np.allclose(M_dot_x, x_N3_rand, atol=1e-14)
-        print('Done. M_dot(x_random) == x_random')
-
-        # projection transpose M
-        transpose_M_dot_x = dot_ops.transpose_M_dot(x_N3_rand)
-        assert np.allclose(transpose_M_dot_x, x_N3_rand, atol=1e-14)
-        print('Done. Transpose_M_dot(x_random) == x_random')
+        # ========== comparison test ========== #
+        print('Comparison test with basic projectors for the projection operator T2_dot, P2_dot  and X2_dot :')
         print()
-
-        # ========== convergence test ========== #
-        print('Convergence test for the projection T2 and S2 :')
 
         ################
         # dot operator #
         ################
         # T2
         start = time.time()
-        T2_dot_x = dot_ops.T2_dot(x_N2_rand)
+        T2_dot_x = dot_ops.T2_dot(x_2)
 
-        # S2
-        S2_dot_x = dot_ops.S2_dot(x_N2_rand)
+        # P2
+        P2_dot_x = dot_ops.P2_dot(x_2)
 
-        end = time.time()
-        print('calculating projection T2 and S2 using dot operator is done!')
-        print(end-start)
+        # X2
+        X2_dot_x = dot_ops.X2_dot(x_2)
+
+        # S20
+        S20_dot_x = dot_ops.S20_dot(x_2)
+
+        # Z20
+        Z20_dot_x = dot_ops.Z20_dot(x_2)
+
+        # Y20
+        Y20_dot_x = dot_ops.Y20_dot(x_0)
         
-        ########
-        # plot #
-        ########
-        # ========== random splines ========== #
-        # V2_h
-        def phi_21(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, x_N2_rand[0])
-
-        def phi_22(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, x_N2_rand[1])
-
-        def phi_23(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, x_N2_rand[2])
-        
+        ####################
+        # Basic projectors #
+        ####################
+        # ========== construct random splines ========== #
+        # V0_h
+        def phi_0(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, x_0)
         # V1_h
         def phi_11(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, x_N1_rand[0])
+                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, x_1)
 
         def phi_12(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, x_N1_rand[1])
+                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, x_1)
 
         def phi_13(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, x_N1_rand[2])
+                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, x_1)
+        # V2_h
+        def phi_21(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, x_2)
 
-        # ========== splines constructed from the dot operator ========== #
-        # construct splines in V2_h with the coeffs from the operator S2_dot    
-        def S2_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, S2_dot_x[0])
+        def phi_22(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, x_2)
 
-        def S2_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DND(eta1, eta2, eta3, S2_dot_x[1])
+        def phi_23(eta1, eta2, eta3):
+                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, x_2)
 
-        def S2_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DDN(eta1, eta2, eta3, S2_dot_x[2])
+        # Beq_gsqrt_lambda2 for T2
+        def Beq_gsqrt_lambda2_1(eta1, eta2, eta3) : 
+                return phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)
+        def Beq_gsqrt_lambda2_2(eta1, eta2, eta3) : 
+                return phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
+        def Beq_gsqrt_lambda2_3(eta1, eta2, eta3) : 
+                return phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
 
-        # construct splines in V1_h with the coeffs from the operator T2_dot   
-        def T2_dot_x_1(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, T2_dot_x[0])
+        # Ginv_jeq_lambda2 for P2
+        def Ginv_jeq_lambda2_1(eta1, eta2, eta3) :  
+                return phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+        def Ginv_jeq_lambda2_2(eta1, eta2, eta3) :  
+                return phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+        def Ginv_jeq_lambda2_3(eta1, eta2, eta3) :  
+                return phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+        
+        # DF_gsqrt_lambda2 for X2
+        def DF_gsqrt_lambda2_1(eta1, eta2, eta3) : 
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_11') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_12') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_13')    ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def DF_gsqrt_lambda2_2(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_21') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_22') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_23')     ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def DF_gsqrt_lambda2_3(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_31') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_32') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'df_33')     ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
-        def T2_dot_x_2(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NDN(eta1, eta2, eta3, T2_dot_x[1])
+        # peq_G_gsqrt_lambda2 for S20
+        def peq_G_lambda2_1(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_11') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_12') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_13') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def peq_G_lambda2_2(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_21') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_22') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_23') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def peq_G_lambda2_3(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_31') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_32') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_33') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        # G_gsqrt_lambda2 for Z20
+        def G_lambda2_1(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_11') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_12') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_13')  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def G_lambda2_2(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_21') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_22') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_23')  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
+        def G_lambda2_3(eta1, eta2, eta3) :
+                return (phi_21(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_31') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_32') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_33')  ) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
-        def T2_dot_x_3(eta1, eta2, eta3):
-                return tensor_space_FEM.evaluate_NND(eta1, eta2, eta3, T2_dot_x[2])
+        # g_sqrt * lambda0 for Y20
+        def gsqrt_lambda0(eta1, eta2, eta3) :
+                return phi_0(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
-        # ========== Evaluation for the plot ========== #
-        eta1 = np.linspace(0., 1., 100)
-        eta2 = np.linspace(0., 1., 100)
-        eta3 = np.linspace(0., 1., 100)
+        # ========== apply basic projection operator ========== #
+        # project Beq_gsqrt_lambda2 on V1_h space [ T2 ]:
+        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(Beq_gsqrt_lambda2_1, Beq_gsqrt_lambda2_2, Beq_gsqrt_lambda2_3)
+        c = np.concatenate((c11.flatten(), c12.flatten(), c13.flatten()))
 
-        Ginv_jeq_lambda2_1_plot = phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j_eq_y_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j_eq_z_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j_eq_x_fun(eta1, eta2, eta3))
-        Ginv_jeq_lambda2_2_plot = phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j_eq_y_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j_eq_z_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j_eq_x_fun(eta1, eta2, eta3))
-        Ginv_jeq_lambda2_3_plot = phi_21(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j_eq_z_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j_eq_y_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j_eq_x_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j_eq_z_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j_eq_y_fun(eta1, eta2, eta3) - dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j_eq_x_fun(eta1, eta2, eta3))
+        assert np.allclose(c, T2_dot_x, atol=1e-14)
+        print('pi1 projection of Beq_gsqrt_lambda2[ T2 ] using both projectors are identical')
 
-        beq_gsqrt_lambda2_1_plot = phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b_eq_z_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b_eq_y_fun(eta1, eta2, eta3)
-        beq_gsqrt_lambda2_2_plot = phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.b_eq_z_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b_eq_x_fun(eta1, eta2, eta3)
-        beq_gsqrt_lambda2_3_plot = phi_21(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b_eq_y_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b_eq_x_fun(eta1, eta2, eta3)
+        
+        # project Ginv_jeq_lambda2 on V2_h space [ P2 ]:
+        c21, c22, c23 = tensor_space_FEM.projectors.PI_2(Ginv_jeq_lambda2_1, Ginv_jeq_lambda2_2, Ginv_jeq_lambda2_3)
+        c = np.concatenate((c21.flatten(), c22.flatten(), c23.flatten()))
 
-        S2_dot_x_1_plot = S2_dot_x_1(eta1, eta2, eta3)
-        S2_dot_x_2_plot = S2_dot_x_2(eta1, eta2, eta3)
-        S2_dot_x_3_plot = S2_dot_x_3(eta1, eta2, eta3)
-                
-        T2_dot_x_1_plot = T2_dot_x_1(eta1, eta2, eta3)
-        T2_dot_x_2_plot = T2_dot_x_2(eta1, eta2, eta3)
-        T2_dot_x_3_plot = T2_dot_x_3(eta1, eta2, eta3)
+        assert np.allclose(c, P2_dot_x, atol=1e-14)
+        print('pi2 projection of Ginv_jeq_lambda2[ P2 ] using both projectors are identical')
 
+        # project DF_gsqrt_lambda2 on V0_h space [ X2 ]:
+        c01 = tensor_space_FEM.projectors.PI_0(DF_gsqrt_lambda2_1)
+        c02 = tensor_space_FEM.projectors.PI_0(DF_gsqrt_lambda2_2)
+        c03 = tensor_space_FEM.projectors.PI_0(DF_gsqrt_lambda2_3)
+        c = np.concatenate((c01.flatten(), c02.flatten(), c03.flatten()))
 
-        fig, axs = plt.subplots(2,3, figsize = (10, 12))
+        assert np.allclose(c, np.concatenate((X2_dot_x[0], X2_dot_x[1], X2_dot_x[2])), atol=1e-14)
+        print('pi0 projection of DF_gsqrt_lambda2[ X2 ] using both projectors are identical')
+
+        # project p_eq_G_lambda2 on V1_h space [ S20 ]:
+        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(peq_G_lambda2_1, peq_G_lambda2_2, peq_G_lambda2_3)
+        c = np.concatenate((c11.flatten(), c12.flatten(), c13.flatten()))
+
+        assert np.allclose(c, S20_dot_x, atol=1e-14)
+        print('pi1 projection of p_eq_G_lambda2[ S20 ] using both projectors are identical')
+
+        # project G_lambda2 on V1_h space [ Z20 ]:
+        c11, c12, c13 = tensor_space_FEM.projectors.PI_1(G_lambda2_1, G_lambda2_2, G_lambda2_3)
+        c = np.concatenate((c11.flatten(), c12.flatten(), c13.flatten()))
+
+        assert np.allclose(c, Z20_dot_x, atol=1e-14)
+        print('pi1 projection of G_lambda2[ Z20 ] using both projectors are identical')
+
+        # project gsqrt_lambda0 on V3_h space [Y20]
+        c3 = tensor_space_FEM.projectors.PI_3(gsqrt_lambda0)
+
+        assert np.allclose(c3.flatten(), Y20_dot_x, atol=1e-14)
+        print('pi3 projection of gsqrt_lambda0 [ Y20 ] using both projectors are identical')
+        print()
+
+def test_1form_symmetric():
+
+        import sys
+        sys.path.append('..')
+
+        import numpy as np
     
-        axs[0,0].plot(eta1, Ginv_jeq_lambda2_1_plot[:, 50, 50], 'r', label = 'Ginv_jeq_lambda2[V2_h]')
-        axs[0,1].plot(eta2, Ginv_jeq_lambda2_2_plot[50, :, 50], 'r', label = 'Ginv_jeq_lambda2[V2_h]')
-        axs[0,2].plot(eta3, Ginv_jeq_lambda2_3_plot[50, 50, :], 'r', label = 'Ginv_jeq_lambda2[V2_h]')
-                
-        axs[0,0].plot(eta1, S2_dot_x_1_plot[:, 50, 50], 'b--', label = 'S2_dot[V2_h]')
-        axs[0,1].plot(eta2, S2_dot_x_2_plot[50, :, 50], 'b--', label = 'S2_dot[V2_h]')
-        axs[0,2].plot(eta3, S2_dot_x_3_plot[50, 50, :], 'b--', label = 'S2_dot[V2_h]')
-                
-        axs[1,0].plot(eta1, beq_gsqrt_lambda2_1_plot[:, 50, 50], 'r', label = 'beq_gsqrt_lambda2[V2_h]')
-        axs[1,1].plot(eta2, beq_gsqrt_lambda2_2_plot[50, :, 50], 'r', label = 'beq_gsqrt_lambda2[V2_h]')
-        axs[1,2].plot(eta3, beq_gsqrt_lambda2_3_plot[50, 50, :], 'r', label = 'beq_gsqrt_lambda2[V2_h]')
-                
-        axs[1,0].plot(eta1, T2_dot_x_1_plot[:, 50, 50], 'b--', label = 'T2_dot[V1_h]')
-        axs[1,1].plot(eta2, T2_dot_x_2_plot[50, :, 50], 'b--', label = 'T2_dot[V1_h]')
-        axs[1,2].plot(eta3, T2_dot_x_3_plot[50, 50, :], 'b--', label = 'T2_dot[V1_h]')
-                
-        axs[0,0].legend()
-        axs[0,1].legend()
-        axs[0,2].legend()
-        axs[1,0].legend()
-        axs[1,1].legend()
-        axs[1,2].legend()
+        import hylife.geometry.domain_3d as dom
+        import hylife.utilitis_FEEC.spline_space as spl
+        import simulations.template_slab.input_run.equilibrium_MHD    as eq_mhd
 
-        axs[0,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[0,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[0,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
-        axs[1,0].set_title('[eta1]   Nel: ' + str(Nel[0]) + '  p: ' + str(p[0]) + '  bc: ' + str(spl_kind[0]))
-        axs[1,1].set_title('[eta2]   Nel: ' + str(Nel[1]) + '  p: ' + str(p[1]) + '  bc: ' + str(spl_kind[1]))
-        axs[1,2].set_title('[eta3]   Nel: ' + str(Nel[2]) + '  p: ' + str(p[2]) + '  bc: ' + str(spl_kind[2]))
+        from hylife.utilitis_FEEC.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
 
-        fig.tight_layout()
+        # spline spaces
+        Nel      = [7, 7, 7]
+        p        = [4, 4, 4]
+        spl_kind = [True, True, True]
+        n_quad   = p.copy()
+        bc       = ['d', 'd']
+        kind_map = 'cuboid'     
 
-        if plot:
-                plt.show()
+        # 1d B-spline spline spaces for finite elements
+        spaces_FEM = [spl.spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+                    for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
+
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
+
+        # domain
+        domain = dom.domain(kind_map)
+        #domain = dom.domain(kind_map, params_map, Nel, p, spl_kind)
+
+        # 1D commuting projectors
+        spaces_FEM[0].set_projectors(n_quad[0])
+        spaces_FEM[1].set_projectors(n_quad[1])
+        spaces_FEM[2].set_projectors(n_quad[2])
+
+        tensor_space_FEM.set_projectors()
+
+        # mhd projectors dot operator
+        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
+
+
+        # test conditions
+        print()
+        print('MHD_equilibrium :')
+        print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
+        print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
+        print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
+        print('j_eq_x =', dot_ops.j2_eq_1_fun(0.,0.,0.))
+        print('j_eq_y =', dot_ops.j2_eq_2_fun(0.,0.,0.))
+        print('j_eq_z =', dot_ops.j2_eq_3_fun(0.,0.,0.))
+
+        print()
+        print('maping  :')
+        print('kind_map = ' + str(kind_map))
+        print('params_map = ' + str(domain.params_map))
+
+        print()
+
+        # ========== Symmetric test ========== #
+        print('With given random x and y, x.T M.T M y == y.T M.T M x should be always satisfied')
+
+        num = 100
+
+        # X1 is not yet implemented
+        res_Q1_1 = np.zeros(num)
+        res_Q1_2 = np.zeros(num)
+        res_W1_1 = np.zeros(num)
+        res_W1_2 = np.zeros(num)
+        res_U1_1 = np.zeros(num)
+        res_U1_2 = np.zeros(num)
+        res_P1_1 = np.zeros(num)
+        res_P1_2 = np.zeros(num)
+        res_S1_1 = np.zeros(num)
+        res_S1_2 = np.zeros(num)
+        res_K1_1 = np.zeros(num)
+        res_K1_2 = np.zeros(num)
+        res_T1_1 = np.zeros(num)
+        res_T1_2 = np.zeros(num)
+        res_X1_1 = np.zeros(num)
+        res_X1_2 = np.zeros(num)
+        res_S10_1 = np.zeros(num)
+        res_S10_2 = np.zeros(num)
+        res_K10_1 = np.zeros(num)
+        res_K10_2 = np.zeros(num)
+
+        for i in range(num):
+                # 0form random x and y
+                x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
+                y_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
+
+                # 1form random x and y
+                x_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
+                y_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
+
+                # 2form random x and y
+                x_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
+                y_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
+
+                # 3form random x and y
+                x_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
+                y_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
+    
+                res_Q1_1[i] = x_1.T.dot(dot_ops.transpose_Q1_dot(dot_ops.Q1_dot(y_1)))
+                res_Q1_2[i] = y_1.T.dot(dot_ops.transpose_Q1_dot(dot_ops.Q1_dot(x_1)))
+                res_W1_1[i] = x_1.T.dot(dot_ops.transpose_W1_dot(dot_ops.W1_dot(y_1)))
+                res_W1_2[i] = y_1.T.dot(dot_ops.transpose_W1_dot(dot_ops.W1_dot(x_1)))
+                res_U1_1[i] = x_1.T.dot(dot_ops.transpose_U1_dot(dot_ops.U1_dot(y_1)))
+                res_U1_2[i] = y_1.T.dot(dot_ops.transpose_U1_dot(dot_ops.U1_dot(x_1)))
+                res_P1_1[i] = x_2.T.dot(dot_ops.transpose_P1_dot(dot_ops.P1_dot(y_2)))
+                res_P1_2[i] = y_2.T.dot(dot_ops.transpose_P1_dot(dot_ops.P1_dot(x_2)))
+                res_S1_1[i] = x_1.T.dot(dot_ops.transpose_S1_dot(dot_ops.S1_dot(y_1)))
+                res_S1_2[i] = y_1.T.dot(dot_ops.transpose_S1_dot(dot_ops.S1_dot(x_1)))
+                res_K1_1[i] = x_3.T.dot(dot_ops.transpose_K1_dot(dot_ops.K1_dot(y_3)))
+                res_K1_2[i] = y_3.T.dot(dot_ops.transpose_K1_dot(dot_ops.K1_dot(x_3)))
+                res_T1_1[i] = x_1.T.dot(dot_ops.transpose_T1_dot(dot_ops.T1_dot(y_1)))
+                res_T1_2[i] = y_1.T.dot(dot_ops.transpose_T1_dot(dot_ops.T1_dot(x_1)))
+                res_X1_1[i] = x_1.T.dot(dot_ops.transpose_X1_dot(dot_ops.X1_dot(y_1)))
+                res_X1_2[i] = y_1.T.dot(dot_ops.transpose_X1_dot(dot_ops.X1_dot(x_1)))
+                res_S10_1[i] = x_1.T.dot(dot_ops.transpose_S10_dot(dot_ops.S10_dot(y_1)))
+                res_S10_2[i] = y_1.T.dot(dot_ops.transpose_S10_dot(dot_ops.S10_dot(x_1)))
+                res_K10_1[i] = x_0.T.dot(dot_ops.transpose_K10_dot(dot_ops.K10_dot(y_0)))
+                res_K10_2[i] = y_0.T.dot(dot_ops.transpose_K10_dot(dot_ops.K10_dot(x_0)))
+
+        tol = 1e-14
+
+        assert np.allclose(res_Q1_1, res_Q1_2, atol=tol)
+        print('(Q1.T Q1) is a symmetric operator')
+        assert np.allclose(res_W1_1, res_W1_2, atol=tol)
+        print('(W1.T W1) is a symmetric operator')
+        assert np.allclose(res_U1_1, res_U1_2, atol=tol)
+        print('(U1.T U1) is a symmetric operator')
+        assert np.allclose(res_P1_1, res_P1_2, atol=tol)
+        print('(P1.T P1) is a symmetric operator')
+        assert np.allclose(res_S1_1, res_S1_2, atol=tol)
+        print('(S1.T S1) is a symmetric operator')
+        assert np.allclose(res_K1_1, res_K1_2, atol=tol)
+        print('(K1.T K1) is a symmetric operator')
+        assert np.allclose(res_T1_1, res_T1_2, atol=tol)
+        print('(T1.T T1) is a symmetric operator')
+        assert np.allclose(res_X1_1, res_X1_2, atol=tol)
+        print('(X1.T X1) is a symmetric operator')
+        assert np.allclose(res_S10_1, res_S10_2, atol=tol)
+        print('(S10.T S10) is a symmetric operator')
+        assert np.allclose(res_K10_1, res_K10_2, atol=tol)
+        print('(K10.T K10) is a symmetric operator')
+        print()
+
+def test_2form_symmetric():
+
+        import sys
+        sys.path.append('..')
+
+        import numpy as np
+
+
+        import hylife.geometry.domain_3d as dom
+        import hylife.utilitis_FEEC.spline_space as spl
+        import simulations.template_slab.input_run.equilibrium_MHD    as eq_mhd
+
+        from hylife.utilitis_FEEC.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
+
+        # spline spaces
+        Nel      = [7, 7, 7]
+        p        = [4, 4, 4]
+        spl_kind = [True, True, True]
+        n_quad   = p.copy()
+        bc       = ['d', 'd']
+        kind_map = 'cuboid'     
+
+        # 1d B-spline spline spaces for finite elements
+        spaces_FEM = [spl.spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+                    for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
+
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
+
+        # domain
+        domain = dom.domain(kind_map)
+        #domain = dom.domain(kind_map, params_map, Nel, p, spl_kind)
+
+        # 1D commuting projectors
+        spaces_FEM[0].set_projectors(n_quad[0])
+        spaces_FEM[1].set_projectors(n_quad[1])
+        spaces_FEM[2].set_projectors(n_quad[2])
+
+        tensor_space_FEM.set_projectors()
+
+        # mhd projectors dot operator
+        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
+
+
+        # test conditions
+        print()
+        print('MHD_equilibrium :')
+        print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
+        print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
+        print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
+        print('j_eq_x =', dot_ops.j2_eq_1_fun(0.,0.,0.))
+        print('j_eq_y =', dot_ops.j2_eq_2_fun(0.,0.,0.))
+        print('j_eq_z =', dot_ops.j2_eq_3_fun(0.,0.,0.))
+        print()
+
+        print()
+        print('maping  :')
+        print('kind_map = ' + str(kind_map))
+        print('params_map = ' + str(domain.params_map))
+
+        # print('G = ')
+        # print(domain.evaluate(0., 0., 0., 'g_11'), domain.evaluate(0., 0., 0., 'g_12'), domain.evaluate(0., 0., 0., 'g_13'))
+        # print(domain.evaluate(0., 0., 0., 'g_21'), domain.evaluate(0., 0., 0., 'g_22'), domain.evaluate(0., 0., 0., 'g_23'))
+        # print(domain.evaluate(0., 0., 0., 'g_31'), domain.evaluate(0., 0., 0., 'g_32'), domain.evaluate(0., 0., 0., 'g_33'))
+
+        # print('g_sqrt = ')
+        # print(domain.evaluate(0., 0., 0., 'det_df'))
+        # print()
+
+        # ========== Symmetric test ========== #
+        print('With given random x and y, x.T M.T M y == y.T M.T M x should be always satisfied')
+
+        num = 100
+
+        # X1 is not yet implemented
+        res_Q2_1 = np.zeros(num)
+        res_Q2_2 = np.zeros(num)
+        res_P2_1 = np.zeros(num)
+        res_P2_2 = np.zeros(num)
+        res_S2_1 = np.zeros(num)
+        res_S2_2 = np.zeros(num)
+        res_K2_1 = np.zeros(num)
+        res_K2_2 = np.zeros(num)
+        res_T2_1 = np.zeros(num)
+        res_T2_2 = np.zeros(num)
+        res_X2_1 = np.zeros(num)
+        res_X2_2 = np.zeros(num)
+        res_Y20_1 = np.zeros(num)
+        res_Y20_2 = np.zeros(num)
+        res_S20_1 = np.zeros(num)
+        res_S20_2 = np.zeros(num)
+        res_Z20_1 = np.zeros(num)
+        res_Z20_2 = np.zeros(num)
+
+        for i in range(num):
+                # 0form random x and y
+                x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
+                y_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
+
+                # 1form random x and y
+                x_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
+                y_1 = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
+
+                # 2form random x and y
+                x_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
+                y_2 = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
+
+                # 3form random x and y
+                x_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
+                y_3 = np.random.rand(tensor_space_FEM.Ntot_3form)
+
+                res_Q2_1[i] = x_2.T.dot(dot_ops.transpose_Q2_dot(dot_ops.Q2_dot(y_2)))
+                res_Q2_2[i] = y_2.T.dot(dot_ops.transpose_Q2_dot(dot_ops.Q2_dot(x_2)))
+                res_T2_1[i] = x_2.T.dot(dot_ops.transpose_T2_dot(dot_ops.T2_dot(y_2)))
+                res_T2_2[i] = y_2.T.dot(dot_ops.transpose_T2_dot(dot_ops.T2_dot(x_2)))
+                res_P2_1[i] = x_2.T.dot(dot_ops.transpose_P2_dot(dot_ops.P2_dot(y_2)))
+                res_P2_2[i] = y_2.T.dot(dot_ops.transpose_P2_dot(dot_ops.P2_dot(x_2)))
+                res_S2_1[i] = x_2.T.dot(dot_ops.transpose_S2_dot(dot_ops.S2_dot(y_2)))
+                res_S2_2[i] = y_2.T.dot(dot_ops.transpose_S2_dot(dot_ops.S2_dot(x_2)))
+                res_K2_1[i] = x_3.T.dot(dot_ops.transpose_K2_dot(dot_ops.K2_dot(y_3)))
+                res_K2_2[i] = y_3.T.dot(dot_ops.transpose_K2_dot(dot_ops.K2_dot(x_3)))
+                res_X2_1[i] = x_2.T.dot(dot_ops.transpose_X2_dot(dot_ops.X2_dot(y_2)))
+                res_X2_2[i] = y_2.T.dot(dot_ops.transpose_X2_dot(dot_ops.X2_dot(x_2)))
+                res_Y20_1[i] = x_0.T.dot(dot_ops.transpose_Y20_dot(dot_ops.Y20_dot(y_0)))
+                res_Y20_2[i] = y_0.T.dot(dot_ops.transpose_Y20_dot(dot_ops.Y20_dot(x_0)))
+                res_S20_1[i] = x_2.T.dot(dot_ops.transpose_S20_dot(dot_ops.S20_dot(y_2)))
+                res_S20_2[i] = y_2.T.dot(dot_ops.transpose_S20_dot(dot_ops.S20_dot(x_2)))
+                res_Z20_1[i] = x_2.T.dot(dot_ops.transpose_Z20_dot(dot_ops.Z20_dot(y_2)))
+                res_Z20_2[i] = y_2.T.dot(dot_ops.transpose_Z20_dot(dot_ops.Z20_dot(x_2)))
+
+        tol = 1e-14
+
+        assert np.allclose(res_Q2_1, res_Q2_2, atol=tol)
+        print('(Q2.T Q2) is a symmetric operator')
+        assert np.allclose(res_T2_1, res_T2_2, atol=tol)
+        print('(T2.T T2) is a symmetric operator')
+        assert np.allclose(res_P2_1, res_P2_2, atol=tol)
+        print('(P2.T P2) is a symmetric operator')
+        assert np.allclose(res_S2_1, res_S2_2, atol=tol)
+        print('(S2.T S2) is a symmetric operator')
+        assert np.allclose(res_K2_1, res_K2_2, atol=tol)
+        print('(K2.T K2) is a symmetric operator')
+        assert np.allclose(res_X2_1, res_X2_2, atol=tol)
+        print('(X2.T X2) is a symmetric operator')
+        assert np.allclose(res_Y20_1, res_Y20_2, atol=tol)
+        print('(Y20.T Y20) is a symmetric operator')
+        assert np.allclose(res_S20_1, res_S20_2, atol=tol)
+        print('(S20.T S20) is a symmetric operator')
+        assert np.allclose(res_Z20_1, res_Z20_2, atol=tol)
+        print('(Z20.T Z20) is a symmetric operator')
+        print()
 
 
 if __name__ == '__main__':
-    #test_projectors_dot(plot=True)
-    #test_comparison_with_basic_projector(plot=True)
-    test_new_projectors_dot(plot=True)
+    test_1form_projectors_dot()
+    test_2form_projectors_dot()
+    test_1form_symmetric()
+    test_2form_symmetric()
