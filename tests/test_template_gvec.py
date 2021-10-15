@@ -1,0 +1,193 @@
+def test_template_gvec():
+    """
+    Test if `simulations/template_gvec/equilibrium_MHD.py` runs correctly.
+    """
+
+    # ============================================================
+    # Imports.
+    # ============================================================
+
+    import numpy             as np
+    import matplotlib.pyplot as plt
+    import matplotlib.tri    as tri
+
+    import os
+    import sys
+    sys.path.append('..') # Because we are inside './test/' directory.
+    sys.path.append('../simulations/template_gvec/') # Because `template_gvec` is elsewhere.
+
+    # which diagnostics is run
+    print('Run diagnostics:', sys.argv[0])
+
+    basedir = os.path.dirname(os.path.realpath(__file__))
+    # sys.path.insert(0, os.path.join(basedir, '..'))
+
+    # Import necessary hylife modules.
+    import hylife.geometry.domain_3d as dom
+    import hylife.utilitis_FEEC.spline_space as spl
+    from hylife.gvec_to_python import GVEC, Form, Variable
+    templatedir = os.path.dirname(os.path.join(basedir, '../simulations/template_gvec/'))
+    print(templatedir)
+    from input_run.equilibrium_MHD import equilibrium_mhd
+
+
+
+    # ============================================================
+    # Primary parameters to control this test file.
+    # ============================================================
+
+    # Present each B-field component as a tuple of functions B=(Bx,By,Bz). If False, B itself is a function.
+    # Always True because that's what expected by STRUPHY's push/pull mechanisms.
+    use_B_components = True
+
+
+
+    # ============================================================
+    # Configure STRUPHY splines.
+    # ============================================================
+
+    # Create splines to STRUPHY, unrelated to splines in GVEC.
+    Nel      = [6, 6, 6] 
+    p        = [2, 3, 3]
+    spl_kind = None       # Set values below
+    nq_el    = [4, 4, 6]  # Element integration
+    nq_pr    = [4, 4, 6]  # Greville integration
+    bc       = ['f', 'f'] # BC in s-direction
+    spl_kind = [False, True, True] # Periodic or not.
+
+
+
+    # ============================================================
+    # Load GVEC mapping.
+    # ============================================================
+
+    filepath = 'simulations/template_gvec/testcases/ellipstell/'
+    filepath =  os.path.join(basedir, '..', filepath)
+    filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
+    gvec = GVEC(filepath, filename)
+
+    # f = gvec.mapfull.f # Full mapping, (s,u,v) to (x,y,z).
+    # X = gvec.mapX.f    # Only x component of the mapping.
+    # Y = gvec.mapY.f    # Only y component of the mapping.
+    # Z = gvec.mapZ.f    # Only z component of the mapping.
+    print('Loaded default GVEC mapping.')
+
+
+
+    # ===============================================================
+    # Map source domain
+    # ===============================================================
+
+    # Enable another layer of mapping, from (eta1,eta2,eta3) to (s,u,v).
+    bounds=[0.3,0.8,0.3,0.8,0.3,0.8]
+    source_domain = dom.domain('cuboid slice', params_map=bounds)
+
+    def f(eta1, eta2, eta3):
+        """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). All (x,y,z) components."""
+        return gvec.mapfull.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+
+    def X(eta1, eta2, eta3):
+        """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only x-component."""
+        return gvec.mapX.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+
+    def Y(eta1, eta2, eta3):
+        """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only y-component."""
+        return gvec.mapY.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+
+    def Z(eta1, eta2, eta3):
+        """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only z-component."""
+        return gvec.mapZ.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+
+    def s(eta1, eta2, eta3):
+        return source_domain.evaluate(eta1, eta2, eta3, 'x')
+
+    def u(eta1, eta2, eta3):
+        return source_domain.evaluate(eta1, eta2, eta3, 'y')
+
+    def v(eta1, eta2, eta3):
+        return source_domain.evaluate(eta1, eta2, eta3, 'z')
+
+    def eta123_to_suv(eta1, eta2, eta3):
+        return s(eta1, eta2, eta3), u(eta1, eta2, eta3), v(eta1, eta2, eta3)
+
+
+
+    # ============================================================
+    # Create FEM space.
+    # ============================================================
+
+    # 1d B-spline spline spaces for finite elements
+    spaces_FEM = [spl.spline_space_1d(Nel, p, spl_kind, nq_el) for Nel, p, spl_kind, nq_el in zip(Nel, p, spl_kind, nq_el)]
+
+    # 2d tensor-product B-spline space for polar splines (if used)
+    tensor_space_pol = spl.tensor_spline_space(spaces_FEM[:2])
+
+    # 3d tensor-product B-spline space for finite elements
+    tensor_space_FEM = spl.tensor_spline_space(spaces_FEM)
+    print('Tensor space set up done.')
+
+
+
+    # ============================================================
+    # 3D projection using `projectors_tensor_3d`.
+    # ============================================================
+
+    # Create 3D projector. It's not automatic.
+    for space in spaces_FEM:
+        if not hasattr(space, 'projectors'):
+            space.set_projectors() # def set_projectors(self, nq=6):
+    if not hasattr(tensor_space_FEM, 'projectors'):
+        tensor_space_FEM.set_projectors() # def set_projectors(self, which='tensor', nq=[6, 6]):
+    proj_3d = tensor_space_FEM.projectors
+    print('Create 3D projector done.')
+
+
+
+    # ============================================================
+    # Create splines (using PI_0 projector).
+    # ============================================================
+
+    # Calculate spline coefficients using PI_0 projector.
+    # TODO: Add mapping from [0,1] to whatever section of mapping, and pass that to MHD init. ???
+    cx = proj_3d.PI_0(X)
+    cy = proj_3d.PI_0(Y)
+    cz = proj_3d.PI_0(Z)
+
+    # TODO: spline + params_map=None ???
+    # TODO: Now we have spline + params_map=(begin, end)*3 ???
+    domain = dom.domain('spline', params_map=None, Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
+    print('Computed spline coefficients.')
+
+
+
+    # ============================================================
+    # Initialize the `equilibrium_mhd` class.
+    # ============================================================
+
+    eq_mhd = equilibrium_mhd(tensor_space_FEM, domain, source_domain, filepath, filename)
+    print('Initialized the `equilibrium_mhd` class.')
+
+
+
+    # ============================================================
+    # Draw 1D profiles.
+    # ============================================================
+
+    num_pts = 20
+    eta1_range, eta2_range, eta3_range = np.linspace(0,1,num_pts), np.linspace(0,1,num_pts,endpoint=False), np.linspace(0,1,5,endpoint=False)
+    eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
+    print('Shapes of eta1, eta2, eta3:', eta1.shape, eta2.shape, eta3.shape)
+
+    j2_1 = eq_mhd.j2_eq_1(eta1,eta2,eta3)
+    print('j2_1.shape: {}'.format(j2_1.shape))
+
+    # Doesn't work either.
+    # j_x = eq_mhd.j_eq_x(eta1,eta2,eta3)
+    # print('j_x.shape: {}'.format(j_x.shape))
+
+    print('It works! Because I commented out the parts that don\'t work!')
+
+
+
+if __name__ == "__main__":
+    test_template_gvec()

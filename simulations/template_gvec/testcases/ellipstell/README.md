@@ -2,7 +2,7 @@ Example of of a simple 3D stellarator case, run with GVEC for 10000 iterations
  
 Files:
 * `parameter_ellipStell.ini`: input parameter file for GVEC
-* `GVEC_ellipStell_State_0000_00010000.dat`: output/restart file, values needed are **marked with** `(*)` in the commented lines `##`, comments can be modified
+* `GVEC_ellipStell_profile_update_State_0000_00010000.dat`: output/restart file, values needed are **marked with** `(*)` in the commented lines `##`, comments can be modified
 * `GVEC_ellipStell_modes_U0_LA__0000_00010000.csv`: visualization of each mode (m,n) of X1 sampled in (s)
 * `GVEC_ellipStell_modes_U0_X1__0000_00010000.csv`: visualization of each mode (m,n) of X2 sampled in (s)
 * `GVEC_ellipStell_modes_U0_X2__0000_00010000.csv`: visualization of each mode (m,n) of LA sampled in (s)
