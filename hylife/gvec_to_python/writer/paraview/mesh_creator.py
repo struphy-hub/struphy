@@ -7,7 +7,7 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy as vtk2np
 from vtk.util.numpy_support import numpy_to_vtk as np2vtk
 
-from gvec_to_python import GVEC, Form, Profile
+from gvec_to_python import GVEC, Form, Variable
 
 
 
@@ -29,7 +29,7 @@ def make_ugrid_and_write_vtu(test_cases, writer, vtk_dir, gvec: GVEC, s_range, u
     vtk_dir : str
         Directory to store the output ParaView files.
     gvec : gvec_to_python.GVEC_functions.GVEC
-        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing profiles.
+        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing MHD variables.
     s_range : numpy.ndarray
         Range of logical radial coordinates to transform into Cartesian vertices.
     u_range : numpy.ndarray
@@ -63,7 +63,7 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
     Parameters
     ----------
     gvec : gvec_to_python.GVEC_functions.GVEC
-        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing profiles.
+        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing MHD variables.
     s_range : numpy.ndarray
         Range of logical radial coordinates to transform into Cartesian vertices.
     u_range : numpy.ndarray
@@ -148,7 +148,7 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
                 point_data['A_vec'][pt_idx] = gvec.A_vec(s, u, v)
                 point_data['A_1'  ][pt_idx] = gvec.A_1(s, u, v)
                 point_data['A_2'  ][pt_idx] = gvec.A_2(s, u, v)
-                point_data['B'    ][pt_idx] = gvec.B(s, u, v)
+                point_data['B'    ][pt_idx] = gvec.B(s, u, v) # TODO: if s > 1e-4: ...
                 point_data['B_vec'][pt_idx] = gvec.B_vec(s, u, v)
                 point_data['B_1'  ][pt_idx] = gvec.B_1(s, u, v)
                 point_data['B_2'  ][pt_idx] = gvec.B_2(s, u, v)

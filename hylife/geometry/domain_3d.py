@@ -172,6 +172,7 @@ class domain:
         - kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
         - kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
         - kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
+        - kind_map = 15 : cuboid slice. A cuboid slice of the logical cube with begin and end points given for each axis. params_map = [b1, e1, b2, e2, b3, e3].
 
     Methods:
     --------
@@ -326,7 +327,16 @@ class domain:
                 self.params_map = [0.5, 1., 4.]
             else:
                 self.params_map = params_map
-               
+
+        # ======== cuboid slice ==========
+        elif kind_map == 'cuboid slice':
+            self.kind_map = 15
+            
+            if params_map == None:
+                self.params_map = [0., 1., 0., 1., 0., 1.]
+            else:
+                self.params_map = params_map
+
         else:
             raise ValueError('specified domain is not implemeted!')
             

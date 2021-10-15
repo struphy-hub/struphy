@@ -1,6 +1,6 @@
 # Specify __all__ variable to enable `from gvec_to_python import *`.
 # Source: https://docs.python.org/3/tutorial/modules.html#importing-from-a-package
-__all__ = ['base', 'hmap', 'hylife', 'reader', 'util', 'writer', 'GVEC_functions', 'GVEC', 'Form', 'Profile']
+__all__ = ['base', 'hmap', 'hylife', 'reader', 'util', 'writer', 'GVEC_functions', 'GVEC', 'Form', 'Variable']
 
 # Add `gvec_to_python` to path to allow imports from within `hylife` repository.
 import os, sys
@@ -17,4 +17,4 @@ from gvec_to_python import reader
 from gvec_to_python import util
 from gvec_to_python import writer
 from gvec_to_python import GVEC_functions
-from gvec_to_python.GVEC_functions import GVEC, Form, Profile
+from gvec_to_python.GVEC_functions import GVEC, Form, Variable

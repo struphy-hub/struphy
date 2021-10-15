@@ -150,8 +150,8 @@ class GVEC_Reader():
                 cols = ["m-modenumber", "n-modenumber"]
             elif idx == 9: # LA mn mode numbers and spline coefficients
                 cols = ["m-modenumber", "n-modenumber"]
-            elif idx == 10: # Profiles: interpolated values at GREVILLE points in s (can be used to initialize a spline of the same basis as X1%s): spos, phi, chi, iota, pressure
-                cols = ["spos", "phi", "chi", "iota", "pressure"]
+            elif idx == 10: # Profiles: interpolated values at GREVILLE points in s (can be used to initialize a spline of the same basis as X1%s): spos, phi, chi, iota, pressure, dphi/ds, dchi/ds
+                cols = ["spos", "phi", "chi", "iota", "pressure", "dphi/ds", "dchi/ds"]
             elif idx == 11:
                 cols = ["a_minor", "r_major", "volume"]
             else:
@@ -307,6 +307,8 @@ class GVEC_Reader():
         profile_chi       = sections[10]['df'].iloc[:, 2].tolist()
         profile_iota      = sections[10]['df'].iloc[:, 3].tolist()
         profile_pres      = sections[10]['df'].iloc[:, 4].tolist()
+        profile_dphi      = sections[10]['df'].iloc[:, 5].tolist()
+        profile_dchi      = sections[10]['df'].iloc[:, 6].tolist()
 
         a_minor           = sections[11]['df'].iloc[:, 0][0]
         r_major           = sections[11]['df'].iloc[:, 1][0]
@@ -400,6 +402,8 @@ class GVEC_Reader():
                 "chi"       : profile_chi,
                 "iota"      : profile_iota,
                 "pres"      : profile_pres,
+                "dphi"      : profile_dphi,
+                "dchi"      : profile_dchi,
             },
 
             # "a_minor"           : a_minor,
@@ -427,10 +431,10 @@ class GVEC_Reader():
 
 if __name__ == "__main__":
 
-    read_filepath = '../GVEC/testcases/ellipstell/'
-    read_filename = 'GVEC_ellipStell_State_0000_00010000.dat'
-    save_filepath = '../GVEC/testcases/ellipstell/'
-    save_filename = 'GVEC_ellipStell_State_0000_00010000.json'
+    read_filepath = 'GVEC/testcases/ellipstell/'
+    read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
+    save_filepath = 'GVEC/testcases/ellipstell/'
+    save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
 
     # This will read, parse, AND SAVE, the `.json` file.
     reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)

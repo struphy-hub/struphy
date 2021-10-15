@@ -38,7 +38,7 @@ class Form(Enum):
     REAL     = 1999
 
 @unique # Require Enum values to be unique.
-class Profile(Enum):
+class Variable(Enum):
     PRESSURE = 1
     PHI      = 2
     CHI      = 3
@@ -202,19 +202,19 @@ class GVEC:
 
 
 
-    def assert_profile_form(self, profile, form):
+    def assert_variable_form(self, variable, form):
 
-        if profile in [Profile.PRESSURE, Profile.PHI, Profile.CHI, Profile.IOTA, Profile.SPOS]:
+        if variable in [Variable.PRESSURE, Variable.PHI, Variable.CHI, Variable.IOTA, Variable.SPOS]:
             assert (form == Form.PHYSICAL) or (form == Form.ZERO) or (form == Form.THREE)
-        elif profile in [Profile.A, Profile.B]:
+        elif variable in [Variable.A, Variable.B]:
             assert (form == Form.PHYSICAL) or (form == Form.ONE) or (form == Form.TWO) or (form == Form.COVARIANT) or (form == Form.CONTRAVARIANT)
         else:
-            raise NotImplementedError('Profile {} is not implemented.'.format(profile))
+            raise NotImplementedError('Variable {} is not implemented.'.format(variable))
 
     # TODO: Pay attention to a potential (2*pi)^2 factor in our Jacobian!
-    def get_profile(self, s, u, v, profile, form):
+    def get_variable(self, s, u, v, variable, form):
 
-        self.assert_profile_form(profile, form)
+        self.assert_variable_form(variable, form)
 
         if isinstance(s, np.ndarray):
 
@@ -231,7 +231,7 @@ class GVEC:
 
 
 
-        if profile == Profile.PRESSURE:
+        if variable == Variable.PRESSURE:
 
             # Identical operations for both 0-form and 3-form.
             evaled = self.X1_base.eval_profile(s, self.pres_coef)
@@ -241,7 +241,7 @@ class GVEC:
                 det = self.df_det(s, u, v)
                 evaled = det * evaled
 
-        elif profile == Profile.PHI:
+        elif variable == Variable.PHI:
 
             # Identical operations for both 0-form and 3-form.
             evaled = self.X1_base.eval_profile(s, self.phi_coef)
@@ -251,7 +251,7 @@ class GVEC:
                 det = self.df_det(s, u, v)
                 evaled = det * evaled
 
-        elif profile == Profile.CHI:
+        elif variable == Variable.CHI:
 
             # Identical operations for both 0-form and 3-form.
             evaled = self.X1_base.eval_profile(s, self.chi_coef)
@@ -261,7 +261,7 @@ class GVEC:
                 det = self.df_det(s, u, v)
                 evaled = det * evaled
 
-        elif profile == Profile.IOTA:
+        elif variable == Variable.IOTA:
 
             # Identical operations for both 0-form and 3-form.
             evaled = self.X1_base.eval_profile(s, self.iota_coef)
@@ -271,7 +271,7 @@ class GVEC:
                 det = self.df_det(s, u, v)
                 evaled = det * evaled
 
-        elif profile == Profile.SPOS:
+        elif variable == Variable.SPOS:
 
             # Identical operations for both 0-form and 3-form.
             evaled = self.X1_base.eval_profile(s, self.spos_coef)
@@ -281,7 +281,7 @@ class GVEC:
                 det = self.df_det(s, u, v)
                 evaled = det * evaled
 
-        elif profile == Profile.A:
+        elif variable == Variable.A:
 
             J = self.df(s, u, v)
             det = self.df_det_from_J(J)
@@ -333,7 +333,7 @@ class GVEC:
                 else:
                     evaled = J_inv.T @ evaled
 
-        elif profile == Profile.B:
+        elif variable == Variable.B:
 
             J = self.df(s, u, v)
             det = self.df_det_from_J(J)
@@ -341,12 +341,14 @@ class GVEC:
             # B-field is in contravariant form, a.k.a. vector fields (GVEC Eq. 1.26).
             # i.e. contravariant components with covariant basis.
             # Pay attention to a 2*pi factor, because we are calculating du and dv here, not d(theta) d(zeta)!
+            iota    = self.X1_base.eval_profile(s, self.iota_coef)
             dchi_ds = self.X1_base.eval_dprofile(s, self.chi_coef)
             dphi_ds = self.X1_base.eval_dprofile(s, self.phi_coef)
             dlambda_dtheta = self.LA_base.eval_suv_du(s, u, v, self.LA_coef) / (2 * np.pi)
             dlambda_dzeta  = self.LA_base.eval_suv_dv(s, u, v, self.LA_coef) / (2 * np.pi)
             B1 = np.zeros_like(dlambda_dzeta)
-            B2 = ( dchi_ds - dlambda_dzeta * dphi_ds ) * 2 * np.pi / det
+            # B2 = ( dchi_ds - dlambda_dzeta * dphi_ds ) * 2 * np.pi / det
+            B2 = ( (iota - dlambda_dzeta)  * dphi_ds ) * 2 * np.pi / det # Use iota here. It is more accurate. But it increases error between B2 and Curl A1 from 1e-8 to 1e-5!
             B3 = ( (1 + dlambda_dtheta)    * dphi_ds ) * 2 * np.pi / det
             evaled = np.array([B1, B2, B3])
 
@@ -378,81 +380,173 @@ class GVEC:
 
         else:
 
-            raise NotImplementedError('Profile {} is not implemented.'.format(profile))
+            raise NotImplementedError('Variable {} is not implemented.'.format(variable))
+
+        return evaled
+
+
+
+    # Support 1st derivatives of only (1D) profiles.
+    def assert_dvariable_form(self, variable, form):
+
+        if variable in [Variable.PRESSURE, Variable.PHI, Variable.CHI, Variable.IOTA, Variable.SPOS]:
+            assert (form == Form.PHYSICAL) or (form == Form.ZERO) or (form == Form.THREE)
+        else:
+            raise NotImplementedError('Variable {} is not implemented.'.format(variable))
+
+    # Support 1st derivatives of only (1D) profiles.
+    def get_dvariable(self, s, u, v, variable, form):
+
+        self.assert_dvariable_form(variable, form)
+
+        if isinstance(s, np.ndarray):
+
+            assert isinstance(s, np.ndarray), '1st argument should be of type `np.ndarray`. Got {} instead.'.format(type(s))
+            assert isinstance(u, np.ndarray), '2nd argument should be of type `np.ndarray`. Got {} instead.'.format(type(u))
+            assert isinstance(v, np.ndarray), '3rd argument should be of type `np.ndarray`. Got {} instead.'.format(type(v))
+
+            # If input coordinates are simple 1D arrays, turn them into a sparse meshgrid.
+            # The output will fallthrough to the logic below, which expects a meshgrid input.
+            if s.ndim == 1:
+                assert s.ndim == u.ndim, '2nd argument has different dimensions than the 1st. Expected {}, got {} instead.'.format(s.ndim, u.ndim)
+                assert s.ndim == v.ndim, '3rd argument has different dimensions than the 1st. Expected {}, got {} instead.'.format(s.ndim, v.ndim)
+                s, u, v = np.meshgrid(s, u, v, indexing='ij', sparse=True)
+
+
+
+        if variable == Variable.PRESSURE:
+
+            # Identical operations for both 0-form and 3-form.
+            evaled = self.X1_base.eval_dprofile(s, self.pres_coef)
+            evaled = evaled * np.ones_like(u) * np.ones_like(v)
+
+            if form == Form.THREE:
+                det = self.df_det(s, u, v)
+                evaled = det * evaled
+
+        elif variable == Variable.PHI:
+
+            # Identical operations for both 0-form and 3-form.
+            evaled = self.X1_base.eval_dprofile(s, self.phi_coef)
+            evaled = evaled * np.ones_like(u) * np.ones_like(v)
+
+            if form == Form.THREE:
+                det = self.df_det(s, u, v)
+                evaled = det * evaled
+
+        elif variable == Variable.CHI:
+
+            # Identical operations for both 0-form and 3-form.
+            evaled = self.X1_base.eval_dprofile(s, self.chi_coef)
+            evaled = evaled * np.ones_like(u) * np.ones_like(v)
+
+            if form == Form.THREE:
+                det = self.df_det(s, u, v)
+                evaled = det * evaled
+
+        elif variable == Variable.IOTA:
+
+            # Identical operations for both 0-form and 3-form.
+            evaled = self.X1_base.eval_dprofile(s, self.iota_coef)
+            evaled = evaled * np.ones_like(u) * np.ones_like(v)
+
+            if form == Form.THREE:
+                det = self.df_det(s, u, v)
+                evaled = det * evaled
+
+        elif variable == Variable.SPOS:
+
+            # Identical operations for both 0-form and 3-form.
+            evaled = self.X1_base.eval_dprofile(s, self.spos_coef)
+            evaled = evaled * np.ones_like(u) * np.ones_like(v)
+
+            if form == Form.THREE:
+                det = self.df_det(s, u, v)
+                evaled = det * evaled
+
+        else:
+
+            raise NotImplementedError('Variable {} is not implemented.'.format(variable))
 
         return evaled
 
 
 
     # ============================================================
-    # Set aliases for profiles.
+    # Set aliases for variables.
     # ============================================================
 
     def P(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PRESSURE, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.PRESSURE, form=Form.PHYSICAL)
 
     def P_0(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PRESSURE, form=Form.ZERO)
+        return self.get_variable(s, u, v, variable=Variable.PRESSURE, form=Form.ZERO)
 
     def P_3(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PRESSURE, form=Form.THREE)
+        return self.get_variable(s, u, v, variable=Variable.PRESSURE, form=Form.THREE)
 
     def PHI(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PHI, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.PHI, form=Form.PHYSICAL)
 
     def PHI_0(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PHI, form=Form.ZERO)
+        return self.get_variable(s, u, v, variable=Variable.PHI, form=Form.ZERO)
 
     def PHI_3(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.PHI, form=Form.THREE)
+        return self.get_variable(s, u, v, variable=Variable.PHI, form=Form.THREE)
+
+    def dPHI(self, s, u, v): # pragma: no cover
+        return self.get_dvariable(s, u, v, variable=Variable.PHI, form=Form.PHYSICAL)
 
     def CHI(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.CHI, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.CHI, form=Form.PHYSICAL)
 
     def CHI_0(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.CHI, form=Form.ZERO)
+        return self.get_variable(s, u, v, variable=Variable.CHI, form=Form.ZERO)
 
     def CHI_3(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.CHI, form=Form.THREE)
+        return self.get_variable(s, u, v, variable=Variable.CHI, form=Form.THREE)
+
+    def dCHI(self, s, u, v): # pragma: no cover
+        return self.get_dvariable(s, u, v, variable=Variable.CHI, form=Form.PHYSICAL)
 
     def IOTA(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.IOTA, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.IOTA, form=Form.PHYSICAL)
 
     def IOTA_0(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.IOTA, form=Form.ZERO)
+        return self.get_variable(s, u, v, variable=Variable.IOTA, form=Form.ZERO)
 
     def IOTA_3(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.IOTA, form=Form.THREE)
+        return self.get_variable(s, u, v, variable=Variable.IOTA, form=Form.THREE)
 
     def SPOS(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.SPOS, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.SPOS, form=Form.PHYSICAL)
 
     def SPOS_0(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.SPOS, form=Form.ZERO)
+        return self.get_variable(s, u, v, variable=Variable.SPOS, form=Form.ZERO)
 
     def SPOS_3(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.SPOS, form=Form.THREE)
+        return self.get_variable(s, u, v, variable=Variable.SPOS, form=Form.THREE)
 
     def A(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.A, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.A, form=Form.PHYSICAL)
 
     def A_vec(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.A, form=Form.CONTRAVARIANT)
+        return self.get_variable(s, u, v, variable=Variable.A, form=Form.CONTRAVARIANT)
 
     def A_1(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.A, form=Form.ONE)
+        return self.get_variable(s, u, v, variable=Variable.A, form=Form.ONE)
 
     def A_2(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.A, form=Form.TWO)
+        return self.get_variable(s, u, v, variable=Variable.A, form=Form.TWO)
 
     def B(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.B, form=Form.PHYSICAL)
+        return self.get_variable(s, u, v, variable=Variable.B, form=Form.PHYSICAL)
 
     def B_vec(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.B, form=Form.CONTRAVARIANT)
+        return self.get_variable(s, u, v, variable=Variable.B, form=Form.CONTRAVARIANT)
 
     def B_1(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.B, form=Form.ONE)
+        return self.get_variable(s, u, v, variable=Variable.B, form=Form.ONE)
 
     def B_2(self, s, u, v): # pragma: no cover
-        return self.get_profile(s, u, v, profile=Profile.B, form=Form.TWO)
+        return self.get_variable(s, u, v, variable=Variable.B, form=Form.TWO)

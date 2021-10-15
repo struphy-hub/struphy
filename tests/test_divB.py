@@ -86,7 +86,7 @@ def test_divB():
         print('Test case {}: GVEC mapping.'.format(test_case))
 
         # filepath = '../GVEC/testcases/ellipstell/' # Because we are inside './test/' directory.
-        # filename = 'GVEC_ellipStell_State_0000_00010000.json'
+        # filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
         # data = read_json(filepath, filename)
 
         # X1_coef = np.array(data['X1']['coef'])

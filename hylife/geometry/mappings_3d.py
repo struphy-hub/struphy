@@ -23,6 +23,7 @@ The following geometries are implemented:
 - kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
 - kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
 - kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
+- kind_map = 15 : cuboid slice. A cuboid slice of the logical cube with begin and end points given for each axis. params_map = [b1, e1, b2, e2, b3, e3].
 
 """
 
@@ -174,7 +175,25 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
             value =  (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
-            
+
+    # ============== cuboid slice ==================
+    elif kind_map == 15:
+
+        b1 = params_map[0]
+        e1 = params_map[1]
+        b2 = params_map[2]
+        e2 = params_map[3]
+        b3 = params_map[4]
+        e3 = params_map[5]
+
+        # value =  begin + (end - begin) * eta
+        if   component == 1:
+            value = b1 + (e1 - b1) * eta1
+        elif component == 2:
+            value = b2 + (e2 - b2) * eta2
+        elif component == 3:
+            value = b3 + (e3 - b3) * eta3
+
     return value
 
 
@@ -379,8 +398,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = 0.    
         elif component == 33:
             value = lz
-            
-            
+
     # ========= hollow torus ==================
     elif kind_map == 14:
         
@@ -408,7 +426,37 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
         elif component == 33:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
-            
+
+    # ============== cuboid slice ==================
+    elif kind_map == 15:
+
+        b1 = params_map[0]
+        e1 = params_map[1]
+        b2 = params_map[2]
+        e2 = params_map[3]
+        b3 = params_map[4]
+        e3 = params_map[5]
+
+        # value =  begin + (end - begin) * eta
+        if   component == 11:
+            value = (e1 - b1)
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = (e2 - b2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = (e3 - b3)
+
     return value
 
 
