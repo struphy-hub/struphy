@@ -32,7 +32,7 @@ before_script:
   - pip install -U pip build wheel pytest coverage
   - python -m pip install -r requirements.txt
   - ./STRUPHY_init.sh  # copy struphy files and directories 
-  - ./run_STRUPHY_template_hylife.sh  # pre-compile (pyccel) and exit without starting simulation
+  - ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
 
 stages:
   #- Lint

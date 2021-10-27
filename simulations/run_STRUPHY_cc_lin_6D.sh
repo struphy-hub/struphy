@@ -42,37 +42,37 @@ rm -f $all_sim/$run_dir/batch*.*
 # ====== set parameters and create .yml file ======
 cat >$all_sim/$run_dir/parameters_$run_dir.yml <<'EOF'
 
+# ---------------- geometry ------------------------------
+# geometry (cuboid, colella, spline cylinder, spline torus etc., see mappings_3d.py) and parameters
+geometry   : cuboid
+params_map : [1., 1., 7.853981634]
+
+# kind of angular coordinate (only relevant for spline torus: 'equal arc' or 'straight')
+chi : equal arc
+# --------------------------------------------------------
+
+
 # ---------------- mesh parameters -----------------------
 # number of elements, clamped (False) or periodic (True) splines and spline degrees
-Nel      : [2, 2, 64] 
+Nel      : [2, 2, 16] 
 spl_kind : [True, True, True]
-p        : [1, 1, 2]
+p        : [1, 1, 3]
 
 # boundary conditions for U2_1 (or Uv_1) and B2_1 at eta_1 = 0 and eta_1 = 1 (homogeneous Dirichlet = d, free boundary = f)
 bc : [f, f]
 
-# number of quadrature points per element (nq_el) and histopolation cell (nq_pr)
-nq_el : [2, 2, 4]
-nq_pr : [2, 2, 4]
+# number of quadrature points per element (nq_el) and histopolation cell of projectors (nq_pr)
+nq_el : [6, 6, 6]
+nq_pr : [6, 6, 6]
 
-# polar splines in eta_1-eta_2 (usually poloidal) plane?
+# C^1 polar splines in eta_1-eta_2-plane (usually poloidal)?
 polar : False
 
 # representation of MHD bulk velocity (0 : vector field with 0-form basis for each component, 2 : 2-form)
-basis_u : 2
+basis_u : 0
 
-# geometry (cuboid, colella, spline cylinder, etc., see mappings_3d.py) and parameters
-geometry   : cuboid
-params_map : [1., 1., 7.853981634]
 
-#geometry   : colella
-#params_map : [1., 1., 0.05, 7.853981634]
 
-#geometry   : spline cylinder
-#params_map : []  
-
-#geometry   : spline torus
-#params_map : []
 # --------------------------------------------------------
 
 
@@ -83,50 +83,40 @@ eq_type : slab
 # mass of bulk plasma (in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.)
 Ab : 1.
 
-# <<< parameters for simulations in slab geometry >>>
-B0x    : 0.
-B0y    : 1.
-B0z    : 1.
-rho0   : 1.
-beta_s : 200.
+# <<<<<<<<<<<<<<<<<<<< parameters for simulations in slab geometry >>>>>>>>>>>>>>>>>>>
+
+# magnetic field components in T, normalized bulk density and plasma beta = 2*mu0*p/|B|^2 in %
+B0_slab   : [0., 0., 1.]
+rho0_slab : 1.
+beta_slab : 0.
 
 # <<< parameters for simulations in circular geometry (cylinder or circular torus) >>>
-# minor and major radius in m
+
+# minor and major radius in m (for cylinder: length = 2*pi*R0)
 a  : 1.
 R0 : 10.
 
-# on-axis toroidal magnetic field in T
+# on-axis magnetic field in T
 B0 : 1.
 
-# safety factor profile
-q0    : 1.1
-q1    : 1.85
+# safety factor profile: q(r) = q0*(1 + (r/(a*rp))^(2*rl))^(1/rl), rp = ((q1/q0)^rl - 1)^(-1/(2*rl))
+q0 : 1.1
+q1 : 1.85
+rl : 1.
+
+# toroidal correction: q(r) = q_add*q(r)*sqrt(1 - (r/R0)^2)
 q_add : 0
-rl    : 1.
 
-# current profile
-bmp0 : 0.
-cg0  : 0.2
-wg0  : 0.3
-bmp1 : 0.
-cg1  : 0.2
-wg1  : 0.3
-bmp2 : 0.
-cg2  : 0.2
-wg2  : 0.3
-
-# add order-eps Shafranov shift?
-shafranov : 0
-
-# density profile
+# bulk density profile: rho(r) = (1 - rho_a)*(1 - (r/a)^r1)^r2 + rho_a)
 r1    : 4.
 r2    : 3.
 rho_a : 0.
 
-# pressure profile
-beta : 0.2
-p1   : 0.95
-p2   : 0.05
+# bulk pressure profile: p_kind = 0 : exact cylindrical equilibrium, p_kind = 1 : ad hoc profile, p(r) = B0^2*beta/200*(1 - p1*(r/a)^2 - p2*(r/a)^4), beta = on-axis plasma beta in %
+p_kind : 1
+beta   : 0.2      
+p1     : 0.95
+p2     : 0.05
 # ---------------------------------------------------------
 
 
@@ -136,27 +126,25 @@ p2   : 0.05
 # 1 : initial-value solver with MHD eigenfunction
 # 2 : initial-value solver with input functions
 # 3 : initial-value solver with random noise)
-run_mode : 3
+run_mode : 2
 
-# --> parameters for run mode 0 (tor. mode number, projection of eq. profiles?, directory to solve spectrum)
-n_tor    : -1
-profiles : False
-dir_eig  : eigenstates.npy
+# --> parameters for run mode 0 and 1 (n_tor : toroidal mode number, dir_eig : directory to solve or load spectrum)
+n_tor     : -1
+dir_eig   : eigenstates.npy
+load_spec : False
+eig_freq  : 0.
+eig_kind  : r
 
-# --> parameters for run mode 1 (tor. mode number, projection of eq. profiles?, real (11) or imag (12) part, squared eigenfreq.)
-n_tor    : -1
-profiles : False
-eig_kind : 11
-eig_freq : 0.
+# --> parameters for run mode 2 (initial B(t=0,r) = Bi*sin(k*r))
+Bi : [0., 0.0001, 0.]
+k  : [0., 0., 0.8]
 
 # --> parameters for run mode 3 (plane for noise: xy, yz or xz)
 plane : yz
 
-# for initial-value-solver: do time integration?, time step, simulation time and maximum runtime of program in minutes
-time_int : True
-dt       : 0.1
-Tend     : 100.
-max_time : 1000.
+# for initial-value-solver: time step and simulation time (in units of Alfvén time L_0/v_A0 = B_0/sqrt(mu_0*rho_0) with L_0 = 1 m, B0 = 1 T and mu_0 = 1.25663706212⋅10^(-6) H/m)
+dt   : 0.1
+Tend : 10.
 
 # location of j_eq X B term (either step_2 or step_6) 
 loc_j_eq : step_6
@@ -182,8 +170,8 @@ drop_tol_S6 : 0.0001
 fill_fac_S6 : 10.
 
 # parameters for iterative solvers (default for tolerances: tol=1e-8)
-solver_type_2 : cg
-solver_type_3 : cg
+solver_type_2 : CG
+solver_type_3 : CG
 
 tol1 : 0.00000001
 tol2 : 0.00000001
@@ -200,7 +188,7 @@ maxiter6 : 1000
 
 # ---------------- kinetic parameters -----------------------
 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
-nuh : 0.0
+nuh : 0.05
 
 # charge and mass of hot ion species in units of elementary charge and proton mass
 Zh : 1.
@@ -210,7 +198,7 @@ Ah : 1.
 alpha : 1.
 
 # total number of particles
-Np : 128000
+Np : 32000
 
 # control variate (delta-f)? 
 control : True  
@@ -222,7 +210,7 @@ v0 : [0., 0., 2.5]
 vth : 1.
 
 # particle loading
-loading : pseudo-random
+loading : pseudo_random
 
 # seed for random number generator
 seed : 1234
@@ -232,11 +220,17 @@ dir_particles : path_to_particles
 # -----------------------------------------------------------
 
 
-# --------------- restart function --------------------------
+# ----- programme related parameters ------------------------
+# maximum run time of programme in minutes
+max_time : 1000.
+
+# enable plotting?
+enable_plotting : True
+
 # Is this run a restart?
 restart : False
 
-# If yes, number of restart files
+# if yes: how many restarts have there been before?
 num_restart : 0
 
 # Create restart files at the end of the simulation? 
@@ -257,14 +251,16 @@ cat >$all_sim/$run_dir/batch_$run_dir.sh <<'EOF'
 # Initial working directory:
 #SBATCH -D ./
 # Job Name:
-#SBATCH -J test_struphy
+#SBATCH -J STRUPHY_CC_lin_6D
 #
 # Number of nodes and MPI tasks per node:
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --ntasks-per-core=1
 # for OpenMP:
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=20
+#
+# mem=40000
 #
 #SBATCH --mail-type=none
 #SBATCH --mail-user=<userid>@rzg.mpg.de
@@ -276,19 +272,12 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # For pinning threads correctly:
 #export OMP_PLACES=cores 
 
+# Request larger stacksize (in MB)
+#export OMP_STACKSIZE=512m
+
 # Run the program:
 srun python3 STRUPHY.py > test.out
 EOF
-# =================================================
-
-
-# == create source_run folder and copy subroutines into it
-SDIR=$all_sim/$run_dir/source_run
-
-mkdir -p $SDIR
-
-cp hylife/utilitis_FEEC/control_variates/kernels_control_variate.py $SDIR/kernels_control_variate.py
-cp hylife/utilitis_PIC/sampling.py $SDIR/sampling.py
 # =================================================
 
 
@@ -320,7 +309,6 @@ sed -i -e $var1$run_dir$var2 $all_sim/$run_dir/STRUPHY.py
 # ================== run the code =================
 cd $all_sim/$run_dir
 
-echo 
 echo "Start of STRUPHY:"
 
 # option 1: job submission via SLURM
@@ -337,5 +325,5 @@ echo "Start of STRUPHY:"
 #export OMP_NUM_THREADS=1
 #mpirun -n 4 python3 STRUPHY.py
 
-export OMP_NUM_THREADS=1
-python3 STRUPHY.py
+#export OMP_NUM_THREADS=1
+#python3 STRUPHY.py
