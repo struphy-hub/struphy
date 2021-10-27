@@ -646,8 +646,7 @@ def evaluate_tensor_product(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, c
                 # V3 - space
                 elif kind == 3:
                     values[i1, i2, i3] = evaluate_d_d_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3])
-                    
-                    
+                        
                     
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','int','double[:,:,:]','int')
@@ -698,3 +697,56 @@ def evaluate_matrix(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, et
                 # V3 - space
                 elif kind == 3:
                     values[i1, i2, i3] = evaluate_d_d_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
+
+
+# =============================================================================
+@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','int','double[:,:,:]','int')
+def evaluate_sparse(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, n1, n2, n3, values, kind):
+    '''Evaluation of tensor product splines (3d) at point sets obtained from sparse meshgrid.
+
+    Sparse meshgrid output has shape (n1, 1, 1), (1, n2, 1) and (1, 1, n3)
+
+    Parameters:
+    -----------
+        t1, t2, t3:                 double[:]           knot vectors
+        p1, p2, p3:                 int                 spline degrees
+        nbase_1, nbase_2, nbase_3:  int                 dimensions of univariate spline spaces 
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double[:, :, :]     points of evaluation
+        n1, n2, n3:                 int                 n1 = eta1.shape[0], n2 = eta2.shape[1], n3 = eta3.shape[2]
+        kind:                       int                 which tensor product spline, 
+                                                        0: (NNN), 11: (DNN), 12: (NDN), 13: (NND),
+                                                        21: (NDD), 22: (DND), 23: (DDN), 3: (DDD)
+
+    Returns:
+    --------
+        values:                     double[:, :, :]     values of spline at points (eta1, eta2, eta3).
+    '''
+    
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                
+                # V0 - space
+                if   kind == 0:
+                    values[i1, i2, i3] = evaluate_n_n_n(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                
+                # V1 - space
+                elif kind == 11:
+                    values[i1, i2, i3] = evaluate_d_n_n(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                elif kind == 12:
+                    values[i1, i2, i3] = evaluate_n_d_n(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                elif kind == 13:
+                    values[i1, i2, i3] = evaluate_n_n_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                    
+                # V2 - space
+                elif kind == 21:
+                    values[i1, i2, i3] = evaluate_n_d_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                elif kind == 22:
+                    values[i1, i2, i3] = evaluate_d_n_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                elif kind == 23:
+                    values[i1, i2, i3] = evaluate_d_d_n(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+                    
+                # V3 - space
+                elif kind == 3:
+                    values[i1, i2, i3] = evaluate_d_d_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])

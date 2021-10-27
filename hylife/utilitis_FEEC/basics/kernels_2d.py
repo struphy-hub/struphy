@@ -121,6 +121,8 @@ def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, ind_base1, ind_base2, bi1, bi
     
     b_eva[:, :, :, :] = 0.
     
+    #$ omp parallel
+    #$ omp do reduction ( + : b_eva) private (ie1, ie2, q1, q2, il1, il2)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
                 
@@ -131,5 +133,7 @@ def kernel_evaluate_2form(nel, p, ns, nq, b_coeff, ind_base1, ind_base2, bi1, bi
                         for il2 in range(p[1] + 1 - ns[1]):
 
                             b_eva[ie1, q1, ie2, q2] += b_coeff[ind_base1[ie1, il1], ind_base2[ie2, il2]] * bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2]
+    #$ omp end do
+    #$ omp end parallel
     
     ierr = 0

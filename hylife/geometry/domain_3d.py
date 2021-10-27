@@ -7,17 +7,87 @@ Module to handle mapped 3d domains.
 """
 
 
-
 import numpy as np
 import scipy.sparse as spa
+from scipy.sparse.linalg import splu
 
-import matplotlib.pyplot as plt
-
-import hylife.geometry.mappings_3d    as mapping
-import hylife.geometry.pullback_3d    as pb
-import hylife.geometry.pushforward_3d as pf
+import hylife.geometry.mappings_3d       as mapping
+import hylife.geometry.pullback_3d       as pb
+import hylife.geometry.pushforward_3d    as pf
+import hylife.linear_algebra.linalg_kron as linalg
 
 import hylife.utilitis_FEEC.bsplines  as bsp
+
+
+
+# ==================================================
+def spline_interpolation_nd(p, grids_1d, values):
+    '''
+    nd spline interpolation with discrete input (nonuniform).
+
+    The knot vector for the clamped spline interpolant is constructed from grids_1d.
+
+    Parameters:
+    -----------
+        p : list of length n
+            spline degree
+
+        grids_1d : list of n 1d np.arrays
+            interpolation points
+
+        values: nd np.array
+            function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
+
+    Returns:
+    --------
+        coeffs : nd np.array
+            spline coefficients
+
+        T : list
+            Knot vector of spline interpolant
+    '''
+
+    # dimension check
+    for sh, x_grid in zip(values.shape, grids_1d):
+        assert  sh == x_grid.size
+
+    # list of break point arrays
+    breaks = []
+
+    for x_grid, p_i in zip(grids_1d, p):
+
+        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+        if p_i == 1:
+            breaks.append(x_grid)
+        elif p_i%2 == 0:
+            breaks.append( x_grid[p_i//2 - 1:-p_i//2].copy() )
+        else:
+            breaks.append( x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy() )
+
+        # cells must be in interval [0, 1] 
+        breaks[-1][0]  = 0.
+        breaks[-1][-1] = 1.
+
+    # interpolation with clamped splines (periodic=False)
+    T     = [bsp.make_knots(breaks_i, p_i, periodic=False) for breaks_i, p_i in zip(breaks, p)]
+    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False) for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+
+    I_LU  = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat] 
+
+    # dimension check
+    for I, x_grid in zip(I_mat, grids_1d):
+        assert I.shape[0] == x_grid.size
+        assert I.shape[0] == I.shape[1]
+
+    # solve system
+    if len(p) == 1:
+        return I_LU[0].solve(values), T
+    if len(p) == 2:
+        return linalg.kron_lusolve_2d(I_LU, values), T
+    elif len(p) == 3:
+        return linalg.kron_lusolve_3d(I_LU, values), T
+    else:
+        raise AssertionError("Only dimensions < 4 are supported.")
 
 
 
@@ -84,7 +154,8 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         print('wrong number of elements')
         
         return 0.
-        
+
+
 
 # ==================================================
 class domain:
@@ -93,7 +164,7 @@ class domain:
     Available mappings:
     -------------------
         - kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
-        - kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+        - kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [].
         - kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
 
         - kind_map = 10 : cuboid. params_map = [lx, ly, lz].
@@ -101,6 +172,7 @@ class domain:
         - kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
         - kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
         - kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
+        - kind_map = 15 : cuboid slice. A cuboid slice of the logical cube with begin and end points given for each axis. params_map = [b1, e1, b2, e2, b3, e3].
 
     Methods:
     --------
@@ -204,11 +276,7 @@ class domain:
         # ===== discrete cylinder ==
         elif kind_map == 'spline cylinder':
             self.kind_map   = 1
-            
-            if params_map == None:
-                self.params_map = [1.]
-            else:
-                self.params_map = params_map
+            self.params_map = []
                 
         # ===== discrete torus =====
         elif kind_map == 'spline torus':
@@ -217,7 +285,7 @@ class domain:
         
         # ======== cuboid ==========
         elif kind_map == 'cuboid':
-            self.kind_map   = 10
+            self.kind_map = 10
             
             if params_map == None:
                 self.params_map = [1., 1., 1.]
@@ -226,7 +294,7 @@ class domain:
         
         # ===== hollow cylinder ====    
         elif kind_map == 'hollow cylinder':
-            self.kind_map   = 11
+            self.kind_map = 11
             
             if params_map == None:
                 self.params_map = [0.5, 1., 1.]
@@ -235,7 +303,7 @@ class domain:
             
         # ======= colella ==========
         elif kind_map == 'colella':
-            self.kind_map   = 12
+            self.kind_map = 12
             
             if params_map == None:
                 self.params_map = [1., 1., 0.05, 1.]
@@ -244,7 +312,7 @@ class domain:
                 
         # ======= colella ==========
         elif kind_map == 'orthogonal':
-            self.kind_map   = 13
+            self.kind_map = 13
             
             if params_map == None:
                 self.params_map = [1., 1., 0.05, 1.]
@@ -253,13 +321,22 @@ class domain:
                 
         # ====== hollow torus ======
         elif kind_map == 'hollow torus':
-            self.kind_map   = 14
+            self.kind_map = 14
             
             if params_map == None:
                 self.params_map = [0.5, 1., 4.]
             else:
                 self.params_map = params_map
-               
+
+        # ======== cuboid slice ==========
+        elif kind_map == 'cuboid slice':
+            self.kind_map = 15
+            
+            if params_map == None:
+                self.params_map = [0., 1., 0., 1., 0., 1.]
+            else:
+                self.params_map = params_map
+
         else:
             raise ValueError('specified domain is not implemeted!')
             
@@ -341,7 +418,7 @@ class domain:
        
     
     # ================================
-    def evaluate(self, eta1, eta2, eta3, kind_fun):
+    def evaluate(self, eta1, eta2, eta3, kind_fun, kind_eva='meshgrid'):
         '''Evaluate mapping/metric coefficients. 
         Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or general.
 
@@ -361,6 +438,81 @@ class domain:
         # point-wise evaluation
         if isinstance(eta1, float):
             values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+            
+            return values
+
+        # array evaluation
+        elif isinstance(eta1, np.ndarray):
+            
+            # evaluation for point pairs of 1d arrays of same length
+            if kind_eva == 'flat':
+                assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+                assert eta1.size == eta2.size == eta3.size
+                
+                values = np.empty(eta1.size, dtype=float)
+                
+                mapping.kernel_evaluate_flat(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+                return values
+            
+            else:
+
+                is_sparse_meshgrid = None
+
+                # tensor-product evaluation
+                if eta1.ndim == 1:
+                    E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                    is_sparse_meshgrid = True
+
+                # general evaluation
+                else:
+                    # Distinguish if input coordinates are from sparse or dense meshgrid.
+                    # Sparse: eta1.shape = (n1,  1,  1)
+                    # Dense : eta1.shape = (n1, n2, n3)
+                    E1, E2, E3 = eta1, eta2, eta3
+
+                    # `eta1` is a sparse meshgrid.
+                    if max(eta1.shape) == eta1.size:
+                        is_sparse_meshgrid = True
+                    # `eta1` is a dense meshgrid. Process each point as default.
+                    else:
+                        is_sparse_meshgrid = False
+
+                values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+                if is_sparse_meshgrid:
+                    mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                else:
+                    mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
+                return values
+
+
+    # ================================
+    def evaluate_12(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 12-plane at one point eta3. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta1, eta2:   array-like
+                logical coordinates in plane at eta3 
+            eta3:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1[:, :, None], E2 = eta2[:, :, None], E3 = eta3*np.ones(E1.shape)
+        '''
+        
+        # point-wise evaluation
+        if isinstance(eta1, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
@@ -371,17 +523,117 @@ class domain:
             
             # general evaluation
             else:
-                E1, E2, E3 = eta1, eta2, eta3
+                E1 = eta1[:, :, None]
+                E2 = eta2[:, :, None]
+                E3 = eta3*np.ones(E1.shape)
                 
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            values = np.empty((E1.shape[0], E1.shape[1], 1), dtype=float)
                 
             mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
                 
         else:
             raise ValueError('given evaluation points are in wrong shape')
             
-        return values
+        return np.squeeze(values)
+
+
+    # ================================
+    def evaluate_13(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 13-plane at one point eta2. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta1, eta3:   array-like
+                logical coordinates in plane at eta3 
+            eta2:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1[:, None, :], E2 = eta2*np.ones(E1.shape), E3 = eta3[:, None, :]
+        '''
+
+        # point-wise evaluation
+        if isinstance(eta1, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
         
+        # array evaluation
+        elif isinstance(eta1, np.ndarray):
+            
+            # tensor-product evaluation
+            if eta1.ndim == 1:
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+            
+            # general evaluation
+            else:
+                E1 = eta1[:, None, :]
+                E2 = eta2*np.ones(E1.shape)
+                E3 = eta3[:, None, :]
+
+            values = np.empty((E1.shape[0], 1, E1.shape[2]), dtype=float)
+                
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+        else:
+            raise ValueError('given evaluation points are in wrong shape')
+            
+        return np.squeeze(values)
+
+
+    # ================================
+    def evaluate_23(self, eta1, eta2, eta3, kind_fun):
+        '''Evaluate mapping/metric coefficients in the 23-plane at one point eta1. 
+        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
+
+        Parameters:
+        -----------
+            eta2, eta3:   array-like
+                logical coordinates in plane at eta3 
+            eta1:   float
+            kind_fun:   integer
+                what metric coefficient to evaluate, see keys_map
+
+        Returns:
+        --------
+            values: 2d array
+                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
+                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
+                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+                - matrix: E1 = eta1*np.ones(E2.shape), E2 = eta2[None, :, :], E3 = eta3[None, :, :]
+        '''
+
+        # point-wise evaluation
+        if isinstance(eta2, float):
+            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+        
+        # array evaluation
+        elif isinstance(eta2, np.ndarray):
+            
+            # tensor-product evaluation
+            if eta2.ndim == 1:
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
+            
+            # general evaluation
+            else:
+                E2 = eta2[None, :, :]
+                E3 = eta3[None, :, :]
+                E1 = eta1*np.ones(E2.shape)
+
+            values = np.empty((1, E1.shape[1], E1.shape[2]), dtype=float)
+                
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+        else:
+            raise ValueError('given evaluation points are in wrong shape')
+            
+        return np.squeeze(values)
+
        
     # ================================
     def pull(self, a, eta1, eta2, eta3, kind_fun):
@@ -426,6 +678,8 @@ class domain:
                     y = self.evaluate(eta1, eta2, eta3, 'y')
                     z = self.evaluate(eta1, eta2, eta3, 'z')
                     
+                    print(x, y, z)
+                    
                     a_in = [a(x, y, z)]
                 else:
                     a_in = [a]
@@ -435,17 +689,30 @@ class domain:
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
-            
+
+            is_sparse_meshgrid = None
+
             # tensor-product evaluation
             if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-            
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                is_sparse_meshgrid = True
+
             # general evaluation
             else:
+                # Distinguish if input coordinates are from sparse or dense meshgrid.
+                # Sparse: eta1.shape = (n1,  1,  1)
+                # Dense : eta1.shape = (n1, n2, n3)
                 E1, E2, E3 = eta1, eta2, eta3
-                
+
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    is_sparse_meshgrid = True
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    is_sparse_meshgrid = False
+
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-            
+
             if isinstance(a, list):
                 
                 if callable(a[0]):
@@ -469,9 +736,12 @@ class domain:
                     a_in = np.array([a(X, Y, Z)])
                 else:
                     a_in = np.array([a])
-                    
-            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-        
+
+            if is_sparse_meshgrid:
+                pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            else:
+                pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
         else:
             raise ValueError('given evaluation points are in wrong shape')
     
@@ -520,17 +790,30 @@ class domain:
         
         # array evaluation
         elif isinstance(eta1, np.ndarray):
-            
+
+            is_sparse_meshgrid = None
+
             # tensor-product evaluation
             if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-            
+                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                is_sparse_meshgrid = True
+
             # general evaluation
             else:
+                # Distinguish if input coordinates are from sparse or dense meshgrid.
+                # Sparse: eta1.shape = (n1,  1,  1)
+                # Dense : eta1.shape = (n1, n2, n3)
                 E1, E2, E3 = eta1, eta2, eta3
-                
+
+                # `eta1` is a sparse meshgrid.
+                if max(eta1.shape) == eta1.size:
+                    is_sparse_meshgrid = True
+                # `eta1` is a dense meshgrid. Process each point as default.
+                else:
+                    is_sparse_meshgrid = False
+
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-            
+
             if isinstance(a, list):
                 
                 if callable(a[0]):
@@ -544,9 +827,12 @@ class domain:
                     a_in = np.array([a(E1, E2, E3)])
                 else:
                     a_in = np.array([a])
-                    
-            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-        
+
+            if is_sparse_meshgrid:
+                pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            else:
+                pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
         else:
             raise ValueError('given evaluation points are in wrong shape')
     

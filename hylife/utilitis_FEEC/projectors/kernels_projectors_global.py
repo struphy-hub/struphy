@@ -205,6 +205,20 @@ def kernel_int_3d_eta1(subs1, subs_cum1, w1, mat_f, f_int):
 
                 f_int[i1, i2, i3] = value
 
+@types('int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:,:]')
+def kernel_int_3d_eta1_transpose(subs1, subs_cum1, w1, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+    
+    nq1 = shape(w1)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                for j1 in range(subs1[i1]):
+                    for q1 in range(nq1):
+                        mat_f[i1 + j1 + subs_cum1[i1], q1, i2, i3] = w1[i1 + j1 + subs_cum1[i1], q1] * f_int[i1, i2, i3]
+#============================================================================================================
             
 # ========= kernel for integration along eta2 direction, reducing to a 3d array  ============================
 @types('int[:]','int[:]','double[:,:]','double[:,:,:,:]','double[:,:,:]')
@@ -226,6 +240,22 @@ def kernel_int_3d_eta2(subs2, subs_cum2, w2, mat_f, f_int):
 
                 f_int[i1, i2, i3] = value
 
+@types('int[:]','int[:]','double[:,:]', 'double[:,:,:]', 'double[:,:,:,:]')
+def kernel_int_3d_eta2_transpose(subs2, subs_cum2, w2, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+
+    nq2 = shape(w2)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j2 in range(subs2[i2]):
+                    for q2 in range(nq2):
+                    
+                        mat_f[i1, i2 + j2 + subs_cum2[i2], q2, i3] = w2[i2 + j2 + subs_cum2[i2], q2] * f_int[i1, i2, i3]
+#============================================================================================================
 
 # ========= kernel for integration along eta3 direction, reducing to a 3d array  ============================
 @types('int[:]','int[:]','double[:,:]','double[:,:,:,:]','double[:,:,:]')
@@ -246,7 +276,23 @@ def kernel_int_3d_eta3(subs3, subs_cum3, w3, mat_f, f_int):
                         value += w3[i3 + j3 + subs_cum3[i3], q3] * mat_f[i1, i2, i3 + j3 + subs_cum3[i3], q3]
 
                 f_int[i1, i2, i3] = value
-                                        
+
+@types('int[:]','int[:]','double[:,:]', 'double[:,:,:]', 'double[:,:,:,:]')
+def kernel_int_3d_eta3_transpose(subs3, subs_cum3, w3, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+
+    nq3 = shape(w3)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j3 in range(subs3[i3]):
+                    for q3 in range(nq3):
+                    
+                        mat_f[i1, i2, i3 + j3 + subs_cum3[i3], q3] = w3[i3 + j3 + subs_cum3[i3], q3] * f_int[i1, i2, i3]
+#============================================================================================================                                        
                     
 # ========= kernel for integration along eta1 direction, reducing to a 3d array  ============================
 @types('double[:,:]','double[:,:,:,:]','double[:,:,:]')
@@ -327,7 +373,27 @@ def kernel_int_3d_eta2_eta3(subs2, subs3, subs_cum2, subs_cum3, w2, w3, mat_f, f
                                 value += wvol * mat_f[i1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3]
 
                 f_int[i1, i2, i3] = value
-                    
+
+@types('int[:]','int[:]', 'int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:,:,:]')
+def kernel_int_3d_eta2_eta3_transpose(subs2, subs3, subs_cum2, subs_cum3, w2, w3, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+    
+    nq2 = shape(w2)[1]
+    nq3 = shape(w3)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j2 in range(subs2[i2]):
+                    for j3 in range(subs3[i3]):
+                        for q2 in range(nq2):
+                            for q3 in range(nq3):
+
+                                wvol   = w2[i2 + j2 + subs_cum2[i2], q2] * w3[i3 + j3 + subs_cum3[i3], q3]
+
+                                mat_f[i1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]                    
 
 # ========= kernel for integration in eta1-eta3 plane, reducing to a 3d array  ==============================
 @types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:,:,:]','double[:,:,:]')
@@ -354,7 +420,27 @@ def kernel_int_3d_eta1_eta3(subs1, subs3, subs_cum1, subs_cum3, w1, w3, mat_f, f
                                 value += wvol * mat_f[i1 + j1 + subs_cum1[i1], q1, i2, i3 + j3 + subs_cum3[i3], q3]
 
                 f_int[i1, i2, i3] = value
-                    
+
+@types('int[:]','int[:]', 'int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:,:,:]')
+def kernel_int_3d_eta1_eta3_transpose(subs1, subs3, subs_cum1, subs_cum3, w1, w3, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+    
+    nq1 = shape(w1)[1]
+    nq3 = shape(w3)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j1 in range(subs1[i1]):
+                    for j3 in range(subs3[i3]):
+                        for q1 in range(nq1):
+                            for q3 in range(nq3):
+
+                                wvol   = w1[i1 + j1 + subs_cum1[i1], q1] * w3[i3 + j3 + subs_cum3[i3], q3]
+
+                                mat_f[i1 + j1 + subs_cum1[i1], q1, i2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]
                     
 # ========= kernel for integration in eta1-eta2 plane, reducing to a 3d array  ==============================
 @types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:,:,:]','double[:,:,:]')
@@ -381,8 +467,27 @@ def kernel_int_3d_eta1_eta2(subs1, subs2, subs_cum1, subs_cum2, w1, w2, mat_f, f
                                 value += wvol * mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3]
 
                 f_int[i1, i2, i3] = value
-                    
-                    
+
+@types('int[:]','int[:]', 'int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:,:,:]')
+def kernel_int_3d_eta1_eta2_transpose(subs1, subs2, subs_cum1, subs_cum2, w1, w2, f_int, mat_f):
+    
+    n1, n2, n3 = shape(f_int)
+    
+    nq1 = shape(w1)[1]
+    nq2 = shape(w2)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j1 in range(subs1[i1]):
+                    for j2 in range(subs2[i2]):
+                        for q1 in range(nq1):
+                            for q2 in range(nq2):
+
+                                wvol   = w1[i1 + j1 + subs_cum1[i1], q1] * w2[i2 + j2 + subs_cum2[i2], q2]
+                                
+                                mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3] = wvol * f_int[i1, i2, i3]
                     
 # ========= kernel for integration in eta2-eta3 plane, reducing to a 3d array  ==============================
 @types('double[:,:]','double[:,:]','double[:,:,:,:,:]','double[:,:,:]')
@@ -473,7 +578,32 @@ def kernel_int_3d_eta1_eta2_eta3(subs1, subs2, subs3, subs_cum1, subs_cum2, subs
                                         value += wvol * mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3]
 
                 f_int[i1, i2, i3] = value
-                        
+
+@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:,:,:,:]')
+def kernel_int_3d_eta1_eta2_eta3_transpose(subs1, subs2, subs3, subs_cum1, subs_cum2, subs_cum3, w1, w2, w3, f_int, mat_f):
+    
+    n1  = len(subs1)
+    n2  = len(subs2)
+    n3  = len(subs3)
+    
+    nq1 = shape(w1)[1]
+    nq2 = shape(w2)[1]
+    nq3 = shape(w3)[1]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+
+                for j1 in range(subs1[i1]):
+                    for j2 in range(subs2[i2]):
+                        for j3 in range(subs3[i3]):
+                            for q1 in range(nq1):
+                                for q2 in range(nq2):
+                                    for q3 in range(nq3):
+
+                                        wvol   = w1[i1 + j1 + subs_cum1[i1], q1] * w2[i2 + j2 + subs_cum2[i2], q2] * w3[i3 + j3 + subs_cum3[i3], q3]
+
+                                        mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]
                         
 # ========= kernel for integration in eta1-eta2-eta3 cell, reducing to a 3d array  =======================
 @types('double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:,:,:]','double[:,:,:]')

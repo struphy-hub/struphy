@@ -52,7 +52,87 @@ def kron_matvec_3d(kmat, vec3d):
     res = ((kmat[2].dot(((kmat[1].dot(((kmat[0].dot(vec3d.reshape(v0, v1*v2))).T).reshape(v1, v2*k0))).T).reshape(v2, k0*k1))).T).reshape(k0, k1, k2)
     
     return res
+    
+    
+def kron_matvec_3d_1(kmat, vec3d):
+    """
+    """
 
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat.shape[0]
+    
+    res = kmat.dot(vec3d.reshape(v0, v1*v2)).reshape(k0, v1, v2)
+                                                                
+    return res
+
+
+def kron_matvec_3d_2(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k1 = kmat.shape[0]
+    
+    res = ((kmat.dot(((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0)).reshape(k1*v2, v0)).T).reshape(v0, k1, v2)
+    
+    return res
+
+
+def kron_matvec_3d_3(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k2 = kmat.shape[0]
+    
+    res = (kmat.dot((vec3d.reshape(v0*v1, v2)).T).T).reshape(v0, v1, k2)
+                                                                                
+    return res
+
+
+def kron_matvec_3d_23(kmat, vec3d):
+    """
+    """
+
+    v0, v1, v2 = vec3d.shape
+    
+    k1 = kmat[0].shape[0]
+    k2 = kmat[1].shape[0]
+    
+    res = (kmat[1].dot((kmat[0].dot(((vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*v0)).T).reshape(v2, v0*k1)).T).reshape(v0, k1, k2)     
+                                                                
+    return res
+
+
+def kron_matvec_3d_13(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat[0].shape[0]
+    k2 = kmat[1].shape[0]
+    
+    res = (kmat[1].dot((kmat[0].dot(vec3d.reshape(v0, v1*v2)).reshape(k0*v1, v2)).T).T).reshape(k0, v1, k2)
+    
+    return res
+
+
+def kron_matvec_3d_12(kmat, vec3d):
+    """
+    """
+    
+    v0, v1, v2 = vec3d.shape
+    
+    k0 = kmat[0].shape[0]
+    k1 = kmat[1].shape[0]
+    
+    res = ((kmat[1].dot((kmat[0].dot(vec3d.reshape(v0, v1*v2)).T).reshape(v1, v2*k0)).reshape(k1*v2, k0)).T).reshape(k0, k1, v2)
+                                                                                
+    return res
 
 
 def kron_matmat_fft_3d(a_vec, b_vec):
@@ -245,8 +325,34 @@ def kron_fftsolve_3d(cvec,rhs):
     return res
 
 
+#---------------------- 2d ---------------------------------
+def kron_lusolve_2d(kmatlu, rhs):
+    """ 2D Kronecker LU solver.
+        
+    solve for x: (A_im * B_jn) * x_mn =  rhs_ij
+    
+    Parameters
+    ----------
+    kmatlu : 2 already LU decompositions of sparse matrices for each direction, 
+              of size (r0,r0),(r1,r1)
+
+    rhs : 2d array of size (r0,r1), right-hand size
+
+    Returns
+    -------
+    res : 2d array of size (r0,r1), solution 
+    """
+    
+    res = (kmatlu[1].solve((kmatlu[0].solve(rhs)).T)).T
+        
+    return res
+
+
 def kron_fftsolve_2d(A_LU, b_vec, rhs):
-    ''' Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
+    ''' 
+    ALERT: docstring wrong.
+    
+    Solve for 3d vector, matrix would be a 3d kronecker circulant matrix, 
         but system is only solved in each direction.
         
         solve for x: (A_im * B_jn * C_ko) * x_mno =  rhs_ijk

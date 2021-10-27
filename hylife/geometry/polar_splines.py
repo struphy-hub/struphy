@@ -7,10 +7,12 @@ import hylife.utilitis_FEEC.derivatives.derivatives as der
 # ============================= 2D polar splines ===================================
 class polar_splines_2D:
     
-    def __init__(self, tensor_space, cx, cy):
+    def __init__(self, cx, cy):
         
-        n0, n1 = tensor_space.NbaseN
-        d0, d1 = tensor_space.NbaseD
+        n0, n1 = cx.shape
+        
+        d0 = n0 - 1
+        d1 = n1 - 0
         
         # location of pole
         self.x0 = cx[0, 0]
@@ -171,8 +173,8 @@ class polar_splines_2D:
         
         
         # ========================= 1D discrete derivatives =======================
-        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(tensor_space.spaces[0]))
-        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(tensor_space.spaces[1]))
+        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(False, n0))
+        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(True , n1))
         # =========================================================================
         
         

@@ -34,3 +34,10 @@
 *__pyc*
 .DS_*
 *~
+
+# Default simulations and diagnostics
+my_diagnostics
+my_struphy_sims
+/diagnostics.sh
+/run_STRUPHY*.sh
+logs
