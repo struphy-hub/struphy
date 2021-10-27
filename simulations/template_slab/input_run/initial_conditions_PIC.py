@@ -1,61 +1,106 @@
-from pyccel.decorators import types
+import numpy as np
+import scipy.special as sp
 
-import hylife.geometry.mappings_3d as mapping
-import hylife.geometry.pullback_3d as pull
+import hylife.utilitis_PIC.sobol_seq as sobol
+import hylife.utilitis_PIC.sampling as pic_sample
 
-from numpy import exp, pi
+import h5py
 
-# ===============================================================
-#                       physical domain
-# ===============================================================
-
-# ======= initial distribution function =========================
-@types('double','double','double','double','double','double')
-def fh_ini_phys(x, y, z, vx, vy, vz):
-    
-    v0x = 0.
-    v0y = 0.
-    v0z = 2.5
-    
-    vth = 1.
-    
-    nh0 = 1.
-    
-    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
-    
-    value = nh0/(pi**(3/2)*vth**3) * exp(arg)
-    
-    return value
+from mpi4py import MPI
 
 
-# ===============================================================
-#                       logical domain
-# ===============================================================
+class initial_pic:
+    
+    def __init__(self, domain, nh0=1., v0x=0., v0y=0., v0z=1., vth=1.):
+        
+        # geometric parameters
+        self.domain = domain
+        
+        # parameters for distribution function
+        self.nh0 = nh0
+        self.v0x = v0x
+        self.v0y = v0y
+        self.v0z = v0z
+        self.vth = vth
+        
+    # -----------------------------------------------
+    # distribution function on logical domain used as an initial condition
+    # -----------------------------------------------
+    def fh0_ini(self, eta1, eta2, eta3, vx, vy, vz):
+        
+        nh = self.nh0 - 0*eta1
+        
+        fh_out = nh/(np.pi**(3/2)*self.vth**3)*np.exp(-(vx - self.v0x)**2/self.vth**2 - (vy - self.v0y)**2/self.vth**2 - (vz - self.v0z)**2/self.vth**2)
+        
+        return fh_out
+    
+    # -----------------------------------------------
+    # sampling distribution on logical domain (0-form)
+    # -----------------------------------------------
+    def sh0_ini(self, eta1, eta2, eta3, vx, vy, vz):
 
+        det_df = self.domain.evaluate(eta1, eta2, eta3, 'det_df', 'flat')
 
-# ========== initial distribution function  =====================
-@types('double','double','double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def fh_ini(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    
-    x = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    y = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    z = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    
-    return pull.pull_0_form(fh_ini_phys(x, y, z, vx, vy, vz), eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        sh_out = 1/(np.pi**(3/2)*self.vth**3*det_df)*np.exp(-(vx - self.v0x)**2/self.vth**2 - (vy - self.v0y)**2/self.vth**2 - (vz - self.v0z)**2/self.vth**2)
 
+        return sh_out
+    
+    # -----------------------------------------------
+    # load particles
+    # -----------------------------------------------
+    def load(self, particles_loc, mpi_comm, seed, loading, dir_particles):
+        
+        mpi_size = mpi_comm.Get_size()
+        mpi_rank = mpi_comm.Get_rank()
+        
+        Np_loc = particles_loc.shape[1]
+        Np     = Np_loc*mpi_size
+        
+        # ------------------------- numbers in (0, 1) ------------------------------
+        
+        # pseudo-random
+        if loading == 'pseudo_random':
+            
+            np.random.seed(seed)
 
-# ========= sampling distribution of initial markers =============
-@types('double','double','double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def sh(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    
-    v0x = 0.
-    v0y = 0.
-    v0z = 2.5
-    
-    vth = 1.
-    
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    
-    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
-    
-    return 1/(pi**(3/2)*vth**3*detdf)*exp(arg)
+            for i in range(mpi_size):
+                temp = np.random.rand(Np_loc, 6)
+
+                if i == mpi_rank:
+                    particles_loc[:6] = temp.T
+                    break
+
+            del temp
+
+        # plain sobol numbers (skip first 1000 numbers)
+        elif loading == 'sobol_standard':
+            particles_loc[:6] = sobol.i4_sobol_generate(6, Np_loc, 1000 + Np_loc*mpi_rank).T 
+
+        # symmetric sobol numbers in all 6 dimensions (skip first 1000 numbers) 
+        elif loading == 'sobol_antithetic':
+            pic_sample.set_particles_symmetric(sobol.i4_sobol_generate(6, Np_loc//64, 1000 + Np_loc//64*mpi_rank), particles_loc, Np_loc)  
+
+        # load numbers from an external files
+        elif loading == 'external':
+
+            if mpi_rank == 0:
+                file = h5py.File(dir_particles, 'r')
+
+                particles_loc[:, :] = file['particles'][0, :6, :Np_loc]
+
+                for i in range(1, mpi_size):
+                    mpi_comm.Send(file['particles'][0, :6, i*Np_loc:(i + 1)*Np_loc], dest=i, tag=11)         
+            else:
+                mpi_comm.Recv(particles_loc, source=0, tag=11)
+
+        else:
+            raise ValueError('Specified particle loading method does not exist!')
+            
+        # -----------------------------------------------------------------------------
+        
+        
+        # inversion of cumulative distribution function in velocity space
+        if loading != 'external':
+            particles_loc[3] = sp.erfinv(2*particles_loc[3] - 1)*self.vth + self.v0x
+            particles_loc[4] = sp.erfinv(2*particles_loc[4] - 1)*self.vth + self.v0y
+            particles_loc[5] = sp.erfinv(2*particles_loc[5] - 1)*self.vth + self.v0z

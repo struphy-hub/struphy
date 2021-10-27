@@ -1,107 +1,79 @@
-from pyccel.decorators import types
-
-import hylife.geometry.mappings_3d as mapping
-import hylife.geometry.pullback_3d as pull
-
-from numpy import exp, pi
-
-# ===============================================================
-#                       physical domain
-# ===============================================================
-
-# ======= equilibrium distribution function (used in delta-f method) =============
-@types('double','double','double','double','double','double')
-def fh_eq_phys(x, y, z, vx, vy, vz):
-    
-    v0x = 0.
-    v0y = 0.
-    v0z = 2.5
-    
-    vth = 1.
-    
-    nh0 = 1.
-    
-    arg = -(vx - v0x)**2/vth**2 - (vy - v0y)**2/vth**2 - (vz - v0z)**2/vth**2
-    
-    value = nh0/(pi**(3/2)*vth**3) * exp(arg)
-    
-    return value
+import numpy as np
+import scipy.special as sp
 
 
-# ============= 0-th moment of equilibrium distribution function fh_eq ===========
-@types('double','double','double')
-def nh_eq_phys(x, y, z):
+class equilibrium_pic:
     
-    nh0 = 1.
-    
-    return nh0
-
-# ============= 1-st moment of equilibrium distribution function fh_eq ===========
-
-# x - component
-@types('double','double','double')
-def jhx_eq(x, y, z):
-    
-    nh0 = 1.
-    v0x = 0.
-    
-    return nh0 * v0x
-
-# y - component
-@types('double','double','double')
-def jhy_eq(x, y, z):
-    
-    nh0 = 1.
-    v0y = 0.
-    
-    return nh0 * v0y
-
-# z - component
-@types('double','double','double')
-def jhz_eq(x, y, z):
-    
-    nh0 = 1.
-    v0z = 2.5
-    
-    return nh0 * v0z
-
-# ============= energy of equilibrium distribution function fh_eq ===============
-@types('int','double[:]')
-def eh_eq(kind_map, params_map):
-    
-    v0x = 0.
-    v0y = 0.
-    v0z = 2.5
-    
-    vth = 1.
-    
-    nh0 = 1.
-    
-    if   kind_map == 10:
-        value = nh0/2 * params_map[0] * params_map[1] * params_map[2] * (v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2)
+    def __init__(self, domain, alpha0, delta, vth):
         
-    elif kind_map == 12:
-        value = nh0/2 * params_map[0] * params_map[1] * params_map[3] * (v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2)
+        # geometric parameters
+        self.domain = domain
         
-    elif kind_map == 13:
-        value = nh0/2 * params_map[0] * params_map[1] * params_map[3] * (v0x**2 + v0y**2 + v0z**2 + 3*vth**2/2)
+        # parameters for anisotropic pitch-angle distribution function
+        self.alpha0 = alpha0
+        self.delta  = delta
+        self.vth    = vth
         
-    else:
-        value = 0.
+        self.D = sp.erf((1 - np.cos(self.alpha0))/self.delta)
+        self.C = self.D + sp.erf((1 + np.cos(self.alpha0))/self.delta)
     
-    return value
-
-
-# ===============================================================
-#                       logical domain
-# ===============================================================
-
-# ======= equilibrium distribution function (used in delta-f method) =============
-@types('double','double','double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def fh_eq(eta1, eta2, eta3, vx, vy, vz, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
-    x = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    y = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    z = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    # -----------------------------------------------
+    # anisotropy function
+    # -----------------------------------------------
+    def theta(self, alpha):
+        
+        if self.delta == np.inf:
+            out = 1. - 0*alpha
+        else:
+            out = 4/(self.delta*np.sqrt(np.pi)*self.C)*np.exp(-(np.cos(alpha) - np.cos(self.alpha0))**2/self.delta**2)
+        
+        return out
     
-    return pull.pull_0_form(fh_eq_phys(x, y, z, vx, vy, vz), eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    # -----------------------------------------------
+    # number density on logical domain
+    # -----------------------------------------------
+    def nh_eq(self, eta1):
+        
+        nh_out = 0.521298*np.exp(-0.198739/0.298228*np.tanh((eta1 - 0.49123)/0.198739))
+        
+        return nh_out
+    
+    # -----------------------------------------------
+    # thermal velocity on logical domain
+    # -----------------------------------------------
+    def vth_eq(self, eta1):
+        
+        vth_out = self.vth - 0*eta1
+        
+        return vth_out
+    
+    # -----------------------------------------------
+    # distribution function on logical domain used for control variate
+    # -----------------------------------------------
+    def fh0_eq(self, eta1, eta2, eta3, vx, vy, vz):
+        
+        out = self.nh_eq(eta1)/(np.pi**(3/2)*self.vth_eq(eta1)**3)*np.exp(-(vx**2 + vy**2 + vz**2)/self.vth_eq(eta1)**2)
+        
+        return out
+    
+    # -----------------------------------------------
+    # 1-st moment of distribution function
+    # -----------------------------------------------
+    def jh_eq_x(self, x, y, z):
+        
+        jh_x_out = 0*x
+        
+        return jh_x_out
+    
+    def jh_eq_y(self, x, y, z):
+        
+        jh_y_out = 0*y
+        
+        return jh_y_out
+    
+    def jh_eq_z(self, x, y, z):
+        
+        jh_z_out = 0*z
+        
+        return jh_z_out

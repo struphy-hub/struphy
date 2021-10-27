@@ -17,7 +17,7 @@ class equilibrium_mhd:
     Either cylindrical or circular toroidal geometry can be used.
     """
     
-    def __init__(self, domain, a=1., r0=10., b0=1., q0=1.4, q1=4.5, q_add=0, rl=1.5, bmp0=1.0, cg0=0.2, wg0=0.3, bmp1=0.0, cg1=0.1, wg1=0.5, bmp2=0.0, cg2=0.95, wg2=0.2, shafranov=0, r1=1.5, r2=0.9, rho_a=0.22, beta=0.2, p1=0.95, p2=0.05):
+    def __init__(self, domain, a=1., r0=10., b0=1., q0=1.4, q1=4.5, rl=1.5, q_add=0, r1=1.5, r2=0.9, rho_a=0.22, p_kind=0, beta=0.2, p1=0.95, p2=0.05):
         
          
         # geometric parameters
@@ -35,6 +35,8 @@ class equilibrium_mhd:
             self.tor       = lambda x, y, z : 0*x
             self.curvature = 0
             self.eps       = lambda r : r/self.r0
+            
+            assert q_add == 0
         
         # inverse torus coordinate transformation
         elif self.domain.kind_map == 2 or self.domain.kind_map == 14:
@@ -46,39 +48,50 @@ class equilibrium_mhd:
         
         self.R = lambda r, phi : self.r0*(1 + self.curvature*self.eps(r)*np.cos(phi))
         
-        # parameters for current profile 
+        # on-axis toroidal magnetic field in T
         self.b0 = b0
+        
+        # parameters for safety factor profile: q(r) = q0*(1 + (r/(a*rp))^(2*rl))^(1/rl), rp = ((q1/q0)^rl - 1)^(-1/(2*rl))
         self.q0 = q0
         self.q1 = q1
         self.rl = rl
-        self.bmp0 = bmp0
-        self.bmp1 = bmp1
-        self.bmp2 = bmp2
-        self.cg0 = cg0
-        self.cg1 = cg1
-        self.cg2 = cg2
-        self.wg0 = wg0
-        self.wg1 = wg1
-        self.wg2 = wg2
         
+        # calculate rp
+        if self.q0 == self.q1:
+            self.rp = np.inf
+        else:
+            self.rp = ((self.q1/self.q0)**self.rl - 1)**(-1/(2*self.rl))
+            
+        # add toroidal correction to q-profile: q(r) = q(r)*sqrt(1 - (r/R0)^2)
         self.q_add = q_add
         
-        # add order-eps Shafranov shift in case of toroidal geometry
-        self.shafranov = shafranov
+        # parameters for bumps in current profile (not fully supported yet) 
+        self.bmp0 = 0.
+        self.bmp1 = 0.
+        self.bmp2 = 0.
+        self.cg0  = 0.2
+        self.cg1  = 0.2
+        self.cg2  = 0.2
+        self.wg0  = 0.3
+        self.wg1  = 0.3
+        self.wg2  = 0.3
         
-        # parameters for bulk density profile
+        # add order-eps Shafranov shift in case of toroidal geometry (not fully supported yet)
+        self.shafranov = 0
+        
+        # parameters for bulk density profile: rho(r) = (1 - rho_a)*(1 - (r/a)^r1)^r2 + rho_a
         self.r1    = r1
         self.r2    = r2
         self.rho_a = rho_a
         
-        # parameters for pressure profile
-        self.gamma = 5/3
-        self.beta  = beta
-        self.p1    = p1
-        self.p2    = p2
-        
-        # calculate rp
-        self.rp = ((self.q1/self.q0)**self.rl - 1)**(-1/(2*self.rl))
+        # parameters for pressure profile:
+        # p_kind = 0 : dp/dr(r) = B0^2/(R0^2*q(r)^3)*r*(-2*q(r) + r*dq/dr(r)) --> integrated with p(a) = 0
+        # p_kind = 1 :     p(r) = B0^2*beta/200*(1 - p1*(r/a)^2 - p2*(r/a)^4), beta = on-axis plasma beta in %
+        self.gamma  = 5/3
+        self.p_kind = p_kind
+        self.beta   = beta
+        self.p1     = p1
+        self.p2     = p2
         
         # calculate scaling of current profile such that q_min = q0
         self.j0 = 1.
@@ -88,7 +101,7 @@ class equilibrium_mhd:
         self.q_min = self.q(self.r_min)
         self.j0    = self.q_min/self.q0
         
-        # calculate Shafranov shift with boundary conditions delta_p(0)=0 and delta(a)=0
+        # calculate Shafranov shift with boundary conditions delta_p(0) = 0 and delta(a) = 0
         self.spl_space_r = spl.spline_space_1d(self.num_params[0], self.num_params[1], self.num_params[2], self.num_params[3], ['f', 'd'])
         
         self.spl_space_r.set_projectors(self.num_params[4])
@@ -112,9 +125,15 @@ class equilibrium_mhd:
         # radial magnetic field due to Shafranov shift
         self.Br = lambda r, phi : self.b0*self.delta(r)/(self.R(r, phi)*self.q(r))*np.sin(phi)
         
-        # discrete pressure profile
-        self.p_coeff = self.spl_space_r.projectors.pi_0(lambda eta1 : self.p_ana(eta1*self.a))
-        self.p = lambda r : self.spl_space_r.evaluate_N(r/self.a, self.p_coeff, 0) 
+        # discrete pressure profile if based on q-profile
+        if self.p_kind == 0:
+            
+            self.p_coeff = self.spl_space_r.projectors.pi_0(lambda eta1 : self.p_ana(eta1*self.a))
+            self.p = lambda r : self.spl_space_r.evaluate_N(r/self.a, self.p_coeff, 0)
+            
+        else:
+            
+            self.p = self.p_ana
         
     # -----------------------------------------------------------------------
     # bulk density profile
@@ -179,7 +198,7 @@ class equilibrium_mhd:
     def b_phi_p(self, r):
         
         # analytical limit for r --> 0
-        limit  = self.j0*self.b0/(self.r0*self.q0)
+        limit = self.j0*self.b0/(self.r0*self.q0)
         
         # add contributions from bumps
         if self.bmp0 != 0.:
@@ -221,7 +240,7 @@ class equilibrium_mhd:
     # -----------------------------------------------------------------------
     # safety factor and its derivative in cylindrical limit
     # -----------------------------------------------------------------------
-    def q(self, r):
+    def q(self, r, cor=0):
         
         # analytical limit for r --> 0
         limit = self.b0/(self.r0*self.b_phi_p(0.))
@@ -235,7 +254,7 @@ class equilibrium_mhd:
             r_zeros = np.where(r == 0.)[0]
             r[r_zeros] += 1e-10
             
-        qout = r*self.b0/(self.r0*self.b_phi(r))*np.sqrt(1 - self.q_add*self.eps(r)**2) 
+        qout = r*self.b0/(self.r0*self.b_phi(r))*np.sqrt(1 - cor*self.eps(r)**2) 
         
         if not isinstance(r, float):
             qout[r_zeros] = limit
@@ -243,7 +262,7 @@ class equilibrium_mhd:
         
         return qout
     
-    def q_p(self, r):
+    def q_p(self, r, cor=0):
         
         # analytical limit for r --> 0
         limit = 0.
@@ -257,7 +276,7 @@ class equilibrium_mhd:
             r_zeros = np.where(r == 0.)[0]
             r[r_zeros] += 1e-10
             
-        qout = (self.b0/self.r0*(self.b_phi(r) - r*self.b_phi_p(r))/self.b_phi(r)**2)*np.sqrt(1 - self.q_add*self.eps(r)**2) + self.q(r)*self.q_add*self.eps(r)/(self.r0*np.sqrt(1 - self.q_add*self.eps(r)**2))
+        qout = (self.b0/self.r0*(self.b_phi(r) - r*self.b_phi_p(r))/self.b_phi(r)**2)*np.sqrt(1 - cor*self.eps(r)**2) + self.q(r, cor)*cor*self.eps(r)/(self.r0*np.sqrt(1 - cor*self.eps(r)**2))
         
         if not isinstance(r, float):
             qout[r_zeros] = limit
@@ -299,44 +318,44 @@ class equilibrium_mhd:
         return self.delta(r)*self.b_phi(r)*np.cos(phi)
     
     # -----------------------------------------------------------------------
-    # pressure profile and its derivative (cylinder --> integrated pressure with p(a)=0, torus --> free pressure profile)
+    # pressure profile and its derivative (cylinder --> integrated pressure with p(a) = 0, torus --> free pressure profile)
     # -----------------------------------------------------------------------
     def p_ana(self, r):
+        
+        if self.p_kind == 0:
             
-        if isinstance(r, float):
-            r_shape = 0.
-            r = np.array([r])
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-        
-        pout = np.zeros(r.size, dtype=float)
-        
-        p_a = quad(self.p_p, 0., self.a)[0]
-        
-        for i in range(r.size):
-            pout[i] = quad(self.p_p, 0., r[i])[0] - p_a
-            
-        if r_shape == 0:
-            pout = pout[0]
-        else:
-            pout = pout.reshape(r_shape)
+            if isinstance(r, float):
+                r_shape = 0.
+                r = np.array([r])
+            else:
+                r_shape = r.shape
+                r = r.flatten()
+
+            pout = np.zeros(r.size, dtype=float)
+
+            p_a = quad(self.p_p, 0., self.a)[0]
+
+            for i in range(r.size):
+                pout[i] = quad(self.p_p, 0., r[i])[0] - p_a
+
+            if r_shape == 0:
+                pout = pout[0]
+            else:
+                pout = pout.reshape(r_shape)
                 
-        # torus with flat pressure profile
-        if self.curvature == 1 and self.p1 == 0 and self.p2 == 0:
-            pout += self.beta/200
+        else:
+            
+            pout = self.b0**2*self.beta/200*(1 - self.p1*r**2/self.a**2 - self.p2*r**4/self.a**4)
             
         return pout
     
     def p_p(self, r):
         
-        # cylinder
-        if self.curvature == 0:
+        if self.p_kind == 0:
             pout = self.b0**2/(self.r0**2*self.q(r)**3)*r*(-2*self.q(r) + r*self.q_p(r))
             
-        # torus
         else:
-            pout = self.beta/200*(-2*self.p1*r/self.a**2 - 4*self.p2*r**3/self.a**4)
+            pout = self.b0**2*self.beta/200*(-2*self.p1*r/self.a**2 - 4*self.p2*r**3/self.a**4)
         
         return pout
      
@@ -349,8 +368,13 @@ class equilibrium_mhd:
     def p_eq(self, x, y, z):
         
         r = self.r(x, y, z)
+        
+        pout = self.p(r)
+        
+        if self.curvature == 0 and pout.max() < 1e-12:
+            pout = np.ones(pout.shape, dtype=float)*self.b0**2*self.beta/200
 
-        return self.p(r)
+        return pout
     
     # equilibrium magnetic field (x - component)
     def b_eq_x(self, x, y, z):
@@ -362,8 +386,10 @@ class equilibrium_mhd:
         # toroidal components
         b_r   = self.Br(r, phi)
         
-        b_phi = self.r0/self.R(r, phi)*(self.b_phi(r) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
-        #b_phi = 0.
+        b_phi = self.r0/self.R(r, phi)*(r*self.b0/(self.r0*self.q(r, self.q_add)) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
+        
+        if b_phi.max() < 1e-10:
+            b_phi = np.zeros(b_phi.shape, dtype=float)
         
         b_tor = self.b0*self.r0/self.R(r, phi)
 
@@ -382,8 +408,10 @@ class equilibrium_mhd:
         # toroidal components
         b_r   = self.Br(r, phi)
         
-        b_phi = self.r0/self.R(r, phi)*(self.b_phi(r) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
-        #b_phi = 0.
+        b_phi = self.r0/self.R(r, phi)*(r*self.b0/(self.r0*self.q(r, self.q_add)) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
+        
+        if b_phi.max() < 1e-10:
+            b_phi = np.zeros(b_phi.shape, dtype=float)
         
         b_tor = self.b0*self.r0/self.R(r, phi)
 
@@ -402,8 +430,10 @@ class equilibrium_mhd:
         # toroidal components
         b_r   = self.Br(r, phi)
         
-        b_phi = self.r0/self.R(r, phi)*(self.b_phi(r) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
-        #b_phi = 0.
+        b_phi = self.r0/self.R(r, phi)*(r*self.b0/(self.r0*self.q(r, self.q_add)) + (self.delta_p(r)*self.b_phi(r) + self.delta(r)*self.b_phi_p(r))*np.cos(phi))
+        
+        if b_phi.max() < 1e-10:
+            b_phi = np.zeros(b_phi.shape, dtype=float)
         
         b_tor = self.b0*self.r0/self.R(r, phi)
         
@@ -411,6 +441,13 @@ class equilibrium_mhd:
         bz = b_r*np.cos(phi)*np.sin(tor) - b_phi*np.sin(phi)*np.sin(tor) + b_tor*np.cos(tor)
 
         return bz
+    
+    # equilibrium magnetic field (absolute value)
+    def b_eq(self, x, y, z):
+        
+        b_abs = np.sqrt(self.b_eq_x(x, y, z)**2 + self.b_eq_y(x, y, z)**2 + self.b_eq_z(x, y, z)**2)
+        
+        return b_abs
 
     # equilibrium current (x - component, curl of equilibrium magnetic field)
     def j_eq_x(self, x, y, z):
@@ -419,11 +456,14 @@ class equilibrium_mhd:
         phi = self.phi(x, y, z)
         tor = self.tor(x, y, z)
         
-        # cartesian component
-        j_tor = self.b0/(self.R(r, phi)*self.q(r)**2)*(2*self.q(r) - r*self.q_p(r) - self.curvature*r/self.R(r, phi)*self.q(r)*np.cos(phi))
-        jx = -j_tor*np.sin(tor)
+        # toroidal components
+        j_tor = self.b0/(self.R(r, phi)*self.q(r, self.q_add)**2)*(2*self.q(r, self.q_add) - r*self.q_p(r, self.q_add) - self.curvature*r/self.R(r, phi)*self.q(r, self.q_add)*np.cos(phi))
         
-        #jx = -self.j_tor(r)*np.sin(tor)
+        if j_tor.max() < 1e-10:
+            j_tor = np.zeros(j_tor.shape, dtype=float)
+        
+        # cartesian components
+        jx = -j_tor*np.sin(tor)
 
         return jx
 
@@ -441,11 +481,14 @@ class equilibrium_mhd:
         phi = self.phi(x, y, z)
         tor = self.tor(x, y, z)
         
-        # cartesian component
-        j_tor = self.b0/(self.R(r, phi)*self.q(r)**2)*(2*self.q(r) - r*self.q_p(r) - self.curvature*r/self.R(r, phi)*self.q(r)*np.cos(phi))
-        jz = j_tor*np.cos(tor)
+        # toroidal components
+        j_tor = self.b0/(self.R(r, phi)*self.q(r, self.q_add)**2)*(2*self.q(r, self.q_add) - r*self.q_p(r, self.q_add) - self.curvature*r/self.R(r, phi)*self.q(r, self.q_add)*np.cos(phi))
         
-        #jz = self.j_tor(r)*np.cos(tor)
+        if j_tor.max() < 1e-10:
+            j_tor = np.zeros(j_tor.shape, dtype=float)
+        
+        # cartesian components
+        jz = j_tor*np.cos(tor)
 
         return jz
 
@@ -459,160 +502,90 @@ class equilibrium_mhd:
 
 
     # ===============================================================
-    #                  pull-back to logical domain
+    #                  pull-backs to logical domain
     # ===============================================================
 
     # equilibrium bulk pressure (0-form on logical domain)
-    def p0_eq(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull(self.p_eq, eta1, eta2, eta3, '0_form')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull(self.p_eq, eta1, eta2, 0., '0_form')
-            else:
-                return self.domain.pull(self.p_eq, eta1, eta2, np.array([0.]), '0_form')[:, :, 0]
-            
-
+    def p0_eq(self, eta1, eta2, eta3):
+        return self.domain.pull(self.p_eq, eta1, eta2, eta3, '0_form')
+           
+    
     # equilibrium bulk pressure (3-form on logical domain)
-    def p3_eq(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull(self.p_eq, eta1, eta2, eta3, '3_form')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull(self.p_eq, eta1, eta2, 0., '3_form')
-            else:
-                return self.domain.pull(self.p_eq, eta1, eta2, np.array([0.]), '3_form')[:, :, 0]
-            
+    def p3_eq(self, eta1, eta2, eta3):
+        return self.domain.pull(self.p_eq, eta1, eta2, eta3, '3_form')        
+    
     
     # equilibrium bulk density (0-form on logical domain)
-    def r0_eq(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull(self.r_eq, eta1, eta2, eta3, '0_form')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull(self.r_eq, eta1, eta2, 0., '0_form')
-            else:
-                return self.domain.pull(self.r_eq, eta1, eta2, np.array([0.]), '0_form')[:, :, 0]
+    def r0_eq(self, eta1, eta2, eta3):
+        return self.domain.pull(self.r_eq, eta1, eta2, eta3, '0_form')
             
 
     # equilibrium bulk density (3-form on logical domain)
-    def r3_eq(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull(self.r_eq, eta1, eta2, eta3, '3_form')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull(self.r_eq, eta1, eta2, 0., '3_form')
-            else:
-                return self.domain.pull(self.r_eq, eta1, eta2, np.array([0.]), '3_form')[:, :, 0]
-            
+    def r3_eq(self, eta1, eta2, eta3):
+        return self.domain.pull(self.r_eq, eta1, eta2, eta3, '3_form')
+    
+    
+    # equilibrium magnetic field (0-form absolute value on logical domain)
+    def b0_eq(self, eta1, eta2, eta3):
+        return self.domain.pull(self.b_eq, eta1, eta2, eta3, '0_form')
+      
 
-    # equilibrium magnetic field (2-form on logical domain, 1-component)
-    def b2_eq_1(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_1')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '2_form_1')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '2_form_1')[:, :, 0]
-            
-        
-    # equilibrium magnetic field (2-form on logical domain, 2-component)
-    def b2_eq_2(self, eta1, eta2, eta3=None):
-        
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_2')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '2_form_2')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '2_form_2')[:, :, 0]
-            
-
-    # equilibrium magnetic field (2-form on logical domain, 3-component)
-    def b2_eq_3(self, eta1, eta2, eta3=None):
-
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_3')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '2_form_3')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '2_form_3')[:, :, 0]
-            
-            
     # equilibrium magnetic field (1-form on logical domain, 1-component)
-    def b1_eq_1(self, eta1, eta2, eta3=None):
+    def b1_eq_1(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_1')
         
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_1')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '1_form_1')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '1_form_1')[:, :, 0]
-            
-        
+ 
     # equilibrium magnetic field (1-form on logical domain, 2-component)
-    def b1_eq_2(self, eta1, eta2, eta3=None):
+    def b1_eq_2(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_2')
         
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_2')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '1_form_2')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '1_form_2')[:, :, 0]
-            
-
+    
     # equilibrium magnetic field (1-form on logical domain, 3-component)
-    def b1_eq_3(self, eta1, eta2, eta3=None):
-
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_3')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, 0., '1_form_3')
-            else:
-                return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, np.array([0.]), '1_form_3')[:, :, 0]
+    def b1_eq_3(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '1_form_3')
     
     
-    # equilibrium current (2-form on logical domain, 1-component)
-    def j2_eq_1(self, eta1, eta2, eta3=None):
+    # equilibrium magnetic field (2-form on logical domain, 1-component)
+    def b2_eq_1(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_1')
+ 
+    
+    # equilibrium magnetic field (2-form on logical domain, 2-component)
+    def b2_eq_2(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_2')
         
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_1')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, 0., '2_form_1')
-            else:
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, np.array([0.]), '2_form_1')[:, :, 0]
+    
+    # equilibrium magnetic field (2-form on logical domain, 3-component)
+    def b2_eq_3(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, '2_form_3')
+    
+    
+    # equilibrium magnetic field (vector on logical domain, 1-component)
+    def bv_eq_1(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, 'vector_1')
+ 
+    
+    # equilibrium magnetic field (vector on logical domain, 2-component)
+    def bv_eq_2(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, 'vector_2')
+        
+    
+    # equilibrium magnetic field (vector on logical domain, 3-component)
+    def bv_eq_3(self, eta1, eta2, eta3):
+        return self.domain.pull([self.b_eq_x, self.b_eq_y, self.b_eq_z], eta1, eta2, eta3, 'vector_3')
+        
             
+    # equilibrium current (2-form on logical domain, 1-component)
+    def j2_eq_1(self, eta1, eta2, eta3):
+        return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_1')
+        
         
     # equilibrium current (2-form on logical domain, 2-component)
-    def j2_eq_2(self, eta1, eta2, eta3=None):
+    def j2_eq_2(self, eta1, eta2, eta3):
+        return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_2')
         
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_2')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, 0., '2_form_2')
-            else:
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, np.array([0.]), '2_form_2')[:, :, 0]
-            
         
     # equilibrium current (2-form on logical domain, 3-component)
-    def j2_eq_3(self, eta1, eta2, eta3=None):
+    def j2_eq_3(self, eta1, eta2, eta3):
+        return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_3')
         
-        if isinstance(eta3, float) or isinstance(eta3, np.ndarray):
-            return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, eta3, '2_form_3')
-        else:
-            if isinstance(eta1, float):
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, 0., '2_form_3')
-            else:
-                return self.domain.pull([self.j_eq_x, self.j_eq_y, self.j_eq_z], eta1, eta2, np.array([0.]), '2_form_3')[:, :, 0]

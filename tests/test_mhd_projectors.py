@@ -39,7 +39,7 @@ def test_1form_projectors_dot():
         tensor_space_FEM.set_projectors()
 
         # mhd projectors dot operator
-        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        eq_MHD = eq_mhd.equilibrium_mhd(domain, beta=200.)
         dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
         # random x which is going to product with projectors
@@ -318,7 +318,7 @@ def test_2form_projectors_dot():
         tensor_space_FEM.set_projectors()
 
         # mhd projectors dot operator
-        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        eq_MHD = eq_mhd.equilibrium_mhd(domain, beta=200.)
         dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
         # random x which is going to product with projectors
@@ -575,7 +575,7 @@ def test_1form_symmetric():
         tensor_space_FEM.set_projectors()
 
         # mhd projectors dot operator
-        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        eq_MHD = eq_mhd.equilibrium_mhd(domain, beta=200.)
         dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
 
@@ -728,7 +728,7 @@ def test_2form_symmetric():
         tensor_space_FEM.set_projectors()
 
         # mhd projectors dot operator
-        eq_MHD = eq_mhd.equilibrium_mhd(domain)
+        eq_MHD = eq_mhd.equilibrium_mhd(domain, beta=200.)
         dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD)
 
 

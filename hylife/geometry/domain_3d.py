@@ -418,7 +418,7 @@ class domain:
        
     
     # ================================
-    def evaluate(self, eta1, eta2, eta3, kind_fun):
+    def evaluate(self, eta1, eta2, eta3, kind_fun, kind_eva='meshgrid'):
         '''Evaluate mapping/metric coefficients. 
         Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or general.
 
@@ -438,42 +438,54 @@ class domain:
         # point-wise evaluation
         if isinstance(eta1, float):
             values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+            
+            return values
 
         # array evaluation
         elif isinstance(eta1, np.ndarray):
-
-            is_sparse_meshgrid = None
-
-            # tensor-product evaluation
-            if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
-                is_sparse_meshgrid = True
-
-            # general evaluation
-            else:
-                # Distinguish if input coordinates are from sparse or dense meshgrid.
-                # Sparse: eta1.shape = (n1,  1,  1)
-                # Dense : eta1.shape = (n1, n2, n3)
-                E1, E2, E3 = eta1, eta2, eta3
-
-                # `eta1` is a sparse meshgrid.
-                if max(eta1.shape) == eta1.size:
-                    is_sparse_meshgrid = True
-                # `eta1` is a dense meshgrid. Process each point as default.
-                else:
-                    is_sparse_meshgrid = False
-
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-
-            if is_sparse_meshgrid:
-                mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-            else:
-                mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-
-        else:
-            raise ValueError('given evaluation points are in wrong shape')
             
-        return values
+            # evaluation for point pairs of 1d arrays of same length
+            if kind_eva == 'flat':
+                assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+                assert eta1.size == eta2.size == eta3.size
+                
+                values = np.empty(eta1.size, dtype=float)
+                
+                mapping.kernel_evaluate_flat(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                
+                return values
+            
+            else:
+
+                is_sparse_meshgrid = None
+
+                # tensor-product evaluation
+                if eta1.ndim == 1:
+                    E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
+                    is_sparse_meshgrid = True
+
+                # general evaluation
+                else:
+                    # Distinguish if input coordinates are from sparse or dense meshgrid.
+                    # Sparse: eta1.shape = (n1,  1,  1)
+                    # Dense : eta1.shape = (n1, n2, n3)
+                    E1, E2, E3 = eta1, eta2, eta3
+
+                    # `eta1` is a sparse meshgrid.
+                    if max(eta1.shape) == eta1.size:
+                        is_sparse_meshgrid = True
+                    # `eta1` is a dense meshgrid. Process each point as default.
+                    else:
+                        is_sparse_meshgrid = False
+
+                values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+                if is_sparse_meshgrid:
+                    mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                else:
+                    mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
+                return values
 
 
     # ================================
@@ -665,6 +677,8 @@ class domain:
                     x = self.evaluate(eta1, eta2, eta3, 'x')
                     y = self.evaluate(eta1, eta2, eta3, 'y')
                     z = self.evaluate(eta1, eta2, eta3, 'z')
+                    
+                    print(x, y, z)
                     
                     a_in = [a(x, y, z)]
                 else:
