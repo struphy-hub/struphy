@@ -15,7 +15,7 @@ or discrete spline mapping, and its corresponding metric coefficients:
 The following geometries are implemented:
 
 - kind_map = 0  : 3d discrete spline mapping. All information is stored in control points cx, cy, cz. params_map = [].
-- kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [lz].
+- kind_map = 1  : discrete cylinder. 2d discrete spline mapping in xy-plane and analytical in z. params_map = [].
 - kind_map = 2  : discrete torus. 2d discrete spline mapping in xy-plane and analytical in phi. params_map = [].
 
 - kind_map = 10 : cuboid. params_map = [lx, ly, lz].
@@ -23,6 +23,7 @@ The following geometries are implemented:
 - kind_map = 12 : colella. params_map = [lx, ly, alpha, lz].
 - kind_map = 13 : othogonal. params_map = [ly, ly, alpha, lz].
 - kind_map = 14 : hollow torus. params_map = [a1, a2, r0].
+- kind_map = 15 : cuboid slice. A cuboid slice of the logical cube with begin and end points given for each axis. params_map = [b1, e1, b2, e2, b3, e3].
 
 """
 
@@ -75,7 +76,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
     # =========== discrete cylinder =================
     elif kind_map == 1:
         
-        lz = params_map[0]
+        lz = 2*pi*cx[0, 0, 0]
         
         if   component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
@@ -174,7 +175,25 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
             value =  (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
-            
+
+    # ============== cuboid slice ==================
+    elif kind_map == 15:
+
+        b1 = params_map[0]
+        e1 = params_map[1]
+        b2 = params_map[2]
+        e2 = params_map[3]
+        b3 = params_map[4]
+        e3 = params_map[5]
+
+        # value =  begin + (end - begin) * eta
+        if   component == 1:
+            value = b1 + (e1 - b1) * eta1
+        elif component == 2:
+            value = b2 + (e2 - b2) * eta2
+        elif component == 3:
+            value = b3 + (e3 - b3) * eta3
+
     return value
 
 
@@ -229,7 +248,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
     # ============ discrete cylinder ================
     elif kind_map == 1:
         
-        lz = params_map[0]
+        lz = 2*pi*cx[0, 0, 0]
         
         if   component == 11:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
@@ -379,8 +398,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = 0.    
         elif component == 33:
             value = lz
-            
-            
+
     # ========= hollow torus ==================
     elif kind_map == 14:
         
@@ -408,7 +426,37 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
         elif component == 33:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
-            
+
+    # ============== cuboid slice ==================
+    elif kind_map == 15:
+
+        b1 = params_map[0]
+        e1 = params_map[1]
+        b2 = params_map[2]
+        e2 = params_map[3]
+        b3 = params_map[4]
+        e3 = params_map[5]
+
+        # value =  begin + (end - begin) * eta
+        if   component == 11:
+            value = (e1 - b1)
+        elif component == 12:
+            value = 0.
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = 0.
+        elif component == 22:
+            value = (e2 - b2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = (e3 - b3)
+
     return value
 
 
@@ -789,7 +837,7 @@ def mappings_all(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3
     
     return value
 
-                
+
 # ==========================================================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
 def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
@@ -800,7 +848,7 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
         - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
         - g      : metric tensor df^T * df 
         - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
-    
+
     Parameters:
     -----------
         eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1]
@@ -821,8 +869,81 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
                 mat_f[i1, i2, i3] = mappings_all(eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+
+# ==========================================================================================
+@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
+def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
+    '''Same as `kernel_evluate`, but for sparse meshgrid.
+    Matrix-wise evaluation of
+        - f      : mapping x_i = f_i(eta1, eta2, eta3)
+        - df     : Jacobian matrix df_i/deta_j
+        - det_df : Jacobian determinant det(df)
+        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+        - g      : metric tensor df^T * df 
+        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1] produced from sparse meshgrid
+        kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
+        kind_map:               int                 kind of mapping (see module docstring)
+        params_map:             double[:]           parameters for the mapping
+        tn1, tn2, tn3:          double[:]           knot vectors for mapping
+        pn:                     int[:]              spline degrees for mapping
+        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        mat_f:  ndarray
+            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
+    '''
+
+    n1 = shape(eta1)[0]
+    n2 = shape(eta2)[1]
+    n3 = shape(eta3)[2]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                mat_f[i1, i2, i3] = mappings_all(eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+                
+# ==========================================================================================
+@types('double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')       
+def kernel_evaluate_flat(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
+    '''Same as `kernel_evluate`, but for sparse meshgrid.
+    Matrix-wise evaluation of
+        - f      : mapping x_i = f_i(eta1, eta2, eta3)
+        - df     : Jacobian matrix df_i/deta_j
+        - det_df : Jacobian determinant det(df)
+        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
+        - g      : metric tensor df^T * df 
+        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+
+    Parameters:
+    -----------
+        eta1, eta2, eta3:       double[:]        vectors of logical coordinates in [0, 1] produced from sparse meshgrid
+        kind_fun:               int              function to evaluate (see keys_map in 'domain_3d.py')
+        kind_map:               int              kind of mapping (see module docstring)
+        params_map:             double[:]        parameters for the mapping
+        tn1, tn2, tn3:          double[:]        knot vectors for mapping
+        pn:                     int[:]           spline degrees for mapping
+        nbase_n:                int[:]           dimensions of univariate spline spaces for mapping 
+        cx, cy, cz:             double[:, :, :]  control points of (f_1, f_2, f_3)
+
+    Returns:
+    --------
+        mat_f:  ndarray
+            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
+    '''
+
+    for i in range(len(eta1)):
+        mat_f[i] = mappings_all(eta1[i], eta2[i], eta3[i], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+                

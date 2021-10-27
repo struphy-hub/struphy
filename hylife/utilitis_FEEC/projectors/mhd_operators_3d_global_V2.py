@@ -1,0 +1,3199 @@
+import numpy              as np
+import scipy.sparse       as spa
+
+from hylife.utilitis_FEEC.spline_space import tensor_spline_space
+from hylife.utilitis_FEEC.projectors.projectors_global import projectors_tensor_3d
+from hylife.linear_algebra.linalg_kron import kron_matvec_3d, kron_solve_3d
+
+# =================================================================================================
+class projectors_dot_x:
+    '''
+    Caclulate the product of vector 'x' with the several kinds of projection matrices.
+    Global projectors based on tensor product are used.
+
+    List of projection matrices :                      dim of matrices            verification method
+    1 form formualation
+    - Q1            = pi_2[rho_eq * G_inv * lambda^1]      R{N^2 * N^1}                comparison test with basic projector
+    - W1            = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}                  identity test
+    - U1            = pi_2[g_sqrt * G_inv * lambda^1]      R{N^2 * N^1}                comparison test with basic projector
+    - P1            = pi_1[j_eq / g_sqrt * lambda^2]       R{N^1 * N^2}                comparison test with basic projector
+    - S1            = pi_2[p_eq * G_inv * lambda^1]        R{N^2 * N^1}                comparison test with basic projector
+    - S10           = pi_1[p_eq * lambda^1]                R{N^1 * N^1}                  identity test            
+    - K1            = pi_3[p_eq / g_sqrt * lambda^3]       R{N^3 * N^3}                  identity test
+    - K10           = pi_0[p_eq * lambda^0]                R{N^0 * N^0}                  identity test
+    - T1            = pi_1[B_eq * G_inv * lambda^1]        R{N^1 * N^1}                comparison test with basic projector
+    - X1            = pi_0[DF^-T * lambda^1]               R{N^0 * 3 * N^1}  for PC    comparison test with basic projector
+
+    2 form formulation
+    - Q2            = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}                  identity test
+    - T2            = pi_1[B_eq / g_sqrt * lambda^2]       R{N^1 * N^2}                comparison test with basic projector
+    - P2            = pi_2[G_inv * j_eq * lambda^2]        R{N^2 * N^2}                comparison test with basic projector
+    - S2            = pi_2[p_eq / g_sqrt * lambda^2]       R{N^2 * N^2}                  identity test
+    - K2            = pi_3[p_eq / g_sqrt * lambda^3]       R{N^3 * N^3}                  identity test
+    - X2            = pi_0[DF / g_sqrt * lambda^2]         R{N^0 * 3 * N^2}  for PC    comparison test with basic projector
+    - Z20           = pi_1[G / g_sqrt * lambda^2]          R{N^1 * N^2}                comparison test with basic projector
+    - Y20           = pi_3[g_sqrt * lambda^0]              R{N^3 * N^0}                comparison test with basic projector
+    - S20           = pi_1[p_eq * G / g_sqrt * lambda^2]   R{N^1 * N^2}                comparison test with basic projector
+
+    Parameters :
+    ---------------------------
+    proj_list : list of 1d projector objects
+    domain :    domain object
+    eq_MHD :    equilibrium_mhd object
+
+    Methods :
+    ---------------------------
+    # 1form formulation
+    Q1_dot(x)
+    transpose_Q1_dot(x)
+    W1_dot(x)
+    transpose_W1_dot(x)
+    U1_dot(x)
+    transpose_U1_dot(x)
+    P1_dot(x)
+    transpose_P1_dot(x)
+    S1_dot(x)
+    transpose_S1_dot(x)
+    S10_dot(x)
+    transpose_S10_dot(x)
+    K1_dot(x)
+    transpose_K1_dot(x)
+    K10_dot(x)
+    transpose_K10_dot(x)
+    T1_dot(x)
+    transpose_T1_dot(x)
+    X1_dot(x)
+    transpose_X_dot(x)
+
+    # 2form formulation
+    Q2_dot(x)
+    transpose_Q2_dot(x)
+    T2_dot(x)
+    transpose_T2_dot(x)
+    P2_dot(x)
+    transpose_P2_dot(x)
+    S2_dot(x)
+    transpose_S2_dot(x)
+    K2_dot(x)
+    transpose_K2_dot(x)
+    X2_dot(x)
+    transpose_X2_dot(x)
+    Z20_dot(x)
+    transpose_Z20_dot(x)
+    Y20_dot(x)
+    transpose_Y20_dot(x)
+    S20_dot(x)
+    transpose_S20_dot(x)
+
+    '''
+
+    def __init__(self, proj_list, domain, eq_MHD):
+
+        # 1d projectors
+        self.proj_eta1 = proj_list[0]
+        self.proj_eta2 = proj_list[1]
+        self.proj_eta3 = proj_list[2]
+
+        # 3d tensor projectors
+        self.proj = projectors_tensor_3d([self.proj_eta1, self.proj_eta2, self.proj_eta3])
+
+        # tensro spline space
+        self.tensor_spl = tensor_spline_space([proj_list[0].space, proj_list[1].space, proj_list[2].space])
+
+        self.NbaseN = self.tensor_spl.NbaseN
+        self.NbaseD = self.tensor_spl.NbaseD
+
+        # Interpolation matrices
+        #self.N_1= self.proj_eta1.N
+        #self.N_2= self.proj_eta2.N
+        #self.N_3= self.proj_eta3.N
+
+        self.N_1= spa.csr_matrix(self.proj_eta1.N)
+        self.N_2= spa.csr_matrix(self.proj_eta2.N)
+        self.N_3= spa.csr_matrix(self.proj_eta3.N)
+
+        # Histopolation matrices
+        #self.D_1= self.proj_eta1.D
+        #self.D_2= self.proj_eta2.D
+        #self.D_3= self.proj_eta3.D
+
+        self.D_1= spa.csr_matrix(self.proj_eta1.D)
+        self.D_2= spa.csr_matrix(self.proj_eta2.D)
+        self.D_3= spa.csr_matrix(self.proj_eta3.D)
+
+        # Collocation matrices for different point sets
+        self.pts0_N_1, self.pts0_D_1, self.pts1_N_1, self.pts1_D_1 = self.proj_eta1.bases_at_pts()
+        self.pts0_N_2, self.pts0_D_2, self.pts1_N_2, self.pts1_D_2 = self.proj_eta2.bases_at_pts()
+        self.pts0_N_3, self.pts0_D_3, self.pts1_N_3, self.pts1_D_3 = self.proj_eta3.bases_at_pts()
+
+        #assert np.allclose(self.N_1.toarray(), self.pts0_N_1.toarray(), atol=1e-14)
+        #assert np.allclose(self.N_2.toarray(), self.pts0_N_2.toarray(), atol=1e-14)
+        #assert np.allclose(self.N_3.toarray(), self.pts0_N_3.toarray(), atol=1e-14)
+        
+        # domain
+        self.domain    =  domain
+
+        # ===== call equilibrium_mhd values at the projection points ===== 
+        # define functiono for the evaluation
+        self.p0_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p0_eq(xi1, xi2, xi3)
+        self.p3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p3_eq(xi1, xi2, xi3)
+        self.r3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.r3_eq(xi1, xi2, xi3)
+        self.b2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_1(xi1, xi2, xi3)
+        self.b2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_2(xi1, xi2, xi3)
+        self.b2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_3(xi1, xi2, xi3)
+        self.j2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_1(xi1, xi2, xi3)
+        self.j2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_2(xi1, xi2, xi3)
+        self.j2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_3(xi1, xi2, xi3)
+
+        # projection points
+        self.pts_PI_0  = self.proj.pts_PI['0']
+        self.pts_PI_11 = self.proj.pts_PI['11']
+        self.pts_PI_12 = self.proj.pts_PI['12']
+        self.pts_PI_13 = self.proj.pts_PI['13']
+        self.pts_PI_21 = self.proj.pts_PI['21']
+        self.pts_PI_22 = self.proj.pts_PI['22']
+        self.pts_PI_23 = self.proj.pts_PI['23']
+        self.pts_PI_3  = self.proj.pts_PI['3']
+
+        # p0_eq
+        self.p0_eq_0  = self.proj.eval_for_PI('0', self.p0_eq_fun)
+        self.p0_eq_11 = self.proj.eval_for_PI('11', self.p0_eq_fun)
+        self.p0_eq_12 = self.proj.eval_for_PI('12', self.p0_eq_fun)
+        self.p0_eq_13 = self.proj.eval_for_PI('13', self.p0_eq_fun)
+
+        # p3_eq
+        self.p3_eq_21 = self.proj.eval_for_PI('21', self.p3_eq_fun)
+        self.p3_eq_22 = self.proj.eval_for_PI('22', self.p3_eq_fun)
+        self.p3_eq_23 = self.proj.eval_for_PI('23', self.p3_eq_fun)
+        self.p3_eq_3  = self.proj.eval_for_PI('3',  self.p3_eq_fun)
+
+        # r3_eq
+        self.r3_eq_11 = self.proj.eval_for_PI('11', self.r3_eq_fun)
+        self.r3_eq_12 = self.proj.eval_for_PI('12', self.r3_eq_fun)
+        self.r3_eq_13 = self.proj.eval_for_PI('13', self.r3_eq_fun)
+        self.r3_eq_21 = self.proj.eval_for_PI('21', self.r3_eq_fun)
+        self.r3_eq_22 = self.proj.eval_for_PI('22', self.r3_eq_fun)
+        self.r3_eq_23 = self.proj.eval_for_PI('23', self.r3_eq_fun)
+
+        # b2_eq
+        self.b2_eq_11_1 = self.proj.eval_for_PI('11', self.b2_eq_1_fun)
+        self.b2_eq_12_1 = self.proj.eval_for_PI('12', self.b2_eq_1_fun)
+        self.b2_eq_13_1 = self.proj.eval_for_PI('13', self.b2_eq_1_fun)
+        self.b2_eq_11_2 = self.proj.eval_for_PI('11', self.b2_eq_2_fun)
+        self.b2_eq_12_2 = self.proj.eval_for_PI('12', self.b2_eq_2_fun) 
+        self.b2_eq_13_2 = self.proj.eval_for_PI('13', self.b2_eq_2_fun)
+        self.b2_eq_11_3 = self.proj.eval_for_PI('11', self.b2_eq_3_fun)
+        self.b2_eq_12_3 = self.proj.eval_for_PI('12', self.b2_eq_3_fun)
+        self.b2_eq_13_3 = self.proj.eval_for_PI('13', self.b2_eq_3_fun)
+
+        # j2_eq
+        self.j2_eq_11_1 = self.proj.eval_for_PI('11', self.j2_eq_1_fun)
+        self.j2_eq_12_1 = self.proj.eval_for_PI('12', self.j2_eq_1_fun)
+        self.j2_eq_13_1 = self.proj.eval_for_PI('13', self.j2_eq_1_fun)
+        self.j2_eq_11_2 = self.proj.eval_for_PI('11', self.j2_eq_2_fun)
+        self.j2_eq_12_2 = self.proj.eval_for_PI('12', self.j2_eq_2_fun)
+        self.j2_eq_13_2 = self.proj.eval_for_PI('13', self.j2_eq_2_fun)
+        self.j2_eq_11_3 = self.proj.eval_for_PI('11', self.j2_eq_3_fun)
+        self.j2_eq_12_3 = self.proj.eval_for_PI('12', self.j2_eq_3_fun)
+        self.j2_eq_13_3 = self.proj.eval_for_PI('13', self.j2_eq_3_fun)
+        self.j2_eq_21_1 = self.proj.eval_for_PI('21', self.j2_eq_1_fun)
+        self.j2_eq_22_1 = self.proj.eval_for_PI('22', self.j2_eq_1_fun)
+        self.j2_eq_23_1 = self.proj.eval_for_PI('23', self.j2_eq_1_fun)
+        self.j2_eq_21_2 = self.proj.eval_for_PI('21', self.j2_eq_2_fun)
+        self.j2_eq_22_2 = self.proj.eval_for_PI('22', self.j2_eq_2_fun)
+        self.j2_eq_23_2 = self.proj.eval_for_PI('23', self.j2_eq_2_fun)
+        self.j2_eq_21_3 = self.proj.eval_for_PI('21', self.j2_eq_3_fun)
+        self.j2_eq_22_3 = self.proj.eval_for_PI('22', self.j2_eq_3_fun)
+        self.j2_eq_23_3 = self.proj.eval_for_PI('23', self.j2_eq_3_fun)
+
+        # g_sqrt
+        self.det_df_0  = self.domain.evaluate(self.pts_PI_0[0],  self.pts_PI_0[1],  self.pts_PI_0[2], 'det_df')
+        self.det_df_11 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'det_df')
+        self.det_df_12 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'det_df')
+        self.det_df_13 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'det_df')
+        self.det_df_21 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'det_df')
+        self.det_df_22 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'det_df')
+        self.det_df_23 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'det_df')
+        self.det_df_3  = self.domain.evaluate(self.pts_PI_3[0],  self.pts_PI_3[1],  self.pts_PI_3[2], 'det_df')
+
+        # G
+        self.g_11_11 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_11')
+        self.g_11_12 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_12')
+        self.g_11_13 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_13')
+        self.g_12_21 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_21')
+        self.g_12_22 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_22')
+        self.g_12_23 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_23')
+        self.g_13_31 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_31')
+        self.g_13_32 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_32')
+        self.g_13_33 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_33')
+
+        self.g_21_11 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_11')
+        self.g_21_12 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_12')
+        self.g_21_13 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_13')
+        self.g_22_21 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_21')
+        self.g_22_22 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_22')
+        self.g_22_23 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_23')
+        self.g_23_31 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_31')
+        self.g_23_32 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_32')
+        self.g_23_33 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_33')
+
+        # G_inv
+        self.g_inv_11_11 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_11')
+        self.g_inv_11_12 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_12')
+        self.g_inv_11_13 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_13')
+        self.g_inv_12_11 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_11')
+        self.g_inv_12_12 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_12')
+        self.g_inv_12_13 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_13')
+        self.g_inv_13_11 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_11')
+        self.g_inv_13_12 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_12')
+        self.g_inv_13_13 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_13')
+
+        self.g_inv_11_21 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_21')
+        self.g_inv_11_22 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_22')
+        self.g_inv_11_23 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_23')
+        self.g_inv_12_21 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_21')
+        self.g_inv_12_22 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_22')
+        self.g_inv_12_23 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_23')
+        self.g_inv_13_21 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_21')
+        self.g_inv_13_22 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_22')
+        self.g_inv_13_23 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_23')
+
+        self.g_inv_11_31 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_31')
+        self.g_inv_11_32 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_32')
+        self.g_inv_11_33 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_33')
+        self.g_inv_12_31 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_31')
+        self.g_inv_12_32 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_32')
+        self.g_inv_12_33 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_33')
+        self.g_inv_13_31 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_31')
+        self.g_inv_13_32 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_32')
+        self.g_inv_13_33 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_33')
+
+        self.g_inv_21_11 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_11')
+        self.g_inv_21_12 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_12')
+        self.g_inv_21_13 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_13')
+        self.g_inv_22_21 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_21')
+        self.g_inv_22_22 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_22')
+        self.g_inv_22_23 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_23')
+        self.g_inv_23_31 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_31')
+        self.g_inv_23_32 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_32')
+        self.g_inv_23_33 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_33')
+
+        # DF^-1
+        self.df_inv_0_11 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_11')
+        self.df_inv_0_12 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_12')
+        self.df_inv_0_13 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_13')
+        self.df_inv_0_21 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_21')
+        self.df_inv_0_22 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_22')
+        self.df_inv_0_23 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_23')
+        self.df_inv_0_31 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_31')
+        self.df_inv_0_32 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_32')
+        self.df_inv_0_33 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_33')
+
+        # DF
+        self.df_0_11 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_11')
+        self.df_0_12 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_12')
+        self.df_0_13 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_13')
+        self.df_0_21 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_21')
+        self.df_0_22 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_22')
+        self.df_0_23 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_23')
+        self.df_0_31 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_31')
+        self.df_0_32 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_32')
+        self.df_0_33 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_33')
+    
+
+    ########################################
+    ########## 1-form formulation ##########
+    ########################################
+    # ==================================================================
+    def Q1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Q1 with x
+        Q1     = pi_2[rho_eq * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        Q1 dot x = I_2( R_2 ( F_Q1(x)))
+
+        F_Q1[ijk, mno] = rho_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (D, N, N) * G_inv_11 * rho_eq, 
+                               (N, D, N) * G_inv_12 * rho_eq, 
+                               (N, N, D) * G_inv_13 * rho_eq
+        xi2: [his, int, his] : (D, N, N) * G_inv_21 * rho_eq, 
+                               (N, D, N) * G_inv_22 * rho_eq, 
+                               (N, N, D) * G_inv_23 * rho_eq
+        xi3: [his, his, int] : (D, N, N) * G_inv_31 * rho_eq, 
+                               (N, D, N) * G_inv_32 * rho_eq, 
+                               (N, N, D) * G_inv_33 * rho_eq
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts0_N_1, self.pts1_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts1_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts1_D_1, self.pts1_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts1_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts1_N_1, self.pts1_N_2, self.pts0_D_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * self.r3_eq_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_12 * self.r3_eq_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_13 * self.r3_eq_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_21 * self.r3_eq_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_22 * self.r3_eq_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_23 * self.r3_eq_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_31 * self.r3_eq_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_32 * self.r3_eq_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_33 * self.r3_eq_23 * self.g_inv_23_33
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ==================================================================
+    def transpose_Q1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Q with x
+        Q1     = pi_2[rho_eq * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        Q1.T dot x = F_Q1.T( R_2.T ( I_2.T(x)))
+
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.r3_eq_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_1 * self.r3_eq_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_1 * self.r3_eq_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_2 * self.r3_eq_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_2 * self.r3_eq_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_2 * self.r3_eq_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_3 * self.r3_eq_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_3 * self.r3_eq_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_3 * self.r3_eq_23 * self.g_inv_23_33
+
+        res_11 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts1_N_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_N_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_N_2.T, self.pts1_D_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_N_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_N_2.T, self.pts0_N_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ===================================================================
+    def W1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix W1 with x
+        W1 = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}
+
+        W1 dot x = I_1( R_1 ( F_W1(x)))
+        F_W1[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^1_mno(pts_ijk)
+
+        #spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], greville[2]}
+                            xi2 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (D, N, N) * rho_eq / g_sqrt, 0, 0
+        xi2: [int, his, int] : 0, (N, D, N) * rho_eq / g_sqrt, 0
+        xi3: [int, int, his] : 0, 0, (N, N, D) * rho_eq / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array    R{N^1}
+
+        Returns
+        ----------
+        res : np.array  R{N^1}
+        '''    
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        mat_f_1 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_2 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_3 = kron_matvec_3d([self.pts0_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+ 
+        mat_f_1_c = mat_f_1 * self.r3_eq_11 / self.det_df_11
+        mat_f_2_c = mat_f_2 * self.r3_eq_12 / self.det_df_12
+        mat_f_3_c = mat_f_3 * self.r3_eq_13 / self.det_df_13
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # ===================================================================
+    def transpose_W1_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix W with x
+        W1 = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}
+
+        W1.T dot x = F_W1.T( R_1.T ( I_1.T(x)))
+        F_W1[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^1_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array    R{N^1}
+
+        Returns
+        ----------
+        res : np.array  R{N^1}
+        '''    
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]) 
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc [0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc [1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc [2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1 : mat_f_1_{i,m,j,k} = w_{i,m} * DOF_1_{i,j,k}
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2 : mat_f_2_{i,j,m,k} = w_{j,m} * DOF_2_{i,j,k}
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3 : mat_f_2_{i,j,k,m} = w_{k,m} * DOF_3_{i,j,k}
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)
+
+        mat_f_1_c = mat_f_1 * self.r3_eq_11 / self.det_df_11
+        mat_f_2_c = mat_f_2 * self.r3_eq_12 / self.det_df_12
+        mat_f_3_c = mat_f_3 * self.r3_eq_13 / self.det_df_13
+
+        res_1 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_1_c)
+        res_2 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_2_c)
+        res_3 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_3_c)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def U1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix U1 with x
+        U1     = pi_2[g_sqrt * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        U1 dot x = I_2( R_2 ( F_U1(x)))
+
+        F_U1[ijk, mno] = g_sqrt(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (D, N, N) * G_inv_11 * g_sqrt, 
+                               (N, D, N) * G_inv_12 * g_sqrt, 
+                               (N, N, D) * G_inv_13 * g_sqrt
+        xi2: [his, int, his] : (D, N, N) * G_inv_21 * g_sqrt, 
+                               (N, D, N) * G_inv_22 * g_sqrt, 
+                               (N, N, D) * G_inv_23 * g_sqrt
+        xi3: [his, his, int] : (D, N, N) * G_inv_31 * g_sqrt, 
+                               (N, D, N) * G_inv_32 * g_sqrt, 
+                               (N, N, D) * G_inv_33 * g_sqrt
+
+        Parameters
+        ----------
+        Parameters
+        ----------
+        x : np.array    R{N^1}
+
+        Returns
+        ----------
+        res : np.array  R{N^2}
+        '''    
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])   
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts0_N_1, self.pts1_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts1_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts1_D_1, self.pts1_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts1_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts1_N_1, self.pts1_N_2, self.pts0_D_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * self.det_df_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_12 * self.det_df_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_13 * self.det_df_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_21 * self.det_df_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_22 * self.det_df_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_23 * self.det_df_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_31 * self.det_df_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_32 * self.det_df_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_33 * self.det_df_23 * self.g_inv_23_33
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_U1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix U1 with x
+        U1     = pi_2[g_sqrt * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        U1.T dot x = F_U1.T( R_2.T ( I_2.T(x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.det_df_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_1 * self.det_df_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_1 * self.det_df_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_2 * self.det_df_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_2 * self.det_df_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_2 * self.det_df_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_3 * self.det_df_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_3 * self.det_df_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_3 * self.det_df_23 * self.g_inv_23_33
+
+        res_11 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts1_N_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_N_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_N_2.T, self.pts1_D_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_N_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_N_2.T, self.pts0_N_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def P1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix P1 with x
+        P1     = pi_1[j_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
+        j_eq  = (    0  , -j_eq_z,  j_eq_y)
+                ( j_eq_z,     0  , -j_eq_x)
+                (-j_eq_y,  j_eq_x,     0  )
+
+        P1 dot x = I_1( R_1 ( F_P1( x )))
+
+        F_P1[ijk, mno] = j_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
+
+        # spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi3 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (N, D, D) *    0    / g_sqrt,
+                               (D, N, D) * -j_eq_z / g_sqrt,
+                               (D, D, N) *  j_eq_y / g_sqrt
+        xi2: [int, his, int] : (N, D, D) *  j_eq_z / g_sqrt,
+                               (D, N, D) *    0    / g_sqrt,
+                               (D, D, N) * -j_eq_x / g_sqrt
+        xi3: [int, int, his] : (N, D, D) * -j_eq_y / g_sqrt,
+                               (D, N, D) *  j_eq_x / g_sqrt,  
+                               (D, D, N) *    0    / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts0_D_3], x_loc[0]) #0
+        mat_f_12 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts1_D_1, self.pts0_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts0_D_3], x_loc[1]) #0
+        mat_f_23 = kron_matvec_3d([self.pts0_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts0_D_1, self.pts0_D_2, self.pts1_N_3], x_loc[2]) #0
+
+        mat_f_11_c = mat_f_11 * 0                  / self.det_df_11
+        mat_f_12_c = mat_f_12 * (-self.j2_eq_11_3) / self.det_df_11
+        mat_f_13_c = mat_f_13 * ( self.j2_eq_11_2) / self.det_df_11
+        mat_f_21_c = mat_f_21 * ( self.j2_eq_12_3) / self.det_df_12
+        mat_f_22_c = mat_f_22 * 0                  / self.det_df_12
+        mat_f_23_c = mat_f_23 * (-self.j2_eq_12_1) / self.det_df_12
+        mat_f_31_c = mat_f_31 * (-self.j2_eq_13_2) / self.det_df_13
+        mat_f_32_c = mat_f_32 * ( self.j2_eq_13_1) / self.det_df_13
+        mat_f_33_c = mat_f_33 * 0                  / self.det_df_13
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    # ====================================================================
+    def transpose_P1_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix P1 with x
+        P1     = pi_1[j_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
+        j_eq  = (    0  , -j_eq_z,  j_eq_y)
+                ( j_eq_z,     0  , -j_eq_x)
+                (-j_eq_y,  j_eq_x,     0  )
+
+        P1.T dot x = F_P1.T( R_1.T ( I_1.T (x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]) 
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc[2])
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * 0                  / self.det_df_11
+        mat_f_12_c = mat_f_1 * (-self.j2_eq_11_3) / self.det_df_11
+        mat_f_13_c = mat_f_1 * ( self.j2_eq_11_2) / self.det_df_11
+        mat_f_21_c = mat_f_2 * ( self.j2_eq_12_3) / self.det_df_12
+        mat_f_22_c = mat_f_2 * 0                  / self.det_df_12
+        mat_f_23_c = mat_f_2 * (-self.j2_eq_12_1) / self.det_df_12
+        mat_f_31_c = mat_f_3 * (-self.j2_eq_13_2) / self.det_df_13
+        mat_f_32_c = mat_f_3 * ( self.j2_eq_13_1) / self.det_df_13
+        mat_f_33_c = mat_f_3 * 0                  / self.det_df_13
+
+        res_11 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_11_c) #0
+        res_12 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_22_c) #0
+        res_23 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts1_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_33_c) #0
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # ====================================================================
+    def S1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S1 with x
+        S1     = pi_2[p_eq * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        S1 dot x = I_2( R_2 ( F_S1(x)))
+
+        F_S1[ijk, mno] = p_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (D, N, N) * G_inv_11 * p_eq, 
+                               (N, D, N) * G_inv_12 * p_eq, 
+                               (N, N, D) * G_inv_13 * p_eq
+        xi2: [his, int, his] : (D, N, N) * G_inv_21 * p_eq, 
+                               (N, D, N) * G_inv_22 * p_eq, 
+                               (N, N, D) * G_inv_23 * p_eq
+        xi3: [his, his, int] : (D, N, N) * G_inv_31 * p_eq, 
+                               (N, D, N) * G_inv_32 * p_eq, 
+                               (N, N, D) * G_inv_33 * p_eq
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])   
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts0_N_1, self.pts1_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts1_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts1_D_1, self.pts1_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts1_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts1_N_1, self.pts1_N_2, self.pts0_D_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * self.p3_eq_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_12 * self.p3_eq_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_13 * self.p3_eq_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_21 * self.p3_eq_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_22 * self.p3_eq_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_23 * self.p3_eq_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_31 * self.p3_eq_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_32 * self.p3_eq_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_33 * self.p3_eq_23 * self.g_inv_23_33
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_S1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S1 with x
+        S1     = pi_2[p_eq * G_inv * lambda^1]     R{N^2 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+
+        S1.T dot x = F_S1.T( R_2.T ( I_2.T(x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.p3_eq_21 * self.g_inv_21_11
+        mat_f_12_c = mat_f_1 * self.p3_eq_21 * self.g_inv_21_12
+        mat_f_13_c = mat_f_1 * self.p3_eq_21 * self.g_inv_21_13
+        mat_f_21_c = mat_f_2 * self.p3_eq_22 * self.g_inv_22_21
+        mat_f_22_c = mat_f_2 * self.p3_eq_22 * self.g_inv_22_22
+        mat_f_23_c = mat_f_2 * self.p3_eq_22 * self.g_inv_22_23
+        mat_f_31_c = mat_f_3 * self.p3_eq_23 * self.g_inv_23_31
+        mat_f_32_c = mat_f_3 * self.p3_eq_23 * self.g_inv_23_32
+        mat_f_33_c = mat_f_3 * self.p3_eq_23 * self.g_inv_23_33
+
+        res_11 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts1_N_3.T], mat_f_11_c)
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_N_3.T], mat_f_12_c)
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_N_2.T, self.pts1_D_3.T], mat_f_13_c)
+
+        res_12 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_N_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_22_c)
+        res_32 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_23_c)
+
+        res_13 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_N_2.T, self.pts0_N_3.T], mat_f_31_c)
+        res_23 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+# ===================================================================
+    def S10_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S10 with x
+        S10     = pi_1[p_eq * lambda^1]     R{N^1 * N^1}
+
+        S10 dot x = I_1( R_1 ( F_S10(x)))
+
+        F_S10[ijk, mno] = p_eq(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], greville[2]}
+                            xi2 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (D, N, N) * p_eq, 
+                               (N, D, N) * p_eq, 
+                               (N, N, D) * p_eq
+        xi2: [int, his, int] : (D, N, N) * p_eq, 
+                               (N, D, N) * p_eq, 
+                               (N, N, D) * p_eq
+        xi3: [int, int, his] : (D, N, N) * p_eq, 
+                               (N, D, N) * p_eq, 
+                               (N, N, D) * p_eq
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        ''' 
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        mat_f_1 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_2 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_3 = kron_matvec_3d([self.pts0_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+ 
+        mat_f_1_c = mat_f_1 * self.p0_eq_11 
+        mat_f_2_c = mat_f_2 * self.p0_eq_12 
+        mat_f_3_c = mat_f_3 * self.p0_eq_13 
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # ===================================================================
+    def transpose_S10_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S1 with x
+        S10     = pi_1[p_eq * lambda^1]     R{N^1 * N^1}
+
+        S10.T dot x = F_S10.T( R_1.T ( I_1.T(x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''  
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]) 
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc [0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc [1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc [2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1 : mat_f_1_{i,m,j,k} = w_{i,m} * DOF_1_{i,j,k}
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2 : mat_f_2_{i,j,m,k} = w_{j,m} * DOF_2_{i,j,k}
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3 : mat_f_2_{i,j,k,m} = w_{k,m} * DOF_3_{i,j,k}
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)
+
+        mat_f_1_c = mat_f_1 * self.p0_eq_11
+        mat_f_2_c = mat_f_2 * self.p0_eq_12
+        mat_f_3_c = mat_f_3 * self.p0_eq_13
+
+        res_1 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_1_c)
+        res_2 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_2_c)
+        res_3 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_3_c)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # =================================================================
+    def K1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix K1 with x
+        K1 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
+
+        K1 dot x = I_3( R_3 ( F_K1(x)))
+        
+        F_K1[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^3          : {D, D, D} 
+        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+        Parameters
+        ----------
+        x : np.array    R{N^3}
+
+        Returns
+        ----------
+        res : 3d array  R{N^3}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_3form
+        x_loc = self.tensor_spl.extract_3form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+
+        mat_f = kron_matvec_3d([self.pts1_D_1, self.pts1_D_2, self.pts1_D_3], x_loc)
+
+        mat_f_c = mat_f * self.p3_eq_3 / self.det_df_3
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
+        DOF = self.proj.dofs('3', mat_f_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # histo(xi1)-histo(xi2)-histo(xi3)-polation.
+        res = self.proj.PI_mat('3', DOF)
+
+        return res.flatten()
+
+    
+    # =================================================================
+    def transpose_K1_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix K1 with x
+        K1 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
+        
+        K1.T dot x = F_K1.T( R_3.T ( I_3.T(x)))
+
+        F_K1[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array    R{N^3}
+
+        Returns
+        ----------
+        res : 3d array  R{N^3}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_3form
+        x_loc = self.tensor_spl.extract_3form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # step1 : I.T(x)
+        mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
+
+        #step2 : R.T( I.T(x) )
+        mat_f = self.proj.dofs_T('3', mat_dofs)
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_c = self.p3_eq_3 * mat_f / self.det_df_3
+
+        res = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts1_D_3.T], mat_f_c)
+
+        return res.flatten()
+
+
+    # =================================================================
+    def K10_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix K10 with x
+        K10 = pi_0[p_eq * lambda^3]     R{N^0 * N^0}
+
+        K10 dot x = I_0( R_0 ( F_K10(x)))
+        
+        F_K10[ijk,mno] = p_eq(pts_ijk) * lambda^0_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^0          : {N, N, N} 
+        Evaulation points : {greville[0], greville[1], greville[2]}
+
+        Parameters
+        ----------
+        x : np.array    R{N^0}
+
+        Returns
+        ----------
+        res : 3d array  R{N^0}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_0form
+        x_loc = self.tensor_spl.extract_0form(x)
+
+        #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        mat_f = kron_matvec_3d([self.pts0_N_1, self.pts0_N_2, self.pts0_N_3], x_loc)
+
+        mat_f_c = mat_f * self.p0_eq_0
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
+        DOF = self.proj.dofs('0', mat_f_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # histo(xi1)-histo(xi2)-histo(xi3)-polation.
+        res = self.proj.PI_mat('0', DOF)
+
+        return res.flatten()
+
+    
+    # =================================================================
+    def transpose_K10_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix K10 with x
+        K10 = pi_0[p_eq * lambda^0]     R{N^0 * N^0}
+        
+        K10.T dot x = F_K10.T( R_0.T ( I_0.T(x)))
+
+        F_K10[ijk,mno] = p_eq(pts_ijk) * lambda^0_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array    R{N^0}
+
+        Returns
+        ----------
+        res : 3d array  R{N^0}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_0form
+        x_loc = self.tensor_spl.extract_0form(x)
+
+        #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+
+        # step1 : I.T(x)
+        mat_dofs = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc)
+
+        #step2 : R.T( I.T(x) )
+        mat_f = self.proj.dofs_T('0', mat_dofs)
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_c = self.p0_eq_0 * mat_f
+
+        res = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_c)
+
+        return res.flatten()
+
+
+    # =================================================================
+    def T1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix T1 with x
+        T1    = pi_1[B_eq * G_inv * lambda^1]     R{N^1 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+        B_eq  = (    0  , -b_eq_z,  b_eq_y)
+                ( b_eq_z,     0  , -b_eq_x)
+                (-b_eq_y,  b_eq_x,     0  )
+
+        T1 dot x = I_1( R_1 ( F_T1(x)))
+
+        F_T1[ijk, mno] = B_eq(pts_ijk) * G_inv(pts_ijk) lambda^1_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], greville[2]}
+                            xi2 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (D, N, N) * (G_inv_31 * b_eq_y - G_inv_21 * b_eq_z),
+                               (N, D, N) * (G_inv_32 * b_eq_y - G_inv_22 * b_eq_z),
+                               (N, N, D) * (G_inv_33 * b_eq_y - G_inv_23 * b_eq_z)
+        xi2: [int, his, int] : (D, N, N) * (G_inv_11 * b_eq_z - G_inv_31 * b_eq_x),
+                               (N, D, N) * (G_inv_12 * b_eq_z - G_inv_32 * b_eq_x),
+                               (N, N, D) * (G_inv_13 * b_eq_z - G_inv_33 * b_eq_x)
+        xi3: [int, int, his] : (D, N, N) * (G_inv_21 * b_eq_x - G_inv_11 * b_eq_y),
+                               (N, D, N) * (G_inv_22 * b_eq_x - G_inv_12 * b_eq_y),  
+                               (N, N, D) * (G_inv_23 * b_eq_x - G_inv_13 * b_eq_y)
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts1_N_1, self.pts0_N_2, self.pts0_D_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts0_N_1, self.pts1_N_2, self.pts0_D_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts1_N_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts1_N_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts0_N_1, self.pts0_N_2, self.pts1_D_3], x_loc[2])
+        
+        mat_f_11_c = mat_f_11 * (self.g_inv_11_31 * self.b2_eq_11_2 - self.g_inv_11_21 * self.b2_eq_11_3)        
+        mat_f_12_c = mat_f_12 * (self.g_inv_11_32 * self.b2_eq_11_2 - self.g_inv_11_22 * self.b2_eq_11_3) 
+        mat_f_13_c = mat_f_13 * (self.g_inv_11_33 * self.b2_eq_11_2 - self.g_inv_11_23 * self.b2_eq_11_3) 
+        mat_f_21_c = mat_f_21 * (self.g_inv_12_11 * self.b2_eq_12_3 - self.g_inv_12_31 * self.b2_eq_12_1) 
+        mat_f_22_c = mat_f_22 * (self.g_inv_12_12 * self.b2_eq_12_3 - self.g_inv_12_32 * self.b2_eq_12_1) 
+        mat_f_23_c = mat_f_23 * (self.g_inv_12_13 * self.b2_eq_12_3 - self.g_inv_12_33 * self.b2_eq_12_1) 
+        mat_f_31_c = mat_f_31 * (self.g_inv_13_21 * self.b2_eq_13_1 - self.g_inv_13_11 * self.b2_eq_13_2) 
+        mat_f_32_c = mat_f_32 * (self.g_inv_13_22 * self.b2_eq_13_1 - self.g_inv_13_12 * self.b2_eq_13_2) 
+        mat_f_33_c = mat_f_33 * (self.g_inv_13_23 * self.b2_eq_13_1 - self.g_inv_13_13 * self.b2_eq_13_2) 
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # =================================================================
+    def transpose_T1_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix T with x
+        T1    = pi_1[B_eq * G_inv * lambda^1]     R{N^1 * N^1}
+        G_inv = (DF)^(-1)*DF^(-T)
+        B_eq  = (    0  , -b_eq_z,  b_eq_y)
+                ( b_eq_z,     0  , -b_eq_x)
+                (-b_eq_y,  b_eq_x,     0  )
+
+        T1.T dot x = F_T1.T( R_1.T ( I_1.T (x)))
+
+        F_T1[ijk, mno] = B_eq(pts_ijk) * G_inv(pts_ijk) lambda^1_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * (self.g_inv_11_31 * self.b2_eq_11_2 - self.g_inv_11_21 * self.b2_eq_11_3)        
+        mat_f_12_c = mat_f_1 * (self.g_inv_11_32 * self.b2_eq_11_2 - self.g_inv_11_22 * self.b2_eq_11_3) 
+        mat_f_13_c = mat_f_1 * (self.g_inv_11_33 * self.b2_eq_11_2 - self.g_inv_11_23 * self.b2_eq_11_3) 
+        mat_f_21_c = mat_f_2 * (self.g_inv_12_11 * self.b2_eq_12_3 - self.g_inv_12_31 * self.b2_eq_12_1) 
+        mat_f_22_c = mat_f_2 * (self.g_inv_12_12 * self.b2_eq_12_3 - self.g_inv_12_32 * self.b2_eq_12_1) 
+        mat_f_23_c = mat_f_2 * (self.g_inv_12_13 * self.b2_eq_12_3 - self.g_inv_12_33 * self.b2_eq_12_1) 
+        mat_f_31_c = mat_f_3 * (self.g_inv_13_21 * self.b2_eq_13_1 - self.g_inv_13_11 * self.b2_eq_13_2) 
+        mat_f_32_c = mat_f_3 * (self.g_inv_13_22 * self.b2_eq_13_1 - self.g_inv_13_12 * self.b2_eq_13_2) 
+        mat_f_33_c = mat_f_3 * (self.g_inv_13_23 * self.b2_eq_13_1 - self.g_inv_13_13 * self.b2_eq_13_2)
+
+        res_11 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts0_N_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts1_N_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # =================================================================
+    def X1_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix X1 with x
+        X1 = pi_0[DF^-T * lambda^1]     R{N^0 * 3 * N^1}
+
+        X1 dot x = I_0( R_0 ( F_X1(x)))
+
+        F_X1[ijk, mno] = DF^-T(pts.ijk) * lambda^1_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^1          : xi1 : {D, N, N}
+                            xi2 : {N, D, N}
+                            xi3 : {N, N, D} 
+        Evaulation points : {greville[0], greville[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, int, int] : (D, N, N)
+        xi2: [int, int, int] : (N, D, N)
+        xi3: [int, int, int] : (N, N, D)
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : list of np.arrays 3 * R{N^0}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])  
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_1 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts0_N_3], x_loc[0])
+        mat_f_2 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts0_N_3], x_loc[1])
+        mat_f_3 = kron_matvec_3d([self.pts0_N_1, self.pts0_N_2, self.pts0_D_3], x_loc[2])
+
+        mat_f_11_c = mat_f_1 * self.df_inv_0_11
+        mat_f_12_c = mat_f_2 * self.df_inv_0_21
+        mat_f_13_c = mat_f_3 * self.df_inv_0_31
+        mat_f_21_c = mat_f_1 * self.df_inv_0_12
+        mat_f_22_c = mat_f_2 * self.df_inv_0_22
+        mat_f_23_c = mat_f_3 * self.df_inv_0_32
+        mat_f_31_c = mat_f_1 * self.df_inv_0_13
+        mat_f_32_c = mat_f_2 * self.df_inv_0_23
+        mat_f_33_c = mat_f_3 * self.df_inv_0_33
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        DOF_1 = self.proj.dofs('0', mat_f_1_c)
+        DOF_2 = self.proj.dofs('0', mat_f_2_c)
+        DOF_3 = self.proj.dofs('0', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('0', DOF_1)
+
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('0', DOF_2)
+
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('0', DOF_3)
+
+        return [res_1.flatten(), res_2.flatten(), res_3.flatten()]
+
+    
+    # =================================================================
+    def transpose_X1_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix X1 with x
+        X1 = pi_0[DF^-T lambda^1]     R{N^0 * 3 * N^1}
+
+        transpose X1 dot x = F_X1.T( R_0.T ( I_0.T(x)))
+    
+        F_X1[ijk, mno] = DF^{-T}(pts_ijk) * lambda^1_mno(pts_ijk)
+
+        Parameters
+        ----------
+    	x : np.array    R{N^0 * 3}
+
+        Returns
+        ----------
+        res : np.array  R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^0 * 3}
+        #assert len(x) == self.tensor_spl.Ntot_0form * 3
+        # x_loc_1 = self.tensor_spl.extract_0form(np.split(x,3)[0])
+        # x_loc_2 = self.tensor_spl.extract_0form(np.split(x,3)[1])
+        # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
+        # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
+
+        x_loc_1 = self.tensor_spl.extract_0form(x[0])
+        x_loc_2 = self.tensor_spl.extract_0form(x[1])
+        x_loc_3 = self.tensor_spl.extract_0form(x[2])
+        x_loc = list((x_loc_1, x_loc_2, x_loc_3))
+
+        assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])   
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        mat_f_1 = self.proj.dofs_T('0', mat_dofs_1)
+        mat_f_2 = self.proj.dofs_T('0', mat_dofs_2)
+        mat_f_3 = self.proj.dofs_T('0', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.df_inv_0_11
+        mat_f_12_c = mat_f_1 * self.df_inv_0_21
+        mat_f_13_c = mat_f_1 * self.df_inv_0_31
+        mat_f_21_c = mat_f_2 * self.df_inv_0_12
+        mat_f_22_c = mat_f_2 * self.df_inv_0_22
+        mat_f_23_c = mat_f_2 * self.df_inv_0_32
+        mat_f_31_c = mat_f_3 * self.df_inv_0_13
+        mat_f_32_c = mat_f_3 * self.df_inv_0_23
+        mat_f_33_c = mat_f_3 * self.df_inv_0_33
+
+        res_11 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_N_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    ########################################
+    ########## 2-form formulation ##########
+    ########################################
+    # ====================================================================
+    def Q2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Q2 with x
+        Q2 = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
+
+        Q2 dot x = I_1( R_1 ( F_Q2(x)))
+        F_Q2[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+
+        # Spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (N, D, D) * rho_eq / g_sqrt, 0, 0
+        xi2: [his, int, his] : 0, (D, N, D) * rho_eq / g_sqrt, 0
+        xi3: [his, his, int] : 0, 0, (D, D, N) * rho_eq / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_1 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_D_3], x_loc[0])
+
+        # xi2
+        mat_f_2 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+
+        # xi3
+        mat_f_3 = kron_matvec_3d([self.pts1_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        mat_f_1_c = mat_f_1 * self.r3_eq_21 / self.det_df_21
+        mat_f_2_c = mat_f_2 * self.r3_eq_22 / self.det_df_22
+        mat_f_3_c = mat_f_3 * self.r3_eq_23 / self.det_df_23
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_Q2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Q2 with x
+        Q2 = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
+
+        Q2 dot x = I_1( R_1 ( F_Q2(x)))
+        F_Q2[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)  
+
+        mat_f_1_c = mat_f_1 * self.r3_eq_21 / self.det_df_21
+        mat_f_2_c = mat_f_2 * self.r3_eq_22 / self.det_df_22
+        mat_f_3_c = mat_f_3 * self.r3_eq_23 / self.det_df_23
+
+        res_1 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_D_3.T], mat_f_1_c)
+        res_2 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_2_c)
+        res_3 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_3_c)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def T2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix P with x
+        T2     = pi_1[B_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
+        B_eq  = (    0  , -b_eq_z,  b_eq_y)
+                ( b_eq_z,     0  , -b_eq_x)
+                (-b_eq_y,  b_eq_x,     0  )
+
+        T2 dot x = I_1( R_1 ( F_T2( x )))
+
+        F_T2[ijk, mno] = B_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
+
+        # spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi3 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (N, D, D) / g_sqrt *    0    ,
+                               (D, N, D) / g_sqrt * -b_eq_z ,
+                               (D, D, N) / g_sqrt *  b_eq_y
+        xi2: [int, his, int] : (N, D, D) / g_sqrt *  b_eq_z ,
+                               (D, N, D) / g_sqrt *    0    ,
+                               (D, D, N) / g_sqrt * -b_eq_x 
+        xi3: [int, int, his] : (N, D, D) / g_sqrt * -b_eq_y ,
+                               (D, N, D) / g_sqrt *  b_eq_x ,  
+                               (D, D, N) / g_sqrt *    0
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts0_D_3], x_loc[0]) #0
+        mat_f_12 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts1_D_1, self.pts0_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts0_D_3], x_loc[1]) #0
+        mat_f_23 = kron_matvec_3d([self.pts0_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts0_D_1, self.pts0_D_2, self.pts1_N_3], x_loc[2]) #0
+
+        mat_f_11_c = mat_f_11 * 0                  /self.det_df_11
+        mat_f_12_c = mat_f_12 * (-self.b2_eq_11_3) /self.det_df_11
+        mat_f_13_c = mat_f_13 * ( self.b2_eq_11_2) /self.det_df_11
+        mat_f_21_c = mat_f_21 * ( self.b2_eq_12_3) /self.det_df_12
+        mat_f_22_c = mat_f_22 * 0                  /self.det_df_12
+        mat_f_23_c = mat_f_23 * (-self.b2_eq_12_1) /self.det_df_12
+        mat_f_31_c = mat_f_31 * (-self.b2_eq_13_2) /self.det_df_13
+        mat_f_32_c = mat_f_32 * ( self.b2_eq_13_1) /self.det_df_13
+        mat_f_33_c = mat_f_33 * 0                  /self.det_df_13
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_T2_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix T2 with x
+        T2     = pi_1[B_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
+        B_eq  = (    0  , -b_eq_z,  b_eq_y)
+                ( b_eq_z,     0  , -b_eq_x)
+                (-b_eq_y,  b_eq_x,     0  )
+
+        T2.T dot x = F_T2.T( R_1.T ( I_1.T (x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        #assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2])   
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * 0                  /self.det_df_11
+        mat_f_12_c = mat_f_1 * (-self.b2_eq_11_3) /self.det_df_11
+        mat_f_13_c = mat_f_1 * ( self.b2_eq_11_2) /self.det_df_11
+        mat_f_21_c = mat_f_2 * ( self.b2_eq_12_3) /self.det_df_12
+        mat_f_22_c = mat_f_2 * 0                  /self.det_df_12
+        mat_f_23_c = mat_f_2 * (-self.b2_eq_12_1) /self.det_df_12
+        mat_f_31_c = mat_f_3 * (-self.b2_eq_13_2) /self.det_df_13
+        mat_f_32_c = mat_f_3 * ( self.b2_eq_13_1) /self.det_df_13
+        mat_f_33_c = mat_f_3 * 0                  /self.det_df_13
+
+        res_11 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_11_c) #0
+        res_12 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_22_c) #0
+        res_23 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts1_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_33_c) #0
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33      
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def P2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix P2 with x
+        P2    = pi_2[G_inv * j_eq * lambda^2]     R{N^2 * N^2}
+        G_inv = (DF)^(-1)*DF^(-T)
+        j_eq  = (    0  , -j_eq_z,  j_eq_y)
+                ( j_eq_z,     0  , -j_eq_x)
+                (-j_eq_y,  j_eq_x,     0  )
+
+        P2 dot x = I_1( R_1 ( F_P2(x)))
+
+        F_P2[ijk, mno] = G_inv(pts_ijk) * j_eq(pts_ijk) lambda^2_mno(pts_ijk)
+
+        # Spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (N, D, D) * (G_inv_12 * j_eq_z - G_inv_13 * j_eq_y),
+                               (D, N, D) * (G_inv_13 * j_eq_x - G_inv_11 * j_eq_z),
+                               (D, D, N) * (G_inv_11 * j_eq_y - G_inv_12 * j_eq_x)
+        xi2: [his, int, his] : (N, D, D) * (G_inv_22 * j_eq_z - G_inv_23 * j_eq_y),
+                               (D, N, D) * (G_inv_23 * j_eq_x - G_inv_21 * j_eq_z),
+                               (D, D, N) * (G_inv_21 * j_eq_y - G_inv_22 * j_eq_x)
+        xi3: [his, his, int] : (N, D, D) * (G_inv_32 * j_eq_z - G_inv_33 * j_eq_y),
+                               (D, N, D) * (G_inv_33 * j_eq_x - G_inv_31 * j_eq_z),  
+                               (D, D, N) * (G_inv_31 * j_eq_y - G_inv_32 * j_eq_x)
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts0_D_1, self.pts1_D_2, self.pts1_N_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts1_D_1, self.pts0_D_2, self.pts1_N_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts1_N_1, self.pts1_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts1_D_1, self.pts1_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts1_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * (self.g_inv_21_12 * self.j2_eq_21_3 - self.g_inv_21_13 * self.j2_eq_21_2)        
+        mat_f_12_c = mat_f_12 * (self.g_inv_21_13 * self.j2_eq_21_1 - self.g_inv_21_11 * self.j2_eq_21_3) 
+        mat_f_13_c = mat_f_13 * (self.g_inv_21_11 * self.j2_eq_21_2 - self.g_inv_21_12 * self.j2_eq_21_1) 
+        mat_f_21_c = mat_f_21 * (self.g_inv_22_22 * self.j2_eq_22_3 - self.g_inv_22_23 * self.j2_eq_22_2) 
+        mat_f_22_c = mat_f_22 * (self.g_inv_22_23 * self.j2_eq_22_1 - self.g_inv_22_21 * self.j2_eq_22_3) 
+        mat_f_23_c = mat_f_23 * (self.g_inv_22_21 * self.j2_eq_22_2 - self.g_inv_22_22 * self.j2_eq_22_1) 
+        mat_f_31_c = mat_f_31 * (self.g_inv_23_32 * self.j2_eq_23_3 - self.g_inv_23_33 * self.j2_eq_23_2) 
+        mat_f_32_c = mat_f_32 * (self.g_inv_23_33 * self.j2_eq_23_1 - self.g_inv_23_31 * self.j2_eq_23_3) 
+        mat_f_33_c = mat_f_33 * (self.g_inv_23_31 * self.j2_eq_23_2 - self.g_inv_23_32 * self.j2_eq_23_1) 
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_P2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix P2 with x
+        P2    = pi_2[G_inv * j_eq * lambda^2]     R{N^2 * N^2}
+        G_inv = (DF)^(-1)*DF^(-T)
+        j_eq  = (    0  , -j_eq_z,  j_eq_y)
+                ( j_eq_z,     0  , -j_eq_x)
+                (-j_eq_y,  j_eq_x,     0  )
+
+        P2.T dot x = F_P2.T( R_2.T ( I_2.T (x)))
+
+        F_P2[ijk, mno] = G_inv(pts_ijk) * j_eq(pts_ijk) lambda^2_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+
+        mat_f_11_c = mat_f_1 * (self.g_inv_21_12 * self.j2_eq_21_3 - self.g_inv_21_13 * self.j2_eq_21_2)        
+        mat_f_12_c = mat_f_1 * (self.g_inv_21_13 * self.j2_eq_21_1 - self.g_inv_21_11 * self.j2_eq_21_3) 
+        mat_f_13_c = mat_f_1 * (self.g_inv_21_11 * self.j2_eq_21_2 - self.g_inv_21_12 * self.j2_eq_21_1) 
+        mat_f_21_c = mat_f_2 * (self.g_inv_22_22 * self.j2_eq_22_3 - self.g_inv_22_23 * self.j2_eq_22_2) 
+        mat_f_22_c = mat_f_2 * (self.g_inv_22_23 * self.j2_eq_22_1 - self.g_inv_22_21 * self.j2_eq_22_3) 
+        mat_f_23_c = mat_f_2 * (self.g_inv_22_21 * self.j2_eq_22_2 - self.g_inv_22_22 * self.j2_eq_22_1) 
+        mat_f_31_c = mat_f_3 * (self.g_inv_23_32 * self.j2_eq_23_3 - self.g_inv_23_33 * self.j2_eq_23_2) 
+        mat_f_32_c = mat_f_3 * (self.g_inv_23_33 * self.j2_eq_23_1 - self.g_inv_23_31 * self.j2_eq_23_3) 
+        mat_f_33_c = mat_f_3 * (self.g_inv_23_31 * self.j2_eq_23_2 - self.g_inv_23_32 * self.j2_eq_23_1) 
+
+        res_11 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_D_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts1_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_D_2.T, self.pts1_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts1_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts1_N_1.T, self.pts1_D_2.T, self.pts0_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33   
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def S2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S2 with x
+        S2 = pi_2[p_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
+
+        S2 dot x = I_1( R_1 ( F_S2(x)))
+        F_S2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+
+        # Spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
+                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (N, D, D) * p_eq / g_sqrt, 0, 0
+        xi2: [his, int, his] : 0, (D, N, D) * p_eq / g_sqrt, 0
+        xi3: [his, his, int] : 0, 0, (D, D, N) * p_eq / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]) 
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_1 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts1_D_3], x_loc[0])
+
+        # xi2
+        mat_f_2 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+
+        # xi3
+        mat_f_3 = kron_matvec_3d([self.pts1_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        mat_f_1_c = mat_f_1 * self.p3_eq_21 / self.det_df_21
+        mat_f_2_c = mat_f_2 * self.p3_eq_22 / self.det_df_22
+        mat_f_3_c = mat_f_3 * self.p3_eq_23 / self.det_df_23
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        res_1 = self.proj.PI_mat('21', DOF_1)
+
+        # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_2 = self.proj.PI_mat('22', DOF_2)
+
+        # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('23', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_S2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S2 with x
+        S2 = pi_2[p_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
+
+        S2 dot x = I_1( R_1 ( F_S2(x)))
+        F_S2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        #assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-histo(xi2)-histo(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.D_2.T, self.D_3.T], x_loc[0])
+
+        # xi2 : transpose of histo(xi1)-inter(xi2)-histo(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.D_1.T, self.N_2.T, self.D_3.T], x_loc[1])
+
+        # xi3 : transpose of histo(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.D_1.T, self.D_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)  
+
+        mat_f_1_c = mat_f_1 * self.p3_eq_21 / self.det_df_21
+        mat_f_2_c = mat_f_2 * self.p3_eq_22 / self.det_df_22
+        mat_f_3_c = mat_f_3 * self.p3_eq_23 / self.det_df_23
+
+        res_1 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts1_D_3.T], mat_f_1_c)
+        res_2 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_2_c)
+        res_3 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_3_c)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+    
+    # ====================================================================
+    def K2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix K2 with x
+        K2 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
+
+        K2 dot x = I_3( R_3 ( F_K2(x)))
+        
+        F_K2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^3          : {D, D, D} 
+        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+        Parameters
+        ----------
+        x : np.array    R{N^3}
+
+        Returns
+        ----------
+        res : 3d array  R{N^3}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_3form
+        x_loc = self.tensor_spl.extract_3form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        mat_f = kron_matvec_3d([self.pts1_D_1, self.pts1_D_2, self.pts1_D_3], x_loc)
+
+        # Point-wise multiplication of mat_f and peq
+        mat_f_c = mat_f * self.p3_eq_3 / self.det_df_3
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
+        DOF = self.proj.dofs('3', mat_f_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # histo(xi1)-histo(xi2)-histo(xi3)-polation.
+        res = self.proj.PI_mat('3', DOF)
+
+        return res.flatten()
+
+
+    # ====================================================================
+    def transpose_K2_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix K2 with x
+        K2 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
+        
+        K2.T dot x = F_K2.T( R_3.T ( I_3.T(x)))
+
+        F_K2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array    R{N^3}
+
+        Returns
+        ----------
+        res : 3d array  R{N^3}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_3form
+        x_loc = self.tensor_spl.extract_3form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # step1 : I.T(x)
+        mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
+
+        #step2 : R.T( I.T(x) )
+        mat_f = self.proj.dofs_T('3', mat_dofs)
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_c = self.p3_eq_3 * mat_f / self.det_df_3
+
+        res = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts1_D_3.T], mat_f_c)
+
+        return res.flatten()
+
+
+# ====================================================================
+    def X2_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix X2 with x
+        X2 = pi_0[DF / g_sqrt *  lambda^2]     R{N^0 * 3 * N^2}
+
+        X2 dot x = I_0( R_0 ( F_X2(x)))
+
+        F_X2[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^1          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaulation points : {greville[0], greville[1], greville[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, int, int] : (N, D, D) * df_11 / g_sqrt, 
+                               (D, N, D) * df_21 / g_sqrt, 
+                               (D, D, N) * df_31 / g_sqrt
+        xi2: [int, int, int] : (N, D, D) * df_12 / g_sqrt, 
+                               (D, N, D) * df_22 / g_sqrt, 
+                               (D, D, N) * df_23 / g_sqrt
+        xi3: [int, int, int] : (N, D, D) * df_13 / g_sqrt, 
+                               (D, N, D) * df_23 / g_sqrt, 
+                               (D, D, N) * df_33 / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^0 * 3}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_1 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_2 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_3 = kron_matvec_3d([self.pts0_D_1, self.pts0_D_2, self.pts0_N_3], x_loc[2])
+
+        mat_f_11_c = mat_f_1 * self.df_0_11 / self.det_df_0
+        mat_f_12_c = mat_f_2 * self.df_0_12 / self.det_df_0
+        mat_f_13_c = mat_f_3 * self.df_0_13 / self.det_df_0
+        mat_f_21_c = mat_f_1 * self.df_0_21 / self.det_df_0
+        mat_f_22_c = mat_f_2 * self.df_0_22 / self.det_df_0
+        mat_f_23_c = mat_f_3 * self.df_0_23 / self.det_df_0
+        mat_f_31_c = mat_f_1 * self.df_0_31 / self.det_df_0
+        mat_f_32_c = mat_f_2 * self.df_0_32 / self.det_df_0
+        mat_f_33_c = mat_f_3 * self.df_0_33 / self.det_df_0
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        DOF_1 = self.proj.dofs('0', mat_f_1_c)
+        DOF_2 = self.proj.dofs('0', mat_f_2_c)
+        DOF_3 = self.proj.dofs('0', mat_f_3_c)
+
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('0', DOF_1)
+
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('0', DOF_2)
+
+        # inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_3 = self.proj.PI_mat('0', DOF_3)
+
+        return [res_1.flatten(), res_2.flatten(), res_3.flatten()]
+
+
+    # ====================================================================
+    def transpose_X2_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix X2 with x
+        X2 = pi_0[DF / g_sqrt *  lambda^2]     R{N^0 * 3 * N^2}
+
+        transpose X2 dot x = F_X2.T( R_0.T ( I_0.T(x)))
+    
+        F_X2[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+
+        Parameters
+        ----------
+    	x : np.array    R{N^0 * 3}
+
+        Returns
+        ----------
+        res : np.array  R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^0 * 3}
+        #assert len(x) == self.tensor_spl.Ntot_0form * 3
+        # x_loc_1 = self.tensor_spl.extract_0form(np.split(x,3)[0])
+        # x_loc_2 = self.tensor_spl.extract_0form(np.split(x,3)[1])
+        # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
+        # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
+
+        x_loc_1 = self.tensor_spl.extract_0form(x[0])
+        x_loc_2 = self.tensor_spl.extract_0form(x[1])
+        x_loc_3 = self.tensor_spl.extract_0form(x[2])
+        x_loc = list((x_loc_1, x_loc_2, x_loc_3))
+
+        assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])    
+ 
+        # step1 : I.T(x)
+        # xi1 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polati on.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc[2])
+
+
+        #step2 : R.T( I.T(x) )
+        mat_f_1 = self.proj.dofs_T('0', mat_dofs_1)
+        mat_f_2 = self.proj.dofs_T('0', mat_dofs_2)
+        mat_f_3 = self.proj.dofs_T('0', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.df_0_11 / self.det_df_0
+        mat_f_12_c = mat_f_1 * self.df_0_12 / self.det_df_0
+        mat_f_13_c = mat_f_1 * self.df_0_13 / self.det_df_0
+        mat_f_21_c = mat_f_2 * self.df_0_21 / self.det_df_0
+        mat_f_22_c = mat_f_2 * self.df_0_22 / self.det_df_0
+        mat_f_23_c = mat_f_2 * self.df_0_23 / self.det_df_0
+        mat_f_31_c = mat_f_3 * self.df_0_31 / self.det_df_0
+        mat_f_32_c = mat_f_3 * self.df_0_32 / self.det_df_0
+        mat_f_33_c = mat_f_3 * self.df_0_33 / self.det_df_0
+
+        res_11 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_11_c)
+        res_12 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_22_c)
+        res_23 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_33_c)
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33 
+        
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+    
+
+    # ====================================================================
+    def Z20_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Z20 with x
+        Z20     = pi_1[G / g_sqrt * lambda^2]           R{N^1 * N^2}
+        G = DF*DF^T
+
+        Z20 dot x = I_1( R_1 ( F_Z20(x)))
+
+        F_Z20[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], greville[2]}
+                            xi2 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [his, int, int] : (N, D, D) * G_11 / g_sqrt, 
+                               (D, N, D) * G_12 / g_sqrt, 
+                               (D, D, N) * G_13 / g_sqrt
+        xi2: [int, his, int] : (N, D, D) * G_21 / g_sqrt, 
+                               (D, N, D) * G_22 / g_sqrt, 
+                               (D, D, N) * G_23 / g_sqrt
+        xi3: [int, int, his] : (N, D, D) * G_31 / g_sqrt, 
+                               (D, N, D) * G_32 / g_sqrt, 
+                               (D, D, N) * G_33 / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts1_D_1, self.pts0_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts0_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts0_D_1, self.pts0_D_2, self.pts1_N_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * self.g_11_11 / self.det_df_11
+        mat_f_12_c = mat_f_12 * self.g_11_12 / self.det_df_11 #0 
+        mat_f_13_c = mat_f_13 * self.g_11_13 / self.det_df_11 #0
+        mat_f_21_c = mat_f_21 * self.g_12_21 / self.det_df_12 #0
+        mat_f_22_c = mat_f_22 * self.g_12_22 / self.det_df_12
+        mat_f_23_c = mat_f_23 * self.g_12_23 / self.det_df_12 #0
+        mat_f_31_c = mat_f_31 * self.g_13_31 / self.det_df_13 #0
+        mat_f_32_c = mat_f_32 * self.g_13_32 / self.det_df_13 #0
+        mat_f_33_c = mat_f_33 * self.g_13_33 / self.det_df_13
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_Z20_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix Z20 with x
+        Z20     = pi_1[G / g_sqrt * lambda^2]           R{N^1 * N^2}
+        G = DF*DF^T
+
+        Z20.T dot x = F_Z20.T( R_1.T ( I_1.T(x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]) 
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc[2])
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.g_11_11 / self.det_df_11
+        mat_f_12_c = mat_f_1 * self.g_11_12 / self.det_df_11
+        mat_f_13_c = mat_f_1 * self.g_11_13 / self.det_df_11
+        mat_f_21_c = mat_f_2 * self.g_12_21 / self.det_df_12
+        mat_f_22_c = mat_f_2 * self.g_12_22 / self.det_df_12
+        mat_f_23_c = mat_f_2 * self.g_12_23 / self.det_df_12
+        mat_f_31_c = mat_f_3 * self.g_13_31 / self.det_df_13
+        mat_f_32_c = mat_f_3 * self.g_13_32 / self.det_df_13
+        mat_f_33_c = mat_f_3 * self.g_13_33 / self.det_df_13
+
+        res_11 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_11_c) #0
+        res_12 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_22_c) #0
+        res_23 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts1_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_33_c) #0
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def Y20_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix Y20 with x
+        Y20 = pi_3[g_sqrt * lambda^0]     R{N^3 * N^0}
+
+        Y20 dot x = I_3( R_3 ( F_Y20(x))
+        
+        Y20[ijk,mno] = g_sqrt(pts_ijk) * lambda^0_mno(pts_ijk)
+
+        # spline evaluation
+        lambda^3          : {N, N, N} 
+        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+        Parameters
+        ----------
+        x : np.array    R{N^0}
+
+        Returns
+        ----------
+        res : 3d array  R{N^3}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_0form
+        x_loc = self.tensor_spl.extract_0form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        mat_f = kron_matvec_3d([self.pts1_N_1, self.pts1_N_2, self.pts1_N_3], x_loc)
+
+        # Point-wise multiplication of mat_f and peq
+        mat_f_c = mat_f * self.det_df_3
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
+        DOF = self.proj.dofs('3', mat_f_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # histo(xi1)-histo(xi2)-histo(xi3)-polation.
+        res = self.proj.PI_mat('3', DOF)
+
+        return res.flatten()
+
+
+    # ====================================================================
+    def transpose_Y20_dot(self, x):
+        '''
+        Calculate the dot product of transpose of projection matrix Y20 with x
+        Y20 = pi_3[g_sqrt * lambda^0]     R{N^3 * N^0}
+
+        Y20.T dot x = I_3.T( R_3.T ( F_Y20.T(x))
+
+        F_Y20[ijk,mno] = g_sqrt(pts_ijk) * lambda^0_mno(pts_ijk)
+
+        Parameters
+        ----------
+        x : np.array    R{N^3}
+
+        Returns
+        ----------
+        res : 3d array  R{N^0}
+        '''
+
+        # x dim check
+        #assert len(x) == self.tensor_spl.Ntot_3form
+        x_loc = self.tensor_spl.extract_3form(x)
+
+        #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
+
+        # step1 : I.T(x)
+        mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
+
+        #step2 : R.T( I.T(x) )
+        mat_f = self.proj.dofs_T('3', mat_dofs)
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_c = mat_f * self.det_df_3
+
+        res = kron_matvec_3d([self.pts1_N_1.T, self.pts1_N_2.T, self.pts1_N_3.T], mat_f_c)
+
+        return res.flatten()
+
+    
+    # ====================================================================
+    def S20_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S20 with x
+        S20     = pi_1[p_eq * G / g_sqrt lambda^2]           R{N^1 * N^2}
+        G = DF*DF^T
+
+        S20 dot x = I_1( R_1 ( F_S20(x)))
+
+        F_S20[ijk, mno] = p_eq(pts_ijk) * G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)   
+
+        # spline evaluation
+        lambda^2          : xi1 : {N, D, D}
+                            xi2 : {D, N, D}
+                            xi3 : {D, D, N} 
+        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
+                            xi2 : {greville[0], quad_pts[1], greville[2]}
+                            xi2 : {greville[0], greville[1], quad_pts[2]}
+
+        # The following blocks need to be computed:
+        xi1: [int, his, his] : (N, D, D) * G_11 * p_eq / g_sqrt, 
+                               (D, N, D) * G_12 * p_eq / g_sqrt, 
+                               (D, D, N) * G_13 * p_eq / g_sqrt
+        xi2: [his, int, his] : (N, D, D) * G_21 * p_eq / g_sqrt, 
+                               (D, N, D) * G_22 * p_eq / g_sqrt, 
+                               (D, D, N) * G_23 * p_eq / g_sqrt
+        xi3: [his, his, int] : (N, D, D) * G_31 * p_eq / g_sqrt, 
+                               (D, N, D) * G_32 * p_eq / g_sqrt, 
+                               (D, D, N) * G_33 * p_eq / g_sqrt
+
+        Parameters
+        ----------
+        x : np.array   R{N^2}
+
+        Returns
+        ----------
+        res : np.array R{N^1}
+        '''
+
+        # x dim check
+        # x should be R{N^2}
+        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_2form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
+        assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
+        assert x_loc[2].shape ==  (self.NbaseD[0], self.NbaseD[1], self.NbaseN[2])
+
+        # ========== Step 1 : F(x) ========== #
+        # Splline evaulation at the projection points then dot product with the x.
+        # xi1
+        mat_f_11 = kron_matvec_3d([self.pts1_N_1, self.pts0_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_12 = kron_matvec_3d([self.pts1_D_1, self.pts0_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_13 = kron_matvec_3d([self.pts1_D_1, self.pts0_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi2
+        mat_f_21 = kron_matvec_3d([self.pts0_N_1, self.pts1_D_2, self.pts0_D_3], x_loc[0])
+        mat_f_22 = kron_matvec_3d([self.pts0_D_1, self.pts1_N_2, self.pts0_D_3], x_loc[1])
+        mat_f_23 = kron_matvec_3d([self.pts0_D_1, self.pts1_D_2, self.pts0_N_3], x_loc[2])
+
+        # xi3
+        mat_f_31 = kron_matvec_3d([self.pts0_N_1, self.pts0_D_2, self.pts1_D_3], x_loc[0])
+        mat_f_32 = kron_matvec_3d([self.pts0_D_1, self.pts0_N_2, self.pts1_D_3], x_loc[1])
+        mat_f_33 = kron_matvec_3d([self.pts0_D_1, self.pts0_D_2, self.pts1_N_3], x_loc[2])
+
+        mat_f_11_c = mat_f_11 * self.p0_eq_11 * self.g_11_11 / self.det_df_11
+        mat_f_12_c = mat_f_12 * self.p0_eq_11 * self.g_11_12 / self.det_df_11
+        mat_f_13_c = mat_f_13 * self.p0_eq_11 * self.g_11_13 / self.det_df_11
+        mat_f_21_c = mat_f_21 * self.p0_eq_12 * self.g_12_21 / self.det_df_12
+        mat_f_22_c = mat_f_22 * self.p0_eq_12 * self.g_12_22 / self.det_df_12
+        mat_f_23_c = mat_f_23 * self.p0_eq_12 * self.g_12_23 / self.det_df_12
+        mat_f_31_c = mat_f_31 * self.p0_eq_13 * self.g_13_31 / self.det_df_13
+        mat_f_32_c = mat_f_32 * self.p0_eq_13 * self.g_13_32 / self.det_df_13
+        mat_f_33_c = mat_f_33 * self.p0_eq_13 * self.g_13_33 / self.det_df_13
+
+        mat_f_1_c = mat_f_11_c + mat_f_12_c + mat_f_13_c
+        mat_f_2_c = mat_f_21_c + mat_f_22_c + mat_f_23_c
+        mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
+
+        # ========== Step 2 : R( F(x) ) ==========#
+        # integration over quadrature points
+        # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
+        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+
+        # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
+        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+
+        # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
+        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+
+        # ========== Step 3 : I( R( F(x) ) ) ==========#
+        # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        res_1 = self.proj.PI_mat('11', DOF_1)
+
+        # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        res_2 = self.proj.PI_mat('12', DOF_2)
+
+        # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        res_3 = self.proj.PI_mat('13', DOF_3)
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+
+
+    # ====================================================================
+    def transpose_S20_dot(self, x):
+        '''
+        Calculate the dot product of projection matrix S20 with x
+        S20     = pi_1[p_eq * G / g_sqrt lambda^2]           R{N^1 * N^2}
+        G = DF*DF^T
+
+        S20.T dot x = F_S20.T( R_1.T ( I_1.T(x)))
+
+        Parameters
+        ----------
+        x : np.array   R{N^1}
+
+        Returns
+        ----------
+        res : np.array R{N^2}
+        '''
+
+        # x dim check
+        # x should be R{N^1}
+        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
+        x_loc = list(self.tensor_spl.extract_1form(x))
+
+        assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
+        assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
+        assert x_loc[2].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]) 
+
+        # step1 : I.T(x)
+        # xi1 : transpose of histo(xi1)-inter(xi2)-inter(xi3)-polation.
+        mat_dofs_1 = kron_solve_3d([self.D_1.T, self.N_2.T, self.N_3.T], x_loc[0])
+
+        # xi2 : transpose of inter(xi1)-histo(xi2)-inter(xi3)-polation.
+        mat_dofs_2 = kron_solve_3d([self.N_1.T, self.D_2.T, self.N_3.T], x_loc[1])
+
+        # xi3 : transpose of inter(xi1)-inter(xi2)-histo(xi3)-polation.
+        mat_dofs_3 = kron_solve_3d([self.N_1.T, self.N_2.T, self.D_3.T], x_loc[2])
+
+        #step2 : R.T( I.T(x) )
+        # transpose of integration over quadrature points
+        # xi1
+        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+
+        # xi2
+        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+
+        # xi3
+        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+
+        #step3 : F.T( R.T( I.T(x) ) )
+        mat_f_11_c = mat_f_1 * self.p0_eq_11 * self.g_11_11 / self.det_df_11
+        mat_f_12_c = mat_f_1 * self.p0_eq_11 * self.g_11_12 / self.det_df_11
+        mat_f_13_c = mat_f_1 * self.p0_eq_11 * self.g_11_13 / self.det_df_11
+        mat_f_21_c = mat_f_2 * self.p0_eq_12 * self.g_12_21 / self.det_df_12
+        mat_f_22_c = mat_f_2 * self.p0_eq_12 * self.g_12_22 / self.det_df_12
+        mat_f_23_c = mat_f_2 * self.p0_eq_12 * self.g_12_23 / self.det_df_12
+        mat_f_31_c = mat_f_3 * self.p0_eq_13 * self.g_13_31 / self.det_df_13
+        mat_f_32_c = mat_f_3 * self.p0_eq_13 * self.g_13_32 / self.det_df_13
+        mat_f_33_c = mat_f_3 * self.p0_eq_13 * self.g_13_33 / self.det_df_13
+
+        res_11 = kron_matvec_3d([self.pts1_N_1.T, self.pts0_D_2.T, self.pts0_D_3.T], mat_f_11_c) #0
+        res_12 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts0_D_3.T], mat_f_12_c)
+        res_13 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_D_2.T, self.pts0_N_3.T], mat_f_13_c)
+
+        res_21 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_D_3.T], mat_f_21_c)
+        res_22 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_N_2.T, self.pts0_D_3.T], mat_f_22_c) #0
+        res_23 = kron_matvec_3d([self.pts0_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_23_c)
+
+        res_31 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_D_2.T, self.pts1_D_3.T], mat_f_31_c)
+        res_32 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_32_c)
+        res_33 = kron_matvec_3d([self.pts0_D_1.T, self.pts0_D_2.T, self.pts1_N_3.T], mat_f_33_c) #0
+
+        res_1 = res_11 + res_21 + res_31
+        res_2 = res_12 + res_22 + res_32
+        res_3 = res_13 + res_23 + res_33
+
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))

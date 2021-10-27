@@ -138,17 +138,17 @@ def pull_vector(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
 # ==============================================================================
 @types('double[:]','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def pull_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
-    
+
     value = 0.
-    
+
     # 0-form
     if   kind_fun == 0:
         value = pull_0_form(a[0], eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    
+
     # 3-form
     elif kind_fun == 3:
         value = pull_3_form(a[0], eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        
+
     # 1-form
     elif kind_fun == 11:
         value = pull_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
@@ -156,7 +156,7 @@ def pull_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3,
         value = pull_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 13:
         value = pull_1_form(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    
+
     # 2-form
     elif kind_fun == 21:
         value = pull_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
@@ -164,7 +164,7 @@ def pull_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3,
         value = pull_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 23:
         value = pull_2_form(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    
+
     # vector
     elif kind_fun == 31:
         value = pull_vector(a[0], a[1], a[2], eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
@@ -172,19 +172,33 @@ def pull_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3,
         value = pull_vector(a[0], a[1], a[2], eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 33:
         value = pull_vector(a[0], a[1], a[2], eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        
+
     return value
 
 
 # ==============================================================================
 @types('double[:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def kernel_evaluate(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
-    
+
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
                 values[i1, i2, i3] = pull_all(a[:, i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+
+# ==============================================================================
+@types('double[:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
+def kernel_evaluate_sparse(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+
+    n1 = shape(eta1)[0]
+    n2 = shape(eta2)[1]
+    n3 = shape(eta3)[2]
+
+    for i1 in range(n1):
+        for i2 in range(n2):
+            for i3 in range(n3):
+                values[i1, i2, i3] = pull_all(a[:, i1, i2, i3], eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)

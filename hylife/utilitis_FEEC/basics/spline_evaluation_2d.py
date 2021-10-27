@@ -24,7 +24,7 @@ import hylife.utilitis_FEEC.bsplines_kernels as bsp
 
 # =============================================================================
 @types('int','int','double[:]','double[:]','int','int','int','int','double[:,:]')
-def evaluation_kernel(p1, p2, basis1, basis2, span1, span2, nbase1, nbase2, coeff):
+def evaluation_kernel_2d(p1, p2, basis1, basis2, span1, span2, nbase1, nbase2, coeff):
     '''Summing non-zero contributions.
 
     Parameters:
@@ -90,7 +90,7 @@ def evaluate_n_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
     bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
+    value = evaluation_kernel_2d(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
 
     return value
 
@@ -132,7 +132,7 @@ def evaluate_diffn_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
     bsp.basis_funs(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
+    value = evaluation_kernel_2d(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
 
     return value
 
@@ -174,7 +174,7 @@ def evaluate_n_diffn(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
     bsp.basis_funs_1st_der(tn2, pn2, eta2, span_n2, bl2, br2, bn2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
+    value = evaluation_kernel_2d(pn1, pn2, bn1, bn2, span_n1, span_n2, nbase_n1, nbase_n2, coeff)
 
     return value
 
@@ -218,7 +218,7 @@ def evaluate_d_n(td1, tn2, pd1, pn2, nbase_d1, nbase_n2, coeff, eta1, eta2):
     bsp.scaling(td1, pd1, span_d1, bd1)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pn2, bd1, bn2, span_d1, span_n2, nbase_d1, nbase_n2, coeff)
+    value = evaluation_kernel_2d(pd1, pn2, bd1, bn2, span_d1, span_n2, nbase_d1, nbase_n2, coeff)
 
     return value
 
@@ -262,7 +262,7 @@ def evaluate_n_d(tn1, td2, pn1, pd2, nbase_n1, nbase_d2, coeff, eta1, eta2):
     bsp.scaling(td2, pd2, span_d2, bd2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pd2, bn1, bd2, span_n1, span_d2, nbase_n1, nbase_d2, coeff)
+    value = evaluation_kernel_2d(pn1, pd2, bn1, bd2, span_n1, span_d2, nbase_n1, nbase_d2, coeff)
 
     return value
 
@@ -306,7 +306,7 @@ def evaluate_d_d(td1, td2, pd1, pd2, nbase_d1, nbase_d2, coeff, eta1, eta2):
     bsp.scaling(td2, pd2, span_d2, bd2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pd2, bd1, bd2, span_d1, span_d2, nbase_d1, nbase_d2, coeff)
+    value = evaluation_kernel_2d(pd1, pd2, bd1, bd2, span_d1, span_d2, nbase_d1, nbase_d2, coeff)
 
     return value
 
