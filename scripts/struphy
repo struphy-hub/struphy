@@ -1,0 +1,113 @@
+#!/bin/bash
+
+# defaults:
+code=cc_lin_mhd_6d 
+file=parameters.yml 
+out=sim_1 
+batch=
+mode=False # restart for h5py files: True or False
+num_threads=1 # number of openmp threads (pyccel, not needed for numba)
+
+path_lib=$(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
+path_out=${path_lib}io/out/$out/
+path_batch=${path_lib}io/batch/
+path_code=${path_lib}models/codes/
+
+file_inp=${path_lib}io/inp/$code/$file
+file_meta=${path_out}sim_meta_data.txt
+
+mkdir -p ${path_out} # create output folder
+
+while getopts ":hpstcr:i:o:b:m:n:" opt; do
+    case "${opt}" in
+        h)
+            echo Script name: $0
+            echo "Options:"
+            echo "   -h                 Display help."
+            echo "   -p                 Display paths to input/output/batch files."
+            echo "   -s                 Display platform information."
+            echo "   -t                 Display struphy tree (package directories)."
+            echo "   -c                 Compile struphy kernels (pyccel)."
+            echo "   -r <code>          Specify code to run. Available codes are:"
+            echo "                                * cc_lin_mhd_6d (default, current coupling MHD-full Vlasov)"
+            echo "                                * pc_lin_mhd_6d (pressure coupling MHD-full Vlasov)"
+            echo "                                * massless_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
+            echo "   -i <filename>      Parameter file (.yml), default is 'parameters.yml'."
+            echo "   -o <filename>      Output folder, default is 'sim_1'."    
+            echo "   -b <filename>      Batch script, default is 'None'."
+            echo "   -m <a|w>           Restart (a) or clean start (w), default is w."
+            echo "   -n <number>        Number of omp threads, default is 1."
+            exit 0
+            ;;
+        p)
+            echo "Your parameter file (.yml) is" $file_inp
+            echo "Your output files (.hdf5, .txt) are in" $path_out
+            echo "Your batch script are in" $path_batch
+            exit 0
+            ;;
+        s)  
+            echo $(python -c 'import sysconfig; print(sysconfig.get_platform())')
+            echo $(python --version)
+            exit 0
+            ;;
+        t)
+            echo "The struphy package is in" $path_lib
+            echo "Package content:"
+            echo
+            python ${path_lib}struphy_tree.py
+            exit 0
+            ;;
+        c)
+            echo "Start compiling struphy..."
+            make -f ${path_lib}compile_struphy.mk
+            echo "Compilation of struphy done, .so kernels available."
+            exit 0
+            ;;
+        r)
+            code=${OPTARG}
+            ;;
+        i)
+            inp=${OPTARG}
+            ;;
+        o)
+            out=${OPTARG}
+            ;;
+        b)
+            batch=${OPTARG}
+            ;;
+        m)
+            file_mode=${OPTARG}
+            ;;
+        n)
+            num_threads=${OPTARG}
+            ;;
+        \? ) 
+            echo "Invalid Option: -$OPTARG" 1>&2
+            exit 1
+    esac
+done
+shift $((OPTIND-1))
+
+echo ""
+echo "Starting struphy ..."
+echo "code:" $code
+echo "batch script:" $batch
+echo "omp threads:" $num_threads
+
+if [ -z $batch ]; then
+    
+    export OMP_NUM_THREADS=$num_threads
+    python3 -m cProfile -o ${path_out}profile_tmp -s time ${path_code}exec.py $code $file_inp $path_out None $file_meta $mode
+
+else
+
+    chmod +x ${path_batch}$batch
+    ${path_batch}$batch
+
+fi
+
+
+
+
+
+

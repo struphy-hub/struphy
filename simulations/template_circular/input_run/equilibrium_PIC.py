@@ -1,6 +1,11 @@
 import numpy as np
 import scipy.special as sp
 
+<<<<<<< HEAD
+=======
+import struphy.geometry.mappings_3d as mapping
+import struphy.geometry.pullback_3d as pull
+>>>>>>> Renamed hylife -> struphy, utilitis_FEEC -> feec, utilitis_PIC -> pic
 
 class equilibrium_pic:
     

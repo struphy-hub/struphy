@@ -1,0 +1,172 @@
+mhd_equilibrium :
+      type          : slab # type of MHD equilibrium (slab, analytic_circular, eqdesk, gvec, vmec)
+      particle_mass : 1. # in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.
+      rho0          : 1. # equilibirum mass density (in units of)
+      beta_s        : 200. # inverse plasma beta B0^2/(2*mu0*p0)
+      params_slab :
+            B0x    : 1. # magnetic field in Tesla
+            B0y    : 0.
+            B0z    : 0.
+      params_circular :
+            a  : 1. # minor radius
+            R0 : 10. # major radius
+            B0 : 1. # on-axis toroidal magnetic field in Tesla
+            q0    : 1.1 # safety factor at s=0
+            q1    : 1.85 # safety factor at s=1
+            q_add : 0 # additive constant
+            rl    : 1. #
+            shafranov : 0 # Shafranov shift?
+            current profile :
+                  bmp0 : 0.
+                  cg0  : 0.2
+                  wg0  : 0.3
+                  bmp1 : 0.
+                  cg1  : 0.2
+                  wg1  : 0.3
+                  bmp2 : 0.
+                  cg2  : 0.2
+                  wg2  : 0.3
+            density profile :
+                  r1    : 4.
+                  r2    : 3.
+                  rho_a : 0.
+            pressure profile :
+                  beta : 0.2
+                  p1   : 0.95
+                  p2   : 0.05
+
+hot_equilibrium :
+      type   : Maxwell_xyz # type of kinetic equilibrium
+      vth : 1. # thermal velocity (in units of v_A)
+      nuh : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
+      particle_charge : 1. # in units of elementary charge
+      particle_mass   : 1. # in units of proton mass
+      alpha : 1. # coupling parameter alpha = Omega_{cp0}*L0/v_{A0} with L0 = 1 m
+      params_Maxwell_xyz :
+            shift_x : 0.
+            shift_y : 0.
+            shift_z : 0.
+
+mhd_init   : 
+      type : unperturbed # initialization of MHD variables (unperturbed, eigfun)
+      params_eigfun :
+            n_tor    : -1 # toroidal mode number
+            profiles : False # project equilibrium profiles
+            eig_kind : 11 # real (11) or imag (12) part
+            eig_freq : 0. # squared eigenfreq.
+
+hot_init   : 
+      type : noise # initialization of particles (noise, modes_k, modes_mn)
+      params_noise :
+            plane : yz # plane of noise (xy, xz, yz)
+      params_modes_k :
+            kx : [.8]
+            ky : [0.]
+            kz : [0.] 
+      params_modes_mn :
+            modes_m : [1]
+            modes_n : [1] 
+
+geometry : 
+      type   : cuboid # geometry (see mappings_3d.py for choices -> kind_map)
+      polar  : False # use polar splines
+      params_cuboid :
+            Lx     : 7.853981634
+            Ly     : 1.
+            Lz     : 1.
+      params_hollow_cyl :
+            a1     : .1 # inner radius
+            a2     : 1. # outer radius
+            Lz     : 1.
+      params_colella :
+            Lx     : 1.
+            Ly     : 1.
+            alpha  : .1 # xy-distortion
+            Lz     : 1.
+      params_ortho :
+            Lx     : 1.
+            Ly     : 1.
+            alpha  : .1 # x-distortion
+            Lz     : 1.
+      params_hollow_torus :
+            a1     : .1 # inner radius
+            a2     : 1. # minor radius
+            R0     : 1. # major radius
+      params_slice :
+            b1     : .4 # start of slice in eta1, 0. <= b1 < 1.
+            e1     : .6 # end of slice in eta1, b1 < e1 <= 1.
+            b2     : .4
+            e2     : .6
+            b3     : .4
+            e3     : .6
+
+grid :
+      Nel      : [16, 2, 2] # number of grid cells > 1
+      p        : [3, 1, 1] # spline degree > 0
+      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
+      nq_el    : [4, 2, 2] # quadrature points per grid cell
+      nq_pr    : [4, 2, 2] # quadrature points per histopolation cell (for projection)
+
+markers :
+      Np : 32000 # total number of hot particles
+      control : False # control variate (use delta-f)?
+      loading : pseudo-random # particle loading
+      seed : 1234 # seed for random number generator
+      dir_particles : path_to_particles # directory of particles if loaded externally
+
+time : 
+      dt         : 0.1
+      Tend       : 150.
+      max_time   : 1000. # maximum runtime of program in minutes
+      split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
+      loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6') 
+
+forms :
+      basis_u    : 2 # representation of U (0 : all NNN, 1 : 1-form, 2 : 2-form)
+      basis_p    : 0 # representation of p (0 : 0-form, 3 : 3-form)
+
+solvers :
+      PRE : FFT # pre-conditioner for linear systems (ILU or FFT)
+      tol_inv : 0.1 # ILU: set tolerance for approximation (values < tol_inv are set to zero)
+      drop_tol_A  : 0.0001 # ILU: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
+      fill_fac_A  : 10.
+      drop_tol_S2 : 0.0001
+      fill_fac_S2 : 10.
+      drop_tol_S6 : 0.0001
+      fill_fac_S6 : 10.
+      solver_type_2 : cg # iterative solver used
+      solver_type_3 : cg
+      tol1 : 0.00000001 # iterative solver tolerance
+      tol2 : 0.00000001
+      tol3 : 0.00000001
+      tol6 : 0.00000001
+      maxiter1 : 1000 # maximum number of iterations
+      maxiter2 : 1000
+      maxiter3 : 1000
+      maxiter6 : 1000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------
+
+

@@ -1,5 +1,7 @@
 import numpy as np
 
+import struphy.geometry.mappings_3d as mapping
+import struphy.geometry.pullback_3d as pull
 
 class equilibrium_pic:
     

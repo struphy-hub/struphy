@@ -7,9 +7,9 @@ import sys
 basedir = os.path.dirname(os.path.realpath(__file__))
 # sys.path.insert(0, os.path.join(basedir, '..'))
 
-# Import necessary hylife modules.
-import hylife.geometry.domain_3d as dom
-from hylife.gvec_to_python import GVEC, Form, Variable
+# Import necessary struphy.modules.
+import struphy.geometry.domain_3d as dom
+from struphy.gvec_to_python import GVEC, Form, Variable
 
 
 

@@ -2,7 +2,7 @@
 cp simulations/run_STRUPHY_cc_lin_6D.sh run_STRUPHY_cc_lin_6D.sh
 
 cp simulations/diagnostics.sh diagnostics.sh
-cp -r hylife/diagnostics/. my_diagnostics/
+cp -r struphy/diagnostics/. my_diagnostics/
 
 # create a default simulations folder (default: in the repos directory)
 mkdir -p my_struphy_sims

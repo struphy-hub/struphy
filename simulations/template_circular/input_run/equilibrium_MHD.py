@@ -4,10 +4,10 @@ from scipy.integrate import fixed_quad
 
 import scipy.special as sp
 
-import hylife.utilitis_FEEC.spline_space as spl
+import struphy.feec.spline_space as spl
 
-import hylife.utilitis_FEEC.basics.mass_matrices_1d  as mass
-import hylife.utilitis_FEEC.basics.inner_products_1d as inner
+import struphy.feec.basics.mass_matrices_1d  as mass
+import struphy.feec.basics.inner_products_1d as inner
 
 
 
@@ -102,7 +102,7 @@ class equilibrium_mhd:
         self.j0    = self.q_min/self.q0
         
         # calculate Shafranov shift with boundary conditions delta_p(0) = 0 and delta(a) = 0
-        self.spl_space_r = spl.spline_space_1d(self.num_params[0], self.num_params[1], self.num_params[2], self.num_params[3], ['f', 'd'])
+        self.spl_space_r = spl.Spline_space_1d(self.num_params[0], self.num_params[1], self.num_params[2], self.num_params[3], ['f', 'd'])
         
         self.spl_space_r.set_projectors(self.num_params[4])
         

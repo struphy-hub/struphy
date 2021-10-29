@@ -31,6 +31,10 @@ before_script:
   - source .venv/bin/activate
   - pip install -U pip build wheel pytest coverage
   - python -m pip install -r requirements.txt
+  - pip install .
+  - make
+  - struphy -h
+  - struphy -c
   - ./STRUPHY_init.sh  # copy struphy files and directories 
   - ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
 
@@ -46,17 +50,18 @@ stages:
 
 unittest:
   stage: test
-  artifacts:
-    reports:
-      cobertura: tests/coverage.xml
+  # artifacts:
+  #   reports:
+  #     cobertura: tests/coverage.xml
   script:
     #- python setup.py test
-    - cd tests
-    - coverage run -m pytest
-    - coverage xml
-    - coverage report --skip-empty
-    - coverage erase
-    - cd ..
+    - cd struphy/tests
+    # - coverage run -m pytest
+    # - coverage xml
+    # - coverage report --skip-empty
+    # - coverage erase
+    # - cd ..
+    - pytest
 
 #run:
 #  script:
