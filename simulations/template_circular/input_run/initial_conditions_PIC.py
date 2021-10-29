@@ -3,6 +3,8 @@ import scipy.special as sp
 from scipy.integrate import quad
 
 from mpi4py import MPI
+import struphy.geometry.mappings_3d as mapping
+import struphy.geometry.pullback_3d as pull
 
 
 class initial_pic:

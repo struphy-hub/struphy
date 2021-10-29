@@ -29,13 +29,13 @@ import numpy         as np
 import scipy.sparse  as spa
 import scipy.special as sp
 
-# load global hylife modules
-import hylife.geometry.domain_3d as dom
+# load global struphy.modules
+import struphy.geometry.domain_3d as dom
 
 
 import hylife.utilitis_FEEC.spline_space as spl
 
-import hylife.utilitis_FEEC.projectors.mhd_operators_3d_global as mhd
+import struphy.feec.projectors.mhd_operators_3d_global as mhd
 
 
 
@@ -44,7 +44,7 @@ import hylife.utilitis_PIC.accumulation as pic_accumu
 import hylife.utilitis_PIC.sampling     as pic_sample
 
 
-import hylife.dispersion_relations.MHD_eigenvalues_2D as eig_MHD
+import struphy.dispersion_relations.MHD_eigenvalues_2D as eig_MHD
 
 # load local input files
 import input_run.equilibrium_MHD as equ_MHD
@@ -328,16 +328,16 @@ if params['run_mode'] == 0:
 
 # ================== FEM spaces ==========================================
 # 1d B-spline spline spaces for finite elements (with boundary conditions for first space) with corresponding projectors
-spaces_FEM_1 = spl.spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc)
-spaces_FEM_2 = spl.spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
-spaces_FEM_3 = spl.spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
+spaces_FEM_1 = spl.Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc)
+spaces_FEM_2 = spl.Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
+spaces_FEM_3 = spl.Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
 
 spaces_FEM_1.set_projectors(nq_pr[0])
 spaces_FEM_2.set_projectors(nq_pr[1])
 spaces_FEM_3.set_projectors(nq_pr[2])
 
 # 3d tensor-product B-spline space for finite elements
-tensor_space_FEM = spl.tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
+tensor_space_FEM = spl.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
 if polar == True:
     tensor_space_FEM.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])

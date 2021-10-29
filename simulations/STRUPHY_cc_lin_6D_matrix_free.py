@@ -1,4 +1,4 @@
-# STRUPHY code template for PIC-FEM hybrid codes based on hylife library.
+# STRUPHY code template for PIC-FEM hybrid codes based on struphy.library.
 # F. Holderied (florian.holderied@ipp.mpg.de)
 # S. Possanner (stefan.possanner@ipp.mpg.de)
 # -------------------------------------------
@@ -45,18 +45,18 @@ import numpy         as np
 import scipy.sparse  as spa
 import scipy.special as sp
 
-# load global hylife modules
-import hylife.geometry.domain_3d as dom
+# load global struphy.modules
+import struphy.geometry.domain_3d as dom
 
-import hylife.utilitis_FEEC.spline_space as spl
-import hylife.utilitis_FEEC.projectors.mhd_operators_3d_global as mhd
-import hylife.utilitis_FEEC.projectors.mhd_operators_3d_global_V2 as mhd_V2
+import struphy.feec.spline_space as spl
+import struphy.feec.projectors.mhd_operators_3d_global as mhd
+import struphy.feec.projectors.mhd_operators_3d_global_V2 as mhd_V2
 
-import hylife.utilitis_PIC.sobol_seq    as sobol
-import hylife.utilitis_PIC.pusher       as pic_pusher
-import hylife.utilitis_PIC.accumulation as pic_accumu
+import struphy.pic.sobol_seq    as sobol
+import struphy.pic.pusher       as pic_pusher
+import struphy.pic.accumulation as pic_accumu
 
-import hylife.dispersion_relations.MHD_eigenvalues_2D as eig_MHD
+import struphy.models.dispersion_relations.MHD_eigenvalues_2D as eig_MHD
 
 # load local input and source files
 import input_run.equilibrium_PIC        as equ_PIC
@@ -257,16 +257,16 @@ else:
 # ================== PART G: FE spaces ==========================================
 # 1d B-spline spline spaces for finite elements (with boundary conditions for first space)
 # with corresponding projectors
-spaces_FEM_1 = spl.spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc)
-spaces_FEM_2 = spl.spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
-spaces_FEM_3 = spl.spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
+spaces_FEM_1 = spl.Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc)
+spaces_FEM_2 = spl.Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
+spaces_FEM_3 = spl.Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
 
 spaces_FEM_1.set_projectors(nq_pr[0])
 spaces_FEM_2.set_projectors(nq_pr[1])
 spaces_FEM_3.set_projectors(nq_pr[2])
 
 # 3d tensor-product B-spline space for finite elements
-tensor_space_FEM = spl.tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
+tensor_space_FEM = spl.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
 if polar == True:
     tensor_space_FEM.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])

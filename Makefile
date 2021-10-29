@@ -13,36 +13,36 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 # SOURCE FILES
 #--------------------------------------
 
-BK   := hylife/utilitis_FEEC/bsplines_kernels
-BEV1 := hylife/utilitis_FEEC/basics/spline_evaluation_1d
-BEV2 := hylife/utilitis_FEEC/basics/spline_evaluation_2d
-BEV3 := hylife/utilitis_FEEC/basics/spline_evaluation_3d
+BK   := struphy/feec/bsplines_kernels
+BEV1 := struphy/feec/basics/spline_evaluation_1d
+BEV2 := struphy/feec/basics/spline_evaluation_2d
+BEV3 := struphy/feec/basics/spline_evaluation_3d
 
-M3   := hylife/geometry/mappings_3d
-MF3  := hylife/geometry/mappings_3d_fast
-PB3  := hylife/geometry/pullback_3d
-PF3  := hylife/geometry/pushforward_3d
+M3   := struphy/geometry/mappings_3d
+MF3  := struphy/geometry/mappings_3d_fast
+PB3  := struphy/geometry/pullback_3d
+PF3  := struphy/geometry/pushforward_3d
 
 
-KM2  := hylife/utilitis_FEEC/basics/kernels_2d
-KM3  := hylife/utilitis_FEEC/basics/kernels_3d
+KM2  := struphy/feec/basics/kernels_2d
+KM3  := struphy/feec/basics/kernels_3d
 
-DER  := hylife/utilitis_FEEC/derivatives/kernels_derivatives
+DER  := struphy/feec/derivatives/kernels_derivatives
 
-LAC  := hylife/linear_algebra/core
-LAT  := hylife/linear_algebra/kernels_tensor_product
+LAC  := struphy/linear_algebra/core
+LAT  := struphy/linear_algebra/kernels_tensor_product
 
-KPG  := hylife/utilitis_FEEC/projectors/kernels_projectors_global
-KPGM := hylife/utilitis_FEEC/projectors/kernels_projectors_global_mhd
+KPG  := struphy/feec/projectors/kernels_projectors_global
+KPGM := struphy/feec/projectors/kernels_projectors_global_mhd
 
-PP   := hylife/utilitis_PIC/pusher
-PA   := hylife/utilitis_PIC/accumulation_kernels
-PS   := hylife/utilitis_PIC/sampling
+PP   := struphy/pic/pusher
+PA   := struphy/pic/accumulation_kernels
+PS   := struphy/pic/sampling
 
-IBK   := hylife/gvec_to_python/hylife/utilities_FEEC/bsplines_kernels
-IBEV1 := hylife/gvec_to_python/hylife/utilities_FEEC/basics/spline_evaluation_1d
+# IBK   := struphy/gvec_to_python/hylife/utilities_FEEC/bsplines_kernels
+# IBEV1 := struphy/gvec_to_python/hylife/utilities_FEEC/basics/spline_evaluation_1d
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py $(IBK).py $(IBEV1).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py #$(IBK).py $(IBEV1).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -108,11 +108,11 @@ $(PA)$(SO_EXT) : $(PA).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-$(IBK)$(SO_EXT) : $(IBK).py
-	pyccel $< $(FLAGS)
+# $(IBK)$(SO_EXT) : $(IBK).py
+# 	pyccel $< $(FLAGS)
 
-$(IBEV1)$(SO_EXT) : $(IBEV1).py $(IBK)$(SO_EXT)
-	pyccel $< $(FLAGS)
+# $(IBEV1)$(SO_EXT) : $(IBEV1).py $(IBK)$(SO_EXT)
+# 	pyccel $< $(FLAGS)
 
 #--------------------------------------
 # CLEAN UP
@@ -122,16 +122,16 @@ $(IBEV1)$(SO_EXT) : $(IBEV1).py $(IBK)$(SO_EXT)
 clean:
 	rm -rf $(OUTPUTS)
 	rm -rf $(all_sim)/$(run_dir)/input_run/__pyccel__ $(all_sim)/$(run_dir)/input_run/__pycache__
-	rm -rf hylife/__pyccel__ hylife/__pycache__
-	rm -rf hylife/diagnostics/__pyccel__ hylife/diagnostics/__pycache__
-	rm -rf hylife/dispersion_relations/__pyccel__ hylife/dispersion_relations/__pycache__
-	rm -rf hylife/geometry/__pyccel__ hylife/geometry/__pycache__
-	rm -rf hylife/linear_algebra/__pyccel__ hylife/linear_algebra/__pycache__
-	rm -rf hylife/utilitis_FEEC/__pyccel__ hylife/utilitis_FEEC/__pycache__
-	rm -rf hylife/utilitis_FEEC/basics/__pyccel__ hylife/utilitis_FEEC/basics/__pycache__
-	rm -rf hylife/utilitis_FEEC/derivatives/__pyccel__ hylife/utilitis_FEEC/derivatives/__pycache__
-	rm -rf hylife/utilitis_FEEC/projectors/__pyccel__ hylife/utilitis_FEEC/projectors/__pycache__
-	rm -rf hylife/utilitis_FEEC/control_variates/__pyccel__ hylife/utilitis_FEEC/control_variates/__pycache__
-	rm -rf hylife/utilitis_PIC/__pyccel__ hylife/utilitis_PIC/__pycache__
-	rm -rf hylife/gvec_to_python/hylife/utilities_FEEC/__pyccel__ hylife/gvec_to_python/hylife/utilities_FEEC/__pycache__
-	rm -rf hylife/gvec_to_python/hylife/utilities_FEEC/basics/__pyccel__ hylife/gvec_to_python/hylife/utilities_FEEC/basics/__pycache__
+	rm -rf struphy/__pyccel__ struphy/__pycache__
+	rm -rf struphy/diagnostics/__pyccel__ struphy/diagnostics/__pycache__
+	rm -rf struphy/dispersion_relations/__pyccel__ struphy/dispersion_relations/__pycache__
+	rm -rf struphy/geometry/__pyccel__ struphy/geometry/__pycache__
+	rm -rf struphy/linear_algebra/__pyccel__ struphy/linear_algebra/__pycache__
+	rm -rf struphy/feec/__pyccel__ struphy/feec/__pycache__
+	rm -rf struphy/feec/basics/__pyccel__ struphy/feec/basics/__pycache__
+	rm -rf struphy/feec/derivatives/__pyccel__ struphy/feec/derivatives/__pycache__
+	rm -rf struphy/feec/projectors/__pyccel__ struphy/feec/projectors/__pycache__
+	rm -rf struphy/feec/control_variates/__pyccel__ struphy/feec/control_variates/__pycache__
+	rm -rf struphy/pic/__pyccel__ struphy/pic/__pycache__
+	rm -rf struphy/gvec_to_python/struphy/utilities_FEEC/__pyccel__ struphy/gvec_to_python/hylife/utilities_FEEC/__pycache__
+	rm -rf struphy/gvec_to_python/struphy/utilities_FEEC/basics/__pyccel__ struphy/gvec_to_python/hylife/utilities_FEEC/basics/__pycache__

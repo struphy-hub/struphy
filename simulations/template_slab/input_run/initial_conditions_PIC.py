@@ -1,8 +1,13 @@
 import numpy as np
 import scipy.special as sp
 
+<<<<<<< HEAD
 import hylife.utilitis_PIC.sobol_seq as sobol
 import hylife.utilitis_PIC.sampling as pic_sample
+=======
+import struphy.geometry.mappings_3d as mapping
+import struphy.geometry.pullback_3d as pull
+>>>>>>> Renamed hylife -> struphy, utilitis_FEEC -> feec, utilitis_PIC -> pic
 
 import h5py
 
