@@ -24,10 +24,12 @@ def execute(file_in, path_out, mode):
         Restart ('True') or new simulation ('False').
     '''
 
+    print('')
     print('Starting code "cc_lin_mhd_6d" ...')
-    print('- parameters from "' + file_in + '"')
-    print('- ouput in folder "' + path_out + '"')
-    print('- restart:', mode)
+    #print('- parameters from "' + file_in + '"')
+    #print('- ouput in folder "' + path_out + '"')
+    #print('- restart:', mode)
+    print('')
 
     # mpi communicator
     mpi_comm = MPI.COMM_WORLD
@@ -75,14 +77,14 @@ def execute(file_in, path_out, mode):
     Nel      = params['grid']['Nel']
     p        = params['grid']['p']
     spl_kind = params['grid']['spl_kind']
-    DOMAIN   = domain_3d.Domain(params['geometry']['general'], 
-                                params['geometry']['params_' + params['geometry']['general']['type']])
+    DOMAIN   = domain_3d.Domain(params['geometry']['type'], 
+                                params['geometry']['params_' + params['geometry']['type']])
     print('Domain object set.')
 
     # MHD equilibirum
     EQ_MHD = mhd_equil.Equilibrium_mhd(DOMAIN, params['mhd_equilibrium']['general'], 
          params['mhd_equilibrium']['params_' + params['mhd_equilibrium']['general']['type']])
-    print('Mhd equilibrium set.')
+    print('MHD equilibrium set.')
     
     # FEEC spaces
     spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0], params['grid']['nq_el'][0], params['grid']['bc']) 
@@ -95,15 +97,15 @@ def execute(file_in, path_out, mode):
 
     SPACES = spline_space.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
-    if params['geometry']['polar']:
+    if params['grid']['polar']:
         SPACES.set_polar_splines(DOMAIN.cx[:, :, 0], DOMAIN.cy[:, :, 0])
 
     SPACES.set_projectors('general', params['grid']['nq_pr'])
-    print('3) feec spaces set.')
+    print('FEEC spaces set.')
 
     # initialize mhd variables 
     MHD = mhd_init.Initialize_mhd(DOMAIN, SPACES, file_in) 
-    print('4) mhd variables initialized.')
+    print('MHD variables initialized.')
 
     # assemble mass matrices
     if mpi_rank == 0: 

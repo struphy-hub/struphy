@@ -9,14 +9,8 @@ mode=False # restart for h5py files: True or False
 num_threads=1 # number of openmp threads (pyccel, not needed for numba)
 
 path_lib=$(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
-path_out=${path_lib}io/out/$out/
 path_batch=${path_lib}io/batch/
 path_code=${path_lib}models/codes/
-
-file_inp=${path_lib}io/inp/$code/$file
-file_meta=${path_out}sim_meta_data.txt
-
-mkdir -p ${path_out} # create output folder
 
 while getopts ":hpstcr:i:o:b:m:n:" opt; do
     case "${opt}" in
@@ -88,9 +82,16 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
 done
 shift $((OPTIND-1))
 
+file_inp=${path_lib}io/inp/$code/$file
+path_out=${path_lib}io/out/$out/
+mkdir -p ${path_out} # create output folder
+file_meta=${path_out}sim_meta_data.txt
+
 echo ""
 echo "Starting struphy ..."
 echo "code:" $code
+echo "input parameters:" ${file_inp}
+echo "output folder:" ${path_out}
 echo "batch script:" $batch
 echo "omp threads:" $num_threads
 
