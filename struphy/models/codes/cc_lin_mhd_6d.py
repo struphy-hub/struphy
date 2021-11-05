@@ -5,7 +5,8 @@ import yaml
 import numpy as np
 
 from struphy.geometry         import domain_3d
-from struphy.models.mhd_equil import mhd_equil 
+from struphy.mhd_equil        import mhd_equil_physical 
+from struphy.mhd_equil        import mhd_equil_logical 
 from struphy.feec             import spline_space
 from struphy.io.inp           import mhd_init 
 
@@ -81,10 +82,14 @@ def execute(file_in, path_out, mode):
                                 params['geometry']['params_' + params['geometry']['type']])
     print('Domain object set.')
 
-    # MHD equilibirum
-    EQ_MHD = mhd_equil.Equilibrium_mhd(DOMAIN, params['mhd_equilibrium']['general'], 
+    # MHD equilibirum (physical)
+    EQ_MHD_P = mhd_equil_physical.Equilibrium_mhd_physical(params['mhd_equilibrium']['general']['type'], 
          params['mhd_equilibrium']['params_' + params['mhd_equilibrium']['general']['type']])
-    print('MHD equilibrium set.')
+    print('MHD equilibrium (physical) set.')
+    
+    # MHD equilibrium (logical)
+    EQ_MHD_L = mhd_equil_logical.Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
+    print('MHD equilibrium (logical) set.')
     
     # FEEC spaces
     spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0], params['grid']['nq_el'][0], params['grid']['bc']) 

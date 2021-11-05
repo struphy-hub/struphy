@@ -42,41 +42,41 @@ geometry :
 
 mhd_equilibrium :
       general :
-            type          : slab # type of MHD equilibrium (slab, analytic_circular, eqdesk, gvec, vmec)
-            particle_mass : 1. # in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.
-            rho0          : 1. # equilibirum mass density (in units of)
-            beta_s        : 200. # inverse plasma beta B0^2/(2*mu0*p0)
+            type        : slab # type of MHD equilibrium (slab, analytic_circular, eqdesk, gvec, vmec)
+            mass_number : 1    # in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.
       params_slab :
-            B0x           : 1. # magnetic field in Tesla
-            B0y           : 0.
-            B0z           : 0.
-      params_circular :
-            a             : 1. # minor radius
-            R0            : 10. # major radius
-            B0            : 1. # on-axis toroidal magnetic field in Tesla
-            q0            : 1.1 # safety factor at s=0
-            q1            : 1.85 # safety factor at s=1
-            q_add         : 0 # additive constant
-            rl            : 1. #
-            shafranov     : 0 # Shafranov shift?
-            current profile :
-                  bmp0    : 0.
-                  cg0     : 0.2
-                  wg0     : 0.3
-                  bmp1    : 0.
-                  cg1     : 0.2
-                  wg1     : 0.3
-                  bmp2    : 0.
-                  cg2     : 0.2
-                  wg2     : 0.3
+            B0x         : 1.   # magnetic field in Tesla (x)
+            B0y         : 0.   # magnetic field in Tesla (y)
+            B0z         : 0.   # magnetic field in Tesla (z)
+            rho0        : 1.   # equilibirum mass density
+            beta        : 0.   # plasma beta in %
+      params_cylinder :
+            a           : 1.   # minor radius in m
+            R0          : 10.  # major radius in m (sets length of cylinder to 2*pi*R0)
+            B0          : 1.   # constant axial magnetic field in Tesla
+            q0          : 1.1  # safety factor at s=0
+            q1          : 1.85 # safety factor at s=1
+            rl          : 1.   # shape factor
             density profile :
-                  r1      : 4.
-                  r2      : 3.
-                  rho_a   : 0.
+                  r1    : 4.
+                  r2    : 3.
+                  ra    : 0.
+      params_torus :
+            a           : 1.   # minor radius in m
+            R0          : 10.  # major radius in m
+            B0          : 1.   # on-axis (s=0) toroidal magnetic field in Tesla
+            q0          : 1.1  # safety factor at s=0
+            q1          : 1.85 # safety factor at s=1
+            rl          : 1.   # shape factor
+            q_add       : 0    # add toroidal correction  
+            density profile :
+                  r1    : 4.
+                  r2    : 3.
+                  ra    : 0.
             pressure profile :
-                  beta    : 0.2
-                  p1      : 0.95
-                  p2      : 0.05
+                  beta  : 0.2
+                  p1    : 0.95
+                  p2    : 0.05
 
 pic_equilibrium :
       type   : Maxwell_xyz # type of kinetic equilibrium

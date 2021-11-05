@@ -5,7 +5,8 @@ def test_slab():
     import numpy as np
 
     from struphy.geometry         import domain_3d
-    from struphy.models.mhd_equil import mhd_equil
+    from struphy.mhd_equil        import mhd_equil_physical 
+    from struphy.mhd_equil        import mhd_equil_logical 
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
     print(file_in)
@@ -18,16 +19,20 @@ def test_slab():
                               params['geometry']['params_' + params['geometry']['type']])
     print('Domain object set.')
 
-    # MHD equilibirum
-    EQ_MHD = mhd_equil.Equilibrium_mhd(DOMAIN, params['mhd_equilibrium']['general'], 
+    # MHD equilibirum (physical)
+    EQ_MHD_P = mhd_equil_physical.Equilibrium_mhd_physical(params['mhd_equilibrium']['general']['type'], 
          params['mhd_equilibrium']['params_' + params['mhd_equilibrium']['general']['type']])
-    print('Mhd equilibrium set.')
+    print('MHD equilibrium (physical) set.')
+    
+    # MHD equilibrium (logical)
+    EQ_MHD_L = mhd_equil_logical.Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
+    print('MHD equilibrium (logical) set.')
 
     # point-wise evaluation:
     print('point-wise evaluation:')
     b1, e1, b2, e2, b3, e3 = DOMAIN.params_map
-    print(EQ_MHD.p_eq(b1, b2, b3))
-    print(EQ_MHD.p0_eq(0., 0., 0.))
+    print(EQ_MHD_P.p_eq(b1, b2, b3))
+    print(EQ_MHD_L.p0_eq(0., 0., 0.))
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -40,10 +45,10 @@ def test_slab():
 
     # eta1-array evaluation:
     print('eta1-array evaluation:')
-    print(EQ_MHD.p_eq(arr_x, b2, b3))
-    print(EQ_MHD.p0_eq(arr1, 0., 0.))
-    assert EQ_MHD.p_eq(arr_x, b2, b3).shape == arr_x.shape
-    assert EQ_MHD.p0_eq(arr1, 0., 0.).shape == arr1.shape
+    print(EQ_MHD_P.p_eq(arr_x, b2, b3))
+    print(EQ_MHD_L.p0_eq(arr1, 0., 0.))
+    assert EQ_MHD_P.p_eq(arr_x, b2, b3).shape == arr_x.shape
+    assert EQ_MHD_L.p0_eq(arr1, 0., 0.).shape == arr1.shape
 
     # eta2-array evaluation:
     print('eta2-array evaluation:')
