@@ -16,6 +16,11 @@ def test_template_gvec():
     sys.path.append('..') # Because we are inside './test/' directory.
     sys.path.append('../simulations/template_gvec/') # Because `template_gvec` is elsewhere.
 
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory()
+    print(f'Created temp directory at: {temp_dir.name}')
+
     # which diagnostics is run
     print('Run diagnostics:', sys.argv[0])
 
@@ -25,7 +30,8 @@ def test_template_gvec():
     # Import necessary struphy.modules.
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
-    from struphy.gvec_to_python import GVEC, Form, Variable
+    from gvec_to_python import GVEC, Form, Variable
+    from gvec_to_python.reader.gvec_reader import GVEC_Reader
     templatedir = os.path.dirname(os.path.join(basedir, '../simulations/template_gvec/'))
     print(templatedir)
     from input_run.equilibrium_MHD import equilibrium_mhd
@@ -58,11 +64,23 @@ def test_template_gvec():
 
 
     # ============================================================
+    # Convert GVEC .dat output to .json.
+    # ============================================================
+
+    read_filepath = 'struphy/models/mhd_equil/gvec/'
+    read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
+    save_filepath = temp_dir.name
+    save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
+    reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)
+
+
+
+    # ============================================================
     # Load GVEC mapping.
     # ============================================================
 
-    filepath = 'simulations/template_gvec/testcases/ellipstell/'
-    filepath =  os.path.join(basedir, '..', filepath)
+    filepath = temp_dir.name
+    # filepath =  os.path.join(basedir, '..', filepath)
     filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
     gvec = GVEC(filepath, filename)
 
@@ -153,10 +171,28 @@ def test_template_gvec():
     cy = proj_3d.PI_0(Y)
     cz = proj_3d.PI_0(Z)
 
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx
+        handle['cy'] = cy
+        handle['cz'] = cz
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
     # TODO: spline + params_map=None ???
     # TODO: Now we have spline + params_map=(begin, end)*3 ???
     domain = dom.Domain('spline', params_map=None)
     print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
 
 
 

@@ -18,17 +18,26 @@ def test_divB():
     import sys
     sys.path.append('..') # Because we are inside './test/' directory.
 
-    import json
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory()
+    print(f'Created temp directory at: {temp_dir.name}')
+
     import numpy as np
+
+    # Which diagnostics is run
+    print('Run diagnostics:', sys.argv[0])
 
     import struphy.geometry.domain_3d as dom
     import struphy.feec.projectors.projectors_global as pro
     import struphy.feec.spline_space as spl
 
-    # from base.base import Base
-    # from base.make_base import make_base
-    # from reader.read_json import read_json
-    # from hmap.suv_to_xyz import suv_to_xyz as MapFull
+    # from gvec_to_python.base.base import Base
+    # from gvec_to_python.base.make_base import make_base
+    # from gvec_to_python.reader.read_json import read_json
+    # from gvec_to_python.hmap.suv_to_xyz import suv_to_xyz as MapFull
+    from gvec_to_python import GVEC, Form, Variable
+    from gvec_to_python.reader.gvec_reader import GVEC_Reader
 
 
 
@@ -85,31 +94,37 @@ def test_divB():
 
         print('Test case {}: GVEC mapping.'.format(test_case))
 
-        # filepath = '../GVEC/testcases/ellipstell/' # Because we are inside './test/' directory.
-        # filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
-        # data = read_json(filepath, filename)
+        # ============================================================
+        # Convert GVEC .dat output to .json.
+        # ============================================================
 
-        # X1_coef = np.array(data['X1']['coef'])
-        # X2_coef = np.array(data['X2']['coef'])
-        # LA_coef = np.array(data['LA']['coef'])
-        # X1_base = make_base(data, 'X1')
-        # X2_base = make_base(data, 'X2')
-        # LA_base = make_base(data, 'LA')
+        read_filepath = 'struphy/models/mhd_equil/gvec/'
+        read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
+        save_filepath = temp_dir.name
+        save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
+        reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)
 
-        # mapfull = MapFull(X1_base, X1_coef, X2_base, X2_coef, LA_base, LA_coef)
-        # mapX    = MapFull(X1_base, X1_coef, X2_base, X2_coef, LA_base, LA_coef, 'x')
-        # mapY    = MapFull(X1_base, X1_coef, X2_base, X2_coef, LA_base, LA_coef, 'y')
-        # mapZ    = MapFull(X1_base, X1_coef, X2_base, X2_coef, LA_base, LA_coef, 'z')
-        # f = mapfull.mapto
-        # X = mapX.mapto_x
-        # Y = mapY.mapto_y
-        # Z = mapZ.mapto_z
-        # spl_kind = [False, True, True] # Periodic or not.
-        raise NotImplementedError('Test case {} not implemented.'.format(test_case))
+        # ============================================================
+        # Load GVEC mapping.
+        # ============================================================
+
+        filepath = temp_dir.name
+        # filepath =  os.path.join(basedir, '..', filepath)
+        filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
+        gvec = GVEC(filepath, filename)
+
+        f = gvec.mapfull.f # Full mapping, (s,u,v) to (x,y,z).
+        X = gvec.mapX.f    # Only x component of the mapping.
+        Y = gvec.mapY.f    # Only y component of the mapping.
+        Z = gvec.mapZ.f    # Only z component of the mapping.
+        print('Loaded GVEC mapping.')
+
+        spl_kind = [False, True, True] # Periodic or not.
 
     # Case N: Mapping not found.
     else:
 
+        raise NotImplementedError('Test case {} not implemented.'.format(test_case))
         raise ValueError('Test case {} not found.'.format(test_case))
 
 
@@ -160,12 +175,22 @@ def test_divB():
     # Case 4: B-field from GVEC data.
     elif kind_B_field == 4:
 
-        print('B-field type {}.'.format(kind_B_field))
-        raise NotImplementedError('B-field type {} not implemented.'.format(kind_B_field))
+        print('B-field type {}: GVEC.'.format(kind_B_field))
+
+        B = gvec.B
+        print('GVEC logical B(s,u,v)@(0.5,0.5,0.5) -> B(x,y,z):', B(0.5,0.5,0.5))
+        print('GVEC logical B2(s,u,v)@(0.5,0.5,0.5) -> B2(x,y,z):', gvec.B_2(0.5,0.5,0.5))
+
+        # This is a stupid idea. Every function call to `B` is evaluated 3 times.
+        Bx = lambda s,u,v: gvec.B(s,u,v)[0]
+        By = lambda s,u,v: gvec.B(s,u,v)[1]
+        Bz = lambda s,u,v: gvec.B(s,u,v)[2]
+        print('GVEC logical [Bx(s,u,v), By(s,u,v), Bz(s,u,v)] -> B(x,y,z)', (Bx(0.5,0.5,0.5), By(0.5,0.5,0.5), Bz(0.5,0.5,0.5),))
 
     # Case N: B-field type not found.
     else:
 
+        raise NotImplementedError('B-field type {} not implemented.'.format(kind_B_field))
         raise ValueError('B-field type {} not found.'.format(kind_B_field))
 
     # Supply a tuple of each B-field components B=(Bx,By,Bz).
@@ -189,23 +214,19 @@ def test_divB():
     tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
     print('Tensor space set up done.')
 
-    # Set extraction operators (is automatic now) and discrete derivatives 
-    #polar_splines = None
-    #tensor_space_FEM.set_extraction_operators(bc, polar_splines)
-    #tensor_space_FEM.set_derivatives()
-    #print('Set tensor space derivatives done.')
-
 
 
     # ============================================================
     # 3D projection using `projectors_tensor_3d`.
     # ============================================================
 
-    # Create 3D projector.
-    proj_eta1 = pro.projectors_global_1d(spaces_FEM[0])
-    proj_eta2 = pro.projectors_global_1d(spaces_FEM[1])
-    proj_eta3 = pro.projectors_global_1d(spaces_FEM[2])
-    proj_3d   = pro.projectors_tensor_3d([proj_eta1, proj_eta2, proj_eta3])
+    # Create 3D projector. It's not automatic.
+    for space in spaces_FEM:
+        if not hasattr(space, 'projectors'):
+            space.set_projectors() # def set_projectors(self, nq=6):
+    if not hasattr(tensor_space_FEM, 'projectors'):
+        tensor_space_FEM.set_projectors() # def set_projectors(self, which='tensor', nq=[6, 6]):
+    proj_3d = tensor_space_FEM.projectors
     print('Create 3D projector done.')
 
 
@@ -219,7 +240,26 @@ def test_divB():
     cy = proj_3d.PI_0(Y)
     cz = proj_3d.PI_0(Z)
 
-    domain = dom.Domain('spline', params_map=None)
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx
+        handle['cy'] = cy
+        handle['cz'] = cz
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
+    domain = dom.Domain('spline', params_map=params_map)
+    print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
 
 
 
@@ -328,20 +368,20 @@ def test_divB():
     # ============================================================
     # Case 1: Scalar.
     print('Case 1: Scalar.')
-    eta1, eta2, eta3 = 1/2, 1/2, 1/2
+    eta1, eta2, eta3 = 0.5, 0.5, 0.5
     test_push_pull(eta1, eta2, eta3)
 
     # ============================================================
     # Case 2: 3x 1D arrays.
     print('Case 2: 3x 1D arrays.')
-    eta1, eta2, eta3 = np.linspace(0,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
+    eta1, eta2, eta3 = np.linspace(1e-12,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
     print('Input shapes, (eta1,eta2,eta3):', eta1.shape, eta2.shape, eta3.shape)
     test_push_pull(eta1, eta2, eta3)
 
     # ============================================================
     # Case 3: 3x 3D arrays of dense meshgrid.
     print('Case 3: 3x 3D arrays of dense meshgrid.')
-    eta1, eta2, eta3 = np.linspace(0,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
+    eta1, eta2, eta3 = np.linspace(1e-12,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
     eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
     print('Input shapes, (eta1,eta2,eta3):', eta1.shape, eta2.shape, eta3.shape)
     test_push_pull(eta1, eta2, eta3)
@@ -349,7 +389,7 @@ def test_divB():
     # ============================================================
     # Case 4: 3x 3D arrays of sparse meshgrid.
     print('Case 4: 3x 3D arrays of sparse meshgrid.')
-    eta1, eta2, eta3 = np.linspace(0,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
+    eta1, eta2, eta3 = np.linspace(1e-12,1,num_pts), np.linspace(0,1,num_pts), np.linspace(0,1,num_pts)
     eta1, eta2, eta3 = np.meshgrid(eta1, eta2, eta3, indexing='ij', sparse=True)
     print('Input shapes, (eta1,eta2,eta3):', eta1.shape, eta2.shape, eta3.shape)
     test_push_pull(eta1, eta2, eta3)
@@ -372,6 +412,7 @@ def test_divB():
     # ============================================================
 
     b2_coeff_concat = np.concatenate((b2_coeff[0].flatten(), b2_coeff[1].flatten(), b2_coeff[2].flatten()))
+    # print(f'b2_coeff_concat.size {b2_coeff_concat.size}')
     div = tensor_space_FEM.D.dot(b2_coeff_concat)
     print('Maximum error (how close is Div B to 0):', np.max(np.abs(div)))
 

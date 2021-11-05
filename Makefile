@@ -39,10 +39,7 @@ PP   := struphy/pic/pusher
 PA   := struphy/pic/accumulation_kernels
 PS   := struphy/pic/sampling
 
-# IBK   := struphy/gvec_to_python/hylife/utilities_FEEC/bsplines_kernels
-# IBEV1 := struphy/gvec_to_python/hylife/utilities_FEEC/basics/spline_evaluation_1d
-
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py #$(IBK).py $(IBEV1).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -108,12 +105,6 @@ $(PA)$(SO_EXT) : $(PA).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-# $(IBK)$(SO_EXT) : $(IBK).py
-# 	pyccel $< $(FLAGS)
-
-# $(IBEV1)$(SO_EXT) : $(IBEV1).py $(IBK)$(SO_EXT)
-# 	pyccel $< $(FLAGS)
-
 #--------------------------------------
 # CLEAN UP
 #--------------------------------------
@@ -133,5 +124,3 @@ clean:
 	rm -rf struphy/feec/projectors/__pyccel__ struphy/feec/projectors/__pycache__
 	rm -rf struphy/feec/control_variates/__pyccel__ struphy/feec/control_variates/__pycache__
 	rm -rf struphy/pic/__pyccel__ struphy/pic/__pycache__
-	rm -rf struphy/gvec_to_python/struphy/utilities_FEEC/__pyccel__ struphy/gvec_to_python/hylife/utilities_FEEC/__pycache__
-	rm -rf struphy/gvec_to_python/struphy/utilities_FEEC/basics/__pyccel__ struphy/gvec_to_python/hylife/utilities_FEEC/basics/__pycache__

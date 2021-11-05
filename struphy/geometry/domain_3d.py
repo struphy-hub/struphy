@@ -6,7 +6,7 @@
 Module to handle mapped 3d domains.
 """
 
-
+import h5py
 import numpy as np
 from numpy.core.numeric import count_nonzero
 import scipy.sparse as spa
@@ -279,12 +279,28 @@ class Domain:
         elif kind_map == 'spline':
             # TODO: choose correct params_map
             self.kind_map   = 0
-            self.params_map = params_map
 
-            self.cx = None
-            self.cy = None
-            self.cz = None
-            
+            # print(f'Before popping: list(params_map.values()): {list(params_map.values())}')
+
+            with h5py.File(params_map['file'], 'r') as handle:
+
+                # print(f'Available keys: {tuple(handle.keys())}')
+                self.cx = handle['cx'][:]
+                self.cy = handle['cy'][:]
+                self.cz = handle['cz'][:]
+
+            self.Nel      = params_map['Nel']
+            self.p        = params_map['p']
+            self.spl_kind = params_map['spl_kind']
+
+            # We have to remove the filename string from `params_map`, otherwise it will cause an error.
+            # TypeError: float() argument must be a string or a number, not 'dict'
+            # ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (4,) + inhomogeneous part.
+            # TypeError: failed in converting 7th argument `params_map' of pushforward_3d.kernel_evaluate_sparse to C/Fortran array
+            params_map.pop('file', None)
+            self.params_map = list(params_map.values())
+            # print(f'After popping: list(params_map.values()): {list(params_map.values())}')
+
         elif kind_map == 'spline_cyl':
             # TODO: choose correct params_map
             # TODO: allow for input data cx, cy, cz
@@ -743,7 +759,7 @@ class Domain:
                 push forward of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
 
-        if eta3 == None:
+        if eta3 is None:
             eta3 = np.array([0.])
         
         # point-wise evaluation
