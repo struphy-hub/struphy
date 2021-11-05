@@ -8,6 +8,7 @@ def test_cuboid():
     from struphy.geometry         import domain_3d
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
+    
     print(file_in)
 
     with open(file_in) as file:
