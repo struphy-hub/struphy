@@ -18,6 +18,11 @@ def test_GVEC_equilibrium(plot=False):
     import sys
     sys.path.append('..') # Because we are inside './test/' directory.
 
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory()
+    print(f'Created temp directory at: {temp_dir.name}')
+
     # Which diagnostics is run
     print('Run diagnostics:', sys.argv[0])
 
@@ -27,7 +32,8 @@ def test_GVEC_equilibrium(plot=False):
     # Import necessary struphy.modules.
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
-    from struphy.gvec_to_python import GVEC, Form, Variable
+    from gvec_to_python import GVEC, Form, Variable
+    from gvec_to_python.reader.gvec_reader import GVEC_Reader
 
 
 
@@ -57,11 +63,23 @@ def test_GVEC_equilibrium(plot=False):
 
 
     # ============================================================
+    # Convert GVEC .dat output to .json.
+    # ============================================================
+
+    read_filepath = 'struphy/models/mhd_equil/gvec/'
+    read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
+    save_filepath = temp_dir.name
+    save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
+    reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)
+
+
+
+    # ============================================================
     # Load GVEC mapping.
     # ============================================================
 
-    filepath = 'simulations/template_gvec/testcases/ellipstell/'
-    filepath =  os.path.join(basedir, '..', filepath)
+    filepath = temp_dir.name
+    # filepath =  os.path.join(basedir, '..', filepath)
     filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
     gvec = GVEC(filepath, filename)
 
@@ -233,8 +251,26 @@ def test_GVEC_equilibrium(plot=False):
     cy = proj_3d.PI_0(Y)
     cz = proj_3d.PI_0(Z)
 
-    domain = dom.Domain('spline', params_map=None)
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx
+        handle['cy'] = cy
+        handle['cz'] = cz
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
+    domain = dom.Domain('spline', params_map=params_map)
     print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
 
 
 
@@ -268,9 +304,8 @@ def test_GVEC_equilibrium(plot=False):
     print('Pushing 2-form B-field to Cartesian...')
 
     num_pts = 12
-    eta1_range, eta2_range, eta3_range = np.linspace(0,1,num_pts+2)[2:], np.linspace(0,1,num_pts,endpoint=False), np.linspace(0,1,num_pts,endpoint=False)
+    eta1_range, eta2_range, eta3_range = np.linspace(1e-12,1,num_pts), np.linspace(0,1,num_pts,endpoint=False), np.linspace(0,1,num_pts,endpoint=False)
     # eta1_range, eta2_range, eta3_range = np.linspace(0,1,num_pts+2)[2:], np.linspace(0,1,8,endpoint=False), np.linspace(0,0.5,8,endpoint=False)
-    # eta1_range = np.linspace(0,1,num_pts+2)
     eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
     print('Shapes of eta1, eta2, eta3:', eta1.shape, eta2.shape, eta3.shape)
 
@@ -357,9 +392,9 @@ def test_GVEC_equilibrium(plot=False):
     # #         xys_axis = np.sqrt(xs_axis**2 + ys_axis**2)
     # #         # ax3_1D.plot(xys_axis, flip_and_concat(B_mag, num_pts, eta3_idx=eta3_idx), marker='.', label='$\eta^3 = {}$'.format(v))
 
-    # # ax3_1D.set_ylabel('B-field magnitude $|B|$')
-    # # ax3_1D.set_ylim(0.3,0.7)
-    # # ax3_1D.legend()
+    # ax3_1D.set_ylabel('B-field magnitude $|B|$')
+    # ax3_1D.set_ylim(0.3,0.7)
+    # ax3_1D.legend()
 
     print('Evaluate and plot 3D B-field done.')
     print(' ')
