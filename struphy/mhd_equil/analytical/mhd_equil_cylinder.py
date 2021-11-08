@@ -30,15 +30,12 @@ class equilibrium_mhd_cylinder:
         self.r2 = params['r2']
         self.ra = params['ra']
         
-        # numerical parameters for discrete pressure profile
-        self.num_params = [128, 3, False, 10, 10]
-        
-        # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, z)
+        # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r     = lambda x, y, z : np.sqrt((x - self.r0)**2 + y**2)
         self.theta = lambda x, y, z : np.arctan2(y, x - self.r0)
         self.phi   = lambda x, y, z : z/(2*np.pi*self.r0)
         
-        # calculate rp
+        # calculate rp parameter in safety factor profile
         if self.q0 == self.q1:
             self.rp = np.inf
         else:
@@ -299,7 +296,7 @@ class equilibrium_mhd_cylinder:
     # equilibrium current (x - component, curl of equilibrium magnetic field)
     def j_eq_x(self, x, y, z):
 
-        jz = 0*x
+        jx = 0*x
 
         return jx
 
