@@ -4,8 +4,159 @@ import scipy.sparse as spa
 import struphy.feec.derivatives.derivatives as der
 
 
-# ============================= 2D polar splines ===================================
-class polar_splines_2D:
+# ============================= 2D polar splines (C0) ===================================
+class polar_splines_C0_2D:
+    
+    def __init__(self, n0, n1):
+        
+        d0 = n0 - 1
+        d1 = n1 - 0
+        
+        # number of polar basis functions in V0   (NN)
+        self.Nbase0  = (n0 - 1)*n1 + 1
+        
+        # number of polar basis functions in V1_C (DN ND) (1st and 2nd component)
+        self.Nbase1C_1 = d0*n1
+        self.Nbase1C_2 = (n0 - 1)*d1
+        
+        self.Nbase1C = self.Nbase1C_1 + self.Nbase1C_2 
+        
+        # number of polar basis functions in V1_D (ND DN) (1st and 2nd component)
+        self.Nbase1D_1 = (n0 - 1)*d1
+        self.Nbase1D_2 = d0*n1
+        
+        self.Nbase1D = self.Nbase1D_1 + self.Nbase1D_2
+        
+        # number of polar basis functions in V2   (DD)
+        self.Nbase2  = d0*d1
+        
+        # =========== extraction operators for discrete 0-forms ==================
+        # extraction operator for basis functions
+        self.E0_11 = spa.csr_matrix(np.ones((1, n1), dtype=float))
+        self.E0_22 = spa.identity((n0 - 1)*n1, format='csr')
+        
+        self.E0 = spa.bmat([[self.E0_11, None], [None, self.E0_22]], format='csr')
+        
+        # global projection extraction operator for interpolation points
+        self.P0_11 = np.zeros((1, n1), dtype=float)
+        
+        self.P0_11[0, 0] = 1.
+        
+        self.P0_11 = spa.csr_matrix(self.P0_11)
+        
+        self.P0_22 = spa.identity((n0 - 1)*n1, format='csr')
+        
+        self.P0 = spa.bmat([[self.P0_11, None], [None, self.P0_22]], format='csr')
+        # =======================================================================
+        
+        
+        # =========== extraction operators for discrete 1-forms (H_curl) ========
+        self.E1C_1 = spa.identity(d0*n1, format='csr')
+        self.E1C_2 = spa.identity(n0*d1, format='lil')[d1:, :].tocsr()
+        
+        # combined first and second component
+        self.E1C = spa.bmat([[self.E1C_1, None], [None, self.E1C_2]], format='csr')
+
+        # extraction operator for interpolation/histopolation in global projector
+        self.P1C_1 = spa.identity(d0*n1, format='csr')
+        self.P1C_2 = spa.identity(n0*d1, format='lil')[d1:, :].tocsr()
+        
+        # combined first and second component
+        self.P1C = spa.bmat([[self.P1C_1, None], [None, self.P1C_2]], format='csr')
+        # ========================================================================
+        
+        
+        # =========== extraction operators for discrete 1-forms (H_div) ==========
+        self.E1D_1 = spa.identity(n0*d1, format='lil')[d1:, :].tocsr()
+        self.E1D_2 = spa.identity(d0*n1, format='csr')
+        
+        # combined first and second component
+        self.E1D = spa.bmat([[self.E1D_1, None], [None, self.E1D_2]], format='csr')
+
+        # extraction operator for interpolation/histopolation in global projector
+        self.P1D_1 = spa.identity(n0*d1, format='lil')[d1:, :].tocsr()
+        self.P1D_2 = spa.identity(d0*n1, format='csr')
+        
+        # combined first and second component
+        self.P1D = spa.bmat([[self.P1D_1, None], [None, self.P1D_2]], format='csr')
+        # ========================================================================
+        
+        
+        # =========== extraction operators for discrete 2-forms ==================
+        self.E2 = spa.identity(d0*d1, format='csr')
+        self.P2 = spa.identity(d0*d1, format='csr')
+        # ========================================================================
+        
+        
+        # ========================= 1D discrete derivatives ======================
+        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(False, n0))
+        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(True , n1))
+        # ========================================================================
+        
+        
+        # ========= discrete polar gradient matrix ===============================
+        # radial dofs (DN)
+        G11 = np.zeros(((d0 - 0)*n1, 1), dtype=float)
+        G11[:n1, 0] = -1.
+        
+        G12 = spa.kron(grad_1d_1[:, 1:], spa.identity(n1))
+        
+        self.G1 = spa.bmat([[G11, G12]], format='csr')
+        
+        # angular dofs (ND)
+        G21 = np.zeros(((n0 - 1)*d1, 1), dtype=float)
+        G22 = spa.kron(spa.identity(n0 - 1), grad_1d_2, format='csr')
+        
+        self.G2 = spa.bmat([[G21, G22]], format='csr')
+        
+        # combined 1st and 2nd component
+        self.G = spa.bmat([[self.G1], [self.G2]], format='csr')
+        # ========================================================================
+        
+        
+        # ========= discrete polar curl matrix ===================================
+        # 2D vector curl (NN --> ND DN)
+        
+        # angular dofs (ND)
+        VC11 = np.zeros(((n0 - 1)*d1, 1), dtype=float)
+        VC12 = spa.kron(spa.identity(n0 - 1), grad_1d_2, format='csr')
+        
+        self.VC1 = spa.bmat([[VC11, VC12]], format='csr')
+        
+        # radial dofs (DN)
+        VC21 = np.zeros(((d0 - 0)*n1, 1), dtype=float)
+        VC21[:n1, 0] = 1.
+        
+        VC22 = -spa.kron(grad_1d_1[:, 1:], spa.identity(n1))
+        
+        self.VC2 = spa.bmat([[VC21, VC22]], format='csr')
+
+        # combined 1st and 2nd component
+        self.VC = spa.bmat([[self.VC1], [self.VC2]], format='csr')
+        
+        # 2D scalar curl (DN ND --> DD)
+        self.SC1 = -spa.kron(spa.identity(d0), grad_1d_2, format='csr')
+        self.SC2 =  spa.kron(grad_1d_1[:, 1:], spa.identity(d1), format='csr')
+        
+        # combined 1st and 2nd component
+        self.SC = spa.bmat([[self.SC1, self.SC2]], format='csr')
+        # ========================================================================
+        
+        
+        # =============== discrete polar div matrix ==============================
+        self.D1 = spa.kron(grad_1d_1[:, 1:], spa.identity(d1), format='csr')
+        self.D2 = spa.kron(spa.identity(d0), grad_1d_2, format='csr')
+        
+        # combined 1st and 2nd component
+        self.D = spa.bmat([[self.D1, self.D2]], format='csr')
+        # ========================================================================
+        
+        
+
+
+
+# ============================= 2D polar splines (C1) ===================================
+class polar_splines_C1_2D:
     
     def __init__(self, cx, cy):
         
@@ -22,10 +173,16 @@ class polar_splines_2D:
         self.Nbase0  = (n0 - 2)*n1 + 3
         
         # number of polar basis functions in V1_C (DN ND) (1st and 2nd component)
-        self.Nbase1C = (d0 - 1)*n1 + (n0 - 2)*d1 + 2
+        self.Nbase1C_1 = (d0 - 1)*n1
+        self.Nbase1C_2 = (n0 - 2)*d1 + 2
+        
+        self.Nbase1C = self.Nbase1C_1 + self.Nbase1C_2
         
         # number of polar basis functions in V1_D (ND DN) (1st and 2nd component)
-        self.Nbase1D = (d0 - 1)*n1 + (n0 - 2)*d1 + 2
+        self.Nbase1D_1 = (n0 - 2)*d1 + 2
+        self.Nbase1D_2 = (d0 - 1)*n1
+        
+        self.Nbase1D = self.Nbase1D_1 + self.Nbase1D_2
         
         # number of polar basis functions in V2   (DD)
         self.Nbase2  = (d0 - 1)*d1
@@ -49,126 +206,139 @@ class polar_splines_2D:
         
         # =========== extraction operators for discrete 0-forms ==================
         # extraction operator for basis functions
-        self.E0 = spa.bmat([[np.hstack((self.Xi_0, self.Xi_1)), None], [None, spa.identity((n0 - 2)*n1)]], format='csr')
+        self.E0_11 = spa.csr_matrix(np.hstack((self.Xi_0, self.Xi_1)))
+        self.E0_22 = spa.identity((n0 - 2)*n1, format='csr')
+        
+        self.E0 = spa.bmat([[self.E0_11, None], [None, self.E0_22]], format='csr')
         
         # global projection extraction operator for interpolation points
-        self.P0                   = spa.lil_matrix((self.Nbase0, n0*n1), dtype=float)
-        self.P0[0 , n1 + 0*n1//3] = 1.
-        self.P0[1 , n1 + 1*n1//3] = 1.
-        self.P0[2 , n1 + 2*n1//3] = 1.
-        self.P0[3:, 2*n1:]        = spa.identity((n0 - 2)*n1)
-        self.P0                   = self.P0.tocsr()
+        self.P0_11 = np.zeros((3, 2*n1), dtype=float)
+        
+        self.P0_11[0, n1 + 0*n1//3] = 1.
+        self.P0_11[1, n1 + 1*n1//3] = 1.
+        self.P0_11[2, n1 + 2*n1//3] = 1.
+        
+        self.P0_11 = spa.csr_matrix(self.P0_11)
+        
+        self.P0_22 = spa.identity((n0 - 2)*n1)
+        
+        self.P0 = spa.bmat([[self.P0_11, None], [None, self.P0_22]], format='csr')
         # =======================================================================
         
         
+        
         # =========== extraction operators for discrete 1-forms (H_curl) ========
-        self.E1C_1 = spa.lil_matrix((self.Nbase1C, d0*n1), dtype=float)
-        self.E1C_2 = spa.lil_matrix((self.Nbase1C, n0*d1), dtype=float)
-
+        self.E1C_12 = spa.identity((d0 - 1)*n1)
+        self.E1C_34 = spa.identity((n0 - 2)*d1)
+        
+        self.E1C_21 = np.zeros((2, 1*n1), dtype=float)
+        self.E1C_23 = np.zeros((2, 2*d1), dtype=float)
+        
         # 1st component
         for s in range(2):
             for j in range(n1):
-                self.E1C_1[(d0 - 1)*n1 + s, j] = self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j]
+                self.E1C_21[s, j] = self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j]
+        
+        # 2nd component
+        for s in range(2):
+            for j in range(d1):
+                self.E1C_23[s,      j] = 0.
+                self.E1C_23[s, n1 + j] = self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j]
                 
-        self.E1C_1[:(d0 - 1)*n1, n1:] = spa.identity((d0 - 1)*n1)
-        self.E1C_1 = self.E1C_1.tocsr()
-
-        # 2nd component
-        for s in range(2):
-            for j in range(n1):
-                self.E1C_2[(d0 - 1)*n1 + s,      j] = 0.
-                self.E1C_2[(d0 - 1)*n1 + s, n1 + j] = self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j]
-
-        self.E1C_2[((d0 - 1)*n1 + 2):, 2*d1:] = spa.identity((n0 - 2)*d1)
-        self.E1C_2 = self.E1C_2.tocsr()
-        
         # combined first and second component
-        self.E1C = spa.bmat([[self.E1C_1, self.E1C_2]], format='csr')
-
+        self.E1C = spa.bmat([[None, self.E1C_12, None, None], [self.E1C_21, None, self.E1C_23, None], [None, None, None, self.E1C_34]], format='csr')
+        
+        
         # extraction operator for interpolation/histopolation in global projector
-        self.P1C_1 = spa.lil_matrix(((d0 - 1)*n1    , d0*n1), dtype=float)
-        self.P1C_2 = spa.lil_matrix(((n0 - 2)*d1 + 2, n0*d1), dtype=float)
-        
+
         # 1st component
-        self.P1C_1[:n1, 0*n1//3]  = -self.Xi_1[0].reshape(n1, 1)
-        self.P1C_1[:n1, 1*n1//3]  = -self.Xi_1[1].reshape(n1, 1)
-        self.P1C_1[:n1, 2*n1//3]  = -self.Xi_1[2].reshape(n1, 1)
-        self.P1C_1[:n1,   :1*n1] += spa.identity(n1)
-        self.P1C_1[:n1, n1:2*n1]  = spa.identity(n1)
-        self.P1C_1[n1:,   2*n1:]  = spa.identity((d0 - 2)*n1)
-        self.P1C_1                = self.P1C_1.tocsr()
+        self.P1C_11 = np.zeros((n1, n1), dtype=float)
+        self.P1C_12 = spa.identity(n1)
+        self.P1C_23 = spa.identity((d0 - 2)*n1)
+        
+        self.P1C_11[:, 0*n1//3]  = -self.Xi_1[0]
+        self.P1C_11[:, 1*n1//3]  = -self.Xi_1[1]
+        self.P1C_11[:, 2*n1//3]  = -self.Xi_1[2]
+        self.P1C_11             += np.identity(n1)
         
         # 2nd component
-        self.P1C_2[0, (n1 + 0*n1//3):(n1 + 1*n1//3)] = np.ones((1, n1//3), dtype=float)
-        self.P1C_2[1, (n1 + 0*n1//3):(n1 + 1*n1//3)] = np.ones((1, n1//3), dtype=float)
-        self.P1C_2[1, (n1 + 1*n1//3):(n1 + 2*n1//3)] = np.ones((1, n1//3), dtype=float)
-        self.P1C_2[2:, 2*n1:]                        = spa.identity((n0 - 2)*d1)
-        self.P1C_2                                   = self.P1C_2.tocsr()
+        self.P1C_34 = np.zeros((2, 2*d1), dtype=float)
+        self.P1C_45 = spa.identity((n0 - 2)*d1)
+        
+        self.P1C_34[0, (d1 + 0*d1//3):(d1 + 1*d1//3)] = np.ones(d1//3, dtype=float)
+        self.P1C_34[1, (d1 + 0*d1//3):(d1 + 1*d1//3)] = np.ones(d1//3, dtype=float)
+        self.P1C_34[1, (d1 + 1*d1//3):(d1 + 2*d1//3)] = np.ones(d1//3, dtype=float)
         
         # combined first and second component
-        self.P1C = spa.bmat([[self.P1C_1, None], [None, self.P1C_2]], format='csr')
+        self.P1C = spa.bmat([[self.P1C_11, self.P1C_12, None       , None       , None       ], 
+                             [None       , None       , self.P1C_23, None       , None       ], 
+                             [None       , None       , None       , self.P1C_34, None       ], 
+                             [None       , None       , None       , None       , self.P1C_45]], format='csr')
         # =========================================================================
+        
         
         
         # ========= extraction operators for discrete 1-forms (H_div) =============
-        self.E1D_1 = spa.lil_matrix((self.Nbase1D, n0*d1), dtype=float)
-        self.E1D_2 = spa.lil_matrix((self.Nbase1D, d0*n1), dtype=float)
-
+        self.E1D_11 = np.zeros((2, 2*d1), dtype=float)
+        self.E1D_13 = np.zeros((2, 1*n1), dtype=float)
+        
+        self.E1D_22 = spa.identity((n0 - 2)*d1)
+        self.E1D_34 = spa.identity((d0 - 1)*n1)
+        
         # 1st component
         for s in range(2):
-            for j in range(n1):
-                self.E1D_1[s,      j] = 0.
-                self.E1D_1[s, n1 + j] = (self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
+            for j in range(d1):
+                self.E1D_11[s,      j] = 0.
+                self.E1D_11[s, n1 + j] = (self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
                 
-        self.E1D_1[2:(2 + (n0 - 2)*d1), 2*n1:] = spa.identity((n0 - 2)*d1)
-        self.E1D_1 = self.E1D_1.tocsr()
-
         # 2nd component
         for s in range(2):
             for j in range(n1):
-                self.E1D_2[s, j] = -(self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j])
+                self.E1D_13[s, j] = -(self.Xi_1[s + 1, j] - self.Xi_0[s + 1, j])
                 
-        self.E1D_2[(2 + (n0 - 2)*d1):, 1*n1:] = spa.identity((d0 - 1)*n1)
-        self.E1D_2 = self.E1D_2.tocsr()
-
         # combined first and second component
-        self.E1D = spa.bmat([[self.E1D_1, self.E1D_2]], format='csr')
+        self.E1D = spa.bmat([[self.E1D_11, None, self.E1D_13, None], [None, self.E1D_22, None, None], [None, None, None, self.E1C_34]], format='csr')
+        
         
         # extraction operator for interpolation/histopolation in global projector
+        self.P1D_11 = self.P1C_34.copy()
+        self.P1D_22 = self.P1C_45.copy()
         
-        # 1st component
-        self.P1D_1 = self.P1C_2
-        
-        # 2nd component
-        self.P1D_2 = self.P1C_1
+        self.P1D_33 = self.P1C_11.copy()
+        self.P1D_34 = self.P1C_12.copy()
+        self.P1D_45 = self.P1C_23.copy()
         
         # combined first and second component
-        self.P1D = spa.bmat([[self.P1D_1, None], [None, self.P1D_2]], format='csr')
+        self.P1D = spa.bmat([[self.P1D_11, None       , None        , None       , None       ], 
+                             [None       , self.P1D_22, None        , None       , None       ], 
+                             [None       , None       , self.P1D_33 , self.P1D_34, None       ], 
+                             [None       , None       , None        , None       , self.P1D_45]], format='csr')
         # =========================================================================
         
         
+        
         # =========== extraction operators for discrete 2-forms ===================
-        self.E2 = spa.lil_matrix((self.Nbase2, d0*d1), dtype=float)
+        self.E2_1 = np.zeros(((d0 - 1)*d1, d1), dtype=float)
+        self.E2_2 = spa.identity((d0 - 1)*d1)
         
-        self.E2[:, 1*d1:] = spa.identity((d0 - 1)*d1)
-        self.E2 = self.E2.tocsr()
+        self.E2 = spa.bmat([[self.E2_1, self.E2_2]], format='csr')
         
-        # 3rd component
-        self.P2 = spa.lil_matrix(((d0 - 1)*d1, d0*d1), dtype=float)
+        # extraction operator for histopolation in global projector
+        self.P2_11 = np.zeros((d1, d1), dtype=float)
+        self.P2_12 = spa.identity(d1)
+        self.P2_23 = spa.identity((d0 - 2)*d1)
         
-        for i2 in range(d1):
+        for i in range(d1):
             
             # block A
-            self.P2[i2, 0*n1//3:1*n1//3] = -(self.Xi_1[1, (i2 + 1)%n1] - self.Xi_1[1, i2]) - (self.Xi_1[2, (i2 + 1)%n1] - self.Xi_1[2, i2])
+            self.P2_11[i, 0*n1//3:1*n1//3] = -(self.Xi_1[1, (i + 1)%n1] - self.Xi_1[1, i]) - (self.Xi_1[2, (i + 1)%n1] - self.Xi_1[2, i])
             
             # block B
-            self.P2[i2, 1*n1//3:2*n1//3] = -(self.Xi_1[2, (i2 + 1)%n1] - self.Xi_1[2, i2])
+            self.P2_11[i, 1*n1//3:2*n1//3] = -(self.Xi_1[2, (i + 1)%n1] - self.Xi_1[2, i])
             
-        self.P2[:d1,   :1*d1] += spa.identity(d1)
-        self.P2[:d1, d1:2*d1]  = spa.identity(d1)
+        self.P2_11 += np.identity(d1)
         
-        self.P2[d1:, 2*d1:]    = spa.identity((d0 - 2)*d1)
-        self.P2                = self.P2.tocsr()
+        self.P2 = spa.bmat([[self.P2_11, self.P2_12, None], [None, None, self.P2_23]], format='csr')
         # =========================================================================
         
         
@@ -179,77 +349,86 @@ class polar_splines_2D:
         
         
         # ========= discrete polar gradient matrix ================================
-        grad_1 = spa.lil_matrix(((d0 - 1)*n1    , self.Nbase0), dtype=float)
-        grad_2 = spa.lil_matrix(((n0 - 2)*d1 + 2, self.Nbase0), dtype=float)
-
-        # radial dofs (D N)
-        grad_1[:  , 3:] = spa.kron(grad_1d_1[1:, 2:], spa.identity(n1))
-        grad_1[:n1, :3] = -self.Xi_1.T
-
-        # angular dofs (N D)
-        grad_2[0, 0] = -1.
-        grad_2[0, 1] =  1.
-
-        grad_2[1, 0] = -1.
-        grad_2[1, 2] =  1.
+        self.G1_1 = np.zeros(((d0 - 1)*n1, 3), dtype=float)
+        self.G1_1[:n1, :] = -self.Xi_1.T
         
-        grad_2[2:, 3:] = spa.kron(spa.identity(n0 - 2), grad_1d_2)
+        self.G1_2 = spa.kron(grad_1d_1[1:, 2:], spa.identity(n1))
         
-        # combined 1st and 2nd component
-        self.G = spa.bmat([[grad_1], [grad_2]], format='csr')
+        self.G1 = spa.bmat([[self.G1_1, self.G1_2]], format='csr')
+        
+        self.G2_11 = np.zeros((2, 3), dtype=float)
+        
+        self.G2_11[0, 0] = -1.
+        self.G2_11[0, 1] =  1.
+        
+        self.G2_11[1, 0] = -1.
+        self.G2_11[1, 2] =  1.
+        
+        self.G2_22 = spa.kron(spa.identity(n0 - 2), grad_1d_2)
+        
+        self.G2 = spa.bmat([[self.G2_11, None], [None, self.G2_22]], format='csr')
+        
+        self.G = spa.bmat([[self.G1], [self.G2]], format='csr')
         # =======================================================================
+        
         
         
         # ========= discrete polar curl matrix ===================================
         # 2D vector curl
-        vector_curl_1 = spa.lil_matrix(((n0 - 2)*d1 + 2, self.Nbase0), dtype=float)
-        vector_curl_2 = spa.lil_matrix(((d0 - 1)*n1    , self.Nbase0), dtype=float)
+        self.VC1_11 = np.zeros((2, 3), dtype=float)
         
-        # angular dofs (N D)
-        vector_curl_1[0, 0] = -1.
-        vector_curl_1[0, 1] =  1.
-
-        vector_curl_1[1, 0] = -1.
-        vector_curl_1[1, 2] =  1.
+        self.VC1_11[0, 0] = -1.
+        self.VC1_11[0, 1] =  1.
         
-        vector_curl_1[2:, 3:] = spa.kron(spa.identity(n0 - 2), grad_1d_2)
+        self.VC1_11[1, 0] = -1.
+        self.VC1_11[1, 2] =  1.
         
-        # radial dofs (D N)
-        vector_curl_2[:  , 3:] = -spa.kron(grad_1d_1[1:, 2:], spa.identity(n1))
-        vector_curl_2[:n1, :3] =  self.Xi_1.T
+        self.VC1_22 = spa.kron(spa.identity(n0 - 2), grad_1d_2)
         
-        # combined 1st and 2nd component
-        self.VC = spa.bmat([[vector_curl_1], [vector_curl_2]], format='csr')
+        self.VC1 = spa.bmat([[self.VC1_11, None], [None, self.VC1_22]], format='csr')
+        
+        
+        self.VC2_11 = np.zeros(((d0 - 1)*n1, 3), dtype=float)
+        self.VC2_11[:n1, :] = -self.Xi_1.T
+        
+        self.VC2_22 = spa.kron(grad_1d_1[1:, 2:], spa.identity(n1))
+        
+        self.VC2 = -spa.bmat([[self.VC2_11, self.VC2_22]], format='csr')
+        
+        self.VC = spa.bmat([[self.VC1], [self.VC2]], format='csr')
         
         # 2D scalar curl
-        self.SC = spa.lil_matrix((self.Nbase2, self.Nbase1C), dtype=float)
+        self.SC1 = -spa.kron(spa.identity(d0 - 1), grad_1d_2)
         
-        # radial dofs (D N)
-        self.SC[:, :(d0 - 1)*n1] = -spa.kron(spa.identity(d0 - 1), grad_1d_2)
+        self.SC2_1 = np.zeros(((d0 - 1)*d1, 2), dtype=float)
         
-        # angular dofs (N D)
         for s in range(2):
-            for j in range(n1):
-                self.SC[j, (d0 - 1)*n1 + s] = -(self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
+            for j in range(d1):
+                self.SC2_1[j, s] = -(self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
                 
-        self.SC[:, ((d0 - 1)*n1 + 2):] = spa.kron(grad_1d_1[1:, 2:], spa.identity(d1))
-        self.SC = self.SC.tocsr()
+        self.SC2_2 = spa.kron(grad_1d_1[1:, 2:], spa.identity(d1))
+        
+        self.SC2 = spa.bmat([[self.SC2_1, self.SC2_2]], format='csr')
+        
+        self.SC = spa.bmat([[self.SC1, self.SC2]], format='csr')
         # =========================================================================
         
         
-        # ========= discrete polar div matrix =====================================
-        self.D = spa.lil_matrix((self.Nbase2, self.Nbase1D), dtype=float)
         
-        # angular dofs (N D)
+        # ========= discrete polar div matrix =====================================
+        self.D1_1 = np.zeros(((d0 - 1)*d1, 2), dtype=float)
+        
         for s in range(2):
             for j in range(d1):
-                self.D[j, s]  = -(self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
+                self.D1_1[j, s]  = -(self.Xi_1[s + 1, (j + 1)%n1] - self.Xi_1[s + 1, j])
                 
-        self.D[:, 2:((d0 - 1)*n1 + 2)] = spa.kron(grad_1d_1[1:, 2:], spa.identity(d1))
+        self.D1_2 = spa.kron(grad_1d_1[1:, 2:], spa.identity(d1))
         
-        # radial dofs (D N)
-        self.D[:, ((d0 - 1)*n1 + 2):] = spa.kron(spa.identity(d0 - 1), grad_1d_2)
-        self.D = self.D.tocsr()
+        self.D1 = spa.bmat([[self.D1_1, self.D1_2]], format='csr')
+        
+        self.D2 = spa.kron(spa.identity(d0 - 1), grad_1d_2)
+        
+        self.D = spa.bmat([[self.D1, self.D2]], format='csr')
         # =========================================================================
         
         
