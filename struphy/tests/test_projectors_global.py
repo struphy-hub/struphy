@@ -290,7 +290,7 @@ def test_projectors_2d(p_range=6, N_range=8):
             Vh_eta1 = spl.Spline_space_1d(Nel, p, spl_kind=False)
             Vh_eta2 = spl.Spline_space_1d(Nel, p, spl_kind=True)
 
-            Vh_2d = spl.Tensor_spline_space([Vh_eta1, Vh_eta2]) 
+            Vh_2d = spl.Tensor_spline_space([Vh_eta1, Vh_eta2], basis_tor='n') 
 
             # projectors
             Vh_eta1.set_projectors()
@@ -334,11 +334,13 @@ def test_projectors_2d(p_range=6, N_range=8):
             fh_12 = fh_0.copy()
             fh_2  = fh_0.copy()
             f_mat = fh_0.copy()
+            
+            print(cij_0.shape)
 
-            fh_0  = Vh_2d.evaluate_NN(eta1_v, eta2_v, cij_0)
-            fh_11 = Vh_2d.evaluate_DN(eta1_v, eta2_v, cij_11)
-            fh_12 = Vh_2d.evaluate_ND(eta1_v, eta2_v, cij_12)
-            fh_2  = Vh_2d.evaluate_DD(eta1_v, eta2_v, cij_2)
+            fh_0  = Vh_2d.evaluate_NN(eta1_v, eta2_v, np.array([0.]), cij_0.flatten() , 'V0')[:, :, 0]
+            fh_11 = Vh_2d.evaluate_DN(eta1_v, eta2_v, np.array([0.]), np.concatenate((cij_11.flatten(), cij_12.flatten(), cij_0.flatten())), 'V1')[:, :, 0]
+            fh_12 = Vh_2d.evaluate_ND(eta1_v, eta2_v, np.array([0.]), np.concatenate((cij_11.flatten(), cij_12.flatten(), cij_0.flatten())), 'V1')[:, :, 0]
+            fh_2  = Vh_2d.evaluate_DD(eta1_v, eta2_v, np.array([0.]), cij_2.flatten() , 'V3')[:, :, 0]
 
             # compute error:
             f_mat = f(ee1, ee2)
@@ -604,7 +606,7 @@ def test_project_splines():
     # random spline in V0_h:
     ########################
     coeffs = np.random.rand(tensor_space_FEM.Ntot_0form)
-    coeffs = tensor_space_FEM.extract_0form(coeffs)
+    coeffs = tensor_space_FEM.extract_0(coeffs)
 
     def phi_0(eta1, eta2, eta3):
         return tensor_space_FEM.evaluate_NNN(eta1, eta2, eta3, coeffs)
@@ -622,7 +624,7 @@ def test_project_splines():
     # random spline in V1_h:
     ########################
     coeffs = np.random.rand(tensor_space_FEM.Ntot_1form_cum[-1])
-    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_1form(coeffs)
+    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_1(coeffs)
 
     def phi_11(eta1, eta2, eta3):
         return tensor_space_FEM.evaluate_DNN(eta1, eta2, eta3, coeffs_1)
@@ -664,7 +666,7 @@ def test_project_splines():
     # random spline in V2_h:
     ########################
     coeffs = np.random.rand(tensor_space_FEM.Ntot_2form_cum[-1])
-    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_2form(coeffs)
+    coeffs_1, coeffs_2, coeffs_3 = tensor_space_FEM.extract_2(coeffs)
 
     def phi_21(eta1, eta2, eta3):
         return tensor_space_FEM.evaluate_NDD(eta1, eta2, eta3, coeffs_1)
@@ -706,7 +708,7 @@ def test_project_splines():
     # random spline in V3_h:
     ########################
     coeffs = np.random.rand(tensor_space_FEM.Ntot_3form)
-    coeffs = tensor_space_FEM.extract_3form(coeffs)
+    coeffs = tensor_space_FEM.extract_3(coeffs)
 
     def phi_3(eta1, eta2, eta3):
         return tensor_space_FEM.evaluate_DDD(eta1, eta2, eta3, coeffs)

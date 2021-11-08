@@ -103,31 +103,33 @@ class Spline_space_1d:
         # -------------------------------------------------
         n1 = self.NbaseN
         d1 = self.NbaseD
-
-        # bc = 'f': including boundary splines
-        self.E0_all = spa.identity(n1, dtype=float, format='csr')
-        self.E1_all = spa.identity(d1, dtype=float, format='csr')
-
-        # bc = 'd': without boundary splines
-        E_NN = self.E0_all.copy()
-        E_DD = self.E1_all.copy()
+        
+        # boundary operators
+        self.B0 = np.identity(n1, dtype=float)
+        self.B1 = np.identity(d1, dtype=float)
+        
+        # extraction operators without boundary conditions
+        self.E0 = spa.csr_matrix(self.B0.copy())
+        self.E1 = spa.csr_matrix(self.B1.copy())
 
         # remove contributions from N-splines at eta = 0
         if self.bc[0] == 'd':
-            E_NN = E_NN[1:, :]
+            self.B0 = self.B0[1:, :]
 
         # remove contributions from N-splines at eta = 1
         if self.bc[1] == 'd': 
-            E_NN = E_NN[:-1, :]
-
-        self.E0 = E_NN.tocsr().copy()
-        self.E1 = E_DD.tocsr().copy()
+            self.B0 = self.B0[:-1, :]
+            
+        self.B0 = spa.csr_matrix(self.B0)
+        self.B1 = spa.csr_matrix(self.B1)
         
+        self.E0_0 = self.B0.dot(self.E0)
+        self.E1_0 = self.B1.dot(self.E1)
         
         # -------------------------------------------------
         # Set discrete derivatives:
         # -------------------------------------------------
-        self.G = der.discrete_derivatives_1d(self)
+        self.G, self.G0 = der.discrete_derivatives_1d(self)
 
         print('Spline space set up (1d) done.')
                     
@@ -135,22 +137,22 @@ class Spline_space_1d:
     # functions for setting mass matrices:        
     # =================================================
     def assemble_M0(self, weight=None):
-        self.M0  = self.E0.dot(mass_1d.get_M(self, 0, 0, weight).dot(self.E0.T))
+        self.M0  = self.E0_0.dot(mass_1d.get_M(self, 0, 0, weight).dot(self.E0_0.T))
         print('Assembly of M0 (1d) done.')
         
     # =================================================
     def assemble_M1(self, weight=None):
-        self.M1  = self.E1.dot(mass_1d.get_M(self, 1, 1, weight).dot(self.E1.T))
+        self.M1  = self.E1_0.dot(mass_1d.get_M(self, 1, 1, weight).dot(self.E1_0.T))
         print('Assembly of M1 (1d) done.')
         
     # =================================================
     def assemble_M01(self, weight=None):
-        self.M01 = self.E0.dot(mass_1d.get_M(self, 0, 1, weight).dot(self.E1.T))
+        self.M01 = self.E0_0.dot(mass_1d.get_M(self, 0, 1, weight).dot(self.E1_0.T))
         print('Assembly of M01 (1d) done.')
         
     # =================================================
     def assemble_M10(self, weight=None):
-        self.M10 = self.E1.dot(mass_1d.get_M(self, 1, 0, weight).dot(self.E0.T))
+        self.M10 = self.E1_0.dot(mass_1d.get_M(self, 1, 0, weight).dot(self.E0_0.T))
         print('Assembly of M10 (1d) done.')
 
     
@@ -184,11 +186,11 @@ class Spline_space_1d:
             evaluated FEM field at the point(s) eta
         """
         
-        assert (coeff.size == self.E0.shape[0]) or (coeff.size == self.E0.shape[1])
+        assert (coeff.size == self.E0.shape[0]) or (coeff.size == self.E0_0.shape[0])
         assert (kind == 0) or (kind == 2)
         
-        if coeff.size == self.E0.shape[0]:
-            coeff = self.E0.T.dot(coeff)
+        if coeff.size == self.E0_0.shape[0]:
+            coeff = self.E0_0.T.dot(coeff)
             
         if isinstance(eta, float):
             pts = np.array([eta])
@@ -289,32 +291,60 @@ class Spline_space_1d:
             
         
         
-# =============== multi-d B-spline tensor product space ======================        
+# =============== 2d/3d tensor-product B-spline space ======================         
 class Tensor_spline_space:
     """
     Defines a tensor product space of 1d B-spline spaces in higher dimensions (2d and 3d).
     
     Parameters
     ----------
-    spline_spaces : list of Spline_space_1d
+    spline_spaces : list of spline_space_1d
         1d B-spline spaces from which the tensor_product B-spline space is built
+         
+    ck : int
+        smoothness contraint at eta_1=0 (pole): -1 (no constraints), 0 or 1 (polar splines)
+        
+    cx, cy : 2D arrays
+        control points for spline mapping in case of polar splines
+        
+    basis_tor : string
+        basis in third direction for a 2D spline space (i: complex Fourier, r: sin/cos, n: no variation)
         
     n_tor : int
-        mode number in third dimension if two spline spaces are passed
+        mode number in third direction for a 2D spline space
     """
     
 
-    def __init__(self, spline_spaces, n_tor=0):
+    def __init__(self, spline_spaces, ck=-1, cx=None, cy=None, basis_tor='i', n_tor=1):
         
-        self.spaces   = spline_spaces                            # 1D B-spline spaces
-        self.dim      = len(self.spaces)                         # number of 1D B-spline spaces
+        # 1D B-spline spaces
+        self.spaces = spline_spaces     
+        self.dim    = len(self.spaces)
+        
+        assert self.dim == 2 or self.dim == 3
 
-        # set mode number in third dimension (only for 2D space)
-        if self.dim == 2:
-            self.n_tor = n_tor
+        # C^k smoothness constraint at eta_1 = 0 
+        assert ck == -1 or ck == 0 or ck == 1 
         
-        # polar splines can be set below
-        self.polar    = False
+        self.ck = ck
+        
+        if self.ck == 1:
+            assert cx.ndim == 2
+            assert cy.ndim == 2
+        
+        
+        # set basis in 3rd dimension (only for 2D space): no basis, sin(2*pi*n*eta_3)/cos(2*pi*n*eta_3), exp(i*2*pi*n*eta_3)
+        if self.dim == 2:
+            
+            assert basis_tor == 'n' or basis_tor == 'r' or basis_tor == 'i'
+            
+            self.basis_tor = basis_tor
+            
+            if basis_tor == 'r' or basis_tor == 'i':
+                self.n_tor = n_tor
+            else:
+                self.n_tor = 0
+        
         
         # input from 1d spaces
         # ====================
@@ -350,59 +380,58 @@ class Tensor_spline_space:
         self.basisN   = [spl.basisN   for spl in self.spaces] 
         self.basisD   = [spl.basisD   for spl in self.spaces]
         
+        if self.dim == 2:
+            
+            self.Nel      += [0]
+            self.p        += [0]
+            self.spl_kind += [None]
+            
+            self.T        += [np.array([0.])]
+            
+            if self.basis_tor == 'n' or self.basis_tor == 'i': 
+                self.NbaseN = self.NbaseN + [1]
+                self.NbaseD = self.NbaseD + [1]
+                
+                self.M0_tor = spa.identity(1, format='csr')
+                self.M1_tor = spa.identity(1, format='csr')
+                
+            else:
+                self.NbaseN = self.NbaseN + [2]
+                self.NbaseD = self.NbaseD + [2]
+                
+                self.M0_tor = spa.identity(2, format='csr')/2
+                self.M1_tor = spa.identity(2, format='csr')/2
+                
+        else:
+            self.M0_tor = mass_1d.get_M(self.spaces[2], 0, 0)
+            self.M1_tor = mass_1d.get_M(self.spaces[2], 1, 1)
+        
         # number of basis functions of discrete tensor-product p-forms in 2D x analytical third dimension
-        self.Nbase_0form =  [self.NbaseN[0], self.NbaseN[1]]
+        self.Nbase_0form =  [self.NbaseN[0], self.NbaseN[1], self.NbaseN[2]]
 
-        self.Nbase_1form = [[self.NbaseD[0], self.NbaseN[1]], 
-                            [self.NbaseN[0], self.NbaseD[1]], 
-                            [self.NbaseN[0], self.NbaseN[1]]]
+        self.Nbase_1form = [[self.NbaseD[0], self.NbaseN[1], self.NbaseN[2]], 
+                            [self.NbaseN[0], self.NbaseD[1], self.NbaseN[2]], 
+                            [self.NbaseN[0], self.NbaseN[1], self.NbaseD[2]]]
 
-        self.Nbase_2form = [[self.NbaseN[0], self.NbaseD[1]], 
-                            [self.NbaseD[0], self.NbaseN[1]], 
-                            [self.NbaseD[0], self.NbaseD[1]]]
+        self.Nbase_2form = [[self.NbaseN[0], self.NbaseD[1], self.NbaseD[2]], 
+                            [self.NbaseD[0], self.NbaseN[1], self.NbaseD[2]], 
+                            [self.NbaseD[0], self.NbaseD[1], self.NbaseN[2]]]
 
-        self.Nbase_3form =  [self.NbaseD[0], self.NbaseD[1]]
+        self.Nbase_3form =  [self.NbaseD[0], self.NbaseD[1], self.NbaseD[2]]
 
         # total number of basis functions
-        self.Ntot_0form  =  self.NbaseN[0]*self.NbaseN[1]
+        self.Ntot_0form  =  self.NbaseN[0]*self.NbaseN[1]*self.NbaseN[2]
 
-        self.Ntot_1form  = [self.NbaseD[0]*self.NbaseN[1], 
-                            self.NbaseN[0]*self.NbaseD[1], 
-                            self.NbaseN[0]*self.NbaseN[1]]
+        self.Ntot_1form  = [self.NbaseD[0]*self.NbaseN[1]*self.NbaseN[2], 
+                            self.NbaseN[0]*self.NbaseD[1]*self.NbaseN[2], 
+                            self.NbaseN[0]*self.NbaseN[1]*self.NbaseD[2]]
 
-        self.Ntot_2form  = [self.NbaseN[0]*self.NbaseD[1], 
-                            self.NbaseD[0]*self.NbaseN[1], 
-                            self.NbaseD[0]*self.NbaseD[1]]
+        self.Ntot_2form  = [self.NbaseN[0]*self.NbaseD[1]*self.NbaseD[2], 
+                            self.NbaseD[0]*self.NbaseN[1]*self.NbaseD[2], 
+                            self.NbaseD[0]*self.NbaseD[1]*self.NbaseN[2]]
 
-        self.Ntot_3form  =  self.NbaseD[0]*self.NbaseD[1]
+        self.Ntot_3form  =  self.NbaseD[0]*self.NbaseD[1]*self.NbaseD[2]
         
-        # extension to 3D
-        if self.dim == 3:
-            
-            self.Nbase_0form    += [self.NbaseN[2]]
-
-            self.Nbase_1form[0] += [self.NbaseN[2]]
-            self.Nbase_1form[1] += [self.NbaseN[2]]
-            self.Nbase_1form[2] += [self.NbaseD[2]]
-            
-            self.Nbase_2form[0] += [self.NbaseD[2]]
-            self.Nbase_2form[1] += [self.NbaseD[2]]
-            self.Nbase_2form[2] += [self.NbaseN[2]]
-
-            self.Nbase_3form    += [self.NbaseD[2]]
-
-            # total number of basis functions
-            self.Ntot_0form     *= self.NbaseN[2] 
-
-            self.Ntot_1form[0]  *= self.NbaseN[2]
-            self.Ntot_1form[1]  *= self.NbaseN[2]
-            self.Ntot_1form[2]  *= self.NbaseD[2]
-
-            self.Ntot_2form[0]  *= self.NbaseD[2]
-            self.Ntot_2form[1]  *= self.NbaseD[2]
-            self.Ntot_2form[2]  *= self.NbaseN[2]
-
-            self.Ntot_3form     *= self.NbaseD[2]
             
         # cumulative number of basis functions for vector-valued spaces
         self.Ntot_1form_cum = [self.Ntot_1form[0],
@@ -413,280 +442,402 @@ class Tensor_spline_space:
                                self.Ntot_2form[0] + self.Ntot_2form[1],
                                self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2]]
 
-        #print('Tensor space set up ({}d) done.'.format(self.dim))
-
 
         # -------------------------------------------------
         # Set extraction operators for boundary conditions:
         # -------------------------------------------------
-        n1, n2 = self.NbaseN[:2]
-        d1, d2 = self.NbaseD[:2]
         
-        # including boundary splines
-        self.E0_pol_all = spa.identity(n1*n2        , dtype=float, format='csr')
-        self.E1_pol_all = spa.identity(d1*n2 + n1*d2, dtype=float, format='csr')
-        self.E2_pol_all = spa.identity(n1*d2 + d1*n2, dtype=float, format='csr')
-        self.E3_pol_all = spa.identity(d1*d2        , dtype=float, format='csr')
+        # standard tensor-product splines in eta_1-eta_2 plane
+        if self.ck == -1:
         
-        # without boundary splines
-        E_NN = spa.identity(n1*n2, format='csr')
-        E_DN = spa.identity(d1*n2, format='csr')
-        E_ND = spa.identity(n1*d2, format='csr')
-        E_DD = spa.identity(d1*d2, format='csr')
+            # extraction operators without boundary conditions
+            ENN = spa.kron(self.spaces[0].E0, self.spaces[1].E0, format='csr')
+            EDN = spa.kron(self.spaces[0].E1, self.spaces[1].E0, format='csr')
+            END = spa.kron(self.spaces[0].E0, self.spaces[1].E1, format='csr')
+            EDD = spa.kron(self.spaces[0].E1, self.spaces[1].E1, format='csr')
+            
+            self.E0_pol = ENN
+            self.E3_pol = EDD
+            
+            self.E1_pol = spa.bmat([[EDN, None], [None, END]], format='csr')
+            self.E2_pol = spa.bmat([[END, None], [None, EDN]], format='csr')
+            
+            self.Ev_pol = spa.bmat([[ENN, None], [None, ENN]], format='csr')
+            
+            # boundary operators
+            BNN = spa.kron(self.spaces[0].B0, self.spaces[1].B0, format='csr')
+            BDN = spa.kron(self.spaces[0].B1, self.spaces[1].B0, format='csr')
+            BND = spa.kron(self.spaces[0].B0, self.spaces[1].B1, format='csr')
+            BDD = spa.kron(self.spaces[0].B1, self.spaces[1].B1, format='csr')
+            
+            self.B0_pol = BNN
+            self.B3_pol = BDD
+            
+            self.B1_pol = spa.bmat([[BDN, None], [None, BND]], format='csr')
+            self.B2_pol = spa.bmat([[BND, None], [None, BDN]], format='csr')
+            
+            Bv1 = spa.kron(self.spaces[0].B0, spa.identity(self.spaces[1].NbaseN), format='csr')
+            Bv2 = spa.kron(spa.identity(self.spaces[0].NbaseN), self.spaces[1].B0, format='csr')
+            Bv3 = spa.kron(spa.identity(self.spaces[0].NbaseN), spa.identity(self.spaces[1].NbaseN), format='csr')
+            
+            self.Bv_pol = spa.bmat([[Bv1, None], [None, Bv2]], format='csr')
+            
+            # extraction operators with boundary conditions
+            self.E0_pol_0 = self.B0_pol.dot(self.E0_pol).tocsr()
+            self.E1_pol_0 = self.B1_pol.dot(self.E1_pol).tocsr()
+            self.E2_pol_0 = self.B2_pol.dot(self.E2_pol).tocsr()
+            self.E3_pol_0 = self.B3_pol.dot(self.E3_pol).tocsr()
+            self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
+            
         
-        # remove contributions from N-splines at eta_1 = 0
-        if self.bc[0][0] == 'd':
-            E_NN = E_NN[n2:, :]
-            E_ND = E_ND[d2:, :]
+        # C^k polar splines in eta_1-eta_2 plane
+        else:
+            
+            if   self.ck == 0:
+                self.polar_splines = pol.polar_splines_C0_2D(self.spaces[0].NbaseN, self.spaces[1].NbaseN)
+            elif self.ck == 1:
+                self.polar_splines = pol.polar_splines_C1_2D(cx, cy)
+            
+            # extraction operators without boundary conditions
+            self.E0_pol = self.polar_splines.E0.copy()
+            self.E1_pol = self.polar_splines.E1C.copy()
+            self.E2_pol = self.polar_splines.E1D.copy()
+            self.E3_pol = self.polar_splines.E2.copy()
+            
+            self.Ev_pol = spa.bmat([[self.E0_pol, None], [None, self.E0_pol]], format='csr')
+            
+            # boundary operators
+            BNN = spa.identity(self.polar_splines.Nbase0, format='lil')
+            BDD = spa.identity(self.polar_splines.Nbase2, format='lil')
 
-        # remove contributions from N-splines at eta_1 = 1
-        if self.bc[0][1] == 'd':
-            E_NN = E_NN[:-n2, :]
-            E_ND = E_ND[:-d2, :]
-            
-        self.E0_pol = E_NN.tocsr().copy()
-        self.E1_pol = spa.bmat([[E_DN, None], [None, E_ND]], format='csr')
-        self.E2_pol = spa.bmat([[E_ND, None], [None, E_DN]], format='csr')
-        self.E3_pol = E_DD.tocsr().copy()
-        
-        
-        self.E0_all =            self.E0_pol_all.copy()
-        self.E1_all = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
-        self.E2_all = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
-        self.E3_all =            self.E3_pol_all.copy()
+            BDN = spa.identity(self.polar_splines.Nbase1C_1, format='lil')
+            BND = spa.identity(self.polar_splines.Nbase1C_2, format='lil')
 
-        self.E0     =            self.E0_pol.copy()
-        self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-        self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-        self.E3     =            self.E3_pol.copy()
- 
-        # 3D extraction operators    
-        if self.dim == 3:
-            
-            n3 = self.NbaseN[2]
-            d3 = self.NbaseD[2]
-            
-            # Kronecker product with third dimension (including boundary splines)
-            self.E0_all = spa.kron(self.E0_pol_all, spa.identity(n3), format='csr')
-            
-            E1_1_all    = spa.kron(self.E1_pol_all, spa.identity(n3), format='csr')
-            E1_3_all    = spa.kron(self.E0_pol_all, spa.identity(d3), format='csr')
-            self.E1_all = spa.bmat([[E1_1_all, None], [None, E1_3_all]], format='csr')
-            
-            E2_1_all    = spa.kron(self.E2_pol_all, spa.identity(d3), format='csr')
-            E2_3_all    = spa.kron(self.E3_pol_all, spa.identity(n3), format='csr')
-            self.E2_all = spa.bmat([[E2_1_all, None], [None, E2_3_all]], format='csr')   
-            
-            self.E3_all = spa.kron(self.E3_pol_all, spa.identity(d3), format='csr')
-            
-            # Kronecker product with third dimension (without boundary splines)
-            self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr')
-            
-            E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
-            E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
-            self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
-            
-            E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
-            E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
-            self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')   
-            
-            self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
+            if self.bc[0][1] == 'd':
+                BNN = BNN[:-self.spaces[1].NbaseN, :]
+                BND = BND[:-self.spaces[1].NbaseD, :]
 
-        elif self.dim > 3:     
-            raise NotImplementedError('Only 2d and 3d supported.')
+            self.B0_pol = BNN.tocsr()
+            self.B3_pol = BDD.tocsr()
+            
+            self.B1_pol = spa.bmat([[BDN, None], [None, BND]], format='csr')
+            self.B2_pol = spa.bmat([[BND, None], [None, BDN]], format='csr')
+            
+            Bv1 = self.B0_pol
+            Bv2 = spa.identity(self.polar_splines.Nbase0, format='csr')
+            Bv3 = spa.identity(self.polar_splines.Nbase0, format='csr')
+            
+            self.Bv_pol = spa.bmat([[Bv1, None], [None, Bv2]], format='csr')
+            
+            # extraction operators with boundary conditions
+            self.E0_pol_0 = self.B0_pol.dot(self.E0_pol).tocsr()
+            self.E1_pol_0 = self.B1_pol.dot(self.E1_pol).tocsr()
+            self.E2_pol_0 = self.B2_pol.dot(self.E2_pol).tocsr()
+            self.E3_pol_0 = self.B3_pol.dot(self.E3_pol).tocsr()
+            self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
+            
+
+        # extraction operators for 3D diagram (3rd dimension MUST be periodic): without boundary conditions
+        self.E0 =            self.E0_pol.copy()
+        self.E1 = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
+        self.E2 = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
+        self.E3 =            self.E3_pol.copy()
+        self.Ev = spa.bmat([[self.Ev_pol, None], [None, self.E0_pol]], format='csr')
+        
+        self.E0 = spa.kron(self.E0, spa.identity(self.NbaseN[2]), format='csr')
+        self.E1 = spa.kron(self.E1, spa.identity(self.NbaseN[2]), format='csr')
+        self.E2 = spa.kron(self.E2, spa.identity(self.NbaseN[2]), format='csr')
+        self.E3 = spa.kron(self.E3, spa.identity(self.NbaseN[2]), format='csr')
+        self.Ev = spa.kron(self.Ev, spa.identity(self.NbaseN[2]), format='csr')
+        
+        # boundary operators for 3D diagram (3rd dimension MUST be periodic)
+        self.B0 =            self.B0_pol.copy()
+        self.B1 = spa.bmat([[self.B1_pol, None], [None, self.B0_pol]], format='csr')
+        self.B2 = spa.bmat([[self.B2_pol, None], [None, self.B3_pol]], format='csr')
+        self.B3 =            self.B3_pol.copy()
+        self.Bv = spa.bmat([[self.Bv_pol, None], [None,         Bv3]], format='csr')
+        
+        self.B0 = spa.kron(self.B0, spa.identity(self.NbaseN[2]), format='csr')
+        self.B1 = spa.kron(self.B1, spa.identity(self.NbaseN[2]), format='csr')
+        self.B2 = spa.kron(self.B2, spa.identity(self.NbaseN[2]), format='csr')
+        self.B3 = spa.kron(self.B3, spa.identity(self.NbaseN[2]), format='csr')
+        self.Bv = spa.kron(self.Bv, spa.identity(self.NbaseN[2]), format='csr')
+        
+        # extraction operators for 3D diagram: (3rd dimension MUST be periodic) with boundary conditions
+        self.E0_0 = self.B0.dot(self.E0).tocsr()
+        self.E1_0 = self.B1.dot(self.E1).tocsr()
+        self.E2_0 = self.B2.dot(self.E2).tocsr()
+        self.E3_0 = self.B3.dot(self.E3).tocsr()
+        self.Ev_0 = self.Bv.dot(self.Ev).tocsr()
             
             
         # -------------------------------------------------
         # Set discrete derivatives:
         # -------------------------------------------------
-        self.G, self.C, self.D = der.discrete_derivatives_3d(self)
+        self.G, self.C, self.D = der.discrete_derivatives_3d(self)[::2]
                 
-
         print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
 
     
+    
     # function for setting projectors:        
     # =================================================
-    def set_projectors(self, which='tensor', nq=[6, 6]):
+    def set_projectors(self, which='tensor'):
         
+        # tensor-product projectors (no polar splines possible)
         if   which == 'tensor':
         
-            if self.dim==2:
+            if   self.dim == 2:
                 self.projectors = pro.projectors_tensor_2d([space.projectors for space in self.spaces])
-            elif self.dim==3:
+            elif self.dim == 3:
                 self.projectors = pro.projectors_tensor_3d([space.projectors for space in self.spaces])
             else:
                 raise NotImplementedError('Only 2d and 3d supported.')
                 
+        # general projectors (polar splines possible)
         elif which == 'general':
-            
-            if self.dim==2:
-                self.projectors = pro.projectors_global_2d(self, nq)
-            elif self.dim==3:
-                self.projectors = pro.projectors_global_3d(self, nq)
-            else:
-                raise NotImplementedError('Only 2d and 3d supported.')
+            self.projectors = pro.projectors_global_3d(self)
 
         print('Set projectors ({}d) done.'.format(self.dim))
 
 
-    # function for setting polar splines:
-    # ===================================
-    def set_polar_splines(self, cx, cy):
-        
-        self.polar_splines = pol.polar_splines_2D(cx, cy)
-        
-        n1, n2 = self.NbaseN[:2]
-        d1, d2 = self.NbaseD[:2]
-        
-        # including boundary splines
-        self.E0_pol_all = self.polar_splines.E0.copy()
-        self.E1_pol_all = self.polar_splines.E1C.copy()
-        self.E2_pol_all = self.polar_splines.E1D.copy()
-        self.E3_pol_all = self.polar_splines.E2.copy()
-        
-        # without boundary splines
-        E0_NN = self.polar_splines.E0.copy()
-            
-        E1_DN = self.polar_splines.E1C.copy()[:(0 + (d1 - 1)*d2) , :]
-        E1_ND = self.polar_splines.E1C.copy()[ (0 + (d1 - 1)*d2):, :]
 
-        E2_ND = self.polar_splines.E1D.copy()[:(2 + (n1 - 2)*d2) , :]
-        E2_DN = self.polar_splines.E1D.copy()[ (2 + (n1 - 2)*d2):, :]
+    # ============== mass matrices =======================
+    def apply_M0_ten(self, x, mats):
+                
+        x = self.reshape_pol_0(x)
 
-        E3_DD = self.polar_splines.E2.copy()
-        
-        # remove contributions from N-splines at eta_1 = 1
-        if self.bc[0][1] == 'd':
-            E0_NN = E0_NN[:-n2, :]
-            E1_ND = E1_ND[:-d2, :]
-            E2_ND = E2_ND[:-d2, :]
-            
-        self.E0_pol = E0_NN.tocsr().copy()
-        self.E1_pol = spa.bmat([[E1_DN], [E1_ND]], format='csr')
-        self.E2_pol = spa.bmat([[E2_ND], [E2_DN]], format='csr')
-        self.E3_pol = E3_DD.tocsr().copy()
+        out = mats[1].dot(mats[0].dot(x).T).T
 
-        self.E0_all =            self.E0_pol_all.copy()
-        self.E1_all = spa.bmat([[self.E1_pol_all, None], [None, self.E0_pol_all]], format='csr')
-        self.E2_all = spa.bmat([[self.E2_pol_all, None], [None, self.E3_pol_all]], format='csr')
-        self.E3_all =            self.E3_pol_all.copy()
-
-        self.E0     =            self.E0_pol.copy()
-        self.E1     = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-        self.E2     = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-        self.E3     =            self.E3_pol.copy()
-
-        # 3D extraction operators
-        if self.dim == 3:
-
-            n3 = self.NbaseN[2]
-            d3 = self.NbaseD[2]
-            
-            # Kronecker product with third dimension (including boundary splines)
-            self.E0_all = spa.kron(self.E0_pol_all, spa.identity(n3), format='csr')
-            
-            E1_all_1    = spa.kron(self.E1_pol_all, spa.identity(n3), format='csr')
-            E1_all_3    = spa.kron(self.E0_pol_all, spa.identity(d3), format='csr')
-            self.E1_all = spa.bmat([[E1_all_1, None], [None, E1_all_3]], format='csr')
-            
-            E2_all_1    = spa.kron(self.E2_pol_all, spa.identity(d3), format='csr')
-            E2_all_3    = spa.kron(self.E3_pol_all, spa.identity(n3), format='csr')
-            self.E2_all = spa.bmat([[E2_all_1, None], [None, E2_all_3]], format='csr')
-            
-            self.E3_all = spa.kron(self.E3_pol_all, spa.identity(d3), format='csr')
-
-            # Kronecker product with third dimension (without boundary splines)
-            self.E0     = spa.kron(self.E0_pol, spa.identity(n3), format='csr') 
-            
-            E1_1        = spa.kron(self.E1_pol, spa.identity(n3), format='csr')
-            E1_3        = spa.kron(self.E0_pol, spa.identity(d3), format='csr')
-            self.E1     = spa.bmat([[E1_1, None], [None, E1_3]], format='csr')
-            
-            E2_1        = spa.kron(self.E2_pol, spa.identity(d3), format='csr')
-            E2_3        = spa.kron(self.E3_pol, spa.identity(n3), format='csr')
-            self.E2     = spa.bmat([[E2_1, None], [None, E2_3]], format='csr')
-            
-            self.E3     = spa.kron(self.E3_pol, spa.identity(d3), format='csr')
-
-        elif self.dim > 3:     
-            raise NotImplementedError('Only 2d and 3d supported.')
-
-        self.polar = True
-        
-        self.G, self.C, self.D = der.discrete_derivatives_3d(self)
-
-        print('Set polar splines ({}d) done.'.format(self.dim))
-
+        return out.flatten()
     
-    # ============== mass matrices (2D) ===============
-    def assemble_M0_2D(self, domain, weight=None):
-        self.M0 = mass_2d.get_M0(self, domain, weight)
+    def apply_M1_ten(self, x, mats):
+        
+        x1, x2 = self.reshape_pol_1(x)
 
-    def assemble_M1_2D(self, domain, weight=None):
-        self.M1 = mass_2d.get_M1(self, domain, weight)
+        out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
+        out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
 
-    def assemble_M2_2D(self, domain, weight=None):
-        self.M2 = mass_2d.get_M2(self, domain, weight)
-
-    def assemble_M3_2D(self, domain, weight=None):
-        self.M3 = mass_2d.get_M3(self, domain, weight)
-        
-    def assemble_Mv_2D(self, domain, weight=None):
-        self.Mv = mass_2d.get_Mv(self, domain, weight)
-        
-    def assemble_M1_2D_blocks(self, domain, weight=None):
-        self.M1_12, self.M1_33 = mass_2d.get_M1(self, domain, weight, True)
-        
-    def assemble_M2_2D_blocks(self, domain, weight=None):
-        self.M2_12, self.M2_33 = mass_2d.get_M2(self, domain, weight, True)
-        
-    def assemble_Mv_2D_blocks(self, domain, weight=None):
-        self.Mv_12, self.Mv_33 = mass_2d.get_Mv(self, domain, weight, True)
+        return np.concatenate((out1.flatten(), out2.flatten()))
     
-    # ============== mass matrices (3D) ===============
-    def assemble_M0(self, domain, weight=None):
-        self.M0 = mass_3d.get_M0(self, domain, weight)
+    def apply_M2_ten(self, x, mats):
+                
+        x1, x2 = self.reshape_pol_2(x)
 
-    def assemble_M1(self, domain, weight=None):
-        self.M1 = mass_3d.get_M1(self, domain, weight)
+        out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
+        out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
 
-    def assemble_M2(self, domain, weight=None):
-        self.M2 = mass_3d.get_M2(self, domain, weight)
-
-    def assemble_M3(self, domain, weight=None):
-        self.M3 = mass_3d.get_M3(self, domain, weight)
-
-    def assemble_Mv(self, domain, weight=None):
-        self.Mv = mass_3d.get_Mv(self, domain, weight)
+        return np.concatenate((out1.flatten(), out2.flatten()))
     
+    def apply_M3_ten(self, x, mats):
+                
+        x = self.reshape_pol_3(x)
 
-    # ========= extraction of coefficients =========
-    def extract_0form(self, coeff):
+        out = mats[1].dot(mats[0].dot(x).T).T
+
+        return out.flatten()
+    
+    def apply_Mv_ten(self, x, mats):
         
-        if coeff.size == self.E0_all.shape[0]:
-            coeff0 = self.E0_all.T.dot(coeff)
+        x1, x2 = self.reshape_pol_v(x)
+
+        out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
+        out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
+
+        return np.concatenate((out1.flatten(), out2.flatten()))
+    
+    
+    def assemble_M0(self, domain, as_tensor=False, merge_blocks=False, weight=None):
         
-        elif coeff.size == self.E0.shape[0]:
-            coeff0 = self.E0.T.dot(coeff)
+        if as_tensor: 
+            
+            self.M0_pol = mass_2d.get_M0(self, domain, weight)
+            
+            self.M0 = spa.linalg.LinearOperator((self.E0_0.shape[0], self.E0_0.shape[0]), matvec=lambda x : self.apply_M0_ten(x, [self.M0_pol, self.M0_tor]))
+            
+            if merge_blocks:
+                self.M0_mat = spa.kron(self.M0_pol, self.M0_tor, format='csr')
+        
+        else:
+            
+            self.M0_mat = mass_3d.get_M0(self, domain, weight)
+            self.M0 = spa.linalg.LinearOperator((self.E0_0.shape[0], self.E0_0.shape[0]), matvec=lambda x : self.M0_mat.dot(x))
+
+    def assemble_M1(self, domain, as_tensor=False, merge_blocks=False, weight=None):
+        
+        if as_tensor:
+            
+            self.M1_pol_11, self.M1_pol_22 = mass_2d.get_M1(self, domain, weight)
+            
+            self.M1 = spa.linalg.LinearOperator((self.E1_0.shape[0], self.E1_0.shape[0]), matvec=lambda x : self.apply_M1_ten(x, [[self.M1_pol_11, self.M0_tor], [self.M1_pol_22, self.M1_tor]]))
+            
+            if merge_blocks:
+                M11 = spa.kron(self.M1_pol_11, self.M0_tor)
+                M22 = spa.kron(self.M1_pol_22, self.M1_tor)
+                
+                self.M1_mat = spa.bmat([[M11, None], [None, M22]], format='csr')
             
         else:
-            print('number of coefficients is not correct')
+            
+            self.M1_mat = mass_3d.get_M1(self, domain, weight)
+            self.M1 = spa.linalg.LinearOperator((self.E1_0.shape[0], self.E1_0.shape[0]), matvec=lambda x : self.M1_mat.dot(x))
+
+    def assemble_M2(self, domain, as_tensor=False, merge_blocks=False, weight=None):
+        
+        if as_tensor:
+            
+            self.M2_pol_11, self.M2_pol_22 = mass_2d.get_M2(self, domain, weight)
+            
+            self.M2 = spa.linalg.LinearOperator((self.E2_0.shape[0], self.E2_0.shape[0]), matvec=lambda x : self.apply_M2_ten(x, [[self.M2_pol_11, self.M1_tor], [self.M2_pol_22, self.M0_tor]]))
+            
+            if merge_blocks:
+                M11 = spa.kron(self.M2_pol_11, self.M1_tor)
+                M22 = spa.kron(self.M2_pol_22, self.M0_tor)
+                
+                self.M2_mat = spa.bmat([[M11, None], [None, M22]], format='csr')
+            
+        else:
+            self.M2_mat = mass_3d.get_M2(self, domain, weight)
+            self.M2 = spa.linalg.LinearOperator((self.E2_0.shape[0], self.E2_0.shape[0]), matvec=lambda x : self.M2_mat.dot(x))
+
+    def assemble_M3(self, domain, as_tensor=False, merge_blocks=False, weight=None):
+        
+        if as_tensor:
+            
+            self.M3_pol = mass_2d.get_M3(self, domain, weight)
+            
+            self.M3 = spa.linalg.LinearOperator((self.E3_0.shape[0], self.E3_0.shape[0]), matvec=lambda x : self.apply_M3_ten(x, [self.M3_pol, self.M1_tor]))
+            
+            if merge_blocks:
+                self.M3_mat = spa.kron(self.M3_pol, self.M1_tor, format='csr')
+            
+        else:
+            
+            self.M3_mat = mass_3d.get_M3(self, domain, weight)
+            self.M3 = spa.linalg.LinearOperator((self.E3_0.shape[0], self.E3_0.shape[0]), matvec=lambda x : self.M3_mat.dot(x))
+
+    def assemble_Mv(self, domain, as_tensor=False, merge_blocks=False, weight=None):
+        
+        if as_tensor:
+            
+            self.Mv_pol_11, self.Mv_pol_22 = mass_2d.get_Mv(self, domain, weight)
+            
+            self.Mv = spa.linalg.LinearOperator((self.Ev_0.shape[0], self.Ev_0.shape[0]), matvec=lambda x : self.apply_Mv_ten(x, [[self.Mv_pol_11, self.M0_tor], [self.Mv_pol_22, self.M0_tor]]))
+            
+            if merge_blocks:
+                M11 = spa.kron(self.Mv_pol_11, self.M0_tor)
+                M22 = spa.kron(self.Mv_pol_22, self.M0_tor)
+                
+                self.Mv_mat = spa.bmat([[M11, None], [None, M22]], format='csr')
+            
+        else:
+            
+            self.Mv_mat = mass_3d.get_Mv(self, domain, weight)
+            self.Mv = spa.linalg.LinearOperator((self.Ev_0.shape[0], self.Ev_0.shape[0]), matvec=lambda x : self.Mv_mat.dot(x))
+    
+
+   
+    # == reshape of flattened 3D coefficients to structure (2D poloidal x 1D toroidal) ===
+    def reshape_pol_0(self, coeff):
+
+        c_size = coeff.size
+        
+        assert c_size == self.E0.shape[0] or c_size == self.E0_0.shape[0]
+        
+        if c_size == self.E0.shape[0]:
+            coeff0_pol = coeff.reshape(self.E0_pol.shape[0], self.NbaseN[2])
+        else:
+            coeff0_pol = coeff.reshape(self.E0_pol_0.shape[0], self.NbaseN[2])
+        
+        return coeff0_pol
+    
+    def reshape_pol_1(self, coeff):
+
+        c_size = coeff.size
+        
+        assert c_size == self.E1.shape[0] or c_size == self.E1_0.shape[0]
+
+        if c_size == self.E1.shape[0]:
+            coeff1_pol_1 = coeff[:self.E1_pol.shape[0]*self.NbaseN[2] ].reshape(self.E1_pol.shape[0], self.NbaseN[2])
+            coeff1_pol_3 = coeff[ self.E1_pol.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0], self.NbaseD[2])
+        else:
+            coeff1_pol_1 = coeff[:self.E1_pol_0.shape[0]*self.NbaseN[2] ].reshape(self.E1_pol_0.shape[0], self.NbaseN[2])
+            coeff1_pol_3 = coeff[ self.E1_pol_0.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol_0.shape[0], self.NbaseD[2])
+        
+        return coeff1_pol_1, coeff1_pol_3
+    
+    def reshape_pol_2(self, coeff):
+
+        c_size = coeff.size
+        
+        assert c_size == self.E2.shape[0] or c_size == self.E2_0.shape[0]
+
+        if c_size == self.E2.shape[0]:
+            coeff2_pol_1 = coeff[:self.E2_pol.shape[0]*self.NbaseD[2] ].reshape(self.E2_pol.shape[0], self.NbaseD[2])
+            coeff2_pol_3 = coeff[ self.E2_pol.shape[0]*self.NbaseD[2]:].reshape(self.E3_pol.shape[0], self.NbaseN[2])
+        else:
+            coeff2_pol_1 = coeff[:self.E2_pol_0.shape[0]*self.NbaseD[2] ].reshape(self.E2_pol_0.shape[0], self.NbaseD[2])
+            coeff2_pol_3 = coeff[ self.E2_pol_0.shape[0]*self.NbaseD[2]:].reshape(self.E3_pol_0.shape[0], self.NbaseN[2])
+        
+        return coeff2_pol_1, coeff2_pol_3
+    
+    def reshape_pol_3(self, coeff):
+
+        c_size = coeff.size
+        
+        assert c_size == self.E3.shape[0] or c_size == self.E3_0.shape[0]
+
+        if c_size == self.E3.shape[0]:
+            coeff3_pol = coeff.reshape(self.E3_pol.shape[0], self.NbaseD[2])
+        else:
+            coeff3_pol = coeff.reshape(self.E3_pol_0.shape[0], self.NbaseD[2])
+        
+        return coeff3_pol
+    
+    def reshape_pol_v(self, coeff):
+
+        c_size = coeff.size
+        
+        assert c_size == self.Ev.shape[0] or c_size == self.Ev_0.shape[0]
+
+        if c_size == self.Ev.shape[0]:
+            coeffv_pol_1 = coeff[:self.Ev_pol.shape[0]*self.NbaseN[2] ].reshape(self.Ev_pol.shape[0], self.NbaseN[2])
+            coeffv_pol_3 = coeff[ self.Ev_pol.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0], self.NbaseN[2])
+        
+        else:
+            coeffv_pol_1 = coeff[:self.Ev_pol_0.shape[0]*self.NbaseN[2] ].reshape(self.Ev_pol_0.shape[0], self.NbaseN[2])
+            coeffv_pol_3 = coeff[ self.Ev_pol_0.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0]  , self.NbaseN[2])
+        
+        return coeffv_pol_1, coeffv_pol_3
+    
+
+    # ========= extraction of flattened 3D coefficients to tensor-product space =========
+    def extract_0(self, coeff):
+        
+        c_size = coeff.size
+        
+        assert c_size == self.E0.shape[0] or c_size == self.E0_0.shape[0]
+        
+        if c_size == self.E0.shape[0]:
+            coeff0 = self.E0.T.dot(coeff)
+        else:
+            coeff0 = self.E0_0.T.dot(coeff)
             
         coeff0 = coeff0.reshape(self.Nbase_0form)
             
         return coeff0
     
-    def extract_1form(self, coeff):
+    
+    def extract_1(self, coeff):
         
-        if coeff.size == self.E1_all.shape[0]:
-            coeff1 = self.E1_all.T.dot(coeff)
+        c_size = coeff.size
         
-        elif coeff.size == self.E1.shape[0]:
+        assert c_size == self.E1.shape[0] or c_size == self.E1_0.shape[0]
+        
+        if c_size == self.E1.shape[0]:
             coeff1 = self.E1.T.dot(coeff)
-            
         else:
-            print('number of coefficients is not correct')
+            coeff1 = self.E1_0.T.dot(coeff)
         
         coeff1_1, coeff1_2, coeff1_3 = np.split(coeff1, [self.Ntot_1form_cum[0], self.Ntot_1form_cum[1]])
         
@@ -696,16 +847,17 @@ class Tensor_spline_space:
         
         return coeff1_1, coeff1_2, coeff1_3
         
-    def extract_2form(self, coeff):
+    
+    def extract_2(self, coeff):
         
-        if coeff.size == self.E2_all.shape[0]:
-            coeff2 = self.E2_all.T.dot(coeff)
+        c_size = coeff.size
         
-        elif coeff.size == self.E2.shape[0]:
+        assert c_size == self.E2.shape[0] or c_size == self.E2_0.shape[0]
+        
+        if c_size == self.E2.shape[0]:
             coeff2 = self.E2.T.dot(coeff)
-            
         else:
-            print('number of coefficients is not correct')
+            coeff2 = self.E2_0.T.dot(coeff)
         
         coeff2_1, coeff2_2, coeff2_3 = np.split(coeff2, [self.Ntot_2form_cum[0], self.Ntot_2form_cum[1]])
         
@@ -715,234 +867,496 @@ class Tensor_spline_space:
         
         return coeff2_1, coeff2_2, coeff2_3
         
-    def extract_3form(self, coeff):
+    
+    def extract_3(self, coeff):
         
-        coeff3 = self.E3_all.T.dot(coeff)
+        c_size = coeff.size
+        
+        assert c_size == self.E3.shape[0] or c_size == self.E3_0.shape[0]
+        
+        if c_size == self.E3.shape[0]:
+            coeff3 = self.E3.T.dot(coeff)
+        else:
+            coeff3 = self.E3_0.T.dot(coeff)
+            
         coeff3 = coeff3.reshape(self.Nbase_3form)
-        
+            
         return coeff3
     
-    def extract_0form_vec(self, coeff):
+    
+    def extract_v(self, coeff):
         
-        if coeff.size == 3*self.E0_all.shape[0]:
-            E = spa.bmat([[self.E0_all, None, None], [None, self.E0_all, None], [None, None, self.E0_all]], format='csr')
-            coeff0 = E.T.dot(coeff)
+        c_size = coeff.size
         
-        elif coeff.size == self.E0.shape[0] + 2*self.E0_all.shape[0]:
-            E = spa.bmat([[self.E0, None, None], [None, self.E0_all, None], [None, None, self.E0_all]], format='csr')
-            coeff0 = E.T.dot(coeff)
-            
+        assert c_size == self.Ev.shape[0] or c_size == self.Ev_0.shape[0]
+        
+        if c_size == self.Ev.shape[0]:
+            coeffv = self.Ev.T.dot(coeff)
         else:
-            print('number of coefficients is not correct')
+            coeffv = self.Ev_0.T.dot(coeff)
             
-        coeff0_1, coeff0_2, coeff0_3 = np.split(coeff0, [self.Ntot_0form, 2*self.Ntot_0form])
+        coeffv_1, coeffv_2, coeffv_3 = np.split(coeffv, [self.Ntot_0form, 2*self.Ntot_0form])
         
-        coeff0_1 = coeff0_1.reshape(self.Nbase_0form)
-        coeff0_2 = coeff0_2.reshape(self.Nbase_0form)
-        coeff0_3 = coeff0_3.reshape(self.Nbase_0form)
+        coeffv_1 = coeffv_1.reshape(self.Nbase_0form)
+        coeffv_2 = coeffv_2.reshape(self.Nbase_0form)
+        coeffv_3 = coeffv_3.reshape(self.Nbase_0form)
         
-        return coeff0_1, coeff0_2, coeff0_3
+        return coeffv_1, coeffv_2, coeffv_3
     
 
     # =================================================
-    def evaluate_NN(self, eta1, eta2, coeff, which=None):
+    def evaluate_NN(self, eta1, eta2, eta3, coeff, which='V0', part='r'):
         """
-        Evaluates the spline space (NN) with coefficients 'coeff' at the point eta = (eta1, eta2).
+        Evaluates the spline space [(NN) x Fourier] with coefficients 'coeff' at the point(s) eta = (eta1, eta2, eta3).
 
         Parameters
         ----------
-        eta1 : double
-            1st component of logical evaluation point
+        eta1 : double or array_like
+            1st component of logical evaluation point(s)
             
-        eta2 : double
-            2nd component of logical evaluation point
+        eta2 : double or array_like
+            2nd component of logical evaluation point(s)
+            
+        eta3 : double or array_like
+            3rd component of logical evaluation point(s)
         
         coeff : array_like
             FEM coefficients
+            
+        part : string
+            real (r) or imaginary (i) part to return
             
         which : string
             which space (V0 or V1)
             
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta = (eta1, eta2)
+        out : double or array_like
+            evaluated FEM field at the point(s) eta = (eta1, eta2, eta3)
         """
+        
+        assert part  == 'r'  or part  == 'i'
+        assert which == 'V0' or which == 'V1'
         
         # extract coefficients if flattened
         if coeff.ndim == 1:
-            if   which == 'V0':
-                coeff = self.extract_0form(coeff)
-            elif which == 'V1':
-                coeff = self.extract_1form(coeff)[2]
+            if which == 'V0':
+                coeff = self.extract_0(coeff)
+            else:
+                coeff = self.extract_1(coeff)[2]
+                
+        # check if coefficients have correct shape
+        assert coeff.shape[:2] == (self.NbaseN[0], self.NbaseN[1])
         
-        # evaluate FEM field at given points
+        # get real and imaginary part
+        coeff_r = np.real(coeff)
+        coeff_i = np.imag(coeff)
+        
+        # ------ evaluate FEM field at given points --------
         if isinstance(eta1, np.ndarray):
             
+            # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2, values, 0)
+                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 0)
+                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 0)
+                
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    
+                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 0)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 0)
+                    
+            
+            # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 0)
+                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 0)
+                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 0)
                 
-            return values
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    
+                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 0)
+                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 0)
+                    
+                
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.sin(2*np.pi*self.n_tor*eta3) + (values_r_2 + 1j*values_i_2)[:, :, None]*np.cos(2*np.pi*self.n_tor*eta3)
+                
         
+        # --------- evaluate FEM field at given point -------
         else:
-            return eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff, eta1, eta2)
+            
+            real_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2)
+            
+            if self.basis_tor == 'r':
+                real_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2)
+            
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (real_1 + 1j*imag_1)*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (real_1 + 1j*imag_1)*np.sin(2*np.pi*self.n_tor*eta3) + (real_2 + 1j*imag_2)*np.cos(2*np.pi*self.n_tor*eta3)
+            
+        # return real or imaginary part
+        if part == 'r':
+            out = np.real(out)
+        else:
+            out = np.imag(out)
+        
+        return out
     
     
     # =================================================
-    def evaluate_DN(self, eta1, eta2, coeff, which=None):
+    def evaluate_DN(self, eta1, eta2, eta3, coeff, which='V1', part='r'):
         """
-        Evaluates the spline space (DN) with coefficients 'coeff' at the point eta = (eta1, eta2).
+        Evaluates the spline space [(DN) x Fourier] with coefficients 'coeff' at the point(s) eta = (eta1, eta2, eta3).
 
         Parameters
         ----------
-        eta1 : double
-            1st component of logical evaluation point
+        eta1 : double or array_like
+            1st component of logical evaluation point(s)
             
-        eta2 : double
-            2nd component of logical evaluation point
+        eta2 : double or array_like
+            2nd component of logical evaluation point(s)
+            
+        eta3 : double or array_like
+            3rd component of logical evaluation point(s)
         
         coeff : array_like
             FEM coefficients
+            
+        part : string
+            real (r) or imaginary (i) part to return
             
         which : string
             which space (V1 or V2)
             
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta = (eta1, eta2)
+        out : double or array_like
+            evaluated FEM field at the point(s) eta = (eta1, eta2, eta3)
         """
+        
+        assert part  == 'r'  or part  == 'i'
+        assert which == 'V1' or which == 'V2'
         
         # extract coefficients if flattened
         if coeff.ndim == 1:
-            if   which == 'V1':
-                coeff = self.extract_1form(coeff)[0]
-            elif which == 'V2':
-                coeff = self.extract_2form(coeff)[1]
+            if which == 'V1':
+                coeff = self.extract_1(coeff)[0]
+            else:
+                coeff = self.extract_2(coeff)[1]
+                
+        # check if coefficients have correct shape
+        assert coeff.shape[:2] == (self.NbaseD[0], self.NbaseN[1])
         
-        # evaluate FEM field at given points
+        # get real and imaginary part
+        coeff_r = np.real(coeff)
+        coeff_i = np.imag(coeff)
+        
+        # ------ evaluate FEM field at given points --------
         if isinstance(eta1, np.ndarray):
             
+            # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2, values, 11)
+                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 11)
+                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 11)
+                
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+
+                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 11)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 11)
+            
+            # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 11)
+                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 11)
+                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 11)
                 
-            return values
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+
+                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 11)
+                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 11)
+                
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.sin(2*np.pi*self.n_tor*eta3) + (values_r_2 + 1j*values_i_2)[:, :, None]*np.cos(2*np.pi*self.n_tor*eta3)
+            
         
+        # --------- evaluate FEM field at given point -------
         else:
-            return eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff, eta1, eta2)
+            
+            real_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2)
+            
+            if self.basis_tor == 'r':
+                real_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2)
+            
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (real_1 + 1j*imag_1)*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (real_1 + 1j*imag_1)*np.sin(2*np.pi*self.n_tor*eta3) + (real_2 + 1j*imag_2)*np.cos(2*np.pi*self.n_tor*eta3)
+            
+        # return real or imaginary part
+        if part == 'r':
+            out = np.real(out)
+        else:
+            out = np.imag(out)
+        
+        return out
     
     
     # =================================================
-    def evaluate_ND(self, eta1, eta2, coeff, which=None):
+    def evaluate_ND(self, eta1, eta2, eta3, coeff, which='V2', part='r'):
         """
-        Evaluates the spline space (ND) with coefficients 'coeff' at the point eta = (eta1, eta2).
+        Evaluates the spline space [(ND) x Fourier] with coefficients 'coeff' at the point(s) eta = (eta1, eta2, eta3).
 
         Parameters
         ----------
-        eta1 : double
-            1st component of logical evaluation point
+        eta1 : double or array_like
+            1st component of logical evaluation point(s)
             
-        eta2 : double
-            2nd component of logical evaluation point
+        eta2 : double or array_like
+            2nd component of logical evaluation point(s)
+            
+        eta3 : double or array_like
+            3rd component of logical evaluation point(s)
         
         coeff : array_like
             FEM coefficients
+            
+        part : string
+            real (r) or imaginary (i) part to return
               
         which : string
             which space (V1 or V2)
             
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta = (eta1, eta2)
+        out : double or array_like
+            evaluated FEM field at the point(s) eta = (eta1, eta2, eta3)
         """
+        
+        assert part  == 'r'  or part  == 'i'
+        assert which == 'V1' or which == 'V2'
         
         # extract coefficients if flattened
         if coeff.ndim == 1:
-            if   which == 'V1':
-                coeff = self.extract_1form(coeff)[1]
-            elif which == 'V2':
-                coeff = self.extract_2form(coeff)[0]
+            if which == 'V1':
+                coeff = self.extract_1(coeff)[1]
+            else:
+                coeff = self.extract_2(coeff)[0]
+                
+        # check if coefficients have correct shape
+        assert coeff.shape[:2] == (self.NbaseN[0], self.NbaseD[1])
         
-        # evaluate FEM field at given points
+        # get real and imaginary part
+        coeff_r = np.real(coeff)
+        coeff_i = np.imag(coeff)
+        
+        # ------ evaluate FEM field at given points --------
         if isinstance(eta1, np.ndarray):
             
+            # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2, values, 12)
-            else:
-                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 12)
+                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 12)
                 
-                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 12)
-                
-            return values
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+
+                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 12)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 12)
+                    
             
+            # matrix evaluation
+            else:
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 12)
+                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 12)
+                
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    
+                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 12)
+                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 12)
+                
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.sin(2*np.pi*self.n_tor*eta3) + (values_r_2 + 1j*values_i_2)[:, :, None]*np.cos(2*np.pi*self.n_tor*eta3)
+            
+            
+        # --------- evaluate FEM field at given point -------
         else:
-            return eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff, eta1, eta2)
+            
+            real_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2)
+            
+            if self.basis_tor == 'r':
+                real_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2)
+            
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (real_1 + 1j*imag_1)*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (real_1 + 1j*imag_1)*np.sin(2*np.pi*self.n_tor*eta3) + (real_2 + 1j*imag_2)*np.cos(2*np.pi*self.n_tor*eta3)
+            
+        # return real or imaginary part
+        if part == 'r':
+            out = np.real(out)
+        else:
+            out = np.imag(out)
+        
+        return out
     
     
     # =================================================
-    def evaluate_DD(self, eta1, eta2, coeff, which=None):
+    def evaluate_DD(self, eta1, eta2, eta3, coeff, which='V3', part='r'):
         """
-        Evaluates the spline space (DD) with coefficients 'coeff' at the point eta = (eta1, eta2).
+        Evaluates the spline space [(DD) x Fourier] with coefficients 'coeff' at the point(s) eta = (eta1, eta2, eta3).
 
         Parameters
         ----------
-        eta1 : double
-            1st component of logical evaluation point
+        eta1 : double or array_like
+            1st component of logical evaluation point(s)
             
-        eta2 : double
-            2nd component of logical evaluation point
+        eta2 : double or array_like
+            2nd component of logical evaluation point(s)
+            
+        eta3 : double or array_like
+            3rd component of logical evaluation point(s)
         
         coeff : array_like
             FEM coefficients
+            
+        part : string
+            real (r) or imaginary (i) part to return
 
         which : string
             which space (V2 or V3)
             
         Returns
         -------
-        value : double
-            evaluated FEM field at the point eta = (eta1, eta2)
+        out : double or array_like
+            evaluated FEM field at the point(s) eta = (eta1, eta2, eta3)
         """
+        
+        assert part  == 'r'  or part  == 'i'
+        assert which == 'V2' or which == 'V3'
         
         # extract coefficients if flattened
         if coeff.ndim == 1:
-            if   which == 'V2':
-                coeff = self.extract_2form(coeff)[2]
-            elif which == 'V3':
-                coeff = self.extract_3form(coeff)
-            
+            if which == 'V2':
+                coeff = self.extract_2(coeff)[2]
+            else:
+                coeff = self.extract_3(coeff)
+                
+        # check if coefficients have correct shape
+        assert coeff.shape[:2] == (self.NbaseD[0], self.NbaseD[1])
         
-        # evaluate FEM field at given points
+        # get real and imaginary part
+        coeff_r = np.real(coeff)
+        coeff_i = np.imag(coeff)
+        
+        # ------ evaluate FEM field at given points --------
         if isinstance(eta1, np.ndarray):
             
+            # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2, values, 2)
-            else:
-                values = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 2)
+                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 2)
                 
-                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2, eta1.shape[0], eta2.shape[1], values, 2)
-                
-            return values
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+
+                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 2)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 2)
             
+            # matrix evaluation
+            else:
+                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                
+                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 2)
+                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 2)
+                
+                if self.basis_tor == 'r':
+                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+
+                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 2)
+                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 2)
+                
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (values_r_1 + 1j*values_i_1)[:, :, None]*np.sin(2*np.pi*self.n_tor*eta3) + (values_r_2 + 1j*values_i_2)[:, :, None]*np.cos(2*np.pi*self.n_tor*eta3)
+            
+            
+        # --------- evaluate FEM field at given point -------
         else:
-            return eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff, eta1, eta2)
+            
+            real_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2)
+            
+            if self.basis_tor == 'r':
+                real_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2)
+            
+            # multiply with Fourier basis in third direction
+            if self.basis_tor == 'i' or self.basis_tor == 'n':
+                out = (real_1 + 1j*imag_1)*np.exp(1j*2*np.pi*self.n_tor*eta3)
+            else:
+                out = (real_1 + 1j*imag_1)*np.sin(2*np.pi*self.n_tor*eta3) + (real_2 + 1j*imag_2)*np.cos(2*np.pi*self.n_tor*eta3)
+            
+        # return real or imaginary part
+        if part == 'r':
+            out = np.real(out)
+        else:
+            out = np.imag(out)
+        
+        return out
     
         
         
@@ -972,7 +1386,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_0form(coeff)
+            coeff = self.extract_0(coeff)
         
         if isinstance(eta1, np.ndarray): 
 
@@ -1024,7 +1438,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_1form(coeff)[0]
+            coeff = self.extract_1(coeff)[0]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1075,7 +1489,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_1form(coeff)[1]
+            coeff = self.extract_1(coeff)[1]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1126,7 +1540,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_1form(coeff)[2]
+            coeff = self.extract_1(coeff)[2]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1177,7 +1591,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_2form(coeff)[0]
+            coeff = self.extract_2(coeff)[0]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1228,7 +1642,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_2form(coeff)[1]
+            coeff = self.extract_2(coeff)[1]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1279,7 +1693,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_2form(coeff)[2]
+            coeff = self.extract_2(coeff)[2]
         
         if isinstance(eta1, np.ndarray):
             
@@ -1330,7 +1744,7 @@ class Tensor_spline_space:
         """
         
         if coeff.ndim == 1:
-            coeff = self.extract_3form(coeff)
+            coeff = self.extract_3(coeff)
         
         if isinstance(eta1, np.ndarray):
             

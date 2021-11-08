@@ -212,161 +212,149 @@ def get_Mv_PRE(tensor_space_FEM, domain):
 
 
 # ========== inverse mass matrix in V0 with decomposition poloidal x toroidal ==============
-def get_M0_PRE_3(tensor_space_FEM, domain):
+def get_M0_PRE_3(tensor_space_FEM, domain, mats_pol=None):
     """
     TODO
     """
     
-    # create 2D tensor product space in poloidal plane
-    space_pol = spl.Tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
-    
-    # set extraction operators for polar splines
-    if tensor_space_FEM.polar:
-        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    
-    # assembly of mass matrix in poloidal plane
-    space_pol.assemble_M0_2D(domain)
+    if mats_pol == None:
+        mat = tensor_space_FEM.M0_pol
+    else:
+        mat = mats_spol
     
     # LU decomposition of poloidal mass matrix
-    M0_pol_LU = spa.linalg.splu(space_pol.M0.tocsc())
+    M0_pol_LU = spa.linalg.splu(mat.tocsc())
     
     # vector defining the circulant mass matrix in toroidal direction
-    tor_vec = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
-
-    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M0.shape, matvec=lambda x: linkron.kron_fftsolve_2d(M0_pol_LU, tor_vec, x.reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2])).flatten())
-
-
-# ========== inverse mass matrix in V1 with decomposition poloidal x toroidal ==============
-def get_M1_PRE_3(tensor_space_FEM, domain, weights):
-    """
-    TODO
-    """
-    
-    # create 2D tensor product space in poloidal plane
-    space_pol = spl.Tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
-    
-    # set extraction operators for polar splines
-    if tensor_space_FEM.polar:
-        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    
-    # assembly of mass matrix in poloidal plane
-    space_pol.assemble_M1_2D_blocks(domain, weights)
-    
-    # LU decomposition of poloidal mass matrix
-    M1_pol_12_LU = spa.linalg.splu(space_pol.M1_12.tocsc())
-    M1_pol_33_LU = spa.linalg.splu(space_pol.M1_33.tocsc())
-    
-    # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
-    tor_vec1 = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
+    tor_vec0 = tensor_space_FEM.M0_tor.toarray()[:, 0]
     
     def solve(x):
         
-        x1 = x[:tensor_space_FEM.E1_pol.shape[0]*tensor_space_FEM.NbaseN[2] ].reshape(tensor_space_FEM.E1_pol.shape[0], tensor_space_FEM.NbaseN[2])
-        x3 = x[ tensor_space_FEM.E1_pol.shape[0]*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseD[2])
+        x = x.reshape(tensor_space_FEM.E0_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
         
-        r1 = linkron.kron_fftsolve_2d(M1_pol_12_LU, tor_vec0, x1).flatten()
-        r3 = linkron.kron_fftsolve_2d(M1_pol_33_LU, tor_vec1, x3).flatten()
+        r = linkron.kron_fftsolve_2d(M0_pol_LU, tor_vec0, x).flatten()
         
-        return np.concatenate((r1, r3))
+        return r
+    
+    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M0.shape, matvec=solve)
+
+
+# ========== inverse mass matrix in V1 with decomposition poloidal x toroidal ==============
+def get_M1_PRE_3(tensor_space_FEM, domain, mats_pol=None):
+    """
+    TODO
+    """
+    
+    if mats_pol == None:
+        mat = [tensor_space_FEM.M1_pol_11, tensor_space_FEM.M1_pol_22]
+    else:
+        mat = mats_pol
+    
+    # LU decomposition of poloidal mass matrix
+    M1_pol_11_LU = spa.linalg.splu(mat[0].tocsc())
+    M1_pol_22_LU = spa.linalg.splu(mat[1].tocsc())
+    
+    # vectors defining the circulant mass matrices in toroidal direction
+    tor_vec0 = tensor_space_FEM.M0_tor.toarray()[:, 0]
+    tor_vec1 = tensor_space_FEM.M1_tor.toarray()[:, 0] 
+    
+    def solve(x):
+        
+        x1 = x[:tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2] ].reshape(tensor_space_FEM.E1_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
+        x2 = x[ tensor_space_FEM.E1_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
+        
+        r1 = linkron.kron_fftsolve_2d(M1_pol_11_LU, tor_vec0, x1).flatten()
+        r2 = linkron.kron_fftsolve_2d(M1_pol_22_LU, tor_vec1, x2).flatten()
+        
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M1.shape, matvec=solve)
 
 
 # ========== inverse mass matrix in V2 with decomposition poloidal x toroidal ==============
-def get_M2_PRE_3(tensor_space_FEM, domain, weights):
+def get_M2_PRE_3(tensor_space_FEM, domain, mats_pol=None):
     """
     TODO
     """
     
-    # create 2D tensor product space in poloidal plane
-    space_pol = spl.Tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
-    
-    # set extraction operators for polar splines
-    if tensor_space_FEM.polar:
-        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    
-    # assembly of mass matrix in poloidal plane
-    space_pol.assemble_M2_2D_blocks(domain, weights)
+    if mats_pol == None:
+        mat = [tensor_space_FEM.M2_pol_11, tensor_space_FEM.M2_pol_22]
+    else:
+        mat = mats_pol
     
     # LU decomposition of poloidal mass matrix
-    M2_pol_12_LU = spa.linalg.splu(space_pol.M2_12.tocsc())
-    M2_pol_33_LU = spa.linalg.splu(space_pol.M2_33.tocsc())
+    M2_pol_11_LU = spa.linalg.splu(mat[0].tocsc())
+    M2_pol_22_LU = spa.linalg.splu(mat[1].tocsc())
     
     # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
-    tor_vec1 = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
+    tor_vec0 = tensor_space_FEM.M0_tor.toarray()[:, 0]
+    tor_vec1 = tensor_space_FEM.M1_tor.toarray()[:, 0] 
     
     def solve(x):
         
-        x1 = x[:tensor_space_FEM.E2_pol.shape[0]*tensor_space_FEM.NbaseD[2] ].reshape(tensor_space_FEM.E2_pol.shape[0], tensor_space_FEM.NbaseD[2])
-        x3 = x[ tensor_space_FEM.E2_pol.shape[0]*tensor_space_FEM.NbaseD[2]:].reshape(tensor_space_FEM.E3_pol.shape[0], tensor_space_FEM.NbaseN[2])
+        x1 = x[:tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2] ].reshape(tensor_space_FEM.E2_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
+        x2 = x[ tensor_space_FEM.E2_pol_0.shape[0]*tensor_space_FEM.NbaseD[2]:].reshape(tensor_space_FEM.E3_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
         
-        r1 = linkron.kron_fftsolve_2d(M2_pol_12_LU, tor_vec1, x1).flatten()
-        r3 = linkron.kron_fftsolve_2d(M2_pol_33_LU, tor_vec0, x3).flatten()
+        r1 = linkron.kron_fftsolve_2d(M2_pol_11_LU, tor_vec1, x1).flatten()
+        r2 = linkron.kron_fftsolve_2d(M2_pol_22_LU, tor_vec0, x2).flatten()
         
-        return np.concatenate((r1, r3))
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M2.shape, matvec=solve)
 
 
 # ========== inverse mass matrix in V3 with decomposition poloidal x toroidal ==============
-def get_M3_PRE_3(tensor_space_FEM, domain):
+def get_M3_PRE_3(tensor_space_FEM, domain, mats_pol=None):
     """
     TODO
     """
     
-    # create 2D tensor product space in poloidal plane
-    space_pol = spl.Tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
-    
-    # set extraction operators for polar splines
-    if tensor_space_FEM.polar:
-        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    
-    # assembly of mass matrix in poloidal plane
-    space_pol.assemble_M3_2D(domain)
+    if mats_pol == None:
+        mat = tensor_space_FEM.M3_pol
+    else:
+        mat = mats_spol
     
     # LU decomposition of poloidal mass matrix
-    M3_pol_LU = spa.linalg.splu(space_pol.M3.tocsc())
+    M3_pol_LU = spa.linalg.splu(mat.tocsc())
     
     # vector defining the circulant mass matrix in toroidal direction
-    tor_vec = mass_1d.get_M(tensor_space_FEM.spaces[2], 1, 1).toarray()[:, 0]
-
-    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M3.shape, matvec=lambda x: linkron.kron_fftsolve_2d(M3_pol_LU, tor_vec, x.reshape(tensor_space_FEM.E3_pol.shape[0], tensor_space_FEM.NbaseD[2])).flatten())
-
-
-
-# ========== inverse mass matrix in V0^3 with decomposition poloidal x toroidal ==============
-def get_Mv_PRE_3(tensor_space_FEM, domain, weights):
-    """
-    TODO
-    """
-    
-    # create 2D tensor product space in poloidal plane
-    space_pol = spl.Tensor_spline_space([tensor_space_FEM.spaces[0], tensor_space_FEM.spaces[1]], 0)
-    
-    # set extraction operators for polar splines
-    if tensor_space_FEM.polar:
-        space_pol.set_polar_splines(domain.cx[:, :, 0], domain.cy[:, :, 0])
-    
-    # assembly of mass matrix in poloidal plane
-    space_pol.assemble_Mv_2D_blocks(domain, weights)
-    
-    # LU decomposition of poloidal mass matrix
-    Mv_pol_12_LU = spa.linalg.splu(space_pol.Mv_12.tocsc())
-    Mv_pol_33_LU = spa.linalg.splu(space_pol.Mv_33.tocsc())
-    
-    # vectors defining the circulant mass matrices in toroidal direction
-    tor_vec0 = mass_1d.get_M(tensor_space_FEM.spaces[2], 0, 0).toarray()[:, 0]
+    tor_vec1 = tensor_space_FEM.M1_tor.toarray()[:, 0]
     
     def solve(x):
         
-        x1 = x[:(tensor_space_FEM.E0_pol.shape[0] + tensor_space_FEM.E0_pol_all.shape[0])*tensor_space_FEM.NbaseN[2] ].reshape(tensor_space_FEM.E0_pol.shape[0] + tensor_space_FEM.E0_pol_all.shape[0], tensor_space_FEM.NbaseN[2])
-        x3 = x[ (tensor_space_FEM.E0_pol.shape[0] + tensor_space_FEM.E0_pol_all.shape[0])*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol_all.shape[0], tensor_space_FEM.NbaseN[2])
+        x = x.reshape(tensor_space_FEM.E3_pol_0.shape[0], tensor_space_FEM.NbaseD[2])
         
-        r1 = linkron.kron_fftsolve_2d(Mv_pol_12_LU, tor_vec0, x1).flatten()
-        r3 = linkron.kron_fftsolve_2d(Mv_pol_33_LU, tor_vec0, x3).flatten()
+        r = linkron.kron_fftsolve_2d(M3_pol_LU, tor_vec1, x).flatten()
+
+    return spa.linalg.LinearOperator(shape=tensor_space_FEM.M3.shape, matvec=solve)
+
+
+# ========== inverse mass matrix in V0^3 with decomposition poloidal x toroidal ==============
+def get_Mv_PRE_3(tensor_space_FEM, domain, mats_pol):
+    """
+    TODO
+    """
+    
+    if mats_pol == None:
+        mat = [tensor_space_FEM.Mv_pol_11, tensor_space_FEM.Mv_pol_22]
+    else:
+        mat = mats_pol
+    
+    # LU decomposition of poloidal mass matrix
+    Mv_pol_11_LU = spa.linalg.splu(mat[0].tocsc())
+    Mv_pol_22_LU = spa.linalg.splu(mat[1].tocsc())
+    
+    # vectors defining the circulant mass matrices in toroidal direction
+    tor_vec0 = tensor_space_FEM.M0_tor.toarray()[:, 0]
+    
+    def solve(x):
         
-        return np.concatenate((r1, r3))
+        x1 = x[:tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2] ].reshape(tensor_space_FEM.Ev_pol_0.shape[0], tensor_space_FEM.NbaseN[2])
+        x2 = x[ tensor_space_FEM.Ev_pol_0.shape[0]*tensor_space_FEM.NbaseN[2]:].reshape(tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2])
+        
+        r1 = linkron.kron_fftsolve_2d(Mv_pol_11_LU, tor_vec0, x1).flatten()
+        r2 = linkron.kron_fftsolve_2d(Mv_pol_22_LU, tor_vec0, x2).flatten()
+        
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.Mv.shape, matvec=solve)

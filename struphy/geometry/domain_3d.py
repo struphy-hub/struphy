@@ -12,9 +12,11 @@ from numpy.core.numeric import count_nonzero
 import scipy.sparse as spa
 from scipy.sparse.linalg import splu
 
-import struphy.geometry.mappings_3d       as mapping
-import struphy.geometry.pullback_3d       as pb
-import struphy.geometry.pushforward_3d    as pf
+import struphy.geometry.mappings_3d               as mapping
+import struphy.geometry.pullback_3d               as pb
+import struphy.geometry.pushforward_3d            as pf
+import struphy.geometry.angular_coordinates_torus as angular
+
 import struphy.linear_algebra.linalg_kron as linalg
 
 import struphy.feec.bsplines  as bsp
@@ -315,25 +317,41 @@ class Domain:
             # TODO: choose correct params_map
             # TODO: allow for input data cx, cy, cz
             self.kind_map   = 1
-            self.params_map = params_map
+            self.params_map = []
 
-            X = lambda eta1, eta2 : params_map['a']*eta1*np.cos(2*np.pi*eta2) #+ params_map['R0']
+            X = lambda eta1, eta2 : params_map['a']*eta1*np.cos(2*np.pi*eta2) + params_map['R0']
             Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(2*np.pi*eta2)
         
             self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
             self.cz = None
+            
+            # make sure that control points at pole are all the same
+            self.cx[0, :] = params_map['R0']
+            self.cy[0, :] = 0.
+            
+            self.Nel      = params_map['Nel']
+            self.p        = params_map['p']
+            self.spl_kind = params_map['spl_kind']
                 
         elif kind_map == 'spline_torus':
             # TODO: choose correct params_map
             # TODO: allow for input data cx, cy, cz
             self.kind_map   = 2
-            self.params_map = params_map
+            self.params_map = []
 
-            R = lambda eta1, eta2 : params_map['a']*eta1*np.cos(2*np.pi*eta2) + params_map['R0']
-            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(2*np.pi*eta2)
+            R = lambda eta1, eta2 : params_map['a']*eta1*np.cos(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['chi'])) + params_map['R0']
+            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['chi']))
         
             self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], R, Y)
             self.cz = None
+            
+            # make sure that control points at pole are all the same
+            self.cx[0, :] = params_map['R0']
+            self.cy[0, :] = 0.
+            
+            self.Nel      = params_map['Nel']
+            self.p        = params_map['p']
+            self.spl_kind = params_map['spl_kind']
 
         else:
             raise ValueError('Specified domain is not implemeted!')
