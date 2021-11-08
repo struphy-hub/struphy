@@ -68,27 +68,27 @@ def pull_2_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
     
     if   component == 1:
         
-        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = (dfinv_11*ax + dfinv_12*ay + dfinv_13*az) * abs(detdf)
+        a = dfinv_11*ax + dfinv_12*ay + dfinv_13*az
     
     elif component == 2:
         
-        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = (dfinv_21*ax + dfinv_22*ay + dfinv_23*az) * abs(detdf)
+        a = dfinv_21*ax + dfinv_22*ay + dfinv_23*az
         
     elif component == 3:
         
-        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
+        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = (dfinv_31*ax + dfinv_32*ay + dfinv_33*az) * abs(detdf)
+        a = dfinv_31*ax + dfinv_32*ay + dfinv_33*az
         
     return a
 
@@ -110,25 +110,25 @@ def pull_vector(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
     
     if   component == 1:
         
-        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_11 = mapping.df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
         
         a = dfinv_11*ax + dfinv_12*ay + dfinv_13*az
     
     elif component == 2:
         
-        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_21 = mapping.df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
         
         a = dfinv_21*ax + dfinv_22*ay + dfinv_23*az
         
     elif component == 3:
         
-        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        dfinv_31 = mapping.df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
         
         a = dfinv_31*ax + dfinv_32*ay + dfinv_33*az
         
