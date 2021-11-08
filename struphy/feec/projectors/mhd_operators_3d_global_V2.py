@@ -346,7 +346,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -429,7 +429,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -520,7 +520,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -583,7 +583,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -665,7 +665,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -747,7 +747,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -849,7 +849,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -932,7 +932,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1031,7 +1031,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1113,7 +1113,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -1212,7 +1212,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1274,7 +1274,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1338,7 +1338,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3form(x)
+        x_loc = self.tensor_spl.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -1381,7 +1381,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3form(x)
+        x_loc = self.tensor_spl.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -1424,7 +1424,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0form(x)
+        x_loc = self.tensor_spl.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
 
@@ -1466,7 +1466,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0form(x)
+        x_loc = self.tensor_spl.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
 
@@ -1529,7 +1529,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1618,7 +1618,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1709,7 +1709,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1781,9 +1781,9 @@ class projectors_dot_x:
         # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
-        x_loc_1 = self.tensor_spl.extract_0form(x[0])
-        x_loc_2 = self.tensor_spl.extract_0form(x[1])
-        x_loc_3 = self.tensor_spl.extract_0form(x[2])
+        x_loc_1 = self.tensor_spl.extract_0(x[0])
+        x_loc_2 = self.tensor_spl.extract_0(x[1])
+        x_loc_3 = self.tensor_spl.extract_0(x[2])
         x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
@@ -1873,7 +1873,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -1941,7 +1941,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2023,7 +2023,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2107,7 +2107,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -2210,7 +2210,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2299,7 +2299,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2390,7 +2390,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2458,7 +2458,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2522,7 +2522,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3form(x)
+        x_loc = self.tensor_spl.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -2565,7 +2565,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3form(x)
+        x_loc = self.tensor_spl.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -2622,7 +2622,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2696,9 +2696,9 @@ class projectors_dot_x:
         # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
-        x_loc_1 = self.tensor_spl.extract_0form(x[0])
-        x_loc_2 = self.tensor_spl.extract_0form(x[1])
-        x_loc_3 = self.tensor_spl.extract_0form(x[2])
+        x_loc_1 = self.tensor_spl.extract_0(x[0])
+        x_loc_2 = self.tensor_spl.extract_0(x[1])
+        x_loc_3 = self.tensor_spl.extract_0(x[2])
         x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
@@ -2793,7 +2793,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2875,7 +2875,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -2957,7 +2957,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0form(x)
+        x_loc = self.tensor_spl.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -3000,7 +3000,7 @@ class projectors_dot_x:
 
         # x dim check
         #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3form(x)
+        x_loc = self.tensor_spl.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -3060,7 +3060,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^2}
         assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2form(x))
+        x_loc = list(self.tensor_spl.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -3142,7 +3142,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1form(x))
+        x_loc = list(self.tensor_spl.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])

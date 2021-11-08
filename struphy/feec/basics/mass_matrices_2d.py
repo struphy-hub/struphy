@@ -5,7 +5,6 @@
 """
 Modules to compute mass matrices in 2D.
 """
-import time
 
 import numpy        as np
 import scipy.sparse as spa
@@ -76,13 +75,13 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
     
     # apply spline extraction operator and return
-    return tensor_space_FEM.E0.dot(M.dot(tensor_space_FEM.E0.T))
+    return tensor_space_FEM.E0_pol_0.dot(M.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
 
 
 
 
 # ================ mass matrix in V1 ===========================
-def get_M1(tensor_space_FEM, domain, weight=None, blocks=False):
+def get_M1(tensor_space_FEM, domain, weight=None):
     """
     Assembles the 2D mass matrix [[DN DN, DN ND, DN NN], [ND DN, ND ND, ND NN], [NN DN, NN ND, NN NN]] * G^(-1) * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -96,9 +95,6 @@ def get_M1(tensor_space_FEM, domain, weight=None, blocks=False):
         
     weight : callable
         optional additional weight functions
-        
-    blocks : boolean
-        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -164,26 +160,21 @@ def get_M1(tensor_space_FEM, domain, weight=None, blocks=False):
             M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1], Nj[0]*Nj[1]))
             M[a][b].eliminate_zeros()
                        
-    if blocks == False:
     
-        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
-
-        # apply spline extraction operator and return
-        return tensor_space_FEM.E1.dot(M.dot(tensor_space_FEM.E1.T))
+    # apply extraction operators
+    M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
+    M22 = M[2][2]
     
-    else:
-        
-        M12 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]], format='csr')
-        M33 = M[2][2]
-
-        # apply spline extraction operator and return
-        return tensor_space_FEM.E1_pol.dot(M12.dot(tensor_space_FEM.E1_pol.T)), tensor_space_FEM.E0_pol.dot(M33.dot(tensor_space_FEM.E0_pol.T))
+    M11 = tensor_space_FEM.E1_pol_0.dot(M11.dot(tensor_space_FEM.E1_pol_0.T)).tocsr()
+    M22 = tensor_space_FEM.E0_pol_0.dot(M22.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
+    
+    return M11, M22
 
 
 
 
 # ================ mass matrix in V2 ===========================
-def get_M2(tensor_space_FEM, domain, weight=None, blocks=False):
+def get_M2(tensor_space_FEM, domain, weight=None):
     """
     Assembles the 2D mass matrix [[ND ND, ND DN, ND DD], [DN ND, DN DN, DN DD], [DD ND, DD DN, DD DD]] * G / |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -197,9 +188,6 @@ def get_M2(tensor_space_FEM, domain, weight=None, blocks=False):
         
     weight : callable
         optional additional weight functions
-        
-    blocks : boolean
-        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -265,20 +253,15 @@ def get_M2(tensor_space_FEM, domain, weight=None, blocks=False):
             M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1], Nj[0]*Nj[1]))
             M[a][b].eliminate_zeros()
         
-    if blocks == False:
     
-        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
-
-        # apply spline extraction operator and return
-        return tensor_space_FEM.E2.dot(M.dot(tensor_space_FEM.E2.T))
+    # apply extraction operators
+    M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
+    M22 = M[2][2]
     
-    else:
-        
-        M12 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]], format='csr')
-        M33 = M[2][2]
+    M11 = tensor_space_FEM.E2_pol_0.dot(M11.dot(tensor_space_FEM.E2_pol_0.T)).tocsr()
+    M22 = tensor_space_FEM.E3_pol_0.dot(M22.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
 
-        # apply spline extraction operator and return
-        return tensor_space_FEM.E2_pol.dot(M12.dot(tensor_space_FEM.E2_pol.T)), tensor_space_FEM.E3_pol.dot(M33.dot(tensor_space_FEM.E3_pol.T))
+    return M11, M22 
 
 
 
@@ -345,13 +328,13 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E3.dot(M.dot(tensor_space_FEM.E3.T))
+    return tensor_space_FEM.E3_pol_0.dot(M.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
 
 
 
 
 # ============= mass matrix of vector field =========================
-def get_Mv(tensor_space_FEM, domain, weight=None, blocks=False):
+def get_Mv(tensor_space_FEM, domain, weight=None):
     """
     Assembles the 2D mass matrix [[NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN]] * G * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -365,9 +348,6 @@ def get_Mv(tensor_space_FEM, domain, weight=None, blocks=False):
         
     weight : callable
         optional additional weight functions
-        
-    blocks : boolean
-        if True, return separate blocks of mass matrix
     """
     
     p      = tensor_space_FEM.p       # spline degrees
@@ -431,22 +411,12 @@ def get_Mv(tensor_space_FEM, domain, weight=None, blocks=False):
             M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1], Nj[0]*Nj[1]))
             M[a][b].eliminate_zeros()
     
-    if blocks == False:
     
-        # apply spline extraction operator and return    
-        E = spa.bmat([[tensor_space_FEM.E0, None, None], [None, tensor_space_FEM.E0_all, None], [None, None, tensor_space_FEM.E0_all]], format='csr')
-
-        M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
-
-        return E.dot(M.dot(E.T))
+    # apply extraction operators
+    M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
+    M22 = M[2][2]
     
-    else:
-        
-        M12 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]], format='csr')
-        M33 = M[2][2]
-
-        # apply spline extraction operator and return
-        E12 = spa.bmat([[tensor_space_FEM.E0_pol, None], [None, tensor_space_FEM.E0_pol_all]], format='csr')
-        E33 = tensor_space_FEM.E0_pol_all
-
-        return E12.dot(M12.dot(E12.T)), E33.dot(M33.dot(E33.T))
+    M11 = tensor_space_FEM.Ev_pol_0.dot(M11.dot(tensor_space_FEM.Ev_pol_0.T)).tocsr()
+    M22 = tensor_space_FEM.E0_pol.dot(M22.dot(tensor_space_FEM.E0_pol.T)).tocsr()
+    
+    return M11, M22

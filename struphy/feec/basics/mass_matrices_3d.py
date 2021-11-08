@@ -79,7 +79,7 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
     
     # apply spline extraction operator and return
-    return tensor_space_FEM.E0.dot(M.dot(tensor_space_FEM.E0.T)).tocsr()
+    return tensor_space_FEM.E0_0.dot(M.dot(tensor_space_FEM.E0_0.T)).tocsr()
 
 
 
@@ -166,7 +166,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E1.dot(M.dot(tensor_space_FEM.E1.T)).tocsr()
+    return tensor_space_FEM.E1_0.dot(M.dot(tensor_space_FEM.E1_0.T)).tocsr()
 
 
 
@@ -253,7 +253,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E2.dot(M.dot(tensor_space_FEM.E2.T)).tocsr()
+    return tensor_space_FEM.E2_0.dot(M.dot(tensor_space_FEM.E2_0.T)).tocsr()
 
 
 
@@ -320,7 +320,7 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E3.dot(M.dot(tensor_space_FEM.E3.T)).tocsr()
+    return tensor_space_FEM.E3_0.dot(M.dot(tensor_space_FEM.E3_0.T)).tocsr()
 
 
 
@@ -417,10 +417,7 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
             M[a][b] = spa.csr_matrix((M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0]*Ni[1]*Ni[2], Nj[0]*Nj[1]*Nj[2]))
             M[a][b].eliminate_zeros()
                     
-    # apply spline extraction operator and return
-    E = spa.bmat([[tensor_space_FEM.E0, None, None], [None, tensor_space_FEM.E0_all, None], [None, None, tensor_space_FEM.E0_all]], format='csr')
-    
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return E.dot(M.dot(E.T))
+    return tensor_space_FEM.Ev_0.dot(M.dot(tensor_space_FEM.Ev_0.T)).tocsr()
