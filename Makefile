@@ -32,8 +32,8 @@ DER  := struphy/feec/derivatives/kernels_derivatives
 LAC  := struphy/linear_algebra/core
 LAT  := struphy/linear_algebra/kernels_tensor_product
 
-KPG  := struphy/feec/projectors/kernels_projectors_global
-KPGM := struphy/feec/projectors/kernels_projectors_global_mhd
+KPG  := struphy/feec/projectors/pro_global/kernels_projectors_global
+KPGM := struphy/feec/projectors/pro_global/kernels_projectors_global_mhd
 
 PP   := struphy/pic/pusher
 PA   := struphy/pic/accumulation_kernels
@@ -122,5 +122,7 @@ clean:
 	rm -rf struphy/feec/basics/__pyccel__ struphy/feec/basics/__pycache__
 	rm -rf struphy/feec/derivatives/__pyccel__ struphy/feec/derivatives/__pycache__
 	rm -rf struphy/feec/projectors/__pyccel__ struphy/feec/projectors/__pycache__
+	rm -rf struphy/feec/projectors/pro_global/__pyccel__ struphy/feec/projectors/pro_global/__pycache__
+	rm -rf struphy/feec/projectors/pro_local/__pyccel__ struphy/feec/projectors/pro_local/__pycache__
 	rm -rf struphy/feec/control_variates/__pyccel__ struphy/feec/control_variates/__pycache__
 	rm -rf struphy/pic/__pyccel__ struphy/pic/__pycache__

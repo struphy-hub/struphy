@@ -12,7 +12,7 @@ import scipy.sparse as spa
 
 import struphy.feec.bsplines as bsp
 
-import struphy.feec.projectors.kernels_projectors_local_mhd as ker_loc
+import struphy.feec.projectors.pro_local.kernels_projectors_local_mhd as ker_loc
 import struphy.feec.basics.kernels_3d as ker_loc_3d
 
 import source_run.kernels_projectors_evaluation as ker_eva

@@ -12,7 +12,7 @@ def test_1form_projectors_dot():
         import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
         import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
 
-        from struphy.feec.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
+        from struphy.feec.projectors.pro_global import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
         Nel      = [7, 7, 7]
@@ -25,26 +25,26 @@ def test_1form_projectors_dot():
         # 1d B-spline spline spaces for finite elements
         spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
-
-        # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
-
-        # domain
-        domain = dom.Domain(kind_map)
-        #domain = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
-
+        
         # 1D commuting projectors
         spaces_FEM[0].set_projectors(n_quad[0])
         spaces_FEM[1].set_projectors(n_quad[1])
         spaces_FEM[2].set_projectors(n_quad[2])
 
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+
         tensor_space_FEM.set_projectors()
+        
+        # domain
+        DOMAIN = dom.Domain(kind_map)
+        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # mhd projectors dot operator
         eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(domain, eq_MHD_p)
+        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
         
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD_l)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, DOMAIN, eq_MHD_l)
 
         # random x which is going to product with projectors
         x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
@@ -70,7 +70,7 @@ def test_1form_projectors_dot():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(domain.params_map))
+        print('params_map = ' + str(DOMAIN.params_map))
 
         print()
 
@@ -295,7 +295,7 @@ def test_2form_projectors_dot():
         import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
         import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
 
-        from struphy.feec.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
+        from struphy.feec.projectors.pro_global import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
         Nel      = [7, 7, 7]
@@ -309,25 +309,25 @@ def test_2form_projectors_dot():
         spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
 
-        # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
-
-        # domain
-        domain = dom.Domain(kind_map)
-        #domain = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
-
         # 1D commuting projectors
         spaces_FEM[0].set_projectors(n_quad[0])
         spaces_FEM[1].set_projectors(n_quad[1])
         spaces_FEM[2].set_projectors(n_quad[2])
-
+        
+        
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
         tensor_space_FEM.set_projectors()
+        
+        # domain
+        DOMAIN = dom.Domain(kind_map)
+        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # mhd projectors dot operator
         eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(domain, eq_MHD_p)
+        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
         
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD_l)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, DOMAIN, eq_MHD_l)
 
         # random x which is going to product with projectors
         x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
@@ -352,7 +352,7 @@ def test_2form_projectors_dot():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(domain.params_map))
+        print('params_map = ' + str(DOMAIN.params_map))
         print()
 
         # ========== Identity test ========== #
@@ -556,7 +556,7 @@ def test_1form_symmetric():
         import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
         import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
 
-        from struphy.feec.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
+        from struphy.feec.projectors.pro_global import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
         Nel      = [7, 7, 7]
@@ -570,25 +570,26 @@ def test_1form_symmetric():
         spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
 
-        # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
-
-        # domain
-        domain = dom.Domain(kind_map)
-        #domain = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
-
         # 1D commuting projectors
         spaces_FEM[0].set_projectors(n_quad[0])
         spaces_FEM[1].set_projectors(n_quad[1])
         spaces_FEM[2].set_projectors(n_quad[2])
+        
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
 
         tensor_space_FEM.set_projectors()
+        
+        
+        # domain
+        DOMAIN = dom.Domain(kind_map)
+        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # mhd projectors dot operator
         eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(domain, eq_MHD_p)
+        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
         
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD_l)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, DOMAIN, eq_MHD_l)
 
 
         # test conditions
@@ -606,7 +607,7 @@ def test_1form_symmetric():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(domain.params_map))
+        print('params_map = ' + str(DOMAIN.params_map))
 
         print()
 
@@ -713,7 +714,7 @@ def test_2form_symmetric():
         import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
         import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
 
-        from struphy.feec.projectors import mhd_operators_3d_global_V2 as mhd_op_V2
+        from struphy.feec.projectors.pro_global import mhd_operators_3d_global_V2 as mhd_op_V2
 
         # spline spaces
         Nel      = [7, 7, 7]
@@ -727,25 +728,25 @@ def test_2form_symmetric():
         spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
 
-        # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
-
-        # domain
-        domain = dom.Domain(kind_map)
-        #domain = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
-
         # 1D commuting projectors
         spaces_FEM[0].set_projectors(n_quad[0])
         spaces_FEM[1].set_projectors(n_quad[1])
         spaces_FEM[2].set_projectors(n_quad[2])
-
+        
+        
+        # 3d tensor-product B-spline space for finite elements
+        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
         tensor_space_FEM.set_projectors()
+        
+        # domain
+        DOMAIN = dom.Domain(kind_map)
+        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # mhd projectors dot operator
         eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(domain, eq_MHD_p)
+        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
         
-        dot_ops = mhd_op_V2.projectors_dot_x([spaces_FEM[0].projectors, spaces_FEM[1].projectors, spaces_FEM[2].projectors], domain, eq_MHD_l)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, DOMAIN, eq_MHD_l)
 
 
         # test conditions
@@ -764,15 +765,15 @@ def test_2form_symmetric():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(domain.params_map))
+        print('params_map = ' + str(DOMAIN.params_map))
 
         # print('G = ')
-        # print(domain.evaluate(0., 0., 0., 'g_11'), domain.evaluate(0., 0., 0., 'g_12'), domain.evaluate(0., 0., 0., 'g_13'))
-        # print(domain.evaluate(0., 0., 0., 'g_21'), domain.evaluate(0., 0., 0., 'g_22'), domain.evaluate(0., 0., 0., 'g_23'))
-        # print(domain.evaluate(0., 0., 0., 'g_31'), domain.evaluate(0., 0., 0., 'g_32'), domain.evaluate(0., 0., 0., 'g_33'))
+        # print(DOMAIN.evaluate(0., 0., 0., 'g_11'), DOMAIN.evaluate(0., 0., 0., 'g_12'), DOMAIN.evaluate(0., 0., 0., 'g_13'))
+        # print(DOMAIN.evaluate(0., 0., 0., 'g_21'), DOMAIN.evaluate(0., 0., 0., 'g_22'), DOMAIN.evaluate(0., 0., 0., 'g_23'))
+        # print(DOMAIN.evaluate(0., 0., 0., 'g_31'), DOMAIN.evaluate(0., 0., 0., 'g_32'), DOMAIN.evaluate(0., 0., 0., 'g_33'))
 
         # print('g_sqrt = ')
-        # print(domain.evaluate(0., 0., 0., 'det_df'))
+        # print(DOMAIN.evaluate(0., 0., 0., 'det_df'))
         # print()
 
         # ========== Symmetric test ========== #

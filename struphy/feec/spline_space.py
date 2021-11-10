@@ -25,7 +25,7 @@ import struphy.feec.basics.mass_matrices_1d as mass_1d
 import struphy.feec.basics.mass_matrices_2d as mass_2d
 import struphy.feec.basics.mass_matrices_3d as mass_3d
 
-import struphy.feec.projectors.projectors_global as pro
+import struphy.feec.projectors.pro_global.projectors_global as pro
 
 import struphy.feec.derivatives.derivatives as der
 
@@ -159,7 +159,7 @@ class Spline_space_1d:
     # functions for setting projectors:        
     # =================================================
     def set_projectors(self, nq=6):
-        self.projectors = pro.projectors_global_1d(self, nq)
+        self.projectors = pro.Projectors_global_1d(self, nq)
         print('Set projectors (1d) done.')
 
     
@@ -588,15 +588,15 @@ class Tensor_spline_space:
         if   which == 'tensor':
         
             if   self.dim == 2:
-                self.projectors = pro.projectors_tensor_2d([space.projectors for space in self.spaces])
+                self.projectors = pro.Projectors_tensor_2d([space.projectors for space in self.spaces])
             elif self.dim == 3:
-                self.projectors = pro.projectors_tensor_3d([space.projectors for space in self.spaces])
+                self.projectors = pro.Projectors_tensor_3d([space.projectors for space in self.spaces])
             else:
                 raise NotImplementedError('Only 2d and 3d supported.')
                 
         # general projectors (polar splines possible)
         elif which == 'general':
-            self.projectors = pro.projectors_global_3d(self)
+            self.projectors = pro.Projectors_global_3d(self)
 
         print('Set projectors ({}d) done.'.format(self.dim))
 

@@ -11,8 +11,6 @@ def test_polar_splines_2D(plot=False):
     import struphy.geometry.polar_splines as pol
     
     import struphy.feec.spline_space as spl
-
-    from struphy.feec.projectors import projectors_global as proj
     
     # parameters
     Nel        = [8, 24]           # number of elements (number of elements in angular direction must be a multiple of 3)

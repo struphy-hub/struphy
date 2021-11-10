@@ -36,8 +36,8 @@ DER  := ${path_lib}feec/derivatives/kernels_derivatives
 LAC  := ${path_lib}linear_algebra/core
 LAT  := ${path_lib}linear_algebra/kernels_tensor_product
 
-KPG  := ${path_lib}feec/projectors/kernels_projectors_global
-KPGM := ${path_lib}feec/projectors/kernels_projectors_global_mhd
+KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
+KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
 
 PP   := ${path_lib}pic/pusher
 PA   := ${path_lib}pic/accumulation_kernels
@@ -126,5 +126,7 @@ clean:
 	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__
 	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__
 	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__
+	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__
+	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__
 	rm -rf ${path_lib}feec/control_variates/__pyccel__ ${path_lib}feec/control_variates/__pycache__
 	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__
