@@ -1,12 +1,1 @@
-h5py
-matplotlib
-mpi4py
-numba
-numpy<1.21,>=1.17
-pyccel==0.10.1
-PyYAML
-scipy
-sympy
-pytest
 wheel
-treelib

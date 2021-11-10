@@ -6,7 +6,7 @@
 Module to handle mapped 3d domains.
 """
 
-import h5py
+
 import numpy as np
 from numpy.core.numeric import count_nonzero
 import scipy.sparse as spa
@@ -30,7 +30,7 @@ def spline_interpolation_nd(p, grids_1d, values):
 
     The knot vector for the clamped spline interpolant is constructed from grids_1d.
 
-    Parameters:
+    Parameters
     -----------
         p : list of length n
             spline degree
@@ -41,7 +41,7 @@ def spline_interpolation_nd(p, grids_1d, values):
         values: nd np.array
             function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
 
-    Returns:
+    Returns
     --------
         coeffs : nd np.array
             spline coefficients
@@ -99,7 +99,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     '''
     Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
 
-    Parameters:
+    Parameters
     -----------
         Nel, p, spl_kind: array-like
             defining the spline space
@@ -109,7 +109,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 
         Z: callable Z(eta1, eta2, eta3)
 
-    Returns:
+    Returns
     --------
         cx, cy (, cz): np.array
             spline coefficients
@@ -200,70 +200,88 @@ def prepare_args(x, y, z):
 class Domain:
     '''Defines the mapped domain.
 
-    Parameters:
-    -----------
-        general : dict
-            {'type': str_map, 'polar': True/False}
-            Available mappings (choices for "str_map") are 
-                "cuboid" :       X = b1 + (e1 - b1)*eta1
-                                 Y = b2 + (e2 - b2)*eta2
-                                 Z = b3 + (e3 - b3)*eta3   
-                "orthogonal" :   X = Lx*(eta1 + alpha*sin(2*pi*eta1))
-                                 Y = Ly*(eta2 + alpha*sin(2*pi*eta2))
-                                 Z = Lz*eta3
-                "colella"    :   X = Lx*(eta1 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
-                                 Y = Ly*(eta2 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
-                                 Z = Lz*eta3
-                "hollow_cyl" :   X = a1 + (a2 - a1)*eta1*cos(2*pi*eta2)
-                                 Y = a1 + (a2 - a1)*eta1*sin(2*pi*eta2)
-                                 Z = Lz*eta3
-                "hollow_torus" : X = (X_hollow_cyl + R0) * cos(2*pi*eta3)
-                                 Y = Y_hollow_cyl
-                                 Z = (X_hollow_cyl + R0) * sin(2*pi*eta3)
-                "spline"       : 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
-                "spline_cyl"   : 2d discrete spline mapping in (eta1, eta2) --> (X, Y) w/ control points cx, cy, cz=None and
-                                    X = a*eta1*np.cos(2*np.pi*eta2)
-                                    Y = a*eta1*np.sin(2*np.pi*eta2)
-                                    Z = Lz*eta3
-                "spline_torus" : 2d discrete spline mapping in (eta1, eta2) --> (R, Y) w/ control points cx, cy, cz=None and
-                                    X = R*cos(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*cos(2*pi*eta3) 
-                                    Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
-                                    Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
-        
-        params_map: dict
-            The parameters needed to define the above mappings.
+    Parameters
+    ----------
+    general : dict
+        {'type': string_map, 'polar': True/False}
+    
+    params_map: dict
+        The parameters needed to define the mappings (see Notes).
 
-    Methods:
-    --------
-        evaluate(eta1, eta2, eta3, kind_fun)
-            Evaluate the metric coefficient specified by kind_fun.
-        push(fun, eta1, eta2, eta3, kind_fun)
-            Push callable fun to physical domain as a p-form specified by kind_fun.
-        pull(fun, eta1, eta2, eta3, kind_fun)
-            Pull callable fun to logical domain as a p-form specified by kind_fun.
+    Attributes
+    ----------
+    kind_map: integer
+        values <10 indicate a spline mapping
 
-    Attributes:
-    -----------
-        kind_map: integer
-            values <10 indicate a spline mapping
+    params_map: array-like
+        mapping parameters
 
-        params_map: array-like
-            mapping parameters
+    Nel: list
+        1d number of elements of discrete spline mapping
+    
+    p: list
+        1d degrees of discrete spline mapping
+    
+    NbaseN: list
+        1d dimensions of discrete spline mapping
+    
+    T: list
+        1d knot vectors of discrete spline mapping
 
-        Nel, p, NbaseN, T: lists
-            Parameters of discrete spline mapping
+    cx: np.array
+        spline coefficients of X(eta1, eta2, eta3)
+    
+    cy: np.array
+        spline coefficients of Y(eta1, eta2, eta3)
+    
+    cz: np.array
+        spline coefficients of Z(eta1, eta2, eta3)
 
-        cx, cy, cz: np.array
-            spline coefficients
+    keys_map: dictionary
+        keys point to values for kind_fun in the 'evaluate' method.
 
-        keys_map: dictionary
-            keys point to values for kind_fun in the 'evaluate' method.
+    keys_pull: dictionary
+        keys point to possible values for kind_fun in 'pull' method.
 
-        keys_pull: dictionary
-            keys point to possible values for kind_fun in 'pull' method.
+    keys_push: dictionary
+        keys point to possible values for kind_fun in 'push' method.
 
-        keys_push: dictionary
-            keys point to possible values for kind_fun in 'push' method.
+    Notes
+    -----
+    Available mappings (choices for "string_map") are:
+
+        * 'cuboid' :       
+            * X = b1 + (e1 - b1)*eta1
+            * Y = b2 + (e2 - b2)*eta2
+            * Z = b3 + (e3 - b3)*eta3   
+        * 'orthogonal' :   
+            * X = Lx*(eta1 + alpha*sin(2*pi*eta1))
+            * Y = Ly*(eta2 + alpha*sin(2*pi*eta2))
+            * Z = Lz*eta3
+        * 'colella' :   
+            * X = Lx*(eta1 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
+            * Y = Ly*(eta2 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
+            * Z = Lz*eta3
+        * 'hollow_cyl' :   
+            * X = a1 + (a2 - a1)*eta1*cos(2*pi*eta2)
+            * Y = a1 + (a2 - a1)*eta1*sin(2*pi*eta2)
+            * Z = Lz*eta3
+        * 'hollow_torus' : 
+            * X = (X_hollow_cyl + R0) * cos(2*pi*eta3)
+            * Y = Y_hollow_cyl
+            * Z = (X_hollow_cyl + R0) * sin(2*pi*eta3)
+        * 'spline': 
+            * 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
+        * 'spline_cyl': 
+            * 2d discrete spline mapping in (eta1, eta2) --> (X, Y) w/ control points cx, cy, cz=None and
+            * X = a*eta1*np.cos(2*np.pi*eta2)
+            * Y = a*eta1*np.sin(2*np.pi*eta2)
+            * Z = Lz*eta3
+        * 'spline_torus' : 
+            * 2d discrete spline mapping in (eta1, eta2) --> (R, Y) w/ control points cx, cy, cz=None and
+            * X = R*cos(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*cos(2*pi*eta3) 
+            * Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
+            * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
     '''
     
     def __init__(self, kind_map, params_map={'b1': 0., 'e1': 1., 'b2': 0., 'e2': 1., 'b3': 0., 'e3': 1.}): 
@@ -291,28 +309,12 @@ class Domain:
         elif kind_map == 'spline':
             # TODO: choose correct params_map
             self.kind_map   = 0
+            self.params_map = params_map
 
-            # print(f'Before popping: list(params_map.values()): {list(params_map.values())}')
-
-            with h5py.File(params_map['file'], 'r') as handle:
-
-                # print(f'Available keys: {tuple(handle.keys())}')
-                self.cx = handle['cx'][:]
-                self.cy = handle['cy'][:]
-                self.cz = handle['cz'][:]
-
-            self.Nel      = params_map['Nel']
-            self.p        = params_map['p']
-            self.spl_kind = params_map['spl_kind']
-
-            # We have to remove the filename string from `params_map`, otherwise it will cause an error.
-            # TypeError: float() argument must be a string or a number, not 'dict'
-            # ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (4,) + inhomogeneous part.
-            # TypeError: failed in converting 7th argument `params_map' of pushforward_3d.kernel_evaluate_sparse to C/Fortran array
-            params_map.pop('file', None)
-            self.params_map = list(params_map.values())
-            # print(f'After popping: list(params_map.values()): {list(params_map.values())}')
-
+            self.cx = None
+            self.cy = None
+            self.cz = None
+            
         elif kind_map == 'spline_cyl':
             # TODO: choose correct params_map
             # TODO: allow for input data cx, cy, cz
@@ -434,14 +436,14 @@ class Domain:
         '''Evaluate mapping/metric coefficients. 
         Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product (meshgrid) or general.
 
-        Parameters:
+        Parameters
         -----------
             eta1, eta2, eta3:   point like or array-like or list like 
                 logical coordinates at which to evaluate
             kind_fun:   integer
                 what metric coefficient to evaluate, see keys_map
 
-        Returns:
+        Returns
         --------
             values: ndarray
                 mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
@@ -512,7 +514,7 @@ class Domain:
         '''Evaluate mapping/metric coefficients in the 12-plane at one point eta3. 
         Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
 
-        Parameters:
+        Parameters
         -----------
             eta1, eta2:   array-like
                 logical coordinates in plane at eta3 
@@ -520,7 +522,7 @@ class Domain:
             kind_fun:   integer
                 what metric coefficient to evaluate, see keys_map
 
-        Returns:
+        Returns
         --------
             values: 2d array
                 mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
@@ -561,7 +563,7 @@ class Domain:
         '''Evaluate mapping/metric coefficients in the 13-plane at one point eta2. 
         Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
 
-        Parameters:
+        Parameters
         -----------
             eta1, eta3:   array-like
                 logical coordinates in plane at eta2 
@@ -569,7 +571,7 @@ class Domain:
             kind_fun:   integer
                 what metric coefficient to evaluate, see keys_map
 
-        Returns:
+        Returns
         --------
             values: 2d array
                 mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
@@ -610,7 +612,7 @@ class Domain:
         '''Evaluate mapping/metric coefficients in the 23-plane at one point eta1. 
         Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
 
-        Parameters:
+        Parameters
         -----------
             eta2, eta3:   array-like
                 logical coordinates in plane at eta1 
@@ -618,7 +620,7 @@ class Domain:
             kind_fun:   integer
                 what metric coefficient to evaluate, see keys_map
 
-        Returns:
+        Returns
         --------
             values: 2d array
                 mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
@@ -659,7 +661,7 @@ class Domain:
         '''Pullback of p-forms. 
         Depending on the dimension of eta1 either point-wise, tensor-product or general.
 
-        Parameters:
+        Parameters
         -----------
             a:  callable or array-like
                 the function a(x, y, z) to be pulled back (can be one component of a p-form)
@@ -668,8 +670,8 @@ class Domain:
             kind_fun:   str
                 which p-form pull back to apply, see keys_pull
 
-        Returns:
-        --------
+        Returns
+        -------
             values: ndarray
                 pullback of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
@@ -783,7 +785,7 @@ class Domain:
         '''Push-forward of p-forms. 
         Depending on the dimension of eta1 either point-wise, tensor-product or general.
         
-        Parameters:
+        Parameters
         -----------
             a:  callable or array-like
                 the function a(eta1, eta2, eta3) to be pushed forward (can be one component of a p-form)
@@ -792,13 +794,13 @@ class Domain:
             kind_fun:   str
                 which p-form push forward to apply, see keys_push
 
-        Returns:
+        Returns
         --------
             values: ndarray
                 push forward of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
 
-        if eta3 is None:
+        if eta3 == None:
             eta3 = np.array([0.])
         
         # point-wise evaluation

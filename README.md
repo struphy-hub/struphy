@@ -1,93 +1,95 @@
-# Welcome to Hylife!
+# Welcome to STRUPHY!
 
-*The Python Finite Element library for structure-preserving fluid-kinetic hybrid simulations.*
+*STRUPHY* (STRUcture-Preserving HYbrid codes) is a multi-model plasma physics package for 
+the simulation energetic particles (EPs) in ambient plasma.
 
-Currently, the following plasma codes are delivered with the Hylife repository:
+The package is developed at [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/) 
+in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mpg.de/ippcms/de/for/bereiche/numerik)
+and includes
 
-- [STRUPHY_cc_lin_6D.py](https://gitlab.mpcdf.mpg.de/clapp/hylife/-/wikis/home/struphy_cc_lin_6d) 
+1. initial-value solvers for kinetic-fluid hybrid models 
+2. MHD eigenvalue solver for axis-symmetric equilibria
+3. interface to the [MHD equilibrium code GVEC](https://gitlab.mpcdf.mpg.de/gvec-group/gvec)
+4. interface to `eqdesk` file format
+5. dispersion relation solvers for MHD, hybrid models and Vlasov-Maxwell (all in slab)
 
-# Requirements
+*STRUPHY* computational kernels are pre-compiled with [pyccel](https://github.com/pyccel/pyccel) to reach ***FORTRAN*** performance. *STRUPHY* can be run on clusters with OpenMP/MPI hybrid parallelization.
 
-* Linux or MacOS
-* Non standard libraries: `libopenmpi-dev`
-```
-sudo apt install libopenmpi-dev
-```
-* Recommended: `virtualenv`
-```
-python3 -m pip install --user virtualenv
-```
+Contact:
 
-# Quickstart on Linux
-
-Clone and install:
-```
-$ git clone git@gitlab.mpcdf.mpg.de:clapp/hylife.git
-$ git checkout devel
-$ python3 -m virtualenv .venv
-$ source .venv/bin/activate
-$ python -m pip install -r requirements.txt
-```
-
-Initialize folders, run default simulation and diagnostics:
-```
-$ ./STRUPHY_init.sh
-$ ./run_STRUPHY_cc_lin_6D.sh
-$ ./diagnostics.sh
-```
-
-<!---
-## Running tests
-
-Explain how to run the automated tests for this system
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## Deployment
-
-Add additional notes about how to deploy this on a live system
-
-## Built With
-
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
-
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
-
-## Authors
-
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+* Stefan Possanner [spossann@ipp.mpg.de](spossann@ipp.mpg.de)
+* Florian Holderied [floho@ipp.mpg.de](floho@ipp.mpg.de)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+Not yet published.
 
-## Acknowledgments
+## Installation 
+    
+    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git
+    pip install .
+    
+For quick help type
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
--->
+    struphy -h
+
+Compilation of kernels:
+
+    struphy -c
+
+## Requirements
+
+*STRUPHY* has been tested on Debian `linux-x86_64` systems; it requires
+
+* Python 3 
+* libopenmpi-dev (`apt-get install libopenmpi-dev`)
+* requirements for [pyccel](https://github.com/pyccel/pyccel)
+
+Python packages (automatically installed via `pip install .`):
+
+    h5py
+    matplotlib
+    mpi4py
+    numpy<1.21,>=1.17
+    pyccel==0.10.1
+    PyYAML
+    scipy
+    sympy
+    pytest
+    treelib
+
+## Documentation
+
+* [STRUPHY userguide](https://clapp.pages.mpcdf.de/hylife/)
+
+* [Wiki for developers](https://gitlab.mpcdf.mpg.de/clapp/hylife/-/wikis/home)
+
+
+## Examples
+
+* [MHD waves in a slab (textbook example)](https://clapp.pages.mpcdf.de/hylife/sections/examples.html#mhd-dispersion-relation-slab)
+
+
+## Contributors
+
+* Florian Holderied (since 2019)
+* Stefan Possanner (since 2019)
+* Xin Wang (since 2019)
+* Benedikt Aigner (since 2021)
+* Tin Kei Cheng (since 2021)
+* Yingzhe Li (since 2021)
+* Byung Kyu Na (since 2021)
+
+The project benfits from the constant advice of Yaman Güclü and Florian Hindenlang.
+
+
+## References
+
+If you use *STRUPHY* please cite at least one of the following works:
+
+* F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
+
+* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axisymmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
+
+
+
