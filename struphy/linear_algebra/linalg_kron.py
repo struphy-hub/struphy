@@ -17,6 +17,35 @@
 from scipy.sparse.linalg import splu
 from scipy.linalg import solve_circulant 
 
+
+def kron_matvec_2d(kmat, vec2d):
+    """
+    2D Kronecker matrix-vector product.
+    
+    res_ij = (A_ik * B_jl) * vec2d_kl
+
+    implemented as two matrix-matrix multiplications with intermediate transpose:
+    
+    step1(v1,k0) = ( kmat[0](k0,v0) * vec2d(v0,v1) )^T
+    step2(k0,k1) = ( kmat[1](k1,v1) * step1(v1,k0) )^T
+    res = step2(k0,k1)
+    
+    Parameters
+    ----------
+    kmat : 2 sparse matrices for each direction of size (k0,v0) and (k1,v1)
+
+    vec2d : 2d array of size (v0,v1)   
+
+    Returns
+    -------
+    res : 2d array of size (k0,k1)
+    """
+    
+    res = kmat[1].dot(kmat[0].dot(vec2d).T).T
+    
+    return res
+
+
 def kron_matvec_3d(kmat, vec3d):
     """3D Kronecker matrix-vector product.
     

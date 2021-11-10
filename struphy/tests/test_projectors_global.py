@@ -15,7 +15,7 @@ def test_projectors_1d(plot=False, p_range=6, N_range=8):
     import struphy.feec.spline_space as spl
     import matplotlib.pyplot as plt
 
-    from struphy.feec.projectors import projectors_global    as proj
+    from struphy.feec.projectors.pro_global import projectors_global    as proj
     
     # test arbitrary function
     f_per = lambda eta : np.cos(2*np.pi*eta/.5)
@@ -262,7 +262,7 @@ def test_projectors_2d(p_range=6, N_range=8):
     import struphy.feec.spline_space as spl
     import matplotlib.pyplot as plt
 
-    from struphy.feec.projectors import projectors_global    as proj
+    from struphy.feec.projectors.pro_global import projectors_global    as proj
     from struphy.feec.basics     import spline_evaluation_2d as eval
 
     # test arbitrary function
@@ -392,7 +392,7 @@ def test_projectors_3d(p_range=6, N_range=6):
     import struphy.feec.spline_space as spl
     import matplotlib.pyplot as plt
 
-    from struphy.feec.projectors import projectors_global    as proj
+    from struphy.feec.projectors.pro_global import projectors_global    as proj
     from struphy.feec.basics     import spline_evaluation_3d as eval
 
     # test arbitrary function
@@ -575,7 +575,7 @@ def test_project_splines():
     import numpy as np
 
     import struphy.geometry.domain_3d as dom
-    import struphy.feec.projectors.projectors_global as pro
+    import struphy.feec.projectors.pro_global.projectors_global as pro
     import struphy.feec.spline_space as spl
 
     Nel      = [16, 16, 8]

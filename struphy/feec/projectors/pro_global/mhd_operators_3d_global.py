@@ -11,7 +11,7 @@ import numpy as np
 import scipy.sparse as spa
 
 import struphy.feec.bsplines as bsp
-import struphy.feec.projectors.kernels_projectors_global_mhd as ker
+import struphy.feec.projectors.pro_global.kernels_projectors_global_mhd as ker
 
 import struphy.feec.basics.mass_matrices_3d     as mass
 import struphy.feec.basics.mass_matrices_3d_pre as mass_pre

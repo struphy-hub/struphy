@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Classes for projectors in 1D, 2D and 3D based on global spline interpolation and histopolation.
+Classes for commuting projectors in 1D, 2D and 3D based on global spline interpolation and histopolation.
 """
 
 import numpy as np
@@ -11,23 +11,20 @@ import scipy.sparse as spa
 
 import struphy.feec.bsplines as bsp
 
-import struphy.feec.projectors.kernels_projectors_global as ker_glob
+from struphy.linear_algebra.linalg_kron import kron_matvec_2d
+from struphy.linear_algebra.linalg_kron import kron_matvec_3d
 
-from   struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-from   struphy.linear_algebra.linalg_kron import kron_lusolve_3d
-from   struphy.linear_algebra.linalg_kron import kron_matvec_3d
-from   struphy.linear_algebra.linalg_kron import kron_matvec_3d_1, kron_matvec_3d_2, kron_matvec_3d_3
-from   struphy.linear_algebra.linalg_kron import kron_matvec_3d_23, kron_matvec_3d_13, kron_matvec_3d_12
-
+from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+from struphy.linear_algebra.linalg_kron import kron_lusolve_3d
 
 
 
 # ======================= 1d ====================================
-class projectors_global_1d:
+class Projectors_global_1d:
     """
-    Global commuting projectors pi_0 and pi_1 in 1d.
+    Global commuting projectors pi_0 and pi_1 in 1d based on interpolation and histopolation.
     
-    Parameters:
+    Parameters
     -----------
     spline_space : Spline_space_1d
         A 1d space of B-splines and corresponding D-splines.
@@ -35,16 +32,10 @@ class projectors_global_1d:
     n_quad : int
         Number of Gauss-Legendre quadrature points per integration interval for histopolation.
 
-    Attributes:
+    Attributes
     -----------
-    space : Spline_space_1d
-        The input space.
-
     n_quad : int
-        The input number of quadrature points.
-
-    kind : str
-        Kind of projector = 'global'.
+        The input number of quadrature points per integration interval.
 
     pts_loc : 1d array
         Gauss-Legendre quadrature points in (-1, 1).
@@ -53,85 +44,91 @@ class projectors_global_1d:
         Gauss-Legendre quadrature weights in (-1, 1).
 
     x_int : 1d array
-        Interpolation points = Greville points of space.
+        Interpolation points in [0, 1] = Greville points of space.
 
     x_his : 1d array
-        Integration cell boundaries for histolpolation.
+        Integration boundaries for histopolation (including breakpoints if there is one between two Greville points).
 
     subs : 1d array
-        Number of integration intervals per cell to achieve exact integration of splines:
-        subs[:]=1 for odd spline degree
-        subs[:]=2 for even splines degree and periodic bc (some boundary changes are made for clamped)
+        Number of sub-integration intervals per histopolation interval to achieve exact integration of splines (1 or 2).
 
     subs_cum : list
         Cumulative sum of subs, starting with 0.
 
-    pts : 2d array
-        Quadrature points in format (element, quad point) 
+    pts : 2d array (float)
+        Gauss-Legendre quadrature points in format (integration interval, local quadrature point) 
 
-    wts : 2d array
-        Quadrature weights in format (element, quad weight)
+    wts : 2d array (float)
+        Gauss-Legendre quadrature weights in format (integration interval, local quadrature weight)
+        
+    Q : sparse csr matrix
+        Quadrature matrix that performs quadrature integrations as matrix-vector product
+        
+    N_int : sparse csr matrix
+        Collocation matrix for B-splines at interpolation points
+        
+    D_int : sparse csr matrix
+        Collocation matrix for M-splines at interpolation points
+        
+    N_pts : sparse csr matrix
+        Collocation matrix for B-splines at quadrature points
+        
+    D_pts : sparse csr matrix
+        Collocation matrix for M-splines at quadrature points
 
-    N : sparse csr matrix
-        Collocation matrix N_j(x_i).
+    I : sparse csr matrix
+        Interpolation matrix N_j(x_i).
+        
+    ID : sparse csr matrix
+        Interpolation-like matrix D_j(x_i)
 
-    D : sparse csr matrix
-        Histopolation matrix int_(x_i)^(x_i+1) D_j dx.
+    H : sparse csr matrix
+        Histopolation matrix int_(x_i)^(x_i + 1) D_j dx.
+        
+    HN : sparse csr matrix
+        Histopolation-like matrix int_(x_i)^(x_i + 1) N_j dx.
 
-    N_LU : sparce csc matrix
-        LU decompositions of N.
+    I_LU : Super LU
+        LU decompositions of I.
 
-    D_LU : sparce csc matrix
-        LU decompositions of D.
+    H_LU : Super LU
+        LU decompositions of H.
 
-    N_T_LU : sparse csc matrix
-        LU decompositions of transpose N.
+    I_T_LU : Super LU
+        LU decompositions of transpose I.
 
-    D_T_LU : sparse csc matrix
-        LU decompositions of transpose D.
-
-    Methods:
-    --------
-    dofs_0
-    dofs_1
-    pi_0 
-    pi_1 
-    pi_0_mat
-    pi_1_mat
-    bases_at_pts
-    dofs_1d_bases
-    dofs_1d_bases_products
+    H_T_LU : Super LU
+        LU decompositions of transpose H.
     """
     
     def __init__(self, spline_space, n_quad=6):
         
-        self.space  = spline_space     # 1D B-splines space
-        self.n_quad = n_quad           # number of quadrature point per integration interval
-        self.kind   = 'global'         # kind of projector (global vs. local)
+        # number of quadrature points per integration interval
+        self.n_quad = n_quad       
         
         # Gauss - Legendre quadrature points and weights in (-1, 1)
         self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]  
         self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
         
         # set interpolation points (Greville points)
-        self.x_int = self.space.greville.copy()
+        self.x_int = spline_space.greville.copy()
         
         # set number of sub-intervals per integration interval between Greville points and integration boundaries
-        self.subs = np.ones(self.space.NbaseD, dtype=int)
+        self.subs  = np.ones(spline_space.NbaseD, dtype=int)
         self.x_his = np.array([self.x_int[0]])
             
-        for i in range(self.space.NbaseD):
-            for br in self.space.el_b:
+        for i in range(spline_space.NbaseD):
+            for br in spline_space.el_b:
                 
                 # left and right integration boundaries
-                if self.space.spl_kind == False:
+                if spline_space.spl_kind == False:
                     xl = self.x_int[i]
                     xr = self.x_int[i + 1]
                 else:  
                     xl = self.x_int[i]
-                    xr = self.x_int[(i + 1)%self.space.NbaseD]
-                    if i == self.space.NbaseD - 1:
-                        xr += self.space.el_b[-1]
+                    xr = self.x_int[(i + 1)%spline_space.NbaseD]
+                    if i == spline_space.NbaseD - 1:
+                        xr += spline_space.el_b[-1]
 
                 # compute subs and x_his
                 if (br > xl + 1e-10) and (br < xr - 1e-10):
@@ -141,244 +138,154 @@ class projectors_global_1d:
                     self.x_his = np.append(self.x_his, xr)
                     break
         
-        if self.space.spl_kind == True and self.space.p%2 == 0:
-            self.x_his = np.append(self.x_his, self.space.el_b[-1] + self.x_his[0])            
+        if spline_space.spl_kind == True and spline_space.p%2 == 0:
+            self.x_his = np.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])            
         
         # cumulative number of sub-intervals for conversion local interval --> global interval
         self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
         
         # quadrature points and weights
         self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
-        self.pts           = self.pts%self.space.el_b[-1]
+        self.pts           = self.pts%spline_space.el_b[-1]
         
-        # interpolation and histopolation_matrix
-        self.N = bsp.collocation_matrix(  self.space.T, self.space.p, self.x_int, self.space.spl_kind)
-        self.D = bsp.histopolation_matrix(self.space.T, self.space.p, self.x_int, self.space.spl_kind)
+        # quadrature matrix for performing integrations as matrix-vector products
+        self.Q = np.zeros((spline_space.NbaseD, self.wts.shape[0]*self.n_quad), dtype=float)
         
-        self.N[self.N < 1e-12] = 0.
-        self.D[self.D < 1e-12] = 0.
-        
-        self.N = spa.csr_matrix(self.N)
-        self.D = spa.csr_matrix(self.D)
-        
-        # Q-matrix for integration of dofs_1
-        self.Q = np.zeros((self.space.NbaseD, self.wts.size), dtype=float)
-        accul = 0
-        for i in range(self.Q.shape[0]):
-            self.Q[i, accul*n_quad : (accul + self.subs[i])*n_quad] = self.wts[accul : accul + self.subs[i], :].flatten()
-            accul += self.subs[i]
-        self.Q = spa.csr_matrix(self.Q)
-
-        # LU decompositions
-        self.N_LU = spa.linalg.splu(self.N.tocsc())
-        self.D_LU = spa.linalg.splu(self.D.tocsc())
-        
-        # LU decompositions of transposed
-        self.N_T_LU = spa.linalg.splu(self.N.T.tocsc())
-        self.D_T_LU = spa.linalg.splu(self.D.T.tocsc())
-        
-    
-    # evaluate function at interpolation points    
-    def dofs_0(self, fun):
-        '''
-        Evaluate the callable fun at interpolation points, f[i] = fun(x_i).
-        '''
-        return fun(self.x_int)
-    
-    # evaluate integrals between interpolation points
-    def dofs_1(self, fun):
-        '''
-        Integrate the callable fun between interpolation points, f[i] = int_(x_i)^(x_i+1) fun(x) dx.
-        Gauss-Legendre integration with n_quad points is used.
-        '''
-        
-        # evaluate function at quadrature points
-        mat_f  = fun(self.pts.flatten()).reshape(self.pts.shape[0], self.pts.shape[1])
-        values = np.zeros(self.space.NbaseD, dtype=float)
-        
-        # compute integrals
-        for i in range(self.space.NbaseD):
-            value = 0.
+        for i in range(spline_space.NbaseD):
             for j in range(self.subs[i]):
-                value += ker_glob.kernel_int_1d(self.n_quad, self.wts[i + j + self.subs_cum[i]], mat_f[i + j + self.subs_cum[i]])
+                ie = i + j + self.subs_cum[i]
+                self.Q[i, self.n_quad*ie:self.n_quad*(ie + 1)] = self.wts[ie]
                 
-            values[i] = value
-
-        return values
-
-    def dofs_1_mat(self, fun):
-        '''
-        Same as dofs_1, but using matrix instead of kernel.
-        '''
+        self.Q = spa.csr_matrix(self.Q)
         
-        # evaluate function at quadrature points
-        mat_f  = fun(self.pts.flatten())
-                
-        return self.Q.dot(mat_f)
+        # collocation matrices for B-/M-splines at interpolation/quadrature points
+        BM_splines = [False, True]
+        
+        self.N_int = bsp.collocation_matrix(spline_space.T, spline_space.p - 0, self.x_int, spline_space.spl_kind, BM_splines[0])
+        self.D_int = bsp.collocation_matrix(spline_space.t, spline_space.p - 1, self.x_int, spline_space.spl_kind, BM_splines[1])
+        
+        self.N_int[self.N_int < 1e-12] = 0.
+        self.D_int[self.D_int < 1e-12] = 0.
+        
+        self.N_int = spa.csr_matrix(self.N_int)
+        self.D_int = spa.csr_matrix(self.D_int)
+        
+        self.N_pts = bsp.collocation_matrix(spline_space.T, spline_space.p - 0, self.pts.flatten(), spline_space.spl_kind, BM_splines[0])
+        self.D_pts = bsp.collocation_matrix(spline_space.t, spline_space.p - 1, self.pts.flatten(), spline_space.spl_kind, BM_splines[1])
+        
+        self.N_pts = spa.csr_matrix(self.N_pts)
+        self.D_pts = spa.csr_matrix(self.D_pts)
+        
+        # interpolation matrices
+        self.I  = self.N_int.copy()
+        self.ID = self.D_int.copy()
+        
+        # histopolation matrices
+        self.H  = self.Q.dot(self.D_pts)
+        self.HN = self.Q.dot(self.N_pts)
+        
+        # LU decompositions
+        self.I_LU = spa.linalg.splu(self.I.tocsc())
+        self.H_LU = spa.linalg.splu(self.H.tocsc())
+        
+        self.I_T_LU = spa.linalg.splu(self.I.T.tocsc())
+        self.H_T_LU = spa.linalg.splu(self.H.T.tocsc())
+        
     
-    # pi_0 projector
+    # degrees of freedoms: V_0 --> R^n   
+    def dofs_0(self, fun):
+        """
+        Returns the degrees of freedom for functions in V_0: dofs_0[i] = fun(x_i).
+        """
+        
+        dofs = fun(self.x_int)
+        
+        return dofs
+    
+    # degrees of freedom: V_1 --> R^n 
+    def dofs_1(self, fun):
+        """
+        Returns the degrees of freedom for functions in V_1: dofs_1[i] = int_(eta_i)^(eta_i + 1) fun(eta) deta.
+        """
+        
+        dofs = self.Q.dot(fun(self.pts.flatten()))
+                
+        return dofs
+    
+    # projector pi_0: V_0 --> R^n (callable in V_0 as input)
     def pi_0(self, fun):
-        return self.N_LU.solve(self.dofs_0(fun)) 
-    # pi_1 projector
+        """
+        Returns the solution of the interpolation problem I.coeffs = dofs_0 (spline coefficients).
+        """
+        
+        coeffs = self.I_LU.solve(self.dofs_0(fun))
+        
+        return coeffs
+    
+    # projector pi_1: V_1 --> R^n (callable in V_1 as input)
     def pi_1(self, fun):
-        return self.D_LU.solve(self.dofs_1(fun)) 
+        """
+        Returns the solution of the interpolation problem H.coeffs = dofs_1 (spline coefficients).
+        """
+        
+        coeffs = self.H_LU.solve(self.dofs_1(fun))
+        
+        return coeffs
 
-    # pi_0 projector with discrete input
+    # projector pi_0: R^n --> R^n (dofs_0 as input)
     def pi_0_mat(self, dofs_0):
-        '''
-        Returns the solution of the interpolation problem N.x = dofs_0 .
-        '''
-        return self.N_LU.solve(dofs_0)
+        """
+        Returns the solution of the interpolation problem I.coeffs = dofs_0 (spline coefficients).
+        """
+        
+        coeffs = self.I_LU.solve(dofs_0)
+        
+        return coeffs
     
-    # pi_1 projector with discrete input
+    # projector pi_1: R^n --> R^n (dofs_1 as input)
     def pi_1_mat(self, dofs_1):
-        '''
-        Returns the solution of the histopolation problem D.x = dofs_1 .
-        '''
-        return self.D_LU.solve(dofs_1)
-    
-    
-    def bases_at_pts(self):
         """
-        Basis functions evaluated at point sets for projectors: 
-
-        N_j[ x_int[i] ]
-        N_j[ pts.flatten[i] ]
-
-        D_j[ x_int[i] ]
-        D_j[ pts.flatten[i] ]
-        
-        Recall pts : Quadrature points in format (element, quad point) 
-        
-        Returns 4 scipy.sparse csr matrices.
+        Returns the solution of the interpolation problem H.coeffs = dofs_1 (spline coefficients).
         """
         
-        kind_splines = [False, True]
+        coeffs = self.H_LU.solve(dofs_1)
         
-        pts0_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.x_int, self.space.spl_kind, kind_splines[0]))
-        pts0_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.x_int, self.space.spl_kind, kind_splines[1]))
-        
-        pts1_N = spa.csr_matrix(bsp.collocation_matrix(self.space.T, self.space.p    , self.pts.flatten(), self.space.spl_kind, kind_splines[0]))
-        pts1_D = spa.csr_matrix(bsp.collocation_matrix(self.space.t, self.space.p - 1, self.pts.flatten(), self.space.spl_kind, kind_splines[1]))
-        
-        return pts0_N, pts0_D, pts1_N, pts1_D
+        return coeffs
     
     
-    def dofs_1d_bases(self):
-        """
-        Computes degrees of freedom of basis functions.
-        
-        dofs_0_i(N_j)
-        dofs_1_i(N_j)
-        
-        dofs_0_i(D_j)
-        dofs_1_i(D_j)
-        
-        dofs_0 : evaluation at greville points
-        dofs_1 : integral between greville points
-
-        Returns 4 numpy arrays.
-        """
-        
-        R0_N = np.empty((self.space.NbaseN, self.space.NbaseN), dtype=float)
-        R1_N = np.empty((self.space.NbaseD, self.space.NbaseN), dtype=float)
-        
-        R0_D = np.empty((self.space.NbaseN, self.space.NbaseD), dtype=float)
-        R1_D = np.empty((self.space.NbaseD, self.space.NbaseD), dtype=float)
-
-
-        # ========= R0_N and R1_N =============
-        cj = np.zeros(self.space.NbaseN, dtype=float)
-
-        for j in range(self.space.NbaseN):
-
-            cj[:] = 0.
-            cj[j] = 1.
-
-            N_j = lambda eta : self.space.evaluate_N(eta, cj)
-
-            R0_N[:, j] = self.dofs_0(N_j)
-            R1_N[:, j] = self.dofs_1(N_j)
-            
-        # ========= R0_D and R1_D =============
-        cj = np.zeros(self.space.NbaseD, dtype=float)
-
-        for j in range(self.space.NbaseD):
-
-            cj[:] = 0.
-            cj[j] = 1.
-
-            D_j = lambda eta : self.space.evaluate_D(eta, cj)
-
-            R0_D[:, j] = self.dofs_0(D_j)
-            R1_D[:, j] = self.dofs_1(D_j)
-            
-        R0_N_indices = np.nonzero(R0_N)
-        R0_D_indices = np.nonzero(R0_D)
-        R1_N_indices = np.nonzero(R1_N)
-        R1_D_indices = np.nonzero(R1_D)
-        
-        return R0_N_indices, R0_D_indices, R1_N_indices, R1_D_indices
-    
-    
-    def dofs_1d_bases_products(self):
+    # degrees of freedom of products of basis functions
+    def dofs_1d_bases_products(self, space):
         """
         DISCLAIMER: this routine is not finished and should not be used.
 
-        Computes degrees of freedom of products of basis functions.
+        Computes indices of non-vanishing degrees of freedom of products of basis functions:
         
-        dofs_0_i(N_j*N_k)
-        dofs_0_i(D_j*N_k)
-        dofs_0_i(N_j*D_k)
-        dofs_0_i(D_j*D_k)
+        dofs_0_i(N_j*N_k),
+        dofs_0_i(D_j*N_k),
+        dofs_0_i(N_j*D_k),
+        dofs_0_i(D_j*D_k),
         
-        dofs_1_i(N_j*N_k)
-        dofs_1_i(D_j*N_k)
-        dofs_1_i(N_j*D_k)
-        dofs_1_i(D_j*D_k)
-        
-        dofs_0 : evaluation at greville points
-        dofs_1 : integral between greville points
-
-        Returns 8 numpy arrays of the form ().
+        dofs_1_i(N_j*N_k),
+        dofs_1_i(D_j*N_k),
+        dofs_1_i(N_j*D_k),
+        dofs_1_i(D_j*D_k).
         """
     
-        R0_NN = np.empty((self.space.NbaseN, self.space.NbaseN, self.space.NbaseN), dtype=float)
-        R0_DN = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseN), dtype=float)
-        R0_DD = np.empty((self.space.NbaseN, self.space.NbaseD, self.space.NbaseD), dtype=float)
+        dofs_0_NN = np.empty((space.NbaseN, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_0_DN = np.empty((space.NbaseN, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_0_DD = np.empty((space.NbaseN, space.NbaseD, space.NbaseD), dtype=float)
 
-        R1_NN = np.empty((self.space.NbaseD, self.space.NbaseN, self.space.NbaseN), dtype=float)
-        R1_DN = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseN), dtype=float)
-        R1_DD = np.empty((self.space.NbaseD, self.space.NbaseD, self.space.NbaseD), dtype=float)
-
-
-        # ========= R0_NN and R1_NN ==============
-        cj = np.zeros(self.space.NbaseN, dtype=float)
-        ck = np.zeros(self.space.NbaseN, dtype=float)
-
-        for j in range(self.space.NbaseN):
-            for k in range(self.space.NbaseN):
-
-                cj[:] = 0.
-                ck[:] = 0.
-
-                cj[j] = 1.
-                ck[k] = 1.
-                
-                N_jN_k = lambda eta : self.space.evaluate_N(eta, cj)*self.space.evaluate_N(eta, ck)
-                # There are two evaluation routines at the moment: spline_evaluation_1d (pyccel) and Spline_space_1d (slow).
-                # The slow one is used here.
-
-                R0_NN[:, j, k] = self.dofs_0(N_jN_k) # These matrices are full and should not be assembled.
-                R1_NN[:, j, k] = self.dofs_1(N_jN_k)
+        dofs_1_NN = np.empty((space.NbaseD, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_1_DN = np.empty((space.NbaseD, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_1_DD = np.empty((space.NbaseD, space.NbaseD, space.NbaseD), dtype=float)
 
 
-        # ========= R0_DN and R1_DN ==============
-        cj = np.zeros(self.space.NbaseD, dtype=float)
-        ck = np.zeros(self.space.NbaseN, dtype=float)
+        # ========= dofs_0_NN and dofs_1_NN ==============
+        cj = np.zeros(space.NbaseN, dtype=float)
+        ck = np.zeros(space.NbaseN, dtype=float)
 
-        for j in range(self.space.NbaseD):
-            for k in range(self.space.NbaseN):
+        for j in range(space.NbaseN):
+            for k in range(space.NbaseN):
 
                 cj[:] = 0.
                 ck[:] = 0.
@@ -386,18 +293,18 @@ class projectors_global_1d:
                 cj[j] = 1.
                 ck[k] = 1.
                 
-                D_jN_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_N(eta, ck)
+                N_jN_k = lambda eta : space.evaluate_N(eta, cj)*space.evaluate_N(eta, ck)
 
-                R0_DN[:, j, k] = self.dofs_0(D_jN_k)
-                R1_DN[:, j, k] = self.dofs_1(D_jN_k)
+                dofs_0_NN[:, j, k] = self.dofs_0(N_jN_k)
+                dofs_1_NN[:, j, k] = self.dofs_1(N_jN_k)
 
 
-        # ========= R0_DD and R1_DD =============
-        cj = np.zeros(self.space.NbaseD, dtype=float)
-        ck = np.zeros(self.space.NbaseD, dtype=float)
+        # ========= dofs_0_DN and dofs_1_DN ==============
+        cj = np.zeros(space.NbaseD, dtype=float)
+        ck = np.zeros(space.NbaseN, dtype=float)
 
-        for j in range(self.space.NbaseD):
-            for k in range(self.space.NbaseD):
+        for j in range(space.NbaseD):
+            for k in range(space.NbaseN):
 
                 cj[:] = 0.
                 ck[:] = 0.
@@ -405,129 +312,139 @@ class projectors_global_1d:
                 cj[j] = 1.
                 ck[k] = 1.
                 
-                D_jD_k = lambda eta : self.space.evaluate_D(eta, cj)*self.space.evaluate_D(eta, ck)
+                D_jN_k = lambda eta : space.evaluate_D(eta, cj)*space.evaluate_N(eta, ck)
+
+                dofs_0_DN[:, j, k] = self.dofs_0(D_jN_k)
+                dofs_1_DN[:, j, k] = self.dofs_1(D_jN_k)
+
+
+        # ========= dofs_0_DD and dofs_1_DD =============
+        cj = np.zeros(space.NbaseD, dtype=float)
+        ck = np.zeros(space.NbaseD, dtype=float)
+
+        for j in range(space.NbaseD):
+            for k in range(space.NbaseD):
+
+                cj[:] = 0.
+                ck[:] = 0.
+
+                cj[j] = 1.
+                ck[k] = 1.
                 
-                R0_DD[:, j, k] = self.dofs_0(D_jD_k)
-                R1_DD[:, j, k] = self.dofs_1(D_jD_k)
+                D_jD_k = lambda eta : space.evaluate_D(eta, cj)*space.evaluate_D(eta, ck)
+                
+                dofs_0_DD[:, j, k] = self.dofs_0(D_jD_k)
+                dofs_1_DD[:, j, k] = self.dofs_1(D_jD_k)
 
 
-        R0_ND = np.transpose(R0_DN, (0, 2, 1))
-        R1_ND = np.transpose(R1_DN, (0, 2, 1))
-
+        dofs_0_ND = np.transpose(dofs_0_DN, (0, 2, 1))
+        dofs_1_ND = np.transpose(dofs_1_DN, (0, 2, 1))
 
         # find non-zero entries
-        R0_NN_indices = np.nonzero(R0_NN)
-        R0_DN_indices = np.nonzero(R0_DN)
-        R0_ND_indices = np.nonzero(R0_ND)
-        R0_DD_indices = np.nonzero(R0_DD)
+        dofs_0_NN_indices = np.nonzero(dofs_0_NN)
+        dofs_0_DN_indices = np.nonzero(dofs_0_DN)
+        dofs_0_ND_indices = np.nonzero(dofs_0_ND)
+        dofs_0_DD_indices = np.nonzero(dofs_0_DD)
 
-        R1_NN_indices = np.nonzero(R1_NN)
-        R1_DN_indices = np.nonzero(R1_DN)
-        R1_ND_indices = np.nonzero(R1_ND)
-        R1_DD_indices = np.nonzero(R1_DD)
+        dofs_1_NN_indices = np.nonzero(dofs_1_NN)
+        dofs_1_DN_indices = np.nonzero(dofs_1_DN)
+        dofs_1_ND_indices = np.nonzero(dofs_1_ND)
+        dofs_1_DD_indices = np.nonzero(dofs_1_DD)
         
-        R0_NN_i_red = np.empty(R0_NN_indices[0].size, dtype=int)
-        R0_DN_i_red = np.empty(R0_DN_indices[0].size, dtype=int)
-        R0_ND_i_red = np.empty(R0_ND_indices[0].size, dtype=int)
-        R0_DD_i_red = np.empty(R0_DD_indices[0].size, dtype=int)
+        dofs_0_NN_i_red = np.empty(dofs_0_NN_indices[0].size, dtype=int)
+        dofs_0_DN_i_red = np.empty(dofs_0_DN_indices[0].size, dtype=int)
+        dofs_0_ND_i_red = np.empty(dofs_0_ND_indices[0].size, dtype=int)
+        dofs_0_DD_i_red = np.empty(dofs_0_DD_indices[0].size, dtype=int)
 
-        R1_NN_i_red = np.empty(R1_NN_indices[0].size, dtype=int)
-        R1_DN_i_red = np.empty(R1_DN_indices[0].size, dtype=int)
-        R1_ND_i_red = np.empty(R1_ND_indices[0].size, dtype=int)
-        R1_DD_i_red = np.empty(R1_DD_indices[0].size, dtype=int)
+        dofs_1_NN_i_red = np.empty(dofs_1_NN_indices[0].size, dtype=int)
+        dofs_1_DN_i_red = np.empty(dofs_1_DN_indices[0].size, dtype=int)
+        dofs_1_ND_i_red = np.empty(dofs_1_ND_indices[0].size, dtype=int)
+        dofs_1_DD_i_red = np.empty(dofs_1_DD_indices[0].size, dtype=int)
         
         # ================================
-        nv = self.space.NbaseN*R0_NN_indices[1] + R0_NN_indices[2]
+        nv = space.NbaseN*dofs_0_NN_indices[1] + dofs_0_NN_indices[2]
         un = np.unique(nv)
         
-        for i in range(R0_NN_indices[0].size):
-            R0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_0_NN_indices[0].size):
+            dofs_0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseN*R0_DN_indices[1] + R0_DN_indices[2]
+        nv = space.NbaseN*dofs_0_DN_indices[1] + dofs_0_DN_indices[2]
         un = np.unique(nv)
         
-        for i in range(R0_DN_indices[0].size):
-            R0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_0_DN_indices[0].size):
+            dofs_0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseD*R0_ND_indices[1] + R0_ND_indices[2]
+        nv = space.NbaseD*dofs_0_ND_indices[1] + dofs_0_ND_indices[2]
         un = np.unique(nv)
         
-        for i in range(R0_ND_indices[0].size):
-            R0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_0_ND_indices[0].size):
+            dofs_0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseD*R0_DD_indices[1] + R0_DD_indices[2]
+        nv = space.NbaseD*dofs_0_DD_indices[1] + dofs_0_DD_indices[2]
         un = np.unique(nv)
         
-        for i in range(R0_DD_indices[0].size):
-            R0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_0_DD_indices[0].size):
+            dofs_0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseN*R1_NN_indices[1] + R1_NN_indices[2]
+        nv = space.NbaseN*dofs_1_NN_indices[1] + dofs_1_NN_indices[2]
         un = np.unique(nv)
         
-        for i in range(R1_NN_indices[0].size):
-            R1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_1_NN_indices[0].size):
+            dofs_1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseN*R1_DN_indices[1] + R1_DN_indices[2]
+        nv = space.NbaseN*dofs_1_DN_indices[1] + dofs_1_DN_indices[2]
         un = np.unique(nv)
         
-        for i in range(R1_DN_indices[0].size):
-            R1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_1_DN_indices[0].size):
+            dofs_1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseD*R1_ND_indices[1] + R1_ND_indices[2]
+        nv = space.NbaseD*dofs_1_ND_indices[1] + dofs_1_ND_indices[2]
         un = np.unique(nv)
         
-        for i in range(R1_ND_indices[0].size):
-            R1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+        for i in range(dofs_1_ND_indices[0].size):
+            dofs_1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
             
         # ================================
-        nv = self.space.NbaseD*R1_DD_indices[1] + R1_DD_indices[2]
+        nv = space.NbaseD*dofs_1_DD_indices[1] + dofs_1_DD_indices[2]
         un = np.unique(nv)
         
-        for i in range(R1_DD_indices[0].size):
-            R1_DD_i_red[i] = np.nonzero(un == nv[i])[0] 
+        for i in range(dofs_1_DD_indices[0].size):
+            dofs_1_DD_i_red[i] = np.nonzero(un == nv[i])[0] 
             
             
-        R0_NN_indices = np.vstack((R0_NN_indices[0], R0_NN_indices[1], R0_NN_indices[2], R0_NN_i_red))
-        R0_DN_indices = np.vstack((R0_DN_indices[0], R0_DN_indices[1], R0_DN_indices[2], R0_DN_i_red))
-        R0_ND_indices = np.vstack((R0_ND_indices[0], R0_ND_indices[1], R0_ND_indices[2], R0_ND_i_red))
-        R0_DD_indices = np.vstack((R0_DD_indices[0], R0_DD_indices[1], R0_DD_indices[2], R0_DD_i_red))
+        dofs_0_NN_indices = np.vstack((dofs_0_NN_indices[0], dofs_0_NN_indices[1], dofs_0_NN_indices[2], dofs_0_NN_i_red))
+        dofs_0_DN_indices = np.vstack((dofs_0_DN_indices[0], dofs_0_DN_indices[1], dofs_0_DN_indices[2], dofs_0_DN_i_red))
+        dofs_0_ND_indices = np.vstack((dofs_0_ND_indices[0], dofs_0_ND_indices[1], dofs_0_ND_indices[2], dofs_0_ND_i_red))
+        dofs_0_DD_indices = np.vstack((dofs_0_DD_indices[0], dofs_0_DD_indices[1], dofs_0_DD_indices[2], dofs_0_DD_i_red))
 
-        R1_NN_indices = np.vstack((R1_NN_indices[0], R1_NN_indices[1], R1_NN_indices[2], R1_NN_i_red))
-        R1_DN_indices = np.vstack((R1_DN_indices[0], R1_DN_indices[1], R1_DN_indices[2], R1_DN_i_red))
-        R1_ND_indices = np.vstack((R1_ND_indices[0], R1_ND_indices[1], R1_ND_indices[2], R1_ND_i_red))
-        R1_DD_indices = np.vstack((R1_DD_indices[0], R1_DD_indices[1], R1_DD_indices[2], R1_DD_i_red))
+        dofs_1_NN_indices = np.vstack((dofs_1_NN_indices[0], dofs_1_NN_indices[1], dofs_1_NN_indices[2], dofs_1_NN_i_red))
+        dofs_1_DN_indices = np.vstack((dofs_1_DN_indices[0], dofs_1_DN_indices[1], dofs_1_DN_indices[2], dofs_1_DN_i_red))
+        dofs_1_ND_indices = np.vstack((dofs_1_ND_indices[0], dofs_1_ND_indices[1], dofs_1_ND_indices[2], dofs_1_ND_i_red))
+        dofs_1_DD_indices = np.vstack((dofs_1_DD_indices[0], dofs_1_DD_indices[1], dofs_1_DD_indices[2], dofs_1_DD_i_red))
         
 
-        return R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices 
-        
-        #return R0_NN, R0_DN, R0_ND, R0_DD, R1_NN, R1_DN, R1_ND, R1_DD, R0_NN_indices, R0_DN_indices, R0_ND_indices, R0_DD_indices, R1_NN_indices, R1_DN_indices, R1_ND_indices, R1_DD_indices
+        return dofs_0_NN_indices, dofs_0_DN_indices, dofs_0_ND_indices, dofs_0_DD_indices, dofs_1_NN_indices, dofs_1_DN_indices, dofs_1_ND_indices, dofs_1_DD_indices
 
 
 
-# ======================= 2d for tensor products ====================================
-class projectors_tensor_2d:
+# ============= 2d for pure tensor product splines ========================
+class Projectors_tensor_2d:
     """
-    Global commuting projectors pi_0, pi_1, pi_2 in 2d.
+    Global commuting projectors pi_0, pi_1, pi_2 in 2d corresponding to the sequence grad = [d_1 f, d2_f] --> curl = [d_1 f_2 - d_2 f_1].
     
-    Parameters:
-    -----------
-    proj_1d : list of two "projectors_global_1d" objects
+    Parameters
+    ----------
+    proj_1d : list of two "Projectors_global_1d" objects
 
-    Methods:
-    --------
-    eval_for_PI:    evaluation at point sets.
-    dofs:           degrees of freedom sigma.
-    PI_mat:         Kronecker solve of projection problem, dofs input.
-    PI:             De Rham commuting projectors.
-    PI_0:           projects callable from V_0
-    PI_1:           projects callable from V_1
-    PI_2:           projects callable from V_2
+    Attributes
+    ----------
+    TODO
     """
 
     def __init__(self, proj_1d):
@@ -538,72 +455,70 @@ class projectors_tensor_2d:
         self.pts_PI['0']  = [proj_1d[0].x_int,
                              proj_1d[1].x_int
                              ]
+        
         self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
                              proj_1d[1].x_int
                              ]
+        
         self.pts_PI['12'] = [proj_1d[0].x_int,
                              proj_1d[1].pts.flatten()
                              ]
+        
         self.pts_PI['2']  = [proj_1d[0].pts.flatten(),
                              proj_1d[1].pts.flatten()
-                             ] 
+                             ]
 
-        self.ne1, self.nq1 = proj_1d[0].pts.shape
-        self.ne2, self.nq2 = proj_1d[1].pts.shape
+        self.Q1 = proj_1d[0].Q
+        self.Q2 = proj_1d[1].Q
 
-        self.wts1 = proj_1d[0].wts
-        self.wts2 = proj_1d[1].wts
+        self.n1 = proj_1d[0].I.shape[1]
+        self.n2 = proj_1d[1].I.shape[1]
+        
+        self.d1 = proj_1d[0].H.shape[1]
+        self.d2 = proj_1d[1].H.shape[1]
 
-        self.subs1     = proj_1d[0].subs
-        self.subs_cum1 = proj_1d[0].subs_cum
-        self.subs2     = proj_1d[1].subs
-        self.subs_cum2 = proj_1d[1].subs_cum
-
-        self.n1 = proj_1d[0].space.NbaseN
-        self.d1 = proj_1d[0].space.NbaseD
-        self.n2 = proj_1d[1].space.NbaseN
-        self.d2 = proj_1d[1].space.NbaseD
-
-        self.N_LU1 = proj_1d[0].N_LU
-        self.D_LU1 = proj_1d[0].D_LU
-        self.N_LU2 = proj_1d[1].N_LU
-        self.D_LU2 = proj_1d[1].D_LU
+        self.I_LU1 = proj_1d[0].I_LU
+        self.I_LU2 = proj_1d[1].I_LU
+        
+        self.H_LU1 = proj_1d[0].H_LU
+        self.H_LU2 = proj_1d[1].H_LU
 
 
     # ======================================        
     def eval_for_PI(self, comp, fun):
-        '''
+        """
         Evaluate the callable fun at the points corresponding to the projector comp.
             
         Parameters
         ----------
-        comp: str
+        comp : string
             Which projector: '0', '11', '12' or '2'.
 
         fun : callable
-            fun(eta1, eta2)
-
-        Returns the 2d numpy array f(eta1_i, eta2_j).
-        '''
+            fun(eta1, eta2).
+            
+        Returns
+        -------
+        fun(pts1, pts2) : 2d numpy array
+            Function evaluated at point set needed for the chosen projector.
+        """
         
         pts_PI = self.pts_PI[comp]
             
-        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
-
-        #mat_f = np.empty( (pts_PI[0].size, pts_PI[1].size) )
-        #mat_f[:, :] = fun(pts1, pts2)
+        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij')
+        #pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2)
 
 
     # ======================================        
     def dofs(self, comp, mat_f):
-        '''
-        Compute the degrees of freedom (rhs) for the projector comp.
+        """
+        Compute the degrees of freedom for the projector comp.
             
         Parameters
         ----------
-        comp: str
+        comp: string
             Which projector: '0', '11', '12' or '2'.
 
         mat_f : 2d numpy array
@@ -611,73 +526,59 @@ class projectors_tensor_2d:
 
         Returns
         -------
-        rhs : 2d numpy array 
+        dofs : 2d numpy array 
             The degrees of freedom sigma_ij.
-        '''
+        """
 
-        assert mat_f.shape==(self.pts_PI[comp][0].size, 
-                             self.pts_PI[comp][1].size
-                             )
+        assert mat_f.shape == (self.pts_PI[comp][0].size, self.pts_PI[comp][1].size)
 
-        if comp=='0':
-            rhs = mat_f
-
-        elif comp=='11':
-            rhs = np.empty( (self.d1, self.n2) )
-
-            ker_glob.kernel_int_2d_eta1(self.subs1, self.subs_cum1, self.wts1,
-                                        mat_f.reshape(self.ne1, self.nq1, self.n2), rhs
-                                        )
-        elif comp=='12':
-            rhs = np.empty( (self.n1, self.d2) )
+        if   comp == '0':
+            dofs = kron_matvec_2d([spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1])], mat_f)
             
-            ker_glob.kernel_int_2d_eta2(self.subs2, self.subs_cum2, self.wts2,
-                                        mat_f.reshape(self.n1, self.ne2, self.nq2), rhs
-                                        )
-        elif comp=='2':
-            rhs = np.empty( (self.d1, self.d2) )
+        elif comp == '11':
+            dofs = kron_matvec_2d([self.Q1, spa.identity(mat_f.shape[1])], mat_f)
+        elif comp == '12':
+            dofs = kron_matvec_2d([spa.identity(mat_f.shape[0]), self.Q2], mat_f)
             
-            ker_glob.kernel_int_2d_eta1_eta2(self.subs1, self.subs2, self.subs_cum1, self.subs_cum2,
-                                             self.wts1, self.wts2, 
-                                             mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2), rhs
-                                             )
+        elif comp == '2':
+            dofs = kron_matvec_2d([self.Q1, self.Q2], mat_f)    
         else:
             raise ValueError ("wrong projector specified")
 
-        return rhs
+        return dofs
 
 
     # ======================================        
-    def PI_mat(self, comp, rhs):
-        '''
-        Kronecker solve of the projection problem I.coeffs = rhs
+    def PI_mat(self, comp, dofs):
+        """
+        Kronecker solve of the projection problem I.coeffs = dofs.
 
-        Parameters:
-        -----------
-        comp : str
+        Parameters
+        ----------
+        comp : string
             Which projector: '0', '11', '12' or '2'.
 
-        rhs : 2d numpy array 
+        dofs : 2d numpy array 
             The degrees of freedom sigma_ij.
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 2d numpy array
             The spline coefficients c_ij obtained by projection.
-        '''
+        """
 
-        if comp=='0':
-            assert rhs.shape==(self.n1, self.n2) 
-            coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
-        elif comp=='11':
-            assert rhs.shape==(self.d1, self.n2) 
-            coeffs = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
-        elif comp=='12':
-            assert rhs.shape==(self.n1, self.d2) 
-            coeffs = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
-        elif comp=='2':
-            assert rhs.shape==(self.d1, self.d2)  
-            coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        if   comp == '0':
+            assert dofs.shape==(self.n1, self.n2) 
+            coeffs = kron_lusolve_2d([self.I_LU1, self.I_LU2], dofs)
+        elif comp == '11':
+            assert dofs.shape==(self.d1, self.n2) 
+            coeffs = kron_lusolve_2d([self.H_LU1, self.I_LU2], dofs)
+        elif comp == '12':
+            assert dofs.shape==(self.n1, self.d2) 
+            coeffs = kron_lusolve_2d([self.I_LU1, self.H_LU2], dofs)
+        elif comp == '2':
+            assert dofs.shape==(self.d1, self.d2)  
+            coeffs = kron_lusolve_2d([self.H_LU1, self.H_LU2], dofs)
         else:
             raise ValueError ("wrong projector specified")
             
@@ -686,38 +587,38 @@ class projectors_tensor_2d:
 
     # ======================================        
     def PI(self, comp, fun):
-        '''
+        """
         De Rham commuting projectors.
 
-        Parameters:
-        -----------
-        comp : str
+        Parameters
+        ----------
+        comp : string
             Which projector: '0', '11', '12' or '2'.
 
         fun : callable 
             fun(eta1, eta2).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 2d numpy array
             The spline coefficients c_ij obtained by projection.
-        '''
+        """
 
         mat_f = self.eval_for_PI(comp, fun)
-        rhs   = self.dofs(comp, mat_f) 
+        dofs  = self.dofs(comp, mat_f) 
 
-        if comp=='0':
-            assert rhs.shape==(self.n1, self.n2) 
-            coeffs = kron_lusolve_2d([self.N_LU1, self.N_LU2], rhs)
-        elif comp=='11':
-            assert rhs.shape==(self.d1, self.n2) 
-            coeffs = kron_lusolve_2d([self.D_LU1, self.N_LU2], rhs)
-        elif comp=='12':
-            assert rhs.shape==(self.n1, self.d2) 
-            coeffs = kron_lusolve_2d([self.N_LU1, self.D_LU2], rhs)
-        elif comp=='2':
-            assert rhs.shape==(self.d1, self.d2)  
-            coeffs = kron_lusolve_2d([self.D_LU1, self.D_LU2], rhs)
+        if   comp == '0':
+            assert dofs.shape==(self.n1, self.n2) 
+            coeffs = kron_lusolve_2d([self.I_LU1, self.I_LU2], dofs)
+        elif comp == '11':
+            assert dofs.shape==(self.d1, self.n2) 
+            coeffs = kron_lusolve_2d([self.H_LU1, self.I_LU2], dofs)
+        elif comp == '12':
+            assert dofs.shape==(self.n1, self.d2) 
+            coeffs = kron_lusolve_2d([self.I_LU1, self.H_LU2], dofs)
+        elif comp == '2':
+            assert dofs.shape==(self.d1, self.d2)  
+            coeffs = kron_lusolve_2d([self.H_LU1, self.H_LU2], dofs)
         else:
             raise ValueError ("wrong projector specified")
             
@@ -726,19 +627,19 @@ class projectors_tensor_2d:
 
     # ======================================        
     def PI_0(self, fun):
-        '''
+        """
         De Rham commuting projector Pi_0.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun : callable 
             Element in V_0 continuous space, fun(eta1, eta2).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 2d numpy array
             The spline coefficients c_ij obtained by projection.
-        '''
+        """
 
         coeffs = self.PI('0', fun)
         
@@ -747,23 +648,23 @@ class projectors_tensor_2d:
 
     # ======================================        
     def PI_1(self, fun1, fun2):
-        '''
+        """
         De Rham commuting projector Pi_1 acting on fun = (fun1, fun2) in V_1.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun1 : callable 
             First component of element in V_1 continuous space, fun1(eta1, eta2).
         fun2 : callable 
             Second component of element in V_1 continuous space, fun2(eta1, eta2).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs1 : 2d numpy array
             The spline coefficients c_ij obtained by projection of fun1 on DN.
         coeffs2 : 2d numpy array
             The spline coefficients c_ij obtained by projection of fun2 on ND.
-        '''
+        """
 
         coeffs1 = self.PI('11', fun1)
         coeffs2 = self.PI('12', fun2)
@@ -773,19 +674,19 @@ class projectors_tensor_2d:
 
     # ======================================        
     def PI_2(self, fun):
-        '''
+        """
         De Rham commuting projector Pi_2.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun : callable 
             Element in V_2 continuous space, fun(eta1, eta2).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 2d numpy array
             The spline coefficients c_ij obtained by projection.
-        '''
+        """
 
         coeffs = self.PI('2', fun)
         
@@ -793,25 +694,18 @@ class projectors_tensor_2d:
 
 
 
-# ======================= 3d for tensor products ====================================
-class projectors_tensor_3d:
+# ============== 3d for pure tensor product splines =======================
+class Projectors_tensor_3d:
     """
-    Global commuting projectors pi_0, pi_1, pi_2, pi_3 in 3d.
+    Global commuting projectors pi_0, pi_1, pi_2, pi_3 in 3d corresponding to the sequence grad --> curl --> div.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     proj_1d : list of three "projectors_global_1d" objects
 
-    Methods:
-    --------
-    eval_for_PI:    evaluation at point sets.
-    dofs:           degrees of freedom sigma.
-    PI_mat:         Kronecker solve of projection problem, dofs input.
-    PI:             De Rham commuting projectors.
-    PI_0:           projects callable from V_0
-    PI_1:           projects callable from V_1
-    PI_2:           projects callable from V_2
-    PI_3:           projects callable from V_3
+    Attributes
+    ----------
+    TODO
     """
 
     def __init__(self, proj_1d):
@@ -824,186 +718,285 @@ class projectors_tensor_3d:
                              proj_1d[1].x_int,
                              proj_1d[2].x_int
                              ]
+        
         self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
                              proj_1d[1].x_int,
                              proj_1d[2].x_int
                              ]
+        
         self.pts_PI['12'] = [proj_1d[0].x_int,
                              proj_1d[1].pts.flatten(),
                              proj_1d[2].x_int
                              ]
+        
         self.pts_PI['13'] = [proj_1d[0].x_int,
                              proj_1d[1].x_int,
                              proj_1d[2].pts.flatten()
                              ]
+        
         self.pts_PI['21'] = [proj_1d[0].x_int,
                              proj_1d[1].pts.flatten(),
                              proj_1d[2].pts.flatten()
                              ]
+        
         self.pts_PI['22'] = [proj_1d[0].pts.flatten(),
                              proj_1d[1].x_int,
                              proj_1d[2].pts.flatten()
                              ]
+        
         self.pts_PI['23'] = [proj_1d[0].pts.flatten(),
                              proj_1d[1].pts.flatten(),
                              proj_1d[2].x_int
                              ]
+        
         self.pts_PI['3']  = [proj_1d[0].pts.flatten(),
                              proj_1d[1].pts.flatten(),
                              proj_1d[2].pts.flatten()
                              ] 
 
-        self.ne1, self.nq1 = proj_1d[0].pts.shape
-        self.ne2, self.nq2 = proj_1d[1].pts.shape
-        self.ne3, self.nq3 = proj_1d[2].pts.shape
-
-        self.wts1 = proj_1d[0].wts
-        self.wts2 = proj_1d[1].wts
-        self.wts3 = proj_1d[2].wts
-
-        self.subs1     = proj_1d[0].subs
-        self.subs_cum1 = proj_1d[0].subs_cum
-        self.subs2     = proj_1d[1].subs
-        self.subs_cum2 = proj_1d[1].subs_cum
-        self.subs3     = proj_1d[2].subs
-        self.subs_cum3 = proj_1d[2].subs_cum
-
-        self.n1 = proj_1d[0].space.NbaseN
-        self.d1 = proj_1d[0].space.NbaseD
-        self.n2 = proj_1d[1].space.NbaseN
-        self.d2 = proj_1d[1].space.NbaseD
-        self.n3 = proj_1d[2].space.NbaseN
-        self.d3 = proj_1d[2].space.NbaseD
-
-        self.N_LU1 = proj_1d[0].N_LU
-        self.D_LU1 = proj_1d[0].D_LU
-        self.N_LU2 = proj_1d[1].N_LU
-        self.D_LU2 = proj_1d[1].D_LU
-        self.N_LU3 = proj_1d[2].N_LU
-        self.D_LU3 = proj_1d[2].D_LU
-
         self.Q1 = proj_1d[0].Q
         self.Q2 = proj_1d[1].Q
         self.Q3 = proj_1d[2].Q
 
+        self.n1 = proj_1d[0].I.shape[1]
+        self.n2 = proj_1d[1].I.shape[1]
+        self.n3 = proj_1d[2].I.shape[1]
+        
+        self.d1 = proj_1d[0].H.shape[1]
+        self.d2 = proj_1d[1].H.shape[1]
+        self.d3 = proj_1d[2].H.shape[1]
+
+        self.I_LU1 = proj_1d[0].I_LU
+        self.I_LU2 = proj_1d[1].I_LU
+        self.I_LU3 = proj_1d[2].I_LU
+        
+        self.H_LU1 = proj_1d[0].H_LU
+        self.H_LU2 = proj_1d[1].H_LU
+        self.H_LU3 = proj_1d[2].H_LU
+
 
     # ======================================        
     def eval_for_PI(self, comp, fun):
-        '''
+        """
         Evaluate the callable fun at the points corresponding to the projector comp.
             
         Parameters
         ----------
-        comp: str
+        comp: string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
         fun : callable
             fun(eta1, eta2, eta3)
-
-        Returns the 3d numpy array f(eta1_i, eta2_j, eta3_k).
-        '''
+            
+        Returns
+        -------
+        fun(pts1, pts2, pts3) : 3d numpy array
+            Function evaluated at point set needed for chosen projector.
+        """
         
         pts_PI = self.pts_PI[comp]
             
-        pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
-
-        #mat_f = np.empty( (pts_PI[0].size, pts_PI[1].size) )
-        #mat_f[:, :] = fun(pts1, pts2)
+        pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
+        #pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2, pts3)
 
 
     # ======================================        
-    def dofs(self, comp, mat_f):
-        '''
-        Compute the degrees of freedom (rhs) for the projector comp.
-            
-        Parameters
-        ----------
-        comp: str
-            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+    #def dofs_kernel(self, comp, mat_f):
+    #    """
+    #    Compute the degrees of freedom (rhs) for the projector comp.
+    #        
+    #    Parameters
+    #    ----------
+    #    comp: str
+    #        Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+#
+    #    mat_f : 3d numpy array
+    #        Function values f(eta1_i, eta2_j, eta3_k) at the points set of the projector (from eval_for_PI).
+#
+    #    Returns
+    #    -------
+    #    rhs : 3d numpy array 
+    #        The degrees of freedom sigma_ijk.
+    #    """
+#
+    #    assert mat_f.shape==(self.pts_PI[comp][0].size, 
+    #                         self.pts_PI[comp][1].size,
+    #                         self.pts_PI[comp][2].size
+    #                         )
+#
+    #    if comp=='0':
+    #        rhs = mat_f
+#
+    #    elif comp=='11':
+    #        rhs = np.empty( (self.d1, self.n2, self.n3) )
+#
+    #        ker_glob.kernel_int_3d_eta1(self.subs1, self.subs_cum1, self.wts1,
+    #                                    mat_f.reshape(self.ne1, self.nq1, self.n2, self.n3), rhs
+    #                                    )
+    #    elif comp=='12':
+    #        rhs = np.empty( (self.n1, self.d2, self.n3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta2(self.subs2, self.subs_cum2, self.wts2,
+    #                                    mat_f.reshape(self.n1, self.ne2, self.nq2, self.n3), rhs
+    #                                    )
+    #    elif comp=='13':
+    #        rhs = np.empty( (self.n1, self.n2, self.d3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta3(self.subs3, self.subs_cum3, self.wts3,
+    #                                    mat_f.reshape(self.n1, self.n2, self.ne3, self.nq3), rhs
+    #                                    )
+    #    elif comp=='21':
+    #        rhs = np.empty( (self.n1, self.d2, self.d3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta2_eta3(self.subs2, self.subs3,
+    #                                         self.subs_cum2, self.subs_cum3,
+    #                                         self.wts2, self.wts3, 
+    #              mat_f.reshape(self.n1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
+    #                                             )
+    #    elif comp=='22':
+    #        rhs = np.empty( (self.d1, self.n2, self.d3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta3(self.subs1, self.subs3,
+    #                                         self.subs_cum1, self.subs_cum3,
+    #                                         self.wts1, self.wts3, 
+    #              mat_f.reshape(self.ne1, self.nq1, self.n2, self.ne3, self.nq3), rhs
+    #                                             )
+    #    elif comp=='23':
+    #        rhs = np.empty( (self.d1, self.d2, self.n3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta2(self.subs1, self.subs2,
+    #                                         self.subs_cum1, self.subs_cum2,
+    #                                         self.wts1, self.wts2, 
+    #              mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.n3), rhs
+    #                                             )
+    #    elif comp=='3':
+    #        rhs = np.empty( (self.d1, self.d2, self.d3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs1, self.subs2, self.subs3,
+    #                                              self.subs_cum1, self.subs_cum2, self.subs_cum3,
+    #                                              self.wts1, self.wts2, self.wts3, 
+    #              mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
+    #                                             )
+    #    else:
+    #        raise ValueError ("wrong projector specified")
+#
+    #    return rhs
 
-        mat_f : 3d numpy array
-            Function values f(eta1_i, eta2_j, eta3_k) at the points set of the projector (from eval_for_PI).
-
-        Returns
-        -------
-        rhs : 3d numpy array 
-            The degrees of freedom sigma_ijk.
-        '''
-
-        assert mat_f.shape==(self.pts_PI[comp][0].size, 
-                             self.pts_PI[comp][1].size,
-                             self.pts_PI[comp][2].size
-                             )
-
-        if comp=='0':
-            rhs = mat_f
-
-        elif comp=='11':
-            rhs = np.empty( (self.d1, self.n2, self.n3) )
-
-            ker_glob.kernel_int_3d_eta1(self.subs1, self.subs_cum1, self.wts1,
-                                        mat_f.reshape(self.ne1, self.nq1, self.n2, self.n3), rhs
-                                        )
-        elif comp=='12':
-            rhs = np.empty( (self.n1, self.d2, self.n3) )
-            
-            ker_glob.kernel_int_3d_eta2(self.subs2, self.subs_cum2, self.wts2,
-                                        mat_f.reshape(self.n1, self.ne2, self.nq2, self.n3), rhs
-                                        )
-        elif comp=='13':
-            rhs = np.empty( (self.n1, self.n2, self.d3) )
-            
-            ker_glob.kernel_int_3d_eta3(self.subs3, self.subs_cum3, self.wts3,
-                                        mat_f.reshape(self.n1, self.n2, self.ne3, self.nq3), rhs
-                                        )
-        elif comp=='21':
-            rhs = np.empty( (self.n1, self.d2, self.d3) )
-            
-            ker_glob.kernel_int_3d_eta2_eta3(self.subs2, self.subs3,
-                                             self.subs_cum2, self.subs_cum3,
-                                             self.wts2, self.wts3, 
-                  mat_f.reshape(self.n1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
-                                                 )
-        elif comp=='22':
-            rhs = np.empty( (self.d1, self.n2, self.d3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta3(self.subs1, self.subs3,
-                                             self.subs_cum1, self.subs_cum3,
-                                             self.wts1, self.wts3, 
-                  mat_f.reshape(self.ne1, self.nq1, self.n2, self.ne3, self.nq3), rhs
-                                                 )
-        elif comp=='23':
-            rhs = np.empty( (self.d1, self.d2, self.n3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta2(self.subs1, self.subs2,
-                                             self.subs_cum1, self.subs_cum2,
-                                             self.wts1, self.wts2, 
-                  mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.n3), rhs
-                                                 )
-        elif comp=='3':
-            rhs = np.empty( (self.d1, self.d2, self.d3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs1, self.subs2, self.subs3,
-                                                  self.subs_cum1, self.subs_cum2, self.subs_cum3,
-                                                  self.wts1, self.wts2, self.wts3, 
-                  mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
-                                                 )
-        else:
-            raise ValueError ("wrong projector specified")
-
-        return rhs
-
-
+    
     # ======================================        
-    def dofs_mat(self, comp, mat_f):
-        '''
-        Compute the degrees of freedom (rhs) for the projector comp.
+    #def dofs_T_kernel(self, comp, mat_dofs):
+    #    """
+    #    Transpose of dofs
+    #        
+    #    Parameters
+    #    ----------
+    #    comp: str
+    #        Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
+#
+    #    mat_dofs : 3d numpy array
+    #        Degrees of freedom.
+#
+    #    Returns
+    #    -------
+    #    mat_pts : numpy array 
+    #        comp == '0' 3d of the form(n1, n2, n3)
+    #        comp == '11' 4d of the form(ne1, nq1, n2, n3)
+    #        comp == '12' 4d of the form(n1, n2, nq2, n3)
+    #        comp == '13' 4d of the form(n1, n2, n3, nq3)
+    #        comp == '21' 5d of the form(n1, ne2, nq2, ne3, nq3)
+    #        comp == '22' 5d of the form(ne1, nq1, n2, ne3, nq3)
+    #        comp == '23' 5d of the form(ne1, nq1, ne2, nq2, n3)
+    #        comp == '3' 6d of the form(ne1, nq1, ne2, nq2, n3, nq3)
+#
+    #    '''
+#
+    #    if comp=='0':
+    #        rhs = mat_dofs
+#
+    #    elif comp=='11':
+    #        assert mat_dofs.shape == (self.d1, self.n2, self.n3)
+    #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
+#
+    #        ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
+    #                                              mat_dofs, rhs)
+#
+    #        rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.n3)
+#
+    #    elif comp=='12':
+    #        assert mat_dofs.shape == (self.n1, self.d2, self.n3)
+    #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
+    #                                              mat_dofs, rhs)
+#
+    #        rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.n3)
+#
+    #    elif comp=='13':
+    #        assert mat_dofs.shape == (self.n1, self.n2, self.d3)
+    #        rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta3_transpose(self.subs3, self.subs_cum3, self.wts3,
+    #                                              mat_dofs, rhs)
+    #                                    
+    #        rhs = rhs.reshape(self.n1, self.n2, self.ne3 * self.nq3)
+#
+    #    elif comp=='21':
+    #        assert mat_dofs.shape == (self.n1, self.d2, self.d3)
+    #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta2_eta3_transpose(self.subs2, self.subs3,
+    #                                         self.subs_cum2, self.subs_cum3,
+    #                                         self.wts2, self.wts3,
+    #                                         mat_dofs, rhs)
+    #        rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.ne3 * self.nq3)
+#
+    #    elif comp=='22':
+    #        assert mat_dofs.shape == (self.d1, self.n2, self.d3)
+    #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta3_transpose(self.subs1, self.subs3,
+    #                                         self.subs_cum1, self.subs_cum3,
+    #                                         self.wts1, self.wts3,
+    #                                         mat_dofs, rhs)
+    #        rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.ne3 * self.nq3)
+#
+    #    elif comp=='23':
+    #        assert mat_dofs.shape == (self.d1, self.d2, self.n3)
+    #        rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta2_transpose(self.subs1, self.subs2,
+    #                                         self.subs_cum1, self.subs_cum2,
+    #                                         self.wts1, self.wts2,
+    #                                         mat_dofs, rhs)
+    #        rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.n3)
+    #        
+    #    elif comp=='3':
+    #        assert mat_dofs.shape == (self.d1, self.d2, self.d3)
+    #        rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
+    #        
+    #        ker_glob.kernel_int_3d_eta1_eta2_eta3_transpose(self.subs1, self.subs2, self.subs3,
+    #                                              self.subs_cum1, self.subs_cum2, self.subs_cum3,
+    #                                              self.wts1, self.wts2, self.wts3,
+    #                                              mat_dofs, rhs)
+    #        rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.ne3 * self.nq3)
+#
+    #    else:
+    #        raise ValueError ("wrong projector specified")
+    #
+    #    return rhs
+    
+    
+    
+    # ======================================        
+    def dofs(self, comp, mat_f):
+        """
+        Compute the degrees of freedom for the projector comp.
             
         Parameters
         ----------
-        comp: str
+        comp: string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
         mat_f : 3d numpy array
@@ -1011,166 +1004,42 @@ class projectors_tensor_3d:
 
         Returns
         -------
-        rhs : 3d numpy array 
+        dofs : 3d numpy array 
             The degrees of freedom sigma_ijk.
-        '''
+        """
 
-        assert mat_f.shape==(self.pts_PI[comp][0].size, 
-                             self.pts_PI[comp][1].size,
-                             self.pts_PI[comp][2].size
-                             )
+        assert mat_f.shape == (self.pts_PI[comp][0].size, self.pts_PI[comp][1].size, self.pts_PI[comp][2].size)
 
-        if comp=='0':
-            rhs = mat_f
-
-        elif comp=='11':
-            rhs = np.empty( (self.d1, self.n2, self.n3) )
+        if   comp == '0':
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f)
             
-            rhs = kron_matvec_3d_1(self.Q1, mat_f)
-
-        elif comp=='12':
-            rhs = np.empty( (self.n1, self.d2, self.n3) )
+        elif comp == '11':
+            dofs = kron_matvec_3d([self.Q1, spa.identity(mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f)
+        elif comp == '12':
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), self.Q2, spa.identity(mat_f.shape[2])], mat_f)
+        elif comp == '13':
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1]), self.Q3], mat_f)
             
-            rhs = kron_matvec_3d_2(self.Q2, mat_f)
-
-        elif comp=='13':
-            rhs = np.empty( (self.n1, self.n2, self.d3) )
+        elif comp == '21':
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), self.Q2, self.Q3], mat_f)
+        elif comp == '22':
+            dofs = kron_matvec_3d([self.Q1, spa.identity(mat_f.shape[1]), self.Q3], mat_f)
+        elif comp == '23':
+            dofs = kron_matvec_3d([self.Q1, self.Q2, spa.identity(mat_f.shape[2])], mat_f)
             
-            rhs = kron_matvec_3d_3(self.Q3, mat_f)
-
-        elif comp=='21':
-            rhs = np.empty( (self.n1, self.d2, self.d3) )
+        elif comp == '3':
+            dofs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], mat_f)
             
-            rhs = kron_matvec_3d_23([self.Q2, self.Q3], mat_f)
-
-        elif comp=='22':
-            rhs = np.empty( (self.d1, self.n2, self.d3) )
-            
-            rhs = kron_matvec_3d_13([self.Q1, self.Q3], mat_f)
-
-        elif comp=='23':
-            rhs = np.empty( (self.d1, self.d2, self.n3) )
-            
-            rhs = kron_matvec_3d_12([self.Q1, self.Q2], mat_f)
-
-        elif comp=='3':
-            rhs = np.empty( (self.d1, self.d2, self.d3) )
-            
-            rhs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], mat_f)
-
         else:
             raise ValueError ("wrong projector specified")
 
-        return rhs
+        return dofs
 
-
+    
     # ======================================        
     def dofs_T(self, comp, mat_dofs):
-        '''
-        Transpose of dofs
-            
-        Parameters
-        ----------
-        comp: str
-            Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
-
-        mat_dofs : 3d numpy array
-            Degrees of freedom.
-
-        Returns
-        -------
-        mat_pts : numpy array 
-            comp == '0' 3d of the form(n1, n2, n3)
-            comp == '11' 4d of the form(ne1, nq1, n2, n3)
-            comp == '12' 4d of the form(n1, n2, nq2, n3)
-            comp == '13' 4d of the form(n1, n2, n3, nq3)
-            comp == '21' 5d of the form(n1, ne2, nq2, ne3, nq3)
-            comp == '22' 5d of the form(ne1, nq1, n2, ne3, nq3)
-            comp == '23' 5d of the form(ne1, nq1, ne2, nq2, n3)
-            comp == '3' 6d of the form(ne1, nq1, ne2, nq2, n3, nq3)
-
-        '''
-
-        if comp=='0':
-            rhs = mat_dofs
-
-        elif comp=='11':
-            assert mat_dofs.shape == (self.d1, self.n2, self.n3)
-            rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
-
-            ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
-                                                  mat_dofs, rhs)
-
-            rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.n3)
-
-        elif comp=='12':
-            assert mat_dofs.shape == (self.n1, self.d2, self.n3)
-            rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
-            
-            ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
-                                                  mat_dofs, rhs)
-
-            rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.n3)
-
-        elif comp=='13':
-            assert mat_dofs.shape == (self.n1, self.n2, self.d3)
-            rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
-            
-            ker_glob.kernel_int_3d_eta3_transpose(self.subs3, self.subs_cum3, self.wts3,
-                                                  mat_dofs, rhs)
-                                        
-            rhs = rhs.reshape(self.n1, self.n2, self.ne3 * self.nq3)
-
-        elif comp=='21':
-            assert mat_dofs.shape == (self.n1, self.d2, self.d3)
-            rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
-            
-            ker_glob.kernel_int_3d_eta2_eta3_transpose(self.subs2, self.subs3,
-                                             self.subs_cum2, self.subs_cum3,
-                                             self.wts2, self.wts3,
-                                             mat_dofs, rhs)
-            rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.ne3 * self.nq3)
-
-        elif comp=='22':
-            assert mat_dofs.shape == (self.d1, self.n2, self.d3)
-            rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta3_transpose(self.subs1, self.subs3,
-                                             self.subs_cum1, self.subs_cum3,
-                                             self.wts1, self.wts3,
-                                             mat_dofs, rhs)
-            rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.ne3 * self.nq3)
-
-        elif comp=='23':
-            assert mat_dofs.shape == (self.d1, self.d2, self.n3)
-            rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta2_transpose(self.subs1, self.subs2,
-                                             self.subs_cum1, self.subs_cum2,
-                                             self.wts1, self.wts2,
-                                             mat_dofs, rhs)
-            rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.n3)
-            
-        elif comp=='3':
-            assert mat_dofs.shape == (self.d1, self.d2, self.d3)
-            rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
-            
-            ker_glob.kernel_int_3d_eta1_eta2_eta3_transpose(self.subs1, self.subs2, self.subs3,
-                                                  self.subs_cum1, self.subs_cum2, self.subs_cum3,
-                                                  self.wts1, self.wts2, self.wts3,
-                                                  mat_dofs, rhs)
-            rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.ne3 * self.nq3)
-
-        else:
-            raise ValueError ("wrong projector specified")
-
-        return rhs
-
-
-    # ======================================        
-    def dofs_T_mat(self, comp, mat_dofs):
-        '''
-        Transpose of dofs
+        """
+        Transpose of degrees of freedom.
             
         Parameters
         ----------
@@ -1184,44 +1053,26 @@ class projectors_tensor_3d:
         -------
         rhs : 3d numpy array 
             The degrees of freedom sigma_ijk.
-        '''
+        """
 
-        if comp=='0':
-            rhs = mat_dofs
+        if   comp == '0':
+            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), spa.identity(mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])], mat_dofs)
 
-        elif comp=='11':
-            rhs = np.empty( (self.d1, self.n2, self.n3) )
-            
-            rhs = kron_matvec_3d_1(self.Q1.T, mat_dofs)
+        elif comp == '11':
+            rhs = kron_matvec_3d([self.Q1.T, spa.identity(mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])], mat_dofs)
+        elif comp == '12':
+            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs)
+        elif comp == '13':
+            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), spa.identity(mat_dofs.shape[1]), self.Q3.T], mat_dofs)
 
-        elif comp=='12':
-            rhs = np.empty( (self.n1, self.d2, self.n3) )
-            
-            rhs = kron_matvec_3d_2(self.Q2.T, mat_dofs)
+        elif comp == '21':
+            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), self.Q2.T, self.Q3.T], mat_dofs)
+        elif comp == '22':
+            rhs = kron_matvec_3d([self.Q1.T, spa.identity(mat_dofs.shape[1]), self.Q3.T], mat_dofs)
+        elif comp == '23':
+            rhs = kron_matvec_3d([self.Q1.T, self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs)
 
-        elif comp=='13':
-            rhs = np.empty( (self.n1, self.n2, self.d3) )
-            
-            rhs = kron_matvec_3d_3(self.Q3.T, mat_dofs)
-
-        elif comp=='21':
-            rhs = np.empty( (self.n1, self.d2, self.d3) )
-            
-            rhs = kron_matvec_3d_23([self.Q2.T, self.Q3.T], mat_dofs)
-
-        elif comp=='22':
-            rhs = np.empty( (self.d1, self.n2, self.d3) )
-            
-            rhs = kron_matvec_3d_13([self.Q1.T, self.Q3.T], mat_dofs)
-
-        elif comp=='23':
-            rhs = np.empty( (self.d1, self.d2, self.n3) )
-            
-            rhs = kron_matvec_3d_12([self.Q1.T, self.Q2.T], mat_dofs)
-
-        elif comp=='3':
-            rhs = np.empty( (self.d1, self.d2, self.d3) )
-            
+        elif comp == '3':
             rhs = kron_matvec_3d([self.Q1.T, self.Q2.T, self.Q3.T], mat_dofs)
 
         else:
@@ -1231,48 +1082,52 @@ class projectors_tensor_3d:
 
 
     # ======================================        
-    def PI_mat(self, comp, rhs):
-        '''
-        Kronecker solve of the projection problem I.coeffs = rhs
+    def PI_mat(self, comp, dofs):
+        """
+        Kronecker solve of the projection problem I.coeffs = dofs.
 
-        Parameters:
-        -----------
-        comp : str
+        Parameters
+        ----------
+        comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
-        rhs : 3d numpy array 
+        dofs : 3d numpy array 
             The degrees of freedom sigma_ijk.
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 3d numpy array
             The spline coefficients c_ijk obtained by projection.
-        '''
+        """
 
-        if comp=='0':
-            assert rhs.shape==(self.n1, self.n2, self.n3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
-        elif comp=='11':
-            assert rhs.shape==(self.d1, self.n2, self.n3) 
-            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
-        elif comp=='12':
-            assert rhs.shape==(self.n1, self.d2, self.n3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
-        elif comp=='13':
-            assert rhs.shape==(self.n1, self.n2, self.d3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
-        elif comp=='21':
-            assert rhs.shape==(self.n1, self.d2, self.d3)  
-            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
-        elif comp=='22':
-            assert rhs.shape==(self.d1, self.n2, self.d3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
-        elif comp=='23':
-            assert rhs.shape==(self.d1, self.d2, self.n3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
-        elif comp=='3':
-            assert rhs.shape==(self.d1, self.d2, self.d3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
+        if   comp == '0':
+            assert dofs.shape == (self.n1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.I_LU3], dofs)
+        
+        elif comp == '11':
+            assert dofs.shape == (self.d1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.I_LU3], dofs)
+        elif comp == '12':
+            assert dofs.shape == (self.n1, self.d2, self.n3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.I_LU3], dofs)
+        elif comp == '13':
+            assert dofs.shape == (self.n1, self.n2, self.d3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.H_LU3], dofs)
+        
+        elif comp == '21':
+            assert dofs.shape == (self.n1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.H_LU3], dofs)
+        elif comp == '22':
+            assert dofs.shape == (self.d1, self.n2, self.d3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.H_LU3], dofs)
+        elif comp == '23':
+            assert dofs.shape == (self.d1, self.d2, self.n3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.I_LU3], dofs)
+        
+        elif comp == '3':
+            assert dofs.shape == (self.d1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.H_LU3], dofs)
+        
         else:
             raise ValueError ("wrong projector specified")
             
@@ -1281,50 +1136,54 @@ class projectors_tensor_3d:
 
     # ======================================        
     def PI(self, comp, fun):
-        '''
+        """
         De Rham commuting projectors.
 
-        Parameters:
-        -----------
-        comp : str
+        Parameters
+        ----------
+        comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
         fun : callable 
-            f(eta1, eta2, eta3)
+            f(eta1, eta2, eta3).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 3d numpy array
             The spline coefficients c_ijk obtained by projection.
-        '''
+        """
 
         mat_f = self.eval_for_PI(comp, fun)
-        rhs   = self.dofs(comp, mat_f) 
+        dofs  = self.dofs(comp, mat_f) 
 
-        if comp=='0':
-            assert rhs.shape==(self.n1, self.n2, self.n3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.N_LU3], rhs)
-        elif comp=='11':
-            assert rhs.shape==(self.d1, self.n2, self.n3) 
-            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.N_LU3], rhs)
-        elif comp=='12':
-            assert rhs.shape==(self.n1, self.d2, self.n3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.N_LU3], rhs)
-        elif comp=='13':
-            assert rhs.shape==(self.n1, self.n2, self.d3) 
-            coeffs = kron_lusolve_3d([self.N_LU1, self.N_LU2, self.D_LU3], rhs)
-        elif comp=='21':
-            assert rhs.shape==(self.n1, self.d2, self.d3)  
-            coeffs = kron_lusolve_3d([self.N_LU1, self.D_LU2, self.D_LU3], rhs)
-        elif comp=='22':
-            assert rhs.shape==(self.d1, self.n2, self.d3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.N_LU2, self.D_LU3], rhs)
-        elif comp=='23':
-            assert rhs.shape==(self.d1, self.d2, self.n3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.N_LU3], rhs)
-        elif comp=='3':
-            assert rhs.shape==(self.d1, self.d2, self.d3)  
-            coeffs = kron_lusolve_3d([self.D_LU1, self.D_LU2, self.D_LU3], rhs)
+        if comp == '0':
+            assert dofs.shape == (self.n1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.I_LU3], dofs)
+        
+        elif comp == '11':
+            assert dofs.shape == (self.d1, self.n2, self.n3) 
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.I_LU3], dofs)
+        elif comp == '12':
+            assert dofs.shape == (self.n1, self.d2, self.n3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.I_LU3], dofs)
+        elif comp == '13':
+            assert dofs.shape == (self.n1, self.n2, self.d3) 
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.H_LU3], dofs)
+        
+        elif comp == '21':
+            assert dofs.shape == (self.n1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.H_LU3], dofs)
+        elif comp == '22':
+            assert dofs.shape == (self.d1, self.n2, self.d3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.H_LU3], dofs)
+        elif comp == '23':
+            assert dofs.shape == (self.d1, self.d2, self.n3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.I_LU3], dofs)
+        
+        elif comp == '3':
+            assert dofs.shape == (self.d1, self.d2, self.d3)  
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.H_LU3], dofs)
+        
         else:
             raise ValueError ("wrong projector specified")
             
@@ -1333,19 +1192,19 @@ class projectors_tensor_3d:
 
     # ======================================        
     def PI_0(self, fun):
-        '''
+        """
         De Rham commuting projector Pi_0.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun : callable 
-            Element in V_0 continuous space, f(eta1, eta2, eta3)
+            Element in V_0 continuous space, f(eta1, eta2, eta3).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 3d numpy array
             The spline coefficients c_ijk obtained by projection.
-        '''
+        """
 
         coeffs = self.PI('0', fun)
 
@@ -1354,27 +1213,27 @@ class projectors_tensor_3d:
 
     # ======================================        
     def PI_1(self, fun1, fun2, fun3):
-        '''
+        """
         De Rham commuting projector Pi_1 acting on fun = (fun1, fun2, fun3) in V_1.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun1 : callable 
-            First component of element in V_1 continuous space, fun1(eta1, eta2, eta3).
+            1st component of element in V_1 continuous space, fun1(eta1, eta2, eta3).
         fun2 : callable 
-            Second component of element in V_1 continuous space, fun2(eta1, eta2, eta3).
+            2nd component of element in V_1 continuous space, fun2(eta1, eta2, eta3).
         fun3 : callable 
-            Thirs component of element in V_1 continuous space, fun3(eta1, eta2, eta3).
+            3rd component of element in V_1 continuous space, fun3(eta1, eta2, eta3).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs1 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun1 on DNN.
         coeffs2 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun2 on NDN.
         coeffs3 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun3 on NND.
-        '''
+        """
 
         coeffs1 = self.PI('11', fun1)
         coeffs2 = self.PI('12', fun2)
@@ -1385,27 +1244,27 @@ class projectors_tensor_3d:
 
     # ======================================        
     def PI_2(self, fun1, fun2, fun3):
-        '''
+        """
         De Rham commuting projector Pi_2 acting on fun = (fun1, fun2, fun3) in V_2.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         fun1 : callable 
-            First component of element in V_2 continuous space, fun1(eta1, eta2, eta3).
+            1st component of element in V_2 continuous space, fun1(eta1, eta2, eta3).
         fun2 : callable 
-            Second component of element in V_2 continuous space, fun2(eta1, eta2, eta3).
+            2nd component of element in V_2 continuous space, fun2(eta1, eta2, eta3).
         fun3 : callable 
-            Thirs component of element in V_2 continuous space, fun3(eta1, eta2, eta3).
+            3rd component of element in V_2 continuous space, fun3(eta1, eta2, eta3).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs1 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun1 on NDD.
         coeffs2 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun2 on DND.
         coeffs3 : 3d numpy array
             The spline coefficients c_ijk obtained by projection of fun3 on DDN.
-        '''
+        """
 
         coeffs1 = self.PI('21', fun1)
         coeffs2 = self.PI('22', fun2)
@@ -1416,19 +1275,19 @@ class projectors_tensor_3d:
 
     # ======================================        
     def PI_3(self, fun):
-        '''
+        """
         De Rham commuting projector Pi_3.
 
-        Parameters:
-        -----------
-        fun : callable 
-            Element in V_3 continuous space, f(eta1, eta2, eta3)
+        Parameters
+        ----------
+        fun : callable
+            Element in V_3 continuous space, f(eta1, eta2, eta3).
 
-        Returns:
-        --------
+        Returns
+        -------
         coeffs : 3d numpy array
             The spline coefficients c_ijk obtained by projection.
-        '''
+        """
 
         coeffs = self.PI('3', fun)
 
@@ -1437,7 +1296,7 @@ class projectors_tensor_3d:
 
 
 # ===============================================================
-class projectors_global_3d:
+class Projectors_global_3d:
     
     def __init__(self, tensor_space):
         

@@ -1,13 +1,13 @@
-import numpy              as np
-import scipy.sparse       as spa
+import numpy        as np
+import scipy.sparse as spa
 
 from struphy.feec.spline_space import Tensor_spline_space
-from struphy.feec.projectors.projectors_global import projectors_tensor_3d
+from struphy.feec.projectors.pro_global.projectors_global import Projectors_tensor_3d
 from struphy.linear_algebra.linalg_kron import kron_matvec_3d, kron_solve_3d
 
 # =================================================================================================
 class projectors_dot_x:
-    '''
+    """
     Caclulate the product of vector 'x' with the several kinds of projection matrices.
     Global projectors based on tensor product are used.
 
@@ -84,57 +84,59 @@ class projectors_dot_x:
     transpose_Y20_dot(x)
     S20_dot(x)
     transpose_S20_dot(x)
+    """
 
-    '''
+    def __init__(self, space, domain, eq_MHD):
+        
+        self.space = space
 
-    def __init__(self, proj_list, domain, eq_MHD):
-
-        # 1d projectors
-        self.proj_eta1 = proj_list[0]
-        self.proj_eta2 = proj_list[1]
-        self.proj_eta3 = proj_list[2]
-
-        # 3d tensor projectors
-        self.proj = projectors_tensor_3d([self.proj_eta1, self.proj_eta2, self.proj_eta3])
-
-        # tensro spline space
-        self.tensor_spl = Tensor_spline_space([proj_list[0].space, proj_list[1].space, proj_list[2].space])
-
-        self.NbaseN = self.tensor_spl.NbaseN
-        self.NbaseD = self.tensor_spl.NbaseD
+        self.NbaseN = space.NbaseN
+        self.NbaseD = space.NbaseD
 
         # Interpolation matrices
-        #self.N_1= self.proj_eta1.N
-        #self.N_2= self.proj_eta2.N
-        #self.N_3= self.proj_eta3.N
+        #self.N_1 = self.proj_eta1.N
+        #self.N_2 = self.proj_eta2.N
+        #self.N_3 = self.proj_eta3.N
 
-        self.N_1= spa.csr_matrix(self.proj_eta1.N)
-        self.N_2= spa.csr_matrix(self.proj_eta2.N)
-        self.N_3= spa.csr_matrix(self.proj_eta3.N)
+        self.N_1 = self.space.spaces[0].projectors.I
+        self.N_2 = self.space.spaces[1].projectors.I
+        self.N_3 = self.space.spaces[2].projectors.I
 
         # Histopolation matrices
-        #self.D_1= self.proj_eta1.D
-        #self.D_2= self.proj_eta2.D
-        #self.D_3= self.proj_eta3.D
+        #self.D_1 = self.proj_eta1.D
+        #self.D_2 = self.proj_eta2.D
+        #self.D_3 = self.proj_eta3.D
 
-        self.D_1= spa.csr_matrix(self.proj_eta1.D)
-        self.D_2= spa.csr_matrix(self.proj_eta2.D)
-        self.D_3= spa.csr_matrix(self.proj_eta3.D)
+        self.D_1 = self.space.spaces[0].projectors.H
+        self.D_2 = self.space.spaces[1].projectors.H
+        self.D_3 = self.space.spaces[2].projectors.H
 
         # Collocation matrices for different point sets
-        self.pts0_N_1, self.pts0_D_1, self.pts1_N_1, self.pts1_D_1 = self.proj_eta1.bases_at_pts()
-        self.pts0_N_2, self.pts0_D_2, self.pts1_N_2, self.pts1_D_2 = self.proj_eta2.bases_at_pts()
-        self.pts0_N_3, self.pts0_D_3, self.pts1_N_3, self.pts1_D_3 = self.proj_eta3.bases_at_pts()
+        self.pts0_N_1 = self.space.spaces[0].projectors.N_int
+        self.pts0_N_2 = self.space.spaces[1].projectors.N_int
+        self.pts0_N_3 = self.space.spaces[2].projectors.N_int
+        
+        self.pts0_D_1 = self.space.spaces[0].projectors.D_int
+        self.pts0_D_2 = self.space.spaces[1].projectors.D_int
+        self.pts0_D_3 = self.space.spaces[2].projectors.D_int
+        
+        self.pts1_N_1 = self.space.spaces[0].projectors.N_pts
+        self.pts1_N_2 = self.space.spaces[1].projectors.N_pts
+        self.pts1_N_3 = self.space.spaces[2].projectors.N_pts
+        
+        self.pts1_D_1 = self.space.spaces[0].projectors.D_pts
+        self.pts1_D_2 = self.space.spaces[1].projectors.D_pts
+        self.pts1_D_3 = self.space.spaces[2].projectors.D_pts
 
         #assert np.allclose(self.N_1.toarray(), self.pts0_N_1.toarray(), atol=1e-14)
         #assert np.allclose(self.N_2.toarray(), self.pts0_N_2.toarray(), atol=1e-14)
         #assert np.allclose(self.N_3.toarray(), self.pts0_N_3.toarray(), atol=1e-14)
         
         # domain
-        self.domain    =  domain
+        self.domain = domain
 
         # ===== call equilibrium_mhd values at the projection points ===== 
-        # define functiono for the evaluation
+        # define function for the evaluation
         self.p0_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p0_eq(xi1, xi2, xi3)
         self.p3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p3_eq(xi1, xi2, xi3)
         self.r3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.r3_eq(xi1, xi2, xi3)
@@ -146,75 +148,75 @@ class projectors_dot_x:
         self.j2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_3(xi1, xi2, xi3)
 
         # projection points
-        self.pts_PI_0  = self.proj.pts_PI['0']
-        self.pts_PI_11 = self.proj.pts_PI['11']
-        self.pts_PI_12 = self.proj.pts_PI['12']
-        self.pts_PI_13 = self.proj.pts_PI['13']
-        self.pts_PI_21 = self.proj.pts_PI['21']
-        self.pts_PI_22 = self.proj.pts_PI['22']
-        self.pts_PI_23 = self.proj.pts_PI['23']
-        self.pts_PI_3  = self.proj.pts_PI['3']
+        self.pts_PI_0  = self.space.projectors.pts_PI['0']
+        self.pts_PI_11 = self.space.projectors.pts_PI['11']
+        self.pts_PI_12 = self.space.projectors.pts_PI['12']
+        self.pts_PI_13 = self.space.projectors.pts_PI['13']
+        self.pts_PI_21 = self.space.projectors.pts_PI['21']
+        self.pts_PI_22 = self.space.projectors.pts_PI['22']
+        self.pts_PI_23 = self.space.projectors.pts_PI['23']
+        self.pts_PI_3  = self.space.projectors.pts_PI['3']
 
         # p0_eq
-        self.p0_eq_0  = self.proj.eval_for_PI('0', self.p0_eq_fun)
-        self.p0_eq_11 = self.proj.eval_for_PI('11', self.p0_eq_fun)
-        self.p0_eq_12 = self.proj.eval_for_PI('12', self.p0_eq_fun)
-        self.p0_eq_13 = self.proj.eval_for_PI('13', self.p0_eq_fun)
+        self.p0_eq_0  = self.space.projectors.eval_for_PI('0' , self.p0_eq_fun)
+        self.p0_eq_11 = self.space.projectors.eval_for_PI('11', self.p0_eq_fun)
+        self.p0_eq_12 = self.space.projectors.eval_for_PI('12', self.p0_eq_fun)
+        self.p0_eq_13 = self.space.projectors.eval_for_PI('13', self.p0_eq_fun)
 
         # p3_eq
-        self.p3_eq_21 = self.proj.eval_for_PI('21', self.p3_eq_fun)
-        self.p3_eq_22 = self.proj.eval_for_PI('22', self.p3_eq_fun)
-        self.p3_eq_23 = self.proj.eval_for_PI('23', self.p3_eq_fun)
-        self.p3_eq_3  = self.proj.eval_for_PI('3',  self.p3_eq_fun)
+        self.p3_eq_21 = self.space.projectors.eval_for_PI('21', self.p3_eq_fun)
+        self.p3_eq_22 = self.space.projectors.eval_for_PI('22', self.p3_eq_fun)
+        self.p3_eq_23 = self.space.projectors.eval_for_PI('23', self.p3_eq_fun)
+        self.p3_eq_3  = self.space.projectors.eval_for_PI('3' , self.p3_eq_fun)
 
         # r3_eq
-        self.r3_eq_11 = self.proj.eval_for_PI('11', self.r3_eq_fun)
-        self.r3_eq_12 = self.proj.eval_for_PI('12', self.r3_eq_fun)
-        self.r3_eq_13 = self.proj.eval_for_PI('13', self.r3_eq_fun)
-        self.r3_eq_21 = self.proj.eval_for_PI('21', self.r3_eq_fun)
-        self.r3_eq_22 = self.proj.eval_for_PI('22', self.r3_eq_fun)
-        self.r3_eq_23 = self.proj.eval_for_PI('23', self.r3_eq_fun)
+        self.r3_eq_11 = self.space.projectors.eval_for_PI('11', self.r3_eq_fun)
+        self.r3_eq_12 = self.space.projectors.eval_for_PI('12', self.r3_eq_fun)
+        self.r3_eq_13 = self.space.projectors.eval_for_PI('13', self.r3_eq_fun)
+        self.r3_eq_21 = self.space.projectors.eval_for_PI('21', self.r3_eq_fun)
+        self.r3_eq_22 = self.space.projectors.eval_for_PI('22', self.r3_eq_fun)
+        self.r3_eq_23 = self.space.projectors.eval_for_PI('23', self.r3_eq_fun)
 
         # b2_eq
-        self.b2_eq_11_1 = self.proj.eval_for_PI('11', self.b2_eq_1_fun)
-        self.b2_eq_12_1 = self.proj.eval_for_PI('12', self.b2_eq_1_fun)
-        self.b2_eq_13_1 = self.proj.eval_for_PI('13', self.b2_eq_1_fun)
-        self.b2_eq_11_2 = self.proj.eval_for_PI('11', self.b2_eq_2_fun)
-        self.b2_eq_12_2 = self.proj.eval_for_PI('12', self.b2_eq_2_fun) 
-        self.b2_eq_13_2 = self.proj.eval_for_PI('13', self.b2_eq_2_fun)
-        self.b2_eq_11_3 = self.proj.eval_for_PI('11', self.b2_eq_3_fun)
-        self.b2_eq_12_3 = self.proj.eval_for_PI('12', self.b2_eq_3_fun)
-        self.b2_eq_13_3 = self.proj.eval_for_PI('13', self.b2_eq_3_fun)
+        self.b2_eq_11_1 = self.space.projectors.eval_for_PI('11', self.b2_eq_1_fun)
+        self.b2_eq_12_1 = self.space.projectors.eval_for_PI('12', self.b2_eq_1_fun)
+        self.b2_eq_13_1 = self.space.projectors.eval_for_PI('13', self.b2_eq_1_fun)
+        self.b2_eq_11_2 = self.space.projectors.eval_for_PI('11', self.b2_eq_2_fun)
+        self.b2_eq_12_2 = self.space.projectors.eval_for_PI('12', self.b2_eq_2_fun) 
+        self.b2_eq_13_2 = self.space.projectors.eval_for_PI('13', self.b2_eq_2_fun)
+        self.b2_eq_11_3 = self.space.projectors.eval_for_PI('11', self.b2_eq_3_fun)
+        self.b2_eq_12_3 = self.space.projectors.eval_for_PI('12', self.b2_eq_3_fun)
+        self.b2_eq_13_3 = self.space.projectors.eval_for_PI('13', self.b2_eq_3_fun)
 
         # j2_eq
-        self.j2_eq_11_1 = self.proj.eval_for_PI('11', self.j2_eq_1_fun)
-        self.j2_eq_12_1 = self.proj.eval_for_PI('12', self.j2_eq_1_fun)
-        self.j2_eq_13_1 = self.proj.eval_for_PI('13', self.j2_eq_1_fun)
-        self.j2_eq_11_2 = self.proj.eval_for_PI('11', self.j2_eq_2_fun)
-        self.j2_eq_12_2 = self.proj.eval_for_PI('12', self.j2_eq_2_fun)
-        self.j2_eq_13_2 = self.proj.eval_for_PI('13', self.j2_eq_2_fun)
-        self.j2_eq_11_3 = self.proj.eval_for_PI('11', self.j2_eq_3_fun)
-        self.j2_eq_12_3 = self.proj.eval_for_PI('12', self.j2_eq_3_fun)
-        self.j2_eq_13_3 = self.proj.eval_for_PI('13', self.j2_eq_3_fun)
-        self.j2_eq_21_1 = self.proj.eval_for_PI('21', self.j2_eq_1_fun)
-        self.j2_eq_22_1 = self.proj.eval_for_PI('22', self.j2_eq_1_fun)
-        self.j2_eq_23_1 = self.proj.eval_for_PI('23', self.j2_eq_1_fun)
-        self.j2_eq_21_2 = self.proj.eval_for_PI('21', self.j2_eq_2_fun)
-        self.j2_eq_22_2 = self.proj.eval_for_PI('22', self.j2_eq_2_fun)
-        self.j2_eq_23_2 = self.proj.eval_for_PI('23', self.j2_eq_2_fun)
-        self.j2_eq_21_3 = self.proj.eval_for_PI('21', self.j2_eq_3_fun)
-        self.j2_eq_22_3 = self.proj.eval_for_PI('22', self.j2_eq_3_fun)
-        self.j2_eq_23_3 = self.proj.eval_for_PI('23', self.j2_eq_3_fun)
+        self.j2_eq_11_1 = self.space.projectors.eval_for_PI('11', self.j2_eq_1_fun)
+        self.j2_eq_12_1 = self.space.projectors.eval_for_PI('12', self.j2_eq_1_fun)
+        self.j2_eq_13_1 = self.space.projectors.eval_for_PI('13', self.j2_eq_1_fun)
+        self.j2_eq_11_2 = self.space.projectors.eval_for_PI('11', self.j2_eq_2_fun)
+        self.j2_eq_12_2 = self.space.projectors.eval_for_PI('12', self.j2_eq_2_fun)
+        self.j2_eq_13_2 = self.space.projectors.eval_for_PI('13', self.j2_eq_2_fun)
+        self.j2_eq_11_3 = self.space.projectors.eval_for_PI('11', self.j2_eq_3_fun)
+        self.j2_eq_12_3 = self.space.projectors.eval_for_PI('12', self.j2_eq_3_fun)
+        self.j2_eq_13_3 = self.space.projectors.eval_for_PI('13', self.j2_eq_3_fun)
+        self.j2_eq_21_1 = self.space.projectors.eval_for_PI('21', self.j2_eq_1_fun)
+        self.j2_eq_22_1 = self.space.projectors.eval_for_PI('22', self.j2_eq_1_fun)
+        self.j2_eq_23_1 = self.space.projectors.eval_for_PI('23', self.j2_eq_1_fun)
+        self.j2_eq_21_2 = self.space.projectors.eval_for_PI('21', self.j2_eq_2_fun)
+        self.j2_eq_22_2 = self.space.projectors.eval_for_PI('22', self.j2_eq_2_fun)
+        self.j2_eq_23_2 = self.space.projectors.eval_for_PI('23', self.j2_eq_2_fun)
+        self.j2_eq_21_3 = self.space.projectors.eval_for_PI('21', self.j2_eq_3_fun)
+        self.j2_eq_22_3 = self.space.projectors.eval_for_PI('22', self.j2_eq_3_fun)
+        self.j2_eq_23_3 = self.space.projectors.eval_for_PI('23', self.j2_eq_3_fun)
 
         # g_sqrt
-        self.det_df_0  = self.domain.evaluate(self.pts_PI_0[0],  self.pts_PI_0[1],  self.pts_PI_0[2], 'det_df')
+        self.det_df_0  = self.domain.evaluate(self.pts_PI_0[0] ,  self.pts_PI_0[1], self.pts_PI_0[2] , 'det_df')
         self.det_df_11 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'det_df')
         self.det_df_12 = self.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'det_df')
         self.det_df_13 = self.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'det_df')
         self.det_df_21 = self.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'det_df')
         self.det_df_22 = self.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'det_df')
         self.det_df_23 = self.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'det_df')
-        self.det_df_3  = self.domain.evaluate(self.pts_PI_3[0],  self.pts_PI_3[1],  self.pts_PI_3[2], 'det_df')
+        self.det_df_3  = self.domain.evaluate(self.pts_PI_3[0] ,  self.pts_PI_3[1], self.pts_PI_3[2] , 'det_df')
 
         # G
         self.g_11_11 = self.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_11')
@@ -346,7 +348,7 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -386,23 +388,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -428,8 +430,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -449,13 +451,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.r3_eq_21 * self.g_inv_21_11
@@ -519,8 +521,8 @@ class projectors_dot_x:
         '''    
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -540,24 +542,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
@@ -582,8 +584,8 @@ class projectors_dot_x:
         '''    
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -603,13 +605,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1 : mat_f_1_{i,m,j,k} = w_{i,m} * DOF_1_{i,j,k}
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2 : mat_f_2_{i,j,m,k} = w_{j,m} * DOF_2_{i,j,k}
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3 : mat_f_2_{i,j,k,m} = w_{k,m} * DOF_3_{i,j,k}
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)
 
         mat_f_1_c = mat_f_1 * self.r3_eq_11 / self.det_df_11
         mat_f_2_c = mat_f_2 * self.r3_eq_12 / self.det_df_12
@@ -664,8 +666,8 @@ class projectors_dot_x:
         '''    
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -705,23 +707,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -746,8 +748,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -767,13 +769,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.det_df_21 * self.g_inv_21_11
@@ -848,8 +850,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -889,23 +891,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -931,8 +933,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -951,13 +953,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * 0                  / self.det_df_11
@@ -1030,8 +1032,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1071,23 +1073,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -1112,8 +1114,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -1133,13 +1135,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.p3_eq_21 * self.g_inv_21_11
@@ -1211,8 +1213,8 @@ class projectors_dot_x:
         ''' 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1232,24 +1234,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
@@ -1273,8 +1275,8 @@ class projectors_dot_x:
         '''  
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1294,13 +1296,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1 : mat_f_1_{i,m,j,k} = w_{i,m} * DOF_1_{i,j,k}
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2 : mat_f_2_{i,j,m,k} = w_{j,m} * DOF_2_{i,j,k}
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3 : mat_f_2_{i,j,k,m} = w_{k,m} * DOF_3_{i,j,k}
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)
 
         mat_f_1_c = mat_f_1 * self.p0_eq_11
         mat_f_2_c = mat_f_2 * self.p0_eq_12
@@ -1337,8 +1339,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3(x)
+        #assert len(x) == self.space.Ntot_3form
+        x_loc = self.space.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -1351,11 +1353,11 @@ class projectors_dot_x:
 
         # ========== Step 2 : R( F(x) ) ==========#
         # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
-        DOF = self.proj.dofs('3', mat_f_c)
+        DOF = self.space.projectors.dofs('3', mat_f_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
-        res = self.proj.PI_mat('3', DOF)
+        res = self.space.projectors.PI_mat('3', DOF)
 
         return res.flatten()
 
@@ -1380,8 +1382,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3(x)
+        #assert len(x) == self.space.Ntot_3form
+        x_loc = self.space.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -1389,7 +1391,7 @@ class projectors_dot_x:
         mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
 
         #step2 : R.T( I.T(x) )
-        mat_f = self.proj.dofs_T('3', mat_dofs)
+        mat_f = self.space.projectors.dofs_T('3', mat_dofs)
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_c = self.p3_eq_3 * mat_f / self.det_df_3
@@ -1423,8 +1425,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0(x)
+        #assert len(x) == self.space.Ntot_0form
+        x_loc = self.space.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
 
@@ -1436,11 +1438,11 @@ class projectors_dot_x:
 
         # ========== Step 2 : R( F(x) ) ==========#
         # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
-        DOF = self.proj.dofs('0', mat_f_c)
+        DOF = self.space.projectors.dofs('0', mat_f_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
-        res = self.proj.PI_mat('0', DOF)
+        res = self.space.projectors.PI_mat('0', DOF)
 
         return res.flatten()
 
@@ -1465,8 +1467,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0(x)
+        #assert len(x) == self.space.Ntot_0form
+        x_loc = self.space.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
 
@@ -1474,7 +1476,7 @@ class projectors_dot_x:
         mat_dofs = kron_solve_3d([self.N_1.T, self.N_2.T, self.N_3.T], x_loc)
 
         #step2 : R.T( I.T(x) )
-        mat_f = self.proj.dofs_T('0', mat_dofs)
+        mat_f = self.space.projectors.dofs_T('0', mat_dofs)
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_c = self.p0_eq_0 * mat_f
@@ -1528,8 +1530,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1570,24 +1572,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -1617,8 +1619,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1638,13 +1640,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)         
         
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * (self.g_inv_11_31 * self.b2_eq_11_2 - self.g_inv_11_21 * self.b2_eq_11_3)        
@@ -1708,8 +1710,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -1737,19 +1739,19 @@ class projectors_dot_x:
         mat_f_3_c = mat_f_31_c + mat_f_32_c + mat_f_33_c
 
         # ========== Step 2 : R( F(x) ) ==========#
-        DOF_1 = self.proj.dofs('0', mat_f_1_c)
-        DOF_2 = self.proj.dofs('0', mat_f_2_c)
-        DOF_3 = self.proj.dofs('0', mat_f_3_c)
+        DOF_1 = self.space.projectors.dofs('0', mat_f_1_c)
+        DOF_2 = self.space.projectors.dofs('0', mat_f_2_c)
+        DOF_3 = self.space.projectors.dofs('0', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('0', DOF_1)
+        res_1 = self.space.projectors.PI_mat('0', DOF_1)
 
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('0', DOF_2)
+        res_2 = self.space.projectors.PI_mat('0', DOF_2)
 
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('0', DOF_3)
+        res_3 = self.space.projectors.PI_mat('0', DOF_3)
 
         return [res_1.flatten(), res_2.flatten(), res_3.flatten()]
 
@@ -1775,15 +1777,15 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^0 * 3}
-        #assert len(x) == self.tensor_spl.Ntot_0form * 3
-        # x_loc_1 = self.tensor_spl.extract_0form(np.split(x,3)[0])
-        # x_loc_2 = self.tensor_spl.extract_0form(np.split(x,3)[1])
-        # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
+        #assert len(x) == self.space.Ntot_0form * 3
+        # x_loc_1 = self.space.extract_0form(np.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0form(np.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0form(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
-        x_loc_1 = self.tensor_spl.extract_0(x[0])
-        x_loc_2 = self.tensor_spl.extract_0(x[1])
-        x_loc_3 = self.tensor_spl.extract_0(x[2])
+        x_loc_1 = self.space.extract_0(x[0])
+        x_loc_2 = self.space.extract_0(x[1])
+        x_loc_3 = self.space.extract_0(x[2])
         x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
@@ -1802,9 +1804,9 @@ class projectors_dot_x:
 
 
         #step2 : R.T( I.T(x) )
-        mat_f_1 = self.proj.dofs_T('0', mat_dofs_1)
-        mat_f_2 = self.proj.dofs_T('0', mat_dofs_2)
-        mat_f_3 = self.proj.dofs_T('0', mat_dofs_3)         
+        mat_f_1 = self.space.projectors.dofs_T('0', mat_dofs_1)
+        mat_f_2 = self.space.projectors.dofs_T('0', mat_dofs_2)
+        mat_f_3 = self.space.projectors.dofs_T('0', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.df_inv_0_11
@@ -1872,8 +1874,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -1898,24 +1900,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -1940,8 +1942,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -1961,13 +1963,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)  
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)  
 
         mat_f_1_c = mat_f_1 * self.r3_eq_21 / self.det_df_21
         mat_f_2_c = mat_f_2 * self.r3_eq_22 / self.det_df_22
@@ -2022,8 +2024,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2063,23 +2065,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -2106,8 +2108,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        #assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        #assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         #assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         #assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -2127,13 +2129,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * 0                  /self.det_df_11
@@ -2209,8 +2211,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2251,24 +2253,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -2298,8 +2300,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2319,13 +2321,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)         
 
         mat_f_11_c = mat_f_1 * (self.g_inv_21_12 * self.j2_eq_21_3 - self.g_inv_21_13 * self.j2_eq_21_2)        
         mat_f_12_c = mat_f_1 * (self.g_inv_21_13 * self.j2_eq_21_1 - self.g_inv_21_11 * self.j2_eq_21_3) 
@@ -2389,8 +2391,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2415,24 +2417,24 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('21', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('21', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('22', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('22', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('23', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('23', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : inter(xi1)-histo(xi2)-histo(xi3)-polation.
-        res_1 = self.proj.PI_mat('21', DOF_1)
+        res_1 = self.space.projectors.PI_mat('21', DOF_1)
 
         # xi2 : histo(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_2 = self.proj.PI_mat('22', DOF_2)
+        res_2 = self.space.projectors.PI_mat('22', DOF_2)
 
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('23', DOF_3)
+        res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -2457,8 +2459,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        #assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        #assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         #assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         #assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2478,13 +2480,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('21', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('21', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('22', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('22', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('23', mat_dofs_3)  
+        mat_f_3 = self.space.projectors.dofs_T('23', mat_dofs_3)  
 
         mat_f_1_c = mat_f_1 * self.p3_eq_21 / self.det_df_21
         mat_f_2_c = mat_f_2 * self.p3_eq_22 / self.det_df_22
@@ -2521,8 +2523,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3(x)
+        #assert len(x) == self.space.Ntot_3form
+        x_loc = self.space.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -2535,11 +2537,11 @@ class projectors_dot_x:
 
         # ========== Step 2 : R( F(x) ) ==========#
         # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
-        DOF = self.proj.dofs('3', mat_f_c)
+        DOF = self.space.projectors.dofs('3', mat_f_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
-        res = self.proj.PI_mat('3', DOF)
+        res = self.space.projectors.PI_mat('3', DOF)
 
         return res.flatten()
 
@@ -2564,8 +2566,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3(x)
+        #assert len(x) == self.space.Ntot_3form
+        x_loc = self.space.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -2573,7 +2575,7 @@ class projectors_dot_x:
         mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
 
         #step2 : R.T( I.T(x) )
-        mat_f = self.proj.dofs_T('3', mat_dofs)
+        mat_f = self.space.projectors.dofs_T('3', mat_dofs)
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_c = self.p3_eq_3 * mat_f / self.det_df_3
@@ -2621,8 +2623,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2651,20 +2653,20 @@ class projectors_dot_x:
 
 
         # ========== Step 2 : R( F(x) ) ==========#
-        DOF_1 = self.proj.dofs('0', mat_f_1_c)
-        DOF_2 = self.proj.dofs('0', mat_f_2_c)
-        DOF_3 = self.proj.dofs('0', mat_f_3_c)
+        DOF_1 = self.space.projectors.dofs('0', mat_f_1_c)
+        DOF_2 = self.space.projectors.dofs('0', mat_f_2_c)
+        DOF_3 = self.space.projectors.dofs('0', mat_f_3_c)
 
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('0', DOF_1)
+        res_1 = self.space.projectors.PI_mat('0', DOF_1)
 
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('0', DOF_2)
+        res_2 = self.space.projectors.PI_mat('0', DOF_2)
 
         # inter(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_3 = self.proj.PI_mat('0', DOF_3)
+        res_3 = self.space.projectors.PI_mat('0', DOF_3)
 
         return [res_1.flatten(), res_2.flatten(), res_3.flatten()]
 
@@ -2690,15 +2692,15 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^0 * 3}
-        #assert len(x) == self.tensor_spl.Ntot_0form * 3
-        # x_loc_1 = self.tensor_spl.extract_0form(np.split(x,3)[0])
-        # x_loc_2 = self.tensor_spl.extract_0form(np.split(x,3)[1])
-        # x_loc_3 = self.tensor_spl.extract_0form(np.split(x,3)[2])
+        #assert len(x) == self.space.Ntot_0form * 3
+        # x_loc_1 = self.space.extract_0form(np.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0form(np.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0form(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
-        x_loc_1 = self.tensor_spl.extract_0(x[0])
-        x_loc_2 = self.tensor_spl.extract_0(x[1])
-        x_loc_3 = self.tensor_spl.extract_0(x[2])
+        x_loc_1 = self.space.extract_0(x[0])
+        x_loc_2 = self.space.extract_0(x[1])
+        x_loc_3 = self.space.extract_0(x[2])
         x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseN[1], self.NbaseN[2])
@@ -2717,9 +2719,9 @@ class projectors_dot_x:
 
 
         #step2 : R.T( I.T(x) )
-        mat_f_1 = self.proj.dofs_T('0', mat_dofs_1)
-        mat_f_2 = self.proj.dofs_T('0', mat_dofs_2)
-        mat_f_3 = self.proj.dofs_T('0', mat_dofs_3)         
+        mat_f_1 = self.space.projectors.dofs_T('0', mat_dofs_1)
+        mat_f_2 = self.space.projectors.dofs_T('0', mat_dofs_2)
+        mat_f_3 = self.space.projectors.dofs_T('0', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.df_0_11 / self.det_df_0
@@ -2792,8 +2794,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -2833,23 +2835,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -2874,8 +2876,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -2894,13 +2896,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.g_11_11 / self.det_df_11
@@ -2956,8 +2958,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_0form
-        x_loc = self.tensor_spl.extract_0(x)
+        #assert len(x) == self.space.Ntot_0form
+        x_loc = self.space.extract_0(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -2970,11 +2972,11 @@ class projectors_dot_x:
 
         # ========== Step 2 : R( F(x) ) ==========#
         # Linear operator : evaluation values at the projection points to the Degree of Freedom of the spline.
-        DOF = self.proj.dofs('3', mat_f_c)
+        DOF = self.space.projectors.dofs('3', mat_f_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
-        res = self.proj.PI_mat('3', DOF)
+        res = self.space.projectors.PI_mat('3', DOF)
 
         return res.flatten()
 
@@ -2999,8 +3001,8 @@ class projectors_dot_x:
         '''
 
         # x dim check
-        #assert len(x) == self.tensor_spl.Ntot_3form
-        x_loc = self.tensor_spl.extract_3(x)
+        #assert len(x) == self.space.Ntot_3form
+        x_loc = self.space.extract_3(x)
 
         #assert x_loc.shape == (self.NbaseD[0], self.NbaseD[1], self.NbaseD[2])
 
@@ -3008,7 +3010,7 @@ class projectors_dot_x:
         mat_dofs = kron_solve_3d([self.D_1.T, self.D_2.T, self.D_3.T], x_loc)
 
         #step2 : R.T( I.T(x) )
-        mat_f = self.proj.dofs_T('3', mat_dofs)
+        mat_f = self.space.projectors.dofs_T('3', mat_dofs)
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_c = mat_f * self.det_df_3
@@ -3059,8 +3061,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^2}
-        assert len(x) == self.tensor_spl.Ntot_2form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_2(x))
+        assert len(x) == self.space.Ntot_2form_cum[-1]
+        x_loc = list(self.space.extract_2(x))
 
         assert x_loc[0].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseD[2])
         assert x_loc[1].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseD[2])
@@ -3100,23 +3102,23 @@ class projectors_dot_x:
         # ========== Step 2 : R( F(x) ) ==========#
         # integration over quadrature points
         # xi1 : DOF_1_{i,j,k} = sum_{m} w_{i,m} * mat_f_1_{i,m,j,k}
-        DOF_1 = self.proj.dofs('11', mat_f_1_c)
+        DOF_1 = self.space.projectors.dofs('11', mat_f_1_c)
 
         # xi2 : DOF_2_{i,j,k} = sum_{m} w_{j,m} * mat_f_2_{i,j,m,k}
-        DOF_2 = self.proj.dofs('12', mat_f_2_c)
+        DOF_2 = self.space.projectors.dofs('12', mat_f_2_c)
 
         # xi3 : DOF_3_{i,j,k} = sum_{m} w_{k,m} * mat_f_3_{i,j,k,m}
-        DOF_3 = self.proj.dofs('13', mat_f_3_c)
+        DOF_3 = self.space.projectors.dofs('13', mat_f_3_c)
 
         # ========== Step 3 : I( R( F(x) ) ) ==========#
         # xi1 : histo(xi1)-inter(xi2)-inter(xi3)-polation.
-        res_1 = self.proj.PI_mat('11', DOF_1)
+        res_1 = self.space.projectors.PI_mat('11', DOF_1)
 
         # xi2 : inter(xi1)-histo(xi2)-inter(xi3)-polation.
-        res_2 = self.proj.PI_mat('12', DOF_2)
+        res_2 = self.space.projectors.PI_mat('12', DOF_2)
 
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
-        res_3 = self.proj.PI_mat('13', DOF_3)
+        res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
         return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
@@ -3141,8 +3143,8 @@ class projectors_dot_x:
 
         # x dim check
         # x should be R{N^1}
-        assert len(x) == self.tensor_spl.Ntot_1form_cum[-1]
-        x_loc = list(self.tensor_spl.extract_1(x))
+        assert len(x) == self.space.Ntot_1form_cum[-1]
+        x_loc = list(self.space.extract_1(x))
 
         assert x_loc[0].shape ==  (self.NbaseD[0], self.NbaseN[1], self.NbaseN[2])
         assert x_loc[1].shape ==  (self.NbaseN[0], self.NbaseD[1], self.NbaseN[2])
@@ -3161,13 +3163,13 @@ class projectors_dot_x:
         #step2 : R.T( I.T(x) )
         # transpose of integration over quadrature points
         # xi1
-        mat_f_1 = self.proj.dofs_T('11', mat_dofs_1)
+        mat_f_1 = self.space.projectors.dofs_T('11', mat_dofs_1)
 
         # xi2
-        mat_f_2 = self.proj.dofs_T('12', mat_dofs_2)
+        mat_f_2 = self.space.projectors.dofs_T('12', mat_dofs_2)
 
         # xi3
-        mat_f_3 = self.proj.dofs_T('13', mat_dofs_3)         
+        mat_f_3 = self.space.projectors.dofs_T('13', mat_dofs_3)         
 
         #step3 : F.T( R.T( I.T(x) ) )
         mat_f_11_c = mat_f_1 * self.p0_eq_11 * self.g_11_11 / self.det_df_11
