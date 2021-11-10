@@ -8,8 +8,12 @@ batch=
 mode=False # restart for h5py files: True or False
 num_threads=1 # number of openmp threads (pyccel, not needed for numba)
 
-path_lib=$(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
-path_batch=${path_lib}io/batch/
+PYTHON=python3
+
+path_lib=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
+folder_inp=${path_lib}io/inp/
+folder_out=${path_lib}io/out/
+folder_batch=${path_lib}io/batch/
 path_code=${path_lib}models/codes/
 
 while getopts ":hpstcr:i:o:b:m:n:" opt; do
@@ -34,27 +38,28 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             exit 0
             ;;
         p)
-            echo "Your parameter file (.yml) is" $file_inp
-            echo "Your output files (.hdf5, .txt) are in" $path_out
-            echo "Your batch script are in" $path_batch
+            echo "Parameter files (.yml) are in    " ${folder_inp}
+            echo "Output files (.hdf5, .txt) are in" ${folder_out}
+            echo "Your batch script are in         " ${folder_batch}
             exit 0
             ;;
         s)  
-            echo $(python -c 'import sysconfig; print(sysconfig.get_platform())')
-            echo $(python --version)
+            echo $($PYTHON -c 'import sysconfig; print(sysconfig.get_platform())')
+            echo $($PYTHON --version)
             exit 0
             ;;
         t)
             echo "The struphy package is in" $path_lib
             echo "Package content:"
             echo
-            python ${path_lib}struphy_tree.py
+            $PYTHON ${path_lib}struphy_tree.py
             exit 0
             ;;
         c)
             echo "Start compiling struphy..."
+            cd ..
             make -f ${path_lib}compile_struphy.mk
-            echo "Compilation of struphy done, .so kernels available."
+            cd -
             exit 0
             ;;
         r)
@@ -82,8 +87,8 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
 done
 shift $((OPTIND-1))
 
-file_inp=${path_lib}io/inp/$code/$file
-path_out=${path_lib}io/out/$out/
+file_inp=${folder_inp}$code/$file
+path_out=${folder_out}$out/
 mkdir -p ${path_out} # create output folder
 file_meta=${path_out}sim_meta_data.txt
 
@@ -98,12 +103,12 @@ echo "omp threads:" $num_threads
 if [ -z $batch ]; then
     
     export OMP_NUM_THREADS=$num_threads
-    python3 -m cProfile -o ${path_out}profile_tmp -s time ${path_code}exec.py $code $file_inp $path_out None $file_meta $mode
+    $PYTHON -m cProfile -o ${path_out}profile_tmp -s time ${path_code}exec.py $code $file_inp $path_out None $file_meta $mode
 
 else
 
-    chmod +x ${path_batch}$batch
-    ${path_batch}$batch
+    chmod +x ${folder_batch}$batch
+    ${folder_batch}$batch
 
 fi
 
