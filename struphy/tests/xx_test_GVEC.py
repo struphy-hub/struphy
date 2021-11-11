@@ -20,7 +20,7 @@ def test_GVEC_equilibrium(plot=False):
 
     import h5py
     import tempfile
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
     print(f'Created temp directory at: {temp_dir.name}')
 
     # Which diagnostics is run
@@ -66,7 +66,7 @@ def test_GVEC_equilibrium(plot=False):
     # Convert GVEC .dat output to .json.
     # ============================================================
 
-    read_filepath = 'struphy/models/mhd_equil/gvec/'
+    read_filepath = 'struphy/mhd_equil/gvec/'
     read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
     save_filepath = temp_dir.name
     save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
@@ -79,7 +79,7 @@ def test_GVEC_equilibrium(plot=False):
     # ============================================================
 
     filepath = temp_dir.name
-    # filepath =  os.path.join(basedir, '..', filepath)
+    # filepath = os.path.join(basedir, '..', filepath)
     filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
     gvec = GVEC(filepath, filename)
 
@@ -416,8 +416,8 @@ def test_GVEC_equilibrium(plot=False):
     b2_coeff_concat = np.concatenate((b2_coeff[0].flatten(), b2_coeff[1].flatten(), b2_coeff[2].flatten()))
     print('Max b2 coeff: {}'.format(np.max(np.abs(b2_coeff_concat))))
 
-    # Test `extract_2form()`.
-    b2_coeff2_1, b2_coeff2_2, b2_coeff2_3 = tensor_space_FEM.extract_2form(b2_coeff_concat)
+    # Test `extract_2()`.
+    b2_coeff2_1, b2_coeff2_2, b2_coeff2_3 = tensor_space_FEM.extract_2(b2_coeff_concat)
     # print('Shapes of each component of b2 coefficients. 2_1: {}, 2_2: {}, 2_3: {}'.format(b2_coeff2_1.shape, b2_coeff2_2.shape, b2_coeff2_3.shape))
     assert np.allclose(b2_coeff[0], b2_coeff2_1)
     assert np.allclose(b2_coeff[1], b2_coeff2_2)
@@ -476,7 +476,7 @@ def test_GVEC_equilibrium(plot=False):
     # Take discrete Curl.
     curlA = tensor_space_FEM.C.dot(a1_coeff_concat)
     print('Shapes of discrete Curl matrix: {}, flattened 1-form coeff: {}, and after taking discrete Curl: {}.'.format(tensor_space_FEM.C.shape, a1_coeff_concat.shape, curlA.shape))
-    curlA_1, curlA_2, curlA_3 = tensor_space_FEM.extract_2form(curlA)
+    curlA_1, curlA_2, curlA_3 = tensor_space_FEM.extract_2(curlA)
     print('Shapes of each component of Curl a1 coefficients. 2_1: {}, 2_2: {}, 2_3: {} (== shapes of b2 coefficients)'.format(curlA_1.shape, curlA_2.shape, curlA_3.shape))
     print('Maximum error between B2 and Curl A1: 2_1: {}, 2_2: {}, 2_3: {}'.format(np.max(np.abs(b2_coeff[0] - curlA_1)), np.max(np.abs(b2_coeff[1] - curlA_2)), np.max(np.abs(b2_coeff[2] - curlA_3))))
     assert np.allclose(b2_coeff[0], curlA_1, atol=1e-4)
@@ -529,7 +529,7 @@ def test_GVEC_equilibrium(plot=False):
     # Take discrete Curl.
     curlB = tensor_space_FEM.C.dot(b1_coeff_concat)
     print('Shapes of discrete Curl matrix: {}, flattened 1-form coeff: {}, and after taking discrete Curl: {}.'.format(tensor_space_FEM.C.shape, b1_coeff_concat.shape, curlB.shape))
-    curlB_1, curlB_2, curlB_3 = tensor_space_FEM.extract_2form(curlB)
+    curlB_1, curlB_2, curlB_3 = tensor_space_FEM.extract_2(curlB)
     print('Shapes of each component of J = Curl b1 coefficients. 2_1: {}, 2_2: {}, 2_3: {} (== shapes of b2 coefficients)'.format(curlB_1.shape, curlB_2.shape, curlB_3.shape))
     print('Maximum error (how close is J to 0): {}'.format(np.max(np.abs(curlB))))
 

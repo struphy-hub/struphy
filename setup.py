@@ -45,7 +45,8 @@ setup(
         'sphinx',
         'sphinxcontrib-napoleon',
         'sphinx-rtd-theme', 
-        'm2r2'
+        'm2r2',
+        'vtk',
     ],
     # more information, necessary for an upload to PyPI
     author="Stefan Possanner",

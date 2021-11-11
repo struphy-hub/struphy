@@ -809,100 +809,148 @@ class Tensor_spline_space:
             coeffv_pol_3 = coeff[ self.Ev_pol_0.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0]  , self.NbaseN[2])
         
         return coeffv_pol_1, coeffv_pol_3
-    
+
 
     # ========= extraction of flattened 3D coefficients to tensor-product space =========
     def extract_0(self, coeff):
-        
+        """Reshape flattened 3D 0-form coefficients to tensor-product space.
+
+        Parameters
+        ----------
+        coeff : numpy.ndarray
+            Flattened 3D coefficients.
+
+        Returns
+        -------
+        coeff0 : numpy.ndarray
+            Coefficients in tensor-produce space.
+        """
+
         c_size = coeff.size
-        
+
         assert c_size == self.E0.shape[0] or c_size == self.E0_0.shape[0]
-        
+
         if c_size == self.E0.shape[0]:
             coeff0 = self.E0.T.dot(coeff)
         else:
             coeff0 = self.E0_0.T.dot(coeff)
-            
+
         coeff0 = coeff0.reshape(self.Nbase_0form)
-            
+
         return coeff0
-    
-    
+
+
     def extract_1(self, coeff):
-        
+        """Reshape flattened 3D 1-form coefficients to tensor-product space.
+
+        Parameters
+        ----------
+        coeff : numpy.ndarray
+            Flattened 3D coefficients.
+
+        Returns
+        -------
+        (coeff1_1, coeff1_2, coeff1_3) : tuple of numpy.ndarray
+            Coefficients in tensor-produce space.
+        """
+
         c_size = coeff.size
-        
+
         assert c_size == self.E1.shape[0] or c_size == self.E1_0.shape[0]
-        
+
         if c_size == self.E1.shape[0]:
             coeff1 = self.E1.T.dot(coeff)
         else:
             coeff1 = self.E1_0.T.dot(coeff)
-        
+
         coeff1_1, coeff1_2, coeff1_3 = np.split(coeff1, [self.Ntot_1form_cum[0], self.Ntot_1form_cum[1]])
-        
+
         coeff1_1 = coeff1_1.reshape(self.Nbase_1form[0])
         coeff1_2 = coeff1_2.reshape(self.Nbase_1form[1])
         coeff1_3 = coeff1_3.reshape(self.Nbase_1form[2])
-        
+
         return coeff1_1, coeff1_2, coeff1_3
-        
-    
+
+
     def extract_2(self, coeff):
-        
+        """Reshape flattened 3D 2-form coefficients to tensor-product space.
+
+        Parameters
+        ----------
+        coeff : numpy.ndarray
+            Flattened 3D coefficients.
+
+        Returns
+        -------
+        (coeff2_1, coeff2_2, coeff2_3) : tuple of numpy.ndarray
+            Coefficients in tensor-produce space.
+        """
+
         c_size = coeff.size
-        
+
         assert c_size == self.E2.shape[0] or c_size == self.E2_0.shape[0]
-        
+
         if c_size == self.E2.shape[0]:
             coeff2 = self.E2.T.dot(coeff)
         else:
             coeff2 = self.E2_0.T.dot(coeff)
-        
+
         coeff2_1, coeff2_2, coeff2_3 = np.split(coeff2, [self.Ntot_2form_cum[0], self.Ntot_2form_cum[1]])
-        
+
         coeff2_1 = coeff2_1.reshape(self.Nbase_2form[0])
         coeff2_2 = coeff2_2.reshape(self.Nbase_2form[1])
         coeff2_3 = coeff2_3.reshape(self.Nbase_2form[2])
-        
+
         return coeff2_1, coeff2_2, coeff2_3
-        
-    
+
+
     def extract_3(self, coeff):
-        
+        """Reshape flattened 3D 3-form coefficients to tensor-product space.
+
+        Parameters
+        ----------
+        coeff : numpy.ndarray
+            Flattened 3D coefficients.
+
+        Returns
+        -------
+        coeff3 : numpy.ndarray
+            Coefficients in tensor-produce space.
+        """
+
         c_size = coeff.size
-        
+
         assert c_size == self.E3.shape[0] or c_size == self.E3_0.shape[0]
-        
+
         if c_size == self.E3.shape[0]:
             coeff3 = self.E3.T.dot(coeff)
         else:
             coeff3 = self.E3_0.T.dot(coeff)
-            
+
         coeff3 = coeff3.reshape(self.Nbase_3form)
-            
+
         return coeff3
-    
-    
+
+
     def extract_v(self, coeff):
-        
+
         c_size = coeff.size
-        
+
         assert c_size == self.Ev.shape[0] or c_size == self.Ev_0.shape[0]
-        
+
         if c_size == self.Ev.shape[0]:
             coeffv = self.Ev.T.dot(coeff)
         else:
             coeffv = self.Ev_0.T.dot(coeff)
-            
+
         coeffv_1, coeffv_2, coeffv_3 = np.split(coeffv, [self.Ntot_0form, 2*self.Ntot_0form])
-        
+
         coeffv_1 = coeffv_1.reshape(self.Nbase_0form)
         coeffv_2 = coeffv_2.reshape(self.Nbase_0form)
         coeffv_3 = coeffv_3.reshape(self.Nbase_0form)
-        
+
         return coeffv_1, coeffv_2, coeffv_3
-    
+
 
     # =================================================
     def evaluate_NN(self, eta1, eta2, eta3, coeff, which='V0', part='r'):

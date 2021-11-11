@@ -449,12 +449,12 @@ def execute(file_in, path_out, mode):
         # update velocities 
         timea = time.time()
         
-        b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2form(b2 + b2_eq)
+        b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2(b2 + b2_eq)
         
         if basis_u == 0:
-            up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0form_vec((up + up_old)/2)
+            up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0((up + up_old)/2)
         else:
-            up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2form((up + up_old)/2)
+            up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2((up + up_old)/2)
         
         pic_pusher.pusher_step3(particles_loc, alpha*params['Zh']/params['Ah']*dt, spaces.T[0], spaces.T[1], spaces.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
         
@@ -470,7 +470,7 @@ def execute(file_in, path_out, mode):
         # push particles
         timea = time.time()
         
-        b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2form(b2 + b2_eq)
+        b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2(b2 + b2_eq)
         
         pic_pusher.pusher_step5_ana(particles_loc, alpha*params['Zh']/params['Ah']*dt, spaces.T[0], spaces.T[1], spaces.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
         
@@ -733,24 +733,24 @@ def execute(file_in, path_out, mode):
                 
                 file['energies/bulk_kinetic_H'][0]    = energies_H['U'][0]
                 
-                file['pressure'][0]                   = spaces.extract_3form(p3)
-                file['density'][0]                    = spaces.extract_3form(r3)
+                file['pressure'][0]                   = spaces.extract_3(p3)
+                file['density'][0]                    = spaces.extract_3(r3)
                 
                 if basis_u == 0:
-                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0form_vec(up)
+                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0(up)
                 else:
-                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2form(up)
+                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2(up)
                 
                 file['velocity_field/1_component'][0] = up_ten_1
                 file['velocity_field/2_component'][0] = up_ten_2
                 file['velocity_field/3_component'][0] = up_ten_3
                 
-                b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2form(b2)
+                b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2(b2)
                 file['magnetic_field/1_component'][0] = b2_ten_1
                 file['magnetic_field/2_component'][0] = b2_ten_2
                 file['magnetic_field/3_component'][0] = b2_ten_3
                 
-                file['magnetic_field/divergence'][0]  = spaces.extract_3form(spaces.D.dot(b2))
+                file['magnetic_field/divergence'][0]  = spaces.extract_3(spaces.D.dot(b2))
                 file['bulk_mass'][0]                  = sum(r3.flatten())
                 
                 file['distribution_function/eta1_vx'][0] = fh['eta1_vx']
@@ -946,12 +946,12 @@ def execute(file_in, path_out, mode):
 
                 # FEM coefficients
                 file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
-                file['pressure'][-1] = spaces.extract_3form(p3)
+                file['pressure'][-1] = spaces.extract_3(p3)
                 
                 file['density'].resize(file['density'].shape[0] + 1, axis = 0)
-                file['density'][-1] = spaces.extract_3form(r3)
+                file['density'][-1] = spaces.extract_3(r3)
                 
-                b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2form(b2)
+                b2_ten_1, b2_ten_2, b2_ten_3 = spaces.extract_2(b2)
                 file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
                 file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
                 file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
@@ -960,9 +960,9 @@ def execute(file_in, path_out, mode):
                 file['magnetic_field/3_component'][-1] = b2_ten_3
                 
                 if basis_u == 0:
-                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0form_vec(up)
+                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_0(up)
                 else:
-                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2form(up)
+                    up_ten_1, up_ten_2, up_ten_3 = spaces.extract_2(up)
 
                 file['velocity_field/1_component'].resize(file['velocity_field/1_component'].shape[0] + 1, axis = 0)
                 file['velocity_field/2_component'].resize(file['velocity_field/2_component'].shape[0] + 1, axis = 0)
@@ -973,7 +973,7 @@ def execute(file_in, path_out, mode):
                 
                 # other diagnostics
                 file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
-                file['magnetic_field/divergence'][-1] = spaces.extract_3form(spaces.D.dot(b2))
+                file['magnetic_field/divergence'][-1] = spaces.extract_3(spaces.D.dot(b2))
 
                 file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
                 file['bulk_mass'][-1] = sum(r3.flatten())

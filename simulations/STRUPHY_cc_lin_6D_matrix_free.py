@@ -876,12 +876,12 @@ def substep_4(dt):
     # update velocities 
     timea = time.time()
     
-    b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
+    b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2 + b2_eq)
     
     if basis_u == 0:
-        up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec((up + up_old)/2)
+        up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0((up + up_old)/2)
     else:
-        up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form((up + up_old)/2)
+        up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2((up + up_old)/2)
     
     pic_pusher.pusher_step3(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
     
@@ -897,7 +897,7 @@ def substep_5(dt):
     # push particles
     timea = time.time()
     
-    b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
+    b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2 + b2_eq)
     
     pic_pusher.pusher_step5_ana(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
     
@@ -1156,24 +1156,24 @@ if params['time_int'] == True:
             
             file['energies/bulk_kinetic_H'][0]    = energies_H['U'][0]
             
-            file['pressure'][0]                   = tensor_space_FEM.extract_3form(pp)
-            file['density'][0]                    = tensor_space_FEM.extract_3form(rp)
+            file['pressure'][0]                   = tensor_space_FEM.extract_3(pp)
+            file['density'][0]                    = tensor_space_FEM.extract_3(rp)
             
             if basis_u == 0:
-                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec(up)
+                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0(up)
             else:
-                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form(up)
+                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2(up)
             
             file['velocity_field/1_component'][0] = up_ten_1
             file['velocity_field/2_component'][0] = up_ten_2
             file['velocity_field/3_component'][0] = up_ten_3
             
-            b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2)
+            b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2)
             file['magnetic_field/1_component'][0] = b2_ten_1
             file['magnetic_field/2_component'][0] = b2_ten_2
             file['magnetic_field/3_component'][0] = b2_ten_3
             
-            file['magnetic_field/divergence'][0]  = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
+            file['magnetic_field/divergence'][0]  = tensor_space_FEM.extract_3(tensor_space_FEM.D.dot(b2))
             file['bulk_mass'][0]                  = sum(rp.flatten())
             
             file['distribution_function/eta1_vx'][0] = fh['eta1_vx']
@@ -1369,17 +1369,17 @@ if params['time_int'] == True:
             # FEM coefficients
             file['pressure'].resize(file['pressure'].shape[0] + 1, axis = 0)
             if basis_p == 0:
-                file['pressure'][-1] = tensor_space_FEM.extract_0form(pp)
+                file['pressure'][-1] = tensor_space_FEM.extract_0(pp)
             elif basis_p == 3:
-                file['pressure'][-1] = tensor_space_FEM.extract_3form(pp)
+                file['pressure'][-1] = tensor_space_FEM.extract_3(pp)
             
             file['density'].resize(file['density'].shape[0] + 1, axis = 0)
             if basis_r == 0:
-                file['density'][-1] = tensor_space_FEM.extract_0form(rp)
+                file['density'][-1] = tensor_space_FEM.extract_0(rp)
             elif basis_r == 3:
-                file['density'][-1] = tensor_space_FEM.extract_3form(rp)
+                file['density'][-1] = tensor_space_FEM.extract_3(rp)
             
-            b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2)
+            b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2)
             file['magnetic_field/1_component'].resize(file['magnetic_field/1_component'].shape[0] + 1, axis = 0)
             file['magnetic_field/2_component'].resize(file['magnetic_field/2_component'].shape[0] + 1, axis = 0)
             file['magnetic_field/3_component'].resize(file['magnetic_field/3_component'].shape[0] + 1, axis = 0)
@@ -1388,9 +1388,9 @@ if params['time_int'] == True:
             file['magnetic_field/3_component'][-1] = b2_ten_3
             
             if basis_u == 0:
-                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec(up)
+                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0(up)
             else:
-                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form(up)
+                up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2(up)
 
             file['velocity_field/1_component'].resize(file['velocity_field/1_component'].shape[0] + 1, axis = 0)
             file['velocity_field/2_component'].resize(file['velocity_field/2_component'].shape[0] + 1, axis = 0)
@@ -1401,7 +1401,7 @@ if params['time_int'] == True:
             
             # other diagnostics
             file['magnetic_field/divergence'].resize(file['magnetic_field/divergence'].shape[0] + 1, axis = 0)
-            file['magnetic_field/divergence'][-1] = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
+            file['magnetic_field/divergence'][-1] = tensor_space_FEM.extract_3(tensor_space_FEM.D.dot(b2))
 
             file['bulk_mass'].resize(file['bulk_mass'].shape[0] + 1, axis = 0)
             file['bulk_mass'][-1] = sum(rp.flatten())
