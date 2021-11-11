@@ -8,7 +8,7 @@ Analytical coordinate transformation theta(eta1, eta2) for circular torus corres
 
 import numpy as np
 
-def theta(eta1, eta2, a, R0, kind):
+def theta(eta1, eta2, a, R0, kind='straight'):
     """Analytical coordinate transformations theta(eta1, eta2) for circular torus with ad hoc magnetic field.
     
     Parameters
