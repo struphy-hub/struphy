@@ -162,14 +162,24 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
 def prepare_args(x, y, z):
     '''Broadcast point sets to correct size for evaluation.
     
-       Returns numpy arrays.
+    Parameters
+    ----------
+        x, y, z : float or list or np.array
+            Evaluation point sets.
+
+    Returns
+    -------
+        E1, E2, E3 : 3d np.arrays
+
+        is_sparse_meshgrid : boolean
+            Whether arguments fit sparse_meshgrid shape.
     '''
 
     # convert float, list type data to numpy array:
     if isinstance(x, float):
         arg_x = np.array([x])
     elif isinstance(x, list):
-        arg_x = np.squeeze(np.array([x]), axis=0) 
+        arg_x = np.array(x) 
     elif isinstance(x, np.ndarray):
         arg_x = x 
     else:
@@ -178,7 +188,7 @@ def prepare_args(x, y, z):
     if isinstance(y, float):
         arg_y = np.array([y])
     elif isinstance(y, list):
-        arg_y = np.squeeze(np.array([y]), axis=0) 
+        arg_y = np.array(y) 
     elif isinstance(y, np.ndarray):
         arg_y = y
     else:
@@ -187,13 +197,54 @@ def prepare_args(x, y, z):
     if isinstance(z, float):
         arg_z = np.array([z])
     elif isinstance(z, list):
-        arg_z = np.squeeze(np.array([z]), axis=0) 
+        arg_z = np.array(z) 
     elif isinstance(z, np.ndarray):
         arg_z = z
     else:
         print('data type not supported')
 
-    return arg_x, arg_y, arg_z
+    # broadcast to 3d arrays:
+    is_sparse_meshgrid = None
+    # tensor-product for given three 1D arrays 
+    if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
+        #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+        E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij', sparse=True)
+        is_sparse_meshgrid = True
+    # given xy-plane at point z:
+    elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
+        E1 = arg_x[:, :, None]
+        E2 = arg_y[:, :, None]
+        E3 = arg_z*np.ones(E1.shape)
+    # given xz-plane at point y:
+    elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
+        E1 = arg_x[:, None, :]
+        E2 = arg_y*np.ones(E1.shape)
+        E3 = arg_z[:, None, :]
+    # given yz-plane at point x:
+    elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
+        E2 = arg_y[None, :, :]
+        E3 = arg_z[None, :, :]
+        E1 = arg_x*np.ones(E2.shape)
+    # given three 3D arrays 
+    elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
+        # Distinguish if input coordinates are from sparse or dense meshgrid.
+        # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
+        # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
+        E1, E2, E3 = arg_x, arg_y, arg_z
+
+        # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
+        if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
+            assert max(arg_x.shape) == arg_x.size
+            assert max(arg_y.shape) == arg_y.size
+            assert max(arg_z.shape) == arg_z.size
+            is_sparse_meshgrid = True
+        # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
+        else:
+            is_sparse_meshgrid = False
+    else:
+        raise ValueError('Argument dimensions not supported')
+
+    return E1, E2, E3, is_sparse_meshgrid
 
 
 # ==================================================
@@ -309,6 +360,7 @@ class Domain:
         elif kind_map == 'spline':
             # TODO: choose correct params_map
             self.kind_map   = 0
+            self.params_map = []
 
             # print(f'Before popping: list(params_map.values()): {list(params_map.values())}')
 
@@ -319,21 +371,7 @@ class Domain:
                 self.cy = handle['cy'][:]
                 self.cz = handle['cz'][:]
 
-            self.Nel      = params_map['Nel']
-            self.p        = params_map['p']
-            self.spl_kind = params_map['spl_kind']
-
-            # We have to remove the filename string from `params_map`, otherwise it will cause an error.
-            # TypeError: float() argument must be a string or a number, not 'dict'
-            # ValueError: setting an array element with a sequence. The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (4,) + inhomogeneous part.
-            # TypeError: failed in converting 7th argument `params_map' of pushforward_3d.kernel_evaluate_sparse to C/Fortran array
-            params_map.pop('file', None)
-            self.params_map = list(params_map.values())
-            # print(f'After popping: list(params_map.values()): {list(params_map.values())}')
-
         elif kind_map == 'spline_cyl':
-            # TODO: choose correct params_map
-            # TODO: allow for input data cx, cy, cz
             self.kind_map   = 1
             self.params_map = []
 
@@ -341,42 +379,25 @@ class Domain:
             Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(2*np.pi*eta2)
         
             self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
-            self.cz = None
-            
-            # make sure that control points at pole are all the same
-            self.cx[0, :] = params_map['R0']
-            self.cy[0, :] = 0.
-            
-            self.Nel      = params_map['Nel']
-            self.p        = params_map['p']
-            self.spl_kind = params_map['spl_kind']
                 
         elif kind_map == 'spline_torus':
-            # TODO: choose correct params_map
-            # TODO: allow for input data cx, cy, cz
             self.kind_map   = 2
             self.params_map = []
 
-            R = lambda eta1, eta2 : params_map['a']*eta1*np.cos(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['chi'])) + params_map['R0']
-            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['chi']))
+            R = lambda eta1, eta2 : params_map['a']*eta1*np.cos(angular.theta(eta1, eta2, params_map['a'], params_map['R0'])) + params_map['R0']
+            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(angular.theta(eta1, eta2, params_map['a'], params_map['R0']))
         
             self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], R, Y)
-            self.cz = None
-            
-            # make sure that control points at pole are all the same
-            self.cx[0, :] = params_map['R0']
-            self.cy[0, :] = 0.
-            
-            self.Nel      = params_map['Nel']
-            self.p        = params_map['p']
-            self.spl_kind = params_map['spl_kind']
 
         else:
             raise ValueError('Specified domain is not implemeted!')
 
-        # TODO: remove dummy variables
-        # create dummy variables for spline mappings
+        # other attributes of spline mappings:
         if self.kind_map < 10:
+
+            self.Nel      = params_map['Nel']
+            self.p        = params_map['p']
+            self.spl_kind = params_map['spl_kind']
             
             self.NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(params_map['Nel'], 
                                                                     params_map['p'], 
@@ -387,6 +408,7 @@ class Domain:
                                                                                   params_map['p'],
                                                                                   params_map['spl_kind'])]
             
+            # adapt 2d spline mappings to 3d
             if self.kind_map != 0:
                 
                 self.Nel    = self.Nel    + [0]
@@ -395,11 +417,16 @@ class Domain:
                 
                 self.T      = self.T      + [np.zeros((1,), dtype=float)]
                 
-                self.cx     = self.cx.reshape(self.cx.shape[0], self.cx.shape[1], 1)
-                self.cy     = self.cy.reshape(self.cy.shape[0], self.cy.shape[1], 1)
-                self.cz     = np.zeros((1, 1, 1), dtype=float)
+                # make sure that control points at pole are all the same
+                self.cx[0, :] = params_map['R0']
+                self.cy[0, :] = 0.
+                # self.cx     = self.cx.reshape(self.cx.shape[0], self.cx.shape[1], 1)
+                # self.cy     = self.cy.reshape(self.cy.shape[0], self.cy.shape[1], 1)
+                self.cx     = self.cx[:, :, None]
+                self.cy     = self.cy[:, :, None]
+                self.cz = np.zeros((1, 1, 1), dtype=float)
                    
-        # create dummy variables for analytical mappings
+        # create dummy attributes for analytical mappings
         else:
             
             self.Nel    = [0, 0, 0]
@@ -414,7 +441,7 @@ class Domain:
             self.cy     =  np.zeros((1, 1, 1), dtype=float)
             self.cz     =  np.zeros((1, 1, 1), dtype=float)
 
-            
+   
         # keys for evaluating mapping related quantities
         self.keys_map  = {
             'x' : 1, 'y' : 2, 'z' : 3, 'det_df' : 4, 
@@ -440,17 +467,17 @@ class Domain:
         
         # keys for performing push-forwards
         self.keys_push = {
-            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, '1_form_3' : 13,
-            '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 'vector_1' : 31, 
-            'vector_2' : 32, 'vector_3' : 33
+            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, 
+            '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 
+            'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33
             }
        
     
     # ================================
-    # ================================
     def evaluate(self, eta1, eta2, eta3, kind_fun, kind_eva='meshgrid'):
         '''Evaluate mapping/metric coefficients. 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product (meshgrid) or general.
+
+        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
         Parameters
         -----------
@@ -464,436 +491,135 @@ class Domain:
             values: ndarray
                 mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
         '''
-        
-        # point-wise evaluation
-        if isinstance(eta1, float) and isinstance(eta2, float) and isinstance(eta3, float):
-            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+
+        # evaluation for point pairs of 1d arrays of same length at three directions
+        if kind_eva == 'flat':
+            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+            assert eta1.size == eta2.size == eta3.size
+            
+            values = np.empty(eta1.size, dtype=float)
+            
+            mapping.kernel_evaluate_flat(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
             
             return values
+        
+        else:
 
-        # array evaluation or list evaluation (which would be transformed to array firstly)
-        else: 
-            arg_x, arg_y, arg_z = prepare_args(eta1, eta2, eta3)
+            E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
 
-            # evaluation for point pairs of 1d arrays of same length at three directions
-            if kind_eva == 'flat':
-                assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-                assert arg_x.size == arg_y.size == arg_z.size
-                
-                values = np.empty(arg_x.size, dtype=float)
-                
-                mapping.kernel_evaluate_flat(arg_x, arg_y, arg_z, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                
-                return values
-            
+            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+            if is_sparse_meshgrid:
+                mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
             else:
-
-                is_sparse_meshgrid = None
-                # given three 1D arrays or list case
-                # tensor-product evaluation for given three 1D arrays (only to check one of eta1, 2, 3 is 1D)
-                if arg_x.ndim == 1 or arg_y.ndim == 1 or arg_z.ndim == 1:
-                    assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-                    E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij', sparse=True)
-                    is_sparse_meshgrid = True
-                # given three 3D arrays or list case
-                # general evaluation
-                else:
-                    # Distinguish if input coordinates are from sparse or dense meshgrid.
-                    # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
-                    # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
-                    E1, E2, E3 = arg_x, arg_y, arg_z
-
-                    # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-                    if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-                        assert max(arg_x.shape) == arg_x.size
-                        assert max(arg_y.shape) == arg_y.size
-                        assert max(arg_z.shape) == arg_z.size
-                        is_sparse_meshgrid = True
-                    # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
-                    else:
-                        is_sparse_meshgrid = False
-
-                values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-
-                if is_sparse_meshgrid:
-                    mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                else:
-                    mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
             values = values.squeeze()
 
             return values
-
-
-    # ================================
-    def evaluate_12(self, eta1, eta2, eta3, kind_fun):
-        '''Evaluate mapping/metric coefficients in the 12-plane at one point eta3. 
-        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
-
-        Parameters
-        -----------
-            eta1, eta2:   array-like
-                logical coordinates in plane at eta3 
-            eta3:   float
-            kind_fun:   integer
-                what metric coefficient to evaluate, see keys_map
-
-        Returns
-        --------
-            values: 2d array
-                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
-                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
-                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-                - matrix: E1 = eta1[:, :, None], E2 = eta2[:, :, None], E3 = eta3*np.ones(E1.shape)
-        '''
-        
-        # point-wise evaluation
-        if isinstance(eta1, float):
-            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
-        
-        # array evaluation
-        elif isinstance(eta1, np.ndarray):
-            
-            # tensor-product evaluation
-            if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-            
-            # general evaluation
-            else:
-                E1 = eta1[:, :, None]
-                E2 = eta2[:, :, None]
-                E3 = eta3*np.ones(E1.shape)
-                
-            values = np.empty((E1.shape[0], E1.shape[1], 1), dtype=float)
-                
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                
-        else:
-            raise ValueError('given evaluation points are in wrong shape')
-            
-        return np.squeeze(values)
-
-
-    # ================================
-    def evaluate_13(self, eta1, eta2, eta3, kind_fun):
-        '''Evaluate mapping/metric coefficients in the 13-plane at one point eta2. 
-        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
-
-        Parameters
-        -----------
-            eta1, eta3:   array-like
-                logical coordinates in plane at eta2 
-            eta2:   float
-            kind_fun:   integer
-                what metric coefficient to evaluate, see keys_map
-
-        Returns
-        --------
-            values: 2d array
-                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
-                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
-                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-                - matrix: E1 = eta1[:, None, :], E2 = eta2*np.ones(E1.shape), E3 = eta3[:, None, :]
-        '''
-
-        # point-wise evaluation
-        if isinstance(eta1, float):
-            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
-        
-        # array evaluation
-        elif isinstance(eta1, np.ndarray):
-            
-            # tensor-product evaluation
-            if eta1.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-            
-            # general evaluation
-            else:
-                E1 = eta1[:, None, :]
-                E2 = eta2*np.ones(E1.shape)
-                E3 = eta3[:, None, :]
-
-            values = np.empty((E1.shape[0], 1, E1.shape[2]), dtype=float)
-                
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                
-        else:
-            raise ValueError('given evaluation points are in wrong shape')
-            
-        return np.squeeze(values)
-
-
-    # ================================
-    def evaluate_23(self, eta1, eta2, eta3, kind_fun):
-        '''Evaluate mapping/metric coefficients in the 23-plane at one point eta1. 
-        Depending on the dimension of eta1 either point-wise, tensor-product (meshgrid) or matrix.
-
-        Parameters
-        -----------
-            eta2, eta3:   array-like
-                logical coordinates in plane at eta1 
-            eta1:   float
-            kind_fun:   integer
-                what metric coefficient to evaluate, see keys_map
-
-        Returns
-        --------
-            values: 2d array
-                mapping/metric coefficients evaluated at (E1, E2, E3) and then squeezed, where
-                - point-wise: E1 = eta1, E2 = eta2, E3 = eta3
-                - tensor-product: E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-                - matrix: E1 = eta1*np.ones(E2.shape), E2 = eta2[None, :, :], E3 = eta3[None, :, :]
-        '''
-
-        # point-wise evaluation
-        if isinstance(eta2, float):
-            values = mapping.mappings_all(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
-        
-        # array evaluation
-        elif isinstance(eta2, np.ndarray):
-            
-            # tensor-product evaluation
-            if eta2.ndim == 1:
-                E1, E2, E3 = np.meshgrid(eta1, eta2, eta3, indexing='ij')
-            
-            # general evaluation
-            else:
-                E2 = eta2[None, :, :]
-                E3 = eta3[None, :, :]
-                E1 = eta1*np.ones(E2.shape)
-
-            values = np.empty((1, E1.shape[1], E1.shape[2]), dtype=float)
-                
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-                
-        else:
-            raise ValueError('given evaluation points are in wrong shape')
-            
-        return np.squeeze(values)
 
        
     # ================================
-    def pull(self, a, eta1, eta2, eta3=0., kind_fun='0-form'):
+    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form'):
         '''Pullback of p-forms. 
-        Depending on the dimension of eta1 either point-wise, tensor-product or general.
+
+        Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
         Parameters
-        -----------
+        ----------
             a:  callable or array-like
-                the function a(x, y, z) to be pulled back (can be one component of a p-form)
+                The function a(x, y, z) to be pulled back (as list for components of 1- and 2-forms). 
             eta1, eta2, eta3:   array-like
-                logical coordinates to which to pull back
+                Logical coordinates to which to pull back
             kind_fun:   str
-                which p-form pull back to apply, see keys_pull
+                Which p-form pull back to apply, see keys_pull
 
         Returns
         -------
-            values: ndarray
-                pullback of p-form (component) evaluated at (eta1, eta2, eta3)
+            values: np.array
+                Pullback of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
-        
-        if isinstance(eta3, float):
-            eta3 = np.array([eta3])
 
-        # point-wise evaluation
-        if isinstance(eta1, float) and isinstance(eta2, float) and isinstance(eta3, float):
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+
+        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+        if isinstance(a, list):
             
-            if isinstance(a, list):
+            if callable(a[0]):
                 
-                if callable(a[0]):
-                    
-                    x = self.evaluate(eta1, eta2, eta3, 'x')
-                    y = self.evaluate(eta1, eta2, eta3, 'y')
-                    z = self.evaluate(eta1, eta2, eta3, 'z')
-                    
-                    a_in = [a[0](x, y, z), a[1](x, y, z), a[2](x, y, z)]
-                else:
-                    a_in =  a
-                    
+                X = self.evaluate(E1, E2, E3, 'x')
+                Y = self.evaluate(E1, E2, E3, 'y')
+                Z = self.evaluate(E1, E2, E3, 'z')
+                
+                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
             else:
+                a_in = np.array(a)
                 
-                if callable(a):
-                    
-                    x = self.evaluate(eta1, eta2, eta3, 'x')
-                    y = self.evaluate(eta1, eta2, eta3, 'y')
-                    z = self.evaluate(eta1, eta2, eta3, 'z')
-                    
-                    print(x, y, z)
-                    
-                    a_in = [a(x, y, z)]
-                else:
-                    a_in = [a]
-                    
-            values = pb.pull_all(a_in, eta1, eta2, eta3, self.keys_pull[kind_fun], self.kind_map, self.params_map,
-                                 self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
+        else:
             
-        
-        # array evaluation or list evaluation (which would be transformed to array firstly)
-        else: 
-            arg_x, arg_y, arg_z = prepare_args(eta1, eta2, eta3)
-
-            is_sparse_meshgrid = None
-
-            # tensor-product evaluation
-            if arg_x.ndim == 1 or arg_y.ndim == 1 or arg_z.ndim == 1:
-                assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-                E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij', sparse=True)
-                is_sparse_meshgrid = True
-
-            # general evaluation
-            else:
-                # Distinguish if input coordinates are from sparse or dense meshgrid.
-                # Sparse: eta1.shape = (n1,  1,  1)
-                # Dense : eta1.shape = (n1, n2, n3)
-                E1, E2, E3 = arg_x, arg_y, arg_z
-
-                # `eta1` is a sparse meshgrid.
-                if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-                    assert max(arg_x.shape) == arg_x.size
-                    assert max(arg_y.shape) == arg_y.size
-                    assert max(arg_z.shape) == arg_z.size
-                    is_sparse_meshgrid = True
-                # `eta1` is a dense meshgrid. Process each point as default.
-                else:
-                    is_sparse_meshgrid = False
-
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-
-            if isinstance(a, list):
+            if callable(a):
                 
-                if callable(a[0]):
-                    
-                    X = self.evaluate(E1, E2, E3, 'x')
-                    Y = self.evaluate(E1, E2, E3, 'y')
-                    Z = self.evaluate(E1, E2, E3, 'z')
-                    
-                    a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
-                else:
-                    a_in = np.array(a)
-                    
-            else:
+                X = self.evaluate(E1, E2, E3, 'x')
+                Y = self.evaluate(E1, E2, E3, 'y')
+                Z = self.evaluate(E1, E2, E3, 'z')
                 
-                if callable(a):
-                    
-                    X = self.evaluate(E1, E2, E3, 'x')
-                    Y = self.evaluate(E1, E2, E3, 'y')
-                    Z = self.evaluate(E1, E2, E3, 'z')
-                    
-                    a_in = np.array([a(X, Y, Z)])
-                else:
-                    a_in = np.array([a])
-
-            if is_sparse_meshgrid:
-                pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                a_in = np.array([a(X, Y, Z)])
             else:
-                pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+                a_in = np.array([a])
 
-            values = values.squeeze()
+        if is_sparse_meshgrid:
+            pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        else:
+            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        #else:
-        #    raise ValueError('given evaluation points are in wrong shape')
-    
-        return values
+        return values.squeeze()
         
     
     # ================================
-    def push(self, a, eta1, eta2, eta3=None, kind_fun='0-form'):
+    def push(self, a, eta1, eta2, eta3, kind_fun='0-form'):
         '''Push-forward of p-forms. 
-        Depending on the dimension of eta1 either point-wise, tensor-product or general.
+
+        Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
         
         Parameters
         -----------
             a:  callable or array-like
-                the function a(eta1, eta2, eta3) to be pushed forward (can be one component of a p-form)
+                The function a(eta1, eta2, eta3) to be pushed forward (as list for components of 1- and 2-forms).
             eta1, eta2, eta3:   array-like
-                logical coordinates at which to push forward
+                Logical coordinates at which to push forward
             kind_fun:   str
-                which p-form push forward to apply, see keys_push
+                Which p-form push forward to apply, see keys_push
 
         Returns
         --------
             values: ndarray
-                push forward of p-form (component) evaluated at (eta1, eta2, eta3)
+                Push forward of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
+        
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
 
-        if eta3 is None:
-            eta3 = np.array([0.])
-        
-        # point-wise evaluation
-        if isinstance(eta1, float) and isinstance(eta2, float) and isinstance(eta3, float):
+        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+        if isinstance(a, list):
             
-            if isinstance(a, list):
-                
-                if callable(a[0]):
-                    a_in = [a[0](eta1, eta2, eta3), a[1](eta1, eta2, eta3), a[2](eta1, eta2, eta3)]
-                else:
-                    a_in =  a
-                    
+            if callable(a[0]):
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
             else:
+                a_in = np.array(a)
                 
-                if callable(a):
-                    a_in = [a(eta1, eta2, eta3)]
-                else:
-                    a_in = [a]
-                    
-            values = pf.push_all(a_in, eta1, eta2, eta3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz)
-            
-        
-        # array evaluation or list evaluation (which would be transformed to array firstly)
         else:
-            arg_x, arg_y, arg_z = prepare_args(eta1, eta2, eta3)
-
-            is_sparse_meshgrid = None
-
-            # tensor-product evaluation
-            if arg_x.ndim == 1 or arg_y.ndim == 1 or arg_z.ndim == 1:
-                assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-                E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij', sparse=True)
-                is_sparse_meshgrid = True
-
-            # general evaluation
+            
+            if callable(a):
+                a_in = np.array([a(E1, E2, E3)])
             else:
-                # Distinguish if input coordinates are from sparse or dense meshgrid.
-                # Sparse: eta1.shape = (n1,  1,  1), eta2.shape = (n1,  1,  1), eta3.shape = (n1,  1,  1)
-                # Dense : eta1.shape = (n1, n2, n3), eta2.shape = (n1, n2, n3), eta3.shape = (n1, n2, n3)
-                E1, E2, E3 = arg_x, arg_y, arg_z
+                a_in = np.array([a])
 
-                # `eta1` is a sparse meshgrid.
-                if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size: 
-                    assert max(arg_x.shape) == arg_x.size
-                    assert max(arg_y.shape) == arg_y.size
-                    assert max(arg_z.shape) == arg_z.size
-                    is_sparse_meshgrid = True
-                # `eta1` is a dense meshgrid. Process each point as default.
-                else:
-                    is_sparse_meshgrid = False
-
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
-
-            if isinstance(a, list):
-                
-                if callable(a[0]):
-                    a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
-                else:
-                    a_in = np.array(a)
-                    
-            else:
-                
-                if callable(a):
-                    a_in = np.array([a(E1, E2, E3)])
-                else:
-                    a_in = np.array([a])
-
-            if is_sparse_meshgrid:
-                pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-            else:
-                pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-
-            values = values.squeeze()
-
-        #else:
-        #    raise ValueError('given evaluation points are in wrong shape')
+        if is_sparse_meshgrid:
+            pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        else:
+            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
     
-        return values
+        return values.squeeze()
 
 

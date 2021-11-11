@@ -29,6 +29,7 @@ geometry :
             file     : 'spline_coeffs.txt'  
       params_spline_cyl :
             a        : 1. # minor radius
+            R0       : 0. # major radius (shift of pole from zero)
             Lz       : 4. # length of cylinder
             Nel      : [16, 2] # number of grid cells > 1
             p        : [3, 1] # spline degree > 0

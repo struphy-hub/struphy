@@ -47,6 +47,7 @@ setup(
         'sphinx-rtd-theme', 
         'm2r2',
         'vtk',
+        'docutils==0.15',
     ],
     # more information, necessary for an upload to PyPI
     author="Stefan Possanner",
