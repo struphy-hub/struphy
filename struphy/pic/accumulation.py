@@ -233,7 +233,7 @@ class accumulation:
     # ===============================================================
     def accumulate_step1(self, particles_loc, b2_eq, b2, mpi_comm):
         
-        b2_1, b2_2, b2_3 = self.space.extract_2form(b2)
+        b2_1, b2_2, b2_3 = self.space.extract_2(b2)
         
         if self.space.dim == 2:
             
@@ -251,7 +251,7 @@ class accumulation:
     # ===============================================================
     def accumulate_step3(self, particles_loc, b2_eq, b2, mpi_comm):
         
-        b2_1, b2_2, b2_3 = self.space.extract_2form(b2)
+        b2_1, b2_2, b2_3 = self.space.extract_2(b2)
         
         if self.space.dim == 2:
             
@@ -283,7 +283,7 @@ class accumulation:
         # delta-f correction
         if self.control:
             
-            b2_1, b2_2, b2_3 = self.space.extract_2form(b2)
+            b2_1, b2_2, b2_3 = self.space.extract_2(b2)
             
             if self.space.dim == 2:
                 self.cont.correct_step1(b2_eq[0], b2_eq[1], b2_eq[2])
@@ -316,7 +316,7 @@ class accumulation:
         # delta-f correction
         if self.control:
             
-            b2_1, b2_2, b2_3 = self.space.extract_2form(b2)
+            b2_1, b2_2, b2_3 = self.space.extract_2(b2)
         
             if self.space.dim == 2:
                 self.cont.correct_step3(b2_1, b2_2, b2_3)

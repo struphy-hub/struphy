@@ -1778,9 +1778,9 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^0 * 3}
         #assert len(x) == self.space.Ntot_0form * 3
-        # x_loc_1 = self.space.extract_0form(np.split(x,3)[0])
-        # x_loc_2 = self.space.extract_0form(np.split(x,3)[1])
-        # x_loc_3 = self.space.extract_0form(np.split(x,3)[2])
+        # x_loc_1 = self.space.extract_0(np.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0(np.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         x_loc_1 = self.space.extract_0(x[0])
@@ -2693,9 +2693,9 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^0 * 3}
         #assert len(x) == self.space.Ntot_0form * 3
-        # x_loc_1 = self.space.extract_0form(np.split(x,3)[0])
-        # x_loc_2 = self.space.extract_0form(np.split(x,3)[1])
-        # x_loc_3 = self.space.extract_0form(np.split(x,3)[2])
+        # x_loc_1 = self.space.extract_0(np.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0(np.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0(np.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         x_loc_1 = self.space.extract_0(x[0])

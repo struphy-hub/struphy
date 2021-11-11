@@ -1,6 +1,7 @@
-def test_template_gvec(num_s=21, num_u=4, num_v=5):
+def test_polar_splines_3D():
     """
-    Test if `simulations/template_gvec/equilibrium_MHD.py` runs correctly.
+    Test constructing 3D polar splines for a non-axisymmetric GVEC equilibrium 
+    via an intermediate axisymmetric torus mapping.
     """
 
     # ============================================================
@@ -224,67 +225,5 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
 
 
 
-    # ============================================================
-    # Draw 1D profiles.
-    # ============================================================
-
-    num_pts = 20
-    eta1_range, eta2_range, eta3_range = np.linspace(0,1,num_pts), np.linspace(0,1,num_pts,endpoint=False), np.linspace(0,1,5,endpoint=False)
-    eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
-    print('Shapes of eta1, eta2, eta3:', eta1.shape, eta2.shape, eta3.shape)
-
-    j2_1 = eq_mhd.j2_eq_1(eta1,eta2,eta3)
-    print('j2_1.shape: {}'.format(j2_1.shape))
-
-    # Doesn't work either.
-    # j_x = eq_mhd.j_eq_x(eta1,eta2,eta3)
-    # print('j_x.shape: {}'.format(j_x.shape))
-
-    print('It works! Because I commented out the parts that don\'t work!')
-
-
-
-    # ============================================================
-    # Write to ParaView.
-    # ============================================================
-
-    import vtk
-    from struphy.io.out.paraview.vtk_writer import vtkWriter
-    import struphy.io.out.paraview.mesh_creator as MC
-
-    print(f'Writing result to ParaView')
-    print(f'VTK version: {vtk.vtkVersion.GetVTKVersion()}')
-
-    # Output directory.
-    vtk_dir = os.path.join(basedir, 'paraview_output')
-
-    # Class implementation of a ParaView writer.
-    writer = vtkWriter('vtu')
-
-    # Sample points uniformly in (s, u, v) and convert them to (x, y, z).
-    # s_range = np.arange(0, 1.0001, 0.1)
-    # u_range = np.arange(0, 1.0000, 0.05)  # Skipping the last point because periodic.
-    # v_range = np.arange(0, 1.0000, 0.025) # Skipping the last point because periodic.
-    periodic = True
-    if periodic:
-        s_range = np.linspace(0, 1, num_s)
-        u_range = np.linspace(0, 1, num_u+1)[:-1] # Skipping the last point because periodic.
-        v_range = np.linspace(0, 1, num_v+1)[:-1] # Skipping the last point because periodic.
-    else:
-        s_range = np.linspace(0, 1, num_s)
-        u_range = np.linspace(0, 1, num_u)
-        v_range = np.linspace(0, 1, num_v)
-    use_GVEC_grid = True
-    if use_GVEC_grid:
-        s_range = np.array(gvec.data['grid']['sGrid'])
-    s_range[0] = 1e-12 # Bypass 0 if it blows up.
-
-    # TODO: Generalize MC functions to accept a map and an equilibrium_mhd class, instead of a GVEC class.
-    filename = 'GVEC_ellipStell_profile_update_State_0000_00010000'
-    MC.make_ugrid_and_write_vtu(filename, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic)
-    gvec.mapfull.clear_cache()
-
-
-
 if __name__ == "__main__":
-    test_template_gvec()
+    test_polar_splines_3D()

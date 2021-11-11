@@ -804,7 +804,7 @@ def update():
         
         # <<<<<<<<<<<<<<<<<<<<< charge accumulation (all processes) <<<<<<<<<<<<<<<<<
         timea = time.time()
-        acc.accumulate_step1(particles_loc, tensor_space_FEM.extract_2form(b2_eq), b2, mpi_comm)
+        acc.accumulate_step1(particles_loc, tensor_space_FEM.extract_2(b2_eq), b2, mpi_comm)
         timeb = time.time()
         times_elapsed['step1_1'] = timeb - timea
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -815,7 +815,7 @@ def update():
             
             # build global sparse matrix 
             timea = time.time()
-            mat   = nuh*alpha*params['Zh']/params['Ab']*acc.assemble_step1(Np, tensor_space_FEM.extract_2form(b2_eq), b2)
+            mat   = nuh*alpha*params['Zh']/params['Ab']*acc.assemble_step1(Np, tensor_space_FEM.extract_2(b2_eq), b2)
             timeb = time.time()
             times_elapsed['step1_2'] = timeb - timea
             #print('control_step1 : ', timeb - timea)
@@ -900,7 +900,7 @@ def update():
         
         # <<<<<<<<<<<<<<<<<< current accumulation (all processes) <<<<<<<<<<<<
         timea = time.time()
-        acc.accumulate_step3(particles_loc, tensor_space_FEM.extract_2form(b2_eq), b2, mpi_comm)
+        acc.accumulate_step3(particles_loc, tensor_space_FEM.extract_2(b2_eq), b2, mpi_comm)
         timeb = time.time()
         times_elapsed['step3_1'] = timeb - timea
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -915,7 +915,7 @@ def update():
             
             # build global sparse matrix and vector
             timea    = time.time()
-            mat, vec = acc.assemble_step3(Np, tensor_space_FEM.extract_2form(b2_eq), b2)
+            mat, vec = acc.assemble_step3(Np, tensor_space_FEM.extract_2(b2_eq), b2)
             mat      = nuh*alpha*params['Zh']/params['Ab']*mat
             vec      = nuh*alpha*params['Zh']/params['Ab']*vec
             timeb    = time.time()
@@ -956,12 +956,12 @@ def update():
         # <<<<<<<<<<<<<<<<<<<< update velocities <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         timea = time.time()
         
-        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
+        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2 + b2_eq)
         
         if basis_u == 0:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec((up + up_old)/2)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0((up + up_old)/2)
         else:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form((up + up_old)/2)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2((up + up_old)/2)
        
         pic_pusher.pusher_step3(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, np.zeros(N_0form, dtype=float), up_ten_1, up_ten_2, up_ten_3, basis_u, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz, np.zeros(Np_loc, dtype=float))
        
@@ -997,7 +997,7 @@ def update():
         # push particles
         timea = time.time()
         
-        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2 + b2_eq)
+        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2 + b2_eq)
         
         pic_pusher.pusher_step5_ana(particles_loc, alpha*params['Zh']/params['Ah']*dt, tensor_space_FEM.T[0], tensor_space_FEM.T[1], tensor_space_FEM.T[2], p, Nel, NbaseN, NbaseD, Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
         
@@ -1227,15 +1227,15 @@ if params['restart'] == False:
         file['energies/u_H'][0] = energies_H['U'][0]
         file['energies/p_H'][0] = energies_H['p'][0]
 
-        file['fem/p'][0] = tensor_space_FEM.extract_3form(p3)
-        file['fem/r'][0] = tensor_space_FEM.extract_3form(r3)
+        file['fem/p'][0] = tensor_space_FEM.extract_3(p3)
+        file['fem/r'][0] = tensor_space_FEM.extract_3(r3)
 
         if basis_u == 0:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec(up)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0(up)
         else:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form(up)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2(up)
 
-        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2)
+        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2)
 
         file['fem/u/1'][0] = up_ten_1
         file['fem/u/2'][0] = up_ten_2
@@ -1249,7 +1249,7 @@ if params['restart'] == False:
         file['fh/e3_vz'][0] = fh['e3_vz']
 
         file['fem/mass'][0] = sum(r3.flatten())
-        file['fem/divb'][0] = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
+        file['fem/divb'][0] = tensor_space_FEM.extract_3(tensor_space_FEM.D.dot(b2))
 
         file['particles'][0, :, :Np_loc]    = particles_loc
         file['restart/control_w0'][:Np_loc] = w0_loc
@@ -1456,15 +1456,15 @@ while True:
         # FEM coefficients
         file['fem/p'].resize(file['fem/p'].shape[0] + 1, axis = 0)
         file['fem/r'].resize(file['fem/r'].shape[0] + 1, axis = 0)
-        file['fem/p'][-1] = tensor_space_FEM.extract_3form(p3)
-        file['fem/r'][-1] = tensor_space_FEM.extract_3form(r3)
+        file['fem/p'][-1] = tensor_space_FEM.extract_3(p3)
+        file['fem/r'][-1] = tensor_space_FEM.extract_3(r3)
 
         if basis_u == 0:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0form_vec(up)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_0(up)
         else:
-            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2form(up)
+            up_ten_1, up_ten_2, up_ten_3 = tensor_space_FEM.extract_2(up)
 
-        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2form(b2)
+        b2_ten_1, b2_ten_2, b2_ten_3 = tensor_space_FEM.extract_2(b2)
 
         file['fem/u/1'].resize(file['fem/u/1'].shape[0] + 1, axis = 0)
         file['fem/u/2'].resize(file['fem/u/2'].shape[0] + 1, axis = 0)
@@ -1492,7 +1492,7 @@ while True:
         file['fem/mass'][-1] = sum(r3.flatten())
 
         file['fem/divb'].resize(file['fem/divb'].shape[0] + 1, axis = 0)
-        file['fem/divb'][-1] = tensor_space_FEM.extract_3form(tensor_space_FEM.D.dot(b2))
+        file['fem/divb'][-1] = tensor_space_FEM.extract_3(tensor_space_FEM.D.dot(b2))
 
     
     ## particles (need to be collected from all MPI processes first)

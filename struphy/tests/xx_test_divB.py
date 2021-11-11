@@ -20,7 +20,7 @@ def test_divB():
 
     import h5py
     import tempfile
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
     print(f'Created temp directory at: {temp_dir.name}')
 
     import numpy as np
@@ -29,7 +29,6 @@ def test_divB():
     print('Run diagnostics:', sys.argv[0])
 
     import struphy.geometry.domain_3d as dom
-    import struphy.feec.projectors.projectors_global as pro
     import struphy.feec.spline_space as spl
 
     # from gvec_to_python.base.base import Base
@@ -98,7 +97,7 @@ def test_divB():
         # Convert GVEC .dat output to .json.
         # ============================================================
 
-        read_filepath = 'struphy/models/mhd_equil/gvec/'
+        read_filepath = 'struphy/mhd_equil/gvec/'
         read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
         save_filepath = temp_dir.name
         save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
@@ -109,7 +108,7 @@ def test_divB():
         # ============================================================
 
         filepath = temp_dir.name
-        # filepath =  os.path.join(basedir, '..', filepath)
+        # filepath = os.path.join(basedir, '..', filepath)
         filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
         gvec = GVEC(filepath, filename)
 

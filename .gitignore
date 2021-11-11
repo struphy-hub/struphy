@@ -49,7 +49,8 @@ MANIFEST
 *.app
 *.err
 
-# others
+# Others
+.vscode/
 *.ipynb_*
 *__pyc*
 .DS_*

@@ -9,7 +9,7 @@ basedir = os.path.dirname(os.path.realpath(__file__))
 
 # Import necessary struphy.modules.
 import struphy.geometry.domain_3d as dom
-from struphy.gvec_to_python import GVEC, Form, Variable
+from gvec_to_python import GVEC, Form, Variable
 
 
 
@@ -383,7 +383,7 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         # Push to Cartesian.
         pushed_jx = self.domain.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_1')
@@ -406,7 +406,7 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         # Push to Cartesian.
         pushed_jy = self.domain.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_2')
@@ -429,7 +429,7 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         # Push to Cartesian.
         pushed_jz = self.domain.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_3')
@@ -453,7 +453,7 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         return j2_1
 
@@ -473,7 +473,7 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         return j2_2
 
@@ -493,6 +493,6 @@ class equilibrium_mhd:
 
         # Take discrete Curl.
         j2 = self.tensor_space.C.dot(b1_coeff_concat)
-        j2_1, j2_2, j2_3 = self.tensor_space.extract_2form(j2)
+        j2_1, j2_2, j2_3 = self.tensor_space.extract_2(j2)
 
         return j2_3

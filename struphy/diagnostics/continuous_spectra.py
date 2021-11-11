@@ -26,13 +26,13 @@ def get_continua(space_2d, omega2, U_eig, omega_A, DIV, div_tol, m_range):
         if abs(DIV.dot(U_eig[:, modes_ind[i]])).max() < div_tol:
         
             # determine radial location of singularity by looking for a peak in eigenfunction U2_1
-            coeff = abs(space_2d.extract_2form(U_eig[:, modes_ind[i]])[0])
+            coeff = abs(space_2d.extract_2(U_eig[:, modes_ind[i]])[0])
             
             r_ind = np.unravel_index(np.argmax(coeff), coeff.shape)[0]
             r = gN[r_ind]
             
             # perform fft to determine m
-            U2_1_fft = np.fft.fft(space_2d.extract_2form(U_eig[:, modes_ind[i]])[0])
+            U2_1_fft = np.fft.fft(space_2d.extract_2(U_eig[:, modes_ind[i]])[0])
             
             # determine m by looking for peak in Fourier spectrum at singularity
             m = np.argmax(abs(U2_1_fft[r_ind]))
@@ -49,13 +49,13 @@ def get_continua(space_2d, omega2, U_eig, omega_A, DIV, div_tol, m_range):
         else:
             
             # determine radial location of singularity by looking for a peak in eigenfunction U2_2
-            coeff = abs(space_2d.extract_2form(U_eig[:, modes_ind[i]])[1])
+            coeff = abs(space_2d.extract_2(U_eig[:, modes_ind[i]])[1])
             
             r_ind = np.unravel_index(np.argmax(coeff), coeff.shape)[0]
             r = gD[r_ind]
             
             # perform fft to determine m
-            U2_2_fft = np.fft.fft(space_2d.extract_2form(U_eig[:, modes_ind[i]])[1])
+            U2_2_fft = np.fft.fft(space_2d.extract_2(U_eig[:, modes_ind[i]])[1])
             
             # determine m by looking for peak in Fourier spectrum at singularity
             m = np.argmax(abs(U2_2_fft[r_ind]))
