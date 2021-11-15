@@ -15,8 +15,8 @@ from scipy.sparse.linalg import splu
 import struphy.geometry.mappings_3d               as mapping
 import struphy.geometry.pullback_3d               as pb
 import struphy.geometry.pushforward_3d            as pf
+import struphy.geometry.transform_3d              as tr
 import struphy.geometry.angular_coordinates_torus as angular
-
 import struphy.linear_algebra.linalg_kron as linalg
 
 import struphy.feec.bsplines  as bsp
@@ -471,8 +471,18 @@ class Domain:
             '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 
             'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33
             }
+
+        # keys for performing transformation
+        self.keys_transform = {
+            'norm_to_0' : 0, 'norm_to_3' : 3,
+            'norm_to_1_1' : 11, 'norm_to_1_2' : 12, 'norm_to_1_3' : 13,
+            'norm_to_2_1' : 21, 'norm_to_2_2' : 22, 'norm_to_2_3' : 23,
+            'norm_to_vector_1' : 31, 'norm_to_vector_2' : 32, 'norm_to_vector_3' : 33,
+            '1_to_1_1' : 41, '1_to_1_1' : 42, '1_to_1_1' : 43,
+            '1_to_1_1' : 51, '1_to_1_1' : 52, '1_to_1_1' : 53,
+            '0_to_3' : 4, '3_to_0' : 5}
        
-    
+
     # ================================
     def evaluate(self, eta1, eta2, eta3, kind_fun, kind_eva='meshgrid'):
         '''Evaluate mapping/metric coefficients. 
@@ -620,6 +630,65 @@ class Domain:
         else:
             pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
     
+        return values.squeeze()
+
+
+    # ================================
+    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0'):
+        '''transformation between different geometries on logical domain. 
+        
+        Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
+
+        Parameters
+        ----------
+            a:  callable or array-like
+                the function a(eta1, eta2, eta3) to be transformed
+            eta1, eta2, eta3:   array-like
+                logical coordinates to which to transform
+            kind_fun:   str
+                which transform to apply, see key_transform
+
+        Returns
+        -------
+            values: ndarray
+                transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3)
+        '''
+        
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+
+        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+
+        if isinstance(a, list):
+            
+            if callable(a[0]):
+                
+                if is_sparse_meshgrid:
+                    ETA1, ETA2, ETA3 = np.meshgrid(E1[:,0,0], E2[0,:,0], E3[0,0,:], indexing='ij', sparse=False)
+                else:
+                    ETA1, ETA2, ETA3 = E1, E2, E3
+
+                a_in = np.array([a[0](ETA1, ETA2, ETA3), a[1](ETA1, ETA2, ETA3), a[2](ETA1, ETA2, ETA3)])
+            else:
+                a_in = np.array(a)
+                
+        else:
+            
+            if callable(a):
+                
+                if is_sparse_meshgrid:
+                    ETA1, ETA2, ETA3 = np.meshgrid(E1[:,0,0], E2[0,:,0], E3[0,0,:], indexing='ij', sparse=False)
+                else:
+                    ETA1, ETA2, ETA3 = E1, E2, E3
+
+                a_in = np.array([a(ETA1, ETA2, ETA3)])
+            else:
+                a_in = np.array([a])
+
+        if is_sparse_meshgrid:
+            tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        else:
+            tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+
         return values.squeeze()
 
 

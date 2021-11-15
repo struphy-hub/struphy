@@ -92,24 +92,30 @@ pic_equilibrium :
             shift_z : 0.
 
 mhd_init   : 
-      type : unperturbed # initialization of MHD variables (unperturbed, eigfun)
-      params_eigfun :
+      type : modes_k # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
+      coords : physical # (physical, norm_logical)
+      params_modes_k : # modes_k
+            target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
+            kx : [.8]
+            ky : [0.]
+            kz : [0.]
+            amp : [0.001]
+      params_modes_mn : # modes_mn 
+            target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
+            modes_m : [1]
+            modes_n : [1]
+            amp : [0.001]
+      params_eigfun : # eigenfun
             n_tor    : -1 # toroidal mode number
             profiles : False # project equilibrium profiles
             eig_kind : 11 # real (11) or imag (12) part
             eig_freq : 0. # squared eigenfreq.
+      params_noise : # noise
+            target : [b1, b2, b3, u1, u2, u3, p, r]
+            plane : yz # plane of noise (xy, xz, yz)
 
 pic_init   : 
-      type : noise # initialization of particles (noise, modes_k, modes_mn)
-      params_noise :
-            plane : yz # plane of noise (xy, xz, yz)
-      params_modes_k :
-            kx : [.8]
-            ky : [0.]
-            kz : [0.] 
-      params_modes_mn :
-            modes_m : [1]
-            modes_n : [1] 
+
 
 grid :
       Nel      : [16, 2, 2] # number of grid cells > 1

@@ -27,6 +27,7 @@ M3   := ${path_lib}geometry/mappings_3d
 MF3  := ${path_lib}geometry/mappings_3d_fast
 PB3  := ${path_lib}geometry/pullback_3d
 PF3  := ${path_lib}geometry/pushforward_3d
+TR3  := ${path_lib}geometry/transform_3d
 
 KM2  := ${path_lib}feec/basics/kernels_2d
 KM3  := ${path_lib}feec/basics/kernels_3d
@@ -43,7 +44,7 @@ PP   := ${path_lib}pic/pusher
 PA   := ${path_lib}pic/accumulation_kernels
 PS   := ${path_lib}pic/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -77,6 +78,9 @@ $(PB3)$(SO_EXT) : $(PB3).py $(M3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(PF3)$(SO_EXT) : $(PF3).py $(M3)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
+$(TR3)$(SO_EXT) : $(TR3).py $(M3)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(KM2)$(SO_EXT) : $(KM2).py
