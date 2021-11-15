@@ -105,11 +105,50 @@ def execute(file_in, path_out, mode):
     if params['grid']['polar']:
         SPACES.set_polar_splines(DOMAIN.cx[:, :, 0], DOMAIN.cy[:, :, 0])
 
-    SPACES.set_projectors('general', params['grid']['nq_pr'])
+    SPACES.set_projectors('general')
     print('FEEC spaces set.')
 
+    # ======= reserve memory for FEM cofficients (all MPI processes) ========
+    NbaseN  = SPACES.NbaseN
+    NbaseD  = SPACES.NbaseD
+
+    N_0form = SPACES.Nbase_0form
+    N_1form = SPACES.Nbase_1form
+    N_2form = SPACES.Nbase_2form
+    N_3form = SPACES.Nbase_3form
+
+    # N_dof_all_0form = SPACES.E0_all.shape[0]
+    # N_dof_all_1form = SPACES.E1_all.shape[0]
+    # N_dof_all_2form = SPACES.E2_all.shape[0]
+    # N_dof_all_3form = SPACES.E3_all.shape[0]
+
+    N_dof_0form = SPACES.E0.shape[0]
+    N_dof_1form = SPACES.E1.shape[0]
+    N_dof_2form = SPACES.E2.shape[0]
+    N_dof_3form = SPACES.E3.shape[0]
+
+    r3 = np.zeros(N_dof_3form, dtype=float)
+    b2 = np.zeros(N_dof_2form, dtype=float)
+
+    if   params['forms']['basis_p'] == 0:
+        pp = np.zeros(N_dof_0form, dtype=float)
+    elif params['forms']['basis_p'] == 3:
+        pp = np.zeros(N_dof_3form, dtype=float)
+
+    if params['forms']['basis_u'] == 1:
+        up     = np.zeros(N_dof_1form, dtype=float)
+        up_old = np.zeros(N_dof_1form, dtype=float)
+    # elif   params['forms']['basis_u'] == 0:
+    #     up     = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
+    #     up_old = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
+    elif params['forms']['basis_u'] == 2:
+        up     = np.zeros(N_dof_2form, dtype=float)
+        up_old = np.zeros(N_dof_2form, dtype=float)
+    # =======================================================================
+
     # initialize mhd variables 
-    MHD = mhd_init.Initialize_mhd(DOMAIN, SPACES, file_in) 
+    MHD_ini = mhd_init.Initialize_mhd(DOMAIN, SPACES, file_in)
+    MHD_ini.initialize(r3, pp, b2, up) 
     print('MHD variables initialized.')
 
     # assemble mass matrices
