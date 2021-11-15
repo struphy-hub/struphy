@@ -8,20 +8,25 @@ def test_evaluation_mappings():
     from struphy.geometry import domain_3d
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
-    
-    print(file_in)
+    print(f'Path to parameters file: {file_in}')
 
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    kind_maps   = ['cuboid',
-                   'orthogonal',
-                   'colella',
-                   'hollow_cyl',
-                   'hollow_torus',
-                   'spline_cyl',
-                   'spline_torus',
-                   ]
+    # Update path to sample spline coefficients.
+    params['geometry']['params_spline']['file'] = sysconfig.get_path("platlib") + '/struphy/' + params['geometry']['params_spline']['file']
+    print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
+
+    kind_maps = [
+        'cuboid',
+        'orthogonal',
+        'colella',
+        'hollow_cyl',
+        'hollow_torus',
+        'spline',
+        'spline_cyl',
+        'spline_torus',
+    ]
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -37,8 +42,10 @@ def test_evaluation_mappings():
         print()
         print('Domain object set.')
 
-        print('kind_map  :', DOMAIN.kind_map)
-        print('params_map:', DOMAIN.params_map)
+        print('yaml\'s kind_map     :', kind_map)
+        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         # point-wise evaluation:
         assert DOMAIN.evaluate(.5, .5, .5, 'x').size == 1
@@ -157,20 +164,25 @@ def test_pullback():
     from struphy.geometry import domain_3d
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
-    
-    print(file_in)
+    print(f'Path to parameters file: {file_in}')
 
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    kind_maps   = ['cuboid',
-                   'orthogonal',
-                   'colella',
-                   'hollow_cyl',
-                   'hollow_torus',
-                   'spline_cyl',
-                   'spline_torus',
-                   ]
+    # Update path to sample spline coefficients.
+    params['geometry']['params_spline']['file'] = sysconfig.get_path("platlib") + '/struphy/' + params['geometry']['params_spline']['file']
+    print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
+
+    kind_maps = [
+        'cuboid',
+        'orthogonal',
+        'colella',
+        'hollow_cyl',
+        'hollow_torus',
+        'spline',
+        'spline_cyl',
+        'spline_torus',
+    ]
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -189,8 +201,10 @@ def test_pullback():
         print()
         print('Domain object set.')
 
-        print('kind_map  :', DOMAIN.kind_map)
-        print('params_map:', DOMAIN.params_map)
+        print('yaml\'s kind_map     :', kind_map)
+        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_pull:
 
@@ -274,20 +288,25 @@ def test_pushforward():
     from struphy.geometry import domain_3d
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
-    
-    print(file_in)
+    print(f'Path to parameters file: {file_in}')
 
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    kind_maps   = ['cuboid',
-                   'orthogonal',
-                   'colella',
-                   'hollow_cyl',
-                   'hollow_torus',
-                   'spline_cyl',
-                   'spline_torus',
-                   ]
+    # Update path to sample spline coefficients.
+    params['geometry']['params_spline']['file'] = sysconfig.get_path("platlib") + '/struphy/' + params['geometry']['params_spline']['file']
+    print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
+
+    kind_maps = [
+        'cuboid',
+        'orthogonal',
+        'colella',
+        'hollow_cyl',
+        'hollow_torus',
+        'spline',
+        'spline_cyl',
+        'spline_torus',
+    ]
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -306,8 +325,10 @@ def test_pushforward():
         print()
         print('Domain object set.')
 
-        print('kind_map  :', DOMAIN.kind_map)
-        print('params_map:', DOMAIN.params_map)
+        print('yaml\'s kind_map     :', kind_map)
+        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_push:
 
@@ -391,20 +412,25 @@ def test_transformation():
     from struphy.geometry import domain_3d
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
-    
-    print(file_in)
+    print(f'Path to parameters file: {file_in}')
 
     with open(file_in) as file:
         params = yaml.load(file, Loader=yaml.FullLoader)
 
-    kind_maps   = ['cuboid',
-                   'orthogonal',
-                   'colella',
-                   'hollow_cyl',
-                   'hollow_torus',
-                   'spline_cyl',
-                   'spline_torus',
-                   ]
+    # Update path to sample spline coefficients.
+    params['geometry']['params_spline']['file'] = sysconfig.get_path("platlib") + '/struphy/' + params['geometry']['params_spline']['file']
+    print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
+
+    kind_maps = [
+        'cuboid',
+        'orthogonal',
+        'colella',
+        'hollow_cyl',
+        'hollow_torus',
+        'spline',
+        'spline_cyl',
+        'spline_torus',
+    ]
 
     # arrays:
     arr1 = np.linspace(0., 1., 4)
@@ -423,8 +449,10 @@ def test_transformation():
         print()
         print('Domain object set.')
 
-        print('kind_map  :', DOMAIN.kind_map)
-        print('params_map:', DOMAIN.params_map)
+        print('yaml\'s kind_map     :', kind_map)
+        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_transform:
 

@@ -20,13 +20,20 @@ setup(
     #             'struphy.models.distribution_functions',
     #             'struphy.models.MHD_equil',
     #             ],
-    package_data={'struphy.models.mhd_equil': ['gvec/*.dat'],
-                  'struphy.io': ['batch/*.sh'],
-                  'struphy.io.inp': ['cc_lin_mhd_6d/*.yml',
-                                    'massless_extended/*.yml',
-                                    'pc_lin_mhd_6d/*.yml',],
-                  'struphy': ['compile_struphy.mk'],
-                  },
+    package_data={
+        'struphy.mhd_equil': [
+            'gvec/*.dat',
+            'gvec/*.json',
+            'gvec/*.hdf5',
+        ],
+        'struphy.io': ['batch/*.sh'],
+        'struphy.io.inp': [
+            'cc_lin_mhd_6d/*.yml',
+            'massless_extended/*.yml',
+            'pc_lin_mhd_6d/*.yml',
+        ],
+        'struphy': ['compile_struphy.mk'],
+    },
     # list of executable(s) that come with the package (if applicable)
     scripts=['scripts/struphy'],
     # list of package dependencies (if necessary)
