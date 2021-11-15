@@ -6,13 +6,13 @@
 Modules to compute mass matrices in 3D.
 """
 
-
 import numpy        as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
 
-import struphy.linear_algebra.linalg_kron as linkron
+
+
 
 
 

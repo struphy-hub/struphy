@@ -56,3 +56,24 @@ def cross(a, b, c):
     c[0] = a[1]*b[2] - a[2]*b[1]
     c[1] = a[2]*b[0] - a[0]*b[2]
     c[2] = a[0]*b[1] - a[1]*b[0]
+    
+    
+# =========================================
+@types('double[:,:]','double[:,:]')
+def matrix_inv(a, b):
+    
+    # inverse determinant
+    over_det_a = 1.0 / det(a)
+
+    # inverse matrix
+    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) * over_det_a
+    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) * over_det_a
+    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) * over_det_a
+
+    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) * over_det_a
+    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) * over_det_a
+    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) * over_det_a
+
+    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) * over_det_a
+    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) * over_det_a
+    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) * over_det_a

@@ -10,7 +10,7 @@ Modules to compute inner products with given functions in 3D.
 import numpy        as np
 import scipy.sparse as spa
 
-import struphy.feec.basics.kernels_3d as ker
+import struphy.utilitis_FEEC.basics.kernels_3d as ker
 
 
 # ================ inner product in V0 ===========================
@@ -32,7 +32,7 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
+    indN   = tensor_space_FEM.indN    # global indices of local non-vanishing basis functions in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -54,13 +54,15 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
         mat_f[:, :, :] = fun
     
     # assembly
-    F = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
+    Ni = tensor_space.Nbase_0form
+    
+    F = np.zeros((Ni[0], Ni[1], Ni[2]), dtype=float)
     
     mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], NbaseN[0], NbaseN[1], NbaseN[2], F, mat_f*det_df)
+    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], F, mat_f*det_df)
                 
-    return tensor_space_FEM.E0.dot(F.flatten())
+    return tensor_space_FEM.E0_0.dot(F.flatten())
 
 
 # ================ inner product in V1 ===========================
@@ -80,8 +82,8 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
+    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index) 
+    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -91,10 +93,8 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
     # basis functions of components of a 1-form
+    ind   = [[indD[0], indN[1], indN[2]], [indN[0], indD[1], indN[2]], [indN[0], indN[1], indD[2]]] 
     basis = [[basisD[0], basisN[1], basisN[2]], [basisN[0], basisD[1], basisN[2]], [basisN[0], basisN[1], basisD[2]]]
-    
-    Nbase = [[NbaseD[0], NbaseN[1], NbaseN[2]], [NbaseN[0], NbaseD[1], NbaseN[2]], [NbaseN[0], NbaseN[1], NbaseD[2]]]
-    
     ns    = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
@@ -113,21 +113,21 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
         quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
     
     # components of global inner product
-    F = [np.zeros((Nbase[0], Nbase[1], Nbase[2])) for Nbase in Nbase]
+    F = [0, 0, 0]
     
     # assembly
     for a in range(3):
         
-        ni1,    ni2,    ni3    = ns[a]
-        bi1,    bi2,    bi3    = basis[a]
-        Nbase1, Nbase2, Nbase3 = Nbase[a]
+        Ni = tensor_space_FEM.Nbase_1form[a]
+        
+        F[a] = np.zeros((Ni[0], Ni[1], Ni[2]), dtype=float)
         
         mat_f[:, :, :] = 0.
         
         for b in range(3):
             
             # evaluate inverse metric tensor g^ab at quadrature points
-            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a, b])
+            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b])
             
             # evaluate g^ab * f_b at quadrature points
             if callable(fun[b]):
@@ -137,9 +137,9 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
             
         mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])    
         
-        ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f*det_df)
+        ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], ind[a][0], ind[a][1], ind[a][2], F[a], mat_f*det_df)
             
-    return tensor_space_FEM.E1.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
+    return tensor_space_FEM.E1_0.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
 
 
 # ================ inner product in V2 ===========================
@@ -159,8 +159,8 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseN = tensor_space_FEM.NbaseN  # total number of basis functions (N)
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (D)
+    indN   = tensor_space_FEM.indN    # global indices of non-vanishing basis functions (N) in format (element, global index) 
+    indD   = tensor_space_FEM.indD    # global indices of non-vanishing basis functions (D) in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points
@@ -170,10 +170,8 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points (D)
     
     # basis functions of components of a 2-form
+    ind   = [[indN[0], indD[1], indD[2]], [indD[0], indN[1], indD[2]], [indD[0], indD[1], indN[2]]] 
     basis = [[basisN[0], basisD[1], basisD[2]], [basisD[0], basisN[1], basisD[2]], [basisD[0], basisD[1], basisN[2]]]
-    
-    Nbase = [[NbaseN[0], NbaseD[1], NbaseD[2]], [NbaseD[0], NbaseN[1], NbaseD[2]], [NbaseD[0], NbaseD[1], NbaseN[2]]]
-    
     ns    = [[0, 1, 1], [1, 0, 1], [1, 1, 0]]
     
     # evaluation of |det(DF)| at quadrature points in format (Nel1, nq1, Nel2, nq2, Nel3, nq3)
@@ -192,21 +190,21 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
         quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij') 
     
     # components of global inner product
-    F = [np.zeros((Nbase[0], Nbase[1], Nbase[2])) for Nbase in Nbase]
+    F = [0, 0, 0]
     
     # assembly
     for a in range(3):
         
-        ni1,    ni2,    ni3    = ns[a]
-        bi1,    bi2,    bi3    = basis[a]
-        Nbase1, Nbase2, Nbase3 = Nbase[a]
+        Ni = tensor_space_FEM.Nbase_2form[a]
+        
+        F[a] = np.zeros((Ni[0], Ni[1], Ni[2]), dtype=float)
         
         mat_f[:, :, :] = 0.
         
         for b in range(3):
             
             # evaluate metric tensor g_ab at quadrature points
-            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a, b])
+            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), kind_funs[a][b])
             
             # evaluate g_ab * f_b at quadrature points
             if callable(fun[b]):
@@ -216,9 +214,9 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
             
         mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])    
         
-        ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ni1, ni2, ni3, wts[0], wts[1], wts[2], bi1, bi2, bi3, Nbase1, Nbase2, Nbase3, F[a], mat_f/det_df)
+        ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], ind[a][0], ind[a][1], ind[a][2], F[a], mat_f/det_df)
             
-    return tensor_space_FEM.E2.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
+    return tensor_space_FEM.E2_0.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
 
 
 # ================ inner product in V3 ===========================
@@ -238,7 +236,7 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     
     p      = tensor_space_FEM.p       # spline degrees
     Nel    = tensor_space_FEM.Nel     # number of elements
-    NbaseD = tensor_space_FEM.NbaseD  # total number of basis functions (N)
+    indD   = tensor_space_FEM.indD    # global indices of local non-vanishing basis functions in format (element, global index)
     
     n_quad = tensor_space_FEM.n_quad  # number of quadrature points per element
     pts    = tensor_space_FEM.pts     # global quadrature points in format (element, local quad_point)
@@ -250,7 +248,7 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2])
     
-    # evaluation of given 0-form at quadrature points
+    # evaluation of given 3-form at quadrature points
     mat_f  = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
     
     if callable(fun):
@@ -260,8 +258,10 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
         mat_f[:, :, :] = fun
     
     # assembly
-    F = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
+    Ni = tensor_space.Nbase_3form
     
-    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], NbaseD[0], NbaseD[1], NbaseD[2], F, mat_f/det_df)
+    F = np.zeros((Ni[0], Ni[1], Ni[2]), dtype=float)
+    
+    ker.kernel_inner(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], F, mat_f/det_df)
                 
-    return tensor_space_FEM.E3.dot(F.flatten())
+    return tensor_space_FEM.E3_0.dot(F.flatten())

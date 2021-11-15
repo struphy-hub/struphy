@@ -14,7 +14,6 @@ import struphy.feec.spline_space as spl
 
 import struphy.linear_algebra.linalg_kron as linkron
 
-import struphy.feec.basics.mass_matrices_1d as mass_1d
 
 
 # ================ inverse mass matrix in V0 ===========================

@@ -10,7 +10,7 @@ Class for control variates in delta-f method for current coupling scheme.
 import numpy        as np
 import scipy.sparse as spa
 
-
+import struphy.feec.basics.kernels_2d as ker2
 import struphy.feec.basics.kernels_3d as ker3
 
 
@@ -30,7 +30,7 @@ class terms_control_variate:
         object for kinetic equilibrium data
     """
     
-    def __init__(self, tensor_space_FEM, basis_u, eq_pic):
+    def __init__(self, tensor_space_FEM, domain, basis_u, eq_pic):
         
         self.space   = tensor_space_FEM         # 3D B-spline space  
         self.basis_u = basis_u                  # representation of MHD bulk velocity
@@ -44,12 +44,12 @@ class terms_control_variate:
             eta3 = self.space.pts[2].flatten()
         
         # evaluation of Jacobian determinant at quadrature points
-        det_DF = abs(eq_pic.domain.evaluate(self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'det_df'))
+        det_DF = abs(domain.evaluate(self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'det_df'))
         
         # evaluation of DF^(-1) * jh_eq_phys (* |det(DF)|) at quadrature points
-        self.mat_jh1 = eq_pic.domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_1')
-        self.mat_jh2 = eq_pic.domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_2')
-        self.mat_jh3 = eq_pic.domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_3')
+        self.mat_jh1 = domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_1')
+        self.mat_jh2 = domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_2')
+        self.mat_jh3 = domain.pull(jh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, 'vector_3')
         
         if self.basis_u == 0:
             self.mat_jh1 = self.mat_jh1*det_DF
@@ -58,7 +58,7 @@ class terms_control_variate:
             
         
         # evaluation of nh_eq_phys */ |det(DF)| at quadrature points
-        #self.mat_nh = eq_pic.domain.pull(nh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, '0_form')
+        #self.mat_nh = domain.pull(nh_phys, self.space.pts[0].flatten(), self.space.pts[1].flatten(), eta3, '0_form')
         self.mat_nh = np.outer(eq_pic.nh_eq(self.space.pts[0].flatten()), np.ones(self.space.pts[1].size*eta3.size, dtype=float))
         self.mat_nh = self.mat_nh.reshape(self.space.pts[0].size, self.space.pts[1].size, eta3.size)
         
@@ -177,7 +177,11 @@ class terms_control_variate:
         
         # in 2D: evaluation of perturbed magnetic field at quadrature points
         if self.space.dim == 2:
-            print('not yet implemented!')
+            ker2.kernel_evaluate_2form(self.space.Nel, self.space.NbaseN[2], self.space.p, [0, 1], self.space.n_quad, b1, self.space.indN[0], self.space.indD[1], self.space.basisN[0], self.space.basisD[1], self.B2_1)
+            
+            ker2.kernel_evaluate_2form(self.space.Nel, self.space.NbaseN[2], self.space.p, [1, 0], self.space.n_quad, b2, self.space.indD[0], self.space.indN[1], self.space.basisD[0], self.space.basisN[1], self.B2_2)
+            
+            ker2.kernel_evaluate_2form(self.space.Nel, self.space.NbaseN[2], self.space.p, [1, 1], self.space.n_quad, b3, self.space.indD[0], self.space.indD[1], self.space.basisD[0], self.space.basisD[1], self.B2_3)
             
         # in 3D: evaluation of total magnetic field at quadrature points
         else:
@@ -190,7 +194,27 @@ class terms_control_variate:
         
         # assembly of F components
         if self.space.dim == 2:
-            print('not yet implemented!')
+            
+            if self.basis_u == 0:
+                
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], self.F[0], self.B2_2*self.mat_jh3[:, :, :, :, None] - self.B2_3*self.mat_jh2[:, :, :, :, None])
+
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], self.F[1], self.B2_3*self.mat_jh1[:, :, :, :, None] - self.B2_1*self.mat_jh3[:, :, :, :, None])
+
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], self.F[2], self.B2_1*self.mat_jh2[:, :, :, :, None] - self.B2_2*self.mat_jh1[:, :, :, :, None])
+                
+            elif self.basis_u == 2:
+                
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 1, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisD[1], self.space.indN[0], self.space.indD[1], self.F[0], self.B2_2*self.mat_jh3[:, :, :, :, None] - self.B2_3*self.mat_jh2[:, :, :, :, None])
+
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 1, 0, self.space.wts[0], self.space.wts[1], self.space.basisD[0], self.space.basisN[1], self.space.indD[0], self.space.indN[1], self.F[1], self.B2_3*self.mat_jh1[:, :, :, :, None] - self.B2_1*self.mat_jh3[:, :, :, :, None])
+
+                ker2.kernel_inner(self.space.Nel[0], self.space.Nel[1], self.space.NbaseN[2], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 1, 1, self.space.wts[0], self.space.wts[1], self.space.basisD[0], self.space.basisD[1], self.space.indD[0], self.space.indD[1], self.F[2], self.B2_1*self.mat_jh2[:, :, :, :, None] - self.B2_2*self.mat_jh1[:, :, :, :, None])
+                
+            
+            self.F[0] /= 2.
+            self.F[1] /= 2.
+            self.F[2] /= 2.
             
         else:
         
@@ -251,7 +275,11 @@ class terms_control_variate:
         
         # in 2D: evaluation of equilibrium magnetic field at quadrature points
         if self.space.dim == 2:
-            print('not yet implemented!')
+            ker2.kernel_evaluate_2form(self.space.Nel, 1, self.space.p, [0, 1], self.space.n_quad, b1, self.space.indN[0], self.space.indD[1], self.space.basisN[0], self.space.basisD[1], self.B2_1)
+            
+            ker2.kernel_evaluate_2form(self.space.Nel, 1, self.space.p, [1, 0], self.space.n_quad, b2, self.space.indD[0], self.space.indN[1], self.space.basisD[0], self.space.basisN[1], self.B2_2)
+            
+            ker2.kernel_evaluate_2form(self.space.Nel, 1, self.space.p, [1, 1], self.space.n_quad, b3, self.space.indD[0], self.space.indD[1], self.space.basisD[0], self.space.basisD[1], self.B2_3)
             
         # in 3D: evaluation of total magnetic field at quadrature points
         else:
@@ -263,7 +291,54 @@ class terms_control_variate:
         
         
         if self.space.dim == 2:
-            print('not yet implemented!')
+            
+            if self.basis_u == 0:
+                
+                temp = np.zeros(self.M12[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], temp, +self.mat_nh*self.B2_3[:, :, :, :, 0])
+                
+                self.M12[:, :, 0, :, :, 0] = temp
+
+                temp = np.zeros(self.M13[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], temp, -self.mat_nh*self.B2_2[:, :, :, :, 0])
+                
+                self.M13[:, :, 0, :, :, 0] = temp
+
+                temp = np.zeros(self.M23[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 0, 0, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisN[1], self.space.basisN[0], self.space.basisN[1], self.space.indN[0], self.space.indN[1], temp, +self.mat_nh*self.B2_1[:, :, :, :, 0])
+                
+                self.M23[:, :, 0, :, :, 0] = temp
+                
+            elif self.basis_u == 2:
+                
+                temp = np.zeros(self.M12[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 1, 1, 0, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisD[1], self.space.basisD[0], self.space.basisN[1], self.space.indN[0], self.space.indD[1], self.M12[:, :, 0, :, :, 0]*1, +self.mat_nh*self.B2_3[:, :, :, :, 0])
+                
+                self.M12[:, :, 0, :, :, 0] = temp
+
+                temp = np.zeros(self.M13[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 0, 1, 1, 1, self.space.wts[0], self.space.wts[1], self.space.basisN[0], self.space.basisD[1], self.space.basisD[0], self.space.basisD[1], self.space.indN[0], self.space.indD[1], self.M13[:, :, 0, :, :, 0]*1, -self.mat_nh*self.B2_2[:, :, :, :, 0])
+                
+                self.M13[:, :, 0, :, :, 0] = temp
+
+                temp = np.zeros(self.M23[:, :, 0, :, :, 0].shape)
+                
+                ker2.kernel_mass(self.space.Nel[0], self.space.Nel[1], self.space.p[0], self.space.p[1], self.space.n_quad[0], self.space.n_quad[1], 1, 0, 1, 1, self.space.wts[0], self.space.wts[1], self.space.basisD[0], self.space.basisN[1], self.space.basisD[0], self.space.basisD[1], self.space.indD[0], self.space.indN[1], self.M23[:, :, 0, :, :, 0]*1, +self.mat_nh*self.B2_1[:, :, :, :, 0])
+                
+                self.M23[:, :, 0, :, :, 0] = temp
+                
+            self.M12 /= 2.
+            self.M13 /= 2.
+            self.M23 /= 2.
+            
+            self.M12[:, :, 1, :, :, 1] = self.M12[:, :, 0, :, :, 0]
+            self.M13[:, :, 1, :, :, 1] = self.M13[:, :, 0, :, :, 0]
+            self.M23[:, :, 1, :, :, 1] = self.M23[:, :, 0, :, :, 0]
             
         else:
         

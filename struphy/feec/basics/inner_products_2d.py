@@ -10,7 +10,7 @@ Modules to compute inner products with given functions in 2D.
 import numpy        as np
 import scipy.sparse as spa
 
-import struphy.feec.basics.kernels_2d as ker
+import struphy.utilitis_FEEC.basics.kernels_2d as ker
 
 
 # ================ inner product in V0 ===========================
@@ -62,7 +62,7 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     
     ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, wts[0], wts[1], basisN[0], basisN[1], indN[0], indN[1], F, mat_f*det_df)
                 
-    return tensor_space_FEM.E0.dot(F.flatten())
+    return tensor_space_FEM.E0_0.dot(F.flatten())
 
 
 # ================ inner product in V1 ===========================
@@ -126,7 +126,7 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
         for b in range(3):
             
             # evaluate inverse metric tensor g^ab at quadrature points
-            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a, b])[:, :, 0]
+            g_inv = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]
             
             # evaluate g^ab * f_b at quadrature points
             if callable(fun[b]):
@@ -138,7 +138,10 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
         
         ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ns[a][0], ns[a][1], wts[0], wts[1], basis[a][0], basis[a][1], ind[a][0], ind[a][1], F[a], mat_f*det_df)
             
-    return tensor_space_FEM.E1.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
+    F1 = tensor_space_FEM.E1_pol_0.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
+    F2 = tensor_space_FEM.E0_pol_0.dot(F[2].flatten())
+    
+    return F1, F2
 
 
 # ================ inner product in V2 ===========================
@@ -202,7 +205,7 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
         for b in range(3):
             
             # evaluate metric tensor g_ab at quadrature points
-            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a, b])[:, :, 0]
+            g = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]
             
             # evaluate g_ab * f_b at quadrature points
             if callable(fun[b]):
@@ -214,7 +217,10 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
         
         ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ns[a][0], ns[a][1], wts[0], wts[1], basis[a][0], basis[a][1], ind[a][0], ind[a][1], F[a], mat_f/det_df)
             
-    return tensor_space_FEM.E2.dot(np.concatenate((F[0].flatten(), F[1].flatten(), F[2].flatten())))
+    F1 = tensor_space_FEM.E2_pol_0.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
+    F2 = tensor_space_FEM.E3_pol_0.dot(F[2].flatten())
+    
+    return F1, F2
 
 
 # ================ inner product in V3 ===========================
@@ -264,4 +270,4 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     
     ker.kernel_inner(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, wts[0], wts[1], basisD[0], basisD[1], indD[0], indD[1], F, mat_f/det_df)
                 
-    return tensor_space_FEM.E3.dot(F.flatten())
+    return tensor_space_FEM.E3_0.dot(F.flatten())

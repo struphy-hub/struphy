@@ -22,11 +22,10 @@ The following mappings are implemented:
 - kind_map = 12 : colella,         params_map = [lx, ly, alpha, lz].
 - kind_map = 13 : orthogonal,      params_map = [ly, ly, alpha, lz].
 - kind_map = 14 : hollow torus,    params_map = [a1, a2, r0].
-- kind_map = 15 : cuboid slice,    params_map = [b1, e1, b2, e2, b3, e3]
 """
 
 from numpy import shape
-from numpy import sin, cos, pi, zeros, array, sqrt
+from numpy import sin, cos, pi, zeros, array, sqrt, arctan2
 
 from pyccel.decorators import types
 
@@ -193,6 +192,81 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
 
     return value
+
+
+
+# =======================================================================
+@types('double','double','double','int','int','double[:]')
+def f_inv(x, y, z, component, kind_map, params_map):
+    """Point-wise evaluation of inverse mapping eta_i = f^(-1)_i(x, y, z), i=1,2,3. Only possible for analytical mappings. 
+    
+    Parameters:
+    -----------
+        x, y, z:       double        Cartesian coordinates
+        component:     int           Logical coordinate (1: eta1, 2: eta2, 3: eta3)
+        kind_map:      int           kind of mapping (see module docstring)
+        params_map:    double[:]     parameters for the mapping
+
+    Returns:
+    --------
+        value:  float
+            Logical coordinate eta_i = f^(-1)_i(eta1, eta2, eta3) in [0, 1]
+    """
+    
+    value = 0.
+    
+    # ============== cuboid =========================
+    if kind_map == 10:
+         
+        b1 = params_map[0]
+        e1 = params_map[1]
+        b2 = params_map[2]
+        e2 = params_map[3]
+        b3 = params_map[4]
+        e3 = params_map[5]
+        
+        # value =  begin + (end - begin) * eta
+        if   component == 1:
+            value = (x - b1)/(e1 - b1)
+        elif component == 2:
+            value = (y - b2)/(e2 - b2)
+        elif component == 3:
+            value = (z - b3)/(e3 - b3)
+            
+    # ========= hollow cylinder =====================
+    elif kind_map == 11:
+        
+        a1 = params_map[0]
+        a2 = params_map[1]
+        r0 = params_map[2]
+        
+        da = a2 - a1
+        
+        if   component == 1:
+            value = (sqrt((x - r0)**2 + y**2) - a1)/da
+        elif component == 2:
+            value = (arctan2(y, x - r0)/(2*pi))%1.0
+        elif component == 3:
+            value = z/(2*pi*r0)
+            
+    # ========= hollow torus ========================
+    elif kind_map == 14:
+        
+        a1 = params_map[0]
+        a2 = params_map[1]
+        r0 = params_map[2]
+        
+        da = a2 - a1
+        
+        if   component == 1:
+            value = (sqrt((sqrt(x**2 + z**2) - r0)**2 + y**2) - a1)/da
+        elif component == 2:
+            value = (arctan2(y, sqrt(x**2 + z**2) - r0)/(2*pi))%1.0
+        elif component == 3:
+            value = (arctan2(z, x)/(2*pi))%1.0
+   
+    return value
+
 
 
 # =======================================================================
@@ -447,36 +521,6 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
         elif component == 33:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
-
-    # ============== cuboid slice ==================
-    elif kind_map == 15:
-
-        b1 = params_map[0]
-        e1 = params_map[1]
-        b2 = params_map[2]
-        e2 = params_map[3]
-        b3 = params_map[4]
-        e3 = params_map[5]
-
-        # value =  begin + (end - begin) * eta
-        if   component == 11:
-            value = (e1 - b1)
-        elif component == 12:
-            value = 0.
-        elif component == 13:
-            value = 0.
-        elif component == 21:
-            value = 0.
-        elif component == 22:
-            value = (e2 - b2)
-        elif component == 23:
-            value = 0.
-        elif component == 31:
-            value = 0.
-        elif component == 32:
-            value = 0.
-        elif component == 33:
-            value = (e3 - b3)
 
     return value
 
