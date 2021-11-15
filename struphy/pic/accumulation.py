@@ -11,14 +11,12 @@ from mpi4py import MPI
 import numpy        as np
 import scipy.sparse as spa
 
-# TODO: move control variate file to new location
+import struphy.pic.accumulation_kernels_3d as pic_ker_3d
+import struphy.pic.accumulation_kernels_2d as pic_ker_2d
+
 import struphy.pic.control_variate as cv
-import struphy.feec.control_variates.control_variate as cv
 
 import time
-import struphy.pic.accumulation_kernels as pic_ker_3d
-
-
 
 class accumulation:
     """
@@ -30,7 +28,7 @@ class accumulation:
         tensor product B-spline space
         
     domain : domain object
-        domain object from hylife.geometry.domain_3d defining the mapping
+        domain object from struphy.geometry.domain_3d defining the mapping
         
     basis_u : int
         bulk velocity representation (0 : vector-field, 1 : 1-form , 2 : 2-form)
@@ -56,7 +54,7 @@ class accumulation:
         
         # intialize delta-f correction terms
         if self.control == True and self.mpi_rank == 0:
-            self.cont = cv.terms_control_variate(self.space, self.basis_u, eq_pic)
+            self.cont = cv.terms_control_variate(self.space, self.domain, self.basis_u, eq_pic)
         
         # reserve memory for implicit particle-coupling sub-steps
         self.blocks_loc = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -101,7 +99,7 @@ class accumulation:
     # ===============================================================
     def to_sparse_step1(self):
         """
-        Converts the 6d arrays stored in self.blocks to a sparse block matrix using row-major ordering
+        Converts the 6d arrays stored in self.blocks to a sparse block matrix using row-major ordering.
         
         Returns
         -------
@@ -151,15 +149,15 @@ class accumulation:
         # final block matrix
         M = spa.bmat([[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]], format='csr')
         
-        ## apply extraction operator
-        #if self.basis_u == 0:
-        #    M = self.space.Ev.dot(M.dot(self.space.Ev.T)).tocsr()
-        #    
-        #elif self.basis_u == 1:
-        #    M = self.space.E1.dot(M.dot(self.space.E1.T)).tocsr()
-        #        
-        #elif self.basis_u == 2:
-        #    M = self.space.E2.dot(M.dot(self.space.E2.T)).tocsr()
+        # apply extraction operator
+        if self.basis_u == 0:
+            M = self.space.Ev_0.dot(M.dot(self.space.Ev_0.T)).tocsr()
+            
+        elif self.basis_u == 1:
+            M = self.space.E1_0.dot(M.dot(self.space.E1_0.T)).tocsr()
+                
+        elif self.basis_u == 2:
+            M = self.space.E2_0.dot(M.dot(self.space.E2_0.T)).tocsr()
         
         return M
     
@@ -167,7 +165,7 @@ class accumulation:
     # ===============================================================
     def to_sparse_step3(self):
         """
-        Converts the 6d arrays stored in self.blocks to a sparse block matrix using row-major ordering
+        Converts the 6d arrays stored in self.blocks to a sparse block matrix using row-major ordering.
         
         Returns
         -------
@@ -217,15 +215,15 @@ class accumulation:
         # final block matrix
         M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]], format='csr')
         
-        ## apply extraction operator
-        #if self.basis_u == 0:
-        #    M = self.space.Ev.dot(M.dot(self.space.Ev.T)).tocsr()
-        #    
-        #elif self.basis_u == 1:
-        #    M = self.space.E1.dot(M.dot(self.space.E1.T)).tocsr()
-        #        
-        #elif self.basis_u == 2:
-        #    M = self.space.E2.dot(M.dot(self.space.E2.T)).tocsr()
+        # apply extraction operator
+        if self.basis_u == 0:
+            M = self.space.Ev_0.dot(M.dot(self.space.Ev_0.T)).tocsr()
+            
+        elif self.basis_u == 1:
+            M = self.space.E1_0.dot(M.dot(self.space.E1_0.T)).tocsr()
+                
+        elif self.basis_u == 2:
+            M = self.space.E2_0.dot(M.dot(self.space.E2_0.T)).tocsr()
         
         return M
     
@@ -237,7 +235,7 @@ class accumulation:
         
         if self.space.dim == 2:
             
-            print('not yet implemented')
+            pic_ker_2d.kernel_step1(particles_loc, self.space.T[0], self.space.T[1], self.space.p, self.space.Nel, self.space.NbaseN, self.space.NbaseD, particles_loc.shape[1], b2_eq[0], b2_eq[1], b2_eq[2], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.blocks_loc[0][1], self.blocks_loc[0][2], self.blocks_loc[1][2], self.basis_u, self.space.n_tor)
             
         else:
             
@@ -255,7 +253,7 @@ class accumulation:
         
         if self.space.dim == 2:
             
-            print('not yet implemented')
+            pic_ker_2d.kernel_step3(particles_loc, self.space.T[0], self.space.T[1], self.space.p, self.space.Nel, self.space.NbaseN, self.space.NbaseD, particles_loc.shape[1], b2_eq[0], b2_eq[1], b2_eq[2], b2_1, b2_2, b2_3, self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz, self.blocks_loc[0][0], self.blocks_loc[0][1], self.blocks_loc[0][2], self.blocks_loc[1][1], self.blocks_loc[1][2], self.blocks_loc[2][2], self.vecs_loc[0], self.vecs_loc[1], self.vecs_loc[2], self.basis_u, self.space.n_tor)
                
         else:
         
@@ -329,8 +327,8 @@ class accumulation:
             
         # build global sparse matrix and global vector
         if self.basis_u == 0:
-            return self.to_sparse_step3(), np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+            return self.to_sparse_step3(), self.space.Ev_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
         elif self.basis_u == 1:
-            return self.to_sparse_step3(), np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+            return self.to_sparse_step3(), self.space.E1_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
         elif self.basis_u == 2:
-            return self.to_sparse_step3(), np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+            return self.to_sparse_step3(), self.space.E2_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))

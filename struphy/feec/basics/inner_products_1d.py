@@ -17,7 +17,7 @@ def inner_prod_V0(spline_space, fun, mapping=None):
     
     Parameters
     ----------
-    spline_space : Spline_space_1d
+    spline_space : spline_space_1d
         a 1d B-spline space
         
     mapping : callable
@@ -70,7 +70,7 @@ def inner_prod_V1(spline_space, fun, mapping=None):
     
     Parameters
     ----------
-    spline_space : Spline_space_1d
+    spline_space : spline_space_1d
         a 1d B-spline space
         
     mapping : callable

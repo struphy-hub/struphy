@@ -40,11 +40,13 @@ LAT  := ${path_lib}linear_algebra/kernels_tensor_product
 KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
 KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
 
-PP   := ${path_lib}pic/pusher
-PA   := ${path_lib}pic/accumulation_kernels
+PPP  := ${path_lib}pic/pusher_pos
+PPV  := ${path_lib}pic/pusher_vel
+PA2  := ${path_lib}pic/accumulation_kernels_2d
+PA3  := ${path_lib}pic/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PP).py $(PA).py $(PS).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PPP).py $(PPV).py $(PA2).py $(PA3).py $(PS).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -104,10 +106,16 @@ $(KPG)$(SO_EXT) : $(KPG).py
 $(KPGM)$(SO_EXT) : $(KPGM).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
-$(PP)$(SO_EXT) : $(PP).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PPP)$(SO_EXT) : $(PPP).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+    
+$(PPV)$(SO_EXT) : $(PPV).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
-$(PA)$(SO_EXT) : $(PA).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PA2)$(SO_EXT) : $(PA2).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(PA3)$(SO_EXT) : $(PA3).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
@@ -120,7 +128,6 @@ $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)
 .PHONY: clean
 clean:
 	rm -rf $(OUTPUTS)
-	rm -rf $(all_sim)/$(run_dir)/input_run/__pyccel__ $(all_sim)/$(run_dir)/input_run/__pycache__
 	rm -rf ${path_lib}__pyccel__ ${path_lib}__pycache__
 	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__
 	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__
@@ -132,5 +139,4 @@ clean:
 	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__
 	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__
 	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__
-	rm -rf ${path_lib}feec/control_variates/__pyccel__ ${path_lib}feec/control_variates/__pycache__
 	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__
