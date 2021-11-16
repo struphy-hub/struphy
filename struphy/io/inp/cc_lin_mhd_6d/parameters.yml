@@ -26,7 +26,10 @@ geometry :
             a2       : 1. # minor radius
             R0       : 1. # major radius
       params_spline :
-            file     : 'spline_coeffs.txt'  
+            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5'
+            Nel      : [6, 6, 6] # number of grid cells > 1
+            p        : [2, 3, 3] # spline degree > 0
+            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
       params_spline_cyl :
             a        : 1. # minor radius
             R0       : 0. # major radius (shift of pole from zero)
