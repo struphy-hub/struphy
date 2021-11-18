@@ -7,7 +7,7 @@ import struphy.feec.spline_space as spl
 
 class equilibrium_mhd_torus:
     """
-    Defince a analytical ad hoc equilibrium for a torus with circular cross section.
+    Define an analytical ad hoc equilibrium for a torus with circular cross section.
     """
     
     def __init__(self, params):

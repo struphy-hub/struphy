@@ -7,6 +7,7 @@ import numpy as np
 from struphy.geometry         import domain_3d
 from struphy.mhd_equil        import mhd_equil_physical 
 from struphy.mhd_equil        import mhd_equil_logical 
+from struphy.mhd_equil.gvec   import mhd_equil_gvec
 from struphy.feec             import spline_space
 from struphy.io.inp           import mhd_init 
 
@@ -107,6 +108,11 @@ def execute(file_in, path_out, mode):
 
     SPACES.set_projectors('general')
     print('FEEC spaces set.')
+
+    # Replace `EQ_MHD_L` if a GVEC equilibrium is requested, depending on params.
+    if params['mhd_equilibrium']['general']['type'] == 'gvec':
+        EQ_MHD_L = mhd_equil_gvec.Equilibrium_mhd_gvec(params, SPACES, DOMAIN)
+        print('GVEC MHD equilibrium (logical) set.')
 
     # ======= reserve memory for FEM cofficients (all MPI processes) ========
     NbaseN  = SPACES.NbaseN
