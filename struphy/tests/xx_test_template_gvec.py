@@ -8,16 +8,9 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # ============================================================
 
     import numpy             as np
-    import matplotlib.pyplot as plt
-    import matplotlib.tri    as tri
 
     import os
     import sys
-    sys.path.append('..') # Because we are inside './test/' directory.
-    sys.path.append('simulations/template_gvec/') # Because `template_gvec` is elsewhere.
-    sys.path.append('../simulations/template_gvec/') # Because `template_gvec` is elsewhere.
-    sys.path.append('../../simulations/template_gvec/') # Because `template_gvec` is elsewhere.
-    sys.path.append('../../simulations/template_gvec/input_run/') # Because `template_gvec` is elsewhere.
 
     import h5py
     import tempfile
@@ -36,33 +29,15 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     from gvec_to_python import GVEC, Form, Variable
     from gvec_to_python.reader.gvec_reader import GVEC_Reader
 
-    simdir = os.path.dirname(os.path.abspath(os.path.join(basedir, '../../simulations/template_gvec/')))
-    print(f'Path to simulations    : {simdir}')
-    simfiles   = [f for f in os.listdir(simdir) if os.path.isfile(os.path.join(simdir, f))]
-    simfolders = [f for f in os.listdir(simdir) if os.path.isdir( os.path.join(simdir, f))]
-    print(f'Files in simulations   : {simfiles}')
-    print(f'Folders in simulations : {simfolders}')
+    gvec_dir = os.path.abspath(os.path.join(basedir, '..', 'mhd_equil', 'gvec'))
+    print(f'Path to GVEC eq    : {gvec_dir}')
+    gvec_files   = [f for f in os.listdir(gvec_dir) if os.path.isfile(os.path.join(gvec_dir, f))]
+    gvec_folders = [f for f in os.listdir(gvec_dir) if os.path.isdir( os.path.join(gvec_dir, f))]
+    print(f'Files in GVEC eq   : {gvec_files}')
+    print(f'Folders in GVEC eq : {gvec_folders}')
     print(' ')
 
-    templatedir = os.path.dirname(os.path.join(simdir, 'template_gvec/'))
-    print(f'Path to GVEC template : {templatedir}')
-    templatefiles   = [f for f in os.listdir(templatedir) if os.path.isfile(os.path.join(templatedir, f))]
-    templatefolders = [f for f in os.listdir(templatedir) if os.path.isdir( os.path.join(templatedir, f))]
-    print(f'Files in template     : {templatefiles}')
-    print(f'Folders in template   : {templatefolders}')
-    print(' ')
-
-    from input_run.equilibrium_MHD import equilibrium_mhd
-
-
-
-    # ============================================================
-    # Primary parameters to control this test file.
-    # ============================================================
-
-    # Present each B-field component as a tuple of functions B=(Bx,By,Bz). If False, B itself is a function.
-    # Always True because that's what expected by STRUPHY's push/pull mechanisms.
-    use_B_components = True
+    from struphy.mhd_equil.gvec.mhd_equil_gvec import Equilibrium_mhd_gvec
 
 
 
@@ -82,14 +57,42 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
 
 
     # ============================================================
+    # Create fake input params.
+    # ============================================================
+
+    # Fake input params.
+    params = {
+        "mhd_equilibrium" : {
+            "general" : {
+                "type" : "gvec"
+            },
+            "params_gvec" : {
+                "filepath" : 'struphy/mhd_equil/gvec/',
+                "filename" : 'GVEC_ellipStell_profile_update_State_0000_00010000.dat', # .dat or .json
+            },
+        },
+    }
+
+    params['mhd_equilibrium']['params_gvec']['filepath'] = gvec_dir # Overwrite path, because this is a test file.
+
+
+
+    # ============================================================
     # Convert GVEC .dat output to .json.
     # ============================================================
 
-    read_filepath = 'struphy/mhd_equil/gvec/'
-    read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
-    save_filepath = temp_dir.name
-    save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
-    reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)
+    if params['mhd_equilibrium']['params_gvec']['filename'].endswith('.dat'):
+
+        read_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
+        read_filename = params['mhd_equilibrium']['params_gvec']['filename']
+        gvec_filepath = temp_dir.name
+        gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
+        reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename)
+
+    elif params['mhd_equilibrium']['params_gvec']['filename'].endswith('.json'):
+
+        gvec_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
+        gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
 
 
 
@@ -97,10 +100,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # Load GVEC mapping.
     # ============================================================
 
-    filepath = temp_dir.name
-    # filepath = os.path.join(basedir, '..', filepath)
-    filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
-    gvec = GVEC(filepath, filename)
+    gvec = GVEC(gvec_filepath, gvec_filename)
 
     # f = gvec.mapfull.f # Full mapping, (s,u,v) to (x,y,z).
     # X = gvec.mapX.f    # Only x component of the mapping.
@@ -114,10 +114,10 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # Map source domain
     # ===============================================================
 
-    # Enable another layer of mapping, from (eta1,eta2,eta3) to (s,u,v).
+    # Enable another layer of mapping, from STRUPHY's (eta1,eta2,eta3) to GVEC's (s,u,v).
     # bounds = [0.3,0.8,0.3,0.8,0.3,0.8]
     bounds = {'b1': 0.3, 'e1': 0.8, 'b2': 0.3, 'e2': 0.8, 'b3': 0.3, 'e3': 0.8}
-    source_domain = dom.Domain('cuboid', params_map=bounds)
+    SOURCE_DOMAIN = dom.Domain('cuboid', params_map=bounds)
 
     def f(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). All (x,y,z) components."""
@@ -136,13 +136,13 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
         return gvec.mapZ.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
 
     def s(eta1, eta2, eta3):
-        return source_domain.evaluate(eta1, eta2, eta3, 'x')
+        return SOURCE_DOMAIN.evaluate(eta1, eta2, eta3, 'x')
 
     def u(eta1, eta2, eta3):
-        return source_domain.evaluate(eta1, eta2, eta3, 'y')
+        return SOURCE_DOMAIN.evaluate(eta1, eta2, eta3, 'y')
 
     def v(eta1, eta2, eta3):
-        return source_domain.evaluate(eta1, eta2, eta3, 'z')
+        return SOURCE_DOMAIN.evaluate(eta1, eta2, eta3, 'z')
 
     def eta123_to_suv(eta1, eta2, eta3):
         return s(eta1, eta2, eta3), u(eta1, eta2, eta3), v(eta1, eta2, eta3)
@@ -160,7 +160,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     tensor_space_pol = spl.Tensor_spline_space(spaces_FEM[:2])
 
     # 3d tensor-product B-spline space for finite elements
-    tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+    TENSOR_SPACE_FEM = spl.Tensor_spline_space(spaces_FEM)
     print('Tensor space set up done.')
 
 
@@ -173,9 +173,9 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     for space in spaces_FEM:
         if not hasattr(space, 'projectors'):
             space.set_projectors() # def set_projectors(self, nq=6):
-    if not hasattr(tensor_space_FEM, 'projectors'):
-        tensor_space_FEM.set_projectors() # def set_projectors(self, which='tensor', nq=[6, 6]):
-    proj_3d = tensor_space_FEM.projectors
+    if not hasattr(TENSOR_SPACE_FEM, 'projectors'):
+        TENSOR_SPACE_FEM.set_projectors() # def set_projectors(self, which='tensor'). Use 'general' for polar splines.
+    PROJ_3D = TENSOR_SPACE_FEM.projectors
     print('Create 3D projector done.')
 
 
@@ -185,10 +185,9 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # ============================================================
 
     # Calculate spline coefficients using PI_0 projector.
-    # TODO: Add mapping from [0,1] to whatever section of mapping, and pass that to MHD init. ???
-    cx = proj_3d.PI_0(X)
-    cy = proj_3d.PI_0(Y)
-    cz = proj_3d.PI_0(Z)
+    cx = PROJ_3D.PI_0(X)
+    cy = PROJ_3D.PI_0(Y)
+    cz = PROJ_3D.PI_0(Z)
 
     spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
@@ -205,19 +204,17 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
         'spl_kind': spl_kind,
     }
 
-    # TODO: spline + params_map=None ???
-    # TODO: Now we have spline + params_map=(begin, end)*3 ???
-    domain = dom.Domain('spline', params_map=params_map)
+    DOMAIN = dom.Domain('spline', params_map=params_map)
     print('Computed spline coefficients.')
 
 
 
     # ============================================================
-    # Initialize the `equilibrium_mhd` class.
+    # Initialize the `Equilibrium_mhd_gvec` class.
     # ============================================================
 
-    eq_mhd = equilibrium_mhd(tensor_space_FEM, domain, source_domain, filepath, filename)
-    print('Initialized the `equilibrium_mhd` class.')
+    EQ_MHD = Equilibrium_mhd_gvec(params, TENSOR_SPACE_FEM, DOMAIN, SOURCE_DOMAIN)
+    print('Initialized the `Equilibrium_mhd_gvec` class.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')
@@ -233,11 +230,11 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
     print('Shapes of eta1, eta2, eta3:', eta1.shape, eta2.shape, eta3.shape)
 
-    j2_1 = eq_mhd.j2_eq_1(eta1,eta2,eta3)
+    j2_1 = EQ_MHD.j2_eq_1(eta1,eta2,eta3)
     print('j2_1.shape: {}'.format(j2_1.shape))
 
     # Doesn't work either.
-    # j_x = eq_mhd.j_eq_x(eta1,eta2,eta3)
+    # j_x = EQ_MHD.j_eq_x(eta1,eta2,eta3)
     # print('j_x.shape: {}'.format(j_x.shape))
 
     print('It works! Because I commented out the parts that don\'t work!')
@@ -279,8 +276,8 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
         s_range = np.array(gvec.data['grid']['sGrid'])
     s_range[0] = 1e-12 # Bypass 0 if it blows up.
 
-    # TODO: Generalize MC functions to accept a map and an equilibrium_mhd class, instead of a GVEC class.
-    filename = 'GVEC_ellipStell_profile_update_State_0000_00010000'
+    # TODO: Generalize MC functions to accept a map and an Equilibrium_mhd_gvec class, instead of a GVEC class.
+    filename = params['mhd_equilibrium']['params_gvec']['filename'][:-5]
     MC.make_ugrid_and_write_vtu(filename, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic)
     gvec.mapfull.clear_cache()
 

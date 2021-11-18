@@ -16,7 +16,6 @@ def test_divB():
 
     import os
     import sys
-    sys.path.append('..') # Because we are inside './test/' directory.
 
     import h5py
     import tempfile
@@ -28,13 +27,11 @@ def test_divB():
     # Which diagnostics is run
     print('Run diagnostics:', sys.argv[0])
 
+    basedir = os.path.dirname(os.path.realpath(__file__))
+    # sys.path.insert(0, os.path.join(basedir, '..'))
+
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
-
-    # from gvec_to_python.base.base import Base
-    # from gvec_to_python.base.make_base import make_base
-    # from gvec_to_python.reader.read_json import read_json
-    # from gvec_to_python.hmap.suv_to_xyz import suv_to_xyz as MapFull
     from gvec_to_python import GVEC, Form, Variable
     from gvec_to_python.reader.gvec_reader import GVEC_Reader
 
@@ -45,7 +42,7 @@ def test_divB():
     # ============================================================
 
     # Which test case to use. 1: Identity mapping, 2: torus mapping, 3: GVEC mapping.
-    test_case = 1
+    test_case = 2
     # Which B-field to use. 1: (0,0,1), 2:(1,1,1), 3: (1,2,3), 4: GVEC's B-field.
     kind_B_field = 3
     # Present each B-field component as a tuple of functions B=(Bx,By,Bz). If False, B itself is a function.
@@ -58,7 +55,7 @@ def test_divB():
     # ============================================================
 
     # Create splines to STRUPHY, unrelated to splines in GVEC.
-    Nel      = [6, 6, 6] 
+    Nel      = [6, 6, 6]
     p        = [2, 3, 3]
     spl_kind = None       # Set values below
     nq_el    = [4, 4, 6]  # Element integration
@@ -74,6 +71,8 @@ def test_divB():
         Y = lambda s,u,v: u * np.ones_like(s) * np.ones_like(v)
         Z = lambda s,u,v: v * np.ones_like(s) * np.ones_like(u)
         spl_kind = [False, False, False] # Periodic or not.
+
+        raise NotImplementedError('Test case {} not implemented, because extraction/boundary operators in `spline_space` no longer support aperiodic 3rd dimension.'.format(test_case))
 
     # Case 2: Torus mapping. It is periodic along angular directions.
     elif test_case == 2:
@@ -97,7 +96,8 @@ def test_divB():
         # Convert GVEC .dat output to .json.
         # ============================================================
 
-        read_filepath = 'struphy/mhd_equil/gvec/'
+        read_filepath = 'mhd_equil/gvec/'
+        read_filepath = os.path.join(basedir, '..', read_filepath)
         read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
         save_filepath = temp_dir.name
         save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
@@ -108,7 +108,6 @@ def test_divB():
         # ============================================================
 
         filepath = temp_dir.name
-        # filepath = os.path.join(basedir, '..', filepath)
         filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
         gvec = GVEC(filepath, filename)
 
@@ -274,6 +273,24 @@ def test_divB():
     def hat_B2_3(eta1, eta2, eta3):
         return domain.pull(B, eta1, eta2, eta3, '2_form_3')
 
+    if test_case == 3: # GVEC
+
+        # Solution 1: Cheat by using 2-form from GVEC directly.
+        # def hat_B2_1(eta1, eta2, eta3):
+        #     return gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.TWO)[0]
+        # def hat_B2_2(eta1, eta2, eta3):
+        #     return gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.TWO)[1]
+        # def hat_B2_3(eta1, eta2, eta3):
+        #     return gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.TWO)[2]
+
+        # Solution 2: Pre-evaluate GVEC B-field at logical coordinate, to bypass forced evaluation of B at Cartesian coordinate.
+        def hat_B2_1(eta1, eta2, eta3):
+            return domain.pull(gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.PHYSICAL), eta1, eta2, eta3, '2_form_1')
+        def hat_B2_2(eta1, eta2, eta3):
+            return domain.pull(gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.PHYSICAL), eta1, eta2, eta3, '2_form_2')
+        def hat_B2_3(eta1, eta2, eta3):
+            return domain.pull(gvec.get_variable(eta1, eta2, eta3, variable=Variable.B, form=Form.PHYSICAL), eta1, eta2, eta3, '2_form_3')
+
     hat_B2 = [hat_B2_1, hat_B2_2, hat_B2_3]
 
 
@@ -293,7 +310,7 @@ def test_divB():
     def test_push_pull(eta1, eta2, eta3):
         """Compare push-pulled output with original output."""
 
-        is_array = isinstance(eta1, np.ndarray)
+        is_array = isinstance(eta1, np.ndarray) and eta1.ndim != 0
         is_sparse_meshgrid = None
         broadcast = None
 
@@ -338,15 +355,25 @@ def test_divB():
         B_orig = np.array(B_orig)
         if is_array:
             if broadcast is None:
+                print('B_orig.shape', B_orig.shape)
                 print('B_orig[0].shape', B_orig[0].shape)
             else:
+                print('B_orig.shape', B_orig.shape)
                 print('B_orig[0].shape', B_orig[0].shape, '(broadcasted)')
         # print('Original B-field evaluated at (eta1, eta2, eta3): {}'.format(B_orig))
+        B_orig_mag = np.sqrt(B_orig[0]**2 + B_orig[1]**2 + B_orig[2]**2)
+        print('B_orig_mag.shape', B_orig_mag.shape)
+        print('Max |B_orig|:', np.max(B_orig_mag))
+        print('Min |B_orig|:', np.min(B_orig_mag))
 
         # Pull B(\eta) -> (Bx,By,Bz) to its 2-form representation.
         pulled_B = [hat_B2_i(eta1, eta2, eta3) for hat_B2_i in hat_B2]
         pulled_B = np.array(pulled_B)
         # print('B pulled to 2-form:', pulled_B)
+        B_pull_mag = np.sqrt(pulled_B[0]**2 + pulled_B[1]**2 + pulled_B[2]**2)
+        print('B_pull_mag.shape', B_pull_mag.shape)
+        print('Max |B_pull|:', np.max(B_pull_mag))
+        print('Min |B_pull|:', np.min(B_pull_mag))
 
         # Then push back to Cartesian to see if we get the same thing.
         pullpushed_Bx = domain.push(pulled_B, eta1, eta2, eta3, '2_form_1')
@@ -357,6 +384,10 @@ def test_divB():
         pullpushed_B  = [pullpushed_Bx, pullpushed_By, pullpushed_Bz]
         pullpushed_B  = np.array(pullpushed_B)
         # print('Push-pulled B(x,y,z):', pullpushed_B)
+        B_pped_mag = np.sqrt(pullpushed_B[0]**2 + pullpushed_B[1]**2 + pullpushed_B[2]**2)
+        print('B_pped_mag.shape', B_pped_mag.shape)
+        print('Max |B_pped|:', np.max(B_pped_mag))
+        print('Min |B_pped|:', np.min(B_pped_mag))
 
         print('Push-pull error:', np.max(np.abs(B_orig - pullpushed_B)))
 

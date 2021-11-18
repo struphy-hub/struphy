@@ -16,7 +16,6 @@ def test_GVEC_equilibrium(plot=False):
 
     import os
     import sys
-    sys.path.append('..') # Because we are inside './test/' directory.
 
     import h5py
     import tempfile
@@ -66,7 +65,8 @@ def test_GVEC_equilibrium(plot=False):
     # Convert GVEC .dat output to .json.
     # ============================================================
 
-    read_filepath = 'struphy/mhd_equil/gvec/'
+    read_filepath = 'mhd_equil/gvec/'
+    read_filepath = os.path.join(basedir, '..', read_filepath)
     read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
     save_filepath = temp_dir.name
     save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
@@ -79,7 +79,6 @@ def test_GVEC_equilibrium(plot=False):
     # ============================================================
 
     filepath = temp_dir.name
-    # filepath = os.path.join(basedir, '..', filepath)
     filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
     gvec = GVEC(filepath, filename)
 
@@ -531,17 +530,20 @@ def test_GVEC_equilibrium(plot=False):
     print('Shapes of discrete Curl matrix: {}, flattened 1-form coeff: {}, and after taking discrete Curl: {}.'.format(tensor_space_FEM.C.shape, b1_coeff_concat.shape, curlB.shape))
     curlB_1, curlB_2, curlB_3 = tensor_space_FEM.extract_2(curlB)
     print('Shapes of each component of J = Curl b1 coefficients. 2_1: {}, 2_2: {}, 2_3: {} (== shapes of b2 coefficients)'.format(curlB_1.shape, curlB_2.shape, curlB_3.shape))
-    print('Maximum error (how close is J to 0): {}'.format(np.max(np.abs(curlB))))
+    print('Maximum error (how close is J to 0): {} (Not really an error.)'.format(np.max(np.abs(curlB))))
+    # Florian: The current is normally non-zero in a Stellarator.
+    # One can impose a zero toroidal current density profile, total current density (\mu_0 J = \nabla \times B\) is still non-zero.
+    # In our simulations up to now in GVEC, we cannot impose that condition yet, so we use a given iota profile, which in general, produces also toroidal current.
+    # If we were to use a w7x equilibrium with a known iota profile, the toroidal current would be small.
 
     # Take discrete Div.
     divJ = tensor_space_FEM.D.dot(curlB)
     print('Shapes of discrete Div matrix: {}, flattened 2-form coeff: {}, and after taking discrete Div: {}.'.format(tensor_space_FEM.D.shape, curlB.shape, divJ.shape))
     print('Maximum error (how close is Div J to 0): {}'.format(np.max(np.abs(divJ))))
 
-    # assert np.max(np.abs(divJ)) < 1e-9, 'Divergence of Curl B should be zero.' # Is a failure
+    assert np.max(np.abs(divJ)) < 1e-9, 'Divergence of J (Curl B) should be zero.'
 
-    # print('Test Curl B = J (= 0 in stellerator) success.')
-    print('Test Curl B = J (= 0 in stellerator) failed.')
+    print('Test Div Curl B = Div J = 0 success.')
     print(' ')
 
 

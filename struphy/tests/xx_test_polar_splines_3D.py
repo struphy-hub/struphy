@@ -86,7 +86,8 @@ def test_polar_splines_3D():
     # Convert GVEC .dat output to .json.
     # ============================================================
 
-    read_filepath = 'struphy/mhd_equil/gvec/'
+    read_filepath = 'mhd_equil/gvec/'
+    read_filepath = os.path.join(basedir, '..', read_filepath)
     read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
     save_filepath = temp_dir.name
     save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
@@ -99,7 +100,6 @@ def test_polar_splines_3D():
     # ============================================================
 
     filepath = temp_dir.name
-    # filepath = os.path.join(basedir, '..', filepath)
     filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
     gvec = GVEC(filepath, filename)
 
