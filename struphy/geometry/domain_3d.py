@@ -159,13 +159,15 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.
 
 
-def prepare_args(x, y, z):
+def prepare_args(x, y, z, flat_eval=False):
     '''Broadcast point sets to correct size for evaluation.
     
     Parameters
     ----------
         x, y, z : float or list or np.array
             Evaluation point sets.
+        flat_eval : boolean
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
     Returns
     -------
@@ -203,48 +205,59 @@ def prepare_args(x, y, z):
     else:
         print('data type not supported')
 
-    # broadcast to 3d arrays:
-    is_sparse_meshgrid = None
-    # tensor-product for given three 1D arrays 
-    if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
-        #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-        E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij', sparse=True)
-        is_sparse_meshgrid = True
-    # given xy-plane at point z:
-    elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
-        E1 = arg_x[:, :, None]
-        E2 = arg_y[:, :, None]
-        E3 = arg_z*np.ones(E1.shape)
-    # given xz-plane at point y:
-    elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
-        E1 = arg_x[:, None, :]
-        E2 = arg_y*np.ones(E1.shape)
-        E3 = arg_z[:, None, :]
-    # given yz-plane at point x:
-    elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
-        E2 = arg_y[None, :, :]
-        E3 = arg_z[None, :, :]
-        E1 = arg_x*np.ones(E2.shape)
-    # given three 3D arrays 
-    elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
-        # Distinguish if input coordinates are from sparse or dense meshgrid.
-        # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
-        # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
-        E1, E2, E3 = arg_x, arg_y, arg_z
+    is_sparse_meshgrid = False
 
-        # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-        if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-            assert max(arg_x.shape) == arg_x.size
-            assert max(arg_y.shape) == arg_y.size
-            assert max(arg_z.shape) == arg_z.size
-            is_sparse_meshgrid = True
-        # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
-        else:
-            is_sparse_meshgrid = False
+    # flat evaluation
+    if flat_eval:
+        assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+        assert arg_x.size == arg_y.size == arg_z.size
+
+        E1 = arg_x
+        E2 = arg_y
+        E3 = arg_z
+
+        return E1, E2, E3, is_sparse_meshgrid
+
+    # broadcast to 3d arrays
     else:
-        raise ValueError('Argument dimensions not supported')
+        # tensor-product for given three 1D arrays 
+        if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
+            #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+            E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
+        # given xy-plane at point z:
+        elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
+            E1 = arg_x[:, :, None]
+            E2 = arg_y[:, :, None]
+            E3 = arg_z*np.ones(E1.shape)
+        # given xz-plane at point y:
+        elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
+            E1 = arg_x[:, None, :]
+            E2 = arg_y*np.ones(E1.shape)
+            E3 = arg_z[:, None, :]
+        # given yz-plane at point x:
+        elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
+            E2 = arg_y[None, :, :]
+            E3 = arg_z[None, :, :]
+            E1 = arg_x*np.ones(E2.shape)
+        # given three 3D arrays 
+        elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
+            # Distinguish if input coordinates are from sparse or dense meshgrid.
+            # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
+            # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
+            E1, E2, E3 = arg_x, arg_y, arg_z
 
-    return E1, E2, E3, is_sparse_meshgrid
+            # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
+            if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
+                assert max(arg_x.shape) == arg_x.size
+                assert max(arg_y.shape) == arg_y.size
+                assert max(arg_z.shape) == arg_z.size
+                is_sparse_meshgrid = True
+            # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
+
+        else:
+            raise ValueError('Argument dimensions not supported')
+
+        return E1, E2, E3, is_sparse_meshgrid
 
 
 # ==================================================
@@ -253,8 +266,8 @@ class Domain:
 
     Parameters
     ----------
-    general : dict
-        {'type': string_map, 'polar': True/False}
+    kind_map : string
+        Type of domain.
     
     params_map: dict
         The parameters needed to define the mappings (see Notes).
@@ -299,7 +312,7 @@ class Domain:
 
     Notes
     -----
-    Available mappings (choices for "string_map") are:
+    Available mappings (choices for "kind_map") are:
 
         * 'cuboid' :       
             * X = b1 + (e1 - b1)*eta1
@@ -484,17 +497,19 @@ class Domain:
        
 
     # ================================
-    def evaluate(self, eta1, eta2, eta3, kind_fun, kind_eva='meshgrid'):
+    def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False):
         '''Evaluate mapping/metric coefficients. 
 
         Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
         Parameters
         -----------
-            eta1, eta2, eta3:   point like or array-like or list like 
+            eta1, eta2, eta3 : point like or array-like or list like 
                 logical coordinates at which to evaluate
-            kind_fun:   integer
+            kind_fun : integer
                 what metric coefficient to evaluate, see keys_map
+            flat_eval : boolean
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
         Returns
         --------
@@ -502,35 +517,40 @@ class Domain:
                 mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
         '''
 
-        # evaluation for point pairs of 1d arrays of same length at three directions
-        if kind_eva == 'flat':
-            assert eta1.ndim == eta2.ndim == eta3.ndim == 1
-            assert eta1.size == eta2.size == eta3.size
+        # # evaluation for point pairs of 1d np.arrays of same length at three directions
+        # if flat_eval:
+        #     assert eta1.ndim == eta2.ndim == eta3.ndim == 1
+        #     assert eta1.size == eta2.size == eta3.size
             
-            values = np.empty(eta1.size, dtype=float)
+        #     values = np.empty(eta1.size, dtype=float)
             
-            mapping.kernel_evaluate_flat(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        #     mapping.kernel_evaluate_flat(eta1, eta2, eta3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
             
-            return values
+        #     return values
         
+        # else:
+
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
+
+        if flat_eval:
+            values = np.empty(E1.size, dtype=float)
         else:
-
-            E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
-
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-            if is_sparse_meshgrid:
-                mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
-            else:
-                mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        if is_sparse_meshgrid:
+            mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        elif flat_eval:
+            mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        else:
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-            values = values.squeeze()
+        values = values.squeeze()
 
-            return values
+        return values
 
        
     # ================================
-    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form'):
+    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
         '''Pullback of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -543,6 +563,8 @@ class Domain:
                 Logical coordinates to which to pull back
             kind_fun:   str
                 Which p-form pull back to apply, see keys_pull
+            flat_eval : boolean
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
         Returns
         -------
@@ -550,17 +572,20 @@ class Domain:
                 Pullback of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
 
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
 
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+        if flat_eval:
+            values = np.empty(E1.size, dtype=float)
+        else:
+            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
             
             if callable(a[0]):
                 
-                X = self.evaluate(E1, E2, E3, 'x')
-                Y = self.evaluate(E1, E2, E3, 'y')
-                Z = self.evaluate(E1, E2, E3, 'z')
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval)
                 
                 a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
             else:
@@ -570,9 +595,9 @@ class Domain:
             
             if callable(a):
                 
-                X = self.evaluate(E1, E2, E3, 'x')
-                Y = self.evaluate(E1, E2, E3, 'y')
-                Z = self.evaluate(E1, E2, E3, 'z')
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval)
                 
                 a_in = np.array([a(X, Y, Z)])
             else:
@@ -580,6 +605,8 @@ class Domain:
 
         if is_sparse_meshgrid:
             pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        elif flat_eval:
+            pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         else:
             pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
@@ -587,7 +614,7 @@ class Domain:
         
     
     # ================================
-    def push(self, a, eta1, eta2, eta3, kind_fun='0-form'):
+    def push(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
         '''Push-forward of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -600,6 +627,8 @@ class Domain:
                 Logical coordinates at which to push forward
             kind_fun:   str
                 Which p-form push forward to apply, see keys_push
+            flat_eval : boolean
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
         Returns
         --------
@@ -607,19 +636,20 @@ class Domain:
                 Push forward of p-form (component) evaluated at (eta1, eta2, eta3)
         '''
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
 
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+        if flat_eval:
+            values = np.empty(E1.size, dtype=float)
+        else:
+            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
-            
             if callable(a[0]):
                 a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
             else:
                 a_in = np.array(a)
                 
         else:
-            
             if callable(a):
                 a_in = np.array([a(E1, E2, E3)])
             else:
@@ -627,6 +657,8 @@ class Domain:
 
         if is_sparse_meshgrid:
             pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        elif flat_eval:
+            pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         else:
             pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
     
@@ -634,8 +666,8 @@ class Domain:
 
 
     # ================================
-    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0'):
-        '''transformation between different geometries on logical domain. 
+    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False):
+        '''Transformation between different p-forms on logical domain. 
         
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
@@ -646,7 +678,9 @@ class Domain:
             eta1, eta2, eta3:   array-like
                 logical coordinates to which to transform
             kind_fun:   str
-                which transform to apply, see key_transform
+                which transform to apply, see keys_transform
+            flat_eval : boolean
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
         Returns
         -------
@@ -654,38 +688,29 @@ class Domain:
                 transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3)
         '''
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
 
-        values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+        if flat_eval:
+            values = np.empty(E1.size, dtype=float)
+        else:
+            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
-            
             if callable(a[0]):
-                
-                if is_sparse_meshgrid:
-                    ETA1, ETA2, ETA3 = np.meshgrid(E1[:,0,0], E2[0,:,0], E3[0,0,:], indexing='ij', sparse=False)
-                else:
-                    ETA1, ETA2, ETA3 = E1, E2, E3
-
-                a_in = np.array([a[0](ETA1, ETA2, ETA3), a[1](ETA1, ETA2, ETA3), a[2](ETA1, ETA2, ETA3)])
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
             else:
                 a_in = np.array(a)
                 
         else:
-            
             if callable(a):
-                
-                if is_sparse_meshgrid:
-                    ETA1, ETA2, ETA3 = np.meshgrid(E1[:,0,0], E2[0,:,0], E3[0,0,:], indexing='ij', sparse=False)
-                else:
-                    ETA1, ETA2, ETA3 = E1, E2, E3
-
-                a_in = np.array([a(ETA1, ETA2, ETA3)])
+                a_in = np.array([a(E1, E2, E3)])
             else:
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
             tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+        elif flat_eval:
+            tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
         else:
             tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 

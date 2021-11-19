@@ -20,10 +20,10 @@ class MHD_operators:
     TODO
     """
     
-    def __init__(self, space, equilibrium, basis_u):
+    def __init__(self, space, equilibrium, domain, basis_u):
         
         # create MHD operators object
-        self.MHD = mhd.MHD_operators(space, equilibrium, basis_u)
+        self.MHD = mhd.MHD_operators(space, equilibrium, domain, basis_u)
         
         # get 1D int_N and int_D matrices in third direction
         if space.dim == 2:
@@ -246,7 +246,7 @@ class MHD_operators:
         
     
     # =================================================================
-    def assemble_MR(self, as_tensor=False, merge_blocks=False):
+    def assemble_MR(self, as_tensor=True, merge_blocks=False):
         """
         TODO
         """
@@ -677,9 +677,9 @@ class MHD_operators:
         """
         
         if self.MHD.basis_u == 0:
-            out = -self.MHD.space.D0.dot(self.__PF(u)) - (self.MHD.equilibrium.gamma - 1)*self.__PR(self.MHD.space.D0.dot(self.__JF(u)))
+            out = -self.MHD.space.D0.dot(self.__PF(u)) - (5./3. - 1)*self.__PR(self.MHD.space.D0.dot(self.__JF(u)))
         elif self.MHD.basis_u == 2:
-            out = -self.MHD.space.D0.dot(self.__PF(u)) - (self.MHD.equilibrium.gamma - 1)*self.__PR(self.MHD.space.D0.dot(u))
+            out = -self.MHD.space.D0.dot(self.__PF(u)) - (5./3. - 1)*self.__PR(self.MHD.space.D0.dot(u))
             
         return out
     
@@ -856,12 +856,12 @@ class MHD_operators:
         # set fast FFT inverse of A
         # -------- 0-form ---------------
         if self.MHD.basis_u == 0:
-            self.A_inv = mass_3d_pre.get_Mv_PRE_3(self.MHD.space, self.MHD.equilibrium.domain, [self.mat_MR_pol_11, self.mat_MR_pol_22])
+            self.A_inv = mass_3d_pre.get_Mv_PRE_3(self.MHD.space, self.MHD.domain, [self.mat_MR_pol_11, self.mat_MR_pol_22])
         # -------------------------------
 
         # -------- 2-form ---------------
         elif self.MHD.basis_u == 2:
-            self.A_inv = mass_3d_pre.get_M2_PRE_3(self.MHD.space, self.MHD.equilibrium.domain, [self.mat_MR_pol_11, self.mat_MR_pol_22])
+            self.A_inv = mass_3d_pre.get_M2_PRE_3(self.MHD.space, self.MHD.domain, [self.mat_MR_pol_11, self.mat_MR_pol_22])
         # -------------------------------
          
     
@@ -972,7 +972,7 @@ class MHD_operators:
                 JF_approx = self.MHD.space.projectors.I2_0_inv_approx.dot(JF_approx)
                 PR_approx = self.MHD.space.projectors.I3_0_inv_approx.dot(PR       )
 
-                L_approx  = -self.MHD.space.D0.dot(PF_approx) - (self.MHD.equilibrium.gamma - 1)*PR_approx.dot(self.MHD.space.D0.dot(JF_approx))
+                L_approx  = -self.MHD.space.D0.dot(PF_approx) - (5./3. - 1)*PR_approx.dot(self.MHD.space.D0.dot(JF_approx))
 
                 del PF_approx, PR_approx
 
@@ -996,7 +996,7 @@ class MHD_operators:
                 PF_approx = self.MHD.space.projectors.I2_0_inv_approx.dot(PF_approx)
                 PR_approx = self.MHD.space.projectors.I3_0_inv_approx.dot(PR       )
                 
-                L_approx  = -self.MHD.space.D0.dot(PF_approx) - (self.MHD.equilibrium.gamma - 1)*PR_approx.dot(self.MHD.space.D0)
+                L_approx  = -self.MHD.space.D0.dot(PF_approx) - (5./3. - 1)*PR_approx.dot(self.MHD.space.D0)
 
                 del PF_approx, PR_approx
 

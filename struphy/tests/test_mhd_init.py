@@ -7,9 +7,10 @@ def test_physical_conditions():
     import yaml 
     import numpy as np
 
-    import struphy.geometry.domain_3d as dom
-    import struphy.feec.spline_space as spl
-    import struphy.io.inp.mhd_init as mhd_init
+    from struphy.geometry import domain_3d 
+    from struphy.feec     import spline_space 
+    
+    from  struphy.mhd_init import mhd_init
 
     
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
@@ -20,7 +21,7 @@ def test_physical_conditions():
         params = yaml.load(file, Loader=yaml.FullLoader)
 
     # domain
-    DOMAIN   = dom.Domain(params['geometry']['type'], 
+    DOMAIN   = domain_3d.Domain(params['geometry']['type'], 
                                 params['geometry']['params_' + params['geometry']['type']])
     
     print('DOMAIN set')
@@ -33,13 +34,23 @@ def test_physical_conditions():
     nq_pr    = params['grid']['nq_pr']
     bc       = params['grid']['bc'] 
 
-    spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
-                    for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, nq_el)]
+    spaces_FEM = [spline_space.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+                                           for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, nq_el)]
 
-    SPACES   = spl.Tensor_spline_space(spaces_FEM)
+    [space.set_projectors(params['grid']['nq_pr'][0]) for space in spaces_FEM]
+
+    if params['grid']['polar']:
+        SPACES = spline_space.Tensor_spline_space(spaces_FEM, ck=1, cx=DOMAIN.cx, cy=DOMAIN.cy)
+    else:
+        SPACES = spline_space.Tensor_spline_space(spaces_FEM)
+
+    SPACES.set_projectors('general')
+    print('FEEC spaces and projectors set.')
+    print()
     
     # mhd_init
-    INIT = mhd_init.Initialize_mhd(DOMAIN, SPACES, file_in)
+    INIT = mhd_init.Initialize_mhd(DOMAIN, SPACES, params['mhd_init']['general'],
+                                                   params['mhd_init']['params_' + params['mhd_init']['general']['type']])
     print('INIT is defined.')
     
     print('test conditions')
@@ -50,35 +61,7 @@ def test_physical_conditions():
     print('ky : ',     INIT.modes_k[1])
     print('kz : ',     INIT.modes_k[2])
     print('amp : ',    INIT.amp)
-
-    # number of basis functions in different spaces (finite elements)
-    NbaseN  = SPACES.NbaseN
-    NbaseD  = SPACES.NbaseD
-
-    N_0form = SPACES.Nbase_0form
-    N_1form = SPACES.Nbase_1form
-    N_2form = SPACES.Nbase_2form
-    N_3form = SPACES.Nbase_3form
-
-    # N_dof_all_0form = SPACES.E0_all.shape[0]
-    # N_dof_all_1form = SPACES.E1_all.shape[0]
-    # N_dof_all_2form = SPACES.E2_all.shape[0]
-    # N_dof_all_3form = SPACES.E3_all.shape[0]
-
-    N_dof_0form = SPACES.E0.shape[0]
-    N_dof_1form = SPACES.E1.shape[0]
-    N_dof_2form = SPACES.E2.shape[0]
-    N_dof_3form = SPACES.E3.shape[0]
-
-    # assign memory for (density, pressure, magnetic field, velocity)
-    r0 = np.zeros(N_dof_0form, dtype=float)
-    p0 = np.zeros(N_dof_0form, dtype=float)
-    r3 = np.zeros(N_dof_3form, dtype=float)
-    p3 = np.zeros(N_dof_3form, dtype=float)
-    b2 = np.zeros(N_dof_2form, dtype=float)
-    # u0 = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
-    u1 = np.zeros(N_dof_1form, dtype=float)
-    u2 = np.zeros(N_dof_2form, dtype=float)
+    print() 
 
     # define the callable functions of initial conditions at the logical domain
     R0_ini =  INIT.r0_ini

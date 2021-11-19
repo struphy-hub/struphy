@@ -1,13 +1,8 @@
-import yaml
 import numpy as np
-
-'''
-Module to initialize all mhd variables.
-'''
 
 class Initialize_mhd:
     '''
-    Read "parameters.yaml" file and then initialize mhd variables.
+    Initialize MHD variables rho (as 3-form), U (as 1- or 2-form or three 0-forms), B (as 2-form) and p (as 0- or 3-form).
 
     Parameters
     ----------
@@ -15,11 +10,25 @@ class Initialize_mhd:
         mapped domain
     SPACES : class
         2d or 3d tensor-product B-spline space
-    file_in : yml file
-        parameters.yml
+    general_init : dict
+        Keys are "type", "coords", "basis_u" and "basis_p" (see parameters.yml)
+    params_init : dict
+        The parameters needed to define the initial conditions (see Notes).
 
     Attributes
     ----------
+    r3 : np.array
+                Flattened initial coefficients of density as 3-form.
+                
+    up : np.array
+        Flattened initial coefficients of velocity as 1- or 2-form.
+        
+    b2 : np.array
+        Flattened initial coefficients of magnetic field as 2-form.
+        
+    pp : np.array
+        Flattened initial coefficients of pressure as 0- or 3-form.
+
     basis_p : int
         form of the basis function for pressure(pp) 
         {0, 3}
@@ -80,69 +89,83 @@ class Initialize_mhd:
         amp        = [0.001, 0.01]
     '''
     
-    def __init__(self, DOMAIN, SPACES, file_in):
-
-        with open(file_in) as file:
-            params = yaml.load(file, Loader=yaml.FullLoader)
+    def __init__(self, DOMAIN, SPACES, general_init, params_init):
 
         self.DOMAIN = DOMAIN
         self.SPACES = SPACES
-        self.init_type   = params['mhd_init']['type']
-        self.init_coords = params['mhd_init']['coords']
-        self.basis_p = params['forms']['basis_p']
-        self.basis_u = params['forms']['basis_u']
+        self.init_type   = general_init['type']
+        self.init_coords = general_init['coords']
+        self.basis_u     = general_init['basis_u']
+        self.basis_p     = general_init['basis_p']
 
         if self.init_type == 'modes_k':
-            self.target   =   params['mhd_init']['params_modes_k']['target']
-            self.modes_k  = [ params['mhd_init']['params_modes_k']['kx'], 
-                               params['mhd_init']['params_modes_k']['ky'], 
-                               params['mhd_init']['params_modes_k']['kz'] ]
-            self.amp      =   params['mhd_init']['params_modes_k']['amp']
+            self.target   =   params_init['target']
+            self.modes_k  = [ params_init['kx'], 
+                              params_init['ky'], 
+                              params_init['kz'] ]
+            self.amp      =   params_init['amp']
 
             assert np.all(len(self.amp) == len(self.modes_k[0]) == len(self.modes_k[1]) == len(self.modes_k[2]))
 
         elif self.init_type == 'modes_mn':
-            self.target   =   params['mhd_init']['params_modes_mn']['target']
-            self.modes_mn = [ params['mhd_init']['params_modes_mn']['modes_m'],
-                               params['mhd_init']['params_modes_mn']['modes_n'] ]
-            self.amp      =   params['mhd_init']['params_modes_mn']['amp']
+            self.target   =   params_init['target']
+            self.modes_mn = [ params_init['modes_m'],
+                              params_init['modes_n'] ]
+            self.amp      =   params_init['amp']
             
         elif self.init_type == 'eigenfun':
-            self.n_tor    = params['mhd_init']['params_eigfun']['n_tor']
-            self.profiles = params['mhd_init']['params_eigfun']['profiles']
-            self.eig_kind = params['mhd_init']['params_eigfun']['eig_kind']
-            self.eig_freq = params['mhd_init']['params_eigfun']['eig_freq']
+            self.n_tor    = params_init['n_tor']
+            self.profiles = params_init['profiles']
+            self.eig_kind = params_init['eig_kind']
+            self.eig_freq = params_init['eig_freq']
 
         elif self.init_type == 'noise':
-            self.target   =   params['mhd_init']['params_noise']['target']
-            self.plane    =   params['mhd_init']['params_noise']['plane']
+            self.target   =   params_init['target']
+            self.plane    =   params_init['plane']
 
+        N_dof_0form = self.SPACES.E0.shape[0]
+        N_dof_1form = self.SPACES.E1.shape[0]
+        N_dof_2form = self.SPACES.E2.shape[0]
+        N_dof_3form = self.SPACES.E3.shape[0]
 
-    # =================================================
-    def initialize(self, r3, pp, b2, up):
+        self.r3 = np.zeros(N_dof_3form, dtype=float)
+        self.b2 = np.zeros(N_dof_2form, dtype=float)
+
+        if   self.basis_p == 0:
+            self.pp = np.zeros(N_dof_0form, dtype=float)
+        elif self.basis_p == 3:
+            self.pp = np.zeros(N_dof_3form, dtype=float)
+
+        if self.basis_u == 1:
+            self.up = np.zeros(N_dof_1form, dtype=float)
+        # elif   self.basis_u == 0:
+        #     up     = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
+        #     up_old = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
+        elif self.basis_u == 2:
+            self.up     = np.zeros(N_dof_2form, dtype=float)
 
         if self.init_type == 'modes_k':
-            r3[:] = self.SPACES.projectors.pi_3(self.r3_ini)
-            b2[:] = self.SPACES.projectors.pi_2([self.b2_ini_1, self.b2_ini_2, self.b2_ini_3])
+            self.r3[:] = self.SPACES.projectors.pi_3(self.r3_ini)
+            self.b2[:] = self.SPACES.projectors.pi_2([self.b2_ini_1, self.b2_ini_2, self.b2_ini_3])
 
             if   self.basis_p == 0:
-                pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
+                self.pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
 
             elif self.basis_p == 3:
-                pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
+                self.pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
 
             if   self.basis_u == 0:
                 up_1  = self.SPACES.projectors.pi_0(self.uv_ini_1)
                 up_2  = self.SPACES.projectors.pi_0(self.uv_ini_2)
                 up_3  = self.SPACES.projectors.pi_0(self.uv_ini_3)
 
-                up[:] = np.concatenate((up_1, up_2, up_3))
+                self.up[:] = np.concatenate((up_1, up_2, up_3))
 
             elif self.basis_u == 1:
-                up[:]     = self.SPACES.projectors.pi_1([self.u1_ini_1, self.u1_ini_2, self.u1_ini_3])
+                self.up[:] = self.SPACES.projectors.pi_1([self.u1_ini_1, self.u1_ini_2, self.u1_ini_3])
 
             elif self.basis_u == 2:
-                up[:]     = self.SPACES.projectors.pi_2([self.u1_ini_1, self.u1_ini_2, self.u1_ini_3])
+                self.up[:] = self.SPACES.projectors.pi_2([self.u1_ini_1, self.u1_ini_2, self.u1_ini_3])
 
 
         elif self.init_type == 'noise':
@@ -151,7 +174,7 @@ class Initialize_mhd:
             b2_temp_1 = np.empty(self.SPACES.Nbase_2form[0], dtype=float)
             b2_temp_2 = np.empty(self.SPACES.Nbase_2form[1], dtype=float)
             b2_temp_3 = np.empty(self.SPACES.Nbase_2form[2], dtype=float)
-            r3_temp = np.empty(self.SPACES.Nbase_3form   , dtype=float)
+            r3_temp   = np.empty(self.SPACES.Nbase_3form   , dtype=float)
 
             if   self.basis_p == 0:
                 pp_temp = np.empty(self.SPACES.Nbase_0form, dtype=float)
@@ -210,8 +233,8 @@ class Initialize_mhd:
                     b2_temp_3[:, k, :] = amps[6]
                     r3_temp[:, k, :]   = amps[7]
 
-            if not 'p' in self.target:  pp_temp[:, :, :] = 0.
-            if not 'r' in self.target:  r3_temp[:, :, :] = 0.
+            if not 'p'  in self.target: pp_temp[:, :, :] = 0.
+            if not 'r'  in self.target: r3_temp[:, :, :] = 0.
             if not 'u1' in self.target: up_temp_1[:, :, :] = 0.
             if not 'u2' in self.target: up_temp_2[:, :, :] = 0.
             if not 'u3' in self.target: up_temp_3[:, :, :] = 0.
@@ -219,14 +242,18 @@ class Initialize_mhd:
             if not 'b2' in self.target: up_temp_2[:, :, :] = 0.
             if not 'b3' in self.target: up_temp_3[:, :, :] = 0.
 
-            pp[:] = pp_temp.flatten()
-            r3[:] = r3_temp.flatten()
-            b2[:] = np.concatenate((b2_temp_1.flatten(), b2_temp_2.flatten(), b2_temp_3.flatten()))
-            up[:] = np.concatenate((up_temp_1.flatten(), up_temp_2.flatten(), up_temp_3.flatten()))
+            self.pp[:] = pp_temp.flatten()
+            self.r3[:] = r3_temp.flatten()
+            self.b2[:] = np.concatenate((b2_temp_1.flatten(), b2_temp_2.flatten(), b2_temp_3.flatten()))
+            self.up[:] = np.concatenate((up_temp_1.flatten(), up_temp_2.flatten(), up_temp_3.flatten()))
 
         elif self.init_type == 'modes_mn' or 'eigfun':
             print('modes_mn and eigfun mode are not implemented yet')
 
+        print('density'.ljust(16) + 'initialized as 3-form of size', self.r3.size)
+        print('mhd velocity'.ljust(16) + 'initialized as ' + str(self.basis_u) + '-form of size', self.up.size)
+        print('magnetic field'.ljust(16) + 'initialized as 2-form of size', self.b2.size)
+        print('pressure'.ljust(16) + 'initialized as ' + str(self.basis_p) + '-form of size', self.pp.size)
             
     # ===============================================================
     #                     functions for modes_k

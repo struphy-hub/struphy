@@ -574,7 +574,7 @@ class Tensor_spline_space:
         # -------------------------------------------------
         # Set discrete derivatives:
         # -------------------------------------------------
-        self.G, self.C, self.D = der.discrete_derivatives_3d(self)[::2]
+        self.G, self.G0, self.C, self.C0, self.D, self.D0 = der.discrete_derivatives_3d(self)
                 
         print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
 

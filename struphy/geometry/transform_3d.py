@@ -354,3 +354,18 @@ def kernel_evaluate_sparse(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, 
         for i2 in range(n2):
             for i3 in range(n3):
                 values[i1, i2, i3] = transform_all(a[:, i1, i2, i3], eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+
+# ==============================================================================
+@types('double[:,:]','double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')
+def kernel_evaluate_flat(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+    """Same as `kernel_evaluate`, but for flat evaluation.
+
+    Returns
+    -------
+        values : np.array
+            1d array [f(x1, y1, z1) f(x2, y2, z2) etc.]
+    """
+
+    for i in range(len(eta1)):
+        values[i] = transform_all(a[:, i], eta1[i], eta2[i], eta3[i], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
