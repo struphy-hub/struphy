@@ -9,6 +9,7 @@ from struphy.diagnostics                import data_module
 from struphy.geometry                   import domain_3d
 from struphy.mhd_equil                  import mhd_equil_physical 
 from struphy.mhd_equil                  import mhd_equil_logical 
+from struphy.mhd_equil.gvec             import mhd_equil_gvec
 from struphy.kinetic_equil              import kinetic_equil_physical 
 from struphy.kinetic_equil              import kinetic_equil_logical
 from struphy.feec                       import spline_space
@@ -56,18 +57,6 @@ def execute(file_in, path_out, restart):
     DOMAIN   = domain_3d.Domain(domain_type, params['geometry']['params_' + domain_type])
     print('Domain object of type "' + domain_type + '" set.')
     print()
-
-    # ========================================================================================= 
-    # MHD EQUILIBRIUM object
-    # =========================================================================================
-    # MHD equilibirum (physical)
-    mhd_equil_type = params['mhd_equilibrium']['general']['type']
-    EQ_MHD_P = mhd_equil_physical.Equilibrium_mhd_physical(mhd_equil_type, params['mhd_equilibrium']['params_' + mhd_equil_type])
-    
-    # MHD equilibrium (logical)
-    EQ_MHD_L = mhd_equil_logical.Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
-    print('MHD equilibrium of type "' + mhd_equil_type + '" set.')
-    print()
     
     # ========================================================================================= 
     # FEEC SPACES object
@@ -92,55 +81,6 @@ def execute(file_in, path_out, restart):
     print('FEEC spaces and projectors set (polar=' + str(params['grid']['polar']) + ').')
     print()
 
-    # Replace `EQ_MHD_L` if a GVEC equilibrium is requested, depending on params.
-    if params['mhd_equilibrium']['general']['type'] == 'gvec':
-        EQ_MHD_L = mhd_equil_gvec.Equilibrium_mhd_gvec(params, SPACES, DOMAIN)
-        print('GVEC MHD equilibrium (logical) set.')
-
-    # ======= reserve memory for FEM cofficients (all MPI processes) ========
-    NbaseN  = SPACES.NbaseN
-    NbaseD  = SPACES.NbaseD
-
-    N_0form = SPACES.Nbase_0form
-    N_1form = SPACES.Nbase_1form
-    N_2form = SPACES.Nbase_2form
-    N_3form = SPACES.Nbase_3form
-
-    # N_dof_all_0form = SPACES.E0_all.shape[0]
-    # N_dof_all_1form = SPACES.E1_all.shape[0]
-    # N_dof_all_2form = SPACES.E2_all.shape[0]
-    # N_dof_all_3form = SPACES.E3_all.shape[0]
-
-    N_dof_0form = SPACES.E0.shape[0]
-    N_dof_1form = SPACES.E1.shape[0]
-    N_dof_2form = SPACES.E2.shape[0]
-    N_dof_3form = SPACES.E3.shape[0]
-
-    r3 = np.zeros(N_dof_3form, dtype=float)
-    b2 = np.zeros(N_dof_2form, dtype=float)
-
-    if   params['forms']['basis_p'] == 0:
-        pp = np.zeros(N_dof_0form, dtype=float)
-    elif params['forms']['basis_p'] == 3:
-        pp = np.zeros(N_dof_3form, dtype=float)
-
-    if params['forms']['basis_u'] == 1:
-        up     = np.zeros(N_dof_1form, dtype=float)
-        up_old = np.zeros(N_dof_1form, dtype=float)
-    # elif   params['forms']['basis_u'] == 0:
-    #     up     = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
-    #     up_old = np.zeros(N_dof_0form + 2*N_dof_all_0form, dtype=float)
-    elif params['forms']['basis_u'] == 2:
-        up     = np.zeros(N_dof_2form, dtype=float)
-        up_old = np.zeros(N_dof_2form, dtype=float)
-    # =======================================================================
-
-    # initialize mhd variables 
-    MHD_ini = mhd_init.Initialize_mhd(DOMAIN, SPACES, file_in)
-    MHD_ini.initialize(r3, pp, b2, up) 
-    # equilibrium magn. field and current
-    J2_eq = [EQ_MHD_L.j2_eq_1, EQ_MHD_L.j2_eq_2, EQ_MHD_L.j2_eq_3]
-    B2_eq = [EQ_MHD_L.b2_eq_1, EQ_MHD_L.b2_eq_2, EQ_MHD_L.b2_eq_3]
     # assemble mass matrices 
     SPACES.assemble_M2(DOMAIN)
     SPACES.assemble_M3(DOMAIN)
@@ -150,6 +90,22 @@ def execute(file_in, path_out, restart):
     # preconditioner 
     if params['solvers']['PRE'] == 'ILU':
         SPACES.projectors.assemble_approx_inv(params['solvers']['tol_inv'])
+
+    # ========================================================================================= 
+    # MHD EQUILIBRIUM object
+    # =========================================================================================
+    # MHD equilibirum (physical)
+    mhd_equil_type = params['mhd_equilibrium']['general']['type']
+    EQ_MHD_P = mhd_equil_physical.Equilibrium_mhd_physical(mhd_equil_type, params['mhd_equilibrium']['params_' + mhd_equil_type])
+    
+    # MHD equilibrium (logical)
+    if mhd_equil_type == 'gvec':
+        EQ_MHD_L = mhd_equil_gvec.Equilibrium_mhd_gvec(params, SPACES, DOMAIN)
+    else:
+        EQ_MHD_L = mhd_equil_logical.Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
+        
+    print('MHD equilibrium of type "' + mhd_equil_type + '" set.')
+    print()
 
     # projection of magentic equilibrium
     B2_eq = [EQ_MHD_L.b2_eq_1, EQ_MHD_L.b2_eq_2, EQ_MHD_L.b2_eq_3]
