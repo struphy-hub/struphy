@@ -81,35 +81,13 @@ mhd_equilibrium :
                   beta  : 0.2
                   p1    : 0.95
                   p2    : 0.05
-      params_gvec :
-            filepath : 'struphy/mhd_equil/gvec/'
-            filename : 'GVEC_ellipStell_profile_update_State_0000_00010000.dat' # .dat or .json
-
-kinetic_equilibrium :
-      general :
-            type            : Maxwell_xyz # type of kinetic equilibrium
-            nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
-            particle_charge : 1. # in units of elementary charge
-            particle_mass   : 1. # in units of proton mass
-            alpha           : 1. # coupling parameter alpha = Omega_{cp0}/Omega_{A0} 
-      params_Maxwell_xyz :
-            vth_x : 1. # thermal velocity (in units of v_A)
-            vth_y : 1.
-            vth_z : 1.
-            v0_x  : 0.
-            v0_y  : 0.
-            v0_z  : 0.
-      params_Maxwell_pitchangle :
-            vth    : 1. # thermal velocity (in units of v_A)
-            alpha0 : 1.
-            delta  : 1.
 
 mhd_init   : 
       general :
             type : modes_k # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
             coords : physical # (physical, norm_logical)
             basis_u : 2 # representation of U (0 : all NNN, 1 : 1-form, 2 : 2-form)
-            basis_p : 0 # representation of p (0 : 0-form, 3 : 3-form)
+            basis_p : 3 # representation of p (0 : 0-form, 3 : 3-form)
       params_modes_k : # modes_k
             target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
             kx : [.8]
@@ -130,22 +108,6 @@ mhd_init   :
             target : [b1, b2, b3, u1, u2, u3, p, r]
             plane : yz # plane of noise (xy, xz, yz)
 
-kinetic_init   : 
-      general : 
-            type   : noise # initialization of particles (noise OR modes_k, modes_mn -> density perturbations)
-            coords : physical # (physical OR logical)
-      params_noise :
-            plane : yz # plane of noise (xy, xz, yz)
-      params_modes_k :
-            kx : [.8]
-            ky : [0.]
-            kz : [0.] 
-            amp : [0.001]
-      params_modes_mn :
-            modes_m : [1]
-            modes_n : [1]
-            amp : [0.001]
-
 grid :
       Nel      : [16, 2, 2] # number of grid cells > 1
       p        : [3, 1, 1] # spline degree > 0
@@ -153,21 +115,12 @@ grid :
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
       nq_el    : [4, 2, 2] # quadrature points per grid cell
       nq_pr    : [4, 2, 2] # quadrature points per histopolation cell (for projection)
-      polar    : False # use polar splines
-
-markers :
-      Np            : 32000 # total number of hot particles
-      control       : False # control variate (use delta-f)?
-      loading       : pseudo_random # particle loading
-      seed          : 1234 # seed for random number generator
-      dir_particles : path_to_particles # directory of particles if loaded externally
-      n_bins        : [32, 32] # number of bins in (x,v) for 2d particle binning.   
-      v_max         : 5. # maximum velocity for binning (in units of v_A)            
+      polar    : False # use polar splines       
 
 time : 
       dt         : 0.1
-      Tend       : 150.
-      max_time   : 1000. # maximum runtime of program in minutes
+      Tend       : 0.3
+      max_time   : 1. # maximum runtime of program in minutes
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
       loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6') 
 

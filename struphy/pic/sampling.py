@@ -14,7 +14,6 @@ import struphy.feec.basics.spline_evaluation_2d as eva2
 import struphy.feec.basics.spline_evaluation_3d as eva3
 
 
-
 # ==============================================================================
 @types('double[:,:]','double[:,:]','int')
 def set_particles_symmetric(numbers, particles, np):

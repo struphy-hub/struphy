@@ -919,8 +919,8 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
         - g      : metric tensor df^T * df 
         - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
         eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1]
         kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
         kind_map:               int                 kind of mapping (see module docstring)
@@ -930,9 +930,9 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
         nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
         cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
 
-    Returns:
-    --------
-        mat_f:  ndarray
+    Returns
+    -------
+        mat_f : np.array
             matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
     """
 
@@ -949,28 +949,10 @@ def kernel_evaluate(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, 
 # ==========================================================================================
 @types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')       
 def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
-    """Same as `kernel_evluate`, but for sparse meshgrid.
-    Matrix-wise evaluation of
-        - f      : mapping x_i = f_i(eta1, eta2, eta3)
-        - df     : Jacobian matrix df_i/deta_j
-        - det_df : Jacobian determinant det(df)
-        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
-        - g      : metric tensor df^T * df 
-        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+    """Same as `kernel_evaluate`, but for sparse meshgrid.
 
-    Parameters:
-    -----------
-        eta1, eta2, eta3:       double[:, :, :]     matrices of logical coordinates in [0, 1] produced from sparse meshgrid
-        kind_fun:               int                 function to evaluate (see keys_map in 'domain_3d.py')
-        kind_map:               int                 kind of mapping (see module docstring)
-        params_map:             double[:]           parameters for the mapping
-        tn1, tn2, tn3:          double[:]           knot vectors for mapping
-        pn:                     int[:]              spline degrees for mapping
-        nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
-        cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
-
-    Returns:
-    --------
+    Returns
+    -------
         mat_f:  ndarray
             matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
     """
@@ -988,30 +970,12 @@ def kernel_evaluate_sparse(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1
 # ==========================================================================================
 @types('double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')       
 def kernel_evaluate_flat(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, mat_f):
-    """Same as `kernel_evluate`, but for sparse meshgrid.
-    Matrix-wise evaluation of
-        - f      : mapping x_i = f_i(eta1, eta2, eta3)
-        - df     : Jacobian matrix df_i/deta_j
-        - det_df : Jacobian determinant det(df)
-        - df_inv : inverse Jacobian matrix (df_i/deta_j)^(-1)
-        - g      : metric tensor df^T * df 
-        - g_inv  : inverse metric tensor df^(-1) * df^(-T)  .
+    """Same as `kernel_evaluate`, but for flat evaluation.
 
-    Parameters:
-    -----------
-        eta1, eta2, eta3:       double[:]        vectors of logical coordinates in [0, 1] produced from sparse meshgrid
-        kind_fun:               int              function to evaluate (see keys_map in 'domain_3d.py')
-        kind_map:               int              kind of mapping (see module docstring)
-        params_map:             double[:]        parameters for the mapping
-        tn1, tn2, tn3:          double[:]        knot vectors for mapping
-        pn:                     int[:]           spline degrees for mapping
-        nbase_n:                int[:]           dimensions of univariate spline spaces for mapping 
-        cx, cy, cz:             double[:, :, :]  control points of (f_1, f_2, f_3)
-
-    Returns:
-    --------
-        mat_f:  ndarray
-            matrix-valued mapping/metric coefficient evaluated at (eta1, eta2, eta3)
+    Returns
+    -------
+        mat_f:  np.array
+            1d array [f(x1, y1, z1) f(x2, y2, z2) etc.]
     """
 
     for i in range(len(eta1)):

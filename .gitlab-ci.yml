@@ -40,7 +40,7 @@ unittest:
   #     cobertura: tests/coverage.xml
   before_script:
     - apt-get -y update
-    - apt-get -y install libopenmpi-dev
+    - apt-get -y install libopenmpi-dev tree
     # - pip install virtualenv
     # - python -m venv env_test
     # - source env_test/bin/activate
@@ -49,6 +49,7 @@ unittest:
     - pip install .
     #- make
     - struphy -h
+    - struphy -t
     - struphy -c
     #- ./STRUPHY_init.sh  # copy struphy files and directories 
     #- ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation

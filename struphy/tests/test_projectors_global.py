@@ -383,7 +383,7 @@ def test_projectors_2d(p_range=6, N_range=8):
 
 
 
-def test_projectors_3d(p_range=6, N_range=6):
+def test_projectors_3d(p_range=6, N_range=5):
 
     import sys
     sys.path.append('..')

@@ -48,10 +48,16 @@ def test_evaluation_mappings():
         print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         # point-wise evaluation:
+        print('pointwise evaluation, size:', DOMAIN.evaluate(.5, .5, .5, 'x').size)
         assert DOMAIN.evaluate(.5, .5, .5, 'x').size == 1
         assert DOMAIN.evaluate(.5, .5, .5, 'y').size == 1
         assert DOMAIN.evaluate(.5, .5, .5, 'z').size == 1
-        print('pointwise evaluation, size:', DOMAIN.evaluate(.5, .5, .5, 'x').size)
+
+        # flat evaluation:
+        print('flat evaluation, shape:', DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape)
+        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape == arr1.shape
+        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'y', flat_eval=True).shape == arr1.shape
+        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'z', flat_eval=True).shape == arr1.shape
 
         # eta1-array evaluation:
         print('eta1 array evaluation, shape:', DOMAIN.evaluate(arr1, .5, .5, 'x').shape)
@@ -219,6 +225,11 @@ def test_pullback():
             assert DOMAIN.pull(fun_form, .5, .5, .5, p_str).size == 1
             #print('pointwise pullback, size:', DOMAIN.pull(fun_form, .5, .5, .5, p_str).size)
 
+            # flat pullback:
+            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+
             # eta1-array pullback:
             #print('eta1 array pullback, shape:', DOMAIN.pull(fun_form, arr1, .5, .5, p_str).shape)
             assert DOMAIN.pull(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
@@ -339,36 +350,41 @@ def test_pushforward():
             else:
                 fun_form = [fun, fun, fun]
 
-            # point-wise pullback:
+            # point-wise pushforward:
             assert DOMAIN.push(fun_form, .5, .5, .5, p_str).size == 1
-            #print('pointwise pullback, size:', DOMAIN.push(fun_form, .5, .5, .5, p_str).size)
+            #print('pointwise pushforward, size:', DOMAIN.push(fun_form, .5, .5, .5, p_str).size)
 
-            # eta1-array pullback:
-            #print('eta1 array pullback, shape:', DOMAIN.push(fun_form, arr1, .5, .5, p_str).shape)
+            # flat pushforward:
+            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+
+            # eta1-array pushforward:
+            #print('eta1 array pushforward, shape:', DOMAIN.push(fun_form, arr1, .5, .5, p_str).shape)
             assert DOMAIN.push(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
-            # eta2-array pullback:
-            #print('eta2 array pullback, shape:', DOMAIN.push(fun_form, .5, arr2, .5, p_str).shape)
+            # eta2-array pushforward:
+            #print('eta2 array pushforward, shape:', DOMAIN.push(fun_form, .5, arr2, .5, p_str).shape)
             assert DOMAIN.push(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
-            # eta3-array pullback:
-            #print('eta3 array pullback, shape:', DOMAIN.push(fun_form, .5, .5, arr3, p_str).shape)
+            # eta3-array pushforward:
+            #print('eta3 array pushforward, shape:', DOMAIN.push(fun_form, .5, .5, arr3, p_str).shape)
             assert DOMAIN.push(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 
-            # eta1-eta2-array pullback:
+            # eta1-eta2-array pushforward:
             a = DOMAIN.push(fun_form, arr1, arr2, .5, p_str)
-            #print('eta1-eta2 array pullback, shape:', a.shape)
+            #print('eta1-eta2 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
-            # eta1-eta3-array pullback:
+            # eta1-eta3-array pushforward:
             a = DOMAIN.push(fun_form, arr1, .5, arr3, p_str)
-            #print('eta1-eta3 array pullback, shape:', a.shape)
+            #print('eta1-eta3 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
-            # eta2-eta3-array pullback:
+            # eta2-eta3-array pushforward:
             a = DOMAIN.push(fun_form, .5, arr2, arr3, p_str)
-            #print('eta2-eta3 array pullback, shape:', a.shape)
+            #print('eta2-eta3 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 
-            # eta1-eta2-eta3 array pullback:
+            # eta1-eta2-eta3 array pushforward:
             a = DOMAIN.push(fun_form, arr1, arr2, arr3, p_str)
-            #print('eta1-eta2-eta3-array pullback, shape:', a.shape)
+            #print('eta1-eta2-eta3-array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
 
             # matrix pullbacks at one point in third direction
@@ -376,29 +392,29 @@ def test_pushforward():
             mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing='ij')
             mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
-            # eta1-eta2 matrix pullback:
+            # eta1-eta2 matrix pushforward:
             a = DOMAIN.push(fun_form, mat12_x, mat12_y, .5, p_str)
-            #print('eta1-eta2 matrix pullback, shape:', a.shape)
+            #print('eta1-eta2 matrix pushforward, shape:', a.shape)
             assert a.shape == mat12_x.shape
-            # eta1-eta3 matrix pullback:
+            # eta1-eta3 matrix pushforward:
             a = DOMAIN.push(fun_form, mat13_x, .5, mat13_z, p_str)
-            #print('eta1-eta3 matrix pullback, shape:', a.shape)
+            #print('eta1-eta3 matrix pushforward, shape:', a.shape)
             assert a.shape == mat13_x.shape
-            # eta2-eta3 matrix pullback:
+            # eta2-eta3 matrix pushforward:
             a = DOMAIN.push(fun_form, .5, mat23_y, mat23_z, p_str)
-            #print('eta2-eta3 matrix pullback, shape:', a.shape)
+            #print('eta2-eta3 matrix pushforward, shape:', a.shape)
             assert a.shape == mat23_y.shape
 
             # matrix pullbacks for sparse meshgrid
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
             a = DOMAIN.push(fun_form, mat_x, mat_y, mat_z, p_str)
-            #print('sparse meshgrid matrix pullback, shape:', a.shape)
+            #print('sparse meshgrid matrix pushforward, shape:', a.shape)
             assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 
             # matrix pullbacks 
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
             a = DOMAIN.push(fun_form, mat_x, mat_y, mat_z, p_str)
-            #print('matrix pullback, shape:', a.shape)
+            #print('matrix pushforward, shape:', a.shape)
             assert a.shape == mat_x.shape 
 
 
@@ -466,6 +482,11 @@ def test_transformation():
             # point-wise transformation:
             assert DOMAIN.transformation(fun_form, .5, .5, .5, p_str).size == 1
             #print('pointwise transformation, size:', DOMAIN.transformation(fun_form, .5, .5, .5, p_str).size)
+
+            # flat transformation:
+            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 
             # eta1-array transformation:
             #print('eta1 array transformation, shape:', DOMAIN.transformation(fun_form, arr1, .5, .5, p_str).shape)

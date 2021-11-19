@@ -41,14 +41,14 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of weight function at quadrature points
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
@@ -115,7 +115,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
     ns    = [[1, 0], [0, 1], [0, 0]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of inverse metric tensor
@@ -135,9 +135,9 @@ def get_M1(tensor_space_FEM, domain, weight=None):
             
             # evaluate inverse metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -208,7 +208,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
     ns    = [[0, 1], [1, 0], [1, 1]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of metric tensor
@@ -228,9 +228,9 @@ def get_M2(tensor_space_FEM, domain, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -294,14 +294,14 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of weight function at quadrature points
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
@@ -366,7 +366,7 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
     ns    = [[0, 0], [0, 0], [0, 0]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))[:, :, 0]
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of metric tensor
@@ -386,9 +386,9 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])[:, :, 0]  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))[:, :, 0]
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             

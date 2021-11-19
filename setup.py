@@ -28,6 +28,7 @@ setup(
         ],
         'struphy.io': ['batch/*.sh'],
         'struphy.io.inp': [
+            'lin_mhd/*.yml',
             'cc_lin_mhd_6d/*.yml',
             'massless_extended/*.yml',
             'pc_lin_mhd_6d/*.yml',
@@ -48,13 +49,13 @@ setup(
         'scipy',
         'sympy',
         'pytest',
-        'treelib',
         'sphinx',
         'sphinxcontrib-napoleon',
         'sphinx-rtd-theme', 
         'm2r2',
         'vtk',
         'docutils==0.15',
+        'pandas',
     ],
     # more information, necessary for an upload to PyPI
     author="Stefan Possanner",

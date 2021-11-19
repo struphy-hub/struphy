@@ -18,7 +18,7 @@ import struphy.pic.control_variate as cv
 
 import time
 
-class accumulation:
+class Accumulation:
     """
     Class for computing charge and current densities from particles.
     

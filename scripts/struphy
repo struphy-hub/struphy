@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # defaults:
-code=cc_lin_mhd_6d 
+code=lin_mhd 
 file=parameters.yml 
 out=sim_1 
 batch=
-mode=False # restart for h5py files: True or False
+mode=w # restart: 'a', new start: 'w' (default)
 num_threads=1 # number of openmp threads (pyccel, not needed for numba)
 
 PYTHON=python3
@@ -27,7 +27,8 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             echo "   -t                 Display struphy tree (package directories)."
             echo "   -c                 Compile struphy kernels (pyccel)."
             echo "   -r <code>          Specify code to run. Available codes are:"
-            echo "                                * cc_lin_mhd_6d (default, current coupling MHD-full Vlasov)"
+            echo "                                * lin_mhd (linear MHD) -> default"
+            echo "                                * cc_lin_mhd_6d (current coupling MHD-full Vlasov)"
             echo "                                * pc_lin_mhd_6d (pressure coupling MHD-full Vlasov)"
             echo "                                * massless_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
             echo "   -i <filename>      Parameter file (.yml), default is 'parameters.yml'."
@@ -52,7 +53,8 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             echo "The struphy package is in" $path_lib
             echo "Package content:"
             echo
-            $PYTHON ${path_lib}struphy_tree.py
+            cd $path_lib
+            tree -d -I '__pycache__|__pyccel__'
             exit 0
             ;;
         c)
@@ -75,7 +77,7 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             batch=${OPTARG}
             ;;
         m)
-            file_mode=${OPTARG}
+            mode=${OPTARG}
             ;;
         n)
             num_threads=${OPTARG}
@@ -99,7 +101,24 @@ echo "input parameters:" ${file_inp}
 echo "output folder:" ${path_out}
 echo "batch script:" $batch
 echo "omp threads:" $num_threads
+echo "restart:" $mode
 
+# remove existing files when no restart
+if [ $mode = w ] && [ -e ${path_out}data.hdf5 ]; then
+
+    # ask user to confirm: 
+    #echo 'Are you sure you want to delete data.hdf5 in' /$out '([y]/n)?'
+    #read check_user
+
+    if [ -z $check_user ] || [$check_user = y]; then
+        rm ${path_out}data.hdf5
+        rm ${path_out}sim_meta_data.txt
+        echo 'data.hdf5 in' /$out 'deleted.'
+    fi
+
+fi
+
+# call exec.py
 if [ -z $batch ]; then
     
     export OMP_NUM_THREADS=$num_threads
