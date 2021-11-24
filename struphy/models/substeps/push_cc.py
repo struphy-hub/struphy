@@ -1,7 +1,7 @@
 import scipy.sparse as spa
 import numpy as np
 
-from struphy.pic import pusher_vel
+from struphy.pic import pusher_vel_3d
 
 class Current_coupling:
     '''The substeps of the Poisson splitting algorithm for current coupling terms.
@@ -128,7 +128,7 @@ class Current_coupling:
         else:
             up_ten_1, up_ten_2, up_ten_3 = self.SPACES.extract_2((up + up_old)/2)
         
-        pusher_vel.pusher_step3(temp, charge_over_mass*self.dts[0], 
+        pusher_vel_3d.pusher_v_mhd_electric(temp, charge_over_mass*self.dts[0], 
                                 self.SPACES.T[0], self.SPACES.T[1], self.SPACES.T[2], 
                                 self.SPACES.p, self.SPACES.Nel, self.SPACES.NbaseN, self.SPACES.NbaseD, 
                                 self.Np_loc, b2_ten_1, b2_ten_2, b2_ten_3, 

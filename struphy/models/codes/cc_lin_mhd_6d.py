@@ -16,7 +16,7 @@ from struphy.feec                       import spline_space
 from struphy.mhd_init                   import mhd_init 
 from struphy.kinetic_init               import kinetic_init 
 from struphy.feec.projectors.pro_global import mhd_operators_cc_lin_6d as mhd_ops
-from struphy.pic                        import accumulation   
+from struphy.pic.cc_lin_mhd_6d          import accumulation   
 from struphy.models.substeps            import push_linear_mhd
 from struphy.models.substeps            import push_markers
 from struphy.models.substeps            import push_cc
@@ -39,7 +39,7 @@ def execute(file_in, path_out, restart):
     print()
     print('Starting code "cc_lin_mhd_6d" ...')
     print()
-
+    
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
     mpi_size = MPI_COMM.Get_size()
@@ -80,7 +80,7 @@ def execute(file_in, path_out, restart):
     SPACES.set_projectors('general')
     print('FEEC spaces and projectors set (polar=' + str(params['grid']['polar']) + ').')
     print()
-
+    
     # assemble mass matrices 
     SPACES.assemble_M2(DOMAIN)
     SPACES.assemble_M3(DOMAIN)
@@ -150,7 +150,7 @@ def execute(file_in, path_out, restart):
     MHD_OPS.setPreconditionerS6(params['solvers']['PRE'])
     print('MHD preconditioners of type "' + params['solvers']['PRE'] + '" set.')
     print()
-
+    
     # ========================================================================================= 
     # KINETIC EQUILIBRIUM object
     # =========================================================================================
@@ -284,7 +284,10 @@ def execute(file_in, path_out, restart):
 
     else:
         raise ValueError('Time stepping scheme not available.')
-
+        
+        
+    print(params['mhd_init']['general']['basis_u'], params['mhd_init']['general']['basis_p'])
+    
     UPDATE_MHD = push_linear_mhd.Linear_mhd(dts_mhd, SPACES, MHD_OPS, params['solvers'], 
                                                                  params['mhd_init']['general']['basis_u'], 
                                                                  params['mhd_init']['general']['basis_p'])  

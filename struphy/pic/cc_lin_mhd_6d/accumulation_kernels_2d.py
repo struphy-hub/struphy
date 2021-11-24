@@ -9,7 +9,8 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
-import struphy.feec.basics.spline_evaluation_2d as eva
+import struphy.feec.basics.spline_evaluation_2d as eva2
+
 
 # ==============================================================================
 @types('double[:,:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','int','int')
@@ -53,8 +54,8 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
     bd1 = empty( pd1 + 1, dtype=float)
     bd2 = empty( pd2 + 1, dtype=float)
     
-    # sin/cos at particle position
-    sc = empty(2, dtype=float)
+    # cos/sin at particle position
+    cs = empty(2, dtype=float)
     
     # magnetic field at particle position
     b      = empty( 3    , dtype=float)
@@ -104,7 +105,7 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, eta1, eta2, eta3, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, sc, b, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, ie1, ie2, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
+    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, ie1, ie2, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -115,47 +116,6 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
         
-        # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        
-        # N-splines and D-splines at particle positions
-        bn1[:] = b1[pn1, :]
-        bn2[:] = b2[pn2, :]
-        
-        bd1[:] = b1[pd1, :pn1] * d1[:]
-        bd2[:] = b2[pd2, :pn2] * d2[:]
-        
-        # sin and cos at particle position
-        sc[0] = sin(2*pi*n_tor*eta3)
-        sc[1] = cos(2*pi*n_tor*eta3)
-        
-        # background magnetic field (2-form)
-        b[0]  = eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
-        b[1]  = eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
-        b[2]  = eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
-        
-        # perturbed magnetic field (2-form)
-        b[0] += eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, 0])*sc[0]
-        b[1] += eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, 0])*sc[0]
-        b[2] += eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, 0])*sc[0]
-
-        b[0] += eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, 1])*sc[1]
-        b[1] += eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, 1])*sc[1]
-        b[2] += eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, 1])*sc[1]
-        
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] =  b[1]
-
-        b_prod[1, 0] =  b[2]
-        b_prod[1, 2] = -b[0]
-
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] =  b[0]
-        # ==========================================
         
         # ========= mapping evaluation =============
         span1f = int(eta1*nelf[0]) + pf1
@@ -174,6 +134,48 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
         # evaluate inverse metric tensor
         mapping_fast.g_inv_all(dfinv, ginv)
         # ==========================================
+        
+        
+        # ========== field evaluation ==============
+        span1 = int(eta1*nel[0]) + pn1
+        span2 = int(eta2*nel[1]) + pn2
+        
+        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        
+        # N-splines and D-splines at particle positions
+        bn1[:] = b1[pn1, :]
+        bn2[:] = b2[pn2, :]
+        
+        bd1[:] = b1[pd1, :pn1] * d1[:]
+        bd2[:] = b2[pd2, :pn2] * d2[:]
+        
+        # cos/sin at particle position
+        cs[0] = cos(2*pi*n_tor*eta3)
+        cs[1] = sin(2*pi*n_tor*eta3)
+        
+        # equilibrium magnetic field (2-form)
+        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
+        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
+        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
+
+        # perturbed magnetic field (2-form)
+        for i in range(nbase_n[2]):
+            
+            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
+            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
+            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
+        
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] =  b[1]
+
+        b_prod[1, 0] =  b[2]
+        b_prod[1, 2] = -b[0]
+
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] =  b[0]
+        # ==========================================
+        
         
         # ========= charge accumulation ============
         # element indices
@@ -194,15 +196,15 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         for jl1 in range(pn1 + 1):
                             bj1 = bi3 * bn1[jl1]
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3 * temp12
                                     mat13[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3 * temp13
@@ -220,50 +222,50 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
             temp13 = -particles[6, ip] * temp_mat2[0, 2]
             temp23 = -particles[6, ip] * temp_mat2[1, 2]
             
-            # add contribution to 12 component (DNN NDN) and 13 component (DNN NND)
+            # add contribution to 12 component (DN ND) and 13 component (DN NN)
             for il1 in range(pd1 + 1):
                 i1  = (ie1 + il1)%nbase_d[0]
                 bi1 = bd1[il1]
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         for jl1 in range(pn1 + 1):
                             bj1 = bi3 * bn1[jl1]
 
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2] * temp12
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2] * temp13
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat13[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
 
 
-            # add contribution to 23 component (NDN NND)
+            # add contribution to 23 component (ND NN)
             for il1 in range(pn1 + 1):
                 i1  = (ie1 + il1)%nbase_n[0]
                 bi1 = bn1[il1] * temp23
                 for il2 in range(pd2 + 1):
                     i2  = (ie2 + il2)%nbase_d[1]
                     bi2 = bi1 * bd2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
                         for jl1 in range(pn1 + 1):
                             bj1 = bi3 * bn1[jl1]
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat23[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
                                     
@@ -278,50 +280,50 @@ def kernel_step1(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
             temp13 = -w_over_det2 * b_prod[0, 2]
             temp23 = -w_over_det2 * b_prod[1, 2]
             
-            # add contribution to 12 component (NDD DND) and 13 component (NDD DDN)
+            # add contribution to 12 component (ND DN) and 13 component (ND DD)
             for il1 in range(pn1 + 1):
                 i1  = (ie1 + il1)%nbase_n[0]
                 bi1 = bn1[il1]
                 for il2 in range(pd2 + 1):
                     i2  = (ie2 + il2)%nbase_d[1]
                     bi2 = bi1 * bd2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         for jl1 in range(pd1 + 1):
                             bj1 = bi3 * bd1[jl1]
 
                             for jl2 in range(pn2 + 1):
                                 bj2 = bj1 * bn2[jl2] * temp12
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2] * temp13
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat13[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
 
 
-            # add contribution to 23 component (DND DDN)
+            # add contribution to 23 component (DN DD)
             for il1 in range(pd1 + 1):
                 i1  = (ie1 + il1)%nbase_d[0]
                 bi1 = bd1[il1] * temp23
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
                         for jl1 in range(pd1 + 1):
                             bj1 = bi3 * bd1[jl1]
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat23[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
                                                        
@@ -380,8 +382,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
     bd1 = empty( pd1 + 1, dtype=float)
     bd2 = empty( pd2 + 1, dtype=float)
     
-    # sin/cos at particle position
-    sc = empty(2, dtype=float)
+    # cos/sin at particle position
+    cs = empty(2, dtype=float)
     
     # magnetic field at particle position
     b        = empty( 3    , dtype=float)
@@ -439,7 +441,7 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, eta1, eta2, eta3, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, sc, b, b_prod_t, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, ie1, ie2, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
+    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_prod_t, ie1, ie2, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -449,50 +451,6 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
-        
-        # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        
-        # N-splines and D-splines at particle positions
-        bn1[:] = b1[pn1, :]
-        bn2[:] = b2[pn2, :]
-        
-        bd1[:] = b1[pd1, :pn1] * d1[:]
-        bd2[:] = b2[pd2, :pn2] * d2[:]
-        
-        # sin and cos at particle position
-        sc[0] = sin(2*pi*n_tor*eta3)
-        sc[1] = cos(2*pi*n_tor*eta3)
-        
-        # background magnetic field (2-form)
-        b[0]  = eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
-        b[1]  = eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
-        b[2]  = eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
-        
-        # perturbed magnetic field (2-form)
-        b[0] += eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, 0])*sc[0]
-        b[1] += eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, 0])*sc[0]
-        b[2] += eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, 0])*sc[0]
-
-        b[0] += eva.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, 1])*sc[1]
-        b[1] += eva.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, 1])*sc[1]
-        b[2] += eva.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, 1])*sc[1]
-        
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] =  b[1]
-
-        b_prod[1, 0] =  b[2]
-        b_prod[1, 2] = -b[0]
-
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] =  b[0]
-        
-        linalg.transpose(b_prod, b_prod_t)
-        # ==========================================
         
         
         # ========= mapping evaluation =============
@@ -511,6 +469,49 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
         
         # evaluate inverse metric tensor
         mapping_fast.g_inv_all(dfinv, ginv)
+        # ==========================================
+        
+        
+        # ========== field evaluation ==============
+        span1 = int(eta1*nel[0]) + pn1
+        span2 = int(eta2*nel[1]) + pn2
+        
+        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        
+        # N-splines and D-splines at particle positions
+        bn1[:] = b1[pn1, :]
+        bn2[:] = b2[pn2, :]
+        
+        bd1[:] = b1[pd1, :pn1] * d1[:]
+        bd2[:] = b2[pd2, :pn2] * d2[:]
+        
+        # cos/sin at particle position
+        cs[0] = cos(2*pi*n_tor*eta3)
+        cs[1] = sin(2*pi*n_tor*eta3)
+        
+        # equilibrium magnetic field (2-form)
+        b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
+        b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
+        b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
+
+        # perturbed magnetic field (2-form)
+        for i in range(nbase_n[2]):
+            
+            b[0] += eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i])*cs[i]
+            b[1] += eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i])*cs[i]
+            b[2] += eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i])*cs[i]
+        
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] =  b[1]
+
+        b_prod[1, 0] =  b[2]
+        b_prod[1, 2] = -b[0]
+
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] =  b[0]
+        
+        linalg.transpose(b_prod, b_prod_t)
         # ==========================================
         
         
@@ -548,8 +549,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec1[i1, i2, il3] += bi3 * temp1
                         vec2[i1, i2, il3] += bi3 * temp2
@@ -559,8 +560,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bn1[jl1]
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat11[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3 * temp11
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3 * temp12
@@ -599,8 +600,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec1[i1, i2, il3] += bi3 * temp1 
 
@@ -608,8 +609,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bd1[jl1] * temp11
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat11[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -617,8 +618,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bn1[jl1] * temp12
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -626,8 +627,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bn1[jl1] * temp13
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat13[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -640,8 +641,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pd2 + 1):
                     i2  = (ie2 + il2)%nbase_d[1]
                     bi2 = bi1 * bd2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec2[i1, i2, il3] += bi3 * temp2 
 
@@ -650,15 +651,15 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
 
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2] * temp22
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat22[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2] * temp23
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat23[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -671,8 +672,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec3[i1, i2, il3] += bi3 * temp3 
 
@@ -680,8 +681,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bn1[jl1] * temp33
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat33[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
                                     
@@ -715,8 +716,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pd2 + 1):
                     i2  = (ie2 + il2)%nbase_d[1]
                     bi2 = bi1 * bd2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec1[i1, i2, il3] += bi3 * temp1 
 
@@ -724,8 +725,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bn1[jl1] * temp11
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat11[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -733,8 +734,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bd1[jl1] * temp12
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat12[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -742,8 +743,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bd1[jl1] * temp13
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat13[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -756,8 +757,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pn2 + 1):
                     i2  = (ie2 + il2)%nbase_n[1]
                     bi2 = bi1 * bn2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec2[i1, i2, il3] += bi3 * temp2 
 
@@ -766,15 +767,15 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
 
                             for jl2 in range(pn2 + 1):
                                 bj2 =  bj1 * bn2[jl2] * temp22
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat22[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2] * temp23
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat23[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
 
@@ -787,8 +788,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                 for il2 in range(pd2 + 1):
                     i2  = (ie2 + il2)%nbase_d[1]
                     bi2 = bi1 * bd2[il2]
-                    for il3 in range(2):
-                        bi3 = bi2 * sc[il3]
+                    for il3 in range(nbase_n[2]):
+                        bi3 = bi2 * cs[il3]
 
                         vec3[i1, i2, il3] += bi3 * temp3 
 
@@ -796,8 +797,8 @@ def kernel_step3(particles, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2
                             bj1 = bi3 * bd1[jl1] * temp33
                             for jl2 in range(pd2 + 1):
                                 bj2 =  bj1 * bd2[jl2]
-                                for jl3 in range(2):
-                                    bj3 = bj2 * sc[jl3]
+                                for jl3 in range(nbase_n[2]):
+                                    bj3 = bj2 * cs[jl3]
 
                                     mat33[i1, i2, il3, pn1 + jl1 - il1, pn2 + jl2 - il2, jl3] += bj3
                                                    

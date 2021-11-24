@@ -110,7 +110,7 @@ mhd_init   :
             type : modes_k # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
             coords : physical # (physical, norm_logical)
             basis_u : 2 # representation of U (0 : all NNN, 1 : 1-form, 2 : 2-form)
-            basis_p : 0 # representation of p (0 : 0-form, 3 : 3-form)
+            basis_p : 3 # representation of p (0 : 0-form, 3 : 3-form)
       params_modes_k : # modes_k
             target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
             kx : [.8]

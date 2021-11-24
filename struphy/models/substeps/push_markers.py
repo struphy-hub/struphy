@@ -1,7 +1,7 @@
 import numpy as np
 
 from struphy.pic import pusher_pos
-from struphy.pic import pusher_vel
+from struphy.pic import pusher_vel_3d
 
 class Push:
     '''Split steps of pure particle pushing.
@@ -48,12 +48,12 @@ class Push:
         # store initial values
         temp = particles.copy()
 
-        pusher_pos.pusher_step4(temp, self.dts[0], self.Np_loc,
-                                self.DOMAIN.kind_map, self.DOMAIN.params_map, 
-                                self.DOMAIN.T[0], self.DOMAIN.T[1], self.DOMAIN.T[2],
-                                self.DOMAIN.p, self.DOMAIN.Nel, self.DOMAIN.NbaseN,
-                                self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
-                                )
+        pusher_pos.pusher_rk4(temp, self.dts[0], self.Np_loc,
+                              self.DOMAIN.kind_map, self.DOMAIN.params_map, 
+                              self.DOMAIN.T[0], self.DOMAIN.T[1], self.DOMAIN.T[2],
+                              self.DOMAIN.p, self.DOMAIN.Nel, self.DOMAIN.NbaseN,
+                              self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
+                              )
 
         # update global variable
         particles[:, :] = temp
@@ -86,16 +86,16 @@ class Push:
 
         b2_ten_1, b2_ten_2, b2_ten_3 = self.SPACES.extract_2(b2 + b2_eq)
         
-        pusher_vel.pusher_step5_ana(temp, 
-                                    self.dts[1] * self.params['alpha'] * self.params['particle_charge'] / self.params['particle_mass'], 
-                                    self.SPACES.T[0], self.SPACES.T[1], self.SPACES.T[2], 
-                                    self.SPACES.p, self.SPACES.Nel, self.SPACES.NbaseN, self.SPACES.NbaseD, self.Np_loc, 
-                                    b2_ten_1, b2_ten_2, b2_ten_3, 
-                                    self.DOMAIN.kind_map, self.DOMAIN.params_map, 
-                                    self.DOMAIN.T[0], self.DOMAIN.T[1], self.DOMAIN.T[2], 
-                                    self.DOMAIN.p, self.DOMAIN.Nel, self.DOMAIN.NbaseN, 
-                                    self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
-                                    )
+        pusher_vel_3d.pusher_vxb(temp, 
+                                 self.dts[1] * self.params['alpha'] * self.params['particle_charge'] / self.params['particle_mass'], 
+                                 self.SPACES.T[0], self.SPACES.T[1], self.SPACES.T[2], 
+                                 self.SPACES.p, self.SPACES.Nel, self.SPACES.NbaseN, self.SPACES.NbaseD, self.Np_loc, 
+                                 b2_ten_1, b2_ten_2, b2_ten_3, 
+                                 self.DOMAIN.kind_map, self.DOMAIN.params_map, 
+                                 self.DOMAIN.T[0], self.DOMAIN.T[1], self.DOMAIN.T[2], 
+                                 self.DOMAIN.p, self.DOMAIN.Nel, self.DOMAIN.NbaseN, 
+                                 self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
+                                 )
 
         # update global variable
         particles[:, :] = temp

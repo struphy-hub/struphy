@@ -15,7 +15,7 @@ import struphy.feec.basics.spline_evaluation_3d as eva
 
 # ==========================================================================================================
 @types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
+def pusher_rk4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
     
     from numpy import empty, sqrt, arctan2, pi, cos, sin
     
@@ -206,7 +206,7 @@ def reflect(df, df_inv, v):
 
 # ==========================================================================================================
 @types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double')
-def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, a, r0):
+def pusher_rk4_pseudo(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, a, r0):
     
     from numpy import empty, zeros
     
@@ -493,9 +493,9 @@ def pusher_step4_pcart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, p
     
 # ==========================================================================================================
 @types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double')
-def pusher_step4_cart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, tol):
+def pusher_exact(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, tol):
     
-    from numpy import empty, sqrt, arctan2, pi, cos, sin
+    from numpy import empty
     
     # ================ for mapping evaluation ==================
     # spline degrees
@@ -530,71 +530,66 @@ def pusher_step4_cart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
     # needed mapping quantities
     df    = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
+    
+    x_old = empty( 3    , dtype=float)
+    x_new = empty( 3    , dtype=float)
+    
     temp  = empty( 3    , dtype=float)
     # ========================================================
     
     
     # ======= particle position and velocity =================
-    eta = empty(3, dtype=float)
-    v   = empty(3, dtype=float)
-    
-    fx  = empty(3, dtype=float)
-    x   = empty(3, dtype=float)
+    e = empty(3, dtype=float)
+    v = empty(3, dtype=float)
     # ========================================================
     
     
     #$ omp parallel
-    #$ omp do private (ip, eta, v, temp, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, x)
+    #$ omp do private (ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
     for ip in range(np):
         
-        eta[:]  = particles[0:3, ip]
-        v[:]    = particles[3:6, ip]
-        temp[:] = 0.
+        e[:] = particles[0:3, ip]
+        v[:] = particles[3:6, ip]
         
-        span1f = int(eta[0]*nelf[0]) + pf1
-        span2f = int(eta[1]*nelf[1]) + pf2
-        span3f = int(eta[2]*nelf[2]) + pf3
+        span1f = int(e[0]*nelf[0]) + pf1
+        span2f = int(e[1]*nelf[1]) + pf2
+        span3f = int(e[2]*nelf[2]) + pf3
         
-        # evaluate Jacobian matrix and mapping
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 2)
+        # evaluate Jacobian matrix and current Cartesian coordinates
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
         
-        # update cartesian coordinates
-        fx[0] = (1.0 + 0.1*eta[0]*cos(2*pi*eta[1]))*cos(2*pi*eta[2])
-        fx[1] =        0.1*eta[0]*sin(2*pi*eta[1])
-        fx[2] = (1.0 + 0.1*eta[0]*cos(2*pi*eta[1]))*sin(2*pi*eta[2])
-        
-        x[:] = fx + dt*v
-        
-        particles[0, ip] = sqrt((sqrt(x[0]**2 + x[2]**2) - 1.0)**2 + x[1]**2)/0.1
-        particles[1, ip] = (arctan2(x[1], sqrt(x[0]**2 + x[2]**2) - 1.0)/(2*pi))%1.0
-        particles[2, ip] = (arctan2(x[2], x[0])/(2*pi))%1.0
+        # update cartesian coordinates exactly
+        x_new[0] = x_old[0] + dt*v[0]
+        x_new[1] = x_old[1] + dt*v[1]
+        x_new[2] = x_old[2] + dt*v[2]
         
         # calculate new logical coordinates by solving inverse mapping with Newton-method
-        # evaluate inverse Jacobian matrix
-        #mapping_fast.df_inv_all(df, dfinv)
         
-        #while True:
-#
-        #    fx[:] = fx - x
-        #    linalg.matrix_vector(dfinv, fx, temp)
-        #    
-        #    eta[0] =  eta[0] - temp[0]
-        #    eta[1] = (eta[1] - temp[1])%1.0
-        #    eta[2] = (eta[2] - temp[2])%1.0
-        #    
-        #    span1f = int(eta[0]*nelf[0]) + pf1
-        #    span2f = int(eta[1]*nelf[1]) + pf2
-        #    span3f = int(eta[2]*nelf[2]) + pf3
-        #    
-        #    # evaluate Jacobian matrix and mapping
-        #    mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 2)
-        #    
-        #    if abs(fx[0] - x[0]) < tol and abs(fx[1] - x[1]) < tol and abs(fx[2] - x[2]) < tol:
-        #        particles[0:3, ip] = eta
-        #        break
-        #    
-        #    # evaluate inverse Jacobian matrix
-        #    mapping_fast.df_inv_all(df, dfinv)
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
+        
+        while True:
+
+            x_old[:] = x_old - x_new
+            linalg.matrix_vector(dfinv, x_old, temp)
+            
+            e[0] =  e[0] - temp[0]
+            e[1] = (e[1] - temp[1])%1.0
+            e[2] = (e[2] - temp[2])%1.0
+            
+            span1f = int(e[0]*nelf[0]) + pf1
+            span2f = int(e[1]*nelf[1]) + pf2
+            span3f = int(e[2]*nelf[2]) + pf3
+            
+            # evaluate Jacobian matrix and mapping
+            mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
+            
+            if abs(x_old[0] - x_new[0]) < tol and abs(x_old[1] - x_new[1]) < tol and abs(x_old[2] - x_new[2]) < tol:
+                particles[0:3, ip] = e
+                break
+            
+            # evaluate inverse Jacobian matrix
+            mapping_fast.df_inv_all(df, dfinv)
     
     #$ omp end do
     #$ omp end parallel

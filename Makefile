@@ -36,12 +36,13 @@ KPG  := struphy/feec/projectors/pro_global/kernels_projectors_global
 KPGM := struphy/feec/projectors/pro_global/kernels_projectors_global_mhd
 
 PPP  := struphy/pic/pusher_pos
-PPV  := struphy/pic/pusher_vel
-PA2  := struphy/pic/accumulation_kernels_2d
-PA3  := struphy/pic/accumulation_kernels_3d
+PV2  := struphy/pic/pusher_vel_2d
+PV3  := struphy/pic/pusher_vel_3d
+PA2  := struphy/pic/cc_lin_mhd_6d/accumulation_kernels_2d
+PA3  := struphy/pic/cc_lin_mhd_6d/accumulation_kernels_3d
 PS   := struphy/pic/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PPP).py $(PPV).py $(PA2).py $(PA3).py $(PS).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PS).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -104,7 +105,10 @@ $(KPGM)$(SO_EXT) : $(KPGM).py
 $(PPP)$(SO_EXT) : $(PPP).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
     
-$(PPV)$(SO_EXT) : $(PPV).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PV2)$(SO_EXT) : $(PV2).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(PV3)$(SO_EXT) : $(PV3).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PA2)$(SO_EXT) : $(PA2).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
@@ -135,3 +139,4 @@ clean:
 	rm -rf struphy/feec/projectors/pro_global/__pyccel__ struphy/feec/projectors/pro_global/__pycache__
 	rm -rf struphy/feec/projectors/pro_local/__pyccel__ struphy/feec/projectors/pro_local/__pycache__
 	rm -rf struphy/pic/__pyccel__ struphy/pic/__pycache__
+	rm -rf struphy/pic/cc_lin_mhd_6d/__pyccel__ struphy/pic/cc_lin_mhd_6d/__pycache__
