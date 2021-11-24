@@ -1,6 +1,6 @@
 import numpy as np
 
-class equilibrium_mhd_slab:
+class Equilibrium_mhd_slab:
     """
     TODO
     """

@@ -87,18 +87,19 @@ mhd_equilibrium :
 
 kinetic_equilibrium :
       general :
-            type            : Maxwell_xyz # type of kinetic equilibrium
+            type            : Maxwell_homogen_slab # type of kinetic equilibrium
             nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
             particle_charge : 1. # in units of elementary charge
             particle_mass   : 1. # in units of proton mass
             alpha           : 1. # coupling parameter alpha = Omega_{cp0}/Omega_{A0} 
-      params_Maxwell_xyz :
-            vth_x : 1. # thermal velocity (in units of v_A)
-            vth_y : 1.
-            vth_z : 1.
-            v0_x  : 0.
-            v0_y  : 0.
-            v0_z  : 0.
+      params_Maxwell_homogen_slab :
+            vth_x    : 1. # thermal velocity (in units of v_A)
+            vth_y    : 1.
+            vth_z    : 1.
+            v0_x     : 0.
+            v0_y     : 0.
+            v0_z     : 0.
+            nh0      : 1. # density in units ?
       params_Maxwell_pitchangle :
             vth    : 1. # thermal velocity (in units of v_A)
             alpha0 : 1.

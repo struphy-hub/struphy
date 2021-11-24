@@ -5,7 +5,7 @@ from scipy.integrate import quad
 import struphy.feec.spline_space as spl
 
 
-class equilibrium_mhd_cylinder:
+class Equilibrium_mhd_cylinder:
     """
     TODO
     """
