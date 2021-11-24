@@ -9,11 +9,12 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
-import struphy.feec.basics.spline_evaluation_3d as eva
+import struphy.feec.basics.spline_evaluation_3d as eva3
+
 
 # ==============================================================================
 @types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','int')
-def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat12, mat13, mat23, basis_u):
+def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b2_1, b2_2, b2_3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat12, mat13, mat23, basis_u):
     
     from numpy import empty, zeros
     
@@ -109,7 +110,7 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
+    #$ omp do reduction ( + : mat12, mat13, mat23) private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -119,6 +120,26 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
+        
+        
+        # ========= mapping evaluation =============
+        span1f = int(eta1*nelf[0]) + pf1
+        span2f = int(eta2*nelf[1]) + pf2
+        span3f = int(eta3*nelf[2]) + pf3
+        
+        # evaluate Jacobian matrix
+        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        
+        # evaluate Jacobian determinant
+        det_df = abs(linalg.det(df))
+        
+        # evaluate inverse Jacobian matrix
+        mapping_fast.df_inv_all(df, dfinv)
+        
+        # evaluate inverse metric tensor
+        mapping_fast.g_inv_all(dfinv, ginv)
+        # ==========================================
+        
         
         # ========== field evaluation ==============
         span1 = int(eta1*nel[0]) + pn1
@@ -138,9 +159,9 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         bd2[:] = b2[pd2, :pn2] * d2[:]
         bd3[:] = b3[pd3, :pn3] * d3[:]
         
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3)
+        b[0] = eva3.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
+        b[1] = eva3.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
+        b[2] = eva3.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
         
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] =  b[1]
@@ -152,23 +173,6 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         b_prod[2, 1] =  b[0]
         # ==========================================
         
-        # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
-        
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
-        
-        # evaluate Jacobian determinant
-        det_df = abs(linalg.det(df))
-        
-        # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
-        
-        # evaluate inverse metric tensor
-        mapping_fast.g_inv_all(dfinv, ginv)
-        # ==========================================
         
         # ========= charge accumulation ============
         # element indices
@@ -339,7 +343,7 @@ def kernel_step1(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
     
 # ==============================================================================
 @types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int')
-def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, bb3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3, basis_u):
+def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b2_1, b2_2, b2_3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3, basis_u):
     
     from numpy import empty, zeros
     
@@ -450,7 +454,7 @@ def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
     
     
     #$ omp parallel
-    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, eta1, eta2, eta3, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_prod_t, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, ie1, ie2, ie3, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
+    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_prod_t, ie1, ie2, ie3, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -460,40 +464,6 @@ def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
-        
-        # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
-        
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
-        
-        # N-splines and D-splines at particle positions
-        bn1[:] = b1[pn1, :]
-        bn2[:] = b2[pn2, :]
-        bn3[:] = b3[pn3, :]
-        
-        bd1[:] = b1[pd1, :pn1] * d1[:]
-        bd2[:] = b2[pd2, :pn2] * d2[:]
-        bd3[:] = b3[pd3, :pn3] * d3[:]
-        
-        b[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], bb1)
-        b[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], bb2)
-        b[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], bb3)
-        
-        b_prod[0, 1] = -b[2]
-        b_prod[0, 2] =  b[1]
-
-        b_prod[1, 0] =  b[2]
-        b_prod[1, 2] = -b[0]
-
-        b_prod[2, 0] = -b[1]
-        b_prod[2, 1] =  b[0]
-        
-        linalg.transpose(b_prod, b_prod_t)
-        # ==========================================
         
         
         # ========= mapping evaluation =============
@@ -515,6 +485,41 @@ def kernel_step3(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, bb1, bb2, 
         # ==========================================
         
         
+        # ========== field evaluation ==============
+        span1 = int(eta1*nel[0]) + pn1
+        span2 = int(eta2*nel[1]) + pn2
+        span3 = int(eta3*nel[2]) + pn3
+        
+        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        
+        # N-splines and D-splines at particle positions
+        bn1[:] = b1[pn1, :]
+        bn2[:] = b2[pn2, :]
+        bn3[:] = b3[pn3, :]
+        
+        bd1[:] = b1[pd1, :pn1] * d1[:]
+        bd2[:] = b2[pd2, :pn2] * d2[:]
+        bd3[:] = b3[pd3, :pn3] * d3[:]
+        
+        b[0] = eva3.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
+        b[1] = eva3.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
+        b[2] = eva3.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] =  b[1]
+
+        b_prod[1, 0] =  b[2]
+        b_prod[1, 2] = -b[0]
+
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] =  b[0]
+        
+        linalg.transpose(b_prod, b_prod_t)
+        # ==========================================
+        
+
         # ========= current accumulation ===========
         # element indices
         ie1 = span1 - pn1

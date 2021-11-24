@@ -11,10 +11,10 @@ from mpi4py import MPI
 import numpy        as np
 import scipy.sparse as spa
 
-import struphy.pic.accumulation_kernels_3d as pic_ker_3d
-import struphy.pic.accumulation_kernels_2d as pic_ker_2d
+import struphy.pic.cc_lin_mhd_6d.accumulation_kernels_3d as pic_ker_3d
+import struphy.pic.cc_lin_mhd_6d.accumulation_kernels_2d as pic_ker_2d
 
-import struphy.pic.control_variate as cv
+import struphy.pic.cc_lin_mhd_6d.control_variate as cv
 
 import time
 
@@ -83,10 +83,10 @@ class Accumulation:
                 
                 if self.space.dim == 2:
                     
-                    self.blocks_loc[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, 2), dtype=float)
+                    self.blocks_loc[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, self.space.NbaseN[2]), dtype=float)
 
                     if self.mpi_rank == 0:
-                        self.blocks[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, 2), dtype=float)
+                        self.blocks[a][b] = np.empty((Ni[0], Ni[1], Ni[2], 2*self.space.p[0] + 1, 2*self.space.p[1] + 1, self.space.NbaseN[2]), dtype=float)
                     
                 else:
                 
@@ -132,7 +132,7 @@ class Accumulation:
                 shift   = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
 
                 if self.space.dim == 2:
-                    shift += [np.array([0, 0])]
+                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
                     shift += [np.arange(Ni[2]) - self.space.p[2]]
 
@@ -198,7 +198,7 @@ class Accumulation:
                 shift   = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
             
                 if self.space.dim == 2:
-                    shift += [np.array([0, 0])]
+                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
                     shift += [np.arange(Ni[2]) - self.space.p[2]]
 
@@ -230,6 +230,8 @@ class Accumulation:
     
     # ===============================================================
     def accumulate_step1(self, particles_loc, b2_eq, b2, mpi_comm):
+        '''TODO
+        '''
         
         b2_1, b2_2, b2_3 = self.space.extract_2(b2)
         
@@ -248,6 +250,8 @@ class Accumulation:
         
     # ===============================================================
     def accumulate_step3(self, particles_loc, b2_eq, b2, mpi_comm):
+        '''TODO
+        '''
         
         b2_1, b2_2, b2_3 = self.space.extract_2(b2)
         
@@ -273,6 +277,8 @@ class Accumulation:
     
     # ===============================================================
     def assemble_step1(self, Np, b2_eq, b2):
+        '''TODO
+        '''
         
         self.blocks[0][1] /= Np
         self.blocks[0][2] /= Np
@@ -296,9 +302,10 @@ class Accumulation:
         return self.to_sparse_step1()
         
     
-        
     # ===============================================================
     def assemble_step3(self, Np, b2_eq, b2):
+        '''TODO
+        '''
         
         self.blocks[0][0] /= Np
         self.blocks[0][1] /= Np
@@ -321,14 +328,16 @@ class Accumulation:
             else:
                 self.cont.correct_step3(b2_eq[0] + b2_1, b2_eq[1] + b2_2, b2_eq[2] + b2_3)
             
-            self.vecs[0] += self.cont.F[0]
-            self.vecs[1] += self.cont.F[1]
-            self.vecs[2] += self.cont.F[2]
+            self.vecs[0] += self.cont.F1
+            self.vecs[1] += self.cont.F2
+            self.vecs[2] += self.cont.F3
             
         # build global sparse matrix and global vector
-        if self.basis_u == 0:
+        if   self.basis_u == 0:
             return self.to_sparse_step3(), self.space.Ev_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
+        
         elif self.basis_u == 1:
             return self.to_sparse_step3(), self.space.E1_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
+        
         elif self.basis_u == 2:
             return self.to_sparse_step3(), self.space.E2_0.dot(np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())))
