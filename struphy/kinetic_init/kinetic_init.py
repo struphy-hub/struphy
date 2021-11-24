@@ -3,6 +3,7 @@ import h5py
 import scipy.special as sp
 
 from struphy.kinetic_equil.analytical import gaussian
+from struphy.kinetic_equil.analytical import moments
 
 from struphy.pic import sampling
 from struphy.pic import sobol_seq 
@@ -166,15 +167,17 @@ class Initialize_markers:
         '''Gaussian velocity distribution for sampling markers. 
         Parameters are such that Gaussian is close to kinetic equilibirum.'''
 
-        distr = gaussian.Gaussian_3d({'vth_x': self.EQ.KINETC_P.vth[0],
-                                      'vth_y': self.EQ.KINETC_P.vth[1],
-                                      'vth_z': self.EQ.KINETC_P.vth[2],
-                                      'v0_x' : self.EQ.KINETC_P.shifts[0],
-                                      'v0_y' : self.EQ.KINETC_P.shifts[1],
-                                      'v0_z' : self.EQ.KINETC_P.shifts[2],
-                                      })
+        MOMENTS = moments.Kinetic_homogen_slab({'vth_x': self.EQ.KINETC_P.vth[0],
+                                                'vth_y': self.EQ.KINETC_P.vth[1],
+                                                'vth_z': self.EQ.KINETC_P.vth[2],
+                                                'v0_x' : self.EQ.KINETC_P.shifts[0],
+                                                'v0_y' : self.EQ.KINETC_P.shifts[1],
+                                                'v0_z' : self.EQ.KINETC_P.shifts[2],
+                                                'nh0'  : None,
+                                                })
+        EQ      = gaussian.Gaussian_3d(MOMENTS)
 
-        return distr.velocity_distribution(eta1, eta2, eta3, vx, vy, vz)
+        return EQ.velocity_distribution(eta1, eta2, eta3, vx, vy, vz)
 
     # sampling distribution s0 (0-form) to compute weights
     def sh0_ini(self, eta1, eta2, eta3, vx, vy, vz):

@@ -5,7 +5,7 @@ from scipy.integrate import quad
 import struphy.feec.spline_space as spl
 
 
-class equilibrium_mhd_torus:
+class Equilibrium_mhd_torus:
     """
     Define an analytical ad hoc equilibrium for a torus with circular cross section.
     """

@@ -45,11 +45,11 @@ class Equilibrium_mhd_physical:
         
         # create equilibrium object of given type
         if   self.kind == 'slab':
-            self.EQ = mhd_slab.equilibrium_mhd_slab(self.params)
+            self.EQ = mhd_slab.Equilibrium_mhd_slab(self.params)
         elif self.kind == 'cylinder':
-            self.EQ = mhd_cylinder.equilibrium_mhd_cylinder(self.params)
+            self.EQ = mhd_cylinder.Equilibrium_mhd_cylinder(self.params)
         elif self.kind == 'torus':
-            self.EQ = mhd_torus.equilibrium_mhd_torus(self.params)
+            self.EQ = mhd_torus.Equilibrium_mhd_torus(self.params)
         
          
     # equilibrium bulk pressure

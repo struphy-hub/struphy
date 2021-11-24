@@ -497,7 +497,7 @@ class Domain:
        
 
     # ================================
-    def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False):
+    def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False, squeeze_output=True):
         '''Evaluate mapping/metric coefficients. 
 
         Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -510,6 +510,8 @@ class Domain:
                 what metric coefficient to evaluate, see keys_map
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values". 
 
         Returns
         --------
@@ -544,7 +546,8 @@ class Domain:
         else:
             mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        values = values.squeeze()
+        if squeeze_output:
+            values = values.squeeze()
 
         return values
 
@@ -583,9 +586,9 @@ class Domain:
             
             if callable(a[0]):
                 
-                X = self.evaluate(E1, E2, E3, 'x', flat_eval)
-                Y = self.evaluate(E1, E2, E3, 'y', flat_eval)
-                Z = self.evaluate(E1, E2, E3, 'z', flat_eval)
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval, squeeze_output=False)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
                 
                 a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
             else:
@@ -595,9 +598,9 @@ class Domain:
             
             if callable(a):
                 
-                X = self.evaluate(E1, E2, E3, 'x', flat_eval)
-                Y = self.evaluate(E1, E2, E3, 'y', flat_eval)
-                Z = self.evaluate(E1, E2, E3, 'z', flat_eval)
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval, squeeze_output=False)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
                 
                 a_in = np.array([a(X, Y, Z)])
             else:

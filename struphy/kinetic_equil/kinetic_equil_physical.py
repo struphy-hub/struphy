@@ -3,7 +3,10 @@ import numpy as np
 from struphy.kinetic_equil.analytical import gaussian        
 from struphy.kinetic_equil.analytical import maxwell_pitchangle 
 
+from struphy.kinetic_equil.analytical import moments
+
 from struphy.geometry import domain_3d
+
 
 class Equilibrium_kinetic_physical:
     """
@@ -37,11 +40,9 @@ class Equilibrium_kinetic_physical:
     EQ : obj
         Analytic equilibirum from kinetic_eqil/analytical/
 
-    vth : list
-        Thermal velocities for drawing Gaussian markers
-
-    shifts : list
-        Velocity shifts for drawing Gaussian markers
+    MOMENTS : obj
+        Velocity moments obtained from kinetic_equil/analytical/moments_.
+        
 
     Notes
     -----
@@ -67,57 +68,57 @@ class Equilibrium_kinetic_physical:
         self.p_charge = general_kin['particle_charge']
         self.alpha    = general_kin['alpha']
         
-        # create equilibrium object of given type
-        if self.kin_type == 'Maxwell_xyz':
-            self.EQ     = gaussian.Gaussian_3d(params_kin)
-            self.vth    = [params_kin['vth_x'], params_kin['vth_y'], params_kin['vth_z']]
-            self.shifts = [params_kin['v0_x'], params_kin['v0_y'], params_kin['v0_z']] 
-        elif self.kin_type == 'Maxwell_pitchangle':
-            self.EQ     = maxwell_pitchangle.Maxwell_pitchangle(params_kin)
-            self.vth    = [params_kin['vth'], params_kin['vth'], params_kin['vth']]
-            self.shifts = [params_kin['alpha0'], params_kin['alpha0'], params_kin['alpha0']]
+        # specify velocity distribution
+        if self.kin_type == 'Maxwell_homogen_slab':
+
+            self.MOMENTS = moments.Kinetic_homogen_slab(params_kin)
+            self.EQ      = gaussian.Gaussian_3d(self.MOMENTS)
+            self.vth     = [params_kin['vth_x'], params_kin['vth_y'], params_kin['vth_z']]
+            self.shifts  = [params_kin['v0_x'], params_kin['v0_y'], params_kin['v0_z']] 
+
         else:
             raise ValueError('Unknown kinetic equilibrium specified.')
 
     def fh_eq_phys(self, x, y, z, vx, vy, vz):
         '''Hot equilibrium distribution function (normalized to bulk density). Flat evaluation.'''
-        return self.massdens_eq_phys(x, y, z) * self.EQ.velocity_distribution(x, y, z, vx, vy, vz)
+        return self.nuh * self.MOMENTS.nh_eq(x, y, z) * self.EQ.velocity_distribution(x, y, z, vx, vy, vz)
 
+    # specify mass density
     def massdens_eq_phys(self, x, y, z, flat_eval=False):
         '''Hot equilibrium mass density (normalized to bulk density). Flat evaluation.'''
-        return self.nuh * self.p_mass + 0.*x
+        return self.p_mass * self.nuh * self.MOMENTS.nh_eq(x, y, z)
 
     def jh_x_eq_phys(self, x, y, z):
         '''Hot equilibrium current density in x-direction.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        return self.nuh * self.p_charge * self.EQ.nh(E1, E2, E3) * self.EQ.uh_x(E1, E2, E3)
+        return self.nuh * self.p_charge * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.uh_eq_x(E1, E2, E3)
 
     def jh_y_eq_phys(self, x, y, z):
         '''Hot equilibrium current density in y-direction.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        return self.nuh * self.p_charge * self.EQ.nh(E1, E2, E3) * self.EQ.uh_y(E1, E2, E3)
+        return self.nuh * self.p_charge * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.uh_eq_y(E1, E2, E3)
 
     def jh_z_eq_phys(self, x, y, z):
         '''Hot equilibrium current density in z-direction.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        return self.nuh * self.p_charge * self.EQ.nh(E1, E2, E3) * self.EQ.uh_z(E1, E2, E3)
+        return self.nuh * self.p_charge * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.uh_eq_z(E1, E2, E3)
 
     def Ph_xx_eq_phys(self, x, y, z):
         '''Hot equilibrium pressure tensor, component P_xx.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        value = self.nuh * self.p_mass * self.EQ.nh(E1, E2, E3) * self.EQ.sig_x(E1, E2, E3)**2/.2                                                                                            
+        value = self.nuh * self.p_mass * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.sig_x(E1, E2, E3)**2/.2                                                                                            
         return value
 
     def Ph_yy_eq_phys(self, x, y, z):
         '''Hot equilibrium pressure tensor, component P_yy.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        value = self.nuh * self.p_mass * self.EQ.nh(E1, E2, E3) * self.EQ.sig_y(E1, E2, E3)**2/.2                                                                                            
+        value = self.nuh * self.p_mass * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.sig_y(E1, E2, E3)**2/.2                                                                                            
         return value
 
     def Ph_zz_eq_phys(self, x, y, z):
         '''Hot equilibrium pressure tensor, component P_zz.'''
         E1, E2, E3, is_sparse_meshgrid = domain_3d.prepare_args(x, y, z, flat_eval=False)
-        value = self.nuh * self.p_mass * self.EQ.nh(E1, E2, E3) * self.EQ.sig_z(E1, E2, E3)**2/.2                                                                                            
+        value = self.nuh * self.p_mass * self.MOMENTS.nh_eq(E1, E2, E3) * self.EQ.sig_z(E1, E2, E3)**2/.2                                                                                            
         return value
 
     # TODO: off-diagonal terms of Ph
