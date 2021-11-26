@@ -5,21 +5,23 @@
 
 .. mdinclude:: ../README.md
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents
-   :hidden:
-
-   sections/install
-   sections/quickstart
-   sections/userguide
-   sections/models
-   sections/examples
-   
-
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Contents
+
+   sections/install
+   sections/quickstart
+   sections/userguide
+   sections/developers
+   sections/models
+   sections/examples
+   
+
+

@@ -1,4 +1,10 @@
-Kinetic equilibria
-------------------
+.. _kinetic_equil_p:
 
-lll
+Physical space
+^^^^^^^^^^^^^^
+
+
+.. _kinetic_equil_l:
+
+Logical space
+^^^^^^^^^^^^^

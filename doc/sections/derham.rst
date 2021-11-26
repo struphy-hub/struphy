@@ -1,0 +1,5 @@
+Commuting projectors
+^^^^^^^^^^^^^^^^^^^^
+
+Discrete derivatives
+^^^^^^^^^^^^^^^^^^^^

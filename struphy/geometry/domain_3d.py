@@ -327,13 +327,13 @@ class Domain:
             * Y = Ly*(eta2 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
             * Z = Lz*eta3
         * 'hollow_cyl' :   
-            * X = a1 + (a2 - a1)*eta1*cos(2*pi*eta2)
+            * X = a1 + (a2 - a1)*eta1*cos(2*pi*eta2) + R0
             * Y = a1 + (a2 - a1)*eta1*sin(2*pi*eta2)
-            * Z = Lz*eta3
+            * Z = 2*pi*R0*eta3
         * 'hollow_torus' : 
-            * X = (X_hollow_cyl + R0) * cos(2*pi*eta3)
+            * X = X_hollow_cyl * cos(2*pi*eta3)
             * Y = Y_hollow_cyl
-            * Z = (X_hollow_cyl + R0) * sin(2*pi*eta3)
+            * Z = X_hollow_cyl * sin(2*pi*eta3)
         * 'spline': 
             * 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
         * 'spline_cyl': 
