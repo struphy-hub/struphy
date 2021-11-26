@@ -68,7 +68,7 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             code=${OPTARG}
             ;;
         i)
-            inp=${OPTARG}
+            file=${OPTARG}
             ;;
         o)
             out=${OPTARG}
@@ -102,6 +102,10 @@ echo "output folder:" ${path_out}
 echo "batch script:" $batch
 echo "omp threads:" $num_threads
 echo "restart:" $mode
+
+cp ${file_inp} ${path_out}/parameters.yml
+
+echo "Copied parameter file to output folder."
 
 # remove existing files when no restart
 if [ $mode = w ] && [ -e ${path_out}data.hdf5 ]; then

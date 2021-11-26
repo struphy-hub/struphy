@@ -1,4 +1,10 @@
-MHD equilibria
---------------------------
+.. _mhd_equil_p:
 
-lll
+Physical space
+^^^^^^^^^^^^^^
+
+
+.. _mhd_equil_l:
+
+Logical space
+^^^^^^^^^^^^^

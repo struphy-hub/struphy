@@ -26,8 +26,20 @@ Not yet published.
 
 ## Installation 
     
+You can clone the full repository and checkout the `devel` branch via::
+
     git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git
-    pip install .
+
+After that you can install *STRUPHY* to the Python user install directory for your platform, typically ~/.local/::
+
+    pip install --user .
+
+However, for developers we recommend the creation of a virtual environment and installation therein::
+
+    python3 -m pip install --user virtualenv
+    python3 -m venv <env_name>
+    source <env_name>/bin/activate
+    pip3 install .
     
 For quick help type
 
@@ -37,15 +49,32 @@ Compilation of kernels:
 
     struphy -c
 
+The default code `lin_mhd` is run via
+
+    cd ..
+    struphy
+
+We recommend the change of directory such that the compiled versions of files is used.
+
 ## Requirements
 
 *STRUPHY* has been tested on Debian `linux-x86_64` systems; it requires
 
 * Python 3 
-* libopenmpi-dev (`apt-get install libopenmpi-dev`)
-* requirements for [pyccel](https://github.com/pyccel/pyccel)
+* pip3
+* Fortran compiler (gcc/gfortran))
 
-Python packages (automatically installed via `pip install .`):
+as well as the following Ubuntu packages (`apt-get install`):
+
+    libblas-dev 
+    liblapack-dev
+    libopenmpi-dev
+    openmpi-bin
+    libomp-dev 
+    libomp5
+    tree
+
+and finally the Python packages (automatically installed via `pip install .`):
 
     h5py
     matplotlib
@@ -55,8 +84,16 @@ Python packages (automatically installed via `pip install .`):
     PyYAML
     scipy
     sympy
+    vtk
+    pandas
     pytest
-    treelib
+    sphinx
+    sphinxcontrib-napoleon
+    sphinx-rtd-theme 
+    m2r2
+    docutils==0.15
+
+
 
 ## Documentation
 
