@@ -15,25 +15,35 @@ import tempfile
 
 
 
+class AttributeDict(dict):
+    """Call dict keys using dot notation.
+
+    Used to imitate a dummy `Equilibrium_mhd_physical` class."""
+
+    def __getattr__(self, attr):
+        return self[attr]
+
+    def __setattr__(self, attr, value):
+        self[attr] = value
+
+
+
 class Equilibrium_mhd_gvec:
     """Provide an interface to `gvec_to_python` package, which presents a GVEC MHD equilibrium."""
 
-    def __init__(self, params, TENSOR_SPACE, DOMAIN, SOURCE_DOMAIN=None):
+    def __init__(self, params, DOMAIN, MHD, TENSOR_SPACE, SOURCE_DOMAIN=None):
+
+        self.params = params # Only ['mhd_equilibrium']['params_gvec'] key.
 
         self.temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
         print(f'Created temp directory at: {self.temp_dir.name}')
 
         # Check if configuration file has all the necessary input parameters.
-        assert params is not None,                                      'GVEC equilibrium: Input params should not be None.'
-        assert 'mhd_equilibrium' in params,                             'GVEC equilibrium: Key "mhd_equilibrium" not in params.'
-        assert 'general' in params['mhd_equilibrium'],                  'GVEC equilibrium: Key "general" not in params["mhd_equilibrium"].'
-        assert 'type' in params['mhd_equilibrium']['general'],          'GVEC equilibrium: Key "type" not in params["mhd_equilibrium"]["general"].'
-        assert params['mhd_equilibrium']['general']['type'] == 'gvec',  'GVEC equilibrium: MHD equilibrium type is not "gvec".'
-        assert 'params_gvec' in params['mhd_equilibrium'],              'GVEC equilibrium: Key "params_gvec" not in params["mhd_equilibrium"].'
-        assert 'filepath' in params['mhd_equilibrium']['params_gvec'],  'GVEC equilibrium: Key "filepath" not in params["mhd_equilibrium"]["params_gvec"].'
-        assert 'filename' in params['mhd_equilibrium']['params_gvec'],  'GVEC equilibrium: Key "filename" not in params["mhd_equilibrium"]["params_gvec"].'
-        assert params['mhd_equilibrium']['params_gvec']['filename'].endswith('.dat') or params['mhd_equilibrium']['params_gvec']['filename'].endswith('.json'), (
-                                                                        'GVEC equilibrium: GVEC input file type not supported. Only .dat and .json.')
+        assert params is not None,      'GVEC equilibrium: Input params should not be None.'
+        assert 'filepath' in params,    'GVEC equilibrium: Key "filepath" not in params["mhd_equilibrium"]["params_gvec"].'
+        assert 'filename' in params,    'GVEC equilibrium: Key "filename" not in params["mhd_equilibrium"]["params_gvec"].'
+        assert params['filename'].endswith('.dat') or params['filename'].endswith('.json'), (
+                                        'GVEC equilibrium: GVEC input file type not supported. Only .dat and .json.')
 
         # Geometric parameters.
         self.DOMAIN = DOMAIN # Domain object (spline) defining the GVEC mapping.
@@ -60,18 +70,18 @@ class Equilibrium_mhd_gvec:
         # Convert GVEC .dat output to .json.
         # ============================================================
 
-        if params['mhd_equilibrium']['params_gvec']['filename'].endswith('.dat'):
+        if params['filename'].endswith('.dat'):
 
-            read_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
-            read_filename = params['mhd_equilibrium']['params_gvec']['filename']
+            read_filepath = params['filepath']
+            read_filename = params['filename']
             gvec_filepath = self.temp_dir.name
-            gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
+            gvec_filename = params['filename'][:-4] + '.json'
             reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename)
 
-        elif params['mhd_equilibrium']['params_gvec']['filename'].endswith('.json'):
+        elif params['filename'].endswith('.json'):
 
-            gvec_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
-            gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
+            gvec_filepath = params['filepath']
+            gvec_filename = params['filename'][:-4] + '.json'
 
 
 
@@ -80,6 +90,30 @@ class Equilibrium_mhd_gvec:
         # ============================================================
 
         self.gvec = GVEC(gvec_filepath, gvec_filename)
+
+
+
+        # ============================================================
+        # Imitate behavior of `Equilibrium_mhd_physical`.
+        # ============================================================
+
+        # Magnitude of magnetic field "b0_eq" or "b_eq" are not implemented.
+        self.MHD = AttributeDict({
+            'p_eq': self.p_eq,
+            # 'r_eq': MHD.r_eq,
+            'r_eq': self.r_eq,
+            'b_eq_x': self.b_eq_x,
+            'b_eq_y': self.b_eq_y,
+            'b_eq_z': self.b_eq_z,
+            'j_eq_x': self.j_eq_x,
+            'j_eq_y': self.j_eq_y,
+            'j_eq_z': self.j_eq_z,
+        })
+
+        # Dummy density profile
+        self.r1 = 4. # params['r1']
+        self.r2 = 3. # params['r2']
+        self.ra = 0. # params['ra']
 
 
 
@@ -184,6 +218,19 @@ class Equilibrium_mhd_gvec:
 
         return evaled
 
+    def radius(self, s, u, v):
+        """Because reasons."""
+        x_hollow_cyl = self.gvec.a_minor + (self.gvec.r_major - self.gvec.a_minor) * s * np.cos(2*np.pi*u)
+        y_hollow_cyl = self.gvec.a_minor + (self.gvec.r_major - self.gvec.a_minor) * s * np.sin(2*np.pi*u)
+        x = (x_hollow_cyl + self.gvec.r_major) * np.cos(2*np.pi*v)
+        y = y_hollow_cyl
+        z = (x_hollow_cyl + self.gvec.r_major) * np.sin(2*np.pi*v)
+        return np.sqrt((np.sqrt(x**2 + z**2) - self.gvec.r_major)**2 + y**2)
+
+    def rho(self, r):
+        """Dummy density at given radius."""
+        return (1 - self.ra)*(1 - (r/self.gvec.a_minor)**self.r1)**self.r2 + self.ra
+
 
 
     # ===============================================================
@@ -208,6 +255,26 @@ class Equilibrium_mhd_gvec:
         source_det = self.source_det(eta1, eta2, eta3)
         return source_det * self.gvec.get_variable(s, u, v, variable=Variable.PRESSURE, form=Form.THREE)
         # return self.gvec.P_3(s, u, v)
+
+    def r_eq(self, eta1, eta2, eta3=None):
+        """Equilibrium bulk density (physical form on logical domain)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        radius = self.radius(s, u, v)
+        return self.rho(radius)
+
+    def r0_eq(self, eta1, eta2, eta3):
+        """Equilibrium bulk density (0-form on logical domain)."""
+        return self.DOMAIN.pull(self.MHD.r_eq, eta1, eta2, eta3, '0_form')
+
+    def r3_eq(self, eta1, eta2, eta3):
+        """Equilibrium bulk density (3-form on logical domain)."""
+        return self.DOMAIN.pull(self.MHD.r_eq, eta1, eta2, eta3, '3_form')
+
+
+
+    # ===============================================================
+    #                       Profiles
+    # ===============================================================
 
     def iota_eq(self, eta1, eta2, eta3=None):
         """Equilibrium iota profile (physical form on logical domain)."""
@@ -319,6 +386,30 @@ class Equilibrium_mhd_gvec:
         evaled = self.source_domain_prefactor_matrix_multiplication(prefactor, evaled)
         return evaled[2]
 
+    def av_eq_1(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic vector potential (Contravariant (vector field) form on logical domain, 1-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        prefactor = self.source_G_inv(eta1, eta2, eta3) # Only works because DF of SOURCE_DOMAIN is diagonal.
+        evaled = self.gvec.get_variable(s, u, v, variable=Variable.A, form=Form.CONTRAVARIANT)
+        evaled = self.source_domain_prefactor_matrix_multiplication(prefactor, evaled)
+        return evaled[0]
+
+    def av_eq_2(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic vector potential (Contravariant (vector field) form on logical domain, 2-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        prefactor = self.source_G_inv(eta1, eta2, eta3) # Only works because DF of SOURCE_DOMAIN is diagonal.
+        evaled = self.gvec.get_variable(s, u, v, variable=Variable.A, form=Form.CONTRAVARIANT)
+        evaled = self.source_domain_prefactor_matrix_multiplication(prefactor, evaled)
+        return evaled[1]
+
+    def av_eq_3(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic vector potential (Contravariant (vector field) form on logical domain, 3-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        prefactor = self.source_G_inv(eta1, eta2, eta3) # Only works because DF of SOURCE_DOMAIN is diagonal.
+        evaled = self.gvec.get_variable(s, u, v, variable=Variable.A, form=Form.CONTRAVARIANT)
+        evaled = self.source_domain_prefactor_matrix_multiplication(prefactor, evaled)
+        return evaled[2]
+
     def b_eq_x(self, eta1, eta2, eta3=None):
         """Equilibrium magnetic field (physical form on logical domain, x-component)."""
         s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
@@ -388,13 +479,31 @@ class Equilibrium_mhd_gvec:
         return source_det * self.gvec.get_variable(s, u, v, variable=Variable.B, form=Form.TWO)[2]
         # return source_det * self.gvec.B_2(s, u, v)[2]
 
+    def bv_eq_1(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic field (Contravariant (vector field) form on logical domain, 1-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        return self.gvec.get_variable(s, u, v, variable=Variable.B, form=Form.CONTRAVARIANT)[0]
+        # return self.gvec.B_vec(s, u, v)[0]
+
+    def bv_eq_2(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic field (Contravariant (vector field) form on logical domain, 2-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        return self.gvec.get_variable(s, u, v, variable=Variable.B, form=Form.CONTRAVARIANT)[1]
+        # return self.gvec.B_vec(s, u, v)[1]
+
+    def bv_eq_3(self, eta1, eta2, eta3=None):
+        """Equilibrium magnetic field (Contravariant (vector field) form on logical domain, 3-component)."""
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+        return self.gvec.get_variable(s, u, v, variable=Variable.B, form=Form.CONTRAVARIANT)[2]
+        # return self.gvec.B_vec(s, u, v)[2]
+
 
 
     # ===============================================================
     #                  3D Variables (w/ projection)
     # ===============================================================
 
-    # TODO: Physical form doesn't work. To be fixed in a later commit.
+    # TODO: Check if we need to apply SOURCE_DOMAIN prefactor again.
     def j_eq_x(self, eta1, eta2, eta3=None):
         """Equilibrium current (physical form on logical domain, x-component, curl of equilibrium magnetic field)."""
 
@@ -404,18 +513,25 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        # Push to Cartesian.
-        pushed_jx = self.DOMAIN.push([j2_1, j2_2, j2_3], s, u, v, '2_form_1')
-        # pushed_jx = self.DOMAIN.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_1')
+        # Evaluate coefficients of equilibrium current.
+        evaled_21 = self.TENSOR_SPACE.evaluate_NDD(eta1, eta2, eta3, j2_1)
+        evaled_22 = self.TENSOR_SPACE.evaluate_DND(eta1, eta2, eta3, j2_2)
+        evaled_23 = self.TENSOR_SPACE.evaluate_DDN(eta1, eta2, eta3, j2_3)
+        evaled    = [evaled_21, evaled_22, evaled_23]
+
+        # Push evaluation to Cartesian.
+        pushed_jx = self.DOMAIN.push(evaled, s, u, v, '2_form_1')
+        # pushed_jx = self.DOMAIN.push(evaled, eta1, eta2, eta3, '2_form_1')
 
         return pushed_jx
 
@@ -428,18 +544,25 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        # Push to Cartesian.
-        pushed_jy = self.DOMAIN.push([j2_1, j2_2, j2_3], s, u, v, '2_form_2')
-        # pushed_jy = self.DOMAIN.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_2')
+        # Evaluate coefficients of equilibrium current.
+        evaled_21 = self.TENSOR_SPACE.evaluate_NDD(eta1, eta2, eta3, j2_1)
+        evaled_22 = self.TENSOR_SPACE.evaluate_DND(eta1, eta2, eta3, j2_2)
+        evaled_23 = self.TENSOR_SPACE.evaluate_DDN(eta1, eta2, eta3, j2_3)
+        evaled    = [evaled_21, evaled_22, evaled_23]
+
+        # Push evaluation to Cartesian.
+        pushed_jy = self.DOMAIN.push(evaled, s, u, v, '2_form_2')
+        # pushed_jy = self.DOMAIN.push(evaled, eta1, eta2, eta3, '2_form_2')
 
         return pushed_jy
 
@@ -452,22 +575,29 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        # Push to Cartesian.
-        pushed_jz = self.DOMAIN.push([j2_1, j2_2, j2_3], s, u, v, '2_form_3')
-        # pushed_jz = self.DOMAIN.push([j2_1, j2_2, j2_3], eta1, eta2, eta3, '2_form_3')
+        # Evaluate coefficients of equilibrium current.
+        evaled_21 = self.TENSOR_SPACE.evaluate_NDD(eta1, eta2, eta3, j2_1)
+        evaled_22 = self.TENSOR_SPACE.evaluate_DND(eta1, eta2, eta3, j2_2)
+        evaled_23 = self.TENSOR_SPACE.evaluate_DDN(eta1, eta2, eta3, j2_3)
+        evaled    = [evaled_21, evaled_22, evaled_23]
+
+        # Push evaluation to Cartesian.
+        pushed_jz = self.DOMAIN.push(evaled, s, u, v, '2_form_3')
+        # pushed_jz = self.DOMAIN.push(evaled, eta1, eta2, eta3, '2_form_3')
 
         return pushed_jz
 
-    # TODO: These are just the coefficients! Where's the evaluation?
+    # TODO: Check if we need to apply SOURCE_DOMAIN prefactor again.
     def j2_eq_1(self, eta1, eta2, eta3=None):
         """Equilibrium current (2-form on logical domain, 1-component, curl of equilibrium magnetic field)."""
 
@@ -477,16 +607,20 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        return j2_1
+        # Evaluate coefficients of equilibrium current.
+        evaled_21 = self.TENSOR_SPACE.evaluate_NDD(eta1, eta2, eta3, j2_1)
+
+        return evaled_21
 
     def j2_eq_2(self, eta1, eta2, eta3=None):
         """Equilibrium current (2-form on logical domain, 2-component, curl of equilibrium magnetic field)."""
@@ -497,16 +631,20 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        return j2_2
+        # Evaluate coefficients of equilibrium current.
+        evaled_22 = self.TENSOR_SPACE.evaluate_DND(eta1, eta2, eta3, j2_2)
+
+        return evaled_22
 
     def j2_eq_3(self, eta1, eta2, eta3=None):
         """Equilibrium current (2-form on logical domain, 3-component, curl of equilibrium magnetic field)."""
@@ -517,13 +655,60 @@ class Equilibrium_mhd_gvec:
         b1 = [self.b1_eq_1, self.b1_eq_2, self.b1_eq_3]
 
         # Do the Pi_1 projection.
-        b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
-
-        # Because discrete Div/Curl takes only 1D array.
-        b1_coeff_concat = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten()))
+        if hasattr(self.PROJ_3D, 'pi_1'):
+            b1_coeff = self.PROJ_3D.pi_1(b1) # Coefficients of projected 1-form.
+        else:
+            b1_coeff = self.PROJ_3D.PI_1(*b1) # Coefficients of projected 1-form.
+            b1_coeff = np.concatenate((b1_coeff[0].flatten(), b1_coeff[1].flatten(), b1_coeff[2].flatten())) # Because discrete Div/Curl takes only 1D array.
 
         # Take discrete Curl.
-        j2 = self.TENSOR_SPACE.C.dot(b1_coeff_concat)
+        j2 = self.TENSOR_SPACE.C.dot(b1_coeff)
         j2_1, j2_2, j2_3 = self.TENSOR_SPACE.extract_2(j2)
 
-        return j2_3
+        # Evaluate coefficients of equilibrium current.
+        evaled_23 = self.TENSOR_SPACE.evaluate_DDN(eta1, eta2, eta3, j2_3)
+
+        return evaled_23
+
+    # TODO: Check if we need to apply SOURCE_DOMAIN prefactor again.
+    def jv_eq_1(self, eta1, eta2, eta3=None):
+        """Equilibrium current (Contravariant (vector field) form on logical domain, 1-component, curl of equilibrium magnetic field)."""
+
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+
+        evaled_j_eq_x = self.j_eq_x(eta1, eta2, eta3)
+        evaled_j_eq_y = self.j_eq_y(eta1, eta2, eta3)
+        evaled_j_eq_z = self.j_eq_z(eta1, eta2, eta3)
+        evaled_j_eq   = [evaled_j_eq_x, evaled_j_eq_y, evaled_j_eq_z]
+
+        return self.DOMAIN.pull(evaled_j_eq, eta1, eta2, eta3, 'vector_1')
+
+        raise NotImplementedError('Contravariant form of equilibrium current not implemented.')
+
+    def jv_eq_2(self, eta1, eta2, eta3=None):
+        """Equilibrium current (Contravariant (vector field) form on logical domain, 2-component, curl of equilibrium magnetic field)."""
+
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+
+        evaled_j_eq_x = self.j_eq_x(eta1, eta2, eta3)
+        evaled_j_eq_y = self.j_eq_y(eta1, eta2, eta3)
+        evaled_j_eq_z = self.j_eq_z(eta1, eta2, eta3)
+        evaled_j_eq   = [evaled_j_eq_x, evaled_j_eq_y, evaled_j_eq_z]
+
+        return self.DOMAIN.pull(evaled_j_eq, eta1, eta2, eta3, 'vector_2')
+
+        raise NotImplementedError('Contravariant form of equilibrium current not implemented.')
+
+    def jv_eq_3(self, eta1, eta2, eta3=None):
+        """Equilibrium current (Contravariant (vector field) form on logical domain, 3-component, curl of equilibrium magnetic field)."""
+
+        s, u, v = self.eta123_to_suv(eta1, eta2, eta3)
+
+        evaled_j_eq_x = self.j_eq_x(eta1, eta2, eta3)
+        evaled_j_eq_y = self.j_eq_y(eta1, eta2, eta3)
+        evaled_j_eq_z = self.j_eq_z(eta1, eta2, eta3)
+        evaled_j_eq   = [evaled_j_eq_x, evaled_j_eq_y, evaled_j_eq_z]
+
+        return self.DOMAIN.pull(evaled_j_eq, eta1, eta2, eta3, 'vector_3')
+
+        raise NotImplementedError('Contravariant form of equilibrium current not implemented.')

@@ -38,6 +38,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     print(' ')
 
     from struphy.mhd_equil.gvec.mhd_equil_gvec import Equilibrium_mhd_gvec
+    from struphy.mhd_equil.mhd_equil_physical  import Equilibrium_mhd_physical
 
 
 
@@ -74,6 +75,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     }
 
     params['mhd_equilibrium']['params_gvec']['filepath'] = gvec_dir # Overwrite path, because this is a test file.
+    params = params['mhd_equilibrium']['params_gvec']
 
 
 
@@ -81,18 +83,18 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # Convert GVEC .dat output to .json.
     # ============================================================
 
-    if params['mhd_equilibrium']['params_gvec']['filename'].endswith('.dat'):
+    if params['filename'].endswith('.dat'):
 
-        read_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
-        read_filename = params['mhd_equilibrium']['params_gvec']['filename']
+        read_filepath = params['filepath']
+        read_filename = params['filename']
         gvec_filepath = temp_dir.name
-        gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
+        gvec_filename = params['filename'][:-4] + '.json'
         reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename)
 
-    elif params['mhd_equilibrium']['params_gvec']['filename'].endswith('.json'):
+    elif params['filename'].endswith('.json'):
 
-        gvec_filepath = params['mhd_equilibrium']['params_gvec']['filepath']
-        gvec_filename = params['mhd_equilibrium']['params_gvec']['filename'][:-4] + '.json'
+        gvec_filepath = params['filepath']
+        gvec_filename = params['filename'][:-4] + '.json'
 
 
 
@@ -213,7 +215,19 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # Initialize the `Equilibrium_mhd_gvec` class.
     # ============================================================
 
-    EQ_MHD = Equilibrium_mhd_gvec(params, TENSOR_SPACE_FEM, DOMAIN, SOURCE_DOMAIN)
+    # Dummy. Physical equilibrium is not used.
+    mhd_equil_type = 'slab'
+    params_slab = {
+        'B0x'         : 1.,   # magnetic field in Tesla (x)
+        'B0y'         : 0.,   # magnetic field in Tesla (y)
+        'B0z'         : 0.,   # magnetic field in Tesla (z)
+        'rho0'        : 1.,   # equilibirum mass density
+        'beta'        : 0.,   # plasma beta in %
+    }
+    EQ_MHD_P = Equilibrium_mhd_physical(mhd_equil_type, params_slab)
+
+    # Actual initialization.
+    EQ_MHD = Equilibrium_mhd_gvec(params, DOMAIN, EQ_MHD_P, TENSOR_SPACE_FEM, SOURCE_DOMAIN)
     print('Initialized the `Equilibrium_mhd_gvec` class.')
 
     temp_dir.cleanup()
@@ -233,11 +247,8 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     j2_1 = EQ_MHD.j2_eq_1(eta1,eta2,eta3)
     print('j2_1.shape: {}'.format(j2_1.shape))
 
-    # Doesn't work either.
-    # j_x = EQ_MHD.j_eq_x(eta1,eta2,eta3)
-    # print('j_x.shape: {}'.format(j_x.shape))
-
-    print('It works! Because I commented out the parts that don\'t work!')
+    j_x = EQ_MHD.j_eq_x(eta1,eta2,eta3)
+    print('j_x.shape: {}'.format(j_x.shape))
 
 
 
@@ -277,7 +288,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     s_range[0] = 1e-12 # Bypass 0 if it blows up.
 
     # TODO: Generalize MC functions to accept a map and an Equilibrium_mhd_gvec class, instead of a GVEC class.
-    filename = params['mhd_equilibrium']['params_gvec']['filename'][:-5]
+    filename = params['filename'][:-5]
     MC.make_ugrid_and_write_vtu(filename, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic)
     gvec.mapfull.clear_cache()
 
