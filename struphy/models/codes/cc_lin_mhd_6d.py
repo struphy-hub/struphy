@@ -100,7 +100,7 @@ def execute(file_in, path_out, restart):
     
     # MHD equilibrium (logical)
     if mhd_equil_type == 'gvec':
-        EQ_MHD_L = mhd_equil_gvec.Equilibrium_mhd_gvec(params, SPACES, DOMAIN)
+        EQ_MHD_L = mhd_equil_gvec.Equilibrium_mhd_gvec(params['mhd_equilibrium']['params_' + mhd_equil_type], DOMAIN, EQ_MHD_P, SPACES, SOURCE_DOMAIN=None)
     else:
         EQ_MHD_L = mhd_equil_logical.Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
         

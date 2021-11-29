@@ -81,6 +81,9 @@ mhd_equilibrium :
                   beta  : 0.2
                   p1    : 0.95
                   p2    : 0.05
+      params_gvec :
+            filepath : 'struphy/mhd_equil/gvec/'
+            filename : 'GVEC_ellipStell_profile_update_State_0000_00010000.dat' # .dat or .json
 
 mhd_init   : 
       general :
