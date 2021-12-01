@@ -29,7 +29,9 @@ setup(
         'struphy.io': ['batch/*.sh'],
         'struphy.io.inp': [
             'lin_mhd/*.yml',
+            'lin_mhd_MF/*.yml',
             'cc_lin_mhd_6d/*.yml',
+            'cc_lin_mhd_6d_MF/*.yml',
             'massless_extended/*.yml',
             'pc_lin_mhd_6d/*.yml',
         ],

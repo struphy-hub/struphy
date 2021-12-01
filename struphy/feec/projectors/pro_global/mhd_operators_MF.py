@@ -86,12 +86,21 @@ class projectors_dot_x:
     transpose_S20_dot(x)
     """
 
-    def __init__(self, space, domain, eq_MHD):
+    def __init__(self, space, eq_MHD, domain, basis_u, basis_p):
         
         self.space = space
 
-        self.NbaseN = space.NbaseN
-        self.NbaseD = space.NbaseD
+        self.dim_0  = self.space.Ntot_0form
+        self.dim_1  = self.space.Ntot_1form_cum[-1]
+        self.dim_2  = self.space.Ntot_2form_cum[-1]
+        self.dim_3  = self.space.Ntot_3form
+        self.M1     = self.space.M1
+        self.M2     = self.space.M2
+        self.NbaseN = self.space.NbaseN
+        self.NbaseD = self.space.NbaseD
+
+        self.basis_u = basis_u
+        self.basis_p = basis_p
 
         # Interpolation matrices
         #self.N_1 = self.proj_eta1.N
@@ -301,7 +310,17 @@ class projectors_dot_x:
         self.df_0_31 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_31')
         self.df_0_32 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_32')
         self.df_0_33 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_33')
-    
+
+        # Operator A
+        if self.basis_u == 1:
+            self.A = spa.linalg.LinearOperator((self.dim_1, self.dim_1), matvec = lambda x : (self.M1.dot(self.W1_dot(x)) + self.transpose_W1_dot(self.M1.dot(x))) / 2 )
+            self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_1)))
+
+        elif self.basis_u == 2:
+            self.A = spa.linalg.LinearOperator((self.dim_2, self.dim_2), matvec = lambda x : (self.M2.dot(self.Q2_dot(x)) + self.transpose_Q2_dot(self.M2.dot(x))) / 2 )
+            self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_2)))
+            
+        self.A_inv = spa.linalg.inv(self.A_mat)
 
     ########################################
     ########## 1-form formulation ##########

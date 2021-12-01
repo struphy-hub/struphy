@@ -37,9 +37,17 @@ if code=='lin_mhd':
     from struphy.models.codes import lin_mhd
     lin_mhd.execute(file_in, path_out, mode=='a') 
 
+elif code=='lin_mhd_MF':
+    from struphy.models.codes import lin_mhd_MF
+    lin_mhd_MF.execute(file_in, path_out, mode=='a') 
+
 elif code=='cc_lin_mhd_6d':
     from struphy.models.codes import cc_lin_mhd_6d 
     cc_lin_mhd_6d.execute(file_in, path_out, mode=='a')
+
+elif code=='cc_lin_mhd_6d_MF':
+    from struphy.models.codes import cc_lin_mhd_6d_MF 
+    cc_lin_mhd_6d_MF.execute(file_in, path_out, mode=='a')
 
 else:
     raise NotImplementedError('Model not implemented.')
