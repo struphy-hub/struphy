@@ -18,7 +18,7 @@ class Initialize_mhd:
     Attributes
     ----------
     r3 : np.array
-                Flattened initial coefficients of density as 3-form.
+        Flattened initial coefficients of density as 3-form.
                 
     up : np.array
         Flattened initial coefficients of velocity as 1- or 2-form.
@@ -149,10 +149,10 @@ class Initialize_mhd:
             self.b2[:] = self.SPACES.projectors.pi_2([self.b2_ini_1, self.b2_ini_2, self.b2_ini_3])
 
             if   self.basis_p == 0:
-                self.pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
+                self.pp[:] = self.SPACES.projectors.pi_0(self.p0_ini)
 
             elif self.basis_p == 3:
-                self.pp[:] = self.SPACES.projectors.pi_3(self.r3_ini)
+                self.pp[:] = self.SPACES.projectors.pi_3(self.p3_ini)
 
             if   self.basis_u == 0:
                 up_1  = self.SPACES.projectors.pi_0(self.uv_ini_1)
