@@ -40,6 +40,8 @@ Python packages (automatically installed via ``pip3 install --user .``)::
     docutils==0.15
 
 
+.. _user_install:
+
 User install
 ------------
 

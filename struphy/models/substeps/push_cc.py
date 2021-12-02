@@ -6,8 +6,7 @@ from struphy.pic import pusher_vel_3d
 class Current_coupling:
     '''The substeps of the Poisson splitting algorithm for current coupling terms.
     
-    [Ref] F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell",
-            J. Comp. Phys. 433 (2021) 110143.
+    [Ref] F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", J. Comp. Phys. 433 (2021) 110143.
     
     Parameters
     ----------

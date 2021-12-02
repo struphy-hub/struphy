@@ -20,7 +20,7 @@ geometry :
       params_hollow_cyl :
             a1       : .1 # inner radius
             a2       : 1. # outer radius
-            Lz       : 1.
+            Lz       : 1. # length of cylinder and major radius
       params_hollow_torus :
             a1       : .1 # inner radius
             a2       : 1. # minor radius

@@ -2,10 +2,6 @@
 #
 # Copyright 2021 Florian Holderied
 
-"""
-Modules to assemble discrete derivatives.
-"""
-
 import numpy        as np
 import scipy.sparse as spa
 

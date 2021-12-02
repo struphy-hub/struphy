@@ -3,8 +3,8 @@
 Quickstart
 ==========
 
-Local machine
--------------
+Command line interface
+----------------------
 
 :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is command-line based, i.e. there exists the binary ``.local/bin/struphy`` (or similar in a virtual environment). 
 

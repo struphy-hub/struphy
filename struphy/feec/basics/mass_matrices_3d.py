@@ -2,24 +2,16 @@
 #
 # Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
-"""
-Modules to compute mass matrices in 3D.
-"""
-
 import numpy        as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
 
 
-
-
-
-
 # ================ mass matrix in V0 ===========================
 def get_M0(tensor_space_FEM, domain, weight=None):
     """
-    Assembles the 3D mass matrix [[NNN NNN]] * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
+    Assembles the 3D mass matrix with integrand [[NNN NNN]] * |det(DF)|.
     
     Parameters
     ----------
@@ -86,7 +78,8 @@ def get_M0(tensor_space_FEM, domain, weight=None):
 # ================ mass matrix in V1 ===========================
 def get_M1(tensor_space_FEM, domain, weight=None):
     """
-    Assembles the 3D mass matrix [[DNN DNN, DNN NDN, DNN NND], [NDN DNN, NDN NDN, NDN NND], [NND DNN, NND NDN, NND NND]] * G^(-1) * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
+    Assembles the 3D mass matrix with integrand
+    [[DNN DNN, DNN NDN, DNN NND], [NDN DNN, NDN NDN, NDN NND], [NND DNN, NND NDN, NND NND]] * G^(-1) * |det(DF)|.
     
     Parameters
     ----------

@@ -30,11 +30,11 @@ class Initialize_mhd:
         Flattened initial coefficients of pressure as 0- or 3-form.
 
     basis_p : int
-        form of the basis function for pressure(pp) 
+        form of the basis function for pressure (pp) 
         {0, 3}
 
     basis_u : int
-        form of the basis function for flow velocity(up) 
+        form of the basis function for flow velocity (up) 
         {0, 1, 2}
 
     init_type : string
@@ -82,11 +82,7 @@ class Initialize_mhd:
     For both cases, multiple targets are available.
     ex) target = [b1, b2, b3, r, u1]
 
-    For 'modes_k', multiple modes are available
-    ex) modes_k[0] = [0.7  , 0.8 ]
-        modes_k[1] = [0.   , 0.1 ]
-        modes_k[2] = [0.3  , 0.  ]
-        amp        = [0.001, 0.01]
+    For 'modes_k', multiple modes can be initialized via lists.
     '''
     
     def __init__(self, DOMAIN, SPACES, general_init, params_init):
@@ -258,8 +254,8 @@ class Initialize_mhd:
     # ===============================================================
     #                     functions for modes_k
     # ===============================================================
-    # initial bulk pressure
     def fun_p(self, x, y, z):
+        '''Initial bulk pressure in physical space.'''
 
         p = 0*x
 
@@ -270,8 +266,8 @@ class Initialize_mhd:
 
         return p
     
-    # initial velocity (x - component)
     def fun_u_x(self, x, y, z):
+        '''Initial velocity (x - component) in physical space.'''
 
         u1 = 0*x
 
@@ -282,9 +278,9 @@ class Initialize_mhd:
 
 
         return u1
-
-    # initial velocity (y - component)
+ 
     def fun_u_y(self, x, y, z):
+        '''Initial velocity (y - component) in physical space.'''
 
         u2 = 0*x
 
@@ -295,8 +291,8 @@ class Initialize_mhd:
 
         return u2
 
-    # initial velocity (z - component)
     def fun_u_z(self, x, y, z):
+        '''Initial velocity (z - component) in physical space.'''
 
         u3 = 0*x
 
@@ -307,8 +303,8 @@ class Initialize_mhd:
 
         return u3
     
-    # initial magnetic field (x - component)
     def fun_b_x(self, x, y, z):
+        '''Initial magnetic field (x - component) in physical space.'''
 
         b1 = 0*x
         
@@ -319,9 +315,9 @@ class Initialize_mhd:
 
         return b1
 
-    # initial magnetic field (y - component)
     def fun_b_y(self, x, y, z):
-        
+        '''Initial magnetic field (y - component) in physical space.'''
+
         b2 = 0*x
 
         if 'b2' in self.target :
@@ -331,8 +327,8 @@ class Initialize_mhd:
 
         return b2
 
-    # initial magnetic field (z - component)
     def fun_b_z(self, x, y, z):
+        '''Initial magnetic field (z - component) in physical space.'''
 
         b3 = 0*x
 
@@ -343,8 +339,8 @@ class Initialize_mhd:
 
         return b3
 
-    # initial bulk density
     def fun_r(self, x, y, z):
+        '''Initial bulk density in physical space.'''
         
         r = 0*x
 
@@ -360,8 +356,8 @@ class Initialize_mhd:
     #               pullback or transform to the form
     # ===============================================================
 
-    # initial bulk pressure (0-form on logical domain)
     def p0_ini(self, eta1, eta2, eta3=None):
+        '''Initial bulk pressure (0-form on logical domain).'''
 
         if self.init_coords == 'physical':
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '0_form')
@@ -369,8 +365,9 @@ class Initialize_mhd:
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_0')
 
-    # initial bulk density (0-form on logical domain)
+
     def r0_ini(self, eta1, eta2, eta3=None):
+        '''Initial bulk density (0-form on logical domain).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '0_form')
@@ -378,8 +375,9 @@ class Initialize_mhd:
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_0')
 
-    # initial bulk pressure (3-form on logical domain)
+
     def p3_ini(self, eta1, eta2, eta3=None):
+        '''Initial bulk pressure (3-form on logical domain).'''
 
         if self.init_coords == 'physical':
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '3_form')
@@ -387,8 +385,9 @@ class Initialize_mhd:
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_3')
 
-    # initial bulk density (3-form on logical domain)
+
     def r3_ini(self, eta1, eta2, eta3=None):
+        '''Initial bulk density (3-form on logical domain).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '3_form')
@@ -397,26 +396,26 @@ class Initialize_mhd:
             return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_3')
 
 
-    # initial flow velocity (1-form on logical domain, 1-component)
     def u1_ini_1(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (1-form on logical domain, 1-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_1')
 
-        
-    # initial flow velocity (1-form on logical domain, 2-component)
+ 
     def u1_ini_2(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (1-form on logical domain, 2-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_2')
+ 
 
-        
-    # initial flow velocity (1-form on logical domain, 3-component)
     def u1_ini_3(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (1-form on logical domain, 3-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_3')
@@ -424,80 +423,80 @@ class Initialize_mhd:
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_3')
 
 
-    # initial flow velocity (2-form on logical domain, 1-component)
     def u2_ini_1(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (2-form on logical domain, 1-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_1')
+ 
 
-        
-    # initial flow velocity (2-form on logical domain, 2-component)
     def u2_ini_2(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (2-form on logical domain, 2-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_2')
-
-        
-    # initial flow velocity (2-form on logical domain, 3-component)
+  
+ 
     def u2_ini_3(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (2-form on logical domain, 3-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_3')
-
     
-    # initial magnetic field (2-form on logical domain, 1-component)
+ 
     def b2_ini_1(self, eta1, eta2, eta3=None):
+        '''Initial magnetic field (2-form on logical domain, 1-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
 
-        
-    # initial magnetic field (2-form on logical domain, 2-component)
+ 
     def b2_ini_2(self, eta1, eta2, eta3=None):
+        '''Initial magnetic field (2-form on logical domain, 2-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
 
-
-    # initial magnetic field (2-form on logical domain, 3-component)
+ 
     def b2_ini_3(self, eta1, eta2, eta3=None):
+        '''Initial magnetic field (2-form on logical domain, 3-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
             
-    
-    # initial flow velocity (vector on logical domain, 1-component)
+
     def uv_ini_1(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (vector on logical domain, 1-component).'''
 
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_1')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_1')
-
         
-    # initial flow velocity (vector on logical domain, 2-component)
+
     def uv_ini_2(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (vector on logical domain, 2-component).'''
 
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_2')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_2')
-
-        
-    # initial flow velocity (vector on logical domain, 3-component)
+ 
+ 
     def uv_ini_3(self, eta1, eta2, eta3=None):
+        '''Initial flow velocity (vector on logical domain, 3-component).'''
         
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_3')
