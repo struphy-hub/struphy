@@ -15,7 +15,6 @@ matplotlib.rcParams.update({'font.size': 16})
 import matplotlib.pyplot as plt
 
 import struphy.feec.bsplines         as bsp
-import struphy.feec.bsplines_kernels as bsp_kernels
 
 import struphy.feec.basics.spline_evaluation_1d as eva_1d
 import struphy.feec.basics.spline_evaluation_2d as eva_2d
@@ -39,20 +38,94 @@ class Spline_space_1d:
     
     Parameters
     ----------
-    Nel : int
-        number of elements of discretized 1D domain [0, 1]
-        
-    p : int
-        spline degree
-        
-    spl_kind : boolean
-        kind of spline space (True = periodic, False = clamped)
-        
-    n_quad : int
-        number of Gauss-Legendre quadrature points per grid cell (defined by break points)
+        Nel : int
+            number of elements of discretized 1D domain [0, 1]
+            
+        p : int
+            spline degree
+            
+        spl_kind : boolean
+            kind of spline space (True = periodic, False = clamped)
+            
+        n_quad : int
+            number of Gauss-Legendre quadrature points per grid cell (defined by break points)
 
-    bc : [str, str]
-        boundary conditions at eta=0.0 and eta=1.0, 'f' free, 'd' dirichlet (remove boundary spline)
+        bc : [str, str]
+            boundary conditions at eta=0.0 and eta=1.0, 'f' free, 'd' dirichlet (remove boundary spline)
+
+    Attributes
+    ----------
+        el_b : np.array
+            Element boundaries, equally spaced.
+
+        delta : float
+            Uniform grid spacing
+
+        T : np.array
+            Knot vector of 0-space.
+
+        t : np.arrray
+            Knot vector of 1-space.
+
+        greville : np.array
+            Greville points.
+
+        NbaseN : int
+            Dimension of 0-space.
+
+        NbaseD : int
+            Dimension of 1-space. 
+
+        pts : np.array
+            Global GL quadrature points in format (element, local point).
+
+        wts : np.array
+            Global GL quadrature weights in format (element, local point).  
+
+        basisN : np.array
+            N-basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
+
+        basisD : np.array
+            D-basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)  
+
+        E0 : csr_matrix
+            Identity matrix of rank NbaseN.
+
+        E1 : csr_matrix
+            Identity matrix of rank NbaseD.
+
+        B0 : csr_matrix
+            Boundary operator for 0-space: removes interpolatory B-spline at eta=0 if bc[0]='d', at eta=1 if bc[1]='d'.
+
+        B1 : csr_matrix
+            Boundary operator for 1-space, same as E1 (identity).
+
+        E0_0 : csr_matrix
+            Extraction operator for 0-space, with bc applied: E0_0 = B0 * E0
+
+        E1_0 : csr_matrix
+            Extraction operator for 1-space, same as E1 (identity).
+
+        M0 : csr_matrix
+            NN-mass-matrix with boundary conditions, M0 = E0_0 * M0_full * E0_0^T.
+
+        M01 : csr_matrix
+            ND-mass-matrix with boundary conditions, M01_0 = E0_0 * M0.
+
+        M10 : csr_matrix
+            DN-mass-matrix (csr) with boundary conditions, M10_0 = M0 * E0_0^T.
+
+        M1 : csr_matrix
+            DD-mass-matrix.
+
+        G : csr_matrix
+            Derivative matrix.
+
+        G0 : csr_matrix
+            Derivative matrix with boundary conditions, G0 = B1 * G * B0^T.
+
+        projectors : object
+            1D projectors object from struphy.feec.projectors.pro_global.projectors_global.Projectors_global_1d
     """
     
     def __init__(self, Nel, p, spl_kind, n_quad=6, bc=['f', 'f']):
@@ -137,21 +210,25 @@ class Spline_space_1d:
     # functions for setting mass matrices:        
     # =================================================
     def assemble_M0(self, weight=None):
+        '''Assembles NN-mass-matrix (csr) with boundary conditions, M0_0 = E0_0 * M0 * E0_0^T.'''
         self.M0  = self.E0_0.dot(mass_1d.get_M(self, 0, 0, weight).dot(self.E0_0.T))
         print('Assembly of M0 (1d) done.')
         
     # =================================================
     def assemble_M1(self, weight=None):
+        '''Assembles DD-mass-matrix (csr).'''
         self.M1  = self.E1_0.dot(mass_1d.get_M(self, 1, 1, weight).dot(self.E1_0.T))
         print('Assembly of M1 (1d) done.')
         
     # =================================================
     def assemble_M01(self, weight=None):
+        '''Assembles ND-mass-matrix (csr) with boundary conditions, M01_0 = E0_0 * M0.'''
         self.M01 = self.E0_0.dot(mass_1d.get_M(self, 0, 1, weight).dot(self.E1_0.T))
         print('Assembly of M01 (1d) done.')
         
     # =================================================
     def assemble_M10(self, weight=None):
+        '''Assembles DN-mass-matrix (csr) with boundary conditions, M10_0 = M0 * E0_0^T.'''
         self.M10 = self.E1_0.dot(mass_1d.get_M(self, 1, 0, weight).dot(self.E0_0.T))
         print('Assembly of M10 (1d) done.')
 
@@ -159,6 +236,7 @@ class Spline_space_1d:
     # functions for setting projectors:        
     # =================================================
     def set_projectors(self, nq=6):
+        '''Initialize 1d projectors object.'''
         self.projectors = pro.Projectors_global_1d(self, nq)
         print('Set projectors (1d) done.')
 
@@ -298,20 +376,92 @@ class Tensor_spline_space:
     
     Parameters
     ----------
-    spline_spaces : list of spline_space_1d
-        1d B-spline spaces from which the tensor_product B-spline space is built
-         
-    ck : int
-        smoothness contraint at eta_1=0 (pole): -1 (no constraints), 0 or 1 (polar splines)
-        
-    cx, cy : 2D arrays
-        control points for spline mapping in case of polar splines
-        
-    basis_tor : string
-        basis in third direction for a 2D spline space (i: complex Fourier, r: sin/cos, n: no variation)
-        
-    n_tor : int
-        mode number in third direction for a 2D spline space
+        spline_spaces : list of spline_space_1d
+            1d B-spline spaces from which the tensor_product B-spline space is built
+            
+        ck : int
+            smoothness contraint at eta_1=0 (pole): -1 (no constraints), 0 or 1 (polar splines)
+            
+        cx, cy : 2D arrays
+            control points for spline mapping in case of polar splines
+            
+        basis_tor : string
+            basis in third direction for a 2D spline space (i: complex Fourier, r: sin/cos, n: no variation)
+            
+        n_tor : int
+            mode number in third direction for a 2D spline space
+
+    Attributes
+    ----------
+        E0_0 : csr_matrix
+            3D Extraction operator for 0-space with boundary conditions, E0_0 = B0 * E0.
+
+        E1_0 : csr_matrix
+            3D Extraction operator for 1-space (as block matrix) with boundary conditions, E1_0 = B1 * E1.
+
+        E2_0 : csr_matrix
+            3D Extraction operator for 2-space (as block matrix) with boundary conditions, E2_0 = B2 * E2.
+
+        E3_0 : csr_matrix
+            3D Extraction operator for 3-space with boundary conditions, E3_0 = B3 * E3.
+
+        Ev_0 : csr_matrix
+            3D Extraction operator for vector-feild-space (as block matrix) with boundary conditions, Ev_0 = Bv * Ev.
+
+        M0 : lin. operator
+            (NNN)-(NNN)-|detDF|-mass-matrix with extraction, M0 = E0_0 * M0_ * E0_0^T.
+
+        M0_mat : csr_matrix
+            (NNN)-(NNN)-|detDF|-mass-matrix with extraction, M0 = E0_0 * M0_ * E0_0^T.
+
+        M1 : lin. operator
+            V1-mass-matrix with extraction, M1 = E1_0 * M1_ * E1_0^T, in format M1_11 = (DNN)-Ginv_11-(DNN)-|detDF|,
+            M1_12 = (DNN)-Ginv_12-(NDN)-|detDF|, etc. 
+
+        M1_mat : csr_matrix
+            V1-mass-matrix with extraction, M1 = E1_0 * M1_ * E1_0^T, in format M1_11 = (DNN)-Ginv_11-(DNN)-|detDF|,
+            M1_12 = (DNN)-Ginv_12-(NDN)-|detDF|, etc.
+
+        M2 : linear operator
+            V2-mass-matrix with extraction, M2 = E2_0 * M2_ * E2_0^T, in format M2_11 = (NDD)-G_11-(NDD)-|detDFinv|,
+            M2_12 = (NDD)-G_12-(DND)-|detDFinv|, etc.
+
+        M2_mat : csr_matrix
+            V2-mass-matrix with extraction, M2 = E2_0 * M2_ * E2_0^T, in format M2_11 = (NDD)-G_11-(NDD)-|detDFinv|,
+            M2_12 = (NDD)-G_12-(DND)-|detDFinv|, etc. 
+
+        M3 : linear operator
+            (DDD)-(DDD)-|detDFinv|-mass-matrix with extraction, M3 = E3_0 * M3_ * E3_0^T.
+
+        M3_mat : csr_matrix
+            (DDD)-(DDD)-|detDFinv|-mass-matrix with extraction, M3 = E3_0 * M3_ * E3_0^T.
+
+        Mv : linear operator
+            Vector-field-mass-matrix in format Mv_ij = (NNN)-G_ij-(NNN)-|detDF|. 
+
+        Mv_mat : csr_matrix
+            Vector-field-mass-matrix in format Mv_ij = (NNN)-G_ij-(NNN)-|detDF|.
+
+        G : csr_matrix
+            Gradient (block) matrix.
+
+        G0 : csr_matrix
+            Gradient (block) matrix with boundary conditions, G0 = B1 * G * B0^T.
+
+        C : csr_matrix
+            Curl (block) matrix.
+
+        C0 : csr_matrix
+            Curl (block) matrix with boundary conditions, C0 = B2 * C * B1^T.
+
+        D : csr_matrix
+            Divergence (block) matrix.
+
+        D0 : csr_matrix
+            Divergence (block) matrix with boundary conditions, D0 = B3 * D * B2^T.
+
+        projectors : object
+            3D projectors object from struphy.feec.projectors.pro_global.projectors_global.Projectors_global_3d.
     """
     
 

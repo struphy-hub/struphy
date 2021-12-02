@@ -4,13 +4,6 @@ Developer's guide
 =================
 
 
-.. _intro_devel:
-
-Introduction
-------------
-
-
-
 .. _repo:
 
 GitLab repository
@@ -121,15 +114,16 @@ Coding style
 
 - **Always stay close to the main branch (``devel`` for developers).** Make a feature branch when you need to add functionalty. Never work more than several days on a feature branch before merging.
 
-- **Use the ``devel`` version when running simulations for your thesis/paper/physics work.** We want your features in struphy for goor maintenance, documentation, discussion and future improvements. 
+- Make regular commits when working on a feature, such that your work can be recapitulated easily.
 
 - Choose self-explaining module and variable names (Classes start with a capital letter).
 
-- Always include a docstring (numpy style): 
+- **Always include a docstring** (`numpy style via Napolean extension <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#module-sphinx.ext.napoleon>`_): 
     1. one or two lines explaining what the function does.
-    2. give "Parameters" (input vars) and "Returns" (output vars).
+    2. give "Parameters" (input vars) and "Returns" (output vars), and maybe "Attributes" (for classes) and/or "Notes".
+    3. See :ref:`linear_operators` for an example of how to write docstrings.
 
-- Include ``test_`` files (= unit tests) in the folder ``struphy/tests``. It is advisable that new feature come with a test file, where users can understand the functionality and CI can automate testing.
+- Include ``test_`` files (= unit tests) in the folder ``struphy/tests``. It is advisable that new features come with a test file, where users can understand the functionality and CI can automate testing.
 
 
 .. _add_model:
@@ -166,7 +160,17 @@ In order to run your code you need to perform two more steps:
     mkdir <my_new_model>/
     cp cc_lin_mhd_6d/parameters.yml <my_new_model>/parameters.yml
 
-Adapt the file ``parameters.yml`` to your model.
+3. Add the parameter file to the ``package_data`` dictionary in ``setup.py``, under the key ``'struphy.io.inp'``.
+
+Adapt the file ``parameters.yml`` to your model, see :ref:`params_file`.
+Moreover, there are certain folders where new modules (``.py``-files) should be put:
+
+    * :ref:`linear_operators` go in ``struphy/linear_operators/<code_name>``
+    * PIC accumulation/deposition routines go in ``struphy/pic/<code_name>``
+    * MHD equilibria go in ``struphy/mhd_equil/analytical``
+    * Kinetic equilibria go in ``struphy/kinetic_equil/analytical``
+    * dispersion relation solvers go in ``struphy/models/dispersion_relations``
+    * diagnostic files go in ``struphy/diagnostics``
 
 Last but not least, it is important to add a minimal documentation for your model.
 For this, add a line in ``bin/struphy.sh`` in the help ``h)``, namely under the line::
@@ -175,4 +179,66 @@ For this, add a line in ``bin/struphy.sh`` in the help ``h)``, namely under the 
 
 Moreover, please add your model and code name to the section :ref:`models`. 
 Finally, you could add a line to the table in :ref:`intro` of the :ref:`userguide`.
+
+
+.. _objects:
+
+STRUPHY objects
+---------------
+
+:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is an object-oriented code, which means it relies heavily on *Python classes*. 
+From the first paragraph of the `official Python documentation <https://docs.python.org/3/tutorial/classes.html>`_:
+
+    Classes provide a means of bundling data and functionality together. 
+    Creating a new class creates a new type of object, allowing new instances of that type to be made. 
+    Each class instance can have attributes attached to it for maintaining its state. 
+    Class instances can also have methods (defined by its class) for modifying its state.
+
+Classes are very efficient for interchanging information. 
+Instead of passing many variables and/or functions one-by-one to a function, 
+these are first grouped together in an instance of a class (the "object"), and then the object is passed. 
+Moreover, each instance of a class can be different, depending on the parameters passed to the class at initialization.
+For example, in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` there is an object called ``EQ_MHD_P`` 
+which holds all information about the MHD equilibirum in Cartesian space. 
+This information consists of Physics parameters but also of callable functions such as the equilibirum pressure and the magnetic field.
+
+Each code in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is based on more or less the same set of Classes, 
+which are listed in the following table:
+
+============================ ============================================ ===================== ========================================== =========
+Class name                   Location in ``struphy.``                     Instance name in code Description                        
+============================ ============================================ ===================== ========================================== =========
+Domain                       ``geometry.domain_3d``                       DOMAIN                metric coefficients, push, pull, transform :ref:`more info <domain_class>`            
+Tensor_spline_space          ``feec.spline_space``                        SPACES                discrete De Rham sequence and projectors   :ref:`more info <derham>`
+Equilibrium_mhd_physical     ``mhd_equil.mhd_equil_physical``             EQ_MHD_P              MHD eqilibrium functions in physical space :ref:`more info <mhd_equil_p>`
+Equilibrium_mhd_logical      ``mhd_equil.mhd_equil_logical``              EQ_MHD_L              MHD eqilibrium functions in logical space  :ref:`more info <mhd_equil_l>`
+Initialize_mhd               ``mhd_init.mhd_init``                        MHD                   MHD variables                              :ref:`more info <mhd_class>` 
+MHD_operators                ``feec.mhd_operators.linear``                MHD_OPS               MHD projection operators                   :ref:`more info <linear_operators>` 
+Equilibrium_kinetic_physical ``kinetic_equil.kinetic_equil_physical``     EQ_KINETIC_P          kinetic equilibirum in physical space      :ref:`more info <kinetic_equil_p>` 
+Equilibrium_kinetic_logical  ``kinetic_equil.kinetic_equil_logical``      Q_KINETIC_L           kinetic equilibirum in logical space       :ref:`more info <kinetic_equil_l>` 
+Initialize_markers           ``kinetic_init.kinetic_init``                KIN                   marker information                         :ref:`more info <markers_class>`  
+Accumulation                 ``pic.<code_name>.accumulation``             ACCUM                 pic accumulation/deposition routines       :ref:`more info <accum>` 
+Linear_mhd                   ``struphy.models.substeps.push_linear_mhd``  UPDATE_MHD            MHD propagators (split steps)              :ref:`more info <push_mhd>` 
+Push                         ``struphy.models.substeps.push_markers``     UPDATE_MARKERS        marker propagators (split steps)           :ref:`more info <push_markers>`
+<code_dependent>             ``struphy.models.substeps.push_<code_name>`` UPDATE_COUPL          coupling terms propagators (split steps)   :ref:`more info <push_coupl>` 
+============================ ============================================ ===================== ========================================== =========
+
+The dependencies between these objects is depicted in the Figure below.
+We see for example that ``DOMAIN`` has no dependencies and is therefore the lowest level.
+``SPACES`` depends on ``DOMAIN`` because of polar splines bases, which rely on the iso-geometroc approach (IGA). 
+Moreover, ``UPDATE_COUPL`` depends on five lower-level objects.
+
+.. image:: ../pics/obj_network.png
+
+
+.. include:: mappings.rst
+.. include:: derham.rst
+.. include:: mhd_equil.rst
+.. include:: mhd.rst
+.. include:: linear_ops.rst
+.. include:: kinetic_equil.rst
+.. include:: markers.rst
+.. include:: accum.rst
+.. include:: update.rst
+.. include:: data.rst
 

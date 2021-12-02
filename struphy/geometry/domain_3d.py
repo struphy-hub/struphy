@@ -2,10 +2,6 @@
 #
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
-"""
-Module to handle mapped 3d domains.
-"""
-
 import h5py
 import numpy as np
 from numpy.core.numeric import count_nonzero
@@ -32,19 +28,19 @@ def spline_interpolation_nd(p, grids_1d, values):
 
     Parameters
     -----------
-        p : list of length n
+        p : list 
             spline degree
 
-        grids_1d : list of n 1d np.arrays
+        grids_1d : list of np.arrays
             interpolation points
 
-        values: nd np.array
+        values: np.array
             function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
 
     Returns
     --------
-        coeffs : nd np.array
-            spline coefficients
+        coeffs : np.array
+            spline coefficients as nd array.
 
         T : list
             Knot vector of spline interpolant
@@ -171,7 +167,8 @@ def prepare_args(x, y, z, flat_eval=False):
 
     Returns
     -------
-        E1, E2, E3 : 3d np.arrays
+        E1, E2, E3 : np.arrays
+            3d arrays, except for flat_eval=True (1d arrays).
 
         is_sparse_meshgrid : boolean
             Whether arguments fit sparse_meshgrid shape.
@@ -266,7 +263,7 @@ class Domain:
 
     Parameters
     ----------
-    kind_map : string
+    kind_map : str
         Type of domain.
     
     params_map: dict
@@ -274,7 +271,7 @@ class Domain:
 
     Attributes
     ----------
-    kind_map: integer
+    kind_map: int
         values <10 indicate a spline mapping
 
     params_map: array-like
@@ -301,13 +298,13 @@ class Domain:
     cz: np.array
         spline coefficients of Z(eta1, eta2, eta3)
 
-    keys_map: dictionary
+    keys_map: dict
         keys point to values for kind_fun in the 'evaluate' method.
 
-    keys_pull: dictionary
+    keys_pull: dict
         keys point to possible values for kind_fun in 'pull' method.
 
-    keys_push: dictionary
+    keys_push: dict
         keys point to possible values for kind_fun in 'push' method.
 
     Notes
@@ -506,8 +503,8 @@ class Domain:
         -----------
             eta1, eta2, eta3 : point like or array-like or list like 
                 logical coordinates at which to evaluate
-            kind_fun : integer
-                what metric coefficient to evaluate, see keys_map
+            kind_fun : string
+                what metric coefficient to evaluate, see Notes
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
             squeeze_output : boolean
@@ -515,8 +512,19 @@ class Domain:
 
         Returns
         --------
-            values: ndarray
+            values: np.array
                 mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
+
+        Notes
+        -----
+            Possible choices for kind_fun: 
+
+                * 'x', 'y', 'z': components of F
+                * 'det_df': Jacobian determinant
+                * 'df_11', 'df_12', 'df_13', 'df_21', 'df_22', 'df_23', 'df_31', 'df_32', 'df_33': Jacobian 
+                * 'df_inv_11', 'df_inv_12', 'df_inv_13', 'df_inv_21', 'df_inv_22', 'df_inv_23', 'df_inv_31', 'df_inv_32', 'df_inv_33', Jacobian inverse 
+                * 'g_11', 'g_12', 'g_13', 'g_21', 'g_22', 'g_23', 'g_31', 'g_32', 'g_33': metric tensor 
+                * 'g_inv_11', 'g_inv_12', 'g_inv_13', 'g_inv_21', 'g_inv_22', 'g_inv_23', 'g_inv_31', 'g_inv_32', 'g_inv_33': inverse metric tensor
         '''
 
         # # evaluation for point pairs of 1d np.arrays of same length at three directions
@@ -573,6 +581,15 @@ class Domain:
         -------
             values: np.array
                 Pullback of p-form (component) evaluated at (eta1, eta2, eta3)
+
+        Notes
+        -----
+            Possible choices for kind_fun:
+                
+                * '0_form', '3_form'
+                * '1_form_1', '1_form_2', '1_form_3'
+                * '2_form_1', '2_form_2', '2_form_3',
+                * 'vector_1', 'vector_2', 'vector_3'
         '''
 
         E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
@@ -637,6 +654,15 @@ class Domain:
         --------
             values: ndarray
                 Push forward of p-form (component) evaluated at (eta1, eta2, eta3)
+
+        Notes
+        -----
+            Possible choices for kind_fun:
+                
+                * '0_form', '3_form'
+                * '1_form_1', '1_form_2', '1_form_3'
+                * '2_form_1', '2_form_2', '2_form_3',
+                * 'vector_1', 'vector_2', 'vector_3'
         '''
         
         E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
@@ -689,6 +715,18 @@ class Domain:
         -------
             values: ndarray
                 transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3)
+
+        Notes
+        -----
+            Possible choices for kind_fun:
+
+                * 'norm_to_0', 'norm_to_3',
+                * 'norm_to_1_1', 'norm_to_1_2', 'norm_to_1_3',
+                * 'norm_to_2_1', 'norm_to_2_2', 'norm_to_2_3',
+                * 'norm_to_vector_1', 'norm_to_vector_2', 'norm_to_vector_3',
+                * '1_to_1_1', '1_to_1_1', '1_to_1_1',
+                * '1_to_1_1', '1_to_1_1', '1_to_1_1',
+                * '0_to_3', '3_to_0'
         '''
         
         E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)

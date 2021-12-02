@@ -7,13 +7,13 @@ The package is developed at [Max Planck Institute for Plasma Physics](https://ww
 in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mpg.de/ippcms/de/for/bereiche/numerik)
 and includes
 
-1. initial-value solvers for kinetic-fluid hybrid models 
+1. initial-value solvers for [kinetic-fluid hybrid models](https://clapp.pages.mpcdf.de/hylife/sections/models.html) 
 2. MHD eigenvalue solver for axis-symmetric equilibria
 3. interface to the [MHD equilibrium code GVEC](https://gitlab.mpcdf.mpg.de/gvec-group/gvec)
 4. interface to `eqdesk` file format
 5. dispersion relation solvers for MHD, hybrid models and Vlasov-Maxwell (all in slab)
 
-*STRUPHY* computational kernels are pre-compiled with [pyccel](https://github.com/pyccel/pyccel) to reach ***FORTRAN*** performance. *STRUPHY* can be run on clusters with OpenMP/MPI hybrid parallelization.
+*STRUPHY* computational kernels are pre-compiled with [pyccel](https://github.com/pyccel/pyccel) to reach **FORTRAN** performance. *STRUPHY* can be run on clusters with OpenMP/MPI hybrid parallelization.
 
 Contact:
 

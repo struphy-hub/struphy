@@ -11,79 +11,57 @@ class projectors_dot_x:
     Caclulate the product of vector 'x' with the several kinds of projection matrices.
     Global projectors based on tensor product are used.
 
-    List of projection matrices :                      dim of matrices            verification method
-    1 form formualation
-    - Q1            = pi_2[rho_eq * G_inv * lambda^1]      R{N^2 * N^1}                comparison test with basic projector
-    - W1            = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}                  identity test
-    - U1            = pi_2[g_sqrt * G_inv * lambda^1]      R{N^2 * N^1}                comparison test with basic projector
-    - P1            = pi_1[j_eq / g_sqrt * lambda^2]       R{N^1 * N^2}                comparison test with basic projector
-    - S1            = pi_2[p_eq * G_inv * lambda^1]        R{N^2 * N^1}                comparison test with basic projector
-    - S10           = pi_1[p_eq * lambda^1]                R{N^1 * N^1}                  identity test            
-    - K1            = pi_3[p_eq / g_sqrt * lambda^3]       R{N^3 * N^3}                  identity test
-    - K10           = pi_0[p_eq * lambda^0]                R{N^0 * N^0}                  identity test
-    - T1            = pi_1[B_eq * G_inv * lambda^1]        R{N^1 * N^1}                comparison test with basic projector
-    - X1            = pi_0[DF^-T * lambda^1]               R{N^0 * 3 * N^1}  for PC    comparison test with basic projector
+    Parameters
+    ----------
+        space : obj
+            Tensor_spline_space object.
 
-    2 form formulation
-    - Q2            = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}                  identity test
-    - T2            = pi_1[B_eq / g_sqrt * lambda^2]       R{N^1 * N^2}                comparison test with basic projector
-    - P2            = pi_2[G_inv * j_eq * lambda^2]        R{N^2 * N^2}                comparison test with basic projector
-    - S2            = pi_2[p_eq / g_sqrt * lambda^2]       R{N^2 * N^2}                  identity test
-    - K2            = pi_3[p_eq / g_sqrt * lambda^3]       R{N^3 * N^3}                  identity test
-    - X2            = pi_0[DF / g_sqrt * lambda^2]         R{N^0 * 3 * N^2}  for PC    comparison test with basic projector
-    - Z20           = pi_1[G / g_sqrt * lambda^2]          R{N^1 * N^2}                comparison test with basic projector
-    - Y20           = pi_3[g_sqrt * lambda^0]              R{N^3 * N^0}                comparison test with basic projector
-    - S20           = pi_1[p_eq * G / g_sqrt * lambda^2]   R{N^1 * N^2}                comparison test with basic projector
+        eq_MHD : obj
+            Equilibrium_mhd object.
 
-    Parameters :
-    ---------------------------
-    proj_list : list of 1d projector objects
-    domain :    domain object
-    eq_MHD :    equilibrium_mhd object
+        domain : obj
+            Domain object.
 
-    Methods :
-    ---------------------------
-    # 1form formulation
-    Q1_dot(x)
-    transpose_Q1_dot(x)
-    W1_dot(x)
-    transpose_W1_dot(x)
-    U1_dot(x)
-    transpose_U1_dot(x)
-    P1_dot(x)
-    transpose_P1_dot(x)
-    S1_dot(x)
-    transpose_S1_dot(x)
-    S10_dot(x)
-    transpose_S10_dot(x)
-    K1_dot(x)
-    transpose_K1_dot(x)
-    K10_dot(x)
-    transpose_K10_dot(x)
-    T1_dot(x)
-    transpose_T1_dot(x)
-    X1_dot(x)
-    transpose_X_dot(x)
+        basis_u : int
+            Choice of p-form representation for up {1, 2}.
 
-    # 2form formulation
-    Q2_dot(x)
-    transpose_Q2_dot(x)
-    T2_dot(x)
-    transpose_T2_dot(x)
-    P2_dot(x)
-    transpose_P2_dot(x)
-    S2_dot(x)
-    transpose_S2_dot(x)
-    K2_dot(x)
-    transpose_K2_dot(x)
-    X2_dot(x)
-    transpose_X2_dot(x)
-    Z20_dot(x)
-    transpose_Z20_dot(x)
-    Y20_dot(x)
-    transpose_Y20_dot(x)
-    S20_dot(x)
-    transpose_S20_dot(x)
+        basis_p : int
+            Choice of p-form representation for pp {0, 3}
+
+    Notes
+    -----
+        Implemented operators (transpose also implemented) with
+
+        * MHD with velocity (up) as 1-form:
+        ===================================================== =========================== =====================
+        operator                                              dim of matrix               verification method
+        ===================================================== =========================== =====================
+        Q1  = pi_2[rho_eq * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
+        W1  = pi_1[rho_eq / g_sqrt * lambda^1]                 R^{N^1 x N^1}               identity test
+        U1  = pi_2[g_sqrt * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
+        P1  = pi_1[j_eq / g_sqrt * lambda^2]                   R^{N^1 x N^2}               comparison test with basic projector
+        S1  = pi_2[p_eq * G_inv * lambda^1]                    R^{N^2 x N^1}               comparison test with basic projector
+        S10 = pi_1[p_eq * lambda^1]                            R^{N^1 x N^1}               identity test            
+        K1  = pi_3[p_eq / g_sqrt * lambda^3]                   R^{N^3 x N^3}               identity test
+        K10 = pi_0[p_eq * lambda^0]                            R^{N^0 x N^0}               identity test
+        T1  = pi_1[B_eq * G_inv * lambda^1]                    R^{N^1 x N^1}               comparison test with basic projector
+        X1  = pi_0[DF^-T * lambda^1]                           R^{N^0 x 3 x N^1}           comparison test with basic projector
+        ===================================================== =========================== =====================
+
+        * MHD with velocity (up) as 2-form:
+        ===================================================== ================= =====================
+        operator                                              dim of matrx      verification method
+        ===================================================== ================= =====================
+        Q2  = pi_2[rho_eq / g_sqrt * lambda^2]                R^{N^2 x N^2}      identity test
+        T2  = pi_1[B_eq / g_sqrt * lambda^2]                  R^{N^1 x N^2}      comparison test with basic projector
+        P2  = pi_2[G_inv * j_eq * lambda^2]                   R^{N^2 x N^2}      comparison test with basic projector
+        S2  = pi_2[p_eq / g_sqrt * lambda^2]                  R^{N^2 x N^2}      identity test
+        K2  = pi_3[p_eq / g_sqrt * lambda^3]                  R^{N^3 x N^3}      identity test
+        X2  = pi_0[DF / g_sqrt * lambda^2]                    R^{N^0 x 3 x N^2}  comparison test with basic projector
+        Z20 = pi_1[G / g_sqrt * lambda^2]                     R^{N^1 x N^2}      comparison test with basic projector
+        Y20 = pi_3[g_sqrt * lambda^0]                         R^{N^3 x N^0}      comparison test with basic projector
+        S20 = pi_1[p_eq * G / g_sqrt * lambda^2]              R^{N^1 x N^2}      comparison test with basic projector
+        ===================================================== ================= =====================
     """
 
     def __init__(self, space, eq_MHD, domain, basis_u, basis_p):
@@ -328,40 +306,39 @@ class projectors_dot_x:
     # ==================================================================
     def Q1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Q1 with x
-        Q1     = pi_2[rho_eq * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        Q1 dot x = I_2( R_2 ( F_Q1(x)))
-
-        F_Q1[ijk, mno] = rho_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (D, N, N) * G_inv_11 * rho_eq, 
-                               (N, D, N) * G_inv_12 * rho_eq, 
-                               (N, N, D) * G_inv_13 * rho_eq
-        xi2: [his, int, his] : (D, N, N) * G_inv_21 * rho_eq, 
-                               (N, D, N) * G_inv_22 * rho_eq, 
-                               (N, N, D) * G_inv_23 * rho_eq
-        xi3: [his, his, int] : (D, N, N) * G_inv_31 * rho_eq, 
-                               (N, D, N) * G_inv_32 * rho_eq, 
-                               (N, N, D) * G_inv_33 * rho_eq
+        Matrix-vector product Q1.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            Q1    = pi_2[rho_eq * G_inv * lambda^1] in R^{N^2 x N^1}
+
+            Q1.x = I_2( R_2 ( F_Q1.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_Q1[ijk, mno] = rho_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]} 
+
+            * Components of F_Q1:
+                * evaluated at [int, his, his] : (D, N, N) * G_inv_11 * rho_eq + (N, D, N) * G_inv_12 * rho_eq + (N, N, D) * G_inv_13 * rho_eq
+                * evaluated at [his, int, his] : (D, N, N) * G_inv_21 * rho_eq + (N, D, N) * G_inv_22 * rho_eq + (N, N, D) * G_inv_23 * rho_eq
+                * evaluated at [his, his, int] : (D, N, N) * G_inv_31 * rho_eq + (N, D, N) * G_inv_32 * rho_eq + (N, N, D) * G_inv_33 * rho_eq
         '''
 
         # x dim check
@@ -431,20 +408,25 @@ class projectors_dot_x:
     # ==================================================================
     def transpose_Q1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Q with x
-        Q1     = pi_2[rho_eq * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        Q1.T dot x = F_Q1.T( R_2.T ( I_2.T(x)))
-
+        Matrix-vector product Q1.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array  
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            Q1.x = I_2( R_2 ( F_Q1.x))
+
+            Q1.T.x = F_Q1.T( R_2.T ( I_2.T.x))
+
+            See Q1_dot for more info.
         '''
 
         # x dim check
@@ -511,33 +493,40 @@ class projectors_dot_x:
     # ===================================================================
     def W1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix W1 with x
-        W1 = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}
-
-        W1 dot x = I_1( R_1 ( F_W1(x)))
-        F_W1[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^1_mno(pts_ijk)
-
-        #spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], greville[2]}
-                            xi2 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (D, N, N) * rho_eq / g_sqrt, 0, 0
-        xi2: [int, his, int] : 0, (N, D, N) * rho_eq / g_sqrt, 0
-        xi3: [int, int, his] : 0, 0, (N, N, D) * rho_eq / g_sqrt
+        Matrix-vector product W1.x
 
         Parameters
         ----------
-        x : np.array    R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array  R{N^1}
-        '''    
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            W1 = pi_1[rho_eq / g_sqrt * lambda^1]  in   R{N^1 x N^1}
+
+            W1.x = I_1( R_1 ( F_W1.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_W1[ijk,mno] = rho_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_W1:
+                * evaluated at [his, int, int] : (D, N, N) * rho_eq / g_sqrt
+                * evaluated at [int, his, int] : (N, D, N) * rho_eq / g_sqrt
+                * evaluated at [int, int, his] : (N, N, D) * rho_eq / g_sqrt
+        '''   
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.space.Ntot_1form_cum[-1]
@@ -587,19 +576,25 @@ class projectors_dot_x:
     # ===================================================================
     def transpose_W1_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix W with x
-        W1 = pi_1[rho_eq / g_sqrt * lambda^1]     R{N^1 * N^1}
-
-        W1.T dot x = F_W1.T( R_1.T ( I_1.T(x)))
-        F_W1[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^1_mno(pts_ijk)
+        Matrix-vector product W1.T.x
 
         Parameters
         ----------
-        x : np.array    R{N^1}
+            x : np.array  
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array  R{N^1}
+            res : np.array 
+                dim R{N^1}
+
+        Notes
+        -----
+            W1.x = I_1( R_1 ( F_W1.x))
+
+            W1.T.x = F_W1.T( R_1.T ( I_1.T.x))
+       
+            See W1_dot for more details.
         '''    
         # x dim check
         # x should be R{N^1}
@@ -646,43 +641,40 @@ class projectors_dot_x:
     # ====================================================================
     def U1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix U1 with x
-        U1     = pi_2[g_sqrt * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        U1 dot x = I_2( R_2 ( F_U1(x)))
-
-        F_U1[ijk, mno] = g_sqrt(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (D, N, N) * G_inv_11 * g_sqrt, 
-                               (N, D, N) * G_inv_12 * g_sqrt, 
-                               (N, N, D) * G_inv_13 * g_sqrt
-        xi2: [his, int, his] : (D, N, N) * G_inv_21 * g_sqrt, 
-                               (N, D, N) * G_inv_22 * g_sqrt, 
-                               (N, N, D) * G_inv_23 * g_sqrt
-        xi3: [his, his, int] : (D, N, N) * G_inv_31 * g_sqrt, 
-                               (N, D, N) * G_inv_32 * g_sqrt, 
-                               (N, N, D) * G_inv_33 * g_sqrt
+        Matrix-vector product U1.x
 
         Parameters
         ----------
-        Parameters
-        ----------
-        x : np.array    R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array  R{N^2}
-        '''    
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            U1     = pi_2[g_sqrt * G_inv * lambda^1]   in  R^{N^2 x N^1}
+
+            U1.x = I_2( R_2 ( F_U1.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_U1[ijk, mno] = g_sqrt(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]} 
+
+            * Components of F_U1:
+                * evaluated at [int, his, his] : (D, N, N) * G_inv_11 * g_sqrt + (N, D, N) * G_inv_12 * g_sqrt + (N, N, D) * G_inv_13 * g_sqrt
+                * evaluated at [his, int, his] : (D, N, N) * G_inv_21 * g_sqrt + (N, D, N) * G_inv_22 * g_sqrt + (N, N, D) * G_inv_23 * g_sqrt
+                * evaluated at [his, his, int] : (D, N, N) * G_inv_31 * g_sqrt + (N, D, N) * G_inv_32 * g_sqrt + (N, N, D) * G_inv_33 * g_sqrt
+        '''
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.space.Ntot_1form_cum[-1]
@@ -750,19 +742,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_U1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix U1 with x
-        U1     = pi_2[g_sqrt * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        U1.T dot x = F_U1.T( R_2.T ( I_2.T(x)))
+        Matrix-vector product U1.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            U1.x = I_2( R_2 ( F_U1.x))
+
+            U1.T.x = F_U1.T( R_2.T ( I_2.T.x))
+
+            See U1_dot for more details.
         '''
 
         # x dim check
@@ -829,42 +827,41 @@ class projectors_dot_x:
     # ====================================================================
     def P1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix P1 with x
-        P1     = pi_1[j_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
-        j_eq  = (    0  , -j_eq_z,  j_eq_y)
-                ( j_eq_z,     0  , -j_eq_x)
-                (-j_eq_y,  j_eq_x,     0  )
-
-        P1 dot x = I_1( R_1 ( F_P1( x )))
-
-        F_P1[ijk, mno] = j_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
-
-        # spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi3 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (N, D, D) *    0    / g_sqrt,
-                               (D, N, D) * -j_eq_z / g_sqrt,
-                               (D, D, N) *  j_eq_y / g_sqrt
-        xi2: [int, his, int] : (N, D, D) *  j_eq_z / g_sqrt,
-                               (D, N, D) *    0    / g_sqrt,
-                               (D, D, N) * -j_eq_x / g_sqrt
-        xi3: [int, int, his] : (N, D, D) * -j_eq_y / g_sqrt,
-                               (D, N, D) *  j_eq_x / g_sqrt,  
-                               (D, D, N) *    0    / g_sqrt
+        Matrix-vector product P1.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            P1     = pi_1[jmat_eq / g_sqrt * lambda^2]  in   R{N^1 x N^2}
+
+            jmat_eq  = [[0  , -j_eq_z,  j_eq_y], [j_eq_z,     0  , -j_eq_x], [-j_eq_y,  j_eq_x,     0]] in R^{3 x 3}
+
+            P1.x = I_1( R_1 ( F_P1.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_P1[ijk, mno] = jmat_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)   
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_P1:
+                * evaluated at [his, int, int] : (D, N, D) * (-j_eq_z) / g_sqrt + (D, D, N) *  j_eq_y / g_sqrt
+                * evaluated at [int, his, int] : (N, D, D) *  j_eq_z / g_sqrt   + (D, D, N) * (-j_eq_x) / g_sqrt
+                * evaluated at [int, int, his] : (N, D, D) * (-j_eq_y) / g_sqrt + (D, N, D) *  j_eq_x / g_sqrt,
         '''
 
         # x dim check
@@ -933,21 +930,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_P1_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix P1 with x
-        P1     = pi_1[j_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
-        j_eq  = (    0  , -j_eq_z,  j_eq_y)
-                ( j_eq_z,     0  , -j_eq_x)
-                (-j_eq_y,  j_eq_x,     0  )
-
-        P1.T dot x = F_P1.T( R_1.T ( I_1.T (x)))
+        Matrix-vector product P1.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            P1.x = I_1( R_1 ( F_P1.x))
+
+            P1.T.x = F_P1.T( R_1.T ( I_1.T.x))
+
+            See P1_dot for more details.
         '''
 
         # x dim check
@@ -1013,40 +1014,39 @@ class projectors_dot_x:
     # ====================================================================
     def S1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S1 with x
-        S1     = pi_2[p_eq * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        S1 dot x = I_2( R_2 ( F_S1(x)))
-
-        F_S1[ijk, mno] = p_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (D, N, N) * G_inv_11 * p_eq, 
-                               (N, D, N) * G_inv_12 * p_eq, 
-                               (N, N, D) * G_inv_13 * p_eq
-        xi2: [his, int, his] : (D, N, N) * G_inv_21 * p_eq, 
-                               (N, D, N) * G_inv_22 * p_eq, 
-                               (N, N, D) * G_inv_23 * p_eq
-        xi3: [his, his, int] : (D, N, N) * G_inv_31 * p_eq, 
-                               (N, D, N) * G_inv_32 * p_eq, 
-                               (N, N, D) * G_inv_33 * p_eq
+        Matrix-vector product S1.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            S1     = pi_2[p_eq * G_inv * lambda^1]  in  R{N^2 x N^1}
+
+            S1.x = I_2( R_2 ( F_S1.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_S1[ijk, mno] = p_eq(pts_ijk) * G_inv(pts_ijk) * lambda^1_mno(pts_ijk)  
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]} 
+
+            * Components of F_S1:
+                * evaluated at [int, his, his] : (D, N, N) * G_inv_11 * p_eq + (N, D, N) * G_inv_12 * p_eq + (N, N, D) * G_inv_13 * p_eq
+                * evaluated at [his, int, his] : (D, N, N) * G_inv_21 * p_eq + (N, D, N) * G_inv_22 * p_eq + (N, N, D) * G_inv_23 * p_eq
+                * evaluated at [his, his, int] : (D, N, N) * G_inv_31 * p_eq + (N, D, N) * G_inv_32 * p_eq + (N, N, D) * G_inv_33 * p_eq
         '''
 
         # x dim check
@@ -1116,19 +1116,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_S1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S1 with x
-        S1     = pi_2[p_eq * G_inv * lambda^1]     R{N^2 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-
-        S1.T dot x = F_S1.T( R_2.T ( I_2.T(x)))
+        Matrix-vector product S1.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            S1.x = I_2( R_2 ( F_S1.x))
+
+            S1.T.x = F_S1.T( R_2.T ( I_2.T.x))
+
+            See S1_dot for more details.
         '''
 
         # x dim check
@@ -1196,40 +1202,41 @@ class projectors_dot_x:
 # ===================================================================
     def S10_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S10 with x
-        S10     = pi_1[p_eq * lambda^1]     R{N^1 * N^1}
-
-        S10 dot x = I_1( R_1 ( F_S10(x)))
-
-        F_S10[ijk, mno] = p_eq(pts_ijk) * lambda^1_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], greville[2]}
-                            xi2 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (D, N, N) * p_eq, 
-                               (N, D, N) * p_eq, 
-                               (N, N, D) * p_eq
-        xi2: [int, his, int] : (D, N, N) * p_eq, 
-                               (N, D, N) * p_eq, 
-                               (N, N, D) * p_eq
-        xi3: [int, int, his] : (D, N, N) * p_eq, 
-                               (N, D, N) * p_eq, 
-                               (N, N, D) * p_eq
+        Matrix-vector product S10.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            S10     = pi_1[p_eq * lambda^1]  in   R{N^1 x N^1}
+
+            S10.x = I_1( R_1 ( F_S10.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_S10[ijk, mno] = p_eq(pts_ijk) * lambda^1_mno(pts_ijk)   
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_W1:
+                * evaluated at [his, int, int] : (D, N, N) * p_eq + (N, D, N) * p_eq + (N, N, D) * p_eq
+                * evaluated at [int, his, int] : (D, N, N) * p_eq + (N, D, N) * p_eq + (N, N, D) * p_eq
+                * evaluated at [int, int, his] : (D, N, N) * p_eq + (N, D, N) * p_eq + (N, N, D) * p_eq
         ''' 
+        
         # x dim check
         # x should be R{N^1}
         #assert len(x) == self.space.Ntot_1form_cum[-1]
@@ -1279,18 +1286,25 @@ class projectors_dot_x:
     # ===================================================================
     def transpose_S10_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S1 with x
-        S10     = pi_1[p_eq * lambda^1]     R{N^1 * N^1}
-
-        S10.T dot x = F_S10.T( R_1.T ( I_1.T(x)))
+        Matrix-vector product S10.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            S10.x = I_1( R_1 ( F_S10.x))
+
+            S10.T.x = F_S10.T( R_1.T ( I_1.T.x))
+
+            See S10_dot for more details.
         '''  
         # x dim check
         # x should be R{N^1}
@@ -1337,24 +1351,35 @@ class projectors_dot_x:
     # =================================================================
     def K1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix K1 with x
-        K1 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
-
-        K1 dot x = I_3( R_3 ( F_K1(x)))
-        
-        F_K1[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^3          : {D, D, D} 
-        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+        Matrix-vector product K1.x
 
         Parameters
         ----------
-        x : np.array    R{N^3}
+            x : np.array   
+                dim R^{N^3}
 
         Returns
         ----------
-        res : 3d array  R{N^3}
+            res : np.array 
+                dim R^{N^3}
+
+        Notes
+        -----
+            K1 = pi_3[p_eq / g_sqrt * lambda^3]   in  R{N^3 x N^3}
+
+            K1.x = I_3( R_3 ( F_K1.x))
+
+            I_3 ... inverse histopolation matrix (tensor product)
+
+            R_3  ... compute DOFs from function values at point set pts_ijk 
+
+            F_K1[ijk,mno] = p_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^3_mno(pts_ijk)  
+
+            * spline evaluation (at V_3 point sets)
+                * [his, his, his] points: {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+            * Components of F_K1:
+                * evaluated at [his, his, his] : (D, D, D) * p_eq / sqrt g 
         '''
 
         # x dim check
@@ -1384,20 +1409,25 @@ class projectors_dot_x:
     # =================================================================
     def transpose_K1_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix K1 with x
-        K1 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
-        
-        K1.T dot x = F_K1.T( R_3.T ( I_3.T(x)))
-
-        F_K1[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+        Matrix-vector product K1.T.x
 
         Parameters
         ----------
-        x : np.array    R{N^3}
+            x : np.array
+                dim R{N^3}
 
         Returns
         ----------
-        res : 3d array  R{N^3}
+            res : 3d array
+                dim R{N^3}
+
+        Notes
+        -----
+            K1.x = I_3( R_3 ( F_K1.x))
+        
+            K1.T.x = F_K1.T( R_3.T ( I_3.T.x))
+
+            See K1_dot for more details.
         '''
 
         # x dim check
@@ -1423,24 +1453,35 @@ class projectors_dot_x:
     # =================================================================
     def K10_dot(self, x):
         '''
-        Calculate the dot product of projection matrix K10 with x
-        K10 = pi_0[p_eq * lambda^3]     R{N^0 * N^0}
-
-        K10 dot x = I_0( R_0 ( F_K10(x)))
-        
-        F_K10[ijk,mno] = p_eq(pts_ijk) * lambda^0_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^0          : {N, N, N} 
-        Evaulation points : {greville[0], greville[1], greville[2]}
+        Matrix-vector product K10.x
 
         Parameters
         ----------
-        x : np.array    R{N^0}
+            x : np.array   
+                dim R^{N^0}
 
         Returns
         ----------
-        res : 3d array  R{N^0}
+            res : np.array 
+                dim R^{N^0}
+
+        Notes
+        -----
+            K10 = pi_0[p_eq * lambda^0]  in   R^{N^0 x N^0}
+
+            K10.x = I_0( R_0 ( F_K10.x))
+
+            I_0 ... inverse interpolation matrix (tensor product)
+
+            R_0  ... compute DOFs from function values at point set pts_ijk 
+
+            F_K10[ijk,mno] = p_eq(pts_ijk) * lambda^0_mno(pts_ijk) 
+
+            * spline evaluation (at V_0 point sets)
+                * [int, int, int] points: {greville[0], greville[1], greville[2]}
+
+            * Components of F_K10:
+                * evaluated at [int, int, int] : (N, N, N) * p_eq 
         '''
 
         # x dim check
@@ -1469,20 +1510,25 @@ class projectors_dot_x:
     # =================================================================
     def transpose_K10_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix K10 with x
-        K10 = pi_0[p_eq * lambda^0]     R{N^0 * N^0}
-        
-        K10.T dot x = F_K10.T( R_0.T ( I_0.T(x)))
-
-        F_K10[ijk,mno] = p_eq(pts_ijk) * lambda^0_mno(pts_ijk)
+        Matrix vecotr product K10.T.x
 
         Parameters
         ----------
-        x : np.array    R{N^0}
+            x : np.array
+                dim R{N^0}
 
         Returns
         ----------
-        res : 3d array  R{N^0}
+            res : 3d array
+                dim R{N^0}
+
+        Notes
+        -----
+            K10.x = I_0( R_0 ( F_K10.x))
+        
+            K10.T.x = F_K10.T( R_0.T ( I_0.T.x))
+
+            See K10_dot for more details.
         '''
 
         # x dim check
@@ -1508,43 +1554,41 @@ class projectors_dot_x:
     # =================================================================
     def T1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix T1 with x
-        T1    = pi_1[B_eq * G_inv * lambda^1]     R{N^1 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-        B_eq  = (    0  , -b_eq_z,  b_eq_y)
-                ( b_eq_z,     0  , -b_eq_x)
-                (-b_eq_y,  b_eq_x,     0  )
-
-        T1 dot x = I_1( R_1 ( F_T1(x)))
-
-        F_T1[ijk, mno] = B_eq(pts_ijk) * G_inv(pts_ijk) lambda^1_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], greville[2]}
-                            xi2 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (D, N, N) * (G_inv_31 * b_eq_y - G_inv_21 * b_eq_z),
-                               (N, D, N) * (G_inv_32 * b_eq_y - G_inv_22 * b_eq_z),
-                               (N, N, D) * (G_inv_33 * b_eq_y - G_inv_23 * b_eq_z)
-        xi2: [int, his, int] : (D, N, N) * (G_inv_11 * b_eq_z - G_inv_31 * b_eq_x),
-                               (N, D, N) * (G_inv_12 * b_eq_z - G_inv_32 * b_eq_x),
-                               (N, N, D) * (G_inv_13 * b_eq_z - G_inv_33 * b_eq_x)
-        xi3: [int, int, his] : (D, N, N) * (G_inv_21 * b_eq_x - G_inv_11 * b_eq_y),
-                               (N, D, N) * (G_inv_22 * b_eq_x - G_inv_12 * b_eq_y),  
-                               (N, N, D) * (G_inv_23 * b_eq_x - G_inv_13 * b_eq_y)
+        Matrix-vector product T1.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            T1    = pi_1[Bmat_eq * G_inv * lambda^1]   in  R^{N^1 x N^1}
+
+            Bmat_eq  = [[0  , -b_eq_z,  b_eq_y], [b_eq_z,     0  , -b_eq_x], [-b_eq_y,  b_eq_x,     0]]
+
+            T1.x = I_1( R_1 ( F_T1.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_T1[ijk, mno] = B_eq(pts_ijk) * G_inv(pts_ijk) lambda^1_mno(pts_ijk)   
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_T1:
+                * evaluated at [his, int, int] : (D, N, N) * (G_inv_31 * b_eq_y - G_inv_21 * b_eq_z) + (N, D, N) * (G_inv_32 * b_eq_y - G_inv_22 * b_eq_z) + (N, N, D) * (G_inv_33 * b_eq_y - G_inv_23 * b_eq_z)
+                * evaluated at [int, his, int] : (D, N, N) * (G_inv_11 * b_eq_z - G_inv_31 * b_eq_x) + (N, D, N) * (G_inv_12 * b_eq_z - G_inv_32 * b_eq_x) + (N, N, D) * (G_inv_13 * b_eq_z - G_inv_33 * b_eq_x)
+                * evaluated at [int, int, his] : (D, N, N) * (G_inv_21 * b_eq_x - G_inv_11 * b_eq_y) + (N, D, N) * (G_inv_22 * b_eq_x - G_inv_12 * b_eq_y) + (N, N, D) * (G_inv_23 * b_eq_x - G_inv_13 * b_eq_y)
         '''
 
         # x dim check
@@ -1616,24 +1660,25 @@ class projectors_dot_x:
     # =================================================================
     def transpose_T1_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix T with x
-        T1    = pi_1[B_eq * G_inv * lambda^1]     R{N^1 * N^1}
-        G_inv = (DF)^(-1)*DF^(-T)
-        B_eq  = (    0  , -b_eq_z,  b_eq_y)
-                ( b_eq_z,     0  , -b_eq_x)
-                (-b_eq_y,  b_eq_x,     0  )
-
-        T1.T dot x = F_T1.T( R_1.T ( I_1.T (x)))
-
-        F_T1[ijk, mno] = B_eq(pts_ijk) * G_inv(pts_ijk) lambda^1_mno(pts_ijk)
+        Matrix-vector product T1.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            T1.x = I_1( R_1 ( F_T1.x))
+        
+            T1.T.x = F_T1.T( R_1.T ( I_1.T.x))
+
+            See T1_dot for more details.
         '''
 
         # x dim check
@@ -1700,31 +1745,37 @@ class projectors_dot_x:
     # =================================================================
     def X1_dot(self, x):
         '''
-        Calculate the dot product of projection matrix X1 with x
-        X1 = pi_0[DF^-T * lambda^1]     R{N^0 * 3 * N^1}
-
-        X1 dot x = I_0( R_0 ( F_X1(x)))
-
-        F_X1[ijk, mno] = DF^-T(pts.ijk) * lambda^1_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^1          : xi1 : {D, N, N}
-                            xi2 : {N, D, N}
-                            xi3 : {N, N, D} 
-        Evaulation points : {greville[0], greville[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, int, int] : (D, N, N)
-        xi2: [int, int, int] : (N, D, N)
-        xi3: [int, int, int] : (N, N, D)
+        Matrix-vector product X1.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^1}
 
         Returns
         ----------
-        res : list of np.arrays 3 * R{N^0}
+            res : list 
+                3 np.arrays of dim R^{N^0}
+
+        Notes
+        -----
+            X1 = pi_0[DF^-T * lambda^1]   in  R^{N^0 x 3 x N^1}
+
+            X1.x = I_0( R_0 ( F_X1.x))
+
+            I_0 ... inverse interpolation matrix (tensor product)
+
+            R_0  ... compute DOFs from function values at point set pts_ijk 
+
+            F_X1[ijk, mno] = DF^-T(pts.ijk) * lambda^1_mno(pts_ijk) 
+
+            * spline evaluation (at V_0 point sets)
+                * [int, int, int] points: {greville[0], greville[1], greville[2]}
+
+            * Components of F_X1:
+                * evaluated at [int, int, int] : (D, N, N) * DF^-T_11 + (N, D, N) * DF^-T_12 + (N, N, D) * DF^-T_13
+                * evaluated at [int, int, int] : (D, N, N) * DF^-T_21 + (N, D, N) * DF^-T_22 + (N, N, D) * DF^-T_23
+                * evaluated at [int, int, int] : (D, N, N) * DF^-T_31 + (N, D, N) * DF^-T_32 + (N, N, D) * DF^-T_33 
         '''
 
         # x dim check
@@ -1778,20 +1829,25 @@ class projectors_dot_x:
     # =================================================================
     def transpose_X1_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix X1 with x
-        X1 = pi_0[DF^-T lambda^1]     R{N^0 * 3 * N^1}
-
-        transpose X1 dot x = F_X1.T( R_0.T ( I_0.T(x)))
-    
-        F_X1[ijk, mno] = DF^{-T}(pts_ijk) * lambda^1_mno(pts_ijk)
+        Matrix-vector product X1.T.x
 
         Parameters
         ----------
-    	x : np.array    R{N^0 * 3}
+    	    x : np.array
+                dim R{N^0 x 3}
 
         Returns
         ----------
-        res : np.array  R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            X1.x = I_0( R_0 ( F_X1.x))
+
+            X1.T.x = F_X1.T( R_0.T ( I_0.T.x))
+
+            See X1_dot for more details.
         '''
 
         # x dim check
@@ -1863,32 +1919,39 @@ class projectors_dot_x:
     # ====================================================================
     def Q2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Q2 with x
-        Q2 = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
-
-        Q2 dot x = I_1( R_1 ( F_Q2(x)))
-        F_Q2[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
-
-        # Spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (N, D, D) * rho_eq / g_sqrt, 0, 0
-        xi2: [his, int, his] : 0, (D, N, D) * rho_eq / g_sqrt, 0
-        xi3: [his, his, int] : 0, 0, (D, D, N) * rho_eq / g_sqrt
+        Matrix-vector product Q2.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            Q2 = pi_2[rho_eq / g_sqrt * lambda^2]  in  R^{N^2 x N^2}
+
+            Q2.x = I_2( R_2 ( F_Q2.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_Q2[ijk, mno] = rho_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]} 
+
+            * Components of F_Q2:
+                * evaluated at [int, his, his] : (N, D, D) * rho_eq / g_sqrt
+                * evaluated at [his, int, his] : (D, N, D) * rho_eq / g_sqrt
+                * evaluated at [his, his, int] : (D, D, N) * rho_eq / g_sqrt
         '''
 
         # x dim check
@@ -1944,19 +2007,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_Q2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Q2 with x
-        Q2 = pi_2[rho_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
-
-        Q2 dot x = I_1( R_1 ( F_Q2(x)))
-        F_Q2[ijk,mno] = rho_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+        Matrix-vector product Q2.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            Q2.x = I_2( R_2 ( F_Q2.x))
+
+            Q2.T.x = F_Q2.T( R_2.T ( I2.T.x))
+
+            See Q2_dot for more details.
         '''
 
         # x dim check
@@ -2004,41 +2073,41 @@ class projectors_dot_x:
     # ====================================================================
     def T2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix P with x
-        T2     = pi_1[B_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
-        B_eq  = (    0  , -b_eq_z,  b_eq_y)
-                ( b_eq_z,     0  , -b_eq_x)
-                (-b_eq_y,  b_eq_x,     0  )
+        Matrix-vector product T2.x
 
-        T2 dot x = I_1( R_1 ( F_T2( x )))
-
-        F_T2[ijk, mno] = B_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
-
-        # spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi3 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (N, D, D) / g_sqrt *    0    ,
-                               (D, N, D) / g_sqrt * -b_eq_z ,
-                               (D, D, N) / g_sqrt *  b_eq_y
-        xi2: [int, his, int] : (N, D, D) / g_sqrt *  b_eq_z ,
-                               (D, N, D) / g_sqrt *    0    ,
-                               (D, D, N) / g_sqrt * -b_eq_x 
-        xi3: [int, int, his] : (N, D, D) / g_sqrt * -b_eq_y ,
-                               (D, N, D) / g_sqrt *  b_eq_x ,  
-                               (D, D, N) / g_sqrt *    0
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            T2     = pi_1[Bmat_eq / g_sqrt * lambda^2]  in   R^{N^1 * N^2}
+
+            Bmat_eq  = [[0  , -b_eq_z,  b_eq_y], [b_eq_z,     0  , -b_eq_x], [-b_eq_y,  b_eq_x,     0]] in R^{3 x 3}
+
+            T2.x = I_1( R_1 ( F_T2.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_T2[ijk, mno] = B_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_T2:
+                * evaluated at [his, int, int] : (D, N, D) * (-b_eq_z) / g_sqrt + (D, D, N) *  b_eq_y / g_sqrt
+                * evaluated at [int, his, int] : (N, D, D) *  b_eq_z / g_sqrt   + (D, D, N) * (-b_eq_x) / g_sqrt
+                * evaluated at [int, int, his] : (N, D, D) * (-b_eq_y) / g_sqrt + (D, N, D) *  b_eq_x / g_sqrt,
         '''
 
         # x dim check
@@ -2108,21 +2177,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_T2_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix T2 with x
-        T2     = pi_1[B_eq / g_sqrt * lambda^2]     R{N^1 * N^2}
-        B_eq  = (    0  , -b_eq_z,  b_eq_y)
-                ( b_eq_z,     0  , -b_eq_x)
-                (-b_eq_y,  b_eq_x,     0  )
-
-        T2.T dot x = F_T2.T( R_1.T ( I_1.T (x)))
+        Matrix-vector product T2.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            T2.x = I_1( R_1 ( F_T2.x))
+
+            T2.T.x = F_T2.T( R_1.T ( I_1.T.x))
+
+            See T2_dot for more details.
         '''
 
         # x dim check
@@ -2189,43 +2262,41 @@ class projectors_dot_x:
     # ====================================================================
     def P2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix P2 with x
-        P2    = pi_2[G_inv * j_eq * lambda^2]     R{N^2 * N^2}
-        G_inv = (DF)^(-1)*DF^(-T)
-        j_eq  = (    0  , -j_eq_z,  j_eq_y)
-                ( j_eq_z,     0  , -j_eq_x)
-                (-j_eq_y,  j_eq_x,     0  )
-
-        P2 dot x = I_1( R_1 ( F_P2(x)))
-
-        F_P2[ijk, mno] = G_inv(pts_ijk) * j_eq(pts_ijk) lambda^2_mno(pts_ijk)
-
-        # Spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (N, D, D) * (G_inv_12 * j_eq_z - G_inv_13 * j_eq_y),
-                               (D, N, D) * (G_inv_13 * j_eq_x - G_inv_11 * j_eq_z),
-                               (D, D, N) * (G_inv_11 * j_eq_y - G_inv_12 * j_eq_x)
-        xi2: [his, int, his] : (N, D, D) * (G_inv_22 * j_eq_z - G_inv_23 * j_eq_y),
-                               (D, N, D) * (G_inv_23 * j_eq_x - G_inv_21 * j_eq_z),
-                               (D, D, N) * (G_inv_21 * j_eq_y - G_inv_22 * j_eq_x)
-        xi3: [his, his, int] : (N, D, D) * (G_inv_32 * j_eq_z - G_inv_33 * j_eq_y),
-                               (D, N, D) * (G_inv_33 * j_eq_x - G_inv_31 * j_eq_z),  
-                               (D, D, N) * (G_inv_31 * j_eq_y - G_inv_32 * j_eq_x)
+        Matrix-vector product P2.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            P2    = pi_2[G_inv * jmat_eq * lambda^2]  in   R^{N^2 x N^2}
+
+            jmat_eq  = [[0  , -j_eq_z,  j_eq_y], [ j_eq_z,     0  , -j_eq_x], [-j_eq_y,  j_eq_x,     0]]
+
+            P2.x = I_2( R_2 ( F_P2.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_P2[ijk, mno] = G_inv(pts_ijk) * jmat_eq(pts_ijk) lambda^2_mno(pts_ijk) 
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]}
+
+            * Components of F_P2:
+                * evaluated at [int, his, his] : (N, D, D) * (G_inv_12 * j_eq_z - G_inv_13 * j_eq_y) + (D, N, D) * (G_inv_13 * j_eq_x - G_inv_11 * j_eq_z) + (D, D, N) * (G_inv_11 * j_eq_y - G_inv_12 * j_eq_x)
+                * evaluated at [his, int, his] : (N, D, D) * (G_inv_22 * j_eq_z - G_inv_23 * j_eq_y) + (D, N, D) * (G_inv_23 * j_eq_x - G_inv_21 * j_eq_z) + (D, D, N) * (G_inv_21 * j_eq_y - G_inv_22 * j_eq_x)
+                * evaluated at [his, his, int] : (N, D, D) * (G_inv_32 * j_eq_z - G_inv_33 * j_eq_y) + (D, N, D) * (G_inv_33 * j_eq_x - G_inv_31 * j_eq_z) + (D, D, N) * (G_inv_31 * j_eq_y - G_inv_32 * j_eq_x)
         '''
 
         # x dim check
@@ -2297,24 +2368,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_P2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix P2 with x
-        P2    = pi_2[G_inv * j_eq * lambda^2]     R{N^2 * N^2}
-        G_inv = (DF)^(-1)*DF^(-T)
-        j_eq  = (    0  , -j_eq_z,  j_eq_y)
-                ( j_eq_z,     0  , -j_eq_x)
-                (-j_eq_y,  j_eq_x,     0  )
-
-        P2.T dot x = F_P2.T( R_2.T ( I_2.T (x)))
-
-        F_P2[ijk, mno] = G_inv(pts_ijk) * j_eq(pts_ijk) lambda^2_mno(pts_ijk)
+        Matrix-vector product P2.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            P2.x = I_2( R_2 ( F_P2.x))
+
+            P2.T.x = F_P2.T( R_2.T ( I_2.T.x))
+
+            See P2_dot for more details.
         '''
 
         # x dim check
@@ -2380,32 +2452,39 @@ class projectors_dot_x:
     # ====================================================================
     def S2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S2 with x
-        S2 = pi_2[p_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
-
-        S2 dot x = I_1( R_1 ( F_S2(x)))
-        F_S2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
-
-        # Spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {greville[0], quad_pts[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], greville[1], quad_pts[2]}
-                            xi2 : {quad_pts[0], quad_pts[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (N, D, D) * p_eq / g_sqrt, 0, 0
-        xi2: [his, int, his] : 0, (D, N, D) * p_eq / g_sqrt, 0
-        xi3: [his, his, int] : 0, 0, (D, D, N) * p_eq / g_sqrt
+        Matrix-vector product S2.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^2}
+
+        Notes
+        -----
+            S2 = pi_2[p_eq / g_sqrt * lambda^2]   in  R^{N^2 x N^2}
+
+            S2.x = I_2( R_2 ( F_S2.x))
+
+            I_2 ... inverse inter/histopolation matrix (tensor product)
+
+            R_2  ... compute DOFs from function values at point set pts_ijk 
+
+            F_S2[ijk, mno] = p_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+
+            * spline evaluation (at V_2 point sets)
+                * [int, his, his] points: {greville[0], quad_pts[1], quad_pts[2]}
+                * [his, int, his] points: {quad_pts[0], greville[1], quad_pts[2]}
+                * [his, his, int] points: {quad_pts[0], quad_pts[1], greville[2]}
+
+            * Components of F_S2:
+                * evaluated at [int, his, his] : (N, D, D) * p_eq / g_sqrt
+                * evaluated at [his, int, his] : (D, N, D) * p_eq / g_sqrt
+                * evaluated at [his, his, int] : (D, D, N) * p_eq / g_sqrt
         '''
 
         # x dim check
@@ -2461,19 +2540,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_S2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S2 with x
-        S2 = pi_2[p_eq / g_sqrt * lambda^2]     R{N^2 * N^2}
-
-        S2 dot x = I_1( R_1 ( F_S2(x)))
-        F_S2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^2_mno(pts_ijk)
+        Matrix-vecotr product S2.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            S2.x = I_2( R_2 ( F_S2.x))
+
+            S2.T.x = F_S2.T( R_2.T ( I_2.T.x))
+
+            See S2_dot for more details.
         '''
 
         # x dim check
@@ -2521,24 +2606,35 @@ class projectors_dot_x:
     # ====================================================================
     def K2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix K2 with x
-        K2 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
-
-        K2 dot x = I_3( R_3 ( F_K2(x)))
-        
-        F_K2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^3          : {D, D, D} 
-        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+        Matrix-vector product K2.x
 
         Parameters
         ----------
-        x : np.array    R{N^3}
+            x : np.array   
+                dim R^{N^3}
 
         Returns
         ----------
-        res : 3d array  R{N^3}
+            res : np.array 
+                dim R^{N^3}
+
+        Notes
+        -----
+            K2 = pi_3[p_eq / g_sqrt * lambda^3]   in  R{N^3 x N^3}
+
+            K2.x = I_3( R_3 ( F_K2.x))
+
+            I_3 ... inverse histopolation matrix (tensor product)
+
+            R_3  ... compute DOFs from function values at point set pts_ijk 
+
+            F_K2[ijk,mno] = p_eq(pts_ijk) / g_sqrt(pts_ijk) * lambda^3_mno(pts_ijk)  
+
+            * spline evaluation (at V_3 point sets)
+                * [his, his, his] points: {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+            * Components of F_K2:
+                * evaluated at [his, his, his] : (D, D, D) * p_eq / sqrt g 
         '''
 
         # x dim check
@@ -2568,20 +2664,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_K2_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix K2 with x
-        K2 = pi_3[p_eq / g_sqrt * lambda^3]     R{N^3 * N^3}
-        
-        K2.T dot x = F_K2.T( R_3.T ( I_3.T(x)))
-
-        F_K2[ijk,mno] = p_eq(pts_ijk) / g_sqrt * lambda^3_mno(pts_ijk)
+        Matrix-vector product K2.T.x
 
         Parameters
         ----------
-        x : np.array    R{N^3}
+            x : np.array
+                dim R{N^3}
 
         Returns
         ----------
-        res : 3d array  R{N^3}
+            res : 3d array
+                dim R{N^3}
+
+        Notes
+        -----
+            K2.x = I_3( R_3 ( F_K2.x))
+        
+            K2.T.x = F_K2.T( R_3.T ( I_3.T.x))
+
+            See K2_dot for more details.
         '''
 
         # x dim check
@@ -2607,37 +2708,37 @@ class projectors_dot_x:
 # ====================================================================
     def X2_dot(self, x):
         '''
-        Calculate the dot product of projection matrix X2 with x
-        X2 = pi_0[DF / g_sqrt *  lambda^2]     R{N^0 * 3 * N^2}
-
-        X2 dot x = I_0( R_0 ( F_X2(x)))
-
-        F_X2[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^1          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaulation points : {greville[0], greville[1], greville[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, int, int] : (N, D, D) * df_11 / g_sqrt, 
-                               (D, N, D) * df_21 / g_sqrt, 
-                               (D, D, N) * df_31 / g_sqrt
-        xi2: [int, int, int] : (N, D, D) * df_12 / g_sqrt, 
-                               (D, N, D) * df_22 / g_sqrt, 
-                               (D, D, N) * df_23 / g_sqrt
-        xi3: [int, int, int] : (N, D, D) * df_13 / g_sqrt, 
-                               (D, N, D) * df_23 / g_sqrt, 
-                               (D, D, N) * df_33 / g_sqrt
+        Matrix-vector product X2.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^0 * 3}
+            res : list 
+                3 np.arrays of dim R^{N^0}
+
+        Notes
+        -----
+            X2 = pi_0[DF / g_sqrt *  lambda^2]  in   R^{N^0 x 3 x N^2}
+
+            X2.x = I_0( R_0 ( F_X2.x))
+
+            I_0 ... inverse interpolation matrix (tensor product)
+
+            R_0  ... compute DOFs from function values at point set pts_ijk 
+
+            F_X2[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+
+            * spline evaluation (at V_0 point sets)
+                * [int, int, int] points: {greville[0], greville[1], greville[2]}
+
+            * Components of F_X2:
+                * evaluated at [int, int, int] : (N, D, D) * df_11 / g_sqrt + (D, N, D) * df_21 / g_sqrt + (D, D, N) * df_31 / g_sqrt
+                * evaluated at [int, int, int] : (N, D, D) * df_12 / g_sqrt + (D, N, D) * df_22 / g_sqrt + (D, D, N) * df_23 / g_sqrt
+                * evaluated at [int, int, int] : (N, D, D) * df_13 / g_sqrt + (D, N, D) * df_23 / g_sqrt + (D, D, N) * df_33 / g_sqrt 
         '''
 
         # x dim check
@@ -2693,20 +2794,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_X2_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix X2 with x
-        X2 = pi_0[DF / g_sqrt *  lambda^2]     R{N^0 * 3 * N^2}
-
-        transpose X2 dot x = F_X2.T( R_0.T ( I_0.T(x)))
-    
-        F_X2[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+        Matrix-vector product X2.T.x
 
         Parameters
         ----------
-    	x : np.array    R{N^0 * 3}
+    	    x : np.array
+                dim R{N^0 x 3}
 
         Returns
         ----------
-        res : np.array  R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            X2.x = I_0( R_0 ( F_X2.x))
+
+            X2.T.x = F_X2.T( R_0.T ( I_0.T.x))
+
+            See X2_dot for more details.
         '''
 
         # x dim check
@@ -2775,40 +2881,39 @@ class projectors_dot_x:
     # ====================================================================
     def Z20_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Z20 with x
-        Z20     = pi_1[G / g_sqrt * lambda^2]           R{N^1 * N^2}
-        G = DF*DF^T
-
-        Z20 dot x = I_1( R_1 ( F_Z20(x)))
-
-        F_Z20[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], greville[2]}
-                            xi2 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [his, int, int] : (N, D, D) * G_11 / g_sqrt, 
-                               (D, N, D) * G_12 / g_sqrt, 
-                               (D, D, N) * G_13 / g_sqrt
-        xi2: [int, his, int] : (N, D, D) * G_21 / g_sqrt, 
-                               (D, N, D) * G_22 / g_sqrt, 
-                               (D, D, N) * G_23 / g_sqrt
-        xi3: [int, int, his] : (N, D, D) * G_31 / g_sqrt, 
-                               (D, N, D) * G_32 / g_sqrt, 
-                               (D, D, N) * G_33 / g_sqrt
+        Matrix-vector product Z20.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            Z20     = pi_1[G / g_sqrt * lambda^2]      in     R{N^1 x N^2}
+
+            Z20.x = I_1( R_1 ( F_Z20.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_Z20[ijk, mno] = G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)  
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_Z20:
+                * evaluated at [his, int, int] : (N, D, D) * G_11 / g_sqrt + (D, N, D) * G_12 / g_sqrt + (D, D, N) * G_13 / g_sqrt
+                * evaluated at [int, his, int] : (N, D, D) * G_21 / g_sqrt + (D, N, D) * G_22 / g_sqrt + (D, D, N) * G_23 / g_sqrt
+                * evaluated at [int, int, his] : (N, D, D) * G_31 / g_sqrt + (D, N, D) * G_32 / g_sqrt + (D, D, N) * G_33 / g_sqrt
         '''
 
         # x dim check
@@ -2878,19 +2983,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_Z20_dot(self, x):
         '''
-        Calculate the dot product of projection matrix Z20 with x
-        Z20     = pi_1[G / g_sqrt * lambda^2]           R{N^1 * N^2}
-        G = DF*DF^T
-
-        Z20.T dot x = F_Z20.T( R_1.T ( I_1.T(x)))
+        Matrix-vector product Z20.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array
+                dim R{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array
+                dim R{N^1}
+
+        Notes
+        -----
+            Z20.x = I_1( R_1 ( F_Z20.x))
+
+            Z20.T.x = F_Z20.T( R_1.T ( I_1.T.x))
+
+            See Z20_dot for more details.
         '''
 
         # x dim check
@@ -2956,26 +3067,37 @@ class projectors_dot_x:
     # ====================================================================
     def Y20_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix Y20 with x
-        Y20 = pi_3[g_sqrt * lambda^0]     R{N^3 * N^0}
-
-        Y20 dot x = I_3( R_3 ( F_Y20(x))
-        
-        Y20[ijk,mno] = g_sqrt(pts_ijk) * lambda^0_mno(pts_ijk)
-
-        # spline evaluation
-        lambda^3          : {N, N, N} 
-        Evaulation points : {quad_pts[0], quad_pts[1], quad_pts[2]}
+        Matrix-vector product Y20.x
 
         Parameters
         ----------
-        x : np.array    R{N^0}
+            x : np.array   
+                dim R^{N^0}
 
         Returns
         ----------
-        res : 3d array  R{N^3}
-        '''
+            res : np.array 
+                dim R^{N^3}
 
+        Notes
+        -----
+            Y20 = pi_3[g_sqrt * lambda^0]  in   R^{N^3 x N^0}
+
+            Y20.x = I_3( R_3 ( F_Y20.x))
+
+            I_3 ... inverse histopolation matrix (tensor product)
+
+            R_3  ... compute DOFs from function values at point set pts_ijk 
+
+            F_Y20[ijk,mno] = g_sqrt(pts_ijk) * lambda^0_mno(pts_ijk)
+
+            * spline evaluation (at V_3 point sets)
+                * [his, his, his] points: {quad_pts[0], quad_pts[1], quad_pts[2]}
+
+            * Components of F_Y20:
+                * evaluated at [his, his, his] : (N, N, N) * sqrt g 
+        '''
+        
         # x dim check
         #assert len(x) == self.space.Ntot_0form
         x_loc = self.space.extract_0(x)
@@ -3003,20 +3125,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_Y20_dot(self, x):
         '''
-        Calculate the dot product of transpose of projection matrix Y20 with x
-        Y20 = pi_3[g_sqrt * lambda^0]     R{N^3 * N^0}
-
-        Y20.T dot x = I_3.T( R_3.T ( F_Y20.T(x))
-
-        F_Y20[ijk,mno] = g_sqrt(pts_ijk) * lambda^0_mno(pts_ijk)
+        Matrix-vector product Y20.T.x
 
         Parameters
         ----------
-        x : np.array    R{N^3}
+            x : np.array
+                dim R{N^3}
 
         Returns
         ----------
-        res : 3d array  R{N^0}
+            res : np.array
+                dim R{N^0}
+
+        Notes
+        -----
+            Y20.x = I_3( R_3 ( F_Y20.x))
+
+            Y20.T.x = I_3.T( R_3.T ( F_Y20.T.x))
+
+            See Y20_dot for more details.
         '''
 
         # x dim check
@@ -3042,40 +3169,39 @@ class projectors_dot_x:
     # ====================================================================
     def S20_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S20 with x
-        S20     = pi_1[p_eq * G / g_sqrt lambda^2]           R{N^1 * N^2}
-        G = DF*DF^T
-
-        S20 dot x = I_1( R_1 ( F_S20(x)))
-
-        F_S20[ijk, mno] = p_eq(pts_ijk) * G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)   
-
-        # spline evaluation
-        lambda^2          : xi1 : {N, D, D}
-                            xi2 : {D, N, D}
-                            xi3 : {D, D, N} 
-        Evaluation points : xi1 : {quad_pts[0], greville[1], greville[2]}
-                            xi2 : {greville[0], quad_pts[1], greville[2]}
-                            xi2 : {greville[0], greville[1], quad_pts[2]}
-
-        # The following blocks need to be computed:
-        xi1: [int, his, his] : (N, D, D) * G_11 * p_eq / g_sqrt, 
-                               (D, N, D) * G_12 * p_eq / g_sqrt, 
-                               (D, D, N) * G_13 * p_eq / g_sqrt
-        xi2: [his, int, his] : (N, D, D) * G_21 * p_eq / g_sqrt, 
-                               (D, N, D) * G_22 * p_eq / g_sqrt, 
-                               (D, D, N) * G_23 * p_eq / g_sqrt
-        xi3: [his, his, int] : (N, D, D) * G_31 * p_eq / g_sqrt, 
-                               (D, N, D) * G_32 * p_eq / g_sqrt, 
-                               (D, D, N) * G_33 * p_eq / g_sqrt
+        Matrix-vector product S20.x
 
         Parameters
         ----------
-        x : np.array   R{N^2}
+            x : np.array   
+                dim R^{N^2}
 
         Returns
         ----------
-        res : np.array R{N^1}
+            res : np.array 
+                dim R^{N^1}
+
+        Notes
+        -----
+            S20     = pi_1[p_eq * G / g_sqrt lambda^2]      in     R^{N^1 x N^2}
+
+            S20.x = I_1( R_1 ( F_S20.x))
+
+            I_1 ... inverse inter/histopolation matrix (tensor product)
+
+            R_1  ... compute DOFs from function values at point set pts_ijk 
+
+            F_S20[ijk, mno] = p_eq(pts_ijk) * G(pts_ijk) / g_sqrt(pts_ijk) * lambda^2_mno(pts_ijk)
+
+            * spline evaluation (at V_1 point sets)
+                * [his, int, int] points: {quad_pts[0], greville[1], greville[2]}
+                * [int, his, int] points: {greville[0], quad_pts[1], greville[2]}
+                * [int, int, his] points: {greville[0], greville[1], quad_pts[2]} 
+
+            * Components of F_S20:
+                * evaluated at [his, int, int] : (N, D, D) * G_11 * p_eq / g_sqrt + (D, N, D) * G_12 * p_eq / g_sqrt + (D, D, N) * G_13 * p_eq / g_sqrt
+                * evaluated at [int, his, int] : (N, D, D) * G_21 * p_eq / g_sqrt + (D, N, D) * G_22 * p_eq / g_sqrt + (D, D, N) * G_23 * p_eq / g_sqrt
+                * evaluated at [int, int, his] : (N, D, D) * G_31 * p_eq / g_sqrt + (D, N, D) * G_32 * p_eq / g_sqrt + (D, D, N) * G_33 * p_eq / g_sqrt
         '''
 
         # x dim check
@@ -3145,19 +3271,25 @@ class projectors_dot_x:
     # ====================================================================
     def transpose_S20_dot(self, x):
         '''
-        Calculate the dot product of projection matrix S20 with x
-        S20     = pi_1[p_eq * G / g_sqrt lambda^2]           R{N^1 * N^2}
-        G = DF*DF^T
-
-        S20.T dot x = F_S20.T( R_1.T ( I_1.T(x)))
+        Matrix-vector product S20.T.x
 
         Parameters
         ----------
-        x : np.array   R{N^1}
+            x : np.array
+                dim R{N^1}
 
         Returns
         ----------
-        res : np.array R{N^2}
+            res : np.array
+                dim R{N^2}
+
+        Notes
+        -----
+            S20.x = I_1( R_1 ( F_S20.x))
+
+            S20.T dot x = F_S20.T( R_1.T ( I_1.T(x)))
+
+            See S20_dot for more details.
         '''
 
         # x dim check

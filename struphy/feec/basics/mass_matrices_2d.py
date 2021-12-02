@@ -2,10 +2,6 @@
 #
 # Copyright 2020 Florian Holderied
 
-"""
-Modules to compute mass matrices in 2D.
-"""
-
 import numpy        as np
 import scipy.sparse as spa
 

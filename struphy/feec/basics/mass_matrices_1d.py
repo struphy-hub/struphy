@@ -2,10 +2,6 @@
 #
 # Copyright 2020 Florian Holderied
 
-"""
-Modules to compute mass matrices in 1d.
-"""
-
 import numpy        as np
 import scipy.sparse as spa
 
@@ -20,17 +16,22 @@ def get_M(spline_space, phi_i=0, phi_j=0, fun=None):
     
     Parameters
     ----------
-    spline_space : Spline_space_1d
-        a 1d B-spline space
-        
-    phi_i : int
-        kind of basis function phi_i (0 : B-spline of degree p (N), 1 : M-spline of degree p - 1 (D))
-        
-    phi_j : int
-        kind of basis function phi_j (0 : B-spline of degree p (N), 1 : M-spline of degree p - 1 (D))
-        
-    fun : callable
-        weight function (e.g. related to a mapping)
+        spline_space : Spline_space_1d
+            a 1d B-spline space
+            
+        phi_i : int
+            kind of basis function phi_i (0 : B-spline of degree p (N), 1 : M-spline of degree p - 1 (D))
+            
+        phi_j : int
+            kind of basis function phi_j (0 : B-spline of degree p (N), 1 : M-spline of degree p - 1 (D))
+            
+        fun : callable
+            weight function (e.g. related to a mapping)
+
+    Returns
+    -------
+        M : csr matrix
+            Weigthed mass matrix for given basis product.
     """
       
     p      = spline_space.p       # spline degrees
