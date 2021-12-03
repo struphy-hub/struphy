@@ -1,4 +1,14 @@
-def get_cprofile_data(path):
+def get_cprofile_data(path, n_stats=None):
+    '''Prepare Cprofile data and save to "profile_dict.sav".
+    
+    Parameters
+    ----------
+        path : str
+            Path to file "profile_tmp" (usually in output folder).
+
+        n_stats : int
+            Number of stats to show and save (cumtime ordered).
+    '''
 
     import pstats
     from pstats import SortKey
@@ -6,13 +16,14 @@ def get_cprofile_data(path):
     import pickle
 
     p = pstats.Stats(path + 'profile_tmp')
-    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats('substep', 20)
-    p.strip_dirs().sort_stats(SortKey.TIME).print_stats(20)
+    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(0)
+    #p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
+    #p.print_title()
 
     stdout = open(path + "profile_out.txt", "w+")
     p = pstats.Stats(path + 'profile_tmp', stream=stdout)
-    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats('substep', 20)
-    p.strip_dirs().sort_stats(SortKey.TIME).print_stats(20)
+    p.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(n_stats)
+    #p.strip_dirs().sort_stats(SortKey.TIME).print_stats(n_stats)
     stdout.close()
 
     data_cprofile = dict()
@@ -34,10 +45,10 @@ def get_cprofile_data(path):
                 #print(name_li[3], li[3])
                 #print(name_li[4], li[4])
                 data_cprofile[li[-1]] = {name_li[0]: li[0],
-                                        name_li[1]: li[1],
-                                        name_li[2]: li[2],
-                                        name_li[3]: li[3],
-                                        name_li[4]: li[4],}
+                                         name_li[1]: li[1],
+                                         name_li[2]: li[2],
+                                         name_li[3]: li[3],
+                                         name_li[4]: li[4],}
                 #time.sleep(1)
                 
             if 'filename:lineno' in line:
@@ -51,39 +62,42 @@ def get_cprofile_data(path):
 
 
 
-def compare_cprofile_data(list_of_paths):
+def compare_cprofile_data(path, list_of_funcs=None):
+    '''Print Cprofile data from "profile_dict.sav" to screen (see get_cprofile_data).
+    
+    Parameters
+    ----------
+        path : str
+            Path to file "profile_dict.sav" (usually in output folder).
+
+        list_of_funcs : list
+            Strings to watch for in "function name" of Cprofile data, allows to look at data of specific functions. 
+            If "None", the 50 functions with the longest cumtime are listed.
+    '''
 
     import pickle
-    import struphy.diagnostics.diagn_tools as tools
 
-    print()
-    print('Np'.rjust(8), 'substep_1', 'substep_2', 'substep_3', 'substep_4', 'substep_5', 'substep_6')
-    for path in list_of_paths:
-        with open(path + 'profile_dict.sav', 'rb') as f:
-            data_cprofile = pickle.load(f)
-        params, data = tools.get_data(path)
+    with open(path + 'profile_dict.sav', 'rb') as f:
+        data_cprofile = pickle.load(f)
 
-        for k, v in data_cprofile.items():
-            if 'substep_1' in k:
-                ct1 = float(v['cumtime'])
-            elif 'substep_2' in k:
-                ct2 = float(v['cumtime'])
-            elif 'substep_3' in k:
-                ct3 = float(v['cumtime'])
-            elif 'substep_4' in k:
-                ct4 = float(v['cumtime'])
-            elif 'substep_5' in k:
-                ct5 = float(v['cumtime'])
-            elif 'substep_6' in k:
-                ct6 = float(v['cumtime'])
+    if list_of_funcs==None:
+        print('-'*76)
+        print('function name'.ljust(60), 'cumulative time')
+        print('-'*76)
+    else:
+        print('-'*76)
+        print('function name, keywords: {}'.format(list_of_funcs).ljust(60), 'cumulative time')
+        print('-'*76)
 
-        print('{0:8d} {1:9.3f} {2:9.3f} {3:9.3f} {4:9.3f} {5:9.3f} {6:9.3f}'.format(params['Np'], ct1, ct2, ct3, ct4, ct5, ct6))
-        #print(data_cprofile)
-        #print()
+    counter = 0
+    for k, v in data_cprofile.items():
 
-        
+        counter += 1
+        if list_of_funcs==None:
+            print(k.ljust(60), v['cumtime'])
+            if counter>49:
+                break
+        elif any(func in k for func in list_of_funcs):
+            print(k.ljust(60), v['cumtime'])
 
-if __name__ == '__main__':
-    get_cprofile_data('my_struphy_sims/sim_1/')
-    # compare_cprofile_data(['my_struphy_sims/sim_1/', 'my_struphy_sims/sim_2/', 
-                        # 'my_struphy_sims/sim_3/', 'my_struphy_sims/sim_4/',])
+

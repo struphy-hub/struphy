@@ -118,6 +118,7 @@ class Initialize_mhd:
         elif self.init_type == 'noise':
             self.target   =   params_init['target']
             self.plane    =   params_init['plane']
+            self.amp      =   params_init['amp']
 
         N_dof_0form = self.SPACES.E0.shape[0]
         N_dof_1form = self.SPACES.E1.shape[0]
@@ -238,10 +239,10 @@ class Initialize_mhd:
             if not 'b2' in self.target: up_temp_2[:, :, :] = 0.
             if not 'b3' in self.target: up_temp_3[:, :, :] = 0.
 
-            self.pp[:] = pp_temp.flatten()
-            self.r3[:] = r3_temp.flatten()
-            self.b2[:] = np.concatenate((b2_temp_1.flatten(), b2_temp_2.flatten(), b2_temp_3.flatten()))
-            self.up[:] = np.concatenate((up_temp_1.flatten(), up_temp_2.flatten(), up_temp_3.flatten()))
+            self.pp[:] = self.amp*pp_temp.flatten()
+            self.r3[:] = self.amp*r3_temp.flatten()
+            self.b2[:] = self.amp*np.concatenate((b2_temp_1.flatten(), b2_temp_2.flatten(), b2_temp_3.flatten()))
+            self.up[:] = self.amp*np.concatenate((up_temp_1.flatten(), up_temp_2.flatten(), up_temp_3.flatten()))
 
         elif self.init_type == 'modes_mn' or 'eigfun':
             print('modes_mn and eigfun mode are not implemented yet')

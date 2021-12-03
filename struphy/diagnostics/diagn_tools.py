@@ -38,12 +38,22 @@ def descend_obj(obj, dsets, sep='\t'):
 
 
 
-def get_data(path_in, path_out=None):
+def get_data(param_file, path_out=None):
+    '''Get parameters and save simulation data to dictionary.
+    
+    Parameters
+    ----------
+        param_file : str
+            Name of parameter file (absolute path).
+
+        path_out :
+            Name of .hdf5 output file (absolute path), default=None.
+    '''
 
     import yaml
     import h5py
 
-    with open(path_in + 'parameters.yml') as f:
+    with open(param_file) as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     #print("Diagnostics, parameters:")

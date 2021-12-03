@@ -199,15 +199,15 @@ def execute(file_in, path_out, restart):
         if params['time']['split_algo'] == 'LieTrotter':
 
             # substeps (Lie-Trotter splitting):
-            UPDATE_MHD.step_alfven(MHD.up, MHD.b2, print_info=True)
-            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp, print_info=True)
+            UPDATE_MHD.step_alfven(MHD.up, MHD.b2, print_info=params['solvers']['show_info_alfven'])
+            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp, print_info=params['solvers']['show_info_sonic'])
   
         elif params['time']['split_algo'] == 'Strang':
 
             # substeps (Strang splitting):
-            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp)
-            UPDATE_MHD.step_alfven(MHD.up, MHD.b2)
-            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp)
+            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp, print_info=params['solvers']['show_info_sonic'])
+            UPDATE_MHD.step_alfven(MHD.up, MHD.b2, print_info=params['solvers']['show_info_alfven'])
+            UPDATE_MHD.step_magnetosonic(MHD.r3, MHD.up, MHD.b2, MHD.pp, print_info=params['solvers']['show_info_sonic'])
 
         else:
             raise NotImplementedError('Only Lie-Trotter and Strang splitting available.')   
