@@ -1,12 +1,12 @@
 geometry : 
       type           : cuboid # geometry (see mappings_3d.py for choices -> kind_map)   
       params_cuboid :
-            b1       : 1. # start of slice in eta1
-            e1       : 2. # end of slice in eta1, e1 > b1
-            b2       : 10.
-            e2       : 20.
-            b3       : 100.
-            e3       : 200.
+            b1       : 0. # start of slice in eta1
+            e1       : 1. # end of slice in eta1, e1 > b1
+            b2       : 0.
+            e2       : 1.
+            b3       : 0.
+            e3       : 7.854 # 2pi/0.8
       params_orthogonal :
             Lx       : 1.
             Ly       : 1.
@@ -49,11 +49,11 @@ mhd_equilibrium :
             type        : slab # type of MHD equilibrium (slab, analytic_circular, eqdesk, gvec, vmec)
             mass_number : 1    # in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.
       params_slab :
-            B0x         : 1.   # magnetic field in Tesla (x)
+            B0x         : 0.   # magnetic field in Tesla (x)
             B0y         : 0.   # magnetic field in Tesla (y)
-            B0z         : 0.   # magnetic field in Tesla (z)
+            B0z         : 1.   # magnetic field in Tesla (z)
             rho0        : 1.   # equilibirum mass density
-            beta        : 0.   # plasma beta in %
+            beta        : 50.  # plasma beta in %
       params_cylinder :
             a           : 1.   # minor radius in m
             R0          : 10.  # major radius in m (sets length of cylinder to 2*pi*R0)
@@ -81,10 +81,13 @@ mhd_equilibrium :
                   beta  : 0.2
                   p1    : 0.95
                   p2    : 0.05
+      params_gvec :
+            filepath : 'struphy/mhd_equil/gvec/'
+            filename : 'GVEC_ellipStell_profile_update_State_0000_00010000.dat' # .dat or .json
 
 mhd_init   : 
       general :
-            type : modes_k # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
+            type : noise # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
             coords : physical # (physical, norm_logical)
             basis_u : 1 # representation of U (0 : all NNN, 1 : 1-form, 2 : 2-form)
             basis_p : 0 # representation of p (0 : 0-form, 3 : 3-form)
@@ -107,22 +110,23 @@ mhd_init   :
       params_noise : # noise
             target : [b1, b2, b3, u1, u2, u3, p, r]
             plane : yz # plane of noise (xy, xz, yz)
+            amp   : 0.001 # noise amplitude
 
 grid :
-      Nel      : [16, 2, 2] # number of grid cells > 1
-      p        : [3, 1, 1] # spline degree > 0
+      Nel      : [2, 2, 16] # number of grid cells > 1
+      p        : [1, 1, 1] # spline degree > 0
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
-      nq_el    : [4, 2, 2] # quadrature points per grid cell
-      nq_pr    : [4, 2, 2] # quadrature points per histopolation cell (for projection)
-      polar    : False # use polar splines       
+      nq_el    : [2, 2, 2] # quadrature points per grid cell
+      nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for projection)
+      polar    : False # use polar splines      
 
 time : 
       dt         : 0.1
-      Tend       : 0.3
-      max_time   : 1. # maximum runtime of program in minutes
+      Tend       : 1.
+      max_time   : 60. # maximum runtime of program in minutes
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
-      loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6') 
+      loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6')
 
 solvers :
       PRE : FFT # pre-conditioner for linear systems (ILU or FFT)
@@ -143,28 +147,10 @@ solvers :
       maxiter2 : 1000
       maxiter3 : 1000
       maxiter6 : 1000
+      show_info_alfven : False
+      show_info_sonic  : False
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# -----------------------------------------------------------
 
 

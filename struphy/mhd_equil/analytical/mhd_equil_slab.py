@@ -22,7 +22,7 @@ class Equilibrium_mhd_slab:
     # equilibrium bulk pressure
     def p_eq(self, x, y, z):
         
-        p = (self.b0x**2 + self.b0y**2 + self.b0z**2)*self.beta/200 - 0*x
+        p = (self.b0x**2 + self.b0y**2 + self.b0z**2)/2.*self.beta/100 - 0*x
 
         return p
 

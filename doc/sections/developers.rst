@@ -181,6 +181,38 @@ Moreover, please add your model and code name to the section :ref:`models`.
 Finally, you could add a line to the table in :ref:`intro` of the :ref:`userguide`.
 
 
+.. _profiler:
+
+Profiling 
+---------
+
+Comparing the runtime of different code parts is very useful for code optimization.
+This can be automated using the Python profiler `Cprofile <https://docs.python.org/3/library/profile.html>`_.
+:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` provides a module for quick reading of Cprofile data:
+
+.. automodule:: struphy.diagnostics.Cprofile_analyser
+    :members:
+    :undoc-members:
+
+An example of how to use the module is in `struphy/tests/test_Cprofiler.py`, here is its source::
+
+    def test_Cprofiler():
+        '''Test code profiler.'''
+
+        import sysconfig
+        from struphy.diagnostics import Cprofile_analyser 
+
+        path = sysconfig.get_path("platlib") + '/struphy/io/out/sim_1/'
+        Cprofile_analyser.get_cprofile_data(path)
+        Cprofile_analyser.compare_cprofile_data([path], ['parameters.yml'])
+        print()
+        Cprofile_analyser.compare_cprofile_data([path], ['parameters.yml'], ['step_', '_dot'])
+
+
+    if __name__ == '__main__':
+        test_Cprofiler()
+
+
 .. _objects:
 
 STRUPHY objects
