@@ -153,7 +153,7 @@ class Linear_mhd:
                 # slower 
                 C = spa.linalg.LinearOperator((self.MHD_OPS_MF.dim_0, self.MHD_OPS_MF.dim_2), matvec = lambda x : -1 * self.dts / 2 * (self.M0_inv.dot(self.Grad.T.dot(self.M1.dot(self.MHD_OPS_MF.S20_dot(x)))) + (5./3. - 1) * self.M0_inv.dot(self.MHD_OPS_MF.transpose_K10_dot(self.Grad.T.dot(self.MHD_OPS_MF.transpose_U1_dot(self.M2.dot(x))))) ) )
                 # faster
-                C = spa.linalg.LinearOperator((self.MHD_OPS_MF.dim_0, self.MHD_OPS_MF.dim_2), matvec = lambda x : -1 * self.dts / 2 * (self.M0_inv.dot(self.Grad.T.dot(self.M1.dot(self.MHD_OPS_MF.S20_dot(x)))) + (5./3. - 1) * self.M0_inv.dot(self.MHD_OPS_MF.transpose_K10_dot(self.Grad.T.dot(self.M1.dot(self.MHD_OPS_MF.Z20_dot(x))))) ) )
+                #C = spa.linalg.LinearOperator((self.MHD_OPS_MF.dim_0, self.MHD_OPS_MF.dim_2), matvec = lambda x : -1 * self.dts / 2 * (self.M0_inv.dot(self.Grad.T.dot(self.M1.dot(self.MHD_OPS_MF.S20_dot(x)))) + (5./3. - 1) * self.M0_inv.dot(self.MHD_OPS_MF.transpose_K10_dot(self.Grad.T.dot(self.M1.dot(self.MHD_OPS_MF.Z20_dot(x))))) ) )
                 S = spa.linalg.LinearOperator((self.MHD_OPS_MF.dim_2, self.MHD_OPS_MF.dim_2), matvec = lambda x : (self.A - B * C).matvec(x) )
             
             elif self.basis_p == 3:
