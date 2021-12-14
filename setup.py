@@ -32,12 +32,13 @@ setup(
             'lin_mhd_MF/*.yml',
             'cc_lin_mhd_6d/*.yml',
             'cc_lin_mhd_6d_MF/*.yml',
+            'pc_lin_mhd_6d_MF_full/*.yml',
+            'pc_lin_mhd_6d_MF_perp/*.yml',
             'massless_extended/*.yml',
-            'pc_lin_mhd_6d/*.yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },
-    # list of executable(s) that come with the package (if applicable)
+    # list of executable(s) that come with the package (if applicable)s
     scripts=['scripts/struphy'],
     # list of package dependencies (if necessary)
     install_requires=[
@@ -51,10 +52,11 @@ setup(
         'scipy',
         'sympy',
         'pytest',
-        'sphinx',
+        'mistune<2',
+        'sphinx==4.2.0',
         'sphinxcontrib-napoleon',
         'sphinx-rtd-theme', 
-        'm2r2',
+        'm2r2==0.3.1',
         'vtk',
         'docutils==0.15',
         'pandas',
