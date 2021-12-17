@@ -5,7 +5,7 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
-FLAGS            := 
+FLAGS            :=# --developer-mode --verbose
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
 FLAGS_openmp_pic := $(flags_openmp_pic)
 

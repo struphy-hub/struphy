@@ -324,13 +324,30 @@ class Domain:
             * Y = Ly*(eta2 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
             * Z = Lz*eta3
         * 'hollow_cyl' :   
-            * X = a1 + (a2 - a1)*eta1*cos(2*pi*eta2) + R0
-            * Y = a1 + (a2 - a1)*eta1*sin(2*pi*eta2)
+            * X = (a1 + (a2 - a1)*eta1)*cos(2*pi*eta2) + R0
+            * Y = (a1 + (a2 - a1)*eta1)*sin(2*pi*eta2)
             * Z = 2*pi*R0*eta3
         * 'hollow_torus' : 
             * X = X_hollow_cyl * cos(2*pi*eta3)
             * Y = Y_hollow_cyl
             * Z = X_hollow_cyl * sin(2*pi*eta3)
+        * 'ellipse' :
+            * X = x0 + (eta1*rx) * cos(2*pi*eta2)
+            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
+        * 'rotated_ellipse' :
+            * X = x0 + (eta1*r1) * cos(2*pi*th) * cos(2*pi*eta2) - (eta1*r2) * sin(2*pi*th) * sin(2*pi*eta2)
+            * Y = y0 + (eta1*r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1*r2) * cos(2*pi*th) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
+        * 'soloviev_approx' :
+            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * delta
+            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
+        * 'soloviev_sqrt' :
+            * Crafted s.t. derivative component 11 does not go to zero at the pole of the map.
+            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * delta
+            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
         * 'spline': 
             * 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
         * 'spline_cyl': 
@@ -365,6 +382,22 @@ class Domain:
 
         elif kind_map == 'hollow_torus':
             self.kind_map = 14
+            self.params_map = list(params_map.values())
+
+        elif kind_map == 'ellipse':
+            self.kind_map = 15
+            self.params_map = list(params_map.values())
+
+        elif kind_map == 'rotated_ellipse':
+            self.kind_map = 16
+            self.params_map = list(params_map.values())
+
+        elif kind_map == 'soloviev_approx':
+            self.kind_map = 17
+            self.params_map = list(params_map.values())
+
+        elif kind_map == 'soloviev_sqrt':
+            self.kind_map = 18
             self.params_map = list(params_map.values())
 
         elif kind_map == 'spline':

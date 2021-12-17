@@ -19,9 +19,13 @@ The following mappings are implemented:
 
 - kind_map = 10 : cuboid,          params_map = [b1, e1, b2, e2, b3, e3].
 - kind_map = 11 : hollow cylinder, params_map = [a1, a2, r0].
-- kind_map = 12 : colella,         params_map = [lx, ly, alpha, lz].
-- kind_map = 13 : orthogonal,      params_map = [ly, ly, alpha, lz].
+- kind_map = 12 : colella,         params_map = [Lx, Ly, alpha, Lz].
+- kind_map = 13 : orthogonal,      params_map = [Lx, Ly, alpha, Lz].
 - kind_map = 14 : hollow torus,    params_map = [a1, a2, r0].
+- kind_map = 15 : ellipse,         params_map = [x0, y0, z0, rx, ry, Lz].
+- kind_map = 16 : rotated ellipse, params_map = [x0, y0, z0, r1, r2, Lz, theta].
+- kind_map = 17 : soloviev approx, params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 18 : soloviev sqrt,   params_map = [x0, y0, z0, rx, ry, Lz, delta].
 """
 
 from numpy import shape
@@ -37,7 +41,7 @@ import struphy.feec.basics.spline_evaluation_3d as eva_3d
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3), i=1,2,3. 
-    
+
     Parameters:
     -----------
         eta1, eta2, eta3:       double              logical coordinates in [0, 1]
@@ -54,13 +58,12 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
         value:  float
             Cartesian coordinate x_i = f_i(eta1, eta2, eta3)
     """
-   
-   
+
     value = 0.
-    
+
     # =========== 3d spline ========================
     if kind_map == 0:
-        
+
         if   component == 1:
             value = eva_3d.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3)
 
@@ -69,48 +72,48 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
 
         elif component == 3:
             value = eva_3d.evaluate_n_n_n(tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3)
-            
+
     # ==== 2d spline (straight in 3rd direction) ===
     elif kind_map == 1:
-        
-        lz = 2*pi*cx[0, 0, 0]
-        
+
+        Lz = 2*pi*cx[0, 0, 0]
+
         if   component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
-            
+
             if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
                 value = cx[0, 0, 0]
 
         elif component == 2:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
-            
+
             if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
                 value = cy[0, 0, 0]
-            
+
         elif component == 3:
-            value = lz * eta3
+            value = Lz * eta3
 
     # ==== 2d spline (curvature in 3rd direction) ===
     elif kind_map == 2:
-        
+
         if   component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(2*pi*eta3)
-            
+
             if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
                 value = cx[0, 0, 0]*cos(2*pi*eta3)
 
         elif component == 2:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cy[:, :, 0], eta1, eta2)
-            
+
             if eta1 == 0. and cy[0, 0, 0] == cy[0, 1, 0]:
                 value = cy[0, 0, 0]
-            
+
         elif component == 3:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(2*pi*eta3)
-            
+
             if eta1 == 0. and cx[0, 0, 0] == cx[0, 1, 0]:
                 value = cx[0, 0, 0]*sin(2*pi*eta3)
-  
+
     # ============== cuboid =========================
     elif kind_map == 10:
 
@@ -128,68 +131,139 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
             value = b2 + (e2 - b2) * eta2
         elif component == 3:
             value = b3 + (e3 - b3) * eta3
-            
+
     # ========= hollow cylinder =====================
     elif kind_map == 11:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 1:
             value = (a1 + eta1 * da) * cos(2*pi*eta2) + r0
         elif component == 2:
             value = (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
             value = 2*pi*r0 * eta3
-            
+
     # ============ colella ==========================
     elif kind_map == 12:
-        
-        lx    = params_map[0]
-        ly    = params_map[1]
+
+        Lx    = params_map[0]
+        Ly    = params_map[1]
         alpha = params_map[2]
-        lz    = params_map[3]
-        
+        Lz    = params_map[3]
+
         if   component == 1:
-            value = lx * (eta1 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
+            value = Lx * (eta1 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
         elif component == 2:
-            value = ly * (eta2 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
+            value = Ly * (eta2 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
         elif component == 3:
-            value = lz * eta3
-    
+            value = Lz * eta3
+
     # =========== orthogonal ========================
     elif kind_map == 13:
-        
-        lx    = params_map[0]
-        ly    = params_map[1]
+
+        Lx    = params_map[0]
+        Ly    = params_map[1]
         alpha = params_map[2]
-        lz    = params_map[3]
-        
+        Lz    = params_map[3]
+
         if   component == 1:
-            value = lx * (eta1 + alpha * sin(2*pi*eta1))
+            value = Lx * (eta1 + alpha * sin(2*pi*eta1))
         elif component == 2:
-            value = ly * (eta2 + alpha * sin(2*pi*eta2))
+            value = Ly * (eta2 + alpha * sin(2*pi*eta2))
         elif component == 3:
-            value = lz * eta3
-               
+            value = Lz * eta3
+
     # ========= hollow torus ========================
     elif kind_map == 14:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 1:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3)
         elif component == 2:
             value =  (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
+
+    # ========= ellipse =====================
+    elif kind_map == 15:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+
+        if   component == 1:
+            value = x0 + (eta1 * rx) * cos(2*pi*eta2)
+        elif component == 2:
+            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
+        elif component == 3:
+            value = z0 + (eta3 * Lz)
+
+    # ========= rotated ellipse =====================
+    elif kind_map == 16:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r1 = params_map[3]
+        r2 = params_map[4]
+        Lz = params_map[5]
+        th = params_map[6] # Domain: [0,1)
+
+        if   component == 1:
+            value = x0 + (eta1 * r1) * cos(2*pi*th) * cos(2*pi*eta2) - (eta1 * r2) * sin(2*pi*th) * sin(2*pi*eta2)
+        elif component == 2:
+            value = y0 + (eta1 * r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1 * r2) * cos(2*pi*th) * sin(2*pi*eta2)
+        elif component == 3:
+            value = z0 + (eta3 * Lz)
+
+    # ========= soloviev approx =====================
+    elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 1:
+            value = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * de
+        elif component == 2:
+            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
+        elif component == 3:
+            value = z0 + (eta3 * Lz)
+
+    # ========= soloviev sqrt =====================
+    elif kind_map == 18:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 1:
+            value = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * de
+        elif component == 2:
+            value = y0 + (eta1 * ry) * sin(2*pi*eta2)
+        elif component == 3:
+            value = z0 + (eta3 * Lz)
 
     return value
 
@@ -198,7 +272,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
 # =======================================================================
 @types('double','double','double','int','int','double[:]')
 def f_inv(x, y, z, component, kind_map, params_map):
-    """Point-wise evaluation of inverse mapping eta_i = f^(-1)_i(x, y, z), i=1,2,3. Only possible for analytical mappings. 
+    """Point-wise evaluation of inverse mapping eta_i = f^(-1)_i(x, y, z), i=1,2,3. Only possible for analytical mappings.
     
     Parameters:
     -----------
@@ -212,19 +286,19 @@ def f_inv(x, y, z, component, kind_map, params_map):
         value:  float
             Logical coordinate eta_i = f^(-1)_i(eta1, eta2, eta3) in [0, 1]
     """
-    
+
     value = 0.
-    
+
     # ============== cuboid =========================
     if kind_map == 10:
-         
+
         b1 = params_map[0]
         e1 = params_map[1]
         b2 = params_map[2]
         e2 = params_map[3]
         b3 = params_map[4]
         e3 = params_map[5]
-        
+
         # value =  begin + (end - begin) * eta
         if   component == 1:
             value = (x - b1)/(e1 - b1)
@@ -232,39 +306,116 @@ def f_inv(x, y, z, component, kind_map, params_map):
             value = (y - b2)/(e2 - b2)
         elif component == 3:
             value = (z - b3)/(e3 - b3)
-            
+
     # ========= hollow cylinder =====================
     elif kind_map == 11:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 1:
             value = (sqrt((x - r0)**2 + y**2) - a1)/da
         elif component == 2:
             value = (arctan2(y, x - r0)/(2*pi))%1.0
         elif component == 3:
             value = z/(2*pi*r0)
-            
+
     # ========= hollow torus ========================
     elif kind_map == 14:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 1:
             value = (sqrt((sqrt(x**2 + z**2) - r0)**2 + y**2) - a1)/da
         elif component == 2:
             value = (arctan2(y, sqrt(x**2 + z**2) - r0)/(2*pi))%1.0
         elif component == 3:
             value = (arctan2(z, x)/(2*pi))%1.0
-   
+
+    # ========= ellipse =====================
+    elif kind_map == 15:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+
+        if   component == 1:
+            eta2  = (arctan2((y - y0) * rx, (x - x0) * ry) / (2 * pi)) % 1.0
+            # value = sqrt(((x - x0)**2 + (y - y0)**2) / (rx**2 * cos(2*pi*eta2)**2 + ry**2 * sin(2*pi*eta2)**2))
+            value = (x - x0) / (rx * cos(2*pi*eta2)) # Equivalent.
+        elif component == 2:
+            value = (arctan2((y - y0) * rx, (x - x0) * ry) / (2 * pi)) % 1.0
+        elif component == 3:
+            value = (z - z0) / Lz
+
+    # ========= rotated ellipse =====================
+    elif kind_map == 16:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r1 = params_map[3]
+        r2 = params_map[4]
+        Lz = params_map[5]
+        th = params_map[6] # Domain: [0,1)
+
+        if   component == 1:
+            temp1 =  cos(2*pi*th) * (x - x0) + sin(2*pi*th) * (y - y0)
+            temp2 = -sin(2*pi*th) * (x - x0) + cos(2*pi*th) * (y - y0)
+            eta2  = (arctan2(temp2 * r1, temp1 * r2) / (2 * pi)) % 1.0
+            value = temp1 / (r1 * cos(2*pi*eta2))
+        elif component == 2:
+            temp1 =  cos(2*pi*th) * (x - x0) + sin(2*pi*th) * (y - y0)
+            temp2 = -sin(2*pi*th) * (x - x0) + cos(2*pi*th) * (y - y0)
+            value = (arctan2(temp2 * r1, temp1 * r2) / (2 * pi)) % 1.0
+        elif component == 3:
+            value = (z - z0) / Lz
+
+    # ========= soloviev approx =====================
+    elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 1:
+            # eta1**2 * (rx * de) + eta1 * (-rx * cos(2*pi*eta2)) + (x - x0) - (rx * de) = 0
+            # eta1 = (rx * cos(2*pi*eta2) \pm sqrt(rx**2 * cos(2*pi*eta2)**2 - 4 * (rx * de) * ((x - x0) - (rx * de)))) / (2 * rx * de)
+            #      = (cos(2*pi*eta2) \pm sqrt(cos(2*pi*eta2)**2 - 4 * de * ((x - x0) / rx - de))) / (2 * de)
+            # eta1 = (y - y0) / (ry * sin(2*pi*eta2))
+            value = 0. # TODO: Not implemented. Multiple solutions.
+        elif component == 2:
+            value = 0. # TODO: Not implemented. Multiple solutions.
+        elif component == 3:
+            value = (z - z0) / Lz
+
+    # ========= soloviev sqrt =====================
+    elif kind_map == 18:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        # Not implemented.
+
     return value
 
 
@@ -273,7 +424,7 @@ def f_inv(x, y, z, component, kind_map, params_map):
 @types('double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     """Point-wise evaluation of ij-th component of the Jacobian matrix df_ij = df_i/deta_j (i,j=1,2,3). 
-    
+
     Parameters:
     -----------
         eta1, eta2, eta3:       double              logical coordinates in [0, 1]
@@ -292,9 +443,9 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         value:  float
             point value df_ij(eta1, eta2, eta3)
     """
-    
+
     value = 0.
-    
+
     # =========== 3d spline ========================
     if kind_map == 0:
         
@@ -320,7 +471,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
     # ==== 2d spline (straight in 3rd direction) ===
     elif kind_map == 1:
         
-        lz = 2*pi*cx[0, 0, 0]
+        Lz = 2*pi*cx[0, 0, 0]
         
         if   component == 11:
             value = eva_2d.evaluate_diffn_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2)
@@ -347,7 +498,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 32:
             value = 0.
         elif component == 33:
-            value = lz
+            value = Lz
     
     # ==== 2d spline (curvature in 3rd direction) ===
     elif kind_map == 2:
@@ -414,13 +565,13 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             
     # ======== hollow cylinder =================
     elif kind_map == 11:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 11:
             value = da * cos(2*pi*eta2)
         elif component == 12:
@@ -439,25 +590,25 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = 0.
         elif component == 33:
             value = 2*pi*r0
-            
+
     # ============ colella =================
     elif kind_map == 12:
-        
-        lx    = params_map[0]
-        ly    = params_map[1]
+
+        Lx    = params_map[0]
+        Ly    = params_map[1]
         alpha = params_map[2]
-        lz    = params_map[3]
-        
+        Lz    = params_map[3]
+
         if   component == 11:
-            value = lx * (1 + alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi)
+            value = Lx * (1 + alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi)
         elif component == 12:
-            value = lx * alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi
+            value = Lx * alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi
         elif component == 13:
             value = 0.
         elif component == 21:
-            value = ly * alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi
+            value = Ly * alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi
         elif component == 22:
-            value = ly * (1 + alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi)
+            value = Ly * (1 + alpha * sin(2*pi*eta1) * cos(2*pi*eta2) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -465,18 +616,18 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = lz
-                   
+            value = Lz
+
     # =========== orthogonal ================
     elif kind_map == 13:
-        
-        lx    = params_map[0]
-        ly    = params_map[1]
+
+        Lx    = params_map[0]
+        Ly    = params_map[1]
         alpha = params_map[2]
-        lz    = params_map[3]
-        
+        Lz    = params_map[3]
+
         if   component == 11:
-            value = lx * (1 + alpha * cos(2*pi*eta1) * 2*pi)
+            value = Lx * (1 + alpha * cos(2*pi*eta1) * 2*pi)
         elif component == 12:
             value = 0.
         elif component == 13:
@@ -484,7 +635,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 21:
             value = 0.
         elif component == 22:
-            value = ly * (1 + alpha * cos(2*pi*eta2) * 2*pi)
+            value = Ly * (1 + alpha * cos(2*pi*eta2) * 2*pi)
         elif component == 23:
             value = 0.
         elif component == 31:
@@ -492,17 +643,17 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 32:
             value = 0.    
         elif component == 33:
-            value = lz
+            value = Lz
 
     # ========= hollow torus ==================
     elif kind_map == 14:
-        
+
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
-        
+
         da = a2 - a1
-        
+
         if   component == 11:
             value = da * cos(2*pi*eta2) * cos(2*pi*eta3)
         elif component == 12:
@@ -521,6 +672,125 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
         elif component == 33:
             value = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
+
+    # ========= ellipse =====================
+    elif kind_map == 15:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+
+        if   component == 11:
+            value = rx * cos(2*pi*eta2)
+        elif component == 12:
+            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = ry * sin(2*pi*eta2)
+        elif component == 22:
+            value =  2*pi * (eta1 * ry) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = Lz
+
+    # ========= rotated ellipse =====================
+    elif kind_map == 16:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r1 = params_map[3]
+        r2 = params_map[4]
+        Lz = params_map[5]
+        th = params_map[6] # Domain: [0,1)
+
+        if   component == 11:
+            value = r1 * cos(2*pi*th) * cos(2*pi*eta2) - r2 * sin(2*pi*th) * sin(2*pi*eta2)
+        elif component == 12:
+            value = -2*pi * (eta1 * r1) * cos(2*pi*th) * sin(2*pi*eta2) - 2*pi * (eta1 * r2) * sin(2*pi*th) * cos(2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = r1 * sin(2*pi*th) * cos(2*pi*eta2) + r2 * cos(2*pi*th) * sin(2*pi*eta2)
+        elif component == 22:
+            value = -2*pi * (eta1 * r1) * sin(2*pi*th) * sin(2*pi*eta2) + 2*pi * (eta1 * r2) * cos(2*pi*th) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = Lz
+
+    # ========= soloviev approx =====================
+    elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 11:
+            value = rx * cos(2*pi*eta2) - 2 * eta1 * rx * de
+        elif component == 12:
+            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = ry * sin(2*pi*eta2)
+        elif component == 22:
+            value =  2*pi * (eta1 * ry) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = Lz
+
+    # ========= soloviev sqrt =====================
+    elif kind_map == 18:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        Lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 11:
+            value = rx * cos(2*pi*eta2) - 0.5 / sqrt(eta1) * rx * de
+        elif component == 12:
+            value = -2*pi * (eta1 * rx) * sin(2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = ry * sin(2*pi*eta2)
+        elif component == 22:
+            value =  2*pi * (eta1 * ry) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = Lz
 
     return value
 
@@ -980,4 +1250,3 @@ def kernel_evaluate_flat(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, 
 
     for i in range(len(eta1)):
         mat_f[i] = mappings_all(eta1[i], eta2[i], eta3[i], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-                
