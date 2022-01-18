@@ -4,40 +4,23 @@ Installation
 Requirements
 ------------
 
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` has been tested on Debian linux-x86_64 systems; it requires
+:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` has been tested on Debian ``linux-x86_64`` systems; it requires
 
-* Python3 
+* Python 3 
 * pip3
-* Fortran compiler (gcc/gfortran))
+* Fortran compiler (gcc/gfortran)
 
-Ubuntu packages (``apt-get install``)::
+as well as the following Ubuntu packages (``apt-get install``):
 
-    libblas-dev 
-    liblapack-dev
-    libopenmpi-dev
-    openmpi-bin
-    libomp-dev 
-    libomp5
-    tree
+* libblas-dev 
+* liblapack-dev
+* libopenmpi-dev
+* openmpi-bin
+* libomp-dev 
+* libomp5
+* tree
 
-Python packages (automatically installed via ``pip3 install --user .``)::
-
-    h5py
-    matplotlib
-    mpi4py
-    numpy<1.21,>=1.17
-    pyccel==0.10.1
-    PyYAML
-    scipy
-    sympy
-    vtk
-    pandas
-    pytest
-    sphinx
-    sphinxcontrib-napoleon
-    sphinx-rtd-theme 
-    m2r2
-    docutils==0.15
+Necessary Python packages will be automatically installed with ``pip install .`` (list of packages in ``setup.py``).
 
 
 .. _user_install:
@@ -51,24 +34,34 @@ Not yet available.
 Developer install
 -----------------
 
-You can clone the full repository and checkout the ``devel`` branch::
+Clone and checkout the ``devel`` branch::
 
     git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git
 
-After that you can install :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` to the Python user install directory for your platform, typically ``~/.local/``::
+Install :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` in the default local directory of your platform::
 
     pip install --user .
 
-However, for developers we recommend the creation of a virtual environment and installation therein::
+For developers the creation of a virtual environment is recommended::
 
     python3 -m pip install --user virtualenv
     python3 -m venv <env_name>
     source <env_name>/bin/activate
     pip3 install .
+    
+Quick help::
+
+    struphy -h
 
 Compilation of kernels::
 
     struphy -c
+
+Run the default code ``lin_mhd`` with default parameters::
+
+    struphy
+
+We recommend to run the code outside of the cloned repository, such that the installed and compiled version of Struphy is called.
 
 
 Source
