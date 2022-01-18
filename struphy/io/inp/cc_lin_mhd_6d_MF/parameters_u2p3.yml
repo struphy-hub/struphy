@@ -1,0 +1,215 @@
+geometry : 
+      type           : cuboid # geometry (see mappings_3d.py for choices -> kind_map)   
+      params_cuboid :
+            b1       : 1. # start of slice in eta1
+            e1       : 2. # end of slice in eta1, e1 > b1
+            b2       : 10.
+            e2       : 20.
+            b3       : 100.
+            e3       : 200.
+      params_orthogonal :
+            Lx       : 1.
+            Ly       : 1.
+            alpha    : .1 # x-distortion
+            Lz       : 1.
+      params_colella :
+            Lx       : 1.
+            Ly       : 1.
+            alpha    : .1 # xy-distortion
+            Lz       : 1.
+      params_hollow_cyl :
+            a1       : .1 # inner radius
+            a2       : 1. # outer radius
+            Lz       : 1.
+      params_hollow_torus :
+            a1       : .1 # inner radius
+            a2       : 1. # minor radius
+            R0       : 1. # major radius
+      params_spline :
+            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5'
+            Nel      : [6, 6, 6] # number of grid cells > 1
+            p        : [2, 3, 3] # spline degree > 0
+            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+      params_spline_cyl :
+            a        : 1. # minor radius
+            R0       : 0. # major radius (shift of pole from zero)
+            Lz       : 4. # length of cylinder
+            Nel      : [16, 2] # number of grid cells > 1
+            p        : [3, 1] # spline degree > 0
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+      params_spline_torus :
+            a        : 1. # minor radius
+            R0       : 10. # major radius
+            Nel      : [16, 2] # number of grid cells > 1
+            p        : [3, 1] # spline degree > 0
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+
+mhd_equilibrium :
+      general :
+            type        : slab # type of MHD equilibrium (slab, analytic_circular, eqdesk, gvec, vmec)
+            mass_number : 1    # in units of proton mass, i.e. Hydrogen : 1, Deuterium: 2, etc.
+      params_slab :
+            B0x         : 1.   # magnetic field in Tesla (x)
+            B0y         : 0.   # magnetic field in Tesla (y)
+            B0z         : 0.   # magnetic field in Tesla (z)
+            rho0        : 1.   # equilibirum mass density
+            beta        : 0.   # plasma beta in %
+      params_cylinder :
+            a           : 1.   # minor radius in m
+            R0          : 10.  # major radius in m (sets length of cylinder to 2*pi*R0)
+            B0          : 1.   # constant axial magnetic field in Tesla
+            q0          : 1.1  # safety factor at s=0
+            q1          : 1.85 # safety factor at s=1
+            rl          : 1.   # shape factor
+            density profile :
+                  r1    : 4.
+                  r2    : 3.
+                  ra    : 0.
+      params_torus :
+            a           : 1.   # minor radius in m
+            R0          : 10.  # major radius in m
+            B0          : 1.   # on-axis (s=0) toroidal magnetic field in Tesla
+            q0          : 1.1  # safety factor at s=0
+            q1          : 1.85 # safety factor at s=1
+            rl          : 1.   # shape factor
+            q_add       : 0    # add toroidal correction  
+            density profile :
+                  r1    : 4.
+                  r2    : 3.
+                  ra    : 0.
+            pressure profile :
+                  beta  : 0.2
+                  p1    : 0.95
+                  p2    : 0.05
+
+kinetic_equilibrium :
+      general :
+            type            : Maxwell_homogen_slab # type of kinetic equilibrium
+            nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
+            particle_charge : 1. # in units of elementary charge
+            particle_mass   : 1. # in units of proton mass
+            alpha           : 1. # coupling parameter alpha = Omega_{cp0}/Omega_{A0} 
+      params_Maxwell_homogen_slab :
+            vth_x    : 1. # thermal velocity (in units of v_A)
+            vth_y    : 1.
+            vth_z    : 1.
+            v0_x     : 0.
+            v0_y     : 0.
+            v0_z     : 0.
+            nh0      : 1. # density in units ?
+      params_Maxwell_pitchangle :
+            vth    : 1. # thermal velocity (in units of v_A)
+            alpha0 : 1.
+            delta  : 1.
+            
+mhd_init   : 
+      general :
+            type : modes_k # initialization of MHD variables (unperturbed, modes_k, modes_mn, eigfun, noise)
+            coords : physical # (physical, norm_logical)
+            basis_u : 2 # representation of U (0 : all NNN, 1 : 1-form, 2 : 2-form)
+            basis_p : 3 # representation of p (0 : 0-form, 3 : 3-form)
+      params_modes_k : # modes_k
+            target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
+            kx : [.8]
+            ky : [0.]
+            kz : [0.]
+            amp : [0.001]
+      params_modes_mn : # modes_mn 
+            target : [b3] # initial perturbation of (b1, b2, b3, u1, u2, u3, p, r)
+            modes_m : [1]
+            modes_n : [1]
+            amp : [0.001]
+      params_eigfun : # eigenfun
+            n_tor    : -1 # toroidal mode number
+            profiles : False # project equilibrium profiles
+            eig_kind : 11 # real (11) or imag (12) part
+            eig_freq : 0. # squared eigenfreq.
+      params_noise : # noise
+            target : [b1, b2, b3, u1, u2, u3, p, r]
+            plane : yz # plane of noise (xy, xz, yz)
+
+kinetic_init   : 
+      general : 
+            type   : noise # initialization of particles (noise OR modes_k, modes_mn -> density perturbations)
+            coords : physical # (physical OR logical)
+      params_noise :
+            plane : yz # plane of noise (xy, xz, yz)
+      params_modes_k :
+            kx : [.8]
+            ky : [0.]
+            kz : [0.] 
+            amp : [0.001]
+      params_modes_mn :
+            modes_m : [1]
+            modes_n : [1]
+            amp : [0.001]
+
+grid :
+      Nel      : [16, 2, 2] # number of grid cells > 1
+      p        : [3, 1, 1] # spline degree > 0
+      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
+      nq_el    : [4, 2, 2] # quadrature points per grid cell
+      nq_pr    : [4, 2, 2] # quadrature points per histopolation cell (for projection)
+      polar    : False # use polar splines       
+
+markers :
+      Np            : 32000 # total number of hot particles
+      control       : False # control variate (use delta-f)?
+      loading       : pseudo_random # particle loading
+      seed          : 1234 # seed for random number generator
+      dir_particles : path_to_particles # directory of particles if loaded externally
+      n_bins        : [32, 32] # number of bins in (x,v) for 2d particle binning.   
+      v_max         : 5. # maximum velocity for binning (in units of v_A)            
+
+time : 
+      dt         : 0.1
+      Tend       : 0.3
+      max_time   : 1. # maximum runtime of program in minutes
+      split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
+      loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6') 
+
+solvers :
+      PRE : FFT # pre-conditioner for linear systems (ILU or FFT)
+      tol_inv : 0.1 # ILU: set tolerance for approximation (values < tol_inv are set to zero)
+      drop_tol_A  : 0.0001 # ILU: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
+      fill_fac_A  : 10.
+      drop_tol_S2 : 0.0001
+      fill_fac_S2 : 10.
+      drop_tol_S6 : 0.0001
+      fill_fac_S6 : 10.
+      solver_type_2 : cg # iterative solver used
+      solver_type_3 : cg
+      tol1 : 0.00000001 # iterative solver tolerance
+      tol2 : 0.00000001
+      tol3 : 0.00000001
+      tol6 : 0.00000001
+      maxiter1 : 1000 # maximum number of iterations
+      maxiter2 : 1000
+      maxiter3 : 1000
+      maxiter6 : 1000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------
+
+

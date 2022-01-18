@@ -22,21 +22,10 @@ image: python:3.9-bullseye
 #    - .cache/pip
 #    - venv/
 
-before_script:
-  - apt-get -y update
-  - apt-get -y install libopenmpi-dev
-  - python --version  # Print out python version for debugging
-  - pip install virtualenv
-  - python -m virtualenv .venv
-  - source .venv/bin/activate
-  - pip install -U pip build wheel pytest coverage
-  - python -m pip install -r requirements.txt
-  - ./STRUPHY_init.sh  # copy struphy files and directories 
-  - ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
-
 stages:
   #- Lint
   - test
+  - deploy
 
 # Verify the PEP-8 guidelines for your code
 #linting:
@@ -46,17 +35,33 @@ stages:
 
 unittest:
   stage: test
-  artifacts:
-    reports:
-      cobertura: tests/coverage.xml
+  # artifacts:
+  #   reports:
+  #     cobertura: tests/coverage.xml
+  before_script:
+    - apt-get -y update
+    - apt-get -y install libopenmpi-dev tree
+    # - pip install virtualenv
+    # - python -m venv env_test
+    # - source env_test/bin/activate
+    - pip install -U pytest coverage
+    #- python -m pip install -r requirements.txt
+    - pip install .
+    #- make
+    - struphy -h
+    - struphy -t
+    - struphy -c
+    #- ./STRUPHY_init.sh  # copy struphy files and directories 
+    #- ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
   script:
     #- python setup.py test
-    - cd tests
-    - coverage run -m pytest
-    - coverage xml
-    - coverage report --skip-empty
-    - coverage erase
-    - cd ..
+    - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
+    - pytest
+    # - coverage run -m pytest
+    # - coverage xml
+    # - coverage report --skip-empty
+    # - coverage erase
+    # - cd ..
 
 #run:
 #  script:
@@ -68,14 +73,24 @@ unittest:
 #    paths:
 #      - dist/*.whl
 
-#pages:
-#  script:
-#    - pip install sphinx sphinx-rtd-theme
-#    - cd doc ; make html
-#    - mv build/html/ ../public/
-#  artifacts:
-#    paths:
-#      - public
+pages:
+ stage: deploy
+ before_script:
+    - apt-get -y update
+    - apt-get -y install libopenmpi-dev
+    # - pip install virtualenv
+    # - python -m virtualenv .venv
+    # - source .venv/bin/activate
+    - pip install -U pytest coverage
+    #- python -m pip install -r requirements.txt
+    - pip install .
+    - struphy -h
+ script:
+   - cd doc ; make html
+   - mv _build/html/ ../public/
+ artifacts:
+   paths:
+     - public
 #  rules:
 #    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
