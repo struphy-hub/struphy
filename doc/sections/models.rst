@@ -3,16 +3,22 @@
 Model equations
 ===============
 
-List of currently available codes::
+List of currently available models
 
-    lin_mhd
-    cc_lin_mhd_6d
+* :ref:`Linear MHD <lin_mhd>`
+* :ref:`Current coupling with linear MHD <cc_lin_mhd_6d>`
+* :ref:`Pressure coupling with linear MHD <pc_lin_mhd_6d>`
+* :ref:`Vlasov with massless fluid electrons, extended Ohm's law <kinetic_extended>`
+* :ref:`Cold plasma hybrid with Vlasov <cold_plasma>`
 
 The corresponding model equations implemented in these codes are given below.
 
 
-Initial-value solvers on 3D mapped domains
-------------------------------------------
+Initial-value solvers
+---------------------
+
+All solvers are implemented on mapped domains :math:`F: [0, 1]^3 \to \Omega` using differential form representations
+for the unknowns.
 
 .. _lin_mhd:
 
@@ -64,10 +70,12 @@ Linear, ideal MHD equations and 6D full-orbit Vlasov equation, command line call
     \qquad\rho_\text{h}=\int f_\text{h}\,\text{d}^3v,\qquad\mathbf{j}_\text{h}=\int\mathbf{v}f_\text{h}\,\text{d}^3v\,.
 
 
+.. _pc_lin_mhd_6d:
+
 MHD-kinetic pressure coupling (PC)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ 
 
-Linear, ideal MHD equations and 6D full-orbit Vlasov equation, command line call ``struphy -r pc_lin_mhd_6d``.
+Linear, ideal MHD equations and 6D full-orbit Vlasov equation, command line call ``struphy -r pc_lin_mhd_6d_perp``.
 
 .. math::
     &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_\text{eq} \tilde{\mathbf{U}})=0\,, 
@@ -89,10 +97,12 @@ Linear, ideal MHD equations and 6D full-orbit Vlasov equation, command line call
     \qquad (\nabla \cdot \mathbb P_\text{h})_\perp=\int\mathbf{v}_\perp \mathbf{v}^\top f_\text{h}\,\text{d}^3v\,.
 
 
+.. _cold_plasma:
+
 Electron cold plasma hybrid model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Linear momentum conservation law and Vlasov-Maxwell, command line call ``struphy -r cold_electrons``.
+Linear momentum conservation law and Vlasov-Maxwell, command line call ``struphy -r cold_plasma``.
 
 .. math::
     &\frac{\partial\tilde{\mathbf{j}}_\text{c}}{\partial t}=\epsilon_0\Omega_\text{pe}^2\tilde{\mathbf{E}}
@@ -106,6 +116,8 @@ Linear momentum conservation law and Vlasov-Maxwell, command line call ``struphy
     &\color{red} \frac{\partial f_\text{h}}{\partial t}+\mathbf{v}\cdot\nabla f_\text{h}+\frac{q_\text{e}}{m_\text{e}}(\mathbf{E}
     + \mathbf{v}\times\mathbf{B})\cdot\nabla_\mathbf{v}f_\text{h}=0\,.
 
+
+.. _kinetic_extended:
 
 Kinetic thermal ions with extended Ohm's law
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -122,6 +134,8 @@ Kinetic thermal ions with extended Ohm's law
     &n = \int f\, \text{d}^3v, \quad n{\mathbf u} = \int {\mathbf v} f \, \text{d}^3v\,.
 
 
+.. _cc_lin_mhd_6d_axissymm:
+
 Initial-value solvers for axis-symmetric systems (2D)
 -----------------------------------------------------
 
@@ -135,13 +149,15 @@ The ansatz for the MHD variables is (with *k* fixed)
     \mathbf U(t;s,\theta,\varphi) = \mathbf U_\text{pol}(t;s,\theta)\,\text{e}^{-i k \varphi}\,.
 
 
+.. _mhd_eig_axissymm:
+
 Eigenvalue solvers
 ------------------
 
 Ideal MHD in axis-symmetric equilibrium
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Ideal MHD equations with single toroidal mode number, command line call ``struphy -r eig_mhd_axissymm``.
+Ideal MHD equations with single toroidal mode number, command line call ``struphy -r mhd_eig_axissymm``.
 The eigenvalue problem reads
 
 .. math::

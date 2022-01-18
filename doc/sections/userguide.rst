@@ -9,34 +9,32 @@ Userguide
 Introduction
 ------------
 
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is a multi-code package
-focused on kinetic-fluid hybrid models in plasma physics, based on
-
-    1. discrete differential forms (FEEC - finite element exterior calculus) for field/fluid variables,
-
-    2. particle-in-cell (PIC) methods for kinetic equations,
-
-    3. mapped domains :math:`F:(\eta_1, \eta_2, \eta_3) \mapsto (x, y, z)`, where :math:`\eta_i \in [0,1]` span the logical unit cube.
-
 A main goal of :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is to provide **easy access,
 usage and development** of plasma hybrid codes: 
 
     - **easy access** (see :ref:`user_install`) is provided through the Python Packaging Index (PYPI).
 
-    - **easy usage** comes from the command-line interface (``struphy -h`` for help) and the single point of interaction through the :ref:`params_file`.
+    - **easy usage** comes from the command-line interface and the interaction through the :ref:`params_file`.
 
-    - **easy development** because of the Python language, and the use of tailored libraries like :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` itself (FE and mpi parallel PIC), `PSYDAC <https://github.com/pyccel/psydac>`_ (mpi parallel FE) and `pyccel <https://github.com/pyccel/pyccel>`_ (Fortran kernels).
+    - **easy development** because of Python modules that can be used with any code.
 
 Currently availabe codes in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` are
 
-========================= ========================================== ===================================================== =========================
-Code name                 Description                                Features                              
-========================= ========================================== ===================================================== =========================
-``lin_mhd``               3D linear, ideal MHD equations             choose p-form for U and p                             :ref:`model equations <lin_mhd>`
-``lin_mhd_MF``                                                       matrix-free implementation                            :ref:`model equations <lin_mhd>`     
-``cc_lin_mhd_6d``         Current coupling, linear MHD, 6D Vlasov    OpenMp/MPI parallel particle push and accumulation    :ref:`model equations <cc_lin_mhd_6d>`
-``cc_lin_mhd_6d_MF``                                                 matrix-free implementation, choose p-form for U and p :ref:`model equations <cc_lin_mhd_6d>`  
-========================= ========================================== ===================================================== =========================
+========================== =============================================================== ===================================================== =========================
+Code name                  Description                                                     Features                              
+========================== =============================================================== ===================================================== =========================
+``lin_mhd``                3D linear, ideal MHD equations                                  choose p-form for U and p                             :ref:`model equations <lin_mhd>`
+``lin_mhd_MF``                                                                             matrix-free MHD-specific operators                    :ref:`model equations <lin_mhd>`
+``lin_mhd_psydac``         (not merged)                                                    MPI parallel through Psydac data structures           :ref:`model equations <lin_mhd>`     
+``cc_lin_mhd_6d``          Current coupling, linear MHD, 6D Vlasov                         optimized MHD-specific operators                      :ref:`model equations <cc_lin_mhd_6d>`
+``cc_lin_mhd_6d_MF``                                                                       matrix-free, choose p-form for U and p                :ref:`model equations <cc_lin_mhd_6d>` 
+``cc_lin_mhd_6d_axissymm`` (not merged) 2D cc_lin_mhd_6d                                   single Fourier mode in third direction                :ref:`model equations <cc_lin_mhd_6d>`
+``pc_lin_mhd_6d_MF_full``  Pressure coupling, linear MHD, 6D Vlasov                        full pressure tensor                                  :ref:`model equations <pc_lin_mhd_6d>`                                                                  
+``pc_lin_mhd_6d_MF_perp``                                                                  perpendicular pressure tensor w.r.t B0                :ref:`model equations <pc_lin_mhd_6d>`                                                                    
+``kinetic_extended``       (not merged) 6D Vlasov, massless electrons, extended Ohm's law  nonlinear, three different algorithms available       :ref:`model equations <kinetic_extended>`
+``cold_plasma``            (not merged) 3D cold plasma equations, 6D Vlasov                electron timescales                                   :ref:`model equations <cold_plasma>`
+``mhd_eig_axissymm``       (not merged) 2D MHD eigenvalue solver with single Fourier mode  polar splines                                         :ref:`model equations <mhd_eig_axissymm>`
+========================== =============================================================== ===================================================== =========================
 
 This list is expected to grow over time (anybody is welcome to contribute a new model!). 
 If you are interested in adding a code please go to :ref:`developers` and visit section :ref:`add_model`.
