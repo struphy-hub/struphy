@@ -61,16 +61,18 @@ def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_
     # ============================================================
 
     # Create splines to STRUPHY, unrelated to splines in GVEC.
-    # Nel      = [8, 30, 6]
-    # Nel      = [8, 12, 6]
     # Nel      = [16*1, 18*1, 3]
-    Nel      = [16*2, 18*2, 3]
+    Nel      = [16*2, 18*2, 3] # Default.
     # Nel      = [16*4, 18*4, 3]
     # p        = [2, 2, 1]
-    p        = [3, 3, 1]
+    p        = [3, 3, 1] # Default.
     # p        = [4, 4, 1]
-    nq_el    = [4, 4, 4]  # Element integration, quadrature points per grid cell
-    nq_pr    = [4, 4, 4]  # Greville integration, quadrature points per histopolation cell (for projection)
+    # nq_el    = [2, 2, 2] # Element integration, quadrature points per grid cell.
+    nq_el    = [4, 4, 4] # Default.
+    # nq_el    = [6, 6, 6]
+    # nq_pr    = [2, 2, 2] # Greville integration, quadrature points per histopolation cell (for projection).
+    nq_pr    = [4, 4, 4] # Default.
+    # nq_pr    = [6, 6, 6]
     # nq_pr    = [2, 2, 1]
     bc       = ['f', 'f'] # BC in s-direction
     spl_kind = [False, True, True] # Spline type: True=periodic, False=clamped
@@ -101,21 +103,21 @@ def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_
     if plot_0form:
         func_form = FuncForm.ZERO
         plot_data_0form = case_0form(*case_0form_args)
-        plot_handles_0form = plot_wrapper(*plot_data_0form, func_form, Nel, p)
+        plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, Nel, p)
         ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
         ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
         plt.show()
     if plot_1form:
         func_form = FuncForm.ONE
         plot_data_1form = case_1form(*case_1form_args)
-        plot_handles_1form = plot_wrapper(*plot_data_1form, func_form, Nel, p)
+        plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, Nel, p)
         ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
         ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
         plt.show()
     if plot_2form:
         func_form = FuncForm.TWO
         plot_data_2form = case_2form(*case_2form_args)
-        plot_handles_2form = plot_wrapper(*plot_data_2form, func_form, Nel, p)
+        plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, Nel, p)
         ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
         ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
         plt.show()
@@ -179,6 +181,15 @@ class FuncForm(Enum):
     ZERO = 10
     ONE = 11
     TWO = 12
+
+@unique
+class DiffType(Enum):
+    """How to represent error from reference data."""
+    DIRECT = 1
+    RELATIVE = 2
+    RELATIVEABSOLUTE = 3
+    ABSOLUTE = 4
+    LOGABSOLUTE = 5
 
 
 
@@ -471,7 +482,7 @@ def generate_test_function(func_test=FuncTest.GAUSSIANCOSINE, params=None):
 
     else:
 
-        raise NotImplementedError(f'Test case {func_test} not implemented.')
+        raise NotImplementedError(f'Test case {func_test.name} not implemented.')
 
     # # Shifted Gaussian.
     # shift_x = 0.02 + 10
@@ -521,11 +532,11 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
         return DOMAIN_F
 
-    elif map_type == MapType.CIRCLESCALED: # Circle scaled to radius = 2.
+    elif map_type == MapType.CIRCLESCALED: # Circle scaled to radius = 0.5.
 
         print('Running test case 02: Scaled circle.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 2., 'R0': 10.})
+            DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 0.5, 'R0': 10.})
 
         return DOMAIN_F
 
@@ -561,11 +572,11 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
         return DOMAIN_F
 
-    elif map_type == MapType.SOLOVIEVSQRT: # Unit circle centered at (10,0), with a Grad-Shafranov shift delta of 0.1.
+    elif map_type == MapType.SOLOVIEVSQRT: # Unit circle centered at (10,0), with a Grad-Shafranov shift delta of 0.01.
 
         print('Running test case 07: Soloviev equilibrium but with square root dependence on eta1, instead of square.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('soloviev_sqrt', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.1})
+            DOMAIN_F = dom.Domain('soloviev_sqrt', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.01})
 
         return DOMAIN_F
 
@@ -579,7 +590,7 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
     else:
 
-        raise NotImplementedError(f'Map {map} not implemented.')
+        raise NotImplementedError(f'Map {map_type.name} not implemented.')
 
 
 
@@ -589,6 +600,12 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     import matplotlib.pyplot as plt
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
+
+    import os
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
+    print(f'Created temp directory at: {temp_dir.name}')
 
     print('Running test: 0-form and its gradient.')
 
@@ -645,11 +662,13 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
 
     cx_F  = TENSOR_SPACE.projectors.pi_0(F_x)
     cy_F  = TENSOR_SPACE.projectors.pi_0(F_y)
+    cz_F  = TENSOR_SPACE.projectors.pi_0(F_z)
     cx_F1 = TENSOR_SPACE.projectors.pi_0(F1_x)
     cy_F1 = TENSOR_SPACE.projectors.pi_0(F1_y)
 
     cx_F  = TENSOR_SPACE.extract_0(cx_F)
     cy_F  = TENSOR_SPACE.extract_0(cy_F)
+    cz_F  = TENSOR_SPACE.extract_0(cz_F)
     cx_F1 = TENSOR_SPACE.extract_0(cx_F1)
     cy_F1 = TENSOR_SPACE.extract_0(cy_F1)
 
@@ -670,6 +689,37 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     print(f'Are PI_0 and interp_mapping equivalent? cx:{np.allclose(cx_F, cx_interp_F)} cy:{np.allclose(cy_F, cy_interp_F)}')
 
 
+
+    # ============================================================
+    # Create numerical spline version of DOMAIN_F.
+    # ============================================================
+
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx_F
+        handle['cy'] = cy_F
+        handle['cz'] = cz_F
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
+    DOMAIN_F = dom.Domain('spline', params_map=params_map)
+    print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
+
+
+
+    # ============================================================
+    # Evaluation.
+    # ============================================================
 
     # Use F for pullback!!!
     def fun_L(eta1, eta2, eta3):
@@ -699,8 +749,8 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
 
     # TODO: evaluate splines, push forward
     lim_s = 1
-    num_s_log = 5
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log-1), np.linspace(1e-1, lim_s, 101-num_s_log)))
+    num_s_log = 8
+    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
     # eta1_range = np.linspace(1e-4, lim_s, 101)
     eta2_range = np.linspace(0, 1, 101)
     eta3_range = np.linspace(0, 1, 3)
@@ -740,13 +790,20 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
 
 
 
-    # Analytical.
+    # Positions of element boundaries.
+    el_b_eta1, el_b_eta2, el_b_eta3 = np.meshgrid(TENSOR_SPACE.spaces[0].el_b, TENSOR_SPACE.spaces[1].el_b, TENSOR_SPACE.spaces[2].el_b, indexing='ij', sparse=False)
+    xs = F_x(el_b_eta1, el_b_eta2, el_b_eta3)
+    ys = F_y(el_b_eta1, el_b_eta2, el_b_eta3)
+    zs = F_z(el_b_eta1, el_b_eta2, el_b_eta3)
+    # Position of the pole.
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
     z = F_z(eta1, eta2, eta3)
+    # Analytical evaluation of the trial function.
     orig_func = func(x, y, z)
     orig_grad = np.array([dfdx(x, y, z), dfdy(x, y, z), np.zeros_like(orig_func)])
 
@@ -831,7 +888,7 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     print(f'Shape of pushed_F_0_polar_F1 : {pushed_F_0_polar_F1.shape}')
     # print(orig_func-pushed_tensor)
 
-    return (x, y, z, x0, y0, z0, 
+    return (x, y, z, x0, y0, z0, xs, ys, zs, 
     orig_func, pushed_F_0_tensor, pushed_F_0_polar_F, pushed_F_0_polar_F1, 
     orig_grad, pushed_F_1_tensor, pushed_F_1_polar_F, pushed_F_1_polar_F1)
 
@@ -843,6 +900,12 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     import matplotlib.pyplot as plt
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
+
+    import os
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
+    print(f'Created temp directory at: {temp_dir.name}')
 
     print('Running test: 1-form and its curl.')
 
@@ -899,11 +962,13 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
     cx_F  = TENSOR_SPACE.projectors.pi_0(F_x)
     cy_F  = TENSOR_SPACE.projectors.pi_0(F_y)
+    cz_F  = TENSOR_SPACE.projectors.pi_0(F_z)
     cx_F1 = TENSOR_SPACE.projectors.pi_0(F1_x)
     cy_F1 = TENSOR_SPACE.projectors.pi_0(F1_y)
 
     cx_F  = TENSOR_SPACE.extract_0(cx_F)
     cy_F  = TENSOR_SPACE.extract_0(cy_F)
+    cz_F  = TENSOR_SPACE.extract_0(cz_F)
     cx_F1 = TENSOR_SPACE.extract_0(cx_F1)
     cy_F1 = TENSOR_SPACE.extract_0(cy_F1)
 
@@ -924,6 +989,37 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     print(f'Are PI_0 and interp_mapping equivalent? cx:{np.allclose(cx_F, cx_interp_F)} cy:{np.allclose(cy_F, cy_interp_F)}')
 
 
+
+    # ============================================================
+    # Create numerical spline version of DOMAIN_F.
+    # ============================================================
+
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx_F
+        handle['cy'] = cy_F
+        handle['cz'] = cz_F
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
+    DOMAIN_F = dom.Domain('spline', params_map=params_map)
+    print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
+
+
+
+    # ============================================================
+    # Evaluation.
+    # ============================================================
 
     # Use F for pullback!!!
     def fun_L_1_1(eta1, eta2, eta3):
@@ -958,8 +1054,8 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
     # TODO: evaluate splines, push forward
     lim_s = 1
-    num_s_log = 5
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log-1), np.linspace(1e-1, lim_s, 101-num_s_log)))
+    num_s_log = 8
+    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
     # eta1_range = np.linspace(1e-4, lim_s, 101)
     eta2_range = np.linspace(0, 1, 101)
     eta3_range = np.linspace(0, 1, 3)
@@ -1011,13 +1107,20 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
 
 
-    # Analytical.
+    # Positions of element boundaries.
+    el_b_eta1, el_b_eta2, el_b_eta3 = np.meshgrid(TENSOR_SPACE.spaces[0].el_b, TENSOR_SPACE.spaces[1].el_b, TENSOR_SPACE.spaces[2].el_b, indexing='ij', sparse=False)
+    xs = F_x(el_b_eta1, el_b_eta2, el_b_eta3)
+    ys = F_y(el_b_eta1, el_b_eta2, el_b_eta3)
+    zs = F_z(el_b_eta1, el_b_eta2, el_b_eta3)
+    # Position of the pole.
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
     z = F_z(eta1, eta2, eta3)
+    # Analytical evaluation of the trial function.
     orig_func = func_3d(x, y, z)
     orig_curl = curl_3d(x, y, z)
 
@@ -1126,7 +1229,7 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     print(f'Shape of pushed_F_1_polar_F1 : {pushed_F_1_polar_F1.shape}')
     # print(orig_func-pushed_tensor)
 
-    return (x, y, z, x0, y0, z0, 
+    return (x, y, z, x0, y0, z0, xs, ys, zs, 
     orig_func, pushed_F_1_tensor, pushed_F_1_polar_F, pushed_F_1_polar_F1, 
     orig_curl, pushed_F_2_tensor, pushed_F_2_polar_F, pushed_F_2_polar_F1)
 
@@ -1138,6 +1241,12 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     import matplotlib.pyplot as plt
     import struphy.geometry.domain_3d as dom
     import struphy.feec.spline_space as spl
+
+    import os
+    import h5py
+    import tempfile
+    temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
+    print(f'Created temp directory at: {temp_dir.name}')
 
     print('Running test: 2-form and its divergence.')
 
@@ -1194,11 +1303,13 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
     cx_F  = TENSOR_SPACE.projectors.pi_0(F_x)
     cy_F  = TENSOR_SPACE.projectors.pi_0(F_y)
+    cz_F  = TENSOR_SPACE.projectors.pi_0(F_z)
     cx_F1 = TENSOR_SPACE.projectors.pi_0(F1_x)
     cy_F1 = TENSOR_SPACE.projectors.pi_0(F1_y)
 
     cx_F  = TENSOR_SPACE.extract_0(cx_F)
     cy_F  = TENSOR_SPACE.extract_0(cy_F)
+    cz_F  = TENSOR_SPACE.extract_0(cz_F)
     cx_F1 = TENSOR_SPACE.extract_0(cx_F1)
     cy_F1 = TENSOR_SPACE.extract_0(cy_F1)
 
@@ -1219,6 +1330,37 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     print(f'Are PI_0 and interp_mapping equivalent? cx:{np.allclose(cx_F, cx_interp_F)} cy:{np.allclose(cy_F, cy_interp_F)}')
 
 
+
+    # ============================================================
+    # Create numerical spline version of DOMAIN_F.
+    # ============================================================
+
+    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+
+    with h5py.File(spline_coeffs_file, 'w') as handle:
+        handle['cx'] = cx_F
+        handle['cy'] = cy_F
+        handle['cz'] = cz_F
+        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+    params_map = {
+        'file': spline_coeffs_file,
+        'Nel': Nel,
+        'p': p,
+        'spl_kind': spl_kind,
+    }
+
+    DOMAIN_F = dom.Domain('spline', params_map=params_map)
+    print('Computed spline coefficients.')
+
+    temp_dir.cleanup()
+    print('Removed temp directory.')
+
+
+
+    # ============================================================
+    # Evaluation.
+    # ============================================================
 
     # Use F for pullback!!!
     def fun_L_2_1(eta1, eta2, eta3):
@@ -1253,8 +1395,8 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
     # TODO: evaluate splines, push forward
     lim_s = 1
-    num_s_log = 5
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log-1), np.linspace(1e-1, lim_s, 101-num_s_log)))
+    num_s_log = 8
+    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
     # eta1_range = np.linspace(1e-4, lim_s, 101)
     eta2_range = np.linspace(0, 1, 101)
     eta3_range = np.linspace(0, 1, 3)
@@ -1294,13 +1436,20 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
 
 
-    # Analytical.
+    # Positions of element boundaries.
+    el_b_eta1, el_b_eta2, el_b_eta3 = np.meshgrid(TENSOR_SPACE.spaces[0].el_b, TENSOR_SPACE.spaces[1].el_b, TENSOR_SPACE.spaces[2].el_b, indexing='ij', sparse=False)
+    xs = F_x(el_b_eta1, el_b_eta2, el_b_eta3)
+    ys = F_y(el_b_eta1, el_b_eta2, el_b_eta3)
+    zs = F_z(el_b_eta1, el_b_eta2, el_b_eta3)
+    # Position of the pole.
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
     z = F_z(eta1, eta2, eta3)
+    # Analytical evaluation of the trial function.
     orig_func = func_3d(x, y, z)
     orig_div  = div_3d(x, y, z)
 
@@ -1386,7 +1535,7 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     print(f'Shape of pushed_F_2_polar_F1 : {pushed_F_2_polar_F1.shape}')
     # print(orig_func-pushed_tensor)
 
-    return (x, y, z, x0, y0, z0,
+    return (x, y, z, x0, y0, z0, xs, ys, zs, 
     orig_func, pushed_F_2_tensor, pushed_F_2_polar_F, pushed_F_2_polar_F1, 
     orig_div , pushed_F_3_tensor, pushed_F_3_polar_F, pushed_F_3_polar_F1)
 
@@ -1600,10 +1749,37 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
 
 
 
-def plot_wrapper(x, y, z, x0, y0, z0,
+def get_diff(numerical, analytical, diff_type:DiffType=DiffType.RELATIVE):
+
+    if diff_type == DiffType.DIRECT:
+        return numerical - analytical
+    elif diff_type == DiffType.RELATIVE:
+        return (numerical - analytical) / analytical
+    elif diff_type == DiffType.RELATIVEABSOLUTE:
+        return np.abs(numerical - analytical) / np.abs(analytical)
+    elif diff_type == DiffType.ABSOLUTE:
+        return np.abs(numerical - analytical)
+    elif diff_type == DiffType.LOGABSOLUTE:
+        return np.log(np.abs(numerical - analytical))
+    else:
+        raise NotImplementedError(f'Diff type {diff_type.name} not implemented.')
+
+
+def gdr(numerical, analytical):
+    """Alias for get_diff(), computed with relative error."""
+    return get_diff(numerical, analytical, DiffType.RELATIVE)
+
+
+def gdra(numerical, analytical):
+    """Alias for get_diff(), computed with relative absolute error."""
+    return get_diff(numerical, analytical, DiffType.RELATIVEABSOLUTE)
+
+
+
+def plot_wrapper(x, y, z, x0, y0, z0, xs, ys, zs, 
 f_exact, f_ten_F, f_pol_F, f_pol_F1, 
 df_exact, df_ten_F, df_pol_F, df_pol_F1, 
-func_form, Nel, p):
+map_enum, func_enum, form_enum, Nel, p):
 
     import copy
     import numpy as np
@@ -1612,12 +1788,17 @@ func_form, Nel, p):
     plot_handles = []
 
     metadata_base = {
-        'func_form': func_form,
+        'mapping': map_enum,
+        'function': func_enum,
+        'func_form': form_enum,
         'origin': [x0, y0, z0,],
-        'suptitle': 'Compare 3D Polar Splines (LHS: $\hat{f}^1_1$, RHS: $[\\nabla \\times \hat{f}^1]_1 = \hat{f}^2_1$) (Original)',
+        'el_b': [xs, ys, zs,],
+        'axlim': 0.02,
+        'wintitle': f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form (Original)',
+        'suptitle': f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form (Original)',
         'comptype': Comparison.ORIG,
         'anacolor': True, # Use analytical solution to scale plots.
-        'colscale': 2,    # Factor to scale up/down the max/min of the plot's color code.
+        'colscale': 1,    # Factor to scale up/down the max/min of the plot's color code.
         'collevel': 20,   # Number of color levels on a contour plot.
         'unlink': False,  # Set color and z-axis limits individually.
         'lplot': PlotTypeLeft.CONTOUR2D,
@@ -1630,22 +1811,34 @@ func_form, Nel, p):
         'rylabel': '$y$',
         # 'rzlabel': '$\\nabla f(x,y)$',
         # 'rzlabeld': '$\\nabla f(x,y) - \\nabla \hat{f}(x,y)$',
+        'show_el_b': False,
+        'show_pole': True,
+        'show_grid': False,
     }
 
 
 
-    if func_form == FuncForm.ZERO:
+    if form_enum == FuncForm.ZERO:
 
         # LHS: Original 0-form function.
         # RHS: 1-form gradient, only x component, because y is identical and z is zero.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, full range.
+        # Figure 2: Actual value, zoomed.
+        # Figure 3: Relative difference, zoomed.
+        # Figure 4: Pure element boundaries.
+        # Figure 5: Pure plotting grid.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^0$, RHS: $[\hat{\\nabla} \hat{f}^0]_1 = \hat{f}^1_1$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$f(x,y)=\hat{f}^0$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^0]_1$'
+        metadata['colscale'] = 1
+        metadata['axlim'] = 1
+        metadata['lplot'] = PlotTypeLeft.SURFACE
+        metadata['rplot'] = PlotTypeRight.SURFACE
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
+        metadata['show_el_b'] = False
         handle = plot_comparison(metadata, x, y, z, 
          f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
         df_exact[0], df_ten_F[0], df_pol_F[0], df_pol_F1[0])
@@ -1653,57 +1846,81 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^0$, RHS: $[\hat{\\nabla} \hat{f}^0]_1 = \hat{f}^1_1$) (Error)'
-        metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$f(x,y)=\hat{f}^0$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^0]_1$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact   ,   f_ten_F -  f_exact    ,   f_pol_F -  f_exact    ,   f_pol_F1 -  f_exact    , 
-        df_exact[0], (df_ten_F - df_exact)[0], (df_pol_F - df_exact)[0], (df_pol_F1 - df_exact)[0])
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[0], df_ten_F[0], df_pol_F[0], df_pol_F1[0])
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^0$, RHS: $[\hat{\\nabla} \hat{f}^0]_1 = \hat{f}^1_1$) (Absolute Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$f(x,y)=\hat{f}^0$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^0]_1$'
-        metadata['lzlabeld'] = 'Absolute difference from analytical'
-        metadata['rzlabeld'] = 'Absolute difference from analytical'
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact   , np.abs( f_ten_F -  f_exact)   , np.abs( f_pol_F -  f_exact)   , np.abs( f_pol_F1 -  f_exact)   , 
-        df_exact[0], np.abs(df_ten_F - df_exact)[0], np.abs(df_pol_F - df_exact)[0], np.abs(df_pol_F1 - df_exact)[0])
+         f_exact   , gdra( f_ten_F   ,  f_exact   ), gdra( f_pol_F   ,  f_exact   ), gdra( f_pol_F1   ,  f_exact   ), 
+        df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^0$, RHS: $[\hat{\\nabla} \hat{f}^0]_1 = \hat{f}^1_1$) (Log Absolute Error)'
-        metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$f(x,y)=\hat{f}^0$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^0]_1$'
-        metadata['lzlabeld'] = 'Log absolute difference from analytical'
-        metadata['rzlabeld'] = 'Log absolute difference from analytical'
+        metadata['wintitle'] = f'Polar Spline Comparison {map_enum.name} Plotting grid'
+        metadata['suptitle'] = f'Polar Spline Comparison {map_enum.name} Plotting grid'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['colscale'] = 1
+        metadata['axlim'] = 1
+        metadata['lplot'] = PlotTypeLeft.WIREFRAME
+        metadata['rplot'] = PlotTypeRight.SURFACE
+        metadata['lzlabel'] = ''
+        metadata['rzlabel'] = ''
+        metadata['show_el_b'] = False
+        metadata['show_grid'] = True
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact   , np.log(np.abs( f_ten_F -  f_exact))   , np.log(np.abs( f_pol_F -  f_exact))   , np.log(np.abs( f_pol_F1 -  f_exact))   , 
-        df_exact[0], np.log(np.abs(df_ten_F - df_exact))[0], np.log(np.abs(df_pol_F - df_exact))[0], np.log(np.abs(df_pol_F1 - df_exact))[0])
+        np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), 
+        np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), np.zeros_like(x))
+        plot_handles.append(handle)
+
+
+        metadata = copy.deepcopy(metadata_base)
+        metadata['wintitle'] = f'Polar Spline Comparison {map_enum.name} Element boundaries'
+        metadata['suptitle'] = f'Polar Spline Comparison {map_enum.name} Element boundaries'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['colscale'] = 1
+        metadata['axlim'] = 1
+        metadata['lplot'] = PlotTypeLeft.WIREFRAME
+        metadata['rplot'] = PlotTypeRight.SURFACE
+        metadata['lzlabel'] = ''
+        metadata['rzlabel'] = ''
+        metadata['show_el_b'] = True
+        metadata['show_grid'] = False
+        handle = plot_comparison(metadata, xs, ys, zs, 
+        np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), 
+        np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs))
         plot_handles.append(handle)
 
 
 
-    elif func_form == FuncForm.ONE:
+    elif form_enum == FuncForm.ONE:
 
         # LHS: Original 1-form function, only x-component because all directions are identical.
         # RHS: 2-form curl, only z component because x and y are zero.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, zoomed.
+        # Figure 2: Relative difference, zoomed.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_1$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_1 = \hat{f}^2_1$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^1_1$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_1 = \hat{f}^2_1$'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_1$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_1 = \hat{f}^{\,2}_1$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[0],  f_ten_F[0],  f_pol_F[0],  f_pol_F1[0], 
         df_exact[0], df_ten_F[0], df_pol_F[0], df_pol_F1[0])
@@ -1711,23 +1928,25 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_1$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_1 = \hat{f}^2_1$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^1_1$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_1 = \hat{f}^2_1$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_1$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_1 = \hat{f}^{\,2}_1$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[0], ( f_ten_F -  f_exact)[0], ( f_pol_F -  f_exact)[0], ( f_pol_F1 -  f_exact)[0], 
-        df_exact[0], (df_ten_F - df_exact)[0], (df_pol_F - df_exact)[0], (df_pol_F1 - df_exact)[0])
+         f_exact[0], gdra( f_ten_F[0],  f_exact[0]), gdra( f_pol_F[0],  f_exact[0]), gdra( f_pol_F1[0],  f_exact[0]), 
+        df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_2$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_2 = \hat{f}^2_2$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^1_2$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_2 = \hat{f}^2_2$'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_2$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_2 = \hat{f}^{\,2}_2$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[1],  f_ten_F[1],  f_pol_F[1],  f_pol_F1[1], 
         df_exact[1], df_ten_F[1], df_pol_F[1], df_pol_F1[1])
@@ -1735,23 +1954,25 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_2$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_2 = \hat{f}^2_2$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^1_2$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_2 = \hat{f}^2_2$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_2$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_2 = \hat{f}^{\,2}_2$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[1], ( f_ten_F -  f_exact)[1], ( f_pol_F -  f_exact)[1], ( f_pol_F1 -  f_exact)[1], 
-        df_exact[1], (df_ten_F - df_exact)[1], (df_pol_F - df_exact)[1], (df_pol_F1 - df_exact)[1])
+         f_exact[1], gdra( f_ten_F[1],  f_exact[1]), gdra( f_pol_F[1],  f_exact[1]), gdra( f_pol_F1[1],  f_exact[1]), 
+        df_exact[1], gdra(df_ten_F[1], df_exact[1]), gdra(df_pol_F[1], df_exact[1]), gdra(df_pol_F1[1], df_exact[1]))
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_3$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_3 = \hat{f}^2_3$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^1_3$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_3 = \hat{f}^2_3$'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_3$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_3 = \hat{f}^{\,2}_3$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[2],  f_ten_F[2],  f_pol_F[2],  f_pol_F1[2], 
         df_exact[2], df_ten_F[2], df_pol_F[2], df_pol_F1[2])
@@ -1759,31 +1980,33 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^1_3$, RHS: $[\hat{\\nabla} \\times \hat{f}^1]_3 = \hat{f}^2_3$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^1_3$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^1]_3 = \hat{f}^2_3$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,1}_3$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_3 = \hat{f}^{\,2}_3$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[2], ( f_ten_F -  f_exact)[2], ( f_pol_F -  f_exact)[2], ( f_pol_F1 -  f_exact)[2], 
-        df_exact[2], (df_ten_F - df_exact)[2], (df_pol_F - df_exact)[2], (df_pol_F1 - df_exact)[2])
+         f_exact[2], gdra( f_ten_F[2],  f_exact[2]), gdra( f_pol_F[2],  f_exact[2]), gdra( f_pol_F1[2],  f_exact[2]), 
+        df_exact[2], gdra(df_ten_F[2], df_exact[2]), gdra(df_pol_F[2], df_exact[2]), gdra(df_pol_F1[2], df_exact[2]))
         plot_handles.append(handle)
 
 
 
-    elif func_form == FuncForm.TWO:
+    elif form_enum == FuncForm.TWO:
 
         # LHS: Original 2-form function, only x-component because all directions are identical.
         # RHS: 3-form div.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, zoomed.
+        # Figure 2: Relative difference, zoomed.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_1$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^2_1$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_1$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[0],  f_ten_F[0],  f_pol_F[0],  f_pol_F1[0], 
         df_exact   , df_ten_F   , df_pol_F   , df_pol_F1   )
@@ -1791,23 +2014,25 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_1$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff(LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^2_1$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_1$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[0], ( f_ten_F -  f_exact)[0], ( f_pol_F -  f_exact)[0], ( f_pol_F1 -  f_exact)[0], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[0], gdra( f_ten_F[0],  f_exact[0]), gdra( f_pol_F[0],  f_exact[0]), gdra( f_pol_F1[0],  f_exact[0]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_2$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^2_2$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_2$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[1],  f_ten_F[1],  f_pol_F[1],  f_pol_F1[1], 
         df_exact   , df_ten_F   , df_pol_F   , df_pol_F1   )
@@ -1815,23 +2040,25 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_2$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^2_2$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_2$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[1], ( f_ten_F -  f_exact)[1], ( f_pol_F -  f_exact)[1], ( f_pol_F1 -  f_exact)[1], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[1], gdra( f_ten_F[1],  f_exact[1]), gdra( f_pol_F[1],  f_exact[1]), gdra( f_pol_F1[1],  f_exact[1]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
         plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_3$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Original)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
-        metadata['lzlabel'] = '$\hat{f}^2_3$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_3$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
         handle = plot_comparison(metadata, x, y, z, 
          f_exact[2],  f_ten_F[2],  f_pol_F[2],  f_pol_F1[2], 
         df_exact   , df_ten_F   , df_pol_F   , df_pol_F1   )
@@ -1839,22 +2066,23 @@ func_form, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['suptitle'] = 'Compare 3D Polar Splines (LHS: $\hat{f}^2_3$, RHS: $[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$) (Error)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
-        metadata['lzlabel'] = '$\hat{f}^2_3$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^2] = \hat{f}^3$'
-        metadata['lzlabeld'] = 'Difference from analytical'
-        metadata['rzlabeld'] = 'Difference from analytical'
+        metadata['lzlabel'] = '$\hat{f}^{\,2}_3$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
+        metadata['lzlabeld'] = 'Relative difference'
+        metadata['rzlabeld'] = 'Relative difference'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact[2], ( f_ten_F -  f_exact)[2], ( f_pol_F -  f_exact)[2], ( f_pol_F1 -  f_exact)[2], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[2], gdra( f_ten_F[2],  f_exact[2]), gdra( f_pol_F[2],  f_exact[2]), gdra( f_pol_F1[2],  f_exact[2]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
         plot_handles.append(handle)
 
 
 
     else:
 
-        raise NotImplementedError(f'FuncForm {func_form} not recognized.')
+        raise NotImplementedError(f'FuncForm {form_enum.name} not recognized.')
 
 
 
@@ -1871,68 +2099,71 @@ f_exact, f_ten_F, f_pol_F, f_pol_F1,
 df_exact, df_ten_F, df_pol_F, df_pol_F1):
     """Expects 3D input with useless z-component, effectively 2D."""
 
+    print('='*50)
+    print('Started plot_comparison().')
+
     import numpy             as np
     import matplotlib.pyplot as plt
     import matplotlib.tri    as tri
+    import matplotlib.ticker as ticker
 
     func_form = metadata['func_form']
-    origin = metadata['origin']
     levels = metadata['collevel']
-    axlim = 0.01
+    axlim = metadata['axlim']
 
     if metadata['comptype'] == Comparison.ORIG:
         print('Comparison type: Original values.')
-        lmin = np.min([
-            np.min(f_exact),
-            np.min(f_ten_F),
-            np.min(f_pol_F),
-            np.min(f_pol_F1),
+        lmin = np.nanmin([
+            np.nanmin(f_exact),
+            np.nanmin(f_ten_F),
+            np.nanmin(f_pol_F),
+            np.nanmin(f_pol_F1),
         ])
-        lmax = np.max([
-            np.max(f_exact),
-            np.max(f_ten_F),
-            np.max(f_pol_F),
-            np.max(f_pol_F1),
+        lmax = np.nanmax([
+            np.nanmax(f_exact),
+            np.nanmax(f_ten_F),
+            np.nanmax(f_pol_F),
+            np.nanmax(f_pol_F1),
         ])
-        rmin = np.min([
-            np.min(df_exact),
-            np.min(df_ten_F),
-            np.min(df_pol_F),
-            np.min(df_pol_F1),
+        rmin = np.nanmin([
+            np.nanmin(df_exact),
+            np.nanmin(df_ten_F),
+            np.nanmin(df_pol_F),
+            np.nanmin(df_pol_F1),
         ])
-        rmax = np.max([
-            np.max(df_exact),
-            np.max(df_ten_F),
-            np.max(df_pol_F),
-            np.max(df_pol_F1),
+        rmax = np.nanmax([
+            np.nanmax(df_exact),
+            np.nanmax(df_ten_F),
+            np.nanmax(df_pol_F),
+            np.nanmax(df_pol_F1),
         ])
         if metadata['anacolor']:
             print('Scale with analytical solution.')
-            lmin = np.min(f_exact)
-            lmax = np.max(f_exact)
-            rmin = np.min(df_exact)
-            rmax = np.max(df_exact)
+            lmin = np.nanmin(f_exact)
+            lmax = np.nanmax(f_exact)
+            rmin = np.nanmin(df_exact)
+            rmax = np.nanmax(df_exact)
     else:
         print('Comparison type: Errors.')
-        lmin = np.min([
-            np.min(f_ten_F),
-            np.min(f_pol_F),
-            np.min(f_pol_F1),
+        lmin = np.nanmin([
+            np.nanmin(f_ten_F),
+            np.nanmin(f_pol_F),
+            np.nanmin(f_pol_F1),
         ])
-        lmax = np.max([
-            np.max(f_ten_F),
-            np.max(f_pol_F),
-            np.max(f_pol_F1),
+        lmax = np.nanmax([
+            np.nanmax(f_ten_F),
+            np.nanmax(f_pol_F),
+            np.nanmax(f_pol_F1),
         ])
-        rmin = np.min([
-            np.min(df_ten_F),
-            np.min(df_pol_F),
-            np.min(df_pol_F1),
+        rmin = np.nanmin([
+            np.nanmin(df_ten_F),
+            np.nanmin(df_pol_F),
+            np.nanmin(df_pol_F1),
         ])
-        rmax = np.max([
-            np.max(df_ten_F),
-            np.max(df_pol_F),
-            np.max(df_pol_F1),
+        rmax = np.nanmax([
+            np.nanmax(df_ten_F),
+            np.nanmax(df_pol_F),
+            np.nanmax(df_pol_F1),
         ])
 
     # Because np.log(0)!
@@ -1967,6 +2198,13 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         rmin=None
         rmax=None
 
+    # Hardcode relative error:
+    if metadata['comptype'] == Comparison.DIFF:
+        lmin=0
+        lmax=1
+        rmin=0
+        rmax=1
+
     print(f'lmin: {lmin}')
     print(f'lmax: {lmax}')
     print(f'rmin: {rmin}')
@@ -1976,10 +2214,11 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     row = 2
     col = 4
     dpi = 100
+    lbl_size = 12
     width, height = (1920 / dpi, 1200 / dpi)
     fig = plt.figure(figsize=(width,height), dpi=dpi)
     gs  = fig.add_gridspec(row, col, width_ratios=[1,1]*2)
-    fig.canvas.manager.set_window_title(metadata['suptitle'] + '\n')
+    fig.canvas.manager.set_window_title(metadata['wintitle'])
     fig.suptitle(metadata['suptitle'] + '\n', y=0.98)
 
     l_is_3d = metadata['lplot'] in [PlotTypeLeft.CONTOUR3D, PlotTypeLeft.SCATTER, PlotTypeLeft.SURFACE, PlotTypeLeft.WIREFRAME]
@@ -2014,6 +2253,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         ax.yaxis.get_major_locator().set_params(integer=True)
         # ax.zaxis.get_major_locator().set_params(integer=True)
         ax.ticklabel_format(useOffset=False)
+        ax.tick_params(axis='both', which='major', labelsize=lbl_size)
+        # ax.tick_params(axis='both', which='minor', labelsize=lbl_size)
         ax.set_xlabel(metadata['lxlabel'])
         ax.set_ylabel(metadata['lylabel'])
         if l_is_3d:
@@ -2035,6 +2276,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         ax.yaxis.get_major_locator().set_params(integer=True)
         # ax.zaxis.get_major_locator().set_params(integer=True)
         ax.ticklabel_format(useOffset=False)
+        ax.tick_params(axis='both', which='major', labelsize=lbl_size)
+        # ax.tick_params(axis='both', which='minor', labelsize=lbl_size)
         ax.set_xlabel(metadata['rxlabel'])
         ax.set_ylabel(metadata['rylabel'])
         if r_is_3d:
@@ -2073,14 +2316,29 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     # Four original functions on the left.
     # ============================================================
 
+    cmap = plt.cm.get_cmap("viridis").copy()
+    cmap.set_over('white')
+    cmap.set_under('black')
     if metadata['lplot'] in [PlotTypeLeft.CONTOUR2D, PlotTypeLeft.CONTOUR3D]:
         if metadata['comptype'] == Comparison.ORIG:
-            limg1 = lax1.contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+            limg1 = lax1.contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
         else:
-            limg1 = lax1.contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0])
-        limg2 = lax2.contourf(eta1[:,:,0], eta2[:,:,0], f_ten_F[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
-        limg3 = lax3.contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
-        limg4 = lax4.contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F1[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+            limg1 = lax1.contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(np.nanmin(f_exact[:,:,0]),np.nanmax(f_exact[:,:,0]),levels), vmin=np.nanmin(f_exact[:,:,0]), vmax=np.nanmax(f_exact[:,:,0]))
+        limg2 = lax2.contourf(eta1[:,:,0], eta2[:,:,0], f_ten_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+        limg3 = lax3.contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+        limg4 = lax4.contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F1[:,:,0], cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+        # limg1.cmap.set_over('white')
+        # limg2.cmap.set_over('white')
+        # limg3.cmap.set_over('white')
+        # limg4.cmap.set_over('white')
+        # limg1.cmap.set_under('black')
+        # limg2.cmap.set_under('black')
+        # limg3.cmap.set_under('black')
+        # limg4.cmap.set_under('black')
+        # limg1.changed()
+        # limg2.changed()
+        # limg3.changed()
+        # limg4.changed()
     elif metadata['lplot'] == PlotTypeLeft.SURFACE:
         limg1 = lax1.plot_surface(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], vmin=lmin, vmax=lmax, cmap=plt.cm.viridis)
         limg2 = lax2.plot_surface(eta1[:,:,0], eta2[:,:,0], f_ten_F[:,:,0], vmin=lmin, vmax=lmax, cmap=plt.cm.viridis)
@@ -2105,25 +2363,27 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
 
+    l_is_contour = metadata['lplot'] in [PlotTypeLeft.CONTOUR2D, PlotTypeLeft.CONTOUR3D]
     if metadata['lplot'] != PlotTypeLeft.WIREFRAME:
         if metadata['comptype'] == Comparison.ORIG:
-            lcbar1 = fig.colorbar(limg1, ax=lax1, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabel'])
-            lcbar2 = fig.colorbar(limg2, ax=lax2, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabel'])
-            lcbar3 = fig.colorbar(limg3, ax=lax3, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabel'])
-            lcbar4 = fig.colorbar(limg4, ax=lax4, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabel'])
+            lcbar1 = fig.colorbar(limg1, ax=lax1, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+            lcbar2 = fig.colorbar(limg2, ax=lax2, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+            lcbar3 = fig.colorbar(limg3, ax=lax3, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+            lcbar4 = fig.colorbar(limg4, ax=lax4, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
         else:
-            lcbar1 = fig.colorbar(limg1, ax=lax1, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabel'])
-            lcbar2 = fig.colorbar(limg2, ax=lax2, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabeld'])
-            lcbar3 = fig.colorbar(limg3, ax=lax3, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabeld'])
-            lcbar4 = fig.colorbar(limg4, ax=lax4, shrink=0.9, pad=0.15, location='bottom', label=metadata['lzlabeld'])
-        lcbar1.ax.locator_params(nbins=5)
-        lcbar2.ax.locator_params(nbins=5)
-        lcbar3.ax.locator_params(nbins=5)
-        lcbar4.ax.locator_params(nbins=5)
+            lcbar1 = fig.colorbar(limg1, ax=lax1, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+            lcbar2 = fig.colorbar(limg2, ax=lax2, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabeld'])
+            lcbar3 = fig.colorbar(limg3, ax=lax3, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabeld'])
+            lcbar4 = fig.colorbar(limg4, ax=lax4, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabeld'])
 
     limgs = [limg1, limg2, limg3, limg4]
     if metadata['lplot'] != PlotTypeLeft.WIREFRAME:
         lcbars = [lcbar1, lcbar2, lcbar3, lcbar4]
+        for cbar in lcbars:
+            # cbar.ax.locator_params(nbins=3)
+            cbar.ax.tick_params(labelsize=lbl_size)
+            cbar.locator = ticker.LinearLocator(5)
+            cbar.update_ticks()
     else:
         lcbars = None
 
@@ -2159,7 +2419,7 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
     else:
 
-        raise NotImplementedError(f'FuncForm {func_form} not recognized.')
+        raise NotImplementedError(f'FuncForm {func_form.name} not recognized.')
 
     # df_mag = np.sqrt(df_ten_F[0]**2 + df_ten_F[1]**2 + df_ten_F[2]**2)
     print('df_mag.shape', df_mag.shape)
@@ -2181,14 +2441,29 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
 
+    cmap = plt.cm.get_cmap("viridis").copy()
+    cmap.set_over('white')
+    cmap.set_under('black')
     if metadata['rplot'] in [PlotTypeRight.CONTOUR2D, PlotTypeRight.CONTOUR3D]:
         if metadata['comptype'] == Comparison.ORIG:
-            rimg1 = rax1.contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+            rimg1 = rax1.contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
         else:
-            rimg1 = rax1.contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0])
-        rimg2 = rax2.contourf(eta1[:,:,0], eta2[:,:,0], df_ten_F[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
-        rimg3 = rax3.contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
-        rimg4 = rax4.contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F1[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+            rimg1 = rax1.contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(np.nanmin(df_exact[:,:,0]),np.nanmax(df_exact[:,:,0]),levels), vmin=np.nanmin(df_exact[:,:,0]), vmax=np.nanmax(df_exact[:,:,0]))
+        rimg2 = rax2.contourf(eta1[:,:,0], eta2[:,:,0], df_ten_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+        rimg3 = rax3.contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+        rimg4 = rax4.contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F1[:,:,0], cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+        # rimg1.cmap.set_over('white')
+        # rimg2.cmap.set_over('white')
+        # rimg3.cmap.set_over('white')
+        # rimg4.cmap.set_over('white')
+        # rimg1.cmap.set_under('black')
+        # rimg2.cmap.set_under('black')
+        # rimg3.cmap.set_under('black')
+        # rimg4.cmap.set_under('black')
+        # rimg1.changed()
+        # rimg2.changed()
+        # rimg3.changed()
+        # rimg4.changed()
     elif metadata['rplot'] == PlotTypeRight.SURFACE:
         rimg1 = rax1.plot_surface(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], vmin=rmin, vmax=rmax, cmap=plt.cm.viridis)
         rimg2 = rax2.plot_surface(eta1[:,:,0], eta2[:,:,0], df_ten_F[:,:,0], vmin=rmin, vmax=rmax, cmap=plt.cm.viridis)
@@ -2227,45 +2502,88 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
 
+    r_is_contour = metadata['rplot'] in [PlotTypeRight.CONTOUR2D, PlotTypeRight.CONTOUR3D]
     if metadata['comptype'] == Comparison.ORIG:
-        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabel'])
-        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabel'])
-        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabel'])
-        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabel'])
+        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
     else:
-        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabel'])
-        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabeld'])
-        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabeld'])
-        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', label=metadata['rzlabeld'])
-    rcbar1.ax.locator_params(nbins=5)
-    rcbar2.ax.locator_params(nbins=5)
-    rcbar3.ax.locator_params(nbins=5)
-    rcbar4.ax.locator_params(nbins=5)
+        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
 
     rimgs = [rimg1, rimg2, rimg3, rimg4]
     rcbars = [rcbar1, rcbar2, rcbar3, rcbar4]
+    for cbar in rcbars:
+        # cbar.ax.locator_params(nbins=3)
+        cbar.ax.tick_params(labelsize=lbl_size)
+        cbar.locator = ticker.LinearLocator(5)
+        cbar.update_ticks()
 
 
 
     # Mark position on mapping pole.
+    show_el_b = metadata['show_el_b']
+    show_pole = metadata['show_pole']
+    show_grid = metadata['show_grid']
+    origin = metadata['origin']
+    el_b = metadata['el_b']
     lpoles = []
+    lgrids = []
+    lel_bs = []
     for idx, ax in enumerate(laxes):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        pole = None
+        grid = None
+        spce = None
         if l_is_3d:
-            pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
         else:
-            pole = ax.scatter(origin[0], origin[1], 100,       marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                grid = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                spce = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+        # `None` is appended regardless, to ensure `zip()` works on plot update.
         lpoles.append(pole)
+        lgrids.append(grid)
+        lel_bs.append(spce)
     rpoles = []
+    rgrids = []
+    rel_bs = []
     for idx, ax in enumerate(raxes):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        pole = None
+        grid = None
+        spce = None
         if r_is_3d:
-            pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
         else:
-            pole = ax.scatter(origin[0], origin[1], 100,       marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                grid = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                spce = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+        # `None` is appended regardless, to ensure `zip()` works on plot update.
         rpoles.append(pole)
+        rgrids.append(grid)
+        rel_bs.append(spce)
 
 
 
@@ -2279,6 +2597,11 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     fig.subplots_adjust(hspace=fig.subplotpars.hspace * 1.2, wspace=fig.subplotpars.wspace * .9)
     # print('After `subplots_adjust()` | hspace: {}; wspace: {}.'.format(fig.subplotpars.hspace, fig.subplotpars.wspace))
 
+
+
+    print('Completed plot_comparison().')
+    print('='*50)
+
     return {
         'fig': fig,
         'laxes': laxes,
@@ -2289,12 +2612,16 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         'rcbars': rcbars,
         'lpoles': lpoles,
         'rpoles': rpoles,
+        'lgrids': lgrids,
+        'rgrids': rgrids,
+        'lel_bs': lel_bs,
+        'rel_bs': rel_bs,
         'metadata': metadata,
     }
 
 
 
-def plot_updater(plot_handles, x, y, z, x0, y0, z0, 
+def plot_updater(plot_handles, x, y, z, x0, y0, z0, xs, ys, zs, 
 f_exact, f_ten_F, f_pol_F, f_pol_F1, 
 df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
@@ -2305,12 +2632,21 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     metadata = plot_handles[0]['metadata']
     func_form = metadata['func_form']
 
+    # Update metadata.
+    for plot in plot_handles:
+        if 'metadata' in plot:
+            plot['metadata']['origin'] = [x0, y0, z0,]
+            plot['metadata']['el_b'] = [xs, ys, zs,]
+
     if func_form == FuncForm.ZERO:
 
         # LHS: Original 0-form function.
         # RHS: 1-form gradient, only x component, because y is identical and z is zero.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, full range.
+        # Figure 2: Actual value, zoomed.
+        # Figure 3: Relative difference, zoomed.
+        # Figure 4: Pure element boundaries.
+        # Figure 5: Pure plotting grid.
 
         handle = plot_handles[0]
         plot_update(handle, x, y, z, 
@@ -2319,18 +2655,23 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[1]
         plot_update(handle, x, y, z, 
-         f_exact   ,   f_ten_F -  f_exact    ,   f_pol_F -  f_exact    ,   f_pol_F1 -  f_exact    , 
-        df_exact[0], (df_ten_F - df_exact)[0], (df_pol_F - df_exact)[0], (df_pol_F1 - df_exact)[0])
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[0], df_ten_F[0], df_pol_F[0], df_pol_F1[0])
 
         handle = plot_handles[2]
         plot_update(handle, x, y, z, 
-         f_exact   , np.abs( f_ten_F -  f_exact)   , np.abs( f_pol_F -  f_exact)   , np.abs( f_pol_F1 -  f_exact)   , 
-        df_exact[0], np.abs(df_ten_F - df_exact)[0], np.abs(df_pol_F - df_exact)[0], np.abs(df_pol_F1 - df_exact)[0])
+         f_exact   , gdra( f_ten_F   ,  f_exact   ), gdra( f_pol_F   ,  f_exact   ), gdra( f_pol_F1   ,  f_exact   ), 
+        df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
 
         handle = plot_handles[3]
         plot_update(handle, x, y, z, 
-         f_exact   , np.log(np.abs( f_ten_F -  f_exact))   , np.log(np.abs( f_pol_F -  f_exact))   , np.log(np.abs( f_pol_F1 -  f_exact))   , 
-        df_exact[0], np.log(np.abs(df_ten_F - df_exact))[0], np.log(np.abs(df_pol_F - df_exact))[0], np.log(np.abs(df_pol_F1 - df_exact))[0])
+        np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), 
+        np.zeros_like(x), np.zeros_like(x), np.zeros_like(x), np.zeros_like(x))
+
+        handle = plot_handles[4]
+        plot_update(handle, xs, ys, zs, 
+        np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), 
+        np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs), np.zeros_like(xs))
 
 
 
@@ -2338,8 +2679,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         # LHS: Original 1-form function, only x-component because all directions are identical.
         # RHS: 2-form curl, only z component because x and y are zero.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, zoomed.
+        # Figure 2: Relative difference, zoomed.
 
         handle = plot_handles[0]
         plot_update(handle, x, y, z, 
@@ -2348,8 +2689,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[1]
         plot_update(handle, x, y, z, 
-         f_exact[0], ( f_ten_F -  f_exact)[0], ( f_pol_F -  f_exact)[0], ( f_pol_F1 -  f_exact)[0], 
-        df_exact[0], (df_ten_F - df_exact)[0], (df_pol_F - df_exact)[0], (df_pol_F1 - df_exact)[0])
+         f_exact[0], gdra( f_ten_F[0],  f_exact[0]), gdra( f_pol_F[0],  f_exact[0]), gdra( f_pol_F1[0],  f_exact[0]), 
+        df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
 
         handle = plot_handles[2]
         plot_update(handle, x, y, z, 
@@ -2358,8 +2699,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[3]
         plot_update(handle, x, y, z, 
-         f_exact[1], ( f_ten_F -  f_exact)[1], ( f_pol_F -  f_exact)[1], ( f_pol_F1 -  f_exact)[1], 
-        df_exact[1], (df_ten_F - df_exact)[1], (df_pol_F - df_exact)[1], (df_pol_F1 - df_exact)[1])
+         f_exact[1], gdra( f_ten_F[1],  f_exact[1]), gdra( f_pol_F[1],  f_exact[1]), gdra( f_pol_F1[1],  f_exact[1]), 
+        df_exact[1], gdra(df_ten_F[1], df_exact[1]), gdra(df_pol_F[1], df_exact[1]), gdra(df_pol_F1[1], df_exact[1]))
 
         handle = plot_handles[4]
         plot_update(handle, x, y, z, 
@@ -2368,8 +2709,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[5]
         plot_update(handle, x, y, z, 
-         f_exact[2], ( f_ten_F -  f_exact)[2], ( f_pol_F -  f_exact)[2], ( f_pol_F1 -  f_exact)[2], 
-        df_exact[2], (df_ten_F - df_exact)[2], (df_pol_F - df_exact)[2], (df_pol_F1 - df_exact)[2])
+         f_exact[2], gdra( f_ten_F[2],  f_exact[2]), gdra( f_pol_F[2],  f_exact[2]), gdra( f_pol_F1[2],  f_exact[2]), 
+        df_exact[2], gdra(df_ten_F[2], df_exact[2]), gdra(df_pol_F[2], df_exact[2]), gdra(df_pol_F1[2], df_exact[2]))
 
 
 
@@ -2377,8 +2718,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         # LHS: Original 2-form function, only x-component because all directions are identical.
         # RHS: 3-form div.
-        # Figure 1: Actual value.
-        # Figure 2: Difference.
+        # Figure 1: Actual value, zoomed.
+        # Figure 2: Relative difference, zoomed.
 
         handle = plot_handles[0]
         plot_update(handle, x, y, z, 
@@ -2387,8 +2728,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[1]
         plot_update(handle, x, y, z, 
-         f_exact[0], ( f_ten_F -  f_exact)[0], ( f_pol_F -  f_exact)[0], ( f_pol_F1 -  f_exact)[0], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[0], gdra( f_ten_F[0],  f_exact[0]), gdra( f_pol_F[0],  f_exact[0]), gdra( f_pol_F1[0],  f_exact[0]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
 
         handle = plot_handles[2]
         plot_update(handle, x, y, z, 
@@ -2397,8 +2738,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[3]
         plot_update(handle, x, y, z, 
-         f_exact[1], ( f_ten_F -  f_exact)[1], ( f_pol_F -  f_exact)[1], ( f_pol_F1 -  f_exact)[1], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[1], gdra( f_ten_F[1],  f_exact[1]), gdra( f_pol_F[1],  f_exact[1]), gdra( f_pol_F1[1],  f_exact[1]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
 
         handle = plot_handles[4]
         plot_update(handle, x, y, z, 
@@ -2407,14 +2748,14 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
         handle = plot_handles[5]
         plot_update(handle, x, y, z, 
-         f_exact[2], ( f_ten_F -  f_exact)[2], ( f_pol_F -  f_exact)[2], ( f_pol_F1 -  f_exact)[2], 
-        df_exact   , (df_ten_F - df_exact)   , (df_pol_F - df_exact)   , (df_pol_F1 - df_exact)   )
+         f_exact[2], gdra( f_ten_F[2],  f_exact[2]), gdra( f_pol_F[2],  f_exact[2]), gdra( f_pol_F1[2],  f_exact[2]), 
+        df_exact   , gdra(df_ten_F   , df_exact   ), gdra(df_pol_F   , df_exact   ), gdra(df_pol_F1   , df_exact   ))
 
 
 
     else:
 
-        raise NotImplementedError(f'FuncForm {func_form} not recognized.')
+        raise NotImplementedError(f'FuncForm {func_form.name} not recognized.')
 
 
 
@@ -2426,9 +2767,13 @@ def plot_update(handle, eta1, eta2, eta3,
 f_exact, f_ten_F, f_pol_F, f_pol_F1, 
 df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
+    print('='*50)
+    print('Started plot_update().')
+
     import numpy             as np
     import matplotlib.pyplot as plt
     import matplotlib.tri    as tri
+    import matplotlib.ticker as ticker
 
     # `handle` is a dict that looks like this:
     # handle == {
@@ -2450,11 +2795,15 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     rcbars = handle['rcbars']
     lpoles = handle['lpoles']
     rpoles = handle['rpoles']
+    lgrids = handle['lgrids']
+    rgrids = handle['rgrids']
+    lel_bs = handle['lel_bs']
+    rel_bs = handle['rel_bs']
     metadata = handle['metadata']
     func_form = metadata['func_form']
-    origin = metadata['origin']
     levels = metadata['collevel']
-    axlim = 0.01
+    axlim = metadata['axlim']
+    lbl_size = 12
 
     print(f'Updating plot {metadata["suptitle"]}')
 
@@ -2463,57 +2812,57 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
     if metadata['comptype'] == Comparison.ORIG:
         print('Comparison type: Original values.')
-        lmin = np.min([
-            np.min(f_exact),
-            np.min(f_ten_F),
-            np.min(f_pol_F),
-            np.min(f_pol_F1),
+        lmin = np.nanmin([
+            np.nanmin(f_exact),
+            np.nanmin(f_ten_F),
+            np.nanmin(f_pol_F),
+            np.nanmin(f_pol_F1),
         ])
-        lmax = np.max([
-            np.max(f_exact),
-            np.max(f_ten_F),
-            np.max(f_pol_F),
-            np.max(f_pol_F1),
+        lmax = np.nanmax([
+            np.nanmax(f_exact),
+            np.nanmax(f_ten_F),
+            np.nanmax(f_pol_F),
+            np.nanmax(f_pol_F1),
         ])
-        rmin = np.min([
-            np.min(df_exact),
-            np.min(df_ten_F),
-            np.min(df_pol_F),
-            np.min(df_pol_F1),
+        rmin = np.nanmin([
+            np.nanmin(df_exact),
+            np.nanmin(df_ten_F),
+            np.nanmin(df_pol_F),
+            np.nanmin(df_pol_F1),
         ])
-        rmax = np.max([
-            np.max(df_exact),
-            np.max(df_ten_F),
-            np.max(df_pol_F),
-            np.max(df_pol_F1),
+        rmax = np.nanmax([
+            np.nanmax(df_exact),
+            np.nanmax(df_ten_F),
+            np.nanmax(df_pol_F),
+            np.nanmax(df_pol_F1),
         ])
         if metadata['anacolor']:
             print('Scale with analytical solution.')
-            lmin = np.min(f_exact)
-            lmax = np.max(f_exact)
-            rmin = np.min(df_exact)
-            rmax = np.max(df_exact)
+            lmin = np.nanmin(f_exact)
+            lmax = np.nanmax(f_exact)
+            rmin = np.nanmin(df_exact)
+            rmax = np.nanmax(df_exact)
     else:
         print('Comparison type: Errors.')
-        lmin = np.min([
-            np.min(f_ten_F),
-            np.min(f_pol_F),
-            np.min(f_pol_F1),
+        lmin = np.nanmin([
+            np.nanmin(f_ten_F),
+            np.nanmin(f_pol_F),
+            np.nanmin(f_pol_F1),
         ])
-        lmax = np.max([
-            np.max(f_ten_F),
-            np.max(f_pol_F),
-            np.max(f_pol_F1),
+        lmax = np.nanmax([
+            np.nanmax(f_ten_F),
+            np.nanmax(f_pol_F),
+            np.nanmax(f_pol_F1),
         ])
-        rmin = np.min([
-            np.min(df_ten_F),
-            np.min(df_pol_F),
-            np.min(df_pol_F1),
+        rmin = np.nanmin([
+            np.nanmin(df_ten_F),
+            np.nanmin(df_pol_F),
+            np.nanmin(df_pol_F1),
         ])
-        rmax = np.max([
-            np.max(df_ten_F),
-            np.max(df_pol_F),
-            np.max(df_pol_F1),
+        rmax = np.nanmax([
+            np.nanmax(df_ten_F),
+            np.nanmax(df_pol_F),
+            np.nanmax(df_pol_F1),
         ])
 
     if metadata['colscale'] != 1:
@@ -2534,6 +2883,13 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         rmin=None
         rmax=None
 
+    # Hardcode relative error:
+    if metadata['comptype'] == Comparison.DIFF:
+        lmin=0
+        lmax=1
+        rmin=0
+        rmax=1
+
     print(f'lmin: {lmin}')
     print(f'lmax: {lmax}')
     print(f'rmin: {rmin}')
@@ -2548,21 +2904,36 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     # Four original functions on the left.
     # ============================================================
 
+    cmap = plt.cm.get_cmap("viridis").copy()
+    cmap.set_over('white')
+    cmap.set_under('black')
     if metadata['lplot'] in [PlotTypeLeft.CONTOUR2D, PlotTypeLeft.CONTOUR3D]:
         for img in limgs:
             for c in img.collections:
                 c.remove() # Remove only the contours, leave the rest intact.
         if metadata['comptype'] == Comparison.ORIG:
-            limgs[0] = laxes[0].contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+            limgs[0] = laxes[0].contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
             limgs[0].set_clim(lmin, lmax)
         else:
-            limgs[0] = laxes[0].contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0])
-        limgs[1] = laxes[1].contourf(eta1[:,:,0], eta2[:,:,0], f_ten_F[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
-        limgs[2] = laxes[2].contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
-        limgs[3] = laxes[3].contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F1[:,:,0], levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+            limgs[0] = laxes[0].contourf(eta1[:,:,0], eta2[:,:,0], f_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(np.nanmin(f_exact[:,:,0]),np.nanmax(f_exact[:,:,0]),levels), vmin=np.nanmin(f_exact[:,:,0]), vmax=np.nanmax(f_exact[:,:,0]))
+        limgs[1] = laxes[1].contourf(eta1[:,:,0], eta2[:,:,0], f_ten_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+        limgs[2] = laxes[2].contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
+        limgs[3] = laxes[3].contourf(eta1[:,:,0], eta2[:,:,0], f_pol_F1[:,:,0], cmap=cmap, extend='both', levels=np.linspace(lmin,lmax,levels), vmin=lmin, vmax=lmax)
         limgs[1].set_clim(lmin, lmax)
         limgs[2].set_clim(lmin, lmax)
         limgs[3].set_clim(lmin, lmax)
+        # limgs[0].cmap.set_over('white')
+        # limgs[1].cmap.set_over('white')
+        # limgs[2].cmap.set_over('white')
+        # limgs[3].cmap.set_over('white')
+        # limgs[0].cmap.set_under('black')
+        # limgs[1].cmap.set_under('black')
+        # limgs[2].cmap.set_under('black')
+        # limgs[3].cmap.set_under('black')
+        # limgs[0].changed()
+        # limgs[1].changed()
+        # limgs[2].changed()
+        # limgs[3].changed()
     elif metadata['lplot'] == PlotTypeLeft.SURFACE:
         # for img in limgs:
         #     img.remove()
@@ -2599,12 +2970,31 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
     # TODO: Bug: Colorbar only updates with scatter plot but not the others (surface, contourf).
+    l_is_contour = metadata['lplot'] in [PlotTypeLeft.CONTOUR2D, PlotTypeLeft.CONTOUR3D]
     if metadata['lplot'] != PlotTypeLeft.WIREFRAME:
         try:
-            lcbars[0].update_normal(limgs[0])
-            lcbars[1].update_normal(limgs[1])
-            lcbars[2].update_normal(limgs[2])
-            lcbars[3].update_normal(limgs[3])
+            for i in range(4):
+                # lcbars[i].set_clim(lmin, lmax)
+                # limgs[i].colorbar = lcbars[i]
+                # limgs[i].colorbar_cid = limgs[i].callbacks.connect('changed', lcbars[i].update_normal)
+                # limgs[i].changed()
+                # lcbars[i].update_normal(limgs[i])
+                # lcbars[i].update_ticks()
+                # lcbars[i].draw_all()
+                lcbars[i].remove()
+                if metadata['comptype'] == Comparison.ORIG:
+                    lcbars[i] = fig.colorbar(limgs[i], ax=laxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+                else:
+                    if i == 0:
+                        lcbars[i] = fig.colorbar(limgs[i], ax=laxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
+                    else:
+                        lcbars[i] = fig.colorbar(limgs[i], ax=laxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabeld'])
+            for cbar in lcbars:
+                # cbar.ax.locator_params(nbins=3)
+                cbar.ax.tick_params(labelsize=lbl_size)
+                cbar.locator = ticker.LinearLocator(5)
+                cbar.update_ticks()
+
         except Exception as e:
             print(e)
 
@@ -2640,7 +3030,7 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
     else:
 
-        raise NotImplementedError(f'FuncForm {func_form} not recognized.')
+        raise NotImplementedError(f'FuncForm {func_form.name} not recognized.')
 
     # df_mag = np.sqrt(df_ten_F[0]**2 + df_ten_F[1]**2 + df_ten_F[2]**2)
     print('df_mag.shape', df_mag.shape)
@@ -2662,21 +3052,36 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
 
+    cmap = plt.cm.get_cmap("viridis").copy()
+    cmap.set_over('white')
+    cmap.set_under('black')
     if metadata['rplot'] in [PlotTypeRight.CONTOUR2D, PlotTypeRight.CONTOUR3D]:
         for img in rimgs:
             for c in img.collections:
                 c.remove() # Remove only the contours, leave the rest intact.
         if metadata['comptype'] == Comparison.ORIG:
-            rimgs[0] = raxes[0].contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+            rimgs[0] = raxes[0].contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
             rimgs[0].set_clim(rmin, rmax)
         else:
-            rimgs[0] = raxes[0].contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0])
-        rimgs[1] = raxes[1].contourf(eta1[:,:,0], eta2[:,:,0], df_ten_F[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
-        rimgs[2] = raxes[2].contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
-        rimgs[3] = raxes[3].contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F1[:,:,0], levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+            rimgs[0] = raxes[0].contourf(eta1[:,:,0], eta2[:,:,0], df_exact[:,:,0], cmap=cmap, extend='both', levels=np.linspace(np.nanmin(df_exact[:,:,0]),np.nanmax(df_exact[:,:,0]),levels), vmin=np.nanmin(df_exact[:,:,0]), vmax=np.nanmax(df_exact[:,:,0]))
+        rimgs[1] = raxes[1].contourf(eta1[:,:,0], eta2[:,:,0], df_ten_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+        rimgs[2] = raxes[2].contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F[:,:,0],  cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
+        rimgs[3] = raxes[3].contourf(eta1[:,:,0], eta2[:,:,0], df_pol_F1[:,:,0], cmap=cmap, extend='both', levels=np.linspace(rmin,rmax,levels), vmin=rmin, vmax=rmax)
         rimgs[1].set_clim(rmin, rmax)
         rimgs[2].set_clim(rmin, rmax)
         rimgs[3].set_clim(rmin, rmax)
+        # rimgs[0].cmap.set_over('white')
+        # rimgs[1].cmap.set_over('white')
+        # rimgs[2].cmap.set_over('white')
+        # rimgs[3].cmap.set_over('white')
+        # rimgs[0].cmap.set_under('black')
+        # rimgs[1].cmap.set_under('black')
+        # rimgs[2].cmap.set_under('black')
+        # rimgs[3].cmap.set_under('black')
+        # rimgs[0].changed()
+        # rimgs[1].changed()
+        # rimgs[2].changed()
+        # rimgs[3].changed()
     elif metadata['rplot'] == PlotTypeRight.SURFACE:
         # for img in rimgs:
         #     img.remove()
@@ -2724,33 +3129,104 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
 
     # TODO: Bug: Colorbar only updates with scatter plot but not the others (surface, contourf).
+    r_is_contour = metadata['rplot'] in [PlotTypeRight.CONTOUR2D, PlotTypeRight.CONTOUR3D]
     try:
-        rcbars[0].update_normal(rimgs[0])
-        rcbars[1].update_normal(rimgs[1])
-        rcbars[2].update_normal(rimgs[2])
-        rcbars[3].update_normal(rimgs[3])
+        for i in range(4):
+            # rcbars[i].set_clim(rmin, rmax)
+            # rimgs[i].colorbar = rcbars[i]
+            # rimgs[i].colorbar_cid = rimgs[i].callbacks.connect('changed', rcbars[i].update_normal)
+            # rimgs[i].changed()
+            # rcbars[i].update_normal(rimgs[i])
+            # rcbars[i].update_ticks()
+            # rcbars[i].draw_all()
+            rcbars[i].remove()
+            if metadata['comptype'] == Comparison.ORIG:
+                rcbars[i] = fig.colorbar(rimgs[i], ax=raxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+            else:
+                if i == 0:
+                    rcbars[i] = fig.colorbar(rimgs[i], ax=raxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+                else:
+                    rcbars[i] = fig.colorbar(rimgs[i], ax=raxes[i], shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+        for cbar in rcbars:
+            # cbar.ax.locator_params(nbins=3)
+            cbar.ax.tick_params(labelsize=lbl_size)
+            cbar.locator = ticker.LinearLocator(5)
+            cbar.update_ticks()
+
     except Exception as e:
         print(e)
 
 
 
     # Mark position on mapping pole.
-    for idx, (ax, pole) in enumerate(zip(laxes, lpoles)):
-        ax.collections.remove(pole)
+    show_el_b = metadata['show_el_b']
+    show_pole = metadata['show_pole']
+    show_grid = metadata['show_grid']
+    origin = metadata['origin']
+    el_b = metadata['el_b']
+    print('='*20)
+    print(f'l_is_3d? {l_is_3d} {metadata["lplot"]} {metadata["lplot"].name}')
+    print(f'r_is_3d? {r_is_3d} {metadata["rplot"]} {metadata["rplot"].name}')
+    print(f'show_el_b? {show_el_b}')
+    print(f'show_pole? {show_pole}')
+    print(f'show_grid? {show_grid}')
+    print(f'Updated el_b[0].shape {el_b[0].shape}')
+    print(f'Updated el_b[1].shape {el_b[1].shape}')
+    print(f'Updated el_b[2].shape {el_b[2].shape}')
+    print(f'Lengths of L items: {len(laxes)} {len(lpoles)} {len(lgrids)} {len(lel_bs)}')
+    print(f'Lengths of R items: {len(raxes)} {len(rpoles)} {len(rgrids)} {len(rel_bs)}')
+
+    for idx, (ax, pole, grid, spce) in enumerate(zip(laxes, lpoles, lgrids, lel_bs)):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
         if l_is_3d:
-            lpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                ax.collections.remove(pole)
+                lpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                ax.collections.remove(grid)
+                lgrids[idx] = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                ax.collections.remove(spce)
+                lel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+                # print(f'type(lel_bs[idx]) {type(lel_bs[idx])}')
+                # lel_bs[idx]._offsets3d = (  el_b[0],   el_b[1],   el_b[2])
         else:
-            lpoles[idx] = ax.scatter(origin[0], origin[1], 100,       marker='o', edgecolors='red', facecolors='none', label='Pole')
-    for idx, (ax, pole) in enumerate(zip(raxes, rpoles)):
-        ax.collections.remove(pole)
+            if show_pole:
+                ax.collections.remove(pole)
+                lpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                ax.collections.remove(grid)
+                lgrids[idx] = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                ax.collections.remove(spce)
+                lel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+
+    for idx, (ax, pole, grid, spce) in enumerate(zip(raxes, rpoles, rgrids, rel_bs)):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
         if r_is_3d:
-            rpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                ax.collections.remove(pole)
+                rpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                ax.collections.remove(grid)
+                rgrids[idx] = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                ax.collections.remove(spce)
+                rel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+                # print(f'type(rel_bs[idx]) {type(rel_bs[idx])}')
+                # rel_bs[idx]._offsets3d = (  el_b[0],   el_b[1],   el_b[2])
         else:
-            rpoles[idx] = ax.scatter(origin[0], origin[1], 100,       marker='o', edgecolors='red', facecolors='none', label='Pole')
+            if show_pole:
+                ax.collections.remove(pole)
+                rpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+            if show_grid:
+                ax.collections.remove(grid)
+                rgrids[idx] = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
+            if show_el_b:
+                ax.collections.remove(spce)
+                rel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
 
 
 
@@ -2758,6 +3234,9 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     # fig.canvas.flush_events()
 
     fig.canvas.draw_idle()
+
+    print('Completed plot_update().')
+    print('='*50)
 
 
 
@@ -3088,7 +3567,7 @@ def plot_controls(case, case_args, func_test, func_form, plot_handles):
 
     else:
 
-        raise NotImplementedError(f'Test case {func_test} not implemented.')
+        raise NotImplementedError(f'Test case {func_test.name} not implemented.')
 
 
 
@@ -3197,14 +3676,26 @@ def update_fig_suptitle(plot_handles, Nel, p):
         title_x3 = title_x2 + f'\nNel: {Nel}   p: {p}'
         print(f'Original suptitle: {title_x1}')
         print(f'First line of suptitle: {title_x2}')
-        fig.canvas.manager.set_window_title(title_x3)
+        # fig.canvas.manager.set_window_title(title_x3)
         fig.suptitle(title_x3, y=0.98)
         print(f'Updated suptitle: {title_x3}')
 
 
 
 if __name__ == "__main__":
-    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED, plot_0form=True, plot_1form=False, plot_2form=False)
+
+    # # Go through all trial functions.
+    # for func_test in FuncTest:
+    #     test_polar_splines_3D(func_test=func_test, map_type=MapType.CIRCLEIDENTICAL, plot_0form=True, plot_1form=False, plot_2form=False)
+
+    # Go through all domain maps, focusing on the 3rd component of curled 1-form, and divergence of 2-form.
+    # for map_type in MapType:
+    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, plot_0form=False, plot_1form=True, plot_2form=False)
+    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, plot_0form=False, plot_1form=False, plot_2form=True)
+
+    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=True, plot_1form=False, plot_2form=False)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=True, plot_2form=False)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=False, plot_2form=True)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED, plot_0form=False, plot_1form=True, plot_2form=False)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=False, plot_2form=True)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED, plot_0form=False, plot_1form=False, plot_2form=True)
@@ -3212,5 +3703,7 @@ if __name__ == "__main__":
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE, plot_0form=False, plot_1form=False, plot_2form=True)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED, plot_0form=False, plot_1form=False, plot_2form=True)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV, plot_0form=False, plot_1form=False, plot_2form=True)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=True, plot_1form=False, plot_2form=False)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=False, plot_1form=True, plot_2form=False)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=False, plot_1form=False, plot_2form=True)
     # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE, plot_0form=False, plot_1form=False, plot_2form=True)
