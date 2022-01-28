@@ -94,6 +94,14 @@ For developers the creation of a virtual environment is recommended::
     python3 -m venv <env_name>
     source <env_name>/bin/activate
     pip3 install .
+
+At the moment, a manual install of `gvec_to_python` and `psydac` packages is required::
+
+    git clone git@gitlab.mpcdf.mpg.de:spossann/gvec_to_python.git
+    pip install --user .
+    
+    git clone https://github.com/pyccel/psydac.git
+    pip install --user .
     
 Quick help:
 

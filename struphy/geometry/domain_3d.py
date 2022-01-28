@@ -17,6 +17,8 @@ import struphy.linear_algebra.linalg_kron as linalg
 
 import struphy.feec.bsplines  as bsp
 
+from sympde.topology import Mapping
+
 
 
 # ==================================================
@@ -163,7 +165,7 @@ def prepare_args(x, y, z, flat_eval=False):
         x, y, z : float or list or np.array
             Evaluation point sets.
         flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+            Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
     Returns
     -------
@@ -258,7 +260,7 @@ def prepare_args(x, y, z, flat_eval=False):
 
 
 # ==================================================
-class Domain:
+class Domain():
     '''Defines the mapped domain.
 
     Parameters
@@ -362,43 +364,71 @@ class Domain:
             * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
     '''
     
-    def __init__(self, kind_map, params_map={'b1': 0., 'e1': 1., 'b2': 0., 'e2': 1., 'b3': 0., 'e3': 1.}): 
+    def __init__(self, kind_map='cuboid', params_map={'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}): 
 
         if kind_map == 'cuboid':
             self.kind_map = 10
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
+                                                'y': 'l2 + (r2 - l2)*x2',
+                                                'z': 'l3 + (r3 - l3)*x3'}
+            # In future versions you only need to specify the Psydac_mapping expressions.
 
         elif kind_map == 'orthogonal':
             self.kind_map = 13
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
+                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
+                                                'z': 'Lz*x3'}
 
         elif kind_map == 'colella':
             self.kind_map = 12
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                                'z': 'Lz*x3'}
 
         elif kind_map == 'hollow_cyl':
             self.kind_map = 11
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
+                                                'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                                'z': '2*pi*R0*x3'}
 
         elif kind_map == 'hollow_torus':
             self.kind_map = 14
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
+                                                'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                                'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
 
         elif kind_map == 'ellipse':
             self.kind_map = 15
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'rotated_ellipse':
             self.kind_map = 16
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
+                                                'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'soloviev_approx':
             self.kind_map = 17
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'soloviev_sqrt':
             self.kind_map = 18
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'spline':
             # TODO: choose correct params_map
@@ -526,7 +556,14 @@ class Domain:
             '0_to_3' : 4, '3_to_0' : 5}
        
 
-    # ================================
+    class Psydac_mapping(Mapping):
+        '''To create a psydac domain.'''
+
+        _expressions = None
+        _ldim        = 3
+        _pdim        = 3   
+
+
     def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False, squeeze_output=True):
         '''Evaluate mapping/metric coefficients. 
 

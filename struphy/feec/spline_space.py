@@ -51,7 +51,7 @@ class Spline_space_1d:
             number of Gauss-Legendre quadrature points per grid cell (defined by break points)
 
         bc : [str, str]
-            boundary conditions at eta=0.0 and eta=1.0, 'f' free, 'd' dirichlet (remove boundary spline)
+            boundary conditions at eta1=0.0 and eta1=1.0, 'f' free, 'd' dirichlet (remove boundary spline)
 
     Attributes
     ----------
@@ -75,6 +75,12 @@ class Spline_space_1d:
 
         NbaseD : int
             Dimension of 1-space. 
+
+        indN : np.array
+            Global indices of non-vanishing B-splines in each element in format (element, local basis function)
+            
+        indD : np.array
+            Global indices of non-vanishing M-splines in each element in format (element, local basis function)
 
         pts : np.array
             Global GL quadrature points in format (element, local point).
@@ -151,7 +157,7 @@ class Spline_space_1d:
         self.NbaseN   = len(self.T) - self.p - 1 - self.spl_kind*self.p  # total number of B-splines (N)
         self.NbaseD   = self.NbaseN - 1 + self.spl_kind                  # total number of M-splines (D)
         
-        # global indices of non-vanishing splines in each element in format (Nel, global index)
+        # global indices of non-vanishing splines in each element in format (Nel, p + 1)
         self.indN     = (np.indices((self.Nel, self.p + 1 - 0))[1] + np.arange(self.Nel)[:, None])%self.NbaseN
         self.indD     = (np.indices((self.Nel, self.p + 1 - 1))[1] + np.arange(self.Nel)[:, None])%self.NbaseD
             

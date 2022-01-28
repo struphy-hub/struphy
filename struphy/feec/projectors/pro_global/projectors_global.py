@@ -60,6 +60,38 @@ class Projectors_global_1d:
 
     wts : 2d array (float)
         Gauss-Legendre quadrature weights in format (integration interval, local quadrature weight)
+
+    ptsG : 2d array (float)
+        Gauss-Legendre quadrature points in format (integration interval, local quadrature point),
+        ignoring subs (less accurate integration for even degree)
+
+    wtsG : 2d array (float)
+        Gauss-Legendre quadrature weights in format (integration interval, local quadrature weight),
+        ignoring subs (less accurate integration for even degree)
+
+    span_x_int_N : 2d float array
+        Knot span indices of B-splines at Greville points in format (greville, 0)
+
+    span_x_int_D : 2d float array
+        Knot span indices of M-splines at Greville points in format (greville, 0)
+
+    span_ptsG_N : 2d float array
+        Knot span indices of B-splines at quadrature points in format of ptsG.
+
+    span_ptsG_D : 2d float array
+        Knot span indices of M-splines at quadrature points in format of ptsG.
+
+    basis_x_int_N : 3d float array
+        Values of p + 1 non-zero B-spline basis functions at Greville points in format (greville, 0, basis function)
+
+    basis_x_int_D : 3d float array
+        Values of p non-zero M-spline basis functions at Greville points in format (greville, 0, basis function)
+
+    basis_ptsG_N : 3d float array
+        Values of p + 1 non-zero B-spline basis functions at ptsG in format (i, iq, basis function)
+
+    basis_ptsG_D : 3d float array
+        Values of p non-zero M-spline basis functions at ptsG in format (i, iq, basis function)
         
     Q : sparse csr matrix
         Quadrature matrix that performs quadrature integrations as matrix-vector product
@@ -102,6 +134,8 @@ class Projectors_global_1d:
     """
     
     def __init__(self, spline_space, n_quad=6):
+
+        self.space = spline_space
         
         # number of quadrature points per integration interval
         self.n_quad = n_quad       
@@ -147,7 +181,60 @@ class Projectors_global_1d:
         # quadrature points and weights
         self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
         self.pts           = self.pts%spline_space.el_b[-1]
-        
+
+        # quadrature points and weights, ignoring subs (less accurate integration for even degree)
+        self.x_hisG = self.x_int
+        if spline_space.spl_kind == True:
+            if spline_space.p%2 == 0:
+                self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0]) 
+            else:
+                self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1]) 
+
+        self.ptsG, self.wtsG = bsp.quadrature_grid(self.x_hisG, self.pts_loc, self.wts_loc)
+        self.ptsG           = self.ptsG%spline_space.el_b[-1]
+
+        # Knot span indices at interpolation points in format (greville, 0)
+        self.span_x_int_N = np.zeros(self.x_int[:, None].shape, dtype=int)
+        self.span_x_int_D = np.zeros(self.x_int[:, None].shape, dtype=int)
+        for i in range(self.x_int.shape[0]):
+            self.span_x_int_N[i, 0] = bsp.find_span(self.space.T, self.space.p, self.x_int[i])
+            self.span_x_int_D[i, 0] = bsp.find_span(self.space.t, self.space.p - 1, self.x_int[i])
+
+        # Knot span indices at quadrature points between x_int in format (i, iq)
+        self.span_ptsG_N = np.zeros(self.ptsG.shape, dtype=int)
+        self.span_ptsG_D = np.zeros(self.ptsG.shape, dtype=int)
+        for i in range(self.ptsG.shape[0]):
+            for iq in range(self.ptsG.shape[1]):
+                self.span_ptsG_N[i, iq] = bsp.find_span(self.space.T, self.space.p, self.ptsG[i, iq])
+                self.span_ptsG_D[i, iq] = bsp.find_span(self.space.t, self.space.p - 1, self.ptsG[i, iq])
+
+        # Values of p + 1 non-zero basis functions at Greville points in format (greville, 0, basis function)
+        self.basis_x_int_N = np.zeros((*self.x_int[:, None].shape, self.space.p + 1), dtype=float)
+        self.basis_x_int_D = np.zeros((*self.x_int[:, None].shape, self.space.p), dtype=float)
+
+        N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.x_int[:, None], 0, normalize=False)
+        D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.x_int[:, None], 0, normalize=True)
+
+        for i in range(self.x_int.shape[0]):
+                for b in range(self.space.p + 1):
+                    self.basis_x_int_N[i, 0, b] = N_temp[i, b, 0, 0]
+                for b in range(self.space.p):
+                    self.basis_x_int_D[i, 0, b] = D_temp[i, b, 0, 0]
+
+        # Values of p + 1 non-zero basis functions at quadrature points points between x_int in format (i, iq, basis function)
+        self.basis_ptsG_N = np.zeros((*self.ptsG.shape, self.space.p + 1), dtype=float)
+        self.basis_ptsG_D = np.zeros((*self.ptsG.shape, self.space.p), dtype=float)
+
+        N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.ptsG, 0, normalize=False)
+        D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.ptsG, 0, normalize=True)
+
+        for i in range(self.ptsG.shape[0]):
+            for iq in range(self.ptsG.shape[1]):
+                for b in range(self.space.p + 1):
+                    self.basis_ptsG_N[i, iq, b] = N_temp[i, b, 0, iq]
+                for b in range(self.space.p):
+                    self.basis_ptsG_D[i, iq, b] = D_temp[i, b, 0, iq]
+
         # quadrature matrix for performing integrations as matrix-vector products
         self.Q = np.zeros((spline_space.NbaseD, self.wts.shape[0]*self.n_quad), dtype=float)
         
@@ -157,7 +244,7 @@ class Projectors_global_1d:
                 self.Q[i, self.n_quad*ie:self.n_quad*(ie + 1)] = self.wts[ie]
                 
         self.Q = spa.csr_matrix(self.Q)
-        
+
         # collocation matrices for B-/M-splines at interpolation/quadrature points
         BM_splines = [False, True]
         

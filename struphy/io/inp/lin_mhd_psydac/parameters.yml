@@ -53,7 +53,7 @@ mhd_equilibrium :
             B0y         : 0.   # magnetic field in Tesla (y)
             B0z         : 1.   # magnetic field in Tesla (z)
             rho0        : 1.   # equilibirum mass density
-            beta        : 50.  # plasma beta in %
+            beta        : 200.  # plasma beta in %
       params_cylinder :
             a           : 1.   # minor radius in m
             R0          : 10.  # major radius in m (sets length of cylinder to 2*pi*R0)
@@ -113,12 +113,12 @@ mhd_init   :
             amp   : 0.001 # noise amplitude
 
 grid :
-      Nel      : [2, 2, 16] # number of grid cells > 1
-      p        : [1, 1, 1] # spline degree > 0
+      Nel      : [8, 8, 8] # number of grid cells > 1
+      p        : [3, 3, 3] # spline degree > 0
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
-      nq_el    : [2, 2, 2] # quadrature points per grid cell
-      nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for projection)
+      nq_el    : [4, 4, 4] # quadrature points per grid cell
+      nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for projection)
       polar    : False # use polar splines       
 
 time : 
@@ -149,7 +149,6 @@ solvers :
       maxiter6 : 1000
       show_info_alfven : False
       show_info_sonic  : False
-
 
 
 
