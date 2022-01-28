@@ -48,7 +48,9 @@ PA3  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_3d
 PA4  := ${path_lib}pic/pc_lin_mhd_6d/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PS).py
+PLO  := ${path_lib}psydac_linear_operators/mhd_ops_kernels
+
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PS).py $(PLO).py
 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
@@ -127,6 +129,9 @@ $(PA4)$(SO_EXT) : $(PA4).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
+$(PLO)$(SO_EXT) : $(PLO).py
 	pyccel $< $(FLAGS)
 
 #--------------------------------------

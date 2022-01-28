@@ -41,6 +41,10 @@ elif code=='lin_mhd_MF':
     from struphy.models.codes import lin_mhd_MF
     lin_mhd_MF.execute(file_in, path_out, mode=='a') 
 
+elif code=='lin_mhd_psydac':
+    from struphy.models.codes import lin_mhd_psydac
+    lin_mhd_psydac.execute(file_in, path_out, mode=='a') 
+
 elif code=='cc_lin_mhd_6d':
     from struphy.models.codes import cc_lin_mhd_6d 
     cc_lin_mhd_6d.execute(file_in, path_out, mode=='a')

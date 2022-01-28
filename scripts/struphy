@@ -29,6 +29,7 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             echo "   -r <code>          Specify code to run. Available codes are:"
             echo "                                * lin_mhd (linear MHD) -> default"
             echo "                                * lin_mhd_MF (matrix-free linear MHD)"
+            echo "                                * lin_mhd_psydac (parallel linear MHD)"
             echo "                                * cc_lin_mhd_6d (current coupling MHD-full Vlasov)"
             echo "                                * cc_lin_mhd_6d_MF (matrix-free current coupling MHD-full Vlasov)"
             echo "                                * pc_lin_mhd_6d_MF_full (matrix-free pressure coupling MHD-full Vlasov with full pressure tensor)"
@@ -57,7 +58,7 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             echo "Package content:"
             echo
             cd $path_lib
-            tree -d -I '__pycache__|__pyccel__'
+            tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
             exit 0
             ;;
         c)

@@ -30,6 +30,7 @@ setup(
         'struphy.io.inp': [
             'lin_mhd/*.yml',
             'lin_mhd_MF/*.yml',
+            'lin_mhd_psydac/*.yml',
             'cc_lin_mhd_6d/*.yml',
             'cc_lin_mhd_6d_MF/*.yml',
             'pc_lin_mhd_6d_MF_full/*.yml',
@@ -51,6 +52,7 @@ setup(
         'PyYAML',
         'scipy',
         'sympy',
+        'sympde',
         'pytest',
         'mistune<2',
         'sphinx==4.2.0',

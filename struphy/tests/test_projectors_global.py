@@ -1,7 +1,3 @@
-from matplotlib.pyplot import subplot
-from numpy import NaN
-
-
 def test_projectors_1d(plot=False, p_range=6, N_range=8):
     '''
     1) test order of convergence
@@ -28,10 +24,10 @@ def test_projectors_1d(plot=False, p_range=6, N_range=8):
     print('1) convergence test:')
     # 1) convergence test
     for p in range(1, p_range): 
-        err0_per = [NaN]
-        err0_cla = [NaN]
-        err1_per = [NaN]
-        err1_cla = [NaN]
+        err0_per = [np.NaN]
+        err0_cla = [np.NaN]
+        err1_per = [np.NaN]
+        err1_cla = [np.NaN]
 
         order0_per = []
         order0_cla = []

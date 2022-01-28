@@ -64,7 +64,8 @@ def pull_1_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
 @types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def pull_2_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
     
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    #detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    # The cancellation of the Jacobian determinant is taken into account in df_inv with the last parameter set to 0.
     
     if   component == 1:
         
@@ -72,7 +73,7 @@ def pull_2_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
         dfinv_12 = mapping.df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         dfinv_13 = mapping.df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = dfinv_11*ax + dfinv_12*ay + dfinv_13*az
+        a = dfinv_11*ax + dfinv_12*ay + dfinv_13*az 
     
     elif component == 2:
         
@@ -80,7 +81,7 @@ def pull_2_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
         dfinv_22 = mapping.df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         dfinv_23 = mapping.df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = dfinv_21*ax + dfinv_22*ay + dfinv_23*az
+        a = dfinv_21*ax + dfinv_22*ay + dfinv_23*az 
         
     elif component == 3:
         
@@ -88,7 +89,7 @@ def pull_2_form(ax, ay, az, eta1, eta2, eta3, component, kind_map, params_map, t
         dfinv_32 = mapping.df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         dfinv_33 = mapping.df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 0)
         
-        a = dfinv_31*ax + dfinv_32*ay + dfinv_33*az
+        a = dfinv_31*ax + dfinv_32*ay + dfinv_33*az 
         
     return a
 

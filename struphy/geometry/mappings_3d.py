@@ -17,13 +17,13 @@ The following mappings are implemented:
 - kind_map = 1  : 2d spline mapping with control points cx, cy: F_pol = (eta_1, eta_2) --> (R, y), straight  in 3rd direction
 - kind_map = 2  : 2d spline mapping with control points cx, cy: F_pol = (eta_1, eta_2) --> (R, y), curvature in 3rd direction
 
-- kind_map = 10 : cuboid,          params_map = [b1, e1, b2, e2, b3, e3].
-- kind_map = 11 : hollow cylinder, params_map = [a1, a2, r0].
+- kind_map = 10 : cuboid,          params_map = [l1, r1, l2, r2, l3, r3].
+- kind_map = 11 : hollow cylinder, params_map = [a1, a2, R0].
 - kind_map = 12 : colella,         params_map = [Lx, Ly, alpha, Lz].
 - kind_map = 13 : orthogonal,      params_map = [Lx, Ly, alpha, Lz].
-- kind_map = 14 : hollow torus,    params_map = [a1, a2, r0].
+- kind_map = 14 : hollow torus,    params_map = [a1, a2, R0].
 - kind_map = 15 : ellipse,         params_map = [x0, y0, z0, rx, ry, Lz].
-- kind_map = 16 : rotated ellipse, params_map = [x0, y0, z0, r1, r2, Lz, theta].
+- kind_map = 16 : rotated ellipse, params_map = [x0, y0, z0, r1, r2, Lz, th].
 - kind_map = 17 : soloviev approx, params_map = [x0, y0, z0, rx, ry, Lz, delta].
 - kind_map = 18 : soloviev sqrt,   params_map = [x0, y0, z0, rx, ry, Lz, delta].
 """
