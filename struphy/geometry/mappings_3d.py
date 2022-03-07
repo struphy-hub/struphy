@@ -26,10 +26,11 @@ The following mappings are implemented:
 - kind_map = 16 : rotated ellipse, params_map = [x0, y0, z0, r1, r2, Lz, th].
 - kind_map = 17 : soloviev approx, params_map = [x0, y0, z0, rx, ry, Lz, delta].
 - kind_map = 18 : soloviev sqrt,   params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 19 : soloviev cf,     params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
 """
 
 from numpy import shape
-from numpy import sin, cos, pi, zeros, array, sqrt, arctan2
+from numpy import sin, cos, pi, zeros, array, sqrt, arctan2, arcsin
 
 from pyccel.decorators import types
 
@@ -265,6 +266,27 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
         elif component == 3:
             value = z0 + (eta3 * Lz)
 
+    # ========= soloviev cf =====================
+    elif kind_map == 19:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        Lz = params_map[4]
+        dx = params_map[5] # Grad-Shafranov shift along x-axis.
+        dy = params_map[6] # Grad-Shafranov shift along y-axis.
+        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8] # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[9] # Kappa: Ellipticity (elongation).
+
+        if   component == 1:
+            value = x0 + r0 * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+        elif component == 2:
+            value = y0 + r0 * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+        elif component == 3:
+            value = z0 + (eta3 * Lz)
+
     return value
 
 
@@ -413,6 +435,22 @@ def f_inv(x, y, z, component, kind_map, params_map):
         ry = params_map[4]
         Lz = params_map[5]
         de = params_map[6] # Domain: [0,0.1]
+
+        # Not implemented.
+
+    # ========= soloviev cf =====================
+    elif kind_map == 19:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        Lz = params_map[4]
+        dx = params_map[5] # Grad-Shafranov shift along x-axis.
+        dy = params_map[6] # Grad-Shafranov shift along y-axis.
+        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8] # Epsilon: Inverse aspect ratio a/R0.
+        kg = params_map[9] # Kappa: Ellipticity (elongation).
 
         # Not implemented.
 
@@ -783,6 +821,39 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
             value = ry * sin(2*pi*eta2)
         elif component == 22:
             value =  2*pi * (eta1 * ry) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = Lz
+
+    # ========= soloviev cf =====================
+    elif kind_map == 19:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        Lz = params_map[4]
+        dx = params_map[5] # Grad-Shafranov shift along x-axis.
+        dy = params_map[6] # Grad-Shafranov shift along y-axis.
+        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8] # Epsilon: Inverse aspect ratio a/R0.
+        kg = params_map[9] # Kappa: Ellipticity (elongation).
+
+        if   component == 11:
+            value = r0 * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
+        elif component == 12:
+            value = - r0 * eg * eta1 * (2*pi*eta1 * cos(2*pi*eta2) * arcsin(dg) + 2*pi) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2))
+        elif component == 22:
+            value = 2 * pi * r0 * eg * eta1 * kg * cos(2*pi*eta2)
         elif component == 23:
             value = 0.
         elif component == 31:

@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import struphy.geometry.domain_3d as dom
 import struphy.feec.spline_space as spl
 
-def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_1form=False, plot_2form=False):
+def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_type=None):
     """Test constructing 3D polar splines for a non-axisymmetric GVEC equilibrium via an intermediate axisymmetric torus mapping.
 
     Even though it says 3D, all test functions are :math:``f(x,y)``, independent of :math:``z``.
@@ -14,14 +15,12 @@ def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_
     ----------
     func_test : FuncTest
         An Enum of implemented test functions.
-    map_type : FuncTest
+    map_type : MapType
         An Enum of implemented mapping domains.
-    plot_0form : boolean
-        Whether to display plots of spline comparisons of 0-form test function.
-    plot_1form : boolean
-        Whether to display plots of spline comparisons of 1-form test function.
-    plot_2form : boolean
-        Whether to display plots of spline comparisons of 2-form test function.
+    func_form : FuncForm
+        Which differential form to display plots of spline comparisons.
+    space_type : SpaceType
+        An Enum of whether to plot in physical or logical space.
 
     Notes
     -----
@@ -35,6 +34,12 @@ def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_
 
     if map_type is None:
         map_type = MapType.CIRCLESCALED
+
+    if func_form is None:
+        func_form = FuncForm.ZERO
+
+    if space_type is None:
+        space_type = SpaceType.PHYSICAL
 
     # ============================================================
     # Imports.
@@ -94,30 +99,27 @@ def test_polar_splines_3D(func_test=None, map_type=None, plot_0form=False, plot_
     DOMAIN_F = map_generator(map_type, DOMAIN_F)
 
     case_0form = case_01_circle_identity_0form
-    case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F]
+    case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type]
     case_1form = case_01_circle_identity_1form
-    case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F]
+    case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type]
     case_2form = case_01_circle_identity_2form
-    case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F]
+    case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type]
 
-    if plot_0form:
-        func_form = FuncForm.ZERO
+    if func_form == FuncForm.ZERO:
         plot_data_0form = case_0form(*case_0form_args)
-        plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, Nel, p)
+        plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, space_type, Nel, p)
         ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
         ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
         plt.show()
-    if plot_1form:
-        func_form = FuncForm.ONE
+    elif func_form == FuncForm.ONE:
         plot_data_1form = case_1form(*case_1form_args)
-        plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, Nel, p)
+        plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, space_type, Nel, p)
         ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
         ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
         plt.show()
-    if plot_2form:
-        func_form = FuncForm.TWO
+    elif func_form == FuncForm.TWO:
         plot_data_2form = case_2form(*case_2form_args)
-        plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, Nel, p)
+        plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, space_type, Nel, p)
         ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
         ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
         plt.show()
@@ -147,7 +149,15 @@ class MapType(Enum):
     ELLIPSEROTATED = 5
     SOLOVIEV = 6
     SOLOVIEVSQRT = 7
-    SPLINE = 8
+    SOLOVIEVCF = 8
+    SPLINE = 9
+
+@unique
+class SpaceType(Enum):
+    """Enum for whether to plot in physical or logical space.."""
+    PHYSICAL = 1
+    DISK = 2
+    LOGICAL = 3
 
 @unique
 class Comparison(Enum):
@@ -163,6 +173,8 @@ class PlotTypeLeft(Enum):
     SCATTER = 3 # scatter, 3D.
     SURFACE = 4 # plot_surface, 3D.
     WIREFRAME = 5 # wireframe, 3D.
+    LINE = 6 # plot, 1D.
+    # Line plot works only with SpaceType.LOGICAL. Hardcoded switch in plot_wrapper(). Need to specify eta2 slice in metadata. Interactive update not supported.
 
 @unique
 class PlotTypeRight(Enum):
@@ -172,6 +184,8 @@ class PlotTypeRight(Enum):
     QUIVER2D = 3 # quiver, 2D.
     QUIVER3D = 4 # quiver, 3D.
     SURFACE = 5 # plot_surface, 3D.
+    LINE = 6 # plot, 1D.
+    # Line plot works only with SpaceType.LOGICAL. Hardcoded switch in plot_wrapper(). Need to specify eta2 slice in metadata. Interactive update not supported.
 
 @unique
 class FuncForm(Enum):
@@ -580,9 +594,25 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
         return DOMAIN_F
 
+    elif map_type == MapType.SOLOVIEVCF: # Soloviev equilibrium centered at (10,0), as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
+
+        print('Running test case 08: ITER-like Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).')
+        if DOMAIN_F is None:
+            DOMAIN_F = dom.Domain('soloviev_cf', {
+                'x0': 10. - 6.2, 'y0': 0., 'z0': 0., # Coordinate origin.
+                'R0': 6.2,
+                'Lz': 10.,
+                'delta_x': 0.03, 'delta_y': 0.02, # Grad-Shafranov shift: Artificially added asymmetry.
+                'delta_gs': 0.33, # Delta = sin(alpha), triangularity. Shift of high point.
+                'epsilon_gs': 0.32, # Inverse aspect ratio a/R0.
+                'kappa_gs': 1.7, # Ellipticity (elongation).
+            })
+
+        return DOMAIN_F
+
     elif map_type == MapType.SPLINE:
 
-        print('Running test case 08: Generic spline map.')
+        print('Running test case 09: Generic spline map.')
         if DOMAIN_F is None:
             raise ValueError('DOMAIN must not be None for spline map.')
 
@@ -594,7 +624,7 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
 
 
-def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F):
+def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -694,23 +724,28 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     # Create numerical spline version of DOMAIN_F.
     # ============================================================
 
-    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+    # Whether to replace analytical domain with a numerical one.
+    use_numerical_domain = False
 
-    with h5py.File(spline_coeffs_file, 'w') as handle:
-        handle['cx'] = cx_F
-        handle['cy'] = cy_F
-        handle['cz'] = cz_F
-        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+    if use_numerical_domain:
 
-    params_map = {
-        'file': spline_coeffs_file,
-        'Nel': Nel,
-        'p': p,
-        'spl_kind': spl_kind,
-    }
+        spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
-    DOMAIN_F = dom.Domain('spline', params_map=params_map)
-    print('Computed spline coefficients.')
+        with h5py.File(spline_coeffs_file, 'w') as handle:
+            handle['cx'] = cx_F
+            handle['cy'] = cy_F
+            handle['cz'] = cz_F
+            handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+        params_map = {
+            'file': spline_coeffs_file,
+            'Nel': Nel,
+            'p': p,
+            'spl_kind': spl_kind,
+        }
+
+        DOMAIN_F = dom.Domain('spline', params_map=params_map)
+        print('Computed spline coefficients.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')
@@ -722,12 +757,23 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     # ============================================================
 
     # Use F for pullback!!!
-    def fun_L(eta1, eta2, eta3):
+    def fun_L_0(eta1, eta2, eta3):
+        # Change back to analytical.
         return DOMAIN_F.pull(func, eta1, eta2, eta3, kind_fun='0_form')
 
-    proj_tensor_0form   = TENSOR_SPACE.projectors.pi_0(fun_L)
-    proj_polar_F_0form  = POLAR_SPACE_F.projectors.pi_0(fun_L)
-    proj_polar_F1_0form = POLAR_SPACE_F1.projectors.pi_0(fun_L)
+    # For comparing analytical derivative:
+    grad_3d = [dfdx, dfdy, lambda x, y, z: np.zeros_like(x) + np.zeros_like(y) + np.zeros_like(z)]
+    def fun_L_1_1(eta1, eta2, eta3):
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_1', flat_eval=False)
+    def fun_L_1_2(eta1, eta2, eta3):
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False)
+    def fun_L_1_3(eta1, eta2, eta3):
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False)
+    fun_L_1 = [fun_L_1_1, fun_L_1_2, fun_L_1_3]
+
+    proj_tensor_0form   = TENSOR_SPACE.projectors.pi_0(fun_L_0)
+    proj_polar_F_0form  = POLAR_SPACE_F.projectors.pi_0(fun_L_0)
+    proj_polar_F1_0form = POLAR_SPACE_F1.projectors.pi_0(fun_L_0)
     print(f'Shape of proj_tensor_0form   : {proj_tensor_0form.shape}')
     print(f'Shape of proj_polar_F_0form  : {proj_polar_F_0form.shape}')
     print(f'Shape of proj_polar_F1_0form : {proj_polar_F1_0form.shape}')
@@ -805,7 +851,15 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     z = F_z(eta1, eta2, eta3)
     # Analytical evaluation of the trial function.
     orig_func = func(x, y, z)
-    orig_grad = np.array([dfdx(x, y, z), dfdy(x, y, z), np.zeros_like(orig_func)])
+    orig_grad = np.array([grad_i(x, y, z) for grad_i in grad_3d])
+
+    # Short-circuit computation if we are plotting in logical space.
+    if space_type == SpaceType.LOGICAL:
+        orig_func = fun_L_0(eta1, eta2, eta3)
+        orig_grad = [fun_L_1_i(eta1, eta2, eta3) for fun_L_1_i in fun_L_1]
+        return (eta1, eta2, eta3, np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)), el_b_eta1, el_b_eta2, el_b_eta3, 
+        orig_func, evaled_0_tensor, evaled_0_polar_F, evaled_0_polar_F1, 
+        orig_grad, evaled_1_tensor, evaled_1_polar_F, evaled_1_polar_F1)
 
 
 
@@ -894,7 +948,7 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
 
 
 
-def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F):
+def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -994,23 +1048,28 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # Create numerical spline version of DOMAIN_F.
     # ============================================================
 
-    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+    # Whether to replace analytical domain with a numerical one.
+    use_numerical_domain = False
 
-    with h5py.File(spline_coeffs_file, 'w') as handle:
-        handle['cx'] = cx_F
-        handle['cy'] = cy_F
-        handle['cz'] = cz_F
-        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+    if use_numerical_domain:
 
-    params_map = {
-        'file': spline_coeffs_file,
-        'Nel': Nel,
-        'p': p,
-        'spl_kind': spl_kind,
-    }
+        spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
-    DOMAIN_F = dom.Domain('spline', params_map=params_map)
-    print('Computed spline coefficients.')
+        with h5py.File(spline_coeffs_file, 'w') as handle:
+            handle['cx'] = cx_F
+            handle['cy'] = cy_F
+            handle['cz'] = cz_F
+            handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+        params_map = {
+            'file': spline_coeffs_file,
+            'Nel': Nel,
+            'p': p,
+            'spl_kind': spl_kind,
+        }
+
+        DOMAIN_F = dom.Domain('spline', params_map=params_map)
+        print('Computed spline coefficients.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')
@@ -1028,11 +1087,20 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
         return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False)
     def fun_L_1_3(eta1, eta2, eta3):
         return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False)
-    fun_L = [fun_L_1_1, fun_L_1_2, fun_L_1_3]
+    fun_L_1 = [fun_L_1_1, fun_L_1_2, fun_L_1_3]
 
-    proj_tensor_1form   = TENSOR_SPACE.projectors.pi_1(fun_L)
-    proj_polar_F_1form  = POLAR_SPACE_F.projectors.pi_1(fun_L)
-    proj_polar_F1_1form = POLAR_SPACE_F1.projectors.pi_1(fun_L)
+    # For comparing analytical derivative:
+    def fun_L_2_1(eta1, eta2, eta3):
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_1', flat_eval=False)
+    def fun_L_2_2(eta1, eta2, eta3):
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False)
+    def fun_L_2_3(eta1, eta2, eta3):
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False)
+    fun_L_2 = [fun_L_2_1, fun_L_2_2, fun_L_2_3]
+
+    proj_tensor_1form   = TENSOR_SPACE.projectors.pi_1(fun_L_1)
+    proj_polar_F_1form  = POLAR_SPACE_F.projectors.pi_1(fun_L_1)
+    proj_polar_F1_1form = POLAR_SPACE_F1.projectors.pi_1(fun_L_1)
     print(f'Shape of proj_tensor_1form   : {proj_tensor_1form.shape}')
     print(f'Shape of proj_polar_F_1form  : {proj_polar_F_1form.shape}')
     print(f'Shape of proj_polar_F1_1form : {proj_polar_F1_1form.shape}')
@@ -1123,6 +1191,14 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # Analytical evaluation of the trial function.
     orig_func = func_3d(x, y, z)
     orig_curl = curl_3d(x, y, z)
+
+    # Short-circuit computation if we are plotting in logical space.
+    if space_type == SpaceType.LOGICAL:
+        orig_func = [fun_L_1_i(eta1, eta2, eta3) for fun_L_1_i in fun_L_1]
+        orig_curl = [fun_L_2_i(eta1, eta2, eta3) for fun_L_2_i in fun_L_2]
+        return (eta1, eta2, eta3, np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)), el_b_eta1, el_b_eta2, el_b_eta3, 
+        orig_func, evaled_1_tensor, evaled_1_polar_F, evaled_1_polar_F1, 
+        orig_curl, evaled_2_tensor, evaled_2_polar_F, evaled_2_polar_F1)
 
 
 
@@ -1235,7 +1311,7 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
 
 
-def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F):
+def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1335,23 +1411,28 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # Create numerical spline version of DOMAIN_F.
     # ============================================================
 
-    spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
+    # Whether to replace analytical domain with a numerical one.
+    use_numerical_domain = False
 
-    with h5py.File(spline_coeffs_file, 'w') as handle:
-        handle['cx'] = cx_F
-        handle['cy'] = cy_F
-        handle['cz'] = cz_F
-        handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+    if use_numerical_domain:
 
-    params_map = {
-        'file': spline_coeffs_file,
-        'Nel': Nel,
-        'p': p,
-        'spl_kind': spl_kind,
-    }
+        spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
-    DOMAIN_F = dom.Domain('spline', params_map=params_map)
-    print('Computed spline coefficients.')
+        with h5py.File(spline_coeffs_file, 'w') as handle:
+            handle['cx'] = cx_F
+            handle['cy'] = cy_F
+            handle['cz'] = cz_F
+            handle.attrs['whatis'] = 'These are 3D spline coefficients constructed from GVEC mapping.'
+
+        params_map = {
+            'file': spline_coeffs_file,
+            'Nel': Nel,
+            'p': p,
+            'spl_kind': spl_kind,
+        }
+
+        DOMAIN_F = dom.Domain('spline', params_map=params_map)
+        print('Computed spline coefficients.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')
@@ -1369,11 +1450,15 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
         return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False)
     def fun_L_2_3(eta1, eta2, eta3):
         return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False)
-    fun_L = [fun_L_2_1, fun_L_2_2, fun_L_2_3]
+    fun_L_2 = [fun_L_2_1, fun_L_2_2, fun_L_2_3]
 
-    proj_tensor_2form   = TENSOR_SPACE.projectors.pi_2(fun_L)
-    proj_polar_F_2form  = POLAR_SPACE_F.projectors.pi_2(fun_L)
-    proj_polar_F1_2form = POLAR_SPACE_F1.projectors.pi_2(fun_L)
+    # For comparing analytical derivative:
+    def fun_L_3(eta1, eta2, eta3):
+        return DOMAIN_F.pull(div_3d, eta1, eta2, eta3, kind_fun='3_form', flat_eval=False)
+
+    proj_tensor_2form   = TENSOR_SPACE.projectors.pi_2(fun_L_2)
+    proj_polar_F_2form  = POLAR_SPACE_F.projectors.pi_2(fun_L_2)
+    proj_polar_F1_2form = POLAR_SPACE_F1.projectors.pi_2(fun_L_2)
     print(f'Shape of proj_tensor_2form   : {proj_tensor_2form.shape}')
     print(f'Shape of proj_polar_F_2form  : {proj_polar_F_2form.shape}')
     print(f'Shape of proj_polar_F1_2form : {proj_polar_F1_2form.shape}')
@@ -1452,6 +1537,14 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # Analytical evaluation of the trial function.
     orig_func = func_3d(x, y, z)
     orig_div  = div_3d(x, y, z)
+
+    # Short-circuit computation if we are plotting in logical space.
+    if space_type == SpaceType.LOGICAL:
+        orig_func = [fun_L_2_i(eta1, eta2, eta3) for fun_L_2_i in fun_L_2]
+        orig_div  = fun_L_3(eta1, eta2, eta3)
+        return (eta1, eta2, eta3, np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)), el_b_eta1, el_b_eta2, el_b_eta3, 
+        orig_func, evaled_2_tensor, evaled_2_polar_F, evaled_2_polar_F1, 
+        orig_div , evaled_3_tensor, evaled_3_polar_F, evaled_3_polar_F1)
 
 
 
@@ -1779,7 +1872,7 @@ def gdra(numerical, analytical):
 def plot_wrapper(x, y, z, x0, y0, z0, xs, ys, zs, 
 f_exact, f_ten_F, f_pol_F, f_pol_F1, 
 df_exact, df_ten_F, df_pol_F, df_pol_F1, 
-map_enum, func_enum, form_enum, Nel, p):
+map_enum, func_enum, form_enum, space_enum, Nel, p):
 
     import copy
     import numpy as np
@@ -1787,13 +1880,17 @@ map_enum, func_enum, form_enum, Nel, p):
 
     plot_handles = []
 
+    # An ugly hardcoded switch to turn on 1D line plots.
+    line_plot = False and space_enum == SpaceType.LOGICAL
+
     metadata_base = {
         'mapping': map_enum,
         'function': func_enum,
         'func_form': form_enum,
+        'space_enum': space_enum,
         'origin': [x0, y0, z0,],
         'el_b': [xs, ys, zs,],
-        'axlim': 0.02,
+        'axlim': (1 if line_plot else 0.2) if space_enum == SpaceType.LOGICAL else 0.02,
         'wintitle': f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form (Original)',
         'suptitle': f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form (Original)',
         'comptype': Comparison.ORIG,
@@ -1801,19 +1898,23 @@ map_enum, func_enum, form_enum, Nel, p):
         'colscale': 1,    # Factor to scale up/down the max/min of the plot's color code.
         'collevel': 20,   # Number of color levels on a contour plot.
         'unlink': False,  # Set color and z-axis limits individually.
-        'lplot': PlotTypeLeft.CONTOUR2D,
-        'lxlabel': '$x$', # '$\eta^1$',
-        'lylabel': '$y$', # '$\eta^2$',
+        'norm_dist': True, # Normalize line plots versus L2 physical distance between two plot points.
+        'share_plot': True, # Overlay line plots on the same figure.
+        'lplot': PlotTypeLeft.LINE if line_plot else PlotTypeLeft.CONTOUR2D,
+        'lxlabel': '$x$' if space_enum == SpaceType.PHYSICAL else '$\eta^1$',
+        'lylabel': '$y$' if space_enum == SpaceType.PHYSICAL else '$\eta^2$',
         # 'lzlabel': '$f(x,y)$',
         # 'lzlabeld': '$f(x,y) - \hat{f}(x,y)$',
-        'rplot': PlotTypeRight.CONTOUR2D,
-        'rxlabel': '$x$',
-        'rylabel': '$y$',
+        'rplot': PlotTypeRight.LINE if line_plot else PlotTypeRight.CONTOUR2D,
+        'rxlabel': '$x$' if space_enum == SpaceType.PHYSICAL else '$\eta^1$',
+        'rylabel': '$y$' if space_enum == SpaceType.PHYSICAL else '$\eta^2$',
         # 'rzlabel': '$\\nabla f(x,y)$',
         # 'rzlabeld': '$\\nabla f(x,y) - \\nabla \hat{f}(x,y)$',
         'show_el_b': False,
         'show_pole': True,
         'show_grid': False,
+        # For line plot:
+        'eta2_cut' : 2, # Index of eta2_range array for the slice.
     }
 
 
@@ -1829,8 +1930,8 @@ map_enum, func_enum, form_enum, Nel, p):
         # Figure 5: Pure plotting grid.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['colscale'] = 1
         metadata['axlim'] = 1
@@ -1846,8 +1947,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
@@ -1858,8 +1959,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
@@ -1869,6 +1970,30 @@ map_enum, func_enum, form_enum, Nel, p):
          f_exact   , gdra( f_ten_F   ,  f_exact   ), gdra( f_pol_F   ,  f_exact   ), gdra( f_pol_F1   ,  f_exact   ), 
         df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
         plot_handles.append(handle)
+
+
+        # metadata = copy.deepcopy(metadata_base)
+        # metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
+        # metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_2 = \hat{{f}}^{{\,1}}_2$)'
+        # metadata['comptype'] = Comparison.ORIG
+        # metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        # metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_2$'
+        # handle = plot_comparison(metadata, x, y, z, 
+        #  f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        # df_exact[1], df_ten_F[1], df_pol_F[1], df_pol_F1[1])
+        # plot_handles.append(handle)
+
+
+        # metadata = copy.deepcopy(metadata_base)
+        # metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
+        # metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_3 = \hat{{f}}^{{\,1}}_3$)'
+        # metadata['comptype'] = Comparison.ORIG
+        # metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        # metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_3$'
+        # handle = plot_comparison(metadata, x, y, z, 
+        #  f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        # df_exact[2], df_ten_F[2], df_pol_F[2], df_pol_F1[2])
+        # plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
@@ -1916,8 +2041,8 @@ map_enum, func_enum, form_enum, Nel, p):
         # Figure 2: Relative difference, zoomed.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,1}_1$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_1 = \hat{f}^{\,2}_1$'
@@ -1928,8 +2053,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff (LHS: $\hat{{f}}^{{\,1}}_1$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_1 = \hat{{f}}^{{\,2}}_1$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,1}_1$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_1 = \hat{f}^{\,2}_1$'
@@ -1942,8 +2067,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,1}_2$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_2 = \hat{f}^{\,2}_2$'
@@ -1954,8 +2079,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Diff (LHS: $\hat{{f}}^{{\,1}}_2$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_2 = \hat{{f}}^{{\,2}}_2$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,1}_2$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_2 = \hat{f}^{\,2}_2$'
@@ -1968,8 +2093,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,1}_3$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_3 = \hat{f}^{\,2}_3$'
@@ -1980,8 +2105,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Diff (LHS: $\hat{{f}}^{{\,1}}_3$, RHS: $[\hat{{\\nabla}} \\times \hat{{f}}^{{\,1}}]_3 = \hat{{f}}^{{\,2}}_3$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,1}_3$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \\times \hat{f}^{\,1}]_3 = \hat{f}^{\,2}_3$'
@@ -2002,8 +2127,8 @@ map_enum, func_enum, form_enum, Nel, p):
         # Figure 2: Relative difference, zoomed.
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original (LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,2}_1$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2014,8 +2139,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff(LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff(LHS: $\hat{{f}}^{{\,2}}_1$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,2}_1$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2028,8 +2153,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,2}_2$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2040,8 +2165,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Diff (LHS: $\hat{{f}}^{{\,2}}_2$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,2}_2$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2054,8 +2179,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Original'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Original (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$\hat{f}^{\,2}_3$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2066,8 +2191,8 @@ map_enum, func_enum, form_enum, Nel, p):
 
 
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form Diff (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Diff'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Diff (LHS: $\hat{{f}}^{{\,2}}_3$, RHS: $[\hat{{\\nabla}} \cdot \hat{{f}}^{{\,2}}] = \hat{{f}}^{{\,3}}$)'
         metadata['comptype'] = Comparison.DIFF
         metadata['lzlabel'] = '$\hat{f}^{\,2}_3$'
         metadata['rzlabel'] = '$[\hat{\\nabla} \cdot \hat{f}^{\,2}] = \hat{f}^{\,3}$'
@@ -2097,7 +2222,10 @@ map_enum, func_enum, form_enum, Nel, p):
 def plot_comparison(metadata, eta1, eta2, eta3, 
 f_exact, f_ten_F, f_pol_F, f_pol_F1, 
 df_exact, df_ten_F, df_pol_F, df_pol_F1):
-    """Expects 3D input with useless z-component, effectively 2D."""
+    """Draw and compare tensor product splines and polar splines.
+
+    While the inputs are called (eta1,eta2,eta3), they can also be Cartesian (x,y,z).
+    Expects 3D input with useless z-component, effectively 2D."""
 
     print('='*50)
     print('Started plot_comparison().')
@@ -2107,9 +2235,16 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     import matplotlib.tri    as tri
     import matplotlib.ticker as ticker
 
+    space_enum = metadata['space_enum']
     func_form = metadata['func_form']
     levels = metadata['collevel']
     axlim = metadata['axlim']
+
+    # Special handling axis labels for 1D line plots.
+    if metadata['lplot'] in [PlotTypeLeft.LINE]:
+        metadata['lylabel'] = metadata['lzlabel']
+    if metadata['rplot'] in [PlotTypeRight.LINE]:
+        metadata['rylabel'] = metadata['rzlabel']
 
     if metadata['comptype'] == Comparison.ORIG:
         print('Comparison type: Original values.')
@@ -2268,6 +2403,8 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 else:
                     ax.set_zlabel(metadata['lzlabeld'])
             ax.set_aspect('auto', adjustable='box')
+        elif metadata['lplot'] == PlotTypeLeft.LINE:
+            pass
         else:
             ax.set_aspect('equal', adjustable='box')
 
@@ -2291,13 +2428,18 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 else:
                     ax.set_zlabel(metadata['rzlabeld'])
             ax.set_aspect('auto', adjustable='box')
+        elif metadata['rplot'] == PlotTypeRight.LINE:
+            pass
         else:
             ax.set_aspect('equal', adjustable='box')
 
-    lax1.set_title(metadata['lzlabel'] + ' analytical')
-    lax2.set_title(metadata['lzlabel'] + ' pushed, on tensor F')
-    lax3.set_title(metadata['lzlabel'] + ' pushed, on polar F')
-    lax4.set_title(metadata['lzlabel'] + ' pushed, on polar F1')
+    push_pull = 'pushed'
+    if space_enum == SpaceType.LOGICAL:
+        push_pull = 'pulled'
+    lax1.set_title(metadata['lzlabel'] + f' analytical')
+    lax2.set_title(metadata['lzlabel'] + f' {push_pull}, on tensor F')
+    lax3.set_title(metadata['lzlabel'] + f' {push_pull}, on polar F')
+    lax4.set_title(metadata['lzlabel'] + f' {push_pull}, on polar F1')
 
     if metadata['rplot'] in [PlotTypeRight.QUIVER2D, PlotTypeRight.QUIVER3D]:
         rax1.set_title('Derivative $\\nabla f(x,y)$')
@@ -2305,10 +2447,10 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         rax3.set_title('$\\nabla f(x,y)$ on polar F')
         rax4.set_title('$\\nabla f(x,y)$ on polar F1')
 
-    rax1.set_title(metadata['rzlabel'] + ' analytical')
-    rax2.set_title(metadata['rzlabel'] + ' pushed, on tensor F')
-    rax3.set_title(metadata['rzlabel'] + ' pushed, on polar F')
-    rax4.set_title(metadata['rzlabel'] + ' pushed, on polar F1')
+    rax1.set_title(metadata['rzlabel'] + f' analytical')
+    rax2.set_title(metadata['rzlabel'] + f' {push_pull}, on tensor F')
+    rax3.set_title(metadata['rzlabel'] + f' {push_pull}, on polar F')
+    rax4.set_title(metadata['rzlabel'] + f' {push_pull}, on polar F1')
 
 
 
@@ -2360,11 +2502,74 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         # limg2 = lax2.scatter(eta1, eta2, eta3, c=f_ten_F, cmap=plt.cm.viridis, marker='.')
         # limg3 = lax3.scatter(eta1, eta2, eta3, c=f_pol_F, cmap=plt.cm.viridis, marker='.')
         # limg4 = lax4.scatter(eta1, eta2, eta3, c=f_pol_F1, cmap=plt.cm.viridis, marker='.')
+    elif metadata['lplot'] == PlotTypeLeft.LINE:
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        colcyl = prop_cycle.by_key()['color']
+        print(f'eta1.shape {eta1.shape}')
+        print(f'eta1.shape[1] {eta1.shape[1]}')
+        eta2_pos = metadata['eta2_cut']
+        eta2_neg = (eta2_pos + int(eta1.shape[1] / 2)) % eta1.shape[1]
+        print(f'eta2_pos {eta2_pos}')
+        print(f'eta2_neg {eta2_neg}')
+        print(f'eta2[0,eta2_pos,0] {eta2[0,eta2_pos,0]}')
+        print(f'eta2[0,eta2_neg,0] {eta2[0,eta2_neg,0]}')
+        print(f'eta2[10,eta2_pos,0] {eta2[10,eta2_pos,0]}')
+        print(f'eta2[10,eta2_neg,0] {eta2[10,eta2_neg,0]}')
+        if space_enum == SpaceType.PHYSICAL and metadata['norm_dist']:
+            # Normalize line plots versus L2 physical distance between two plot points.
+            x1_pos = eta1[:,eta2_pos,0]
+            x2_pos = eta2[:,eta2_pos,0]
+            x3_pos = eta3[:,eta2_pos,0]
+            x1_neg = eta1[:,eta2_neg,0]
+            x2_neg = eta2[:,eta2_neg,0]
+            x3_neg = eta3[:,eta2_neg,0]
+            x0 = (x1_pos[0] + x1_neg[0]) / 2
+            y0 = (x2_pos[0] + x2_neg[0]) / 2
+            z0 = (x3_pos[0] + x3_neg[0]) / 2
+            pos = np.zeros_like(x1_pos)
+            neg = np.zeros_like(x1_neg)
+            for i in range(len(pos)):
+                if i == 0:
+                    pos[i] = np.sqrt((x1_pos[i] - x0)**2 + (x2_pos[i] - y0)**2 + (x3_pos[i] - z0)**2)
+                    neg[i] = np.sqrt((x1_neg[i] - x0)**2 + (x2_neg[i] - y0)**2 + (x3_neg[i] - z0)**2)
+                else:
+                    pos[i] = pos[i-1] + np.sqrt((x1_pos[i] - x1_pos[i-1])**2 + (x2_pos[i] - x2_pos[i-1])**2 + (x3_pos[i] - x3_pos[i-1])**2)
+                    neg[i] = neg[i-1] + np.sqrt((x1_neg[i] - x1_neg[i-1])**2 + (x2_neg[i] - x2_neg[i-1])**2 + (x3_neg[i] - x3_neg[i-1])**2)
+            neg = -neg[::-1]
+        elif space_enum == SpaceType.LOGICAL:
+            pos = eta1[:,eta2_pos,0]
+            neg = -eta1[::-1,eta2_neg,0]
+        else:
+            raise NotImplementedError('Line plot at current configuration not implemented.')
+
+        if metadata['share_plot']:
+            limg1 = lax1.plot(pos, f_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, marker='.', label=f'Reference')
+            limg2 = lax1.plot(pos, f_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, marker='.', label=f'Tensor $F$')
+            limg3 = lax1.plot(pos, f_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, marker='.', label=f'Polar $F$')
+            limg4 = lax1.plot(pos, f_pol_F1[:,eta2_pos,0],    c=colcyl[3], alpha=0.8, marker='.', label=f'Polar $F_1$')
+            limg1 = lax1.plot(neg, f_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.5, marker='x', label=f'Reference')
+            limg2 = lax1.plot(neg, f_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.5, marker='x', label=f'Tensor $F$')
+            limg3 = lax1.plot(neg, f_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.5, marker='x', label=f'Polar $F$')
+            limg4 = lax1.plot(neg, f_pol_F1[::-1,eta2_neg,0], c=colcyl[3], alpha=0.5, marker='x', label=f'Polar $F_1$')
+        else:
+            limg1 = lax1.plot(pos, f_exact[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            limg2 = lax2.plot(pos, f_ten_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            limg3 = lax3.plot(pos, f_pol_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            limg4 = lax4.plot(pos, f_pol_F1[:,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            limg1 = lax1.plot(neg, f_exact[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            limg2 = lax2.plot(neg, f_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            limg3 = lax3.plot(neg, f_pol_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            limg4 = lax4.plot(neg, f_pol_F1[::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+        if not metadata['norm_dist'] or metadata['share_plot']:
+            lax1.legend()
+            lax2.legend()
+            lax3.legend()
+            lax4.legend()
 
 
 
     l_is_contour = metadata['lplot'] in [PlotTypeLeft.CONTOUR2D, PlotTypeLeft.CONTOUR3D]
-    if metadata['lplot'] != PlotTypeLeft.WIREFRAME:
+    if metadata['lplot'] not in [PlotTypeLeft.WIREFRAME, PlotTypeLeft.LINE]:
         if metadata['comptype'] == Comparison.ORIG:
             lcbar1 = fig.colorbar(limg1, ax=lax1, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
             lcbar2 = fig.colorbar(limg2, ax=lax2, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabel'])
@@ -2377,7 +2582,7 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             lcbar4 = fig.colorbar(limg4, ax=lax4, shrink=0.9, pad=0.15, location='bottom', drawedges=l_is_contour, extend='both', label=metadata['lzlabeld'])
 
     limgs = [limg1, limg2, limg3, limg4]
-    if metadata['lplot'] != PlotTypeLeft.WIREFRAME:
+    if metadata['lplot'] not in [PlotTypeLeft.WIREFRAME, PlotTypeLeft.LINE]:
         lcbars = [lcbar1, lcbar2, lcbar3, lcbar4]
         for cbar in lcbars:
             # cbar.ax.locator_params(nbins=3)
@@ -2499,28 +2704,95 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         rimg2.set_clim(np.min(df_mag), np.max(df_mag))
         rimg3.set_clim(np.min(df_mag), np.max(df_mag))
         rimg4.set_clim(np.min(df_mag), np.max(df_mag))
+    elif metadata['rplot'] == PlotTypeRight.LINE:
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        colcyl = prop_cycle.by_key()['color']
+        print(f'eta1.shape {eta1.shape}')
+        print(f'eta1.shape[1] {eta1.shape[1]}')
+        eta2_pos = metadata['eta2_cut']
+        eta2_neg = (eta2_pos + int(eta1.shape[1] / 2)) % eta1.shape[1]
+        print(f'eta2_pos {eta2_pos}')
+        print(f'eta2_neg {eta2_neg}')
+        print(f'eta2[0,eta2_pos,0] {eta2[0,eta2_pos,0]}')
+        print(f'eta2[0,eta2_neg,0] {eta2[0,eta2_neg,0]}')
+        print(f'eta2[10,eta2_pos,0] {eta2[10,eta2_pos,0]}')
+        print(f'eta2[10,eta2_neg,0] {eta2[10,eta2_neg,0]}')
+        if space_enum == SpaceType.PHYSICAL and metadata['norm_dist']:
+            # Normalize line plots versus L2 physical distance between two plot points.
+            x1_pos = eta1[:,eta2_pos,0]
+            x2_pos = eta2[:,eta2_pos,0]
+            x3_pos = eta3[:,eta2_pos,0]
+            x1_neg = eta1[:,eta2_neg,0]
+            x2_neg = eta2[:,eta2_neg,0]
+            x3_neg = eta3[:,eta2_neg,0]
+            x0 = (x1_pos[0] + x1_neg[0]) / 2
+            y0 = (x2_pos[0] + x2_neg[0]) / 2
+            z0 = (x3_pos[0] + x3_neg[0]) / 2
+            pos = np.zeros_like(x1_pos)
+            neg = np.zeros_like(x1_neg)
+            for i in range(len(pos)):
+                if i == 0:
+                    pos[i] = np.sqrt((x1_pos[i] - x0)**2 + (x2_pos[i] - y0)**2 + (x3_pos[i] - z0)**2)
+                    neg[i] = np.sqrt((x1_neg[i] - x0)**2 + (x2_neg[i] - y0)**2 + (x3_neg[i] - z0)**2)
+                else:
+                    pos[i] = pos[i-1] + np.sqrt((x1_pos[i] - x1_pos[i-1])**2 + (x2_pos[i] - x2_pos[i-1])**2 + (x3_pos[i] - x3_pos[i-1])**2)
+                    neg[i] = neg[i-1] + np.sqrt((x1_neg[i] - x1_neg[i-1])**2 + (x2_neg[i] - x2_neg[i-1])**2 + (x3_neg[i] - x3_neg[i-1])**2)
+            neg = -neg[::-1]
+        elif space_enum == SpaceType.LOGICAL:
+            pos = eta1[:,eta2_pos,0]
+            neg = -eta1[::-1,eta2_neg,0]
+        else:
+            raise NotImplementedError('Line plot at current configuration not implemented.')
+
+        if metadata['share_plot']:
+            rimg1 = rax1.plot(pos, df_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, marker='.', label=f'Reference')
+            rimg2 = rax1.plot(pos, df_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, marker='.', label=f'Tensor $F$')
+            rimg3 = rax1.plot(pos, df_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, marker='.', label=f'Polar $F$')
+            rimg4 = rax1.plot(pos, df_pol_F1[:,eta2_pos,0],    c=colcyl[3], alpha=0.8, marker='.', label=f'Polar $F_1$')
+            rimg1 = rax1.plot(neg, df_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.5, marker='x', label=f'Reference')
+            rimg2 = rax1.plot(neg, df_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.5, marker='x', label=f'Tensor $F$')
+            rimg3 = rax1.plot(neg, df_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.5, marker='x', label=f'Polar $F$')
+            rimg4 = rax1.plot(neg, df_pol_F1[::-1,eta2_neg,0], c=colcyl[3], alpha=0.5, marker='x', label=f'Polar $F_1$')
+        else:
+            rimg1 = rax1.plot(pos, df_exact[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            rimg2 = rax2.plot(pos, df_ten_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            rimg3 = rax3.plot(pos, df_pol_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            rimg4 = rax4.plot(pos, df_pol_F1[:,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
+            rimg1 = rax1.plot(neg, df_exact[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            rimg2 = rax2.plot(neg, df_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            rimg3 = rax3.plot(neg, df_pol_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+            rimg4 = rax4.plot(neg, df_pol_F1[::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
+        if not metadata['norm_dist'] or metadata['share_plot']:
+            rax1.legend()
+            rax2.legend()
+            rax3.legend()
+            rax4.legend()
 
 
 
     r_is_contour = metadata['rplot'] in [PlotTypeRight.CONTOUR2D, PlotTypeRight.CONTOUR3D]
-    if metadata['comptype'] == Comparison.ORIG:
-        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
-        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
-        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
-        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
-    else:
-        rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
-        rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
-        rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
-        rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+    if metadata['rplot'] not in [PlotTypeRight.LINE]:
+        if metadata['comptype'] == Comparison.ORIG:
+            rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+            rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+            rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+            rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+        else:
+            rcbar1 = fig.colorbar(rimg1, ax=rax1, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabel'])
+            rcbar2 = fig.colorbar(rimg2, ax=rax2, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+            rcbar3 = fig.colorbar(rimg3, ax=rax3, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
+            rcbar4 = fig.colorbar(rimg4, ax=rax4, shrink=0.9, pad=0.15, location='bottom', drawedges=r_is_contour, extend='both', label=metadata['rzlabeld'])
 
     rimgs = [rimg1, rimg2, rimg3, rimg4]
-    rcbars = [rcbar1, rcbar2, rcbar3, rcbar4]
-    for cbar in rcbars:
-        # cbar.ax.locator_params(nbins=3)
-        cbar.ax.tick_params(labelsize=lbl_size)
-        cbar.locator = ticker.LinearLocator(5)
-        cbar.update_ticks()
+    if metadata['rplot'] not in [PlotTypeRight.LINE]:
+        rcbars = [rcbar1, rcbar2, rcbar3, rcbar4]
+        for cbar in rcbars:
+            # cbar.ax.locator_params(nbins=3)
+            cbar.ax.tick_params(labelsize=lbl_size)
+            cbar.locator = ticker.LinearLocator(5)
+            cbar.update_ticks()
+    else:
+        rcbars = None
 
 
 
@@ -2534,8 +2806,21 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     lgrids = []
     lel_bs = []
     for idx, ax in enumerate(laxes):
-        ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
-        ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        if metadata['lplot'] == PlotTypeLeft.LINE and space_enum == SpaceType.PHYSICAL and metadata['norm_dist']:
+            # axlim = 0.02
+            # ax.set_xlim(np.min(neg) * axlim, np.max(pos) * axlim)
+            ax.set_xlim(np.min(neg), np.max(pos))
+            ax.set_ylim(lmin, lmax)
+            ax.set_xlabel('Arc length')
+        elif metadata['lplot'] == PlotTypeLeft.LINE and space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
+            ax.set_ylim(lmin, lmax)
+        elif space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0], origin[0] + axlim)
+            ax.set_ylim(origin[1], origin[1] + axlim)
+        else:
+            ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
+            ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
         pole = None
         grid = None
         spce = None
@@ -2561,8 +2846,21 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     rgrids = []
     rel_bs = []
     for idx, ax in enumerate(raxes):
-        ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
-        ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        if metadata['rplot'] == PlotTypeRight.LINE and space_enum == SpaceType.PHYSICAL and metadata['norm_dist']:
+            # axlim = 0.02
+            # ax.set_xlim(np.min(neg) * axlim, np.max(pos) * axlim)
+            ax.set_xlim(np.min(neg), np.max(pos))
+            ax.set_ylim(rmin, rmax)
+            ax.set_xlabel('Arc length')
+        elif metadata['rplot'] == PlotTypeRight.LINE and space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
+            ax.set_ylim(rmin, rmax)
+        elif space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0], origin[0] + axlim)
+            ax.set_ylim(origin[1], origin[1] + axlim)
+        else:
+            ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
+            ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
         pole = None
         grid = None
         spce = None
@@ -2585,6 +2883,28 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         rgrids.append(grid)
         rel_bs.append(spce)
 
+
+
+    # Remove unnecessary subplots, and resize.
+    gs = GridSpec(1,2)
+    if metadata['lplot'] == PlotTypeLeft.LINE and metadata['share_plot']:
+        fig.delaxes(lax2)
+        fig.delaxes(lax3)
+        fig.delaxes(lax4)
+        lax1.set_title(lax1.get_title().replace(' analytical', ''))
+        # lax1.change_geometry(1,2,1) # Deprecated.
+        lax1.set_position(gs[0].get_position(fig))
+        lax1.set_subplotspec(gs[0])
+        autoscale_y(lax1)
+    if metadata['rplot'] == PlotTypeRight.LINE and metadata['share_plot']:
+        fig.delaxes(rax2)
+        fig.delaxes(rax3)
+        fig.delaxes(rax4)
+        rax1.set_title(rax1.get_title().replace(' analytical', ''))
+        # rax1.change_geometry(1,2,2) # Deprecated.
+        rax1.set_position(gs[1].get_position(fig))
+        rax1.set_subplotspec(gs[1])
+        autoscale_y(rax1)
 
 
     # ============================================================
@@ -2800,6 +3120,7 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     lel_bs = handle['lel_bs']
     rel_bs = handle['rel_bs']
     metadata = handle['metadata']
+    space_enum = metadata['space_enum']
     func_form = metadata['func_form']
     levels = metadata['collevel']
     axlim = metadata['axlim']
@@ -3179,6 +3500,9 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     for idx, (ax, pole, grid, spce) in enumerate(zip(laxes, lpoles, lgrids, lel_bs)):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        if space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0], origin[0] + axlim)
+            ax.set_ylim(origin[1], origin[1] + axlim)
         if l_is_3d:
             if show_pole:
                 ax.collections.remove(pole)
@@ -3205,6 +3529,9 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
     for idx, (ax, pole, grid, spce) in enumerate(zip(raxes, rpoles, rgrids, rel_bs)):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
         ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
+        if space_enum == SpaceType.LOGICAL:
+            ax.set_xlim(origin[0], origin[0] + axlim)
+            ax.set_ylim(origin[1], origin[1] + axlim)
         if r_is_3d:
             if show_pole:
                 ax.collections.remove(pole)
@@ -3682,28 +4009,69 @@ def update_fig_suptitle(plot_handles, Nel, p):
 
 
 
+def autoscale_y(ax, margin=0.5):
+    """Rescales the y-axis based on the data that is visible given the current xlim of the axis.
+
+    Source: https://stackoverflow.com/questions/29461608/matplotlib-fixing-x-axis-scale-and-autoscale-y-axis
+
+    Parameters
+    ----------
+    ax : Axes
+        A matplotlib axes object.
+    margin : float
+        The fraction of the total height of the y-data to pad the upper and lower ylims.
+    """
+
+    import numpy as np
+
+    def get_bottom_top(line):
+        xd = line.get_xdata()
+        yd = line.get_ydata()
+        lo,hi = ax.get_xlim()
+        y_displayed = yd[((xd>lo) & (xd<hi))]
+        h = np.max(y_displayed) - np.min(y_displayed)
+        bot = np.min(y_displayed) - margin * h
+        top = np.max(y_displayed) + margin * h
+        return bot, top
+
+    lines = ax.get_lines()
+    bot, top = np.inf, -np.inf
+
+    for line in lines:
+    # for line in [lines[0], lines[4]]:
+        new_bot, new_top = get_bottom_top(line)
+        if new_bot < bot: bot = new_bot
+        if new_top > top: top = new_top
+
+    ax.set_ylim(bot, top)
+
+
+
 if __name__ == "__main__":
+
+    space_enum = SpaceType.PHYSICAL
 
     # # Go through all trial functions.
     # for func_test in FuncTest:
-    #     test_polar_splines_3D(func_test=func_test, map_type=MapType.CIRCLEIDENTICAL, plot_0form=True, plot_1form=False, plot_2form=False)
+    #     test_polar_splines_3D(func_test=func_test,         map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum)
 
     # Go through all domain maps, focusing on the 3rd component of curled 1-form, and divergence of 2-form.
     # for map_type in MapType:
-    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, plot_0form=False, plot_1form=True, plot_2form=False)
-    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, plot_0form=False, plot_1form=False, plot_2form=True)
+    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type,                func_form=FuncForm.ONE,  space_type=space_enum)
+    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type,                func_form=FuncForm.TWO,  space_type=space_enum)
 
-    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=True, plot_1form=False, plot_2form=False)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=True, plot_2form=False)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED, plot_0form=False, plot_1form=True, plot_2form=False)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=True, plot_1form=False, plot_2form=False)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=False, plot_1form=True, plot_2form=False)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT, plot_0form=False, plot_1form=False, plot_2form=True)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE, plot_0form=False, plot_1form=False, plot_2form=True)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum)
+    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum)

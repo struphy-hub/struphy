@@ -6,29 +6,35 @@ def test_psydac_mapping(map=None, params_map=None):
 
     # Mappings to be tested
     if map==None:
-        maps = ['cuboid',
-                'orthogonal',
-                'colella',
-                'hollow_cyl',
-                'hollow_torus',
-                'ellipse',
-                'rotated_ellipse',
-                'soloviev_approx',
-                'soloviev_sqrt',]
+        maps = [
+            'cuboid',
+            'orthogonal',
+            'colella',
+            'hollow_cyl',
+            'hollow_torus',
+            'ellipse',
+            'rotated_ellipse',
+            'soloviev_approx',
+            'soloviev_sqrt',
+            'soloviev_cf',
+        ]
     else:
         maps = [map]
 
     # Mapping parameters to be tested
     if params_map==None:
-        param_sets = [{'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.},
-                      {'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.},
-                      {'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.},
-                      {'a1': 1., 'a2': 2., 'R0': 3.},
-                      {'a1': 1., 'a2': 2., 'R0': 3.},
-                      {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.},
-                      {'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.},
-                      {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.},
-                      {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.},]
+        param_sets = [
+            {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.},
+            {'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.},
+            {'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.},
+            {'a1': 1., 'a2': 2., 'R0': 3.},
+            {'a1': 1., 'a2': 2., 'R0': 3.},
+            {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.},
+            {'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.},
+            {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.},
+            {'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.},
+            {'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.,}
+        ]
     else:
         param_sets = [params_map]
 
@@ -189,10 +195,12 @@ def test_psydac_FemSpace():
     print(u0_fem)
     print('\n.space:')
     print(u0_fem.space)
-    print('type(coeffs):')
+    print('\ntype(coeffs):')
     print(type(u0_fem.coeffs))
     print('\n.coeffs.shape:')
     print(u0_fem.coeffs.shape)
+    print('\ntype(coeffs[:]):')
+    print(type(u0_fem.coeffs[:]))
     print('\n.coeffs[:].shape:')
     print(u0_fem.coeffs[:].shape)
     print('\n.fields:')
@@ -347,8 +355,8 @@ def test_psydac_derham():
     x0_PSY = StencilVector(V0.vector_space)
     print('0-form StencilVector:')
     print('starts:', x0_PSY.starts)
-    print('end:', x0_PSY.ends)
-    print('pads:', x0_PSY.pads)
+    print('ends  :', x0_PSY.ends)
+    print('pads  :', x0_PSY.pads)
     print('shape (=dim):', x0_PSY.shape)
     print('[:].shape (=shape):', x0_PSY[:].shape)
 
@@ -365,8 +373,8 @@ def test_psydac_derham():
     x1_PSY = BlockVector(V1.vector_space)
     print('\n1-form StencilVector:')
     print('starts:', [component.starts for component in x1_PSY])
-    print('end:', [component.ends for component in x1_PSY])
-    print('pads:', [component.pads for component in x1_PSY])
+    print('ends  :', [component.ends for component in x1_PSY])
+    print('pads  :', [component.pads for component in x1_PSY])
     print('shape (=dim):', [component.shape for component in x1_PSY])
     print('[:].shape (=shape):', [component[:].shape for component in x1_PSY])
 
@@ -391,8 +399,8 @@ def test_psydac_derham():
     x2_PSY = BlockVector(V2.vector_space)
     print('\n2-form StencilVector:')
     print('starts:', [component.starts for component in x2_PSY])
-    print('end:', [component.ends for component in x2_PSY])
-    print('pads:', [component.pads for component in x2_PSY])
+    print('ends  :', [component.ends for component in x2_PSY])
+    print('pads  :', [component.pads for component in x2_PSY])
     print('shape (=dim):', [component.shape for component in x2_PSY])
     print('[:].shape (=shape):', [component[:].shape for component in x2_PSY])
 
@@ -416,8 +424,8 @@ def test_psydac_derham():
     x3_PSY = StencilVector(V3.vector_space)
     print('\n3-form StencilVector:')
     print('starts:', x3_PSY.starts)
-    print('end:', x3_PSY.ends)
-    print('pads:', x3_PSY.pads)
+    print('ends  :', x3_PSY.ends)
+    print('pads  :', x3_PSY.pads)
     print('shape (=dim):', x3_PSY.shape)
     print('[:].shape (=shape):', x3_PSY[:].shape)
 
@@ -435,6 +443,7 @@ def test_psydac_derham():
     grad = DERHAM_STR.G0
     curl = DERHAM_STR.C0
     div  = DERHAM_STR.D0
+    print('')
     print('Struphy derivatives operators type:')
     print(type(grad), type(curl), type(div))
 
