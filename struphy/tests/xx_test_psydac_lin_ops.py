@@ -66,9 +66,20 @@ def test_lin_mhd_ops():
     V1 = DERHAM_PSY.V1
     V2 = DERHAM_PSY.V2
     V3 = DERHAM_PSY.V3
+    print(f'Rank {mpi_rank} | type(V0) {type(V0)}')
+    print(f'Rank {mpi_rank} | type(V1) {type(V1)}')
+    print(f'Rank {mpi_rank} | type(V2) {type(V2)}')
+    print(f'Rank {mpi_rank} | type(V3) {type(V3)}')
+    print(f'Rank {mpi_rank} | ')
+
 
     # Psydac projectors
     P0, P1, P2, P3  = DERHAM_PSY.projectors(nquads=n_quad)
+    print(f'Rank {mpi_rank} | type(P0) {type(P0)}')
+    print(f'Rank {mpi_rank} | type(P1) {type(P1)}')
+    print(f'Rank {mpi_rank} | type(P2) {type(P2)}')
+    print(f'Rank {mpi_rank} | type(P3) {type(P3)}')
+    print(f'Rank {mpi_rank} | ')
 
     # Struphy spline spaces
     space_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], n_quad[0]) 
@@ -110,6 +121,19 @@ def test_lin_mhd_ops():
         #for f in fun_line:
             #print(f)
             #print(f(.5, .5, .5))
+
+    # Example for make m, n local variables:
+    # print('For loop:')
+    # _fun_Q1 = []
+    # for m in range(3):
+    #     _fun_Q1 += [[]]
+    #     for n in range(3):
+    #         _fun_Q1[-1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[m, n]]
+    #         # _fun_Q1[-1] += [lambda x1, x2, x3, m=m, n=n : print(m, n)]
+    # for m in range(3):
+    #     for n in range(3):
+    #         print(m, n, _fun_Q1[m][n])
+    #         _fun_Q1[m][n](.5, .5, .5)
 
     # Multiplier functions in MHD operators:
 
@@ -174,33 +198,81 @@ def test_lin_mhd_ops():
     x3_st = StencilVector(V3.vector_space)
 
     # Use .copy() in case input will be overwritten (is not the case I guess)
-    x0_st[x0_st.starts[0] : x0_st.ends[0] + 1, 
-          x0_st.starts[1] : x0_st.ends[1] + 1,
-          x0_st.starts[2] : x0_st.ends[2] + 1] = x0.copy()
+    x0_st[
+        x0_st.starts[0] : x0_st.ends[0] + 1,
+        x0_st.starts[1] : x0_st.ends[1] + 1,
+        x0_st.starts[2] : x0_st.ends[2] + 1,
+    ] = x0[
+        x0_st.starts[0] : x0_st.ends[0] + 1,
+        x0_st.starts[1] : x0_st.ends[1] + 1,
+        x0_st.starts[2] : x0_st.ends[2] + 1,
+    ].copy()
 
-    x1_st[0][x1_st[0].starts[0] : x1_st[0].ends[0] + 1, 
-             x1_st[0].starts[1] : x1_st[0].ends[1] + 1,
-             x1_st[0].starts[2] : x1_st[0].ends[2] + 1] = x1[0].copy()
-    x1_st[1][x1_st[1].starts[0] : x1_st[1].ends[0] + 1, 
-             x1_st[1].starts[1] : x1_st[1].ends[1] + 1,
-             x1_st[1].starts[2] : x1_st[1].ends[2] + 1] = x1[1].copy()
-    x1_st[2][x1_st[2].starts[0] : x1_st[2].ends[0] + 1, 
-             x1_st[2].starts[1] : x1_st[2].ends[1] + 1,
-             x1_st[2].starts[2] : x1_st[2].ends[2] + 1] = x1[2].copy()
+    x1_st[0][
+        x1_st[0].starts[0] : x1_st[0].ends[0] + 1,
+        x1_st[0].starts[1] : x1_st[0].ends[1] + 1,
+        x1_st[0].starts[2] : x1_st[0].ends[2] + 1,
+    ] = x1[0][
+        x1_st[0].starts[0] : x1_st[0].ends[0] + 1,
+        x1_st[0].starts[1] : x1_st[0].ends[1] + 1,
+        x1_st[0].starts[2] : x1_st[0].ends[2] + 1,
+    ].copy()
+    x1_st[1][
+        x1_st[1].starts[0] : x1_st[1].ends[0] + 1,
+        x1_st[1].starts[1] : x1_st[1].ends[1] + 1,
+        x1_st[1].starts[2] : x1_st[1].ends[2] + 1,
+    ] = x1[1][
+        x1_st[1].starts[0] : x1_st[1].ends[0] + 1,
+        x1_st[1].starts[1] : x1_st[1].ends[1] + 1,
+        x1_st[1].starts[2] : x1_st[1].ends[2] + 1,
+    ].copy()
+    x1_st[2][
+        x1_st[2].starts[0] : x1_st[2].ends[0] + 1,
+        x1_st[2].starts[1] : x1_st[2].ends[1] + 1,
+        x1_st[2].starts[2] : x1_st[2].ends[2] + 1,
+    ] = x1[2][
+        x1_st[2].starts[0] : x1_st[2].ends[0] + 1,
+        x1_st[2].starts[1] : x1_st[2].ends[1] + 1,
+        x1_st[2].starts[2] : x1_st[2].ends[2] + 1,
+    ].copy()
 
-    x2_st[0][x2_st[0].starts[0] : x2_st[0].ends[0] + 1, 
-             x2_st[0].starts[1] : x2_st[0].ends[1] + 1,
-             x2_st[0].starts[2] : x2_st[0].ends[2] + 1] = x2[0].copy()
-    x2_st[1][x2_st[1].starts[0] : x2_st[1].ends[0] + 1, 
-             x2_st[1].starts[1] : x2_st[1].ends[1] + 1,
-             x2_st[1].starts[2] : x2_st[1].ends[2] + 1] = x2[1].copy()
-    x2_st[2][x2_st[2].starts[0] : x2_st[2].ends[0] + 1, 
-             x2_st[2].starts[1] : x2_st[2].ends[1] + 1,
-             x2_st[2].starts[2] : x2_st[2].ends[2] + 1] = x2[2].copy()
+    x2_st[0][
+        x2_st[0].starts[0] : x2_st[0].ends[0] + 1,
+        x2_st[0].starts[1] : x2_st[0].ends[1] + 1,
+        x2_st[0].starts[2] : x2_st[0].ends[2] + 1,
+    ] = x2[0][
+        x2_st[0].starts[0] : x2_st[0].ends[0] + 1,
+        x2_st[0].starts[1] : x2_st[0].ends[1] + 1,
+        x2_st[0].starts[2] : x2_st[0].ends[2] + 1,
+    ].copy()
+    x2_st[1][
+        x2_st[1].starts[0] : x2_st[1].ends[0] + 1,
+        x2_st[1].starts[1] : x2_st[1].ends[1] + 1,
+        x2_st[1].starts[2] : x2_st[1].ends[2] + 1,
+    ] = x2[1][
+        x2_st[1].starts[0] : x2_st[1].ends[0] + 1,
+        x2_st[1].starts[1] : x2_st[1].ends[1] + 1,
+        x2_st[1].starts[2] : x2_st[1].ends[2] + 1,
+    ].copy()
+    x2_st[2][
+        x2_st[2].starts[0] : x2_st[2].ends[0] + 1,
+        x2_st[2].starts[1] : x2_st[2].ends[1] + 1,
+        x2_st[2].starts[2] : x2_st[2].ends[2] + 1,
+    ] = x2[2][
+        x2_st[2].starts[0] : x2_st[2].ends[0] + 1,
+        x2_st[2].starts[1] : x2_st[2].ends[1] + 1,
+        x2_st[2].starts[2] : x2_st[2].ends[2] + 1,
+    ].copy()
 
-    x3_st[x3_st.starts[0] : x3_st.ends[0] + 1, 
-          x3_st.starts[1] : x3_st.ends[1] + 1,
-          x3_st.starts[2] : x3_st.ends[2] + 1] = x3.copy()
+    x3_st[
+        x3_st.starts[0] : x3_st.ends[0] + 1,
+        x3_st.starts[1] : x3_st.ends[1] + 1,
+        x3_st.starts[2] : x3_st.ends[2] + 1,
+    ] = x3[
+        x3_st.starts[0] : x3_st.ends[0] + 1,
+        x3_st.starts[1] : x3_st.ends[1] + 1,
+        x3_st.starts[2] : x3_st.ends[2] + 1,
+    ].copy()
 
     MPI_COMM.Barrier()
 
@@ -217,66 +289,158 @@ def test_lin_mhd_ops():
     dof_PSY = K1._dofs_mat.dot(x3_st)
     print(type(dof_PSY))
 
-    # compare vectors of FE coeffs
-    assert np.allclose(x3_st.toarray(), x3.flatten())
+    # Compare vectors of FE coeffs.
+    # `x3_st.toarray()` returns only local values, the rest is zero.
+    assert np.allclose(
+        x3_st[
+            x3_st.starts[0] : x3_st.ends[0] + 1,
+            x3_st.starts[1] : x3_st.ends[1] + 1,
+            x3_st.starts[2] : x3_st.ends[2] + 1,
+        ],
+        x3[
+            x3_st.starts[0] : x3_st.ends[0] + 1,
+            x3_st.starts[1] : x3_st.ends[1] + 1,
+            x3_st.starts[2] : x3_st.ends[2] + 1,
+        ]
+    )
 
     res_PSY = K1.dot(x3_st)
     print(type(res_PSY))
     res_STR, dof_STR = OPS_STR.K1_dot(x3.flatten())
 
     # compare DOFs
-    assert np.allclose(dof_PSY.toarray(), dof_STR)
-    assert np.allclose(dof_PSY[dof_PSY.starts[0] : dof_PSY.ends[0] + 1, 
-                               dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
-                               dof_PSY.starts[2] : dof_PSY.ends[2] + 1], SPACES.extract_3(dof_STR))
+    # assert np.allclose(dof_PSY.toarray(), dof_STR)
+    assert np.allclose(
+        dof_PSY[
+            dof_PSY.starts[0] : dof_PSY.ends[0] + 1,
+            dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
+            dof_PSY.starts[2] : dof_PSY.ends[2] + 1,
+        ], SPACES.extract_3(dof_STR)[
+            dof_PSY.starts[0] : dof_PSY.ends[0] + 1,
+            dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
+            dof_PSY.starts[2] : dof_PSY.ends[2] + 1,
+        ])
 
     # compare results (works only for Nel=[N, N, N] so far! TODO: find this bug!)
-    assert np.allclose(res_PSY.toarray(), res_STR)
+    # assert np.allclose(res_PSY.toarray(), res_STR)
+    assert np.allclose(
+        res_PSY[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ], SPACES.extract_3(res_STR)[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ])
 
-    print('psydac result :',res_PSY.toarray()[:5])
-    print('struphy result:',res_STR[:5])
+    print('psydac result :', res_PSY.toarray()[:5])
+    print('struphy result:', res_STR[:5])
     print('input vector  :', x3.flatten()[:5])
 
-    print('res_STR:')
-    print(SPACES.extract_3(res_STR)[0, :, :])
+    print(f'Rank {mpi_rank} | ')
+    print(f'Rank {mpi_rank} | res_STR starts & ends:')
+    print([
+        res_PSY.starts[0], res_PSY.ends[0] + 1,
+        res_PSY.starts[1], res_PSY.ends[1] + 1,
+        res_PSY.starts[2], res_PSY.ends[2] + 1,
+    ])
 
-    print('res_PSY:')
-    print(res_PSY[res_PSY.starts[0], 
-                  res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                  res_PSY.starts[2] : res_PSY.ends[2] + 1])
-	
+    print(f'Rank {mpi_rank} | res_STR:')
+    print(SPACES.extract_3(res_STR)[
+        res_PSY.starts[0],
+        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    ])
+
+    print(f'Rank {mpi_rank} | res_PSY:')
+    print(res_PSY[
+        res_PSY.starts[0],
+        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    ])
+    print(f'Rank {mpi_rank} | ')
+
+    MPI_COMM.Barrier()
+
     # operator K10
     print('\nK10 (=Identity operator in this case):')
     dof_PSY = K10._dofs_mat.dot(x0_st)
     print(type(dof_PSY))
 
-    # compare vectors of FE coeffs
-    assert np.allclose(x0_st.toarray(), x0.flatten())
+    # Compare vectors of FE coeffs.
+    # `x0_st.toarray()` returns only local values, the rest is zero.
+    assert np.allclose(
+        x0_st[
+            x0_st.starts[0] : x0_st.ends[0] + 1,
+            x0_st.starts[1] : x0_st.ends[1] + 1,
+            x0_st.starts[2] : x0_st.ends[2] + 1,
+        ],
+        x0[
+            x0_st.starts[0] : x0_st.ends[0] + 1,
+            x0_st.starts[1] : x0_st.ends[1] + 1,
+            x0_st.starts[2] : x0_st.ends[2] + 1,
+        ]
+    )
 
     res_PSY = K10.dot(x0_st)
     print(type(res_PSY))
     res_STR, dof_STR = OPS_STR.K10_dot(x0.flatten())
 
     # compare DOFs
-    assert np.allclose(dof_PSY.toarray(), dof_STR)
-    assert np.allclose(dof_PSY[dof_PSY.starts[0] : dof_PSY.ends[0] + 1, 
-                               dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
-                               dof_PSY.starts[2] : dof_PSY.ends[2] + 1], SPACES.extract_0(dof_STR))
+    # assert np.allclose(dof_PSY.toarray(), dof_STR)
+    assert np.allclose(
+        dof_PSY[
+            dof_PSY.starts[0] : dof_PSY.ends[0] + 1,
+            dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
+            dof_PSY.starts[2] : dof_PSY.ends[2] + 1,
+        ], SPACES.extract_0(dof_STR)[
+            dof_PSY.starts[0] : dof_PSY.ends[0] + 1,
+            dof_PSY.starts[1] : dof_PSY.ends[1] + 1,
+            dof_PSY.starts[2] : dof_PSY.ends[2] + 1,
+        ])
 
     # compare results (works only for Nel=[N, N, N] so far! TODO: find this bug!)
-    assert np.allclose(res_PSY.toarray(), res_STR)
+    # assert np.allclose(res_PSY.toarray(), res_STR)
+    assert np.allclose(
+        res_PSY[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ], SPACES.extract_0(res_STR)[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ])
 
-    print('psydac result :',res_PSY.toarray()[:5])
-    print('struphy result:',res_STR[:5])
+    print('psydac result :', res_PSY.toarray()[:5])
+    print('struphy result:', res_STR[:5])
     print('input vector  :', x0.flatten()[:5])
 
-    print('res_STR:')
-    print(SPACES.extract_0(res_STR)[0, :, :])
+    print(f'Rank {mpi_rank} | ')
+    print(f'Rank {mpi_rank} | res_STR starts & ends:')
+    print([
+        res_PSY.starts[0], res_PSY.ends[0] + 1,
+        res_PSY.starts[1], res_PSY.ends[1] + 1,
+        res_PSY.starts[2], res_PSY.ends[2] + 1,
+    ])
 
-    print('res_PSY:')
-    print(res_PSY[res_PSY.starts[0], 
-                  res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                  res_PSY.starts[2] : res_PSY.ends[2] + 1])    
+    print(f'Rank {mpi_rank} | res_STR:')
+    print(SPACES.extract_0(res_STR)[
+        res_PSY.starts[0],
+        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    ])
+
+    print(f'Rank {mpi_rank} | res_PSY:')
+    print(res_PSY[
+        res_PSY.starts[0],
+        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+    ])
+    print(f'Rank {mpi_rank} | ')
+
+    MPI_COMM.Barrier()
 
     # operator Q1
     print('\nQ1:')

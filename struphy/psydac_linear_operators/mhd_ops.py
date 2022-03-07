@@ -35,13 +35,112 @@ class MHD_ops:
         # Psydac projectors
         _P0, _P1, _P2, _P3  = DERHAM.projectors(nquads=nq_pr)
 
-        # funs
+        # Scalar functions
         _fun_K1  = lambda x1, x2, x3 : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
         _fun_K10 = EQ_MHD_L.p0_eq
+        # _fun_X1  = lambda x1, x2, x3 : F.jacobian_inv(x1, x2, x3).T
 
-        # MHD operators
+        _fun_K2  = lambda x1, x2, x3 : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        # _fun_X2  = lambda x1, x2, x3 : F.jacobian(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        _fun_Y20 = lambda x1, x2, x3 : np.sqrt(F.metric_det(x1, x2, x3))
+
+        # 'Matrix' functions
+        _fun_Q1  = []
+        _fun_W1  = []
+        _fun_U1  = []
+        _fun_P1  = []
+        _fun_S1  = []
+        _fun_S10 = []
+        _fun_T1  = []
+        _fun_X1  = []
+
+        _fun_Q2  = []
+        _fun_T2  = []
+        _fun_P2  = []
+        _fun_S2  = []
+        _fun_X2  = []
+        _fun_Z20 = []
+        _fun_S20 = []
+
+        for m in range(3):
+            _fun_Q1  += [[]]
+            _fun_W1  += [[]]
+            _fun_U1  += [[]]
+            _fun_P1  += [[]]
+            _fun_S1  += [[]]
+            _fun_S10 += [[]]
+            _fun_T1  += [[]]
+            _fun_T1  += [[]]
+
+            _fun_Q2  += [[]]
+            _fun_T2  += [[]]
+            _fun_P2  += [[]]
+            _fun_S2  += [[]]
+            _fun_X2  += [[]]
+            _fun_Z20 += [[]]
+            _fun_S20 += [[]]
+            for n in range(3):
+                # TODO: Double check that the correct p-form and row/col are used.
+                # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
+                _fun_Q1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_W1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_U1[ -1] += [lambda x1, x2, x3, m=m, n=n : np.sqrt(F.metric_det(x1, x2, x3)) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_P1[ -1] += [lambda x1, x2, x3, m=m, n=n : [EQ_MHD_L.j2_eq_1, EQ_MHD_L.j2_eq_2, EQ_MHD_L.j2_eq_3][m](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_S1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_S10[-1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) if m==n else 0.]
+                _fun_T1[ -1] += [lambda x1, x2, x3, m=m, n=n : [EQ_MHD_L.b2_eq_1, EQ_MHD_L.b2_eq_2, EQ_MHD_L.b2_eq_3][m](x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_X1[ -1] += [lambda x1, x2, x3, m=m, n=n : (F.jacobian_inv(x1, x2, x3).T)[m, n]]
+
+                _fun_Q2[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_T2[ -1] += [lambda x1, x2, x3, m=m, n=n : [EQ_MHD_L.b2_eq_1, EQ_MHD_L.b2_eq_2, EQ_MHD_L.b2_eq_3][m](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_P2[ -1] += [lambda x1, x2, x3, m=m, n=n : _Ginv(x1, x2, x3)[m, n] * [EQ_MHD_L.j2_eq_1, EQ_MHD_L.j2_eq_2, EQ_MHD_L.j2_eq_3][n](x1, x2, x3)]
+                _fun_S2[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_X2[ -1] += [lambda x1, x2, x3, m=m, n=n : F.jacobian(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_Z20[-1] += [lambda x1, x2, x3, m=m, n=n : F.metric(x1, x2, x3)[m, n]]
+                _fun_S20[-1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) * F.metric(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
+
+        # MHD operators with velocity (up) as 1-form:
+        self._Q1  = MHD_operator(_V1, _V2, _P2, _fun_Q1, projectors_1d)
+        self._W1  = MHD_operator(_V1, _V1, _P1, _fun_W1, projectors_1d)
+        self._U1  = MHD_operator(_V1, _V2, _P2, _fun_U1, projectors_1d)
+        self._P1  = MHD_operator(_V2, _V1, _P1, _fun_P1, projectors_1d)
+        self._S1  = MHD_operator(_V1, _V2, _P2, _fun_S1, projectors_1d)
+        self._S10 = MHD_operator(_V1, _V1, _P1, _fun_S10, projectors_1d)
         self._K1  = MHD_operator(_V3, _V3, _P3, [[_fun_K1]],  projectors_1d)
         self._K10 = MHD_operator(_V0, _V0, _P0, [[_fun_K10]], projectors_1d)
+        self._T1  = MHD_operator(_V1, _V1, _P1, _fun_T1,  projectors_1d)
+        self._X1  = MHD_operator(_V1, _V0, _P0, _fun_X1, projectors_1d)
+
+        # MHD operators with velocity (up) as 2-form:
+        self._Q2  = MHD_operator(_V2, _V2, _P2, _fun_Q2, projectors_1d)
+        self._T2  = MHD_operator(_V2, _V1, _P1, _fun_T2, projectors_1d)
+        self._P2  = MHD_operator(_V2, _V2, _P2, _fun_P2, projectors_1d)
+        self._S2  = MHD_operator(_V2, _V2, _P2, _fun_S2, projectors_1d)
+        self._K2  = MHD_operator(_V3, _V3, _P3, [[_fun_K2]], projectors_1d)
+        self._X2  = MHD_operator(_V2, _V0, _P0, _fun_X2, projectors_1d)
+        self._Z20 = MHD_operator(_V2, _V1, _P1, _fun_Z20,  projectors_1d)
+        self._Y20 = MHD_operator(_V0, _V3, _P3, [[_fun_Y20]], projectors_1d)
+        self._S20 = MHD_operator(_V2, _V1, _P1, _fun_S20,  projectors_1d)
+
+
+
+    def Q1(self, x):
+        return self._Q1.dot(x)
+
+    def W1(self, x):
+        return self._W1.dot(x)
+
+    def U1(self, x):
+        return self._U1.dot(x)
+
+    def P1(self, x):
+        return self._P1.dot(x)
+
+    def S1(self, x):
+        return self._S1.dot(x)
+
+    def S10(self, x):
+        return self._S10.dot(x)
 
     def K1(self, x):
         return self._K1.dot(x)
@@ -49,7 +148,42 @@ class MHD_ops:
     def K10(self, x):
         return self._K10.dot(x)
 
-           
+    def T1(self, x):
+        return self._T1.dot(x)
+
+    def X1(self, x):
+        return self._X1.dot(x)
+
+
+
+    def Q2(self, x):
+        return self._Q2.dot(x)
+
+    def T2(self, x):
+        return self._T2.dot(x)
+
+    def P2(self, x):
+        return self._P2.dot(x)
+
+    def S2(self, x):
+        return self._S2.dot(x)
+
+    def K2(self, x):
+        return self._K2.dot(x)
+
+    def X2(self, x):
+        return self._X2.dot(x)
+
+    def Z20(self, x):
+        return self._Z20.dot(x)
+
+    def Y20(self, x):
+        return self._Y20.dot(x)
+
+    def S20(self, x):
+        return self._S20.dot(x)
+
+
 
 class MHD_operator:
 

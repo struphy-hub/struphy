@@ -342,13 +342,18 @@ class Domain():
             * Y = y0 + (eta1*r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1*r2) * cos(2*pi*th) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
         * 'soloviev_approx' :
-            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * delta
+            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1 - eta1**2) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
         * 'soloviev_sqrt' :
             * Crafted s.t. derivative component 11 does not go to zero at the pole of the map.
             * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
+        * 'soloviev_cf' :
+            * Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
+            * X = x0 + R0 * [ 1 + (1 - eta1**2) * delta_x + eta1 * epsilon_gs * cos(2*pi*eta2 + arcsin(delta_gs)*eta1*sin(2*pi*eta2)) ]
+            * Y = y0 + R0 * [     (1 - eta1**2) * delta_y + eta1 * epsilon_gs * kappa_gs * sin(2*pi*eta2) ]
             * Z = z0 + (eta3*Lz)
         * 'spline': 
             * 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
@@ -363,7 +368,7 @@ class Domain():
             * Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
             * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
     '''
-    
+
     def __init__(self, kind_map='cuboid', params_map={'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}): 
 
         if kind_map == 'cuboid':
@@ -428,6 +433,13 @@ class Domain():
             self.params_map = list(params_map.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
+
+        elif kind_map == 'soloviev_cf':
+            self.kind_map = 19
+            self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
+                                                'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
                                                 'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'spline':

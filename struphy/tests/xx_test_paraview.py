@@ -37,6 +37,8 @@ def test_paraview(sim_path=None):
     # from vtkmodules.vtkIOParallelXML
     from struphy.diagnostics.paraview.vtk_writer import vtkWriter
     import struphy.diagnostics.paraview.mesh_creator as MC
+    import xml.etree.ElementTree as ET
+    from xml.dom import minidom
 
 
 
@@ -165,6 +167,9 @@ def test_paraview(sim_path=None):
     eta1_range = np.linspace(1e-8, 1, 21)
     eta2_range = np.linspace(0, 1, 23)
     eta3_range = np.linspace(0, 1, 25)
+
+    # Use spline element boundaries for grid.
+    eta1_range, eta2_range, eta3_range = [np.array(space.el_b) for space in TENSOR_SPACE.spaces]
 
     len1, len2, len3 = eta1_range.shape[0], eta2_range.shape[0], eta3_range.shape[0]
     eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
@@ -339,6 +344,10 @@ def test_paraview(sim_path=None):
     vtk_dir = os.path.join(basedir, 'paraview_output')
     filename = 'TestTimeSeq'
 
+    # Create XML-based PVD file.
+    pvd_root = ET.Element('VTKFile', type='Collection')
+    collection = ET.SubElement(pvd_root, 'Collection')
+
     if geometry == 'cuboid':
 
         writer = vtkXMLRectilinearGridWriter()
@@ -348,13 +357,26 @@ def test_paraview(sim_path=None):
         # Class implementation of a ParaView writer.
         writer = vtkWriter('vtu').writer # Unstructured grid writer.
 
-    for t in range(len(time)):
+    digits = int(np.log10(len(time)))+1
+    fmt = f'0{digits}d'
+
+    for i, t in enumerate(time):
         writer.SetInputDataObject(grid)
-        filepath = os.path.join(vtk_dir, filename + f'_{t:04d}.' + writer.GetDefaultFileExtension())
+        filepath = os.path.join(vtk_dir, filename + f'_{i:{fmt}}.' + writer.GetDefaultFileExtension())
+        # TODO: Should use actual timestep for attribute `timestep=f'{t}'`, but currently it is always zero. Use index `i` instead.
+        ET.SubElement(collection, 'DataSet', timestep=f'{i}', part='0', file=filename + f'_{i:{fmt}}.' + writer.GetDefaultFileExtension())
         os.makedirs(vtk_dir, exist_ok=True) # Make sure directory exists.
         writer.SetFileName(filepath)
         success = writer.Write()
-        print(f'Success writing ParaView file for the {t:04d}-th timestep: {success==1}.')
+        print(f'Success writing ParaView file for the {i:{fmt}}-th timestep: {success==1}.')
+
+    filepath = os.path.join(vtk_dir, f'{filename}.pvd')
+    # tree = ET.ElementTree(pvd_root)
+    # tree.write(filepath, encoding='UTF-8', xml_declaration=True)
+    # To pretty-print xml:
+    xmlstr = minidom.parseString(ET.tostring(pvd_root)).toprettyxml(indent='    ')
+    with open(filepath, 'w') as f:
+        f.write(xmlstr)
 
 
 
