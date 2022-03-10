@@ -107,8 +107,7 @@ echo "batch script:" $batch
 echo "omp threads:" $num_threads
 echo "restart:" $mode
 
-cp ${file_inp} ${path_out}/parameters.yml
-
+cp ${file_inp} ${path_out}$file
 echo "Copied parameter file to output folder."
 
 # remove existing files when no restart

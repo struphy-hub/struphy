@@ -40,7 +40,9 @@ setup(
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
-    scripts=['scripts/struphy'],
+    scripts=['scripts/struphy', 
+             'scripts/example_lin_mhd_1d_fft',
+             ],
     # list of package dependencies (if necessary)
     install_requires=[
         'h5py',
