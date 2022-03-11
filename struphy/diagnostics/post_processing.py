@@ -105,7 +105,9 @@ class Post_processing:
                 * '2_form_3',
                 * '3_form'
         """
-
+        
+        total_stetps    = str(self.Nt-1) 
+        str_len         = len(total_stetps)
         print('Evaluate ' + quantity + ' as ' + form)
     
         if form == '0_form':
@@ -115,12 +117,9 @@ class Post_processing:
 
             for tn in range(self.Nt):
                 coeffs                          = self.SPACES.extract_0(quantity[tn])
-                eval_spline                     = self.SPACES.evaluate_NNN(self.eta1, self.eta2, self.eta3, coeffs_1)
+                eval_spline                     = self.SPACES.evaluate_NNN(self.eta1, self.eta2, self.eta3, coeffs)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push(eval_spline, self.eta1, self.eta2, self.eta3, '0_form')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -135,10 +134,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_NDN(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_NND(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '1_form_1')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -153,10 +149,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_NDN(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_NND(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '1_form_2')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -171,10 +164,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_NDN(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_NND(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '1_form_3')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -189,10 +179,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_DND(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_DDN(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '2_form_1')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -207,10 +194,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_DND(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_DDN(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '2_form_2')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -225,10 +209,7 @@ class Post_processing:
                 eval_spline_2                   = self.SPACES.evaluate_DND(self.eta1, self.eta2, self.eta3, coeffs_2)
                 eval_spline_3                   = self.SPACES.evaluate_DDN(self.eta1, self.eta2, self.eta3, coeffs_3)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push([eval_spline_1, eval_spline_2, eval_spline_3], self.eta1, self.eta2, self.eta3, '2_form_3')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -241,10 +222,7 @@ class Post_processing:
                 coeffs                          = self.SPACES.extract_3(quantity[tn])
                 eval_spline                     = self.SPACES.evaluate_DDD(self.eta1, self.eta2, self.eta3, coeffs)
                 eval_values[tn, :, :, :]        = self.DOMAIN.push(eval_spline, self.eta1, self.eta2, self.eta3, '3_form')
-
-                frac    = int(np.ceil(((tn/self.Nt))*100))
-                message = 'Processing: ' '{0:03}'.format(frac) + " %: "
-                print('\r', message, end='')
+                print('\r', 'Steps : ' + str(tn).zfill(str_len) + '/' + total_stetps, end='')
 
             return eval_values
 
@@ -281,14 +259,12 @@ class Post_processing:
                 '2_form_3':' z',
                 '3_form':''}
 
-        print(quantities)
-
         DATA = data_module.Data_container(path_out=path_out, data_name=data_name)
-
+        print()
         for form, quantity in quantities.items():
 
             eval_values = self.__evaluate_data(form, quantity)
-            
+            print()
             DATA.add_data({quantity + name[form]  : eval_values})
 
         DATA.file.close()

@@ -36,12 +36,14 @@ setup(
             'pc_lin_mhd_6d_MF_full/*.yml',
             'pc_lin_mhd_6d_MF_perp/*.yml',
             'massless_extended/*.yml',
+            'maxwell/*yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
     scripts=['scripts/struphy', 
              'scripts/example_lin_mhd_1d_fft',
+             'scripts/example_maxwell_1d_fft',
              ],
     # list of package dependencies (if necessary)
     install_requires=[
