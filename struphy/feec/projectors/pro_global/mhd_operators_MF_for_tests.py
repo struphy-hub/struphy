@@ -402,7 +402,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1.flatten(), DOF_2.flatten(), DOF_3.flatten()
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1, DOF_2, DOF_3
 
 
     # ==================================================================
@@ -570,7 +570,7 @@ class projectors_dot_x:
         res_3 = self.space.projectors.PI_mat('13', DOF_3)
 
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1.flatten(), DOF_2.flatten(), DOF_3.flatten()
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1, DOF_2, DOF_3
 
     
     # ===================================================================
@@ -1403,7 +1403,7 @@ class projectors_dot_x:
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
         res = self.space.projectors.PI_mat('3', DOF)
 
-        return res.flatten(), DOF.flatten()
+        return res.flatten(), DOF
 
     
     # =================================================================
@@ -1504,7 +1504,7 @@ class projectors_dot_x:
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
         res = self.space.projectors.PI_mat('0', DOF)
 
-        return res.flatten(), DOF.flatten()
+        return res.flatten(), DOF
 
     
     # =================================================================
@@ -2001,7 +2001,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat('23', DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1.flatten(), DOF_2.flatten(), DOF_3.flatten()
+        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten())), DOF_1, DOF_2, DOF_3
 
 
     # ====================================================================
@@ -3119,7 +3119,7 @@ class projectors_dot_x:
         # histo(xi1)-histo(xi2)-histo(xi3)-polation.
         res = self.space.projectors.PI_mat('3', DOF)
 
-        return res.flatten()
+        return res.flatten(), DOF
 
 
     # ====================================================================

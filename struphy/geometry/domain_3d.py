@@ -314,9 +314,9 @@ class Domain():
     Available mappings (choices for "kind_map") are:
 
         * 'cuboid' :       
-            * X = b1 + (e1 - b1)*eta1
-            * Y = b2 + (e2 - b2)*eta2
-            * Z = b3 + (e3 - b3)*eta3   
+            * X = l1 + (r1 - l1)*eta1
+            * Y = l2 + (r2 - l2)*eta2
+            * Z = l3 + (r3 - l3)*eta3   
         * 'orthogonal' :   
             * X = Lx*(eta1 + alpha*sin(2*pi*eta1))
             * Y = Ly*(eta2 + alpha*sin(2*pi*eta2))
