@@ -22,6 +22,9 @@ image: python:3.9-bullseye
 #    - .cache/pip
 #    - venv/
 
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
 stages:
   #- Lint
   - test
@@ -47,6 +50,8 @@ unittest:
     - pip install -U pytest coverage
     #- python -m pip install -r requirements.txt
     - pip install .
+    - cd psydac; pip install .; cd ..
+    - cd gvec_to_python; pip install .; cd ..
     #- make
     - struphy -h
     - struphy -t

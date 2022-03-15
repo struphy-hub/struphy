@@ -45,8 +45,9 @@ Contributors:
 * Tin Kei Cheng (since 2021)
 * Yingzhe Li (since 2021)
 * Byung Kyu Na (since 2021)
+* Dominik Bell (since 2022)
 
-The project benefits from the constant advice of Yaman Güclü and Florian Hindenlang.
+The project benefits from the constant advice of Yaman Güclü, Said Hadjout and Florian Hindenlang.
 
 Contact:
 
@@ -84,24 +85,19 @@ Clone and checkout the `devel` branch::
 
     git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git
 
-Install *STRUPHY* in the default local directory of your platform::
-
-    pip install --user .
-
-For developers the creation of a virtual environment is recommended::
+Installation of *STRUPHY* in a virtual environment is recommended::
 
     python3 -m pip install --user virtualenv
     python3 -m venv <env_name>
     source <env_name>/bin/activate
     pip3 install .
 
-At the moment, a manual install of `gvec_to_python` and `psydac` packages is required::
+Next, install the submodules `gvec_to_python` and `psydac`::
 
-    git clone git@gitlab.mpcdf.mpg.de:spossann/gvec_to_python.git
-    pip install --user .
-    
-    git clone https://github.com/pyccel/psydac.git
-    pip install --user .
+    git submodule init
+    git submodule update
+    cd psydac; pip install .; cd ..
+    cd gvec_to_python; pip install .; cd ..
     
 Quick help:
 
