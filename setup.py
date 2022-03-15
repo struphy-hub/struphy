@@ -66,6 +66,9 @@ setup(
         'vtk',
         'docutils==0.15',
         #'pandas',
+        'wheel',
+        #'psydac @ git+https://github.com/pyccel/psydac.git', Maybe in future version, when both repos are are public
+        #'gvec_to_python @ git+https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python.git'
     ],
     # more information, necessary for an upload to PyPI
     author="Stefan Possanner",
