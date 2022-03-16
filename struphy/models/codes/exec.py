@@ -60,6 +60,10 @@ elif code=='pc_lin_mhd_6d_MF_full':
 elif code=='pc_lin_mhd_6d_MF_perp':
     from struphy.models.codes import pc_lin_mhd_6d_MF_perp 
     pc_lin_mhd_6d_MF_perp.execute(file_in, path_out, mode=='a')
+    
+elif code=='kinetic_extended':
+    from struphy.models.codes import kinetic_extended
+    kinetic_extended.execute(file_in, path_out, mode=='a')
 
 elif code=='maxwell':
     from struphy.models.codes import maxwell 
