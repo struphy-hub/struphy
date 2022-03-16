@@ -6,7 +6,7 @@ def test_lin_mhd_ops():
     and fun is an arbitrary (matrix-valued) function.
     '''
 
-    from struphy.psydac_linear_operators.mhd_ops import MHD_ops
+    from struphy.psydac_linear_operators.mhd_ops import MHD_ops, MHD_operator
     from struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests import projectors_dot_x
 
     from struphy.geometry.domain_3d            import Domain
@@ -48,12 +48,12 @@ def test_lin_mhd_ops():
     DOMAIN_symb = Mapping_psydac(DOMAIN_PSYDAC_LOGICAL)
 
     # Psydac symbolic Derham
-    DERHAM_symb = Derham(DOMAIN_symb)
+    DERHAM_symb = Derham(DOMAIN_PSYDAC_LOGICAL)
 
     # grid parameters
     Nel      = [8, 8, 8]
     p        = [3, 3, 3]
-    spl_kind = [False, True, True] 
+    spl_kind = [False, True, True]
     n_quad   = [4, 4, 4]
     bc       = [['f', 'f'], None, None]
     if mpi_rank == 0:
@@ -63,7 +63,7 @@ def test_lin_mhd_ops():
         print(f'Rank {mpi_rank} | ')
 
     # Psydac discrete De Rham
-    DOMAIN_PSY  = discretize(DOMAIN_symb, ncells=Nel, comm=MPI_COMM) # The parallelism is initiated here.
+    DOMAIN_PSY  = discretize(DOMAIN_PSYDAC_LOGICAL, ncells=Nel, comm=MPI_COMM) # The parallelism is initiated here.
     DERHAM_PSY  = discretize(DERHAM_symb, DOMAIN_PSY, degree=p, periodic=spl_kind)
 
     # Mhd equilibirum
@@ -94,7 +94,7 @@ def test_lin_mhd_ops():
         print(f'Rank {mpi_rank} | type(P3) {type(P3)}')
         print(f'Rank {mpi_rank} | ')
 
-    # Struphy spline spaces 
+    # Struphy spline spaces
     space_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], n_quad[0]) 
     space_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], n_quad[1])
     space_3 = Spline_space_1d(Nel[2], p[2], spl_kind[2], n_quad[2])
@@ -116,17 +116,52 @@ def test_lin_mhd_ops():
     SPACES.assemble_M3(DOMAIN)
     print(f'Rank {mpi_rank} | Mass matrices assembled ({time()-elapsed:.4f}s).')
 
+    # Hard coding the indices m,n:
+    fun_Q1 = []
+    fun_Q1 += [[]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[0, 0]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[0, 1]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[0, 2]]
+    fun_Q1 += [[]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[1, 0]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[1, 1]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[1, 2]]
+    fun_Q1 += [[]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[2, 0]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[2, 1]]
+    fun_Q1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) * Ginv(x1, x2, x3)[2, 2]]
+
+    # Lambda function without indices m,n.
+    fun_W1 = []
+    for m in range(3):
+        fun_W1 += [[]]
+        for n in range(3):
+            if n == m:
+                fun_W1[-1] += [lambda x1, x2, x3 : EQ_MHD_L.r3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
+            else:
+                fun_W1[-1] += [lambda x1, x2, x3 : 0.]
+
+    fun_Q2 = fun_W1
+    
+    fun_K1  = lambda x1, x2, x3 : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+    fun_K10 = EQ_MHD_L.p0_eq
+
     # Psydac MHD operators
     print(f'Rank {mpi_rank} | Init PSYDAC `MHD_operator` (test deprecated)...')
     elapsed = time()
-    OPS_PSY = MHD_ops(DERHAM_PSY, n_quad, EQ_MHD_L, F, projectors_1d)
-    OPS_PSY.assemble_K1()
-    OPS_PSY.assemble_K10()
-    OPS_PSY.assemble_Y20()
-    OPS_PSY.assemble_Q1()
-    OPS_PSY.assemble_W1()
-    OPS_PSY.assemble_Q2()
+    Q1     = MHD_operator(V1, V2, P2, fun_Q1,      projectors_1d)
+    W1     = MHD_operator(V1, V1, P1, fun_W1,      projectors_1d)
+    Q2     = MHD_operator(V2, V2, P2, fun_Q2,      projectors_1d)
+    K1     = MHD_operator(V3, V3, P3, [[fun_K1]],  projectors_1d)
+    K10    = MHD_operator(V0, V0, P0, [[fun_K10]], projectors_1d)
     print(f'Rank {mpi_rank} | Init `MHD_operator` done ({time()-elapsed:.4f}s).')
+
+    # Psydac MHD operators class, replaces the above.
+    print(f'Rank {mpi_rank} | Init PSYDAC `MHD_ops`...')
+    elapsed = time()
+    nq_pr = n_quad
+    OPS_PSY = MHD_ops(DERHAM_PSY, nq_pr, EQ_MHD_L, F, projectors_1d)
+    print(f'Rank {mpi_rank} | Init `MHD_ops` done ({time()-elapsed:.4f}s).')
 
     # Struphy matrix-free MHD operators
     print(f'Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...')
@@ -135,20 +170,20 @@ def test_lin_mhd_ops():
     print(f'Rank {mpi_rank} | Init `projectors_dot_x` done ({time()-elapsed:.4f}s).')
 
     # Test vectors
-
+    np.random.seed(42)
     #x0 = np.random.rand(*[space.nbasis for space in V0.spaces])
     x0 = np.reshape(np.arange(V0.nbasis), [space.nbasis for space in V0.spaces])
-
-    #x1 = [np.random.rand(*[space.nbasis for space in comp.spaces]) for comp in V1.spaces]
-    x1 = [np.reshape(np.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V1.spaces]
+    x1 = [np.random.rand(*[space.nbasis for space in comp.spaces]) for comp in V1.spaces]
     #x1 = [np.ones(tuple([space.nbasis for space in comp.spaces])) for comp in V1.spaces]
-
-    #x2 = [np.random.rand(*[space.nbasis for space in comp.spaces]) for comp in V2.spaces]
-    x2 = [np.reshape(np.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V2.spaces]
+    x2 = [np.random.rand(*[space.nbasis for space in comp.spaces]) for comp in V2.spaces]
     #x2 = [np.ones(tuple([space.nbasis for space in comp.spaces])) for comp in V2.spaces]
-
     #x3 = np.random.rand(*[space.nbasis for space in V3.spaces])
     x3 = np.reshape(np.arange(V3.nbasis), [space.nbasis for space in V3.spaces])
+    print(x0.shape)
+    print(x1[0].shape)
+    print(x1[1].shape)
+    print(x1[2].shape)
+    print(x3.shape)
 
     x0_st = StencilVector(V0.vector_space)
     x1_st = BlockVector(  V1.vector_space, [StencilVector(comp) for comp in V1.vector_space])
@@ -240,7 +275,7 @@ def test_lin_mhd_ops():
     x3_st.update_ghost_regions()
 
     print(f'Rank {mpi_rank} | Asserting input vectors.')
-    # assert_input_vectors(x0, x1, x2, x3, x0_st, x1_st, x2_st, x3_st)
+    assert_input_vectors(x0, x1, x2, x3, x0_st, x1_st, x2_st, x3_st)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
     MPI_COMM.Barrier()
@@ -250,12 +285,194 @@ def test_lin_mhd_ops():
     # Compare to Struphy matrix-free operators 
     # See struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x for the definition of these operators
 
-    # operator K1 (V3 --> V3)
-    if mpi_rank == 0:
-        print('\nK1 (V3 --> V3, Identity operator in this case):')
+    # X1 is handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
+    # List of available operators, in tuples (name, input p-form, output p-form):
+    ops_list = [
+        ('Q1',  1, 2), # Passed.
+        ('W1',  1, 1), # Passed.
+        ('U1',  1, 2), # Passed.
+        ('P1',  2, 1), # Passed, but all zero?
+        ('S1',  1, 2), # Passed.
+        ('S10', 1, 1), # Passed.
+        ('K1',  3, 3), # Passed.
+        ('K10', 0, 0), # Passed.
+        ('T1',  1, 1), # Passed.
+        ('X1',  1, 0), # Passed. Requires special handling of 3x 0-form outputs.
+        ('Q2',  2, 2), # Passed.
+        ('T2',  2, 1), # Passed.
+        ('P2',  2, 2), # Passed, but all zero?
+        ('S2',  2, 2), # Passed.
+        ('K2',  3, 3), # Passed.
+        ('X2',  2, 0), # Passed. Requires special handling of 3x 0-form outputs.
+        ('Z20', 2, 1), # Passed.
+        ('Y20', 0, 3), # Passed.
+        ('S20', 2, 1), # Passed.
+    ]
 
-    res_PSY = OPS_PSY.K1(x3_st)
-    dof_PSY = OPS_PSY._K1._dofs_mat.dot(x3_st)
+    x1_flat = np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten()))
+    x2_flat = np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten()))
+
+    for op, inpform, outpform in ops_list:
+
+        print('='*30)
+        print(f'Rank {mpi_rank} | ')
+
+        print(f'Rank {mpi_rank} | Assembling MHD operator {op}:')
+        elapsed = time()
+        getattr(OPS_PSY, f'assemble_{op}')()
+        print(f'Rank {mpi_rank} | Assembled {op} ({time()-elapsed:.4f}s).')
+
+        print(f'Rank {mpi_rank} | Evaluating MHD operator {op}:')
+        print(f'Rank {mpi_rank} | Input p-form: {inpform} ==> Output p-form: {outpform}.')
+
+        if op in ['X1', 'X2']: # Special handling of 3x 0-form.
+            _OP_PSY = [getattr(OPS_PSY, f'_{op}')[i]._dofs_mat.dot for i in range(3)]
+        else:
+            _OP_PSY = getattr(OPS_PSY, f'_{op}')._dofs_mat.dot
+        OP_PSY = getattr(OPS_PSY, f'{op}')
+        OP_STR = getattr(OPS_STR, f'{op}_dot')
+
+        if inpform == 0:
+
+            dof_PSY = _OP_PSY(x0_st)
+            res_PSY = OP_PSY(x0_st)
+            print(f'Rank {mpi_rank} | Type of dof_PSY   : {type(dof_PSY)}')
+            print(f'Rank {mpi_rank} | Type of res_PSY   : {type(res_PSY)}')
+
+            if outpform == 0 or outpform == 3:
+                res_STR, dof_STR = OP_STR(x0.flatten())
+            elif outpform == 1 or outpform == 2:
+                res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OP_STR(x0.flatten())
+                dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
+            else:
+                raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        elif inpform == 3:
+
+            dof_PSY = _OP_PSY(x3_st)
+            res_PSY = OP_PSY(x3_st)
+            print(f'Rank {mpi_rank} | Type of dof_PSY   : {type(dof_PSY)}')
+            print(f'Rank {mpi_rank} | Type of res_PSY   : {type(res_PSY)}')
+
+            if outpform == 0 or outpform == 3:
+                res_STR, dof_STR = OP_STR(x3.flatten())
+            elif outpform == 1 or outpform == 2:
+                res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OP_STR(x3.flatten())
+                dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
+            else:
+                raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        elif inpform == 1:
+
+            if op == 'X1': # Special handling of 3x 0-form.
+                dof_PSY = [_OP_PSY[i](x1_st) for i in range(0,3)]
+            else:
+                dof_PSY = _OP_PSY(x1_st)
+            res_PSY = OP_PSY(x1_st)
+            print(f'Rank {mpi_rank} | Type of dof_PSY   : {type(dof_PSY)}')
+            print(f'Rank {mpi_rank} | Type of dof_PSY[0]: {type(dof_PSY[0])}')
+            print(f'Rank {mpi_rank} | Type of res_PSY   : {type(res_PSY)}')
+            print(f'Rank {mpi_rank} | Type of res_PSY[0]: {type(res_PSY[0])}')
+
+            if outpform == 0 or outpform == 3:
+                res_STR, dof_STR = OP_STR(x1_flat)
+            elif outpform == 1 or outpform == 2:
+                res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OP_STR(x1_flat)
+                dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
+            else:
+                raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        elif inpform == 2:
+
+            if op == 'X2': # Special handling of 3x 0-form.
+                dof_PSY = [_OP_PSY[i](x2_st) for i in range(0,3)]
+            else:
+                dof_PSY = _OP_PSY(x2_st)
+            res_PSY = OP_PSY(x2_st)
+            print(f'Rank {mpi_rank} | Type of dof_PSY   : {type(dof_PSY)}')
+            print(f'Rank {mpi_rank} | Type of dof_PSY[0]: {type(dof_PSY[0])}')
+            print(f'Rank {mpi_rank} | Type of res_PSY   : {type(res_PSY)}')
+            print(f'Rank {mpi_rank} | Type of res_PSY[0]: {type(res_PSY[0])}')
+
+            if outpform == 0 or outpform == 3:
+                res_STR, dof_STR = OP_STR(x2_flat)
+            elif outpform == 1 or outpform == 2:
+                res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OP_STR(x2_flat)
+                dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
+            else:
+                raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        else:
+
+            raise ValueError(f'Input p-form ({inpform}) does not exist.')
+
+        if outpform == 0:
+            if op in ['X1', 'X2']: # Special handling of 3x 0-form.
+                for i in range(3):
+                    # print(f'BE4 Rank {mpi_rank} | dof_STR[i].shape: {i} {dof_STR[i].shape}')
+                    # print(f'BE4 Rank {mpi_rank} | res_STR[i].shape: {i} {res_STR[i].shape}')
+                    dof_STR[i] = SPACES.extract_0(dof_STR[i])
+                    res_STR[i] = SPACES.extract_0(res_STR[i])
+                    # print(f'AFT Rank {mpi_rank} | dof_STR[i].shape: {i} {dof_STR[i].shape}')
+                    # print(f'AFT Rank {mpi_rank} | res_STR[i].shape: {i} {res_STR[i].shape}')
+            else:
+                dof_STR = SPACES.extract_0(dof_STR)
+                res_STR = SPACES.extract_0(res_STR)
+        elif outpform == 3:
+            dof_STR = SPACES.extract_3(dof_STR)
+            res_STR = SPACES.extract_3(res_STR)
+        elif outpform == 1:
+            dof_STR_0, dof_STR_1, dof_STR_2 = SPACES.extract_1(dof_STR)
+            res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
+        elif outpform == 2:
+            dof_STR_0, dof_STR_1, dof_STR_2 = SPACES.extract_2(dof_STR)
+            res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
+        else:
+            raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        if outpform == 0 or outpform == 3:
+            if op in ['X1', 'X2']: # Special handling of 3x 0-form.
+                # All components are identical!!!
+                print(f'Rank {mpi_rank} | Asserting MHD operator {op}, first component...')
+                assert_ops(mpi_rank, dof_PSY[0], dof_STR[0], res_PSY[0], res_STR[0], MPI_COMM=MPI_COMM)
+                print(f'Rank {mpi_rank} | Asserting MHD operator {op}, second component...')
+                assert_ops(mpi_rank, dof_PSY[1], dof_STR[1], res_PSY[1], res_STR[1], MPI_COMM=MPI_COMM)
+                print(f'Rank {mpi_rank} | Asserting MHD operator {op}, third component...')
+                assert_ops(mpi_rank, dof_PSY[2], dof_STR[2], res_PSY[2], res_STR[2], MPI_COMM=MPI_COMM)
+                print(f'Rank {mpi_rank} | Assertion of {op} passed.')
+            else:
+                print(f'Rank {mpi_rank} | Asserting MHD operator {op}...')
+                assert_ops(mpi_rank, dof_PSY, dof_STR, res_PSY, res_STR, MPI_COMM=MPI_COMM)
+                print(f'Rank {mpi_rank} | Assertion of {op} passed.')
+        elif outpform == 1 or outpform == 2:
+            print(f'Rank {mpi_rank} | Asserting MHD operator {op}, first component...')
+            assert_ops(mpi_rank, dof_PSY[0], dof_STR_0, res_PSY[0], res_STR_0, MPI_COMM=MPI_COMM)
+            print(f'Rank {mpi_rank} | Asserting MHD operator {op}, second component...')
+            assert_ops(mpi_rank, dof_PSY[1], dof_STR_1, res_PSY[1], res_STR_1, MPI_COMM=MPI_COMM)
+            print(f'Rank {mpi_rank} | Asserting MHD operator {op}, third component...')
+            assert_ops(mpi_rank, dof_PSY[2], dof_STR_2, res_PSY[2], res_STR_2, MPI_COMM=MPI_COMM)
+            print(f'Rank {mpi_rank} | Assertion of {op} passed.')
+        else:
+            raise ValueError(f'Output p-form ({outpform}) does not exist.')
+
+        print(f'Rank {mpi_rank} | ')
+        print('='*30)
+
+        MPI_COMM.Barrier()
+
+    print(f'Rank {mpi_rank} | All operator assertions passed.')
+    print(f'Rank {mpi_rank} | \n\n\n')
+
+
+
+    # operator K1
+    print('\nK1 (=Identity operator in this case):')
+
+    res_PSY = K1.dot(x3_st)
+    dof_PSY = K1._dofs_mat.dot(x3_st)
+    print(f'Rank {mpi_rank} | type(dof_PSY)   : {type(dof_PSY)}')
+    print(f'Rank {mpi_rank} | type(res_PSY)   : {type(res_PSY)}')
+
     res_STR, dof_STR = OPS_STR.K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
     dof_STR = SPACES.extract_3(dof_STR)
@@ -266,19 +483,24 @@ def test_lin_mhd_ops():
     assert_ops(mpi_rank, x3_st, res_STR, x3_st, res_PSY)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
+    print(f'Rank {mpi_rank} | ')
+    print('psydac result :', res_PSY.toarray()[:5])
+    print('struphy result:', res_STR[:5])
+    print('input vector  :', x3.flatten()[:5])
+    print(f'Rank {mpi_rank} | ')
 
     MPI_COMM.Barrier()
 
 
 
-    # operator K10 (V0 --> V0)
-    if mpi_rank == 0:
-        print('\nK10 (V0 --> V0, Identity operator in this case):')
+    # operator K10
+    print('\nK10 (=Identity operator in this case):')
 
-    res_PSY = OPS_PSY.K10(x0_st)
-    dof_PSY = OPS_PSY._K10._dofs_mat.dot(x0_st)
+    res_PSY = K10.dot(x0_st)
+    dof_PSY = K10._dofs_mat.dot(x0_st)
+    print(f'Rank {mpi_rank} | type(dof_PSY)   : {type(dof_PSY)}')
+    print(f'Rank {mpi_rank} | type(res_PSY)   : {type(res_PSY)}')
+
     res_STR, dof_STR = OPS_STR.K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
     dof_STR = SPACES.extract_0(dof_STR)
@@ -289,40 +511,25 @@ def test_lin_mhd_ops():
     assert_ops(mpi_rank, x0_st, res_STR, x0_st, res_PSY)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
+    print(f'Rank {mpi_rank} | ')
+    print('psydac result :', res_PSY.toarray()[:5])
+    print('struphy result:', res_STR[:5])
+    print('input vector  :', x0.flatten()[:5])
+    print(f'Rank {mpi_rank} | ')
 
     MPI_COMM.Barrier()
 
 
 
-    # operator Y20 (V0 --> V3)
-    if mpi_rank == 0:
-        print('\nY20 (V0 --> V3):')
+    # operator Q1
+    print('\nQ1:')
 
-    res_PSY = OPS_PSY.Y20(x0_st)
-    dof_PSY = OPS_PSY._Y20._dofs_mat.dot(x0_st)
-    res_STR, dof_STR = OPS_STR.Y20_dot(x0.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-    dof_STR = SPACES.extract_3(dof_STR)
+    res_PSY = Q1.dot(x1_st)
+    dof_PSY = Q1._dofs_mat.dot(x1_st)
+    print(f'Rank {mpi_rank} | type(dof_PSY)   : {type(dof_PSY)}')
+    print(f'Rank {mpi_rank} | type(dof_PSY[0]): {type(dof_PSY[0])}')
+    print(f'Rank {mpi_rank} | type(res_PSY)   : {type(res_PSY)}')
 
-    print(f'Rank {mpi_rank} | Asserting MHD operator Y20.')
-    assert_ops(mpi_rank, dof_PSY, dof_STR, res_PSY, res_STR)
-    print(f'Rank {mpi_rank} | Assertion passed.')
-
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
-    MPI_COMM.Barrier()
-
-
-
-    # operator Q1 (V1 --> V2)
-    if mpi_rank == 0:
-        print('\nQ1 (V1 --> V2):')
-
-    res_PSY = OPS_PSY.Q1(x1_st)
-    dof_PSY = OPS_PSY._Q1._dofs_mat.dot(x1_st)
     res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OPS_STR.Q1_dot( np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())) )
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
     dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
@@ -330,121 +537,95 @@ def test_lin_mhd_ops():
 
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('First component')
-        # print('type:', dof_PSY.type)
-        # print('shape:', dof_PSY[0].shape)
-        # print('[:].shape:', dof_PSY[0][:].shape)
-        # print('[:, :, :].shape:', dof_PSY[0][:, :, :].shape)
-
-    # print('rank=', mpi_rank, 'absdiff=', np.max(np.abs(A1 - A2)))
-    # print('rank=', mpi_rank, 'loc=', np.where( np.abs(A1 - A2) > 1e-4))
-
-    # if mpi_rank==0:
-    #     print('rank=', mpi_rank, 'PSY=', A1)
-    #     print('rank=', mpi_rank, 'STR=', A2)
-    #     print('rank=', mpi_rank, 'absdiff=', np.abs(A1 - A2))
+    print('\nFirst component')
+    print(f'Rank {mpi_rank} | res_PSY[0].toarray()[:5]: \n{res_PSY[0].toarray()[:5]}')
+    print(f'Rank {mpi_rank} | res_STR_0.flatten()[:5] : \n{res_STR_0.flatten()[:5]}\n')
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q1, first component.')
     assert_ops(mpi_rank, dof_PSY[0], dof_STR_0, res_PSY[0], res_STR_0)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Second component')
+    print('\nSecond component')
+    print(f'Rank {mpi_rank} | res_PSY[0].toarray()[:5]: \n{res_PSY[1].toarray()[:5]}')
+    print(f'Rank {mpi_rank} | res_STR_0.flatten()[:5] : \n{res_STR_1.flatten()[:5]}\n')
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q1, second component.')
     assert_ops(mpi_rank, dof_PSY[1], dof_STR_1, res_PSY[1], res_STR_1)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Third component')
+    print('\nThird component')
+    print(f'Rank {mpi_rank} | res_PSY[0].toarray()[:5]: \n{res_PSY[2].toarray()[:5]}')
+    print(f'Rank {mpi_rank} | res_STR_0.flatten()[:5] : \n{res_STR_2.flatten()[:5]}\n')
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q1, third component.')
     assert_ops(mpi_rank, dof_PSY[2], dof_STR_2, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
+    MPI_COMM.Barrier()
 
 
 
-    # operator W1 (V1 --> V1)
-    if mpi_rank == 0:
-        print('\nW1 (V1 --> V1, Identity operator in this case):')
+    # operator W1
+    print('\nW1:')
 
-    res_PSY = OPS_PSY.W1(x1_st)
-    dof_PSY = OPS_PSY._W1._dofs_mat.dot(x1_st)
+    res_PSY = W1.dot(x1_st)
+    dof_PSY = W1._dofs_mat.dot(x1_st)
+    print(f'Rank {mpi_rank} | type(dof_PSY)   : {type(dof_PSY)}')
+    print(f'Rank {mpi_rank} | type(dof_PSY[0]): {type(dof_PSY[0])}')
+    print(f'Rank {mpi_rank} | type(res_PSY)   : {type(res_PSY)}')
+
     res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OPS_STR.W1_dot( np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())) )
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
     dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
     dof_STR_0, dof_STR_1, dof_STR_2 = SPACES.extract_1(dof_STR)
 
-    MPI_COMM.barrier()
+    MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('First component')
-        # print('type:', type(dof_PSY[0]))
-        # print('shape:', dof_PSY[0].shape)
-        # print('[:].shape:', dof_PSY[0][:].shape)
-        # print('[:, :, :].shape:', dof_PSY[0][:, :, :].shape)
-
-    #print('rank=', mpi_rank, 'absdiff=', np.max(np.abs(A1 - A2)))
-    #print('rank=', mpi_rank, 'loc=', np.where( np.abs(A1 - A2) > 1e-4))
-
-    # if mpi_rank==0:
-    #     print('rank=', mpi_rank, 'PSY=', A1)
-    #     print('rank=', mpi_rank, 'STR=', A2)
-    #     print('rank=', mpi_rank, 'absdiff=', np.abs(A1 - A2))
+    print('\nFirst component')
+    print(res_PSY[0].toarray()[:5])
+    print(res_STR_0.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator W1, first component.')
     assert_ops(mpi_rank, dof_PSY[0], dof_STR_0, res_PSY[0], res_STR_0)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Second component')
+    print('\nSecond component')
+    print(res_PSY[1].toarray()[:5])
+    print(res_STR_1.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator W1, second component.')
     assert_ops(mpi_rank, dof_PSY[1], dof_STR_1, res_PSY[1], res_STR_1)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Third component')
+    print('\nThird component')
+    print(res_PSY[2].toarray()[:5])
+    print(res_STR_2.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator W1, third component.')
     assert_ops(mpi_rank, dof_PSY[2], dof_STR_2, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
+    MPI_COMM.Barrier()
 
 
 
-    # operator Q2 (V2 --> V2)
-    if mpi_rank == 0:
-        print('\nQ2 (V2 --> V2, Identity operator in this case):')
- 
-    res_PSY = OPS_PSY.Q2(x2_st)
-    dof_PSY = OPS_PSY._Q2._dofs_mat.dot(x2_st)
+    # operator Q2
+    print('\nQ2:')
+
+    res_PSY = Q2.dot(x2_st)
+    dof_PSY = Q2._dofs_mat.dot(x2_st)
+    print(f'Rank {mpi_rank} | type(dof_PSY)   : {type(dof_PSY)}')
+    print(f'Rank {mpi_rank} | type(dof_PSY[0]): {type(dof_PSY[0])}')
+    print(f'Rank {mpi_rank} | type(res_PSY)   : {type(res_PSY)}')
+
     res_STR, dof_STR_0, dof_STR_1, dof_STR_2 = OPS_STR.Q2_dot( np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())) )
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
     dof_STR = np.concatenate((dof_STR_0.flatten(), dof_STR_1.flatten(), dof_STR_2.flatten()))
@@ -452,39 +633,35 @@ def test_lin_mhd_ops():
 
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('First component')
+    print('\nFirst component')
+    print(res_PSY[0].toarray()[:5])
+    print(res_STR_0.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q2, first component.')
     assert_ops(mpi_rank, dof_PSY[0], dof_STR_0, res_PSY[0], res_STR_0)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Second component')
+    print('\nSecond component')
+    print(res_PSY[1].toarray()[:5])
+    print(res_STR_1.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q2, second component.')
     assert_ops(mpi_rank, dof_PSY[1], dof_STR_1, res_PSY[1], res_STR_1)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
-
     MPI_COMM.Barrier()
 
-    if mpi_rank == 0:
-        print('Third component')
+    print('\nThird component')
+    print(res_PSY[2].toarray()[:5])
+    print(res_STR_2.flatten()[:5])
 
     print(f'Rank {mpi_rank} | Asserting MHD operator Q2, third component.')
     assert_ops(mpi_rank, dof_PSY[2], dof_STR_2, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    if mpi_rank == 0:
-        print('Struphy-Psydac comparison succeeded.')
+    MPI_COMM.Barrier()
 
 
 
