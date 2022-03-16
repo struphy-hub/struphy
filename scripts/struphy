@@ -10,6 +10,10 @@ num_threads=1 # number of openmp threads (pyccel, not needed for numba)
 
 PYTHON=python3
 
+
+
+
+
 path_lib=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
 folder_inp=${path_lib}io/inp/
 folder_out=${path_lib}io/out/
@@ -34,7 +38,8 @@ while getopts ":hpstcr:i:o:b:m:n:" opt; do
             echo "                                * cc_lin_mhd_6d_MF (matrix-free current coupling MHD-full Vlasov)"
             echo "                                * pc_lin_mhd_6d_MF_full (matrix-free pressure coupling MHD-full Vlasov with full pressure tensor)"
             echo "                                * pc_lin_mhd_6d_MF_perp (matrix-free pressure coupling MHD-full Vlasov with pressure tensor perpendicular to B)"
-            echo "                                * massless_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
+            echo "                                * pc_lin_mhd_6d (pressure coupling MHD-full Vlasov)"
+            echo "                                * kinetic_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
             echo "   -i <filename>      Parameter file (.yml), default is 'parameters.yml'."
             echo "   -o <filename>      Output folder, default is 'sim_1'."    
             echo "   -b <filename>      Batch script, default is 'None'."
