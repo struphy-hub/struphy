@@ -4,7 +4,7 @@ from matplotlib.gridspec import GridSpec
 import struphy.geometry.domain_3d as dom
 import struphy.feec.spline_space as spl
 
-def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_type=None):
+def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_type=None, domain_enum=None, op_enum=None):
     """Test constructing 3D polar splines for a non-axisymmetric GVEC equilibrium via an intermediate axisymmetric torus mapping.
 
     Even though it says 3D, all test functions are :math:``f(x,y)``, independent of :math:``z``.
@@ -21,6 +21,10 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
         Which differential form to display plots of spline comparisons.
     space_type : SpaceType
         An Enum of whether to plot in physical or logical space.
+    domain_enum : DomainType
+        An Enum for selecting analytical or numerical domain for pullback/pushforward.
+    op_enum : Operation
+        An Enum of whether to generate data, or plot the data.
 
     Notes
     -----
@@ -41,12 +45,19 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
     if space_type is None:
         space_type = SpaceType.PHYSICAL
 
+    if domain_enum is None:
+        domain_enum = DomainType.ANALYTICAL
+
+    if op_enum is None:
+        op_enum = Operation.ALL
+
     # ============================================================
     # Imports.
     # ============================================================
 
     import os
     import sys
+    import pickle
     import tempfile
     temp_dir = tempfile.TemporaryDirectory(prefix='STRUPHY-')
     print(f'Created temp directory at: {temp_dir.name}')
@@ -98,31 +109,55 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
         DOMAIN_F = None
     DOMAIN_F = map_generator(map_type, DOMAIN_F)
 
-    case_0form = case_01_circle_identity_0form
-    case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type]
-    case_1form = case_01_circle_identity_1form
-    case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type]
-    case_2form = case_01_circle_identity_2form
-    case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type]
+    case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum]
+    case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
+    case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
+
+    data_folder = f'test_polar_splines_data'
+    data_filename = f'{func_test.name}_{map_type.name}_{func_form.name}-Form_{space_type.name}_{domain_enum.name}'
+    data_filename += f'_{str(Nel)}_{str(p)}_{str(spl_kind)}_{str(nq_el)}_{str(nq_pr)}_{str(bc)}'
+    data_path = os.path.join(data_folder, f'{data_filename}.pkl')
+    os.makedirs(data_folder, exist_ok=True)
 
     if func_form == FuncForm.ZERO:
-        plot_data_0form = case_0form(*case_0form_args)
-        plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, space_type, Nel, p)
-        ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
-        ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
-        plt.show()
+        if op_enum in [Operation.WRITEONLY, Operation.ALL]:
+            if not os.path.isfile(data_path):
+                plot_data_0form = case_0form(*case_0form_args)
+                with open(data_path, 'wb') as handle:
+                    pickle.dump(plot_data_0form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        if op_enum in [Operation.PLOTONLY, Operation.ALL]:
+            with open(data_path, 'rb') as handle:
+                plot_data_0form = pickle.load(handle)
+            plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, space_type, Nel, p)
+            ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
+            ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
+            plt.show()
     elif func_form == FuncForm.ONE:
-        plot_data_1form = case_1form(*case_1form_args)
-        plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, space_type, Nel, p)
-        ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
-        ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
-        plt.show()
+        if op_enum in [Operation.WRITEONLY, Operation.ALL]:
+            if not os.path.isfile(data_path):
+                plot_data_1form = case_1form(*case_1form_args)
+                with open(data_path, 'wb') as handle:
+                    pickle.dump(plot_data_1form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        if op_enum in [Operation.PLOTONLY, Operation.ALL]:
+            with open(data_path, 'rb') as handle:
+                plot_data_1form = pickle.load(handle)
+            plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, space_type, Nel, p)
+            ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
+            ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
+            plt.show()
     elif func_form == FuncForm.TWO:
-        plot_data_2form = case_2form(*case_2form_args)
-        plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, space_type, Nel, p)
-        ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
-        ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
-        plt.show()
+        if op_enum in [Operation.WRITEONLY, Operation.ALL]:
+            if not os.path.isfile(data_path):
+                plot_data_2form = case_2form(*case_2form_args)
+                with open(data_path, 'wb') as handle:
+                    pickle.dump(plot_data_2form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        if op_enum in [Operation.PLOTONLY, Operation.ALL]:
+            with open(data_path, 'rb') as handle:
+                plot_data_2form = pickle.load(handle)
+            plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, space_type, Nel, p)
+            ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
+            ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
+            plt.show()
 
     print('Done testing 3D polar splines.')
 
@@ -156,8 +191,14 @@ class MapType(Enum):
 class SpaceType(Enum):
     """Enum for whether to plot in physical or logical space.."""
     PHYSICAL = 1
-    DISK = 2
+    # DISK = 2
     LOGICAL = 3
+
+@unique
+class DomainType(Enum):
+    """Enum for selecting analytical or numerical domain for pullback/pushforward."""
+    ANALYTICAL = 1
+    NUMERICAL = 2
 
 @unique
 class Comparison(Enum):
@@ -204,6 +245,13 @@ class DiffType(Enum):
     RELATIVEABSOLUTE = 3
     ABSOLUTE = 4
     LOGABSOLUTE = 5
+
+@unique
+class Operation(Enum):
+    """How to represent error from reference data."""
+    WRITEONLY = 1
+    PLOTONLY = 2
+    ALL = 3
 
 
 
@@ -624,7 +672,7 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
 
 
-def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type):
+def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -725,9 +773,7 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
     # ============================================================
 
     # Whether to replace analytical domain with a numerical one.
-    use_numerical_domain = False
-
-    if use_numerical_domain:
+    if domain_enum == DomainType.NUMERICAL:
 
         spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
@@ -948,7 +994,7 @@ def case_01_circle_identity_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , d
 
 
 
-def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type):
+def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1049,9 +1095,7 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # ============================================================
 
     # Whether to replace analytical domain with a numerical one.
-    use_numerical_domain = False
-
-    if use_numerical_domain:
+    if domain_enum == DomainType.NUMERICAL:
 
         spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
@@ -1311,7 +1355,7 @@ def case_01_circle_identity_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
 
 
 
-def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type):
+def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1412,9 +1456,7 @@ def case_01_circle_identity_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, c
     # ============================================================
 
     # Whether to replace analytical domain with a numerical one.
-    use_numerical_domain = False
-
-    if use_numerical_domain:
+    if domain_enum == DomainType.NUMERICAL:
 
         spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
@@ -2543,14 +2585,14 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             raise NotImplementedError('Line plot at current configuration not implemented.')
 
         if metadata['share_plot']:
-            limg1 = lax1.plot(pos, f_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, marker='.', label=f'Reference')
-            limg2 = lax1.plot(pos, f_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, marker='.', label=f'Tensor $F$')
-            limg3 = lax1.plot(pos, f_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, marker='.', label=f'Polar $F$')
-            limg4 = lax1.plot(pos, f_pol_F1[:,eta2_pos,0],    c=colcyl[3], alpha=0.8, marker='.', label=f'Polar $F_1$')
-            limg1 = lax1.plot(neg, f_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.5, marker='x', label=f'Reference')
-            limg2 = lax1.plot(neg, f_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.5, marker='x', label=f'Tensor $F$')
-            limg3 = lax1.plot(neg, f_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.5, marker='x', label=f'Polar $F$')
-            limg4 = lax1.plot(neg, f_pol_F1[::-1,eta2_neg,0], c=colcyl[3], alpha=0.5, marker='x', label=f'Polar $F_1$')
+            limg1 = lax1.plot(pos, f_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, lw=2, marker='+', ms=8, mfc='none', mew=1, label=f'Reference')
+            limg2 = lax1.plot(pos, f_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, lw=2, marker='o', ms=8, mfc='none', mew=1, label=f'Tensor $F$')
+            limg3 = lax1.plot(pos, f_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, lw=2, marker='s', ms=8, mfc='none', mew=1, label=f'Polar $F$')
+            limg4 = lax1.plot(pos, f_pol_F1[:,eta2_pos,0],    c=colcyl[6], alpha=0.8, lw=2, marker='x', ms=8, mfc='none', mew=1, label=f'Polar $F_1$')
+            limg1 = lax1.plot(neg, f_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.8, lw=2, marker='+', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            limg2 = lax1.plot(neg, f_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.8, lw=2, marker='o', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            limg3 = lax1.plot(neg, f_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.8, lw=2, marker='s', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            limg4 = lax1.plot(neg, f_pol_F1[::-1,eta2_neg,0], c=colcyl[6], alpha=0.8, lw=2, marker='x', ms=8, mfc='none', mew=1, label=f'_nolegend_')
         else:
             limg1 = lax1.plot(pos, f_exact[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
             limg2 = lax2.plot(pos, f_ten_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
@@ -2561,10 +2603,15 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             limg3 = lax3.plot(neg, f_pol_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
             limg4 = lax4.plot(neg, f_pol_F1[::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
         if not metadata['norm_dist'] or metadata['share_plot']:
-            lax1.legend()
-            lax2.legend()
-            lax3.legend()
-            lax4.legend()
+            # lax1.legend()
+            # lax2.legend()
+            # lax3.legend()
+            # lax4.legend()
+            # unique_legends(lax1)
+            # unique_legends(lax2)
+            # unique_legends(lax3)
+            # unique_legends(lax4)
+            pass
 
 
 
@@ -2745,14 +2792,14 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             raise NotImplementedError('Line plot at current configuration not implemented.')
 
         if metadata['share_plot']:
-            rimg1 = rax1.plot(pos, df_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, marker='.', label=f'Reference')
-            rimg2 = rax1.plot(pos, df_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, marker='.', label=f'Tensor $F$')
-            rimg3 = rax1.plot(pos, df_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, marker='.', label=f'Polar $F$')
-            rimg4 = rax1.plot(pos, df_pol_F1[:,eta2_pos,0],    c=colcyl[3], alpha=0.8, marker='.', label=f'Polar $F_1$')
-            rimg1 = rax1.plot(neg, df_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.5, marker='x', label=f'Reference')
-            rimg2 = rax1.plot(neg, df_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.5, marker='x', label=f'Tensor $F$')
-            rimg3 = rax1.plot(neg, df_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.5, marker='x', label=f'Polar $F$')
-            rimg4 = rax1.plot(neg, df_pol_F1[::-1,eta2_neg,0], c=colcyl[3], alpha=0.5, marker='x', label=f'Polar $F_1$')
+            rimg1 = rax1.plot(pos, df_exact[ :,eta2_pos,0],    c=colcyl[0], alpha=0.8, marker='+', ms=8, mfc='none', mew=1, label=f'Reference')
+            rimg2 = rax1.plot(pos, df_ten_F[ :,eta2_pos,0],    c=colcyl[1], alpha=0.8, marker='o', ms=8, mfc='none', mew=1, label=f'Tensor $F$')
+            rimg3 = rax1.plot(pos, df_pol_F[ :,eta2_pos,0],    c=colcyl[2], alpha=0.8, marker='s', ms=8, mfc='none', mew=1, label=f'Polar $F$')
+            rimg4 = rax1.plot(pos, df_pol_F1[:,eta2_pos,0],    c=colcyl[6], alpha=0.8, marker='x', ms=8, mfc='none', mew=1, label=f'Polar $F_1$')
+            rimg1 = rax1.plot(neg, df_exact[ ::-1,eta2_neg,0], c=colcyl[0], alpha=0.8, marker='+', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            rimg2 = rax1.plot(neg, df_ten_F[ ::-1,eta2_neg,0], c=colcyl[1], alpha=0.8, marker='o', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            rimg3 = rax1.plot(neg, df_pol_F[ ::-1,eta2_neg,0], c=colcyl[2], alpha=0.8, marker='s', ms=8, mfc='none', mew=1, label=f'_nolegend_')
+            rimg4 = rax1.plot(neg, df_pol_F1[::-1,eta2_neg,0], c=colcyl[6], alpha=0.8, marker='x', ms=8, mfc='none', mew=1, label=f'_nolegend_')
         else:
             rimg1 = rax1.plot(pos, df_exact[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
             rimg2 = rax2.plot(pos, df_ten_F[ :,eta2_pos,0],    c=colcyl[0], marker='.', label=f'$\eta_2$: {eta2[0,eta2_pos,0]:.2f}')
@@ -2763,10 +2810,15 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             rimg3 = rax3.plot(neg, df_pol_F[ ::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
             rimg4 = rax4.plot(neg, df_pol_F1[::-1,eta2_neg,0], c=colcyl[1], marker='.', label=f'$\eta_2$: {eta2[0,eta2_neg,0]:.2f}')
         if not metadata['norm_dist'] or metadata['share_plot']:
-            rax1.legend()
-            rax2.legend()
-            rax3.legend()
-            rax4.legend()
+            # rax1.legend()
+            # rax2.legend()
+            # rax3.legend()
+            # rax4.legend()
+            # unique_legends(rax1)
+            # unique_legends(rax2)
+            # unique_legends(rax3)
+            # unique_legends(rax4)
+            pass
 
 
 
@@ -2831,6 +2883,11 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+        elif metadata['lplot'] == PlotTypeLeft.LINE:
+            if show_pole:
+                pole = ax.axvline(0, ls='dashed', color='red', alpha=0.5, label='Pole')
+            # ax.legend()
+            unique_legends(ax)
         else:
             if show_pole:
                 pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
@@ -2871,6 +2928,11 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+        elif metadata['rplot'] == PlotTypeRight.LINE:
+            if show_pole:
+                pole = ax.axvline(0, ls='dashed', color='red', alpha=0.5, label='Pole')
+            # ax.legend()
+            unique_legends(ax)
         else:
             if show_pole:
                 pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
@@ -4029,49 +4091,64 @@ def autoscale_y(ax, margin=0.5):
         yd = line.get_ydata()
         lo,hi = ax.get_xlim()
         y_displayed = yd[((xd>lo) & (xd<hi))]
-        h = np.max(y_displayed) - np.min(y_displayed)
-        bot = np.min(y_displayed) - margin * h
-        top = np.max(y_displayed) + margin * h
+        h = np.nanmax(y_displayed) - np.nanmin(y_displayed)
+        bot = np.nanmin(y_displayed) - margin * h
+        top = np.nanmax(y_displayed) + margin * h
         return bot, top
 
     lines = ax.get_lines()
     bot, top = np.inf, -np.inf
 
+    processed = ['Pole', 'Grid', 'el_b'] # Lines to ignore when computing y-axis limits.
     for line in lines:
     # for line in [lines[0], lines[4]]:
-        new_bot, new_top = get_bottom_top(line)
-        if new_bot < bot: bot = new_bot
-        if new_top > top: top = new_top
+        if line.get_label() not in processed:
+            processed.append(line.get_label())
+            new_bot, new_top = get_bottom_top(line)
+            if new_bot < bot: bot = new_bot
+            if new_top > top: top = new_top
 
     ax.set_ylim(bot, top)
 
 
 
+def unique_legends(ax):
+    handles, labels = ax.get_legend_handles_labels()
+    unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
+    ax.legend(*zip(*unique))
+
+
+
 if __name__ == "__main__":
 
+    op_enum = Operation.ALL
     space_enum = SpaceType.PHYSICAL
+    domain_enum = DomainType.ANALYTICAL
+    # space_enum = SpaceType.LOGICAL
 
     # # Go through all trial functions.
     # for func_test in FuncTest:
-    #     test_polar_splines_3D(func_test=func_test,         map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum)
+    #     test_polar_splines_3D(func_test=func_test,         map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
 
     # Go through all domain maps, focusing on the 3rd component of curled 1-form, and divergence of 2-form.
     # for map_type in MapType:
-    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type,                func_form=FuncForm.ONE,  space_type=space_enum)
-    #     test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type,                func_form=FuncForm.TWO,  space_type=space_enum)
+    #     for space_enum in SpaceType:
+    #         for domain_enum in DomainType:
+    #             for func_form in FuncForm:
+    #                 test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, func_form=func_form, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
 
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum)
-    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)

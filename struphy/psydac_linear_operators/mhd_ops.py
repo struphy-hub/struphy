@@ -2,39 +2,55 @@ import numpy as np
 
 class MHD_ops:
 
-    def __init__(self, DERHAM, nq_pr, EQ_MHD_L, F, projectors_1d):
-        '''Assembles required MHD projection operators. 
+    def __init__(self, DERHAM, nq_pr, EQ_MHD_L, F, projectors_1d, assemble_all=False):
+        '''Assembles required MHD projection operators.
+
         See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x`.
-        
+
         Parameters
         ----------
-            DERHAM : Psydac object
-                The Derham sequence object, obained from Psydac's discretize.
+        DERHAM : Psydac object
+            The Derham sequence object, obained from Psydac's discretize.
 
-            nq_pr : list
-                Number of quadrature points used in histopolation in each direction.
-                
-            EQ_MHD_L : Struphy object
-                MHD equilibirum on the logical domain from struphy.mhd_equil.mhd_equil_logical.Equilibrium_mhd_logical
-                
-            F : Psydac mapping
-                Obtained via .get_callable_mapping()
-                
-            projectors_1d : 3-tuple of 1d projectors.
-                From Struphy Projectors_global_1d class. They contain all the necessary information for Derham commuting projectors.
+        nq_pr : list
+            Number of quadrature points used in histopolation in each direction.
+
+        EQ_MHD_L : Struphy object
+            MHD equilibirum on the logical domain from struphy.mhd_equil.mhd_equil_logical.Equilibrium_mhd_logical
+
+        F : Psydac mapping
+            Obtained via .get_callable_mapping()
+
+        projectors_1d : 3-tuple of 1d projectors.
+            From Struphy Projectors_global_1d class. They contain all the necessary information for Derham commuting projectors.
+
+        assemble_all : bool
+            Assemble all `MHD_operator`s in constructor. Only for testing. Please assemble individually by calling `assemble_XX()` for each operator.
+
+        Notes
+        -----
+        The `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
+        In order not to modify the `MHD_operator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
         '''
 
+        self.projectors_1d = projectors_1d
+
         # Missing in Psydac: inverse metric tensor
-        self._Ginv = lambda x1, x2, x3 : np.matmul(F.jacobian_inv(x1, x2, x3), F.jacobian_inv(x1, x2, x3).T)
+        _Ginv = lambda x1, x2, x3 : np.matmul(F.jacobian_inv(x1, x2, x3), F.jacobian_inv(x1, x2, x3).T)
 
         # Psydac spline spaces
-        self._V0 = DERHAM.V0
-        self._V1 = DERHAM.V1
-        self._V2 = DERHAM.V2
-        self._V3 = DERHAM.V3
+        _V0 = DERHAM.V0
+        _V1 = DERHAM.V1
+        _V2 = DERHAM.V2
+        _V3 = DERHAM.V3
+        self._V0 = _V0
+        self._V1 = _V1
+        self._V2 = _V2
+        self._V3 = _V3
 
         # Psydac projectors
-        self._P0, self._P1, self._P2, self._P3  = DERHAM.projectors(nquads=nq_pr)
+        _P0, _P1, _P2, _P3 = DERHAM.projectors(nquads=nq_pr)
+        self._Pi0, self._Pi1, self._Pi2, self._Pi3 = _P0, _P1, _P2, _P3
 
         # print('\nV0.spaces[0]._interpolator:', self._V0.spaces[0]._interpolator)
         # print('\nV0.spaces[1]._interpolator:', self._V0.spaces[1]._interpolator)
@@ -44,168 +60,214 @@ class MHD_ops:
         # print('\nV3.spaces[1]._histopolator:', self._V3.spaces[1]._histopolator)
         # print('\nV3.spaces[2]._histopolator:', self._V3.spaces[2]._histopolator)
 
-        # Other
-        self._EQ     = EQ_MHD_L
-        self._F       = F
-        self._projectors_1d = projectors_1d
+        # Cross product matrices:
+        _cross_mask = [
+            [ 1, -1,  1],
+            [ 1,  1, -1],
+            [-1,  1,  1],
+        ]
+        _j2_cross = [
+            [lambda x1,x2,x3: 0,   EQ_MHD_L.j2_eq_3,   EQ_MHD_L.j2_eq_2],
+            [  EQ_MHD_L.j2_eq_3, lambda x1,x2,x3: 0,   EQ_MHD_L.j2_eq_1],
+            [  EQ_MHD_L.j2_eq_2,   EQ_MHD_L.j2_eq_1, lambda x1,x2,x3: 0],
+        ]
+        _b2_cross = [
+            [lambda x1,x2,x3: 0,   EQ_MHD_L.b2_eq_3,   EQ_MHD_L.b2_eq_2],
+            [  EQ_MHD_L.b2_eq_3, lambda x1,x2,x3: 0,   EQ_MHD_L.b2_eq_1],
+            [  EQ_MHD_L.b2_eq_2,   EQ_MHD_L.b2_eq_1, lambda x1,x2,x3: 0],
+        ]
+        _eval_cross = lambda x1, x2, x3, fun_list : np.array([[_cross_mask[m][n] * ele(x1, x2, x3) for n, ele in enumerate(row)] for m, row in enumerate(fun_list)])
 
-    # 'Scalar' operators
-    def assemble_K1(self):
-        _fun_K1  = lambda x1, x2, x3 : self._EQ.p3_eq(x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3))
-        self._K1 = MHD_operator(self._V3, self._V3, self._P3, [[_fun_K1]],  self._projectors_1d)
-        
-    def assemble_K10(self):
-        _fun_K10  = self._EQ.p0_eq
-        self._K10 = MHD_operator(self._V0, self._V0, self._P0, [[_fun_K10]], self._projectors_1d)
+        # Scalar functions
+        _fun_K1  = lambda x1, x2, x3 : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        _fun_K10 = EQ_MHD_L.p0_eq
 
-    def assemble_K2(self):
-        _fun_K2   = lambda x1, x2, x3 : self._EQ.p3_eq(x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3))
-        self._K2  = MHD_operator(self._V3, self._V3, self._P3, [[_fun_K2]], self._projectors_1d)
+        _fun_K2  = lambda x1, x2, x3 : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        _fun_Y20 = lambda x1, x2, x3 : np.sqrt(F.metric_det(x1, x2, x3))
 
-    def assemble_Y20(self):
-        _fun_Y20  = lambda x1, x2, x3 : np.sqrt(self._F.metric_det(x1, x2, x3))
-        self._Y20 = MHD_operator(self._V0, self._V3, self._P3, [[_fun_Y20]], self._projectors_1d)
-
-    # 'Matrix' operators
-    def assemble_Q1(self):
+        # 'Matrix' functions
         _fun_Q1  = []
+        _fun_W1  = []
+        _fun_U1  = []
+        _fun_P1  = []
+        _fun_S1  = []
+        _fun_S10 = []
+        _fun_T1  = []
+        _fun_X1  = []
+
+        _fun_Q2  = []
+        _fun_T2  = []
+        _fun_P2  = []
+        _fun_S2  = []
+        _fun_X2  = []
+        _fun_Z20 = []
+        _fun_S20 = []
+
         for m in range(3):
             _fun_Q1  += [[]]
-            for n in range(3):
-                _fun_Q1[ -1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.r3_eq(x1, x2, x3) * self._Ginv(x1, x2, x3)[m, n]]
+            _fun_W1  += [[]]
+            _fun_U1  += [[]]
+            _fun_P1  += [[]]
+            _fun_S1  += [[]]
+            _fun_S10 += [[]]
+            _fun_T1  += [[]]
+            _fun_X1  += [[]]
 
-        self._Q1  = MHD_operator(self._V1, self._V2, self._P2, _fun_Q1, self._projectors_1d)
+            _fun_Q2  += [[]]
+            _fun_T2  += [[]]
+            _fun_P2  += [[]]
+            _fun_S2  += [[]]
+            _fun_X2  += [[]]
+            _fun_Z20 += [[]]
+            _fun_S20 += [[]]
+            for n in range(3):
+                # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
+                _fun_Q1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_W1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_U1[ -1] += [lambda x1, x2, x3, m=m, n=n : np.sqrt(F.metric_det(x1, x2, x3)) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_P1[ -1] += [lambda x1, x2, x3, m=m, n=n : _cross_mask[m][n] * _j2_cross[m][n](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_S1[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_S10[-1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p0_eq(x1, x2, x3) if m==n else 0.]
+                _fun_T1[ -1] += [lambda x1, x2, x3, m=m, n=n : (_eval_cross(x1, x2, x3, _b2_cross) @ _Ginv(x1, x2, x3))[m, n]] # Matrix product!
+                _fun_X1[ -1] += [lambda x1, x2, x3, m=m, n=n : (F.jacobian_inv(x1, x2, x3).T)[m, n]]
+
+                _fun_Q2[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.r3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_T2[ -1] += [lambda x1, x2, x3, m=m, n=n : _cross_mask[m][n] * _b2_cross[m][n](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_P2[ -1] += [lambda x1, x2, x3, m=m, n=n : (_Ginv(x1, x2, x3) @ _eval_cross(x1, x2, x3, _j2_cross))[m, n]] # Matrix product!
+                _fun_S2[ -1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m==n else 0.]
+                _fun_X2[ -1] += [lambda x1, x2, x3, m=m, n=n : F.jacobian(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_Z20[-1] += [lambda x1, x2, x3, m=m, n=n : F.metric(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
+                _fun_S20[-1] += [lambda x1, x2, x3, m=m, n=n : EQ_MHD_L.p0_eq(x1, x2, x3) * F.metric(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
+
+        # Scalar functions
+        self._fun_K1  = _fun_K1
+        self._fun_K10 = _fun_K10
+
+        self._fun_K2  = _fun_K2
+        self._fun_Y20 = _fun_Y20
+
+        # 'Matrix' functions
+        self._fun_Q1  = _fun_Q1
+        self._fun_W1  = _fun_W1
+        self._fun_U1  = _fun_U1
+        self._fun_P1  = _fun_P1
+        self._fun_S1  = _fun_S1
+        self._fun_S10 = _fun_S10
+        self._fun_T1  = _fun_T1
+        self._fun_X1  = _fun_X1
+
+        self._fun_Q2  = _fun_Q2
+        self._fun_T2  = _fun_T2
+        self._fun_P2  = _fun_P2
+        self._fun_S2  = _fun_S2
+        self._fun_X2  = _fun_X2
+        self._fun_Z20 = _fun_Z20
+        self._fun_S20 = _fun_S20
+
+        # Assemble operators only when needed. Otherwise it takes a full minute to initialize the following classes.
+        if assemble_all:
+
+            # MHD operators with velocity (up) as 1-form:
+            self._Q1  = MHD_operator(_V1, _V2, _P2, _fun_Q1, projectors_1d)
+            self._W1  = MHD_operator(_V1, _V1, _P1, _fun_W1, projectors_1d)
+            self._U1  = MHD_operator(_V1, _V2, _P2, _fun_U1, projectors_1d)
+            self._P1  = MHD_operator(_V2, _V1, _P1, _fun_P1, projectors_1d)
+            self._S1  = MHD_operator(_V1, _V2, _P2, _fun_S1, projectors_1d)
+            self._S10 = MHD_operator(_V1, _V1, _P1, _fun_S10, projectors_1d)
+            self._K1  = MHD_operator(_V3, _V3, _P3, [[_fun_K1]], projectors_1d)
+            self._K10 = MHD_operator(_V0, _V0, _P0, [[_fun_K10]], projectors_1d)
+            self._T1  = MHD_operator(_V1, _V1, _P1, _fun_T1, projectors_1d)
+            self._X11 = MHD_operator(_V1, _V0, _P0, [_fun_X1[0]], projectors_1d) # Row 1
+            self._X12 = MHD_operator(_V1, _V0, _P0, [_fun_X1[1]], projectors_1d) # Row 2
+            self._X13 = MHD_operator(_V1, _V0, _P0, [_fun_X1[2]], projectors_1d) # Row 3
+            self._X1  = [self._X11, self._X12, self._X13]
+
+            # MHD operators with velocity (up) as 2-form:
+            self._Q2  = MHD_operator(_V2, _V2, _P2, _fun_Q2, projectors_1d)
+            self._T2  = MHD_operator(_V2, _V1, _P1, _fun_T2, projectors_1d)
+            self._P2  = MHD_operator(_V2, _V2, _P2, _fun_P2, projectors_1d)
+            self._S2  = MHD_operator(_V2, _V2, _P2, _fun_S2, projectors_1d)
+            self._K2  = MHD_operator(_V3, _V3, _P3, [[_fun_K2]], projectors_1d)
+            self._X21 = MHD_operator(_V2, _V0, _P0, [_fun_X2[0]], projectors_1d) # Row 1
+            self._X22 = MHD_operator(_V2, _V0, _P0, [_fun_X2[1]], projectors_1d) # Row 2
+            self._X23 = MHD_operator(_V2, _V0, _P0, [_fun_X2[2]], projectors_1d) # Row 3
+            self._Z20 = MHD_operator(_V2, _V1, _P1, _fun_Z20, projectors_1d)
+            self._Y20 = MHD_operator(_V0, _V3, _P3, [[_fun_Y20]], projectors_1d)
+            self._S20 = MHD_operator(_V2, _V1, _P1, _fun_S20, projectors_1d)
+            self._X2  = [self._X21, self._X22, self._X23]
+
+
+
+    # Assemble operators only when needed. Otherwise it takes a full minute to initialize the following classes.
+
+    def assemble_Q1(self):
+        self._Q1  = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_Q1, self.projectors_1d)
 
     def assemble_W1(self):
-        _fun_W1  = []
-        for m in range(3):
-            _fun_W1  += [[]]
-            for n in range(3):
-                _fun_W1[ -1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.r3_eq(x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3)) if m==n else 0.]
-    
-        self._W1  = MHD_operator(self._V1, self._V1, self._P1, _fun_W1, self._projectors_1d)
+        self._W1  = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_W1, self.projectors_1d)
 
     def assemble_U1(self):
-        _fun_U1  = []
-        for m in range(3):
-            _fun_U1  += [[]]
-            for n in range(3):
-                _fun_U1[ -1] += [lambda x1, x2, x3, m=m, n=n : np.sqrt(self._F.metric_det(x1, x2, x3)) * self._Ginv(x1, x2, x3)[m, n]]
+        self._U1  = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_U1, self.projectors_1d)
 
-        self._U1  = MHD_operator(self._V1, self._V2, self._P2, _fun_U1, self._projectors_1d)
-                
     def assemble_P1(self):
-        _fun_P1  = []
-        for m in range(3):
-            _fun_P1  += [[]]
-            for n in range(3):
-                _fun_P1[ -1] += [lambda x1, x2, x3, m=m, n=n : [self._EQ.j2_eq_1, self._EQ.j2_eq_2, self._EQ.j2_eq_3][m](x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3))]
-
-        self._P1  = MHD_operator(self._V2, self._V1, self._P1, _fun_P1, self._projectors_1d)
+        self._P1  = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_P1, self.projectors_1d)
 
     def assemble_S1(self):
-        _fun_S1  = []
-        for m in range(3):
-            _fun_S1  += [[]]
-            for n in range(3):
-                _fun_S1[ -1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.p3_eq(x1, x2, x3) * self._Ginv(x1, x2, x3)[m, n]]
-
-        self._S1  = MHD_operator(self._V1, self._V2, self._P2, _fun_S1, self._projectors_1d)
+        self._S1  = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_S1, self.projectors_1d)
 
     def assemble_S10(self):
-        _fun_S10 = []
-        for m in range(3):
-            _fun_S10  += [[]]
-            for n in range(3):
-                _fun_S10[-1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.p3_eq(x1, x2, x3) if m==n else 0.]
+        self._S10 = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_S10, self.projectors_1d)
 
-        self._S10 = MHD_operator(self._V1, self._V1, self._P1, _fun_S10, self._projectors_1d)
+    def assemble_K1(self):
+        self._K1  = MHD_operator(self._V3, self._V3, self._Pi3, [[self._fun_K1]],  self.projectors_1d)
+
+    def assemble_K10(self):
+        self._K10 = MHD_operator(self._V0, self._V0, self._Pi0, [[self._fun_K10]], self.projectors_1d)
 
     def assemble_T1(self):
-        _fun_T1  = []
-        for m in range(3):
-            _fun_T1  += [[]]
-            for n in range(3):
-                _fun_T1[ -1] += [lambda x1, x2, x3, m=m, n=n : [self._EQ.b2_eq_1, self._EQ.b2_eq_2, self._EQ.b2_eq_3][m](x1, x2, x3) * self._Ginv(x1, x2, x3)[m, n]]
-
-        self._T1  = MHD_operator(self._V1, self._V1, self._P1, _fun_T1,  self._projectors_1d)
+        self._T1  = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_T1,  self.projectors_1d)
 
     def assemble_X1(self):
-        _fun_X1  = []
-        for m in range(3):
-            _fun_X1  += [[]]
-            for n in range(3):
-                _fun_X1[ -1] += [lambda x1, x2, x3, m=m, n=n : (self._F.jacobian_inv(x1, x2, x3).T)[m, n]]
+        self._X11 = MHD_operator(self._V1, self._V0, self._Pi0, [self._fun_X1[0]], self.projectors_1d) # Row 1
+        self._X12 = MHD_operator(self._V1, self._V0, self._Pi0, [self._fun_X1[1]], self.projectors_1d) # Row 2
+        self._X13 = MHD_operator(self._V1, self._V0, self._Pi0, [self._fun_X1[2]], self.projectors_1d) # Row 3
+        self._X1  = [self._X11, self._X12, self._X13]
 
-        self._X1_comp1  = MHD_operator(self._V1, self._V0, self._P0, [_fun_X1[0]], self._projectors_1d)
-        self._X1_comp2  = MHD_operator(self._V1, self._V0, self._P0, [_fun_X1[1]], self._projectors_1d)
-        self._X1_comp3  = MHD_operator(self._V1, self._V0, self._P0, [_fun_X1[2]], self._projectors_1d)
+
 
     def assemble_Q2(self):
-        _fun_Q2  = []
-        for m in range(3):
-            _fun_Q2  += [[]]
-            for n in range(3):
-                _fun_Q2[ -1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.r3_eq(x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3)) if m==n else 0.]
-
-        self._Q2  = MHD_operator(self._V2, self._V2, self._P2, _fun_Q2, self._projectors_1d)
+        self._Q2  = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_Q2, self.projectors_1d)
 
     def assemble_T2(self):
-        _fun_T2  = []
-        for m in range(3):
-            _fun_T2  += [[]]
-            for n in range(3):
-                _fun_T2[ -1] += [lambda x1, x2, x3, m=m, n=n : [self._EQ.b2_eq_1, self._EQ.b2_eq_2, self._EQ.b2_eq_3][m](x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3))]
-               
-        self._T2  = MHD_operator(self._V2, self._V1, self._P1, _fun_T2, self._projectors_1d)
+        self._T2  = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_T2, self.projectors_1d)
 
     def assemble_P2(self):
-        _fun_P2  = []
-        for m in range(3):
-            _fun_P2  += [[]]
-            for n in range(3):
-                _fun_P2[ -1] += [lambda x1, x2, x3, m=m, n=n : self._Ginv(x1, x2, x3)[m, n] * [self._EQ.j2_eq_1, self._EQ.j2_eq_2, self._EQ.j2_eq_3][n](x1, x2, x3)]
-               
-        self._P2  = MHD_operator(self._V2, self._V2, self._P2, _fun_P2, self._projectors_1d)
+        self._P2  = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_P2, self.projectors_1d)
 
     def assemble_S2(self):
-        _fun_S2  = []
-        for m in range(3):
-            _fun_S2  += [[]]
-            for n in range(3):
-                _fun_S2[ -1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.p3_eq(x1, x2, x3) / np.sqrt(self._F.metric_det(x1, x2, x3)) if m==n else 0.]
+        self._S2  = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_S2, self.projectors_1d)
 
-        self._S2  = MHD_operator(self._V2, self._V2, self._P2, _fun_S2, self._projectors_1d)
+    def assemble_K2(self):
+        self._K2  = MHD_operator(self._V3, self._V3, self._Pi3, [[self._fun_K2]], self.projectors_1d)
 
     def assemble_X2(self):
-        _fun_X2  = []
-        for m in range(3):
-            _fun_X2  += [[]]
-            for n in range(3):
-                _fun_X2[ -1] += [lambda x1, x2, x3, m=m, n=n : self._F.jacobian(x1, x2, x3)[m, n] / np.sqrt(self._F.metric_det(x1, x2, x3))]
-
-        self._X2_comp1  = MHD_operator(self._V2, self._V0, self._P0, [_fun_X2[0]], self._projectors_1d)
-        self._X2_comp2  = MHD_operator(self._V2, self._V0, self._P0, [_fun_X2[1]], self._projectors_1d)
-        self._X2_comp3  = MHD_operator(self._V2, self._V0, self._P0, [_fun_X2[2]], self._projectors_1d)
+        self._X21 = MHD_operator(self._V2, self._V0, self._Pi0, [self._fun_X2[0]], self.projectors_1d) # Row 1
+        self._X22 = MHD_operator(self._V2, self._V0, self._Pi0, [self._fun_X2[1]], self.projectors_1d) # Row 2
+        self._X23 = MHD_operator(self._V2, self._V0, self._Pi0, [self._fun_X2[2]], self.projectors_1d) # Row 3
+        self._X2  = [self._X21, self._X22, self._X23]
 
     def assemble_Z20(self):
-        _fun_Z20 = []
-        for m in range(3):
-            _fun_Z20  += [[]]
-            for n in range(3):
-                _fun_Z20[-1] += [lambda x1, x2, x3, m=m, n=n : self._F.metric(x1, x2, x3)[m, n]]
+        self._Z20 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_Z20, self.projectors_1d)
 
-        self._Z20 = MHD_operator(self._V2, self._V1, self._P1, _fun_Z20,  self._projectors_1d)
+    def assemble_Y20(self):
+        self._Y20 = MHD_operator(self._V0, self._V3, self._Pi3, [[self._fun_Y20]], self.projectors_1d)
 
     def assemble_S20(self):
-        _fun_S20 = []
-        for m in range(3):
-            _fun_S20  += [[]]
-            for n in range(3):
-                _fun_S20[-1] += [lambda x1, x2, x3, m=m, n=n : self._EQ.p3_eq(x1, x2, x3) * self._F.metric(x1, x2, x3)[m, n] / np.sqrt(self._F.metric_det(x1, x2, x3))]
+        self._S20 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_S20, self.projectors_1d)
 
-        self._S20 = MHD_operator(self._V2, self._V1, self._P1, _fun_S20,  self._projectors_1d)
 
+
+    # The actual MHD operators.
 
     def Q1(self, x):
         return self._Q1.dot(x)
@@ -235,7 +297,7 @@ class MHD_ops:
         return self._T1.dot(x)
 
     def X1(self, x):
-        return self._X1.dot(x)
+        return [self._X11.dot(x), self._X12.dot(x), self._X13.dot(x)]
 
     def Q2(self, x):
         return self._Q2.dot(x)
@@ -253,7 +315,7 @@ class MHD_ops:
         return self._K2.dot(x)
 
     def X2(self, x):
-        return self._X2.dot(x)
+        return [self._X21.dot(x), self._X22.dot(x), self._X23.dot(x)]
 
     def Z20(self, x):
         return self._Z20.dot(x)
@@ -367,12 +429,12 @@ class MHD_operator:
 
     def dot(self, u):
         '''Applies the MHD operator to the FE coefficients u belonging to the domain.
-        
+
         Parameters
         ----------
             u : StencilVector or BlockVector
                 Input FE coefficients from V.vector_space.
-            
+
         Returns
         -------
             A StencilVector or BlockVector from W.vector_space.'''
@@ -382,8 +444,8 @@ class MHD_operator:
         rhs.update_ghost_regions()
 
         assert rhs.space == self._solver.space
-        
-        return self._solver.solve(rhs), rhs
+
+        return self._solver.solve(rhs)
 
 
     def prepare_projection_of_basis(self, Vcomp, Wcomp):
