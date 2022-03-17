@@ -44,6 +44,7 @@ setup(
     scripts=['scripts/struphy', 
              'scripts/example_lin_mhd_1d_fft',
              'scripts/example_maxwell_1d_fft',
+             'scripts/example_psydac_parallel',
              ],
     # list of package dependencies (if necessary)
     install_requires=[
