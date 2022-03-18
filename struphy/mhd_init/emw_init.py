@@ -23,6 +23,9 @@ class Initialize_emw:
     b2 : np.array
         Flattened initial coefficients of magnetic field as 2-form.
 
+    j1 : np.array 
+        Flattened initial coefficients of current field as 1-form.
+
     init_type : string
         Types of initialization
         {only noise} (right now, will be changed)
@@ -108,13 +111,13 @@ class Initialize_emw:
 
         self.e1 = np.zeros(N_dof_1form, dtype=float)
         self.b2 = np.zeros(N_dof_2form, dtype=float)
-
+        self.j1 = np.zeros(N_dof_2form, dtype=float)
 
 
         if self.init_type == 'modes_k':
             self.e1[:] = self.SPACES.projectors.pi_1([self.e1_ini_1, self.e1_ini_2, self.e1_ini_3])
             self.b2[:] = self.SPACES.projectors.pi_2([self.b2_ini_1, self.b2_ini_2, self.b2_ini_3])
-
+            self.j1[:] = self.SPACES.projectors.pi_2([self.j1_ini_1, self.j1_ini_2, self.j1_ini_3])
 
             
         elif self.init_type == 'noise':
@@ -126,7 +129,9 @@ class Initialize_emw:
             b2_temp_1 = np.empty(dim_list, dtype=float)
             b2_temp_2 = np.empty(dim_list, dtype=float)
             b2_temp_3 = np.empty(dim_list, dtype=float)
-
+            j1_temp_1 = np.empty(dim_list, dtype=float)
+            j1_temp_2 = np.empty(dim_list, dtype=float)
+            j1_temp_3 = np.empty(dim_list, dtype=float)
 
             if self.type == "direction":
                 if self.direction == 'x':
@@ -139,7 +144,9 @@ class Initialize_emw:
                             b2_temp_1[:, j, k] = amps[3]
                             b2_temp_2[:, j, k] = amps[4]
                             b2_temp_3[:, j, k] = amps[5]
-
+                            j1_temp_1[:, j, k] = amps[6]
+                            j1_temp_2[:, j, k] = amps[7]
+                            j1_temp_3[:, j, k] = amps[8]
 
                 elif self.direction == 'y':
                     amps = np.random.rand(9, dim_list[1])
@@ -151,7 +158,9 @@ class Initialize_emw:
                             b2_temp_1[j, :, k] = amps[3]
                             b2_temp_2[j, :, k] = amps[4]
                             b2_temp_3[j, :, k] = amps[5]
-
+                            j1_temp_1[j, :, k] = amps[6]
+                            j1_temp_2[j, :, k] = amps[7]
+                            j1_temp_3[j, :, k] = amps[8]
 
                 elif self.direction == 'z':
                     amps = np.random.rand(9, dim_list[2])
@@ -163,7 +172,9 @@ class Initialize_emw:
                             b2_temp_1[j, k, :] = amps[3]
                             b2_temp_2[j, k, :] = amps[4]
                             b2_temp_3[j, k, :] = amps[5]
-
+                            j1_temp_1[j, k, :] = amps[6]
+                            j1_temp_2[j, k, :] = amps[7]
+                            j1_temp_3[j, k, :] = amps[8]
 
 
             elif self.type == "plane":
@@ -176,7 +187,9 @@ class Initialize_emw:
                         b2_temp_1[:, :, k] = amps[3]
                         b2_temp_2[:, :, k] = amps[4]
                         b2_temp_3[:, :, k] = amps[5]
-
+                        j1_temp_1[:, :, k] = amps[6]
+                        j1_temp_2[:, :, k] = amps[7]
+                        j1_temp_3[:, :, k] = amps[8]
 
                 elif self.plane == 'yz':
                     amps = np.random.rand(9, self.SPACES.NbaseN[1], self.SPACES.NbaseN[2])
@@ -187,7 +200,9 @@ class Initialize_emw:
                         b2_temp_1[k, :, :] = amps[3]
                         b2_temp_2[k, :, :] = amps[4]
                         b2_temp_3[k, :, :] = amps[5]
-
+                        j1_temp_1[k, :, :] = amps[6]
+                        j1_temp_2[k, :, :] = amps[7]
+                        j1_temp_3[k, :, :] = amps[8]
 
                 elif self.plane == 'xz':
                     amps = np.random.rand(9, self.SPACES.NbaseN[0], self.SPACES.NbaseN[2])
@@ -198,6 +213,9 @@ class Initialize_emw:
                         b2_temp_1[:, k, :] = amps[3]
                         b2_temp_2[:, k, :] = amps[4]
                         b2_temp_3[:, k, :] = amps[5]
+                        j1_temp_1[:, k, :] = amps[6]
+                        j1_temp_2[:, k, :] = amps[7]
+                        j1_temp_3[:, k, :] = amps[8]
 
 
             elif self.type == "volume":
@@ -208,7 +226,9 @@ class Initialize_emw:
                 b2_temp_1[:, :, :] = amps[3]
                 b2_temp_2[:, :, :] = amps[4]
                 b2_temp_3[:, :, :] = amps[5]
-
+                j1_temp_1[:, :, :] = amps[6]
+                j1_temp_2[:, :, :] = amps[7]
+                j1_temp_3[:, :, :] = amps[8]
 
 
             if not 'e1' in self.target: e1_temp_1[:, :, :] = 0.
@@ -217,17 +237,22 @@ class Initialize_emw:
             if not 'b1' in self.target: b2_temp_1[:, :, :] = 0.
             if not 'b2' in self.target: b2_temp_2[:, :, :] = 0.
             if not 'b3' in self.target: b2_temp_3[:, :, :] = 0.
+            if not 'j1' in self.target: j1_temp_1[:, :, :] = 0.
+            if not 'j2' in self.target: j1_temp_2[:, :, :] = 0.
+            if not 'j3' in self.target: j1_temp_3[:, :, :] = 0.
 
             self.e1[:] = self.amp*np.concatenate((e1_temp_1.flatten(), e1_temp_2.flatten(), e1_temp_3.flatten()))
             self.b2[:] = self.amp*np.concatenate((b2_temp_1.flatten(), b2_temp_2.flatten(), b2_temp_3.flatten()))
-
+            self.j1[:] = self.amp*np.concatenate((j1_temp_1.flatten(), j1_temp_2.flatten(), j1_temp_3.flatten()))
 
         elif self.init_type == 'modes_mn' or 'eigfun':
             print('modes_mn and eigfun mode are not implemented yet')
 
         print('electric field'.ljust(16) + 'initialized as 1-form of size', self.e1.size)
         print('magnetic field'.ljust(16) + 'initialized as 2-form of size', self.b2.size)
-
+        print('current field'.ljust(16) + 'initialized as 1-form of size', self.j1.size)
+            
+            
             
             
     # ===============================================================
@@ -306,6 +331,44 @@ class Initialize_emw:
 
         return b3
 
+    # initial current field  (x - component)
+    def fun_j_x(self, x, y, z):
+
+        j1 = 0*x
+        
+        if 'j1' in self.target :
+            if self.init_type == 'modes_k' :
+                for i in range(len(self.amp)):
+                    j1 += self.amp[i]*np.sin(self.modes_k[0][i]*x + self.modes_k[1][i]*y + self.modes_k[2][i]*z)
+
+        return j1
+
+    # initial current field (y - component)
+    def fun_j_y(self, x, y, z):
+        
+        j2 = 0*x
+
+        if 'j2' in self.target :
+            if self.init_type == 'modes_k' :
+                for i in range(len(self.amp)):
+                    j2 += self.amp[i]*np.sin(self.modes_k[0][i]*x + self.modes_k[1][i]*y + self.modes_k[2][i]*z)
+
+        return j2
+
+    # initial current field  (z - component)
+    def fun_j_z(self, x, y, z):
+
+        j3 = 0*x
+
+        if 'j3' in self.target :
+            if self.init_type == 'modes_k' :
+                for i in range(len(self.amp)):
+                    j3 += self.amp[i]*np.sin(self.modes_k[0][i]*x + self.modes_k[1][i]*y + self.modes_k[2][i]*z)
+
+        return j3
+
+
+ 
  
     # ===============================================================
     #               pullback or transform to the form
@@ -358,5 +421,29 @@ class Initialize_emw:
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
             return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
+
+    # initial current field (1-form on logical domain, 1-component)
+    def j1_ini_1(self, eta1, eta2, eta3=None):
+        
+        if self.init_coords == 'physical':
+            return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_1')
+        elif self.init_coords == 'norm_logical':
+            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_1')
+  
+    # initial current field (1-form on logical domain, 2-component)
+    def j1_ini_2(self, eta1, eta2, eta3=None):
+        
+        if self.init_coords == 'physical':
+            return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_2')
+        elif self.init_coords == 'norm_logical':
+            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_2')
+
+    # initial current field (1-form on logical domain, 3-component)
+    def j1_ini_3(self, eta1, eta2, eta3=None):
+    
+        if self.init_coords == 'physical':
+            return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_3')
+        elif self.init_coords == 'norm_logical':
+            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_3')
 
  

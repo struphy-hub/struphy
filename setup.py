@@ -37,6 +37,7 @@ setup(
             'pc_lin_mhd_6d_MF_perp/*.yml',
             'massless_extended/*.yml',
             'maxwell/*yml',
+            'cold_plasma/*yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },
@@ -45,6 +46,7 @@ setup(
              'scripts/example_lin_mhd_1d_fft',
              'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
+             'scripts/example_cold_plasma_1d_fft',
              ],
     # list of package dependencies (if necessary)
     install_requires=[
