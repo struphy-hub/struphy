@@ -590,7 +590,7 @@ class Domain():
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
             squeeze_output : boolean
-                Whether to remove singleton dimensions in output "values". 
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
@@ -641,9 +641,9 @@ class Domain():
 
         return values
 
-       
+
     # ================================
-    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
+    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False, squeeze_output=True):
         '''Pullback of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -657,7 +657,9 @@ class Domain():
             kind_fun:   str
                 Which p-form pull back to apply, see keys_pull
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
@@ -712,15 +714,18 @@ class Domain():
         else:
             pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        return values.squeeze()
-        
-    
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
+
+
     # ================================
-    def push(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
+    def push(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False, squeeze_output=True):
         '''Push-forward of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
-        
+
         Parameters
         -----------
             a:  callable or array-like
@@ -730,7 +735,9 @@ class Domain():
             kind_fun:   str
                 Which p-form push forward to apply, see keys_push
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
@@ -740,7 +747,7 @@ class Domain():
         Notes
         -----
             Possible choices for kind_fun:
-                
+
                 * '0_form', '3_form'
                 * '1_form_1', '1_form_2', '1_form_3'
                 * '2_form_1', '2_form_2', '2_form_3',
@@ -773,13 +780,16 @@ class Domain():
         else:
             pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
     
-        return values.squeeze()
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
 
 
     # ================================
-    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False):
+    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False, squeeze_output=True):
         '''Transformation between different p-forms on logical domain. 
-        
+
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
         Parameters
@@ -791,7 +801,9 @@ class Domain():
             kind_fun:   str
                 which transform to apply, see keys_transform
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
@@ -837,6 +849,9 @@ class Domain():
         else:
             tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        return values.squeeze()
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
 
 

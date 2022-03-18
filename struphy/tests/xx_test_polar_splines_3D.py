@@ -4,7 +4,7 @@ from matplotlib.gridspec import GridSpec
 import struphy.geometry.domain_3d as dom
 import struphy.feec.spline_space as spl
 
-def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_type=None, domain_enum=None, op_enum=None):
+def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None, space_type=None, domain_enum=None, op_enum=None):
     """Test constructing 3D polar splines for a non-axisymmetric GVEC equilibrium via an intermediate axisymmetric torus mapping.
 
     Even though it says 3D, all test functions are :math:``f(x,y)``, independent of :math:``z``.
@@ -51,6 +51,8 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
     if op_enum is None:
         op_enum = Operation.ALL
 
+    no_cache = False
+
     # ============================================================
     # Imports.
     # ============================================================
@@ -77,21 +79,12 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
     # ============================================================
 
     # Create splines to STRUPHY, unrelated to splines in GVEC.
-    # Nel      = [16*1, 18*1, 3]
-    Nel      = [16*2, 18*2, 3] # Default.
-    # Nel      = [16*4, 18*4, 3]
-    # p        = [2, 2, 1]
-    p        = [3, 3, 1] # Default.
-    # p        = [4, 4, 1]
-    # nq_el    = [2, 2, 2] # Element integration, quadrature points per grid cell.
-    nq_el    = [4, 4, 4] # Default.
-    # nq_el    = [6, 6, 6]
-    # nq_pr    = [2, 2, 2] # Greville integration, quadrature points per histopolation cell (for projection).
-    nq_pr    = [4, 4, 4] # Default.
-    # nq_pr    = [6, 6, 6]
-    # nq_pr    = [2, 2, 1]
-    bc       = ['f', 'f'] # BC in s-direction
-    spl_kind = [False, True, True] # Spline type: True=periodic, False=clamped
+    Nel      = params['grid']['Nel']      # Number of grid cells
+    p        = params['grid']['p']        # Spline degree
+    nq_el    = params['grid']['nq_el']    # Element integration, quadrature points per grid cell.
+    nq_pr    = params['grid']['nq_pr']    # Greville integration, quadrature points per histopolation cell (for projection).
+    bc       = params['grid']['bc']       # BC in s-direction
+    spl_kind = params['grid']['spl_kind'] # Spline type: True=periodic, False=clamped
 
 
 
@@ -101,19 +94,56 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
 
     print('Begin testing 3D polar splines.')
 
-    func, dfdx, dfdy = generate_test_function(func_test, params=None)
-    func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
-    if map_type == MapType.SPLINE:
+    if map_type == MapType.SPLINE: # Special handling for spline maps.
+
+        # The toroidal cross section is actually on the x-z plane!
+        # Therefore the y-z axes were swapped when constructing STRUPHY 3D spline from GVEC's spline x fourier mapping.
         DOMAIN_F, gvec = get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc)
+        params['gvec'] = gvec # Pass the `gvec` object for debugging. It's not necessary.
+
+        # Please evaluate the mapping once to identify the origin.
+        # Then shift the trial function by an appropriate amount.
+        x0 = gvec.mapX.f(0, 0, 0)
+        y0 = gvec.mapY.f(0, 0, 0)
+        z0 = gvec.mapZ.f(0, 0, 0)
+        print(f'Origin of slice of polidal spline:')
+        print(f'x0: {x0}')
+        print(f'y0: {y0}')
+        print(f'z0: {z0}')
+
+        if func_test == FuncTest.GAUSSIAN:
+            trial_params = {
+                'sd_x' : 0.1,
+                'sd_y' : 0.05,
+                'mu_x' : 0.1 + x0,
+                'mu_y' : 0.05 + y0,
+            }
+            func, dfdx, dfdy = generate_test_function(func_test, params=trial_params)
+            func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
+        elif func_test == FuncTest.LINEARX:
+            trial_params = {
+                'mu_x' : 0. + x0,
+            }
+            func, dfdx, dfdy = generate_test_function(func_test, params=trial_params)
+            func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
+        else:
+            func, dfdx, dfdy = generate_test_function(func_test, params=None)
+            func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
+
     else:
+
         DOMAIN_F = None
+        func, dfdx, dfdy = generate_test_function(func_test, params=None)
+        func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
+
     DOMAIN_F = map_generator(map_type, DOMAIN_F)
 
     case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum]
     case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
     case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
 
-    data_folder = f'test_polar_splines_data'
+    data_folder = f'~/ipp-cache/test_polar_splines_data'
+    data_folder = os.path.expanduser(data_folder)
     data_filename = f'{func_test.name}_{map_type.name}_{func_form.name}-Form_{space_type.name}_{domain_enum.name}'
     data_filename += f'_{str(Nel)}_{str(p)}_{str(spl_kind)}_{str(nq_el)}_{str(nq_pr)}_{str(bc)}'
     data_path = os.path.join(data_folder, f'{data_filename}.pkl')
@@ -121,45 +151,82 @@ def test_polar_splines_3D(func_test=None, map_type=None, func_form=None, space_t
 
     if func_form == FuncForm.ZERO:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
-            if not os.path.isfile(data_path):
+            if no_cache:
+                print('Cache will not be generated.')
+                plot_data_0form = case_0form(*case_0form_args)
+                print('Plot data computed.')
+            elif not os.path.isfile(data_path):
+                print('Cache for current configuration not found. Computing...')
                 plot_data_0form = case_0form(*case_0form_args)
                 with open(data_path, 'wb') as handle:
                     pickle.dump(plot_data_0form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print('Cache generated.')
+            else:
+                print('Cache found for current configuration.')
+                with open(data_path, 'rb') as handle:
+                    plot_data_0form = pickle.load(handle)
+                print('Loaded data from cache.')
+            print('\n' + '='*50)
+            if op_enum == Operation.WRITEONLY:
+                return plot_data_0form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
-            with open(data_path, 'rb') as handle:
-                plot_data_0form = pickle.load(handle)
             plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, space_type, Nel, p)
             ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
             ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
             plt.show()
     elif func_form == FuncForm.ONE:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
-            if not os.path.isfile(data_path):
+            if no_cache:
+                print('Cache will not be generated.')
+                plot_data_1form = case_1form(*case_1form_args)
+                print('Plot data computed.')
+            elif not os.path.isfile(data_path):
+                print('Cache for current configuration not found. Computing...')
                 plot_data_1form = case_1form(*case_1form_args)
                 with open(data_path, 'wb') as handle:
                     pickle.dump(plot_data_1form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print('Cache generated.')
+            else:
+                print('Cache found for current configuration.')
+                with open(data_path, 'rb') as handle:
+                    plot_data_1form = pickle.load(handle)
+                print('Loaded data from cache.')
+            print('\n' + '='*50)
+            if op_enum == Operation.WRITEONLY:
+                return plot_data_1form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
-            with open(data_path, 'rb') as handle:
-                plot_data_1form = pickle.load(handle)
             plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, space_type, Nel, p)
             ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
             ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
             plt.show()
     elif func_form == FuncForm.TWO:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
-            if not os.path.isfile(data_path):
+            if no_cache:
+                print('Cache will not be generated.')
+                plot_data_2form = case_2form(*case_2form_args)
+                print('Plot data computed.')
+            elif not os.path.isfile(data_path):
+                print('Cache for current configuration not found. Computing...')
                 plot_data_2form = case_2form(*case_2form_args)
                 with open(data_path, 'wb') as handle:
                     pickle.dump(plot_data_2form, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                print('Cache generated.')
+            else:
+                print('Cache found for current configuration.')
+                with open(data_path, 'rb') as handle:
+                    plot_data_2form = pickle.load(handle)
+                print('Loaded data from cache.')
+            print('\n' + '='*50)
+            if op_enum == Operation.WRITEONLY:
+                return plot_data_2form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
-            with open(data_path, 'rb') as handle:
-                plot_data_2form = pickle.load(handle)
             plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, space_type, Nel, p)
             ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
             ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
             plt.show()
 
     print('Done testing 3D polar splines.')
+    print('\n' + '='*50)
 
 
 
@@ -172,7 +239,10 @@ class FuncTest(Enum):
     GAUSSIANCOSINE = 2
     SIGMOID = 3
     SINEX = 4
-    LINEARX = 5
+    CONSTANT = 5
+    LINEARX = 6
+    LINEARXYSUM = 7
+    LINEARXYPROD = 8
 
 @unique
 class MapType(Enum):
@@ -382,6 +452,27 @@ def func_sigmoid(L=1, mu_x=0, k_x=1, mu_y=0, k_y=1):
 
 
 
+def func_constant(c=1):
+    """A linear function in x: f(x) = x.
+
+    Parameters
+    ----------
+    c : float
+        Constant value of the function.
+
+    Returns
+    -------
+    tuple of callables
+        A 3-tuple consisting of (1) a linear function in only x, and its partial derivatives (2) along x and (3) along y.
+    """
+    import numpy as np
+    func = lambda x, y, z : c * np.ones_like(x)
+    dfdx = lambda x, y, z : np.zeros_like(x)
+    dfdy = lambda x, y, z : np.zeros_like(x)
+    return func, dfdx, dfdy
+
+
+
 def func_linearX(mu_x=.1):
     """A linear function in x: f(x) = x.
 
@@ -399,6 +490,52 @@ def func_linearX(mu_x=.1):
     func = lambda x, y, z : x - mu_x
     dfdx = lambda x, y, z : np.ones_like(x)
     dfdy = lambda x, y, z : np.zeros_like(x)
+    return func, dfdx, dfdy
+
+
+
+def func_linearXYsum(mu_x=.1, mu_y=.1):
+    """A linear function in x and y: f(x,y) = x + y.
+
+    Parameters
+    ----------
+    mu_x : float
+        Mean along x-direction.
+    mu_y : float
+        Mean along y-direction.
+
+    Returns
+    -------
+    tuple of callables
+        A 3-tuple consisting of (1) a linear function in x and y, and its partial derivatives (2) along x and (3) along y.
+    """
+    import numpy as np
+    func = lambda x, y, z : (x - mu_x) + (y - mu_y)
+    dfdx = lambda x, y, z : np.ones_like(x)
+    dfdy = lambda x, y, z : np.ones_like(y)
+    return func, dfdx, dfdy
+
+
+
+def func_linearXYprod(mu_x=.1, mu_y=.1):
+    """A linear function in x and y: f(x,y) = x * y.
+
+    Parameters
+    ----------
+    mu_x : float
+        Mean along x-direction.
+    mu_y : float
+        Mean along y-direction.
+
+    Returns
+    -------
+    tuple of callables
+        A 3-tuple consisting of (1) a linear function in x and y, and its partial derivatives (2) along x and (3) along y.
+    """
+    import numpy as np
+    func = lambda x, y, z : (x - mu_x) * (y - mu_y)
+    dfdx = lambda x, y, z : y - mu_y
+    dfdy = lambda x, y, z : x - mu_x
     return func, dfdx, dfdy
 
 
@@ -532,15 +669,49 @@ def generate_test_function(func_test=FuncTest.GAUSSIANCOSINE, params=None):
 
         func, dfdx, dfdy = func_sigmoid(L=1, mu_x=mu_x, k_x=k_x, mu_y=mu_y, k_y=k_y)
 
-    # Test case 5: Linear function in x.
+    # Test case 5: Constant function in x.
+    elif func_test == FuncTest.CONSTANT:
+
+        if params is not None:
+            c = params['c']
+        else: # Default.
+            c = 1.
+
+        func, dfdx, dfdy = func_constant(c=c)
+
+    # Test case 6: Linear function in x.
     elif func_test == FuncTest.LINEARX:
 
         if params is not None:
             mu_x = params['mu_x']
         else: # Default.
-            mu_x = 0 + 10
+            mu_x = 0. + 10
 
         func, dfdx, dfdy = func_linearX(mu_x=mu_x)
+
+    # Test case 7: Linear function f(x,y) = x + y.
+    elif func_test == FuncTest.LINEARXYSUM:
+
+        if params is not None:
+            mu_x = params['mu_x']
+            mu_y = params['mu_y']
+        else: # Default.
+            mu_x = 0. + 10
+            mu_y = 0.
+
+        func, dfdx, dfdy = func_linearXYsum(mu_x=mu_x, mu_y=mu_y)
+
+    # Test case 8: Linear function f(x,y) = x * y
+    elif func_test == FuncTest.LINEARXYPROD:
+
+        if params is not None:
+            mu_x = params['mu_x']
+            mu_y = params['mu_y']
+        else: # Default.
+            mu_x = 0. + 10
+            mu_y = 0.
+
+        func, dfdx, dfdy = func_linearXYprod(mu_x=mu_x, mu_y=mu_y)
 
     else:
 
@@ -697,21 +868,26 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     # DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 2., 'R0': 10.})
 
     def F_x(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x')
+        # print('GVEC spline:')
+        # gvec = params['gvec']
+        # print(gvec.mapX.f(eta1, eta2, eta3))
+        # print('STRUPHY spline:')
+        # print(DOMAIN_F.evaluate(eta1, eta2, eta3, 'x'))
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F_y(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F_z(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     # Map F1: Canonical disk.
     DOMAIN_F1 = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
 
     def F1_x(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F1_y(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F1_z(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     print('Domain maps defined.')
 
@@ -744,6 +920,7 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     cx_F1 = TENSOR_SPACE.projectors.pi_0(F1_x)
     cy_F1 = TENSOR_SPACE.projectors.pi_0(F1_y)
 
+    # Must reshape to 3D using `extract_0()`, when using `pi_0()` instead of `PI_0`!
     cx_F  = TENSOR_SPACE.extract_0(cx_F)
     cy_F  = TENSOR_SPACE.extract_0(cy_F)
     cz_F  = TENSOR_SPACE.extract_0(cz_F)
@@ -805,16 +982,16 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     # Use F for pullback!!!
     def fun_L_0(eta1, eta2, eta3):
         # Change back to analytical.
-        return DOMAIN_F.pull(func, eta1, eta2, eta3, kind_fun='0_form')
+        return DOMAIN_F.pull(func, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
 
     # For comparing analytical derivative:
     grad_3d = [dfdx, dfdy, lambda x, y, z: np.zeros_like(x) + np.zeros_like(y) + np.zeros_like(z)]
     def fun_L_1_1(eta1, eta2, eta3):
-        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_1', flat_eval=False)
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_1', flat_eval=False, squeeze_output=False)
     def fun_L_1_2(eta1, eta2, eta3):
-        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False)
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False, squeeze_output=False)
     def fun_L_1_3(eta1, eta2, eta3):
-        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False)
+        return DOMAIN_F.pull(grad_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False, squeeze_output=False)
     fun_L_1 = [fun_L_1_1, fun_L_1_2, fun_L_1_3]
 
     proj_tensor_0form   = TENSOR_SPACE.projectors.pi_0(fun_L_0)
@@ -891,6 +1068,10 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    print(f'Origin of the (transformed) pole:')
+    print(f'x0: {x0}')
+    print(f'y0: {y0}')
+    print(f'z0: {z0}')
     # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
@@ -912,21 +1093,21 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     # Push to canonical domain.
     # Polar splines should be smooth for the polar_F1.
     # Comparison only valid for polar_F1.
-    # pushed_F1_0_tensor   = DOMAIN_F1.push(evaled_0_tensor, eta1, eta2, eta3, kind_fun='0_form')
-    # pushed_F1_0_polar_F  = DOMAIN_F1.push(evaled_0_polar_F, eta1, eta2, eta3, kind_fun='0_form')
-    pushed_F1_0_polar_F1 = DOMAIN_F1.push(evaled_0_polar_F1, eta1, eta2, eta3, kind_fun='0_form')
+    # pushed_F1_0_tensor   = DOMAIN_F1.push(evaled_0_tensor, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
+    # pushed_F1_0_polar_F  = DOMAIN_F1.push(evaled_0_polar_F, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
+    pushed_F1_0_polar_F1 = DOMAIN_F1.push(evaled_0_polar_F1, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
 
-    # pushed_F1_1_1_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1')
-    # pushed_F1_1_1_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F1_1_1_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1')
+    # pushed_F1_1_1_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    # pushed_F1_1_1_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F1_1_1_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
 
-    # pushed_F1_1_2_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2')
-    # pushed_F1_1_2_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F1_1_2_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2')
+    # pushed_F1_1_2_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    # pushed_F1_1_2_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F1_1_2_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
 
-    # pushed_F1_1_3_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3')
-    # pushed_F1_1_3_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F1_1_3_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3')
+    # pushed_F1_1_3_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    # pushed_F1_1_3_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F1_1_3_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
 
     # pushed_F1_1_tensor   = np.array([pushed_F1_1_1_tensor  , pushed_F1_1_2_tensor  , pushed_F1_1_3_tensor  ])
     # pushed_F1_1_polar_F  = np.array([pushed_F1_1_1_polar_F , pushed_F1_1_2_polar_F , pushed_F1_1_3_polar_F ])
@@ -935,9 +1116,9 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
 
 
     # Or push to physical domain.
-    pushed_F_0_tensor   = DOMAIN_F.push(evaled_0_tensor, eta1, eta2, eta3, kind_fun='0_form')
-    pushed_F_0_polar_F  = DOMAIN_F.push(evaled_0_polar_F, eta1, eta2, eta3, kind_fun='0_form')
-    pushed_F_0_polar_F1 = DOMAIN_F.push(evaled_0_polar_F1, eta1, eta2, eta3, kind_fun='0_form')
+    pushed_F_0_tensor   = DOMAIN_F.push(evaled_0_tensor, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
+    pushed_F_0_polar_F  = DOMAIN_F.push(evaled_0_polar_F, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
+    pushed_F_0_polar_F1 = DOMAIN_F.push(evaled_0_polar_F1, eta1, eta2, eta3, kind_fun='0_form', squeeze_output=False)
 
     print(f'Max |orig_func|          : {np.max(np.abs(orig_func))}')
     print(f'Max |pushed_F_0_tensor|  : {np.max(np.abs(pushed_F_0_tensor))}')
@@ -949,17 +1130,17 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     print(f'Min |pushed_F_0_polar_F| : {np.min(np.abs(pushed_F_0_polar_F))}')
     print(f'Min |pushed_F_0_polar_F1|: {np.min(np.abs(pushed_F_0_polar_F1))}')
 
-    pushed_F_1_1_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F_1_1_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F_1_1_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1')
+    pushed_F_1_1_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F_1_1_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F_1_1_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
 
-    pushed_F_1_2_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F_1_2_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F_1_2_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2')
+    pushed_F_1_2_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F_1_2_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F_1_2_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
 
-    pushed_F_1_3_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F_1_3_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F_1_3_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3')
+    pushed_F_1_3_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F_1_3_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F_1_3_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
 
     pushed_F_1_tensor   = np.array([pushed_F_1_1_tensor  , pushed_F_1_2_tensor  , pushed_F_1_3_tensor  ])
     pushed_F_1_polar_F  = np.array([pushed_F_1_1_polar_F , pushed_F_1_2_polar_F , pushed_F_1_3_polar_F ])
@@ -1019,21 +1200,21 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     # DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 2., 'R0': 10.})
 
     def F_x(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F_y(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F_z(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     # Map F1: Canonical disk.
     DOMAIN_F1 = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
 
     def F1_x(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F1_y(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F1_z(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     print('Domain maps defined.')
 
@@ -1126,20 +1307,20 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
 
     # Use F for pullback!!!
     def fun_L_1_1(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_1', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_1', flat_eval=False, squeeze_output=False)
     def fun_L_1_2(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_2', flat_eval=False, squeeze_output=False)
     def fun_L_1_3(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='1_form_3', flat_eval=False, squeeze_output=False)
     fun_L_1 = [fun_L_1_1, fun_L_1_2, fun_L_1_3]
 
     # For comparing analytical derivative:
     def fun_L_2_1(eta1, eta2, eta3):
-        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_1', flat_eval=False)
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_1', flat_eval=False, squeeze_output=False)
     def fun_L_2_2(eta1, eta2, eta3):
-        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False)
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False, squeeze_output=False)
     def fun_L_2_3(eta1, eta2, eta3):
-        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False)
+        return DOMAIN_F.pull(curl_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False, squeeze_output=False)
     fun_L_2 = [fun_L_2_1, fun_L_2_2, fun_L_2_3]
 
     proj_tensor_1form   = TENSOR_SPACE.projectors.pi_1(fun_L_1)
@@ -1228,6 +1409,10 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    print(f'Origin of the (transformed) pole:')
+    print(f'x0: {x0}')
+    print(f'y0: {y0}')
+    print(f'z0: {z0}')
     # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
@@ -1249,33 +1434,33 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     # Push to canonical domain.
     # Polar splines should be smooth for the polar_F1.
     # Comparison only valid for polar_F1.
-    # pushed_F1_1_1_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1')
-    # pushed_F1_1_1_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F1_1_1_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1')
+    # pushed_F1_1_1_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    # pushed_F1_1_1_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F1_1_1_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
 
-    # pushed_F1_1_2_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2')
-    # pushed_F1_1_2_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F1_1_2_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2')
+    # pushed_F1_1_2_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    # pushed_F1_1_2_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F1_1_2_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
 
-    # pushed_F1_1_3_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3')
-    # pushed_F1_1_3_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F1_1_3_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3')
+    # pushed_F1_1_3_tensor   = DOMAIN_F1.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    # pushed_F1_1_3_polar_F  = DOMAIN_F1.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F1_1_3_polar_F1 = DOMAIN_F1.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
 
     # pushed_F1_1_tensor   = np.array([pushed_F1_1_1_tensor  , pushed_F1_1_2_tensor  , pushed_F1_1_3_tensor  ])
     # pushed_F1_1_polar_F  = np.array([pushed_F1_1_1_polar_F , pushed_F1_1_2_polar_F , pushed_F1_1_3_polar_F ])
     pushed_F1_1_polar_F1 = np.array([pushed_F1_1_1_polar_F1, pushed_F1_1_2_polar_F1, pushed_F1_1_3_polar_F1])
 
-    # pushed_F1_2_1_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1')
-    # pushed_F1_2_1_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F1_2_1_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1')
+    # pushed_F1_2_1_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    # pushed_F1_2_1_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F1_2_1_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
 
-    # pushed_F1_2_2_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2')
-    # pushed_F1_2_2_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F1_2_2_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2')
+    # pushed_F1_2_2_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    # pushed_F1_2_2_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F1_2_2_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
 
-    # pushed_F1_2_3_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3')
-    # pushed_F1_2_3_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F1_2_3_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3')
+    # pushed_F1_2_3_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    # pushed_F1_2_3_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F1_2_3_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
 
     # pushed_F1_2_tensor   = np.array([pushed_F1_2_1_tensor  , pushed_F1_2_2_tensor  , pushed_F1_2_3_tensor  ])
     # pushed_F1_2_polar_F  = np.array([pushed_F1_2_1_polar_F , pushed_F1_2_2_polar_F , pushed_F1_2_3_polar_F ])
@@ -1284,17 +1469,17 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
 
 
     # Or push to physical domain.
-    pushed_F_1_1_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F_1_1_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1')
-    pushed_F_1_1_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1')
+    pushed_F_1_1_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F_1_1_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
+    pushed_F_1_1_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_1', squeeze_output=False)
 
-    pushed_F_1_2_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F_1_2_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2')
-    pushed_F_1_2_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2')
+    pushed_F_1_2_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F_1_2_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
+    pushed_F_1_2_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_2', squeeze_output=False)
 
-    pushed_F_1_3_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F_1_3_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3')
-    pushed_F_1_3_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3')
+    pushed_F_1_3_tensor   = DOMAIN_F.push(evaled_1_tensor, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F_1_3_polar_F  = DOMAIN_F.push(evaled_1_polar_F, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
+    pushed_F_1_3_polar_F1 = DOMAIN_F.push(evaled_1_polar_F1, eta1, eta2, eta3, kind_fun='1_form_3', squeeze_output=False)
 
     pushed_F_1_tensor   = np.array([pushed_F_1_1_tensor  , pushed_F_1_2_tensor  , pushed_F_1_3_tensor  ])
     pushed_F_1_polar_F  = np.array([pushed_F_1_1_polar_F , pushed_F_1_2_polar_F , pushed_F_1_3_polar_F ])
@@ -1310,17 +1495,17 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     print(f'Min |pushed_F_1_polar_F| : {np.min(np.abs(pushed_F_1_polar_F))}')
     print(f'Min |pushed_F_1_polar_F1|: {np.min(np.abs(pushed_F_1_polar_F1))}')
 
-    pushed_F_2_1_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F_2_1_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F_2_1_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1')
+    pushed_F_2_1_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F_2_1_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F_2_1_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
 
-    pushed_F_2_2_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F_2_2_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F_2_2_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2')
+    pushed_F_2_2_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F_2_2_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F_2_2_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
 
-    pushed_F_2_3_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F_2_3_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F_2_3_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3')
+    pushed_F_2_3_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F_2_3_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F_2_3_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
 
     pushed_F_2_tensor   = np.array([pushed_F_2_1_tensor  , pushed_F_2_2_tensor  , pushed_F_2_3_tensor  ])
     pushed_F_2_polar_F  = np.array([pushed_F_2_1_polar_F , pushed_F_2_2_polar_F , pushed_F_2_3_polar_F ])
@@ -1380,21 +1565,21 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     # DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 2., 'R0': 10.})
 
     def F_x(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F_y(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F_z(eta1, eta2, eta3):
-        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     # Map F1: Canonical disk.
     DOMAIN_F1 = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
 
     def F1_x(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)
     def F1_y(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'y', squeeze_output=False)
     def F1_z(eta1, eta2, eta3):
-        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z')
+        return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'z', squeeze_output=False)
 
     print('Domain maps defined.')
 
@@ -1487,16 +1672,16 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
 
     # Use F for pullback!!!
     def fun_L_2_1(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_1', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_1', flat_eval=False, squeeze_output=False)
     def fun_L_2_2(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_2', flat_eval=False, squeeze_output=False)
     def fun_L_2_3(eta1, eta2, eta3):
-        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False)
+        return DOMAIN_F.pull(func_3d, eta1, eta2, eta3, kind_fun='2_form_3', flat_eval=False, squeeze_output=False)
     fun_L_2 = [fun_L_2_1, fun_L_2_2, fun_L_2_3]
 
     # For comparing analytical derivative:
     def fun_L_3(eta1, eta2, eta3):
-        return DOMAIN_F.pull(div_3d, eta1, eta2, eta3, kind_fun='3_form', flat_eval=False)
+        return DOMAIN_F.pull(div_3d, eta1, eta2, eta3, kind_fun='3_form', flat_eval=False, squeeze_output=False)
 
     proj_tensor_2form   = TENSOR_SPACE.projectors.pi_2(fun_L_2)
     proj_polar_F_2form  = POLAR_SPACE_F.projectors.pi_2(fun_L_2)
@@ -1572,6 +1757,10 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     x0 = F_x(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     y0 = F_y(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
     z0 = F_z(np.zeros((1,1,1)), np.zeros((1,1,1)), np.zeros((1,1,1)))
+    print(f'Origin of the (transformed) pole:')
+    print(f'x0: {x0}')
+    print(f'y0: {y0}')
+    print(f'z0: {z0}')
     # Positions of the plotting grid.
     x = F_x(eta1, eta2, eta3)
     y = F_y(eta1, eta2, eta3)
@@ -1594,40 +1783,40 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     # Polar splines should be smooth for the polar_F1.
     # Comparison only valid for polar_F1.
 
-    # pushed_F1_2_1_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1')
-    # pushed_F1_2_1_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F1_2_1_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1')
+    # pushed_F1_2_1_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    # pushed_F1_2_1_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F1_2_1_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
 
-    # pushed_F1_2_2_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2')
-    # pushed_F1_2_2_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F1_2_2_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2')
+    # pushed_F1_2_2_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    # pushed_F1_2_2_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F1_2_2_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
 
-    # pushed_F1_2_3_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3')
-    # pushed_F1_2_3_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F1_2_3_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3')
+    # pushed_F1_2_3_tensor   = DOMAIN_F1.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    # pushed_F1_2_3_polar_F  = DOMAIN_F1.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F1_2_3_polar_F1 = DOMAIN_F1.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
 
     # pushed_F1_2_tensor   = np.array([pushed_F1_2_1_tensor  , pushed_F1_2_2_tensor  , pushed_F1_2_3_tensor  ])
     # pushed_F1_2_polar_F  = np.array([pushed_F1_2_1_polar_F , pushed_F1_2_2_polar_F , pushed_F1_2_3_polar_F ])
     pushed_F1_2_polar_F1 = np.array([pushed_F1_2_1_polar_F1, pushed_F1_2_2_polar_F1, pushed_F1_2_3_polar_F1])
 
-    # pushed_F1_3_tensor   = DOMAIN_F1.push(evaled_3_tensor, eta1, eta2, eta3, kind_fun='3_form')
-    # pushed_F1_3_polar_F  = DOMAIN_F1.push(evaled_3_polar_F, eta1, eta2, eta3, kind_fun='3_form')
-    pushed_F1_3_polar_F1 = DOMAIN_F1.push(evaled_3_polar_F1, eta1, eta2, eta3, kind_fun='3_form')
+    # pushed_F1_3_tensor   = DOMAIN_F1.push(evaled_3_tensor, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
+    # pushed_F1_3_polar_F  = DOMAIN_F1.push(evaled_3_polar_F, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
+    pushed_F1_3_polar_F1 = DOMAIN_F1.push(evaled_3_polar_F1, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
 
 
 
     # Or push to physical domain.
-    pushed_F_2_1_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F_2_1_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1')
-    pushed_F_2_1_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1')
+    pushed_F_2_1_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F_2_1_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
+    pushed_F_2_1_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_1', squeeze_output=False)
 
-    pushed_F_2_2_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F_2_2_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2')
-    pushed_F_2_2_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2')
+    pushed_F_2_2_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F_2_2_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
+    pushed_F_2_2_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_2', squeeze_output=False)
 
-    pushed_F_2_3_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F_2_3_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3')
-    pushed_F_2_3_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3')
+    pushed_F_2_3_tensor   = DOMAIN_F.push(evaled_2_tensor, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F_2_3_polar_F  = DOMAIN_F.push(evaled_2_polar_F, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
+    pushed_F_2_3_polar_F1 = DOMAIN_F.push(evaled_2_polar_F1, eta1, eta2, eta3, kind_fun='2_form_3', squeeze_output=False)
 
     pushed_F_2_tensor   = np.array([pushed_F_2_1_tensor  , pushed_F_2_2_tensor  , pushed_F_2_3_tensor  ])
     pushed_F_2_polar_F  = np.array([pushed_F_2_1_polar_F , pushed_F_2_2_polar_F , pushed_F_2_3_polar_F ])
@@ -1643,9 +1832,9 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     print(f'Min |pushed_F_2_polar_F| : {np.min(np.abs(pushed_F_2_polar_F))}')
     print(f'Min |pushed_F_2_polar_F1|: {np.min(np.abs(pushed_F_2_polar_F1))}')
 
-    pushed_F_3_tensor   = DOMAIN_F.push(evaled_3_tensor, eta1, eta2, eta3, kind_fun='3_form')
-    pushed_F_3_polar_F  = DOMAIN_F.push(evaled_3_polar_F, eta1, eta2, eta3, kind_fun='3_form')
-    pushed_F_3_polar_F1 = DOMAIN_F.push(evaled_3_polar_F1, eta1, eta2, eta3, kind_fun='3_form')
+    pushed_F_3_tensor   = DOMAIN_F.push(evaled_3_tensor, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
+    pushed_F_3_polar_F  = DOMAIN_F.push(evaled_3_polar_F, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
+    pushed_F_3_polar_F1 = DOMAIN_F.push(evaled_3_polar_F1, eta1, eta2, eta3, kind_fun='3_form', squeeze_output=False)
 
     print(f'Max |orig_div|           : {np.max(np.abs(orig_div))}')
     print(f'Max |pushed_F_3_tensor|  : {np.max(np.abs(pushed_F_3_tensor))}')
@@ -1801,11 +1990,11 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
 
     def Y(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only y-component."""
-        return gvec.mapY.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+        return gvec.mapZ.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
 
     def Z(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only z-component."""
-        return gvec.mapZ.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+        return gvec.mapY.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
 
 
 
@@ -1822,7 +2011,11 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
     TENSOR_SPACE = spl.Tensor_spline_space(spaces_FEM, ck=-1)
     # Set projectors.
     if not hasattr(TENSOR_SPACE, 'projectors'):
-        TENSOR_SPACE.set_projectors('general') # def set_projectors(self, which='tensor'). Use 'general' for polar splines.
+        # def set_projectors(self, which='tensor'). Use 'general' for polar splines.
+        # Projectors from `Projectors_tensor_3d` class:
+        TENSOR_SPACE.set_projectors('tensor') # No need to reshape into 3D with `extract_0()`.
+        # Projectors from `Projectors_global_3d` class:
+        # TENSOR_SPACE.set_projectors('general') # Need to reshape afterwards.
     print('Tensor space and projector set up done.')
 
 
@@ -1832,9 +2025,17 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
     # ============================================================
 
     # Calculate spline coefficients using PI_0 projector.
-    cx = TENSOR_SPACE.projectors.pi_0(X)
-    cy = TENSOR_SPACE.projectors.pi_0(Y)
-    cz = TENSOR_SPACE.projectors.pi_0(Z)
+    # Projectors from `Projectors_tensor_3d` class.
+    cx = TENSOR_SPACE.projectors.PI_0(X)
+    cy = TENSOR_SPACE.projectors.PI_0(Y)
+    cz = TENSOR_SPACE.projectors.PI_0(Z)
+    # Reshape to 3D if using `pi_0()` from `Projectors_global_3d`.
+    # cx = TENSOR_SPACE.projectors.pi_0(X)
+    # cy = TENSOR_SPACE.projectors.pi_0(Y)
+    # cz = TENSOR_SPACE.projectors.pi_0(Z)
+    # cx = TENSOR_SPACE.extract_0(cx)
+    # cy = TENSOR_SPACE.extract_0(cy)
+    # cz = TENSOR_SPACE.extract_0(cz)
 
     spline_coeffs_file = os.path.join(temp_dir.name, 'spline_coeffs.hdf5')
 
@@ -1923,7 +2124,7 @@ map_enum, func_enum, form_enum, space_enum, Nel, p):
     plot_handles = []
 
     # An ugly hardcoded switch to turn on 1D line plots.
-    line_plot = False and space_enum == SpaceType.LOGICAL
+    line_plot = True
 
     metadata_base = {
         'mapping': map_enum,
@@ -2044,6 +2245,7 @@ map_enum, func_enum, form_enum, space_enum, Nel, p):
         metadata['comptype'] = Comparison.ORIG
         metadata['colscale'] = 1
         metadata['axlim'] = 1
+        metadata['unlink'] = True
         metadata['lplot'] = PlotTypeLeft.WIREFRAME
         metadata['rplot'] = PlotTypeRight.SURFACE
         metadata['lzlabel'] = ''
@@ -2062,6 +2264,7 @@ map_enum, func_enum, form_enum, space_enum, Nel, p):
         metadata['comptype'] = Comparison.ORIG
         metadata['colscale'] = 1
         metadata['axlim'] = 1
+        metadata['unlink'] = True
         metadata['lplot'] = PlotTypeLeft.WIREFRAME
         metadata['rplot'] = PlotTypeRight.SURFACE
         metadata['lzlabel'] = ''
@@ -2279,6 +2482,7 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
 
     space_enum = metadata['space_enum']
     func_form = metadata['func_form']
+    map_enum = metadata['mapping']
     levels = metadata['collevel']
     axlim = metadata['axlim']
 
@@ -2870,6 +3074,10 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         elif space_enum == SpaceType.LOGICAL:
             ax.set_xlim(origin[0], origin[0] + axlim)
             ax.set_ylim(origin[1], origin[1] + axlim)
+        elif map_enum == MapType.SPLINE:
+            ax.set_xlim(origin[0] - axlim*1.2, origin[0] + axlim*1.2)
+            ax.set_ylim(origin[1] - axlim*1.2, origin[1] + axlim*1.2)
+            # ax.set_zlim(origin[2] - axlim*1.2, origin[2] + axlim*1.2)
         else:
             ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
             ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
@@ -2877,24 +3085,24 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         grid = None
         spce = None
         if l_is_3d:
-            if show_pole:
-                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
         elif metadata['lplot'] == PlotTypeLeft.LINE:
             if show_pole:
                 pole = ax.axvline(0, ls='dashed', color='red', alpha=0.5, label='Pole')
             # ax.legend()
             unique_legends(ax)
         else:
-            if show_pole:
-                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 grid = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
         # `None` is appended regardless, to ensure `zip()` works on plot update.
         lpoles.append(pole)
         lgrids.append(grid)
@@ -2915,6 +3123,10 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         elif space_enum == SpaceType.LOGICAL:
             ax.set_xlim(origin[0], origin[0] + axlim)
             ax.set_ylim(origin[1], origin[1] + axlim)
+        elif map_enum == MapType.SPLINE:
+            ax.set_xlim(origin[0] - axlim*1.2, origin[0] + axlim*1.2)
+            ax.set_ylim(origin[1] - axlim*1.2, origin[1] + axlim*1.2)
+            # ax.set_zlim(origin[2] - axlim*1.2, origin[2] + axlim*1.2)
         else:
             ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
             ax.set_ylim(origin[1] - axlim, origin[1] + axlim)
@@ -2922,24 +3134,24 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
         grid = None
         spce = None
         if r_is_3d:
-            if show_pole:
-                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 grid = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
         elif metadata['rplot'] == PlotTypeRight.LINE:
             if show_pole:
                 pole = ax.axvline(0, ls='dashed', color='red', alpha=0.5, label='Pole')
             # ax.legend()
             unique_legends(ax)
         else:
-            if show_pole:
-                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 grid = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 spce = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                pole = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
         # `None` is appended regardless, to ensure `zip()` works on plot update.
         rpoles.append(pole)
         rgrids.append(grid)
@@ -3566,9 +3778,6 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             ax.set_xlim(origin[0], origin[0] + axlim)
             ax.set_ylim(origin[1], origin[1] + axlim)
         if l_is_3d:
-            if show_pole:
-                ax.collections.remove(pole)
-                lpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 ax.collections.remove(grid)
                 lgrids[idx] = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
@@ -3577,16 +3786,19 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 lel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
                 # print(f'type(lel_bs[idx]) {type(lel_bs[idx])}')
                 # lel_bs[idx]._offsets3d = (  el_b[0],   el_b[1],   el_b[2])
-        else:
             if show_pole:
                 ax.collections.remove(pole)
-                lpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+                lpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
+        else:
             if show_grid:
                 ax.collections.remove(grid)
                 lgrids[idx] = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 ax.collections.remove(spce)
                 lel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                ax.collections.remove(pole)
+                lpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
 
     for idx, (ax, pole, grid, spce) in enumerate(zip(raxes, rpoles, rgrids, rel_bs)):
         ax.set_xlim(origin[0] - axlim, origin[0] + axlim)
@@ -3595,9 +3807,6 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
             ax.set_xlim(origin[0], origin[0] + axlim)
             ax.set_ylim(origin[1], origin[1] + axlim)
         if r_is_3d:
-            if show_pole:
-                ax.collections.remove(pole)
-                rpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole')
             if show_grid:
                 ax.collections.remove(grid)
                 rgrids[idx] = ax.scatter(     eta1,      eta2,      eta3, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
@@ -3606,16 +3815,19 @@ df_exact, df_ten_F, df_pol_F, df_pol_F1):
                 rel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],   el_b[2], marker='x', facecolors='navy',         alpha=0.5, label='el_b')
                 # print(f'type(rel_bs[idx]) {type(rel_bs[idx])}')
                 # rel_bs[idx]._offsets3d = (  el_b[0],   el_b[1],   el_b[2])
-        else:
             if show_pole:
                 ax.collections.remove(pole)
-                rpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole')
+                rpoles[idx] = ax.scatter(origin[0], origin[1], origin[2], marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
+        else:
             if show_grid:
                 ax.collections.remove(grid)
                 rgrids[idx] = ax.scatter(     eta1,      eta2,       100, marker='+', facecolors='cyan',         alpha=0.2, label='Grid')
             if show_el_b:
                 ax.collections.remove(spce)
                 rel_bs[idx] = ax.scatter(  el_b[0],   el_b[1],       100, marker='x', facecolors='navy',         alpha=0.5, label='el_b')
+            if show_pole:
+                ax.collections.remove(pole)
+                rpoles[idx] = ax.scatter(origin[0], origin[1],       100, marker='o', facecolors='none', edgecolors='red',  label='Pole', s=64, lw=3)
 
 
 
@@ -3868,7 +4080,6 @@ def plot_controls(case, case_args, func_test, func_form, plot_handles):
 
 
 
-
     elif func_test == FuncTest.SIGMOID:
 
         # Plot settings.
@@ -3940,6 +4151,20 @@ def plot_controls(case, case_args, func_test, func_form, plot_handles):
 
 
 
+    elif func_test == FuncTest.CONSTANT:
+
+        # Plot settings.
+        row = 3
+        col = 2
+        dpi = 100
+        width, height = (640 / dpi, 320 / dpi)
+        fig = plt.figure(figsize=(width,height), dpi=dpi)#, constrained_layout=True)
+        gs  = fig.add_gridspec(row, col)#, width_ratios=[1,1]*2)
+        fig.canvas.manager.set_window_title('No Configurable Plot Parameters (Constant)')
+        fig.suptitle('No Configurable Plot Parameters (Constant)')
+
+
+
     elif func_test == FuncTest.LINEARX:
 
         # Plot settings.
@@ -3951,6 +4176,33 @@ def plot_controls(case, case_args, func_test, func_form, plot_handles):
         gs  = fig.add_gridspec(row, col)#, width_ratios=[1,1]*2)
         fig.canvas.manager.set_window_title('No Configurable Plot Parameters (Linear X)')
         fig.suptitle('No Configurable Plot Parameters (Linear X)')
+
+
+    elif func_test == FuncTest.LINEARXYSUM:
+
+        # Plot settings.
+        row = 3
+        col = 2
+        dpi = 100
+        width, height = (640 / dpi, 320 / dpi)
+        fig = plt.figure(figsize=(width,height), dpi=dpi)#, constrained_layout=True)
+        gs  = fig.add_gridspec(row, col)#, width_ratios=[1,1]*2)
+        fig.canvas.manager.set_window_title('No Configurable Plot Parameters (Linear XY Sum)')
+        fig.suptitle('No Configurable Plot Parameters (Linear XY Sum)')
+
+
+
+    elif func_test == FuncTest.LINEARXYPROD:
+
+        # Plot settings.
+        row = 3
+        col = 2
+        dpi = 100
+        width, height = (640 / dpi, 320 / dpi)
+        fig = plt.figure(figsize=(width,height), dpi=dpi)#, constrained_layout=True)
+        gs  = fig.add_gridspec(row, col)#, width_ratios=[1,1]*2)
+        fig.canvas.manager.set_window_title('No Configurable Plot Parameters (Linear XY Product)')
+        fig.suptitle('No Configurable Plot Parameters (Linear XY Product)')
 
 
 
@@ -4121,34 +4373,67 @@ def unique_legends(ax):
 
 if __name__ == "__main__":
 
+    import copy
+
+    params_base = {
+        'grid' : {
+
+            # 'Nel'     : [16*1, 18*1, 3],
+            'Nel'     : [16*2, 18*2, 3], # Default.
+            # 'Nel'     : [16*4, 18*4, 3],
+
+            # 'p'       : [2, 2, 1],
+            'p'       : [3, 3, 1], # Default.
+            # 'p'       : [4, 4, 1],
+
+            # 'nq_el'   : [2, 2, 2], # Element integration, quadrature points per grid cell.
+            'nq_el'   : [4, 4, 4], # Default.
+            # 'nq_el'   : [6, 6, 6],
+
+            # 'nq_pr'   : [2, 2, 2], # Greville integration, quadrature points per histopolation cell (for projection).
+            'nq_pr'   : [4, 4, 4], # Default.
+            # 'nq_pr'   : [6, 6, 6],
+
+            'bc'      : ['f', 'f'],          # BC in s-direction
+            'spl_kind': [False, True, True], # Spline type: True=periodic, False=clamped
+
+        }
+    }
+    params = copy.deepcopy(params_base)
+
+
+
     op_enum = Operation.ALL
     space_enum = SpaceType.PHYSICAL
-    domain_enum = DomainType.ANALYTICAL
     # space_enum = SpaceType.LOGICAL
+    domain_enum = DomainType.ANALYTICAL
 
     # # Go through all trial functions.
     # for func_test in FuncTest:
-    #     test_polar_splines_3D(func_test=func_test,         map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    #     test_polar_splines_3D(params, func_test=func_test,         map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
 
     # Go through all domain maps, focusing on the 3rd component of curled 1-form, and divergence of 2-form.
     # for map_type in MapType:
     #     for space_enum in SpaceType:
     #         for domain_enum in DomainType:
     #             for func_form in FuncForm:
-    #                 test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=map_type, func_form=func_form, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    #                 test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=map_type, func_form=func_form, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
 
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.SINEX, map_type=MapType.SPLINE,             func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.LINEARX, map_type=MapType.SPLINE,           func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
