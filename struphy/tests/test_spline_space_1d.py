@@ -6,8 +6,8 @@ def test_plot_splines(plot=False):
 
     eta_v = np.linspace(0, 1, 200)
 
-    Nel = 10
-    for p in range(1,7):
+    Nel = 8
+    for p in range(1,5):
 
         # spline spaces
         Vh_per = Spline_space_1d(Nel, p, spl_kind=True)
@@ -95,5 +95,5 @@ def test_indices():
  
 
 if __name__ == '__main__':
-    #test_plot_splines(plot=True)
+    test_plot_splines(plot=True)
     test_indices()
