@@ -136,11 +136,6 @@ def test_psydac_FemSpace():
 
     print('\n===== test_psydac_FemSpace() =====')
 
-    # MPI communicator
-    MPI_COMM = MPI.COMM_WORLD
-    mpi_rank = MPI_COMM.Get_rank()
-    MPI_COMM.Barrier()
-
     # Domain object
     map = 'cuboid'
     params_map = {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}
@@ -150,42 +145,32 @@ def test_psydac_FemSpace():
     # Psydac mapping
     Mapping_psydac = DOMAIN.Psydac_mapping('F', **params_map)
     
-    # Psydac symbolic domain
-    DOMAIN_PSYDAC_LOGICAL = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
-    DOMAIN_symb = Mapping_psydac(DOMAIN_PSYDAC_LOGICAL)
+    # Psydac symbolic logical domain
+    DOMAIN_symb = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
 
     # Psydac symbolic Derham
-    DERHAM_symb = Derham(DOMAIN_PSYDAC_LOGICAL)
+    DERHAM_symb = Derham(DOMAIN_symb)
 
     # grid parameters
     Nel      = [8, 9, 10]
     p        = [3, 3, 3]
-    spl_kind = [True, True, True] 
+    spl_kind = [False, True, True] 
     nq_el    = [4, 4, 4]
     n_quad   = [4, 4, 4]
 
-    # Struphy Derham (only for return statement)
-    spaces = [Spline_space_1d(Nel_i, p_i, spl_kind_i, nq_el_i) for Nel_i, p_i, spl_kind_i, nq_el_i in zip(Nel, p, spl_kind, nq_el)] 
+    print(f'Nel={Nel}, p={p}, spl_kind={spl_kind}')
 
-    spaces[0].set_projectors(n_quad[0]) 
-    spaces[1].set_projectors(n_quad[1])
-    spaces[2].set_projectors(n_quad[2])
+    # Psydac discrete domain
+    DOMAIN  = discretize(DOMAIN_symb, ncells=Nel) 
 
-    DERHAM_STR = Tensor_spline_space(spaces)
-    DERHAM_STR.set_projectors('tensor')
-
-    # Psydac discrete De Rham
-    DOMAIN_PSY  = discretize(DOMAIN_PSYDAC_LOGICAL, ncells=Nel, comm=MPI_COMM) # The parallelism is initiated here.
-    DERHAM_PSY  = discretize(DERHAM_symb, DOMAIN_PSY, degree=p, periodic=spl_kind)
-    MPI_COMM.Barrier()
+    # Psydac discrete Derham
+    DERHAM  = discretize(DERHAM_symb, DOMAIN, degree=p, periodic=spl_kind)
 
     # Spline spaces
-    V0 = DERHAM_PSY.V0
-    V1 = DERHAM_PSY.V1
-    V2 = DERHAM_PSY.V2
-    V3 = DERHAM_PSY.V3
-
-    print('\nV0.nbasis:', V0.nbasis)
+    V0 = DERHAM.V0
+    V1 = DERHAM.V1
+    V2 = DERHAM.V2
+    V3 = DERHAM.V3
 
     assert isinstance(V0, TensorFemSpace)
     assert isinstance(V1, ProductFemSpace)
@@ -196,7 +181,6 @@ def test_psydac_FemSpace():
     assert isinstance(V1.vector_space, BlockVectorSpace)
     assert isinstance(V2.vector_space, BlockVectorSpace)
     assert isinstance(V3.vector_space, StencilVectorSpace)
-    MPI_COMM.Barrier()
 
     ################################
     ### FEM fields (distributed) ###
@@ -219,17 +203,16 @@ def test_psydac_FemSpace():
 
     # FemField can be avaluated
     assert u0_fem(0, 0, 0) == 0.
-    MPI_COMM.Barrier()
 
-    #####################################
-    ### Stencil objects (distributed) ###
-    #####################################
+    #######################
+    ### Stencil objects ###
+    #######################
     # Stencil vector
     u0 = StencilVector(V0.vector_space)
     print('\nStencilVector:')
-    print(u0)
-    print('.space:')
-    print(u0.space)
+    # print(u0)
+    # print('.space:')
+    # print(u0.space)
     print('\n.shape:')
     print(u0.shape)
     print('\n[:].shape:')
@@ -245,28 +228,41 @@ def test_psydac_FemSpace():
     old_id = id(u0)
     u0[:] = v0[:]
     assert id(u0) == old_id
-    MPI_COMM.Barrier()
 
     # Stencil matrix
-    A00 = StencilMatrix(V0.vector_space, V0.vector_space)
-    A03 = StencilMatrix(V0.vector_space, V3.vector_space)
-    print('\nStencilMatrix:')
-    print(A00)
-    print('\n.domain:')
-    print(A00.domain)
-    print('\n.codomain:')
-    print(A00.codomain)
+    A = StencilMatrix(V3.vector_space, V0.vector_space)
+    print('\nStencilMatrix 3 -- > 0:')
+    #print(A)
+    # print('\n.domain:')
+    # print(A.domain)
+    # print('\n.codomain:')
+    # print(A.codomain)
     print('\n.shape:')
-    print(A00.shape)
+    print(A.shape)
     print('\n[:, :].shape:')
-    print(A00[:, :].shape)
+    print(A[:, :].shape)
     print('\n.toarray.shape:')
-    print(A00.toarray().shape)
+    print(A.toarray().shape)
     print('\n._data.shape:')
-    print(A00._data.shape)
+    print(A._data.shape)
 
-    assert A00[0, 0, 0, 0, 0, 0] == 0.
-    MPI_COMM.Barrier()
+    A = StencilMatrix(V0.vector_space, V3.vector_space)
+    print('\nStencilMatrix 0 -- > 3:')
+    #print(A)
+    # print('\n.domain:')
+    # print(A.domain)
+    # print('\n.codomain:')
+    # print(A.codomain)
+    print('\n.shape:')
+    print(A.shape)
+    print('\n[:, :].shape:')
+    print(A[:, :].shape)
+    print('\n.toarray.shape:')
+    print(A.toarray().shape)
+    print('\n._data.shape:')
+    print(A._data.shape)
+
+    assert A[0, 0, 0, 0, 0, 0] == 0.
 
     # Product spaces
     # Vector
@@ -280,7 +276,6 @@ def test_psydac_FemSpace():
     print('\nBlockVector: u1[2].shape =', u1[2].shape, 'u1[2][:].shape =', u1[2][:].shape)
 
     assert u1[0][0, 0, 0] == 0.
-    MPI_COMM.Barrier()
 
     # Matrix
     Bxx = StencilMatrix(V1.spaces[0].vector_space, V1.spaces[0].vector_space) # maps from 0 -> 0, thus first column x
@@ -304,7 +299,6 @@ def test_psydac_FemSpace():
     print('BlockMatrix: A11[0, 2].shape =', A11[0, 2].shape, 'A11[0, 2][:, :].shape =', A11[0, 2][:, :].shape)
 
     assert A11[0, 0][0, 0, 0, 0, 0, 0] == 0.
-    MPI_COMM.Barrier()
     
     #########################
     ### Access dimensions ###
@@ -326,9 +320,6 @@ def test_psydac_FemSpace():
     print('V2.spaces.spaces.nbasis:',    N2)
     print('V3.nbasis:', N3_tot)
     print('V3.spaces.nbasis:',    N3, '\n')
-    MPI_COMM.Barrier()
-
-    return DERHAM_STR, DERHAM_PSY, DERHAM_symb, DOMAIN_symb, DOMAIN, DOMAIN_PSY
 
 
 def test_psydac_derham():
@@ -647,6 +638,6 @@ def test_psydac_derham():
 
 
 if __name__ == '__main__':
-    test_psydac_mapping()
+    #test_psydac_mapping()
     test_psydac_FemSpace()
-    test_psydac_derham()
+    #test_psydac_derham()

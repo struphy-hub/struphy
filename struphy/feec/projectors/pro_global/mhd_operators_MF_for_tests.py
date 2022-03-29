@@ -72,8 +72,8 @@ class projectors_dot_x:
         self.dim_1  = self.space.Ntot_1form_cum[-1]
         self.dim_2  = self.space.Ntot_2form_cum[-1]
         self.dim_3  = self.space.Ntot_3form
-        self.M1     = self.space.M1
-        self.M2     = self.space.M2
+        #self.M1     = self.space.M1
+        #self.M2     = self.space.M2
         self.NbaseN = self.space.NbaseN
         self.NbaseD = self.space.NbaseD
 

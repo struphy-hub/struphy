@@ -96,8 +96,15 @@ Next, install the submodules `gvec_to_python` and `psydac`::
 
     git submodule init
     git submodule update
-    cd psydac; pip install .; cd ..
     cd gvec_to_python; pip install .; cd ..
+    cd psydac
+    git pull origin devel
+    export CC="mpicc"
+    export HDF5_MPI="ON"
+    export HDF5_DIR=/path/to/hdf5/openmpi
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
+    pip install .; cd ..
     
 Quick help:
 
