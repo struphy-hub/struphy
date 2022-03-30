@@ -156,8 +156,74 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
         
     diff[:] = diff*p
 
+
+# =============================================================================
+@types(             'double[:]','int','double','int','double[:]','double[:]')
+def basis_funs_slim(t,          pn,   eta,     span, bn,         bd):
+    """
+    One function to compute the values (written into bn and bd) of non-vanishing basis functions (splines)
+    What is called 'b' here, is 'values' in the other functions
+
+    Arguments : 
+        t : array
+            len 2*p+1, contains the knot vectors
         
-               
+        pn : int
+            contains the degree of the B-spline in this direction
+
+        span : integer
+            index for non-vanishing basis functions; index i -> [i-p,i] basis functions are non-vanishing
+
+        eta : array
+            contains the position
+        
+        bn : array
+            len np+1, here the values for the non-vanishing B-splines will be written
+
+        bd : array
+            len np, here the values for the non-vanishing D-splines will be written
+    """
+
+    from numpy import empty
+
+    # compute D-spline degree
+    pd = pn - 1
+
+    # make sure the arrays we are writing to are empty
+    bn[:] = 0
+    bd[:] = 0
+
+    # Initialize variables left and right used for computing the value
+    left  = empty( pn, dtype=float )
+    right = empty( pn, dtype=float )
+    left[:]      = 0.
+    right[:]     = 0.
+    
+    b = empty( (pn+1, pn+1), dtype=float )
+    b[:, :] = 0.
+    b[0, 0] = 1.
+
+    diff = empty( pn, dtype=float )
+    
+    for j in range(pn):
+        left[j]  = eta - t[span - j]
+        right[j] = t[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            diff[r] = 1. / (right[r] + left[j - r])
+            temp = b[j, r] * diff[r]
+            b[j + 1, r] = saved + right[r] * temp
+            saved     = left[j - r] * temp
+        b[j + 1, j + 1] = saved
+        
+    diff[:] = diff*pn
+
+    bn[:] = b[pn, :]
+
+    bd[:] = b[pd, :pn] * diff[:]
+
+
+
 # =============================================================================
 @types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]','double[:]')
 def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
