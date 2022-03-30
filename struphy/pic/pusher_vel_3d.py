@@ -462,7 +462,6 @@ def pusher_vxb_implicit(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np,
     
     
     
-    
 # ==========================================================================================================
 @types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
 def pusher_vxb(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b2_1, b2_2, b2_3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
@@ -645,6 +644,7 @@ def pusher_vxb(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b2_1, b2
     #$ omp end parallel
     
     ierr = 0
+
 
 
 # ==========================================================================================================
@@ -994,3 +994,4 @@ def pusher_v_pressure_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, 
     #$ omp end parallel
     
     ierr = 0
+

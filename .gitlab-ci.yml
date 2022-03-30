@@ -68,6 +68,7 @@ unittest:
     #- python setup.py test
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
+    - example_lin_Vlasov_Maxwell
     # - coverage run -m pytest
     # - coverage xml
     # - coverage report --skip-empty

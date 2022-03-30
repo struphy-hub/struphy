@@ -73,6 +73,10 @@ elif code=='cold_plasma':
     from struphy.models.codes import cold_plasma
     cold_plasma.execute(file_in, path_out, mode=='a')
 
+elif code=='lin_Vlasov_Maxwell':
+    from struphy.models.codes import lin_Vlasov_Maxwell
+    lin_Vlasov_Maxwell.execute(file_in, path_out, mode=='a')
+    
 else:
     raise NotImplementedError('Model not implemented.')
 

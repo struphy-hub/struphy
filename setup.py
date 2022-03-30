@@ -22,6 +22,7 @@ setup(
             'pc_lin_mhd_6d_MF_full/*.yml',
             'pc_lin_mhd_6d_MF_perp/*.yml',
             'kinetic_extended/*.yml',
+            'lin_Vlasov_Maxwell/*yml',
             'maxwell/*yml',
             'cold_plasma/*yml',
         ],
@@ -33,6 +34,7 @@ setup(
              'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
              'scripts/example_cold_plasma_1d_fft',
+             'scripts/example_lin_Vlasov_Maxwell'
              ],
     # list of package dependencies (if necessary)
     install_requires=[
