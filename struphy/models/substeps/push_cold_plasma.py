@@ -122,7 +122,7 @@ class Push_cold_plasma:
         ## print info
         if print_info: 
             print('Status     for step_maxwell:', info)
-            print('Iterations for step_maxwell:', self.num_iters)
+            print('Iterations for step_maxwell:', self.__num_iters)
             print('Maxdiff e1 for step_maxwell:', np.max(np.abs(e1 - e1_old)))
             print('Maxdiff b2 for step_maxwell:', np.max(np.abs(b2 - b2_old)))
             print()
@@ -175,7 +175,7 @@ class Push_cold_plasma:
         rhs = self.__RHS_rot(j1)
         
         # pick solver
-        self.num_iters = int(0)
+        self.__num_iters = int(0)
         if   self.__solver['solver_type_2'] == 'gmres':     
             j1[:], info = spa.linalg.gmres( self.__CrNi_rot, rhs, x0=j1, tol=self.__solver['tol2'], maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter() )
         elif self.__solver['solver_type_2'] == 'cg':
@@ -188,7 +188,7 @@ class Push_cold_plasma:
 
         if print_info: 
             print('Status     for step_cross_product:', info)
-            print('Iterations for step_cross_product:', self.num_iters)
+            print('Iterations for step_cross_product:', self.__num_iters)
             print('Maxdiff j1 for step_cross_product:', np.max(np.abs(j1 - j1_old)))
             print()
 

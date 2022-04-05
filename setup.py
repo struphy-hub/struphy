@@ -25,6 +25,7 @@ setup(
             'lin_Vlasov_Maxwell/*yml',
             'maxwell/*yml',
             'cold_plasma/*yml',
+            'cc_cold_plasma_6d/*yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },
