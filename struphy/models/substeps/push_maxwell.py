@@ -107,7 +107,7 @@ class Push_maxwell:
         ## print info
         if print_info: 
             print('Status     for step_maxwell:', info)
-            print('Iterations for step_maxwell:', self.num_iters)
+            print('Iterations for step_maxwell:', self.__num_iters)
             print('Maxdiff e1 for step_maxwell:', np.max(np.abs(e1 - e1_old)))
             print('Maxdiff b2 for step_maxwell:', np.max(np.abs(b2 - b2_old)))
             print()

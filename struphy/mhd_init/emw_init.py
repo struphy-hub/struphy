@@ -111,13 +111,13 @@ class Initialize_emw:
 
         self.e1 = np.zeros(N_dof_1form, dtype=float)
         self.b2 = np.zeros(N_dof_2form, dtype=float)
-        self.j1 = np.zeros(N_dof_2form, dtype=float)
+        self.j1 = np.zeros(N_dof_1form, dtype=float)
 
 
         if self.init_type == 'modes_k':
             self.e1[:] = self.SPACES.projectors.pi_1([self.e1_ini_1, self.e1_ini_2, self.e1_ini_3])
             self.b2[:] = self.SPACES.projectors.pi_2([self.b2_ini_1, self.b2_ini_2, self.b2_ini_3])
-            self.j1[:] = self.SPACES.projectors.pi_2([self.j1_ini_1, self.j1_ini_2, self.j1_ini_3])
+            self.j1[:] = self.SPACES.projectors.pi_1([self.j1_ini_1, self.j1_ini_2, self.j1_ini_3])
 
             
         elif self.init_type == 'noise':

@@ -55,12 +55,13 @@ PV3  := ${path_lib}pic/pusher_vel_3d
 PA2  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_2d
 PA3  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_3d
 PA4  := ${path_lib}pic/pc_lin_mhd_6d/accumulation_kernels_3d
+PA5  := ${path_lib}pic/cc_cold_plasma_6d/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
 PLO  := ${path_lib}psydac_linear_operators/mhd_ops_kernels
 PLP  := ${path_lib}psydac_linear_operators/mhd_ops_kernels_pure_psydac
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(BS).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(FK).py $(MVF).py $(AK3).py $(PW).py $(PPV).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PS).py $(PLO).py $(PLP).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(BS).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(FK).py $(MVF).py $(AK3).py $(PW).py $(PPV).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PA5).py $(PS).py $(PLO).py $(PLP).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -156,6 +157,9 @@ $(PA3)$(SO_EXT) : $(PA3).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV
 $(PA4)$(SO_EXT) : $(PA4).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
+$(PA5)$(SO_EXT) : $(PA5).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
@@ -191,3 +195,4 @@ clean:
 	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__
 	rm -rf ${path_lib}pic/cc_lin_mhd_6d/__pyccel__ ${path_lib}pic/cc_lin_mhd_6d/__pycache__
 	rm -rf ${path_lib}pic/pc_lin_mhd_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
+	rm -rf ${path_lib}pic/cc_cold_plasma_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
