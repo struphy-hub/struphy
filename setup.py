@@ -42,7 +42,7 @@ setup(
         'h5py',
         'matplotlib',
         'mpi4py',
-        'numpy<1.21,>=1.17',
+        'numpy',
         'pyccel==0.10.1',
         'PyYAML',
         'scipy',

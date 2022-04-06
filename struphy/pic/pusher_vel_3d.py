@@ -1091,7 +1091,7 @@ def pusher_v_cold_plasma(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np
     
     
     #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
+    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, e, e_cart)
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
