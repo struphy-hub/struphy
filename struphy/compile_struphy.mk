@@ -5,6 +5,7 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
+FLAG_PATH        := $(flag_path)
 FLAGS            := 
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
 FLAGS_openmp_pic := $(flags_openmp_pic)
@@ -12,11 +13,7 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 #--------------------------------------
 # SOURCE FILES
 #--------------------------------------
-path_lib=$(shell $(PYTHON) -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
-
-a = $(shell echo ${path_lib})
-$(info $(a))
-
+path_lib=$(FLAG_PATH)/
 
 BK   := ${path_lib}feec/bsplines_kernels
 BEV1 := ${path_lib}feec/basics/spline_evaluation_1d
@@ -165,9 +162,6 @@ $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)
 
 $(PLO)$(SO_EXT) : $(PLO).py
 	pyccel $< $(FLAGS)
-
-$(PA4)$(SO_EXT) : $(PA4).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)

@@ -57,17 +57,18 @@ unittest:
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .; cd ..
-    - cd gvec_to_python; pip install .; cd ..
+    - cd gvec_to_python
+    - python3 -m pip install . -r requirements.txt
+    - pip install sympy==1.6.1 
+    - cd ..
     #- make
-    - struphy -h
-    - struphy -t
-    - struphy -c
-    #- ./STRUPHY_init.sh  # copy struphy files and directories 
-    #- ./run_STRUPHY_cc_lin_6D.sh  # pre-compile (pyccel) and exit without starting simulation
+    - struphy
+    - struphy compile
   script:
     #- python setup.py test
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
+    - struphy run lin_mhd
     - example_lin_Vlasov_Maxwell
     # - coverage run -m pytest
     # - coverage xml
@@ -96,7 +97,7 @@ pages:
     - pip install -U pytest coverage
     #- python -m pip install -r requirements.txt
     - pip install .
-    - struphy -h
+    - struphy
  script:
    - cd doc ; make html
    - mv _build/html/ ../public/

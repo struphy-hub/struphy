@@ -27,7 +27,7 @@ class Data_container:
             else: 
                 self.data_name = data_name
 
-        self.file = h5py.File(path_out + self.data_name, 'a')
+        self.file = h5py.File(path_out + self.data_name, 'w') # restart needs to ba added
         self.ids  = dict()
         
         try:
