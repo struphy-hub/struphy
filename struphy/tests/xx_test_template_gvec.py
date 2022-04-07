@@ -1,7 +1,5 @@
 def test_template_gvec(num_s=21, num_u=4, num_v=5):
-    """
-    Test if `simulations/template_gvec/equilibrium_MHD.py` runs correctly.
-    """
+    """Test if `simulations/template_gvec/equilibrium_MHD.py` runs correctly."""
 
     # ============================================================
     # Imports.
@@ -89,7 +87,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
         read_filename = params['filename']
         gvec_filepath = temp_dir.name
         gvec_filename = params['filename'][:-4] + '.json'
-        reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename)
+        reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename, with_spl_coef=True)
 
     elif params['filename'].endswith('.json'):
 
@@ -257,8 +255,8 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     # ============================================================
 
     import vtk
-    from struphy.io.out.paraview.vtk_writer import vtkWriter
-    import struphy.io.out.paraview.mesh_creator as MC
+    from struphy.diagnostics.paraview.vtk_writer import vtkWriter
+    import struphy.diagnostics.paraview.mesh_creator as MC
 
     print(f'Writing result to ParaView')
     print(f'VTK version: {vtk.vtkVersion.GetVTKVersion()}')

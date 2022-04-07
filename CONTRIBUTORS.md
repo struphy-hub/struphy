@@ -7,5 +7,6 @@
 * Tin Kei Cheng (since 2021)
 * Yingzhe Li (since 2021)
 * Byung Kyu Na (since 2021)
+* Dominik Bell (since 2022)
 
 The project benfits from the constant advice of Yaman Güclü and Florian Hindenlang.

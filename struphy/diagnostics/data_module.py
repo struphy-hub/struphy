@@ -6,13 +6,28 @@ class Data_container:
     
     Parameters
     ----------
+        path_out : string
+            path to hdf5 data files
+
         data_dict : dict
             Name-object pairs to save during time stepping, e.g. {'x': x_mat}. x_mat must be np.array with fixed shape.
+    
+        data_name : string
+            name to hdf5 file (otional)
+
     '''
+    
+    def __init__(self, path_out, data_dict=None, data_name=None):
+    
+        if data_name is None:
+            self.data_name = 'data.hdf5'
+        else:
+            if data_name.find(".hdf5") ==-1:
+                self.data_name = data_name + '.hdf5'
+            else: 
+                self.data_name = data_name
 
-    def __init__(self, path_out, data_dict=None):
-
-        self.file = h5py.File(path_out + 'data.hdf5', 'a')
+        self.file = h5py.File(path_out + self.data_name, 'w') # restart needs to ba added
         self.ids  = dict()
         
         try:
@@ -21,7 +36,7 @@ class Data_container:
                 self.file.create_dataset(key, (1,) + obj.shape, maxshape=(None,) + obj.shape, dtype=float, chunks=True)
                 # replace object with its id
                 self.ids[key] = id(obj)
-                print(key.ljust(16) + 'will be saved to data.hdf5')
+                print(key.ljust(20) + 'will be saved to ' + self.data_name)
         except:
             pass
 
@@ -42,7 +57,7 @@ class Data_container:
             self.ids[key] = id(obj)
             # save initial value
             self.file[key][-1] = obj
-            print(key.ljust(16) + 'will be saved to data.hdf5')
+            print(key.ljust(20) + 'will be saved to ' + self.data_name)
 
 
     def save_data(self, keys=None):

@@ -76,7 +76,7 @@ class Equilibrium_mhd_gvec:
             read_filename = params['filename']
             gvec_filepath = self.temp_dir.name
             gvec_filename = params['filename'][:-4] + '.json'
-            reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename)
+            reader = GVEC_Reader(read_filepath, read_filename, gvec_filepath, gvec_filename, with_spl_coef=True)
 
         elif params['filename'].endswith('.json'):
 

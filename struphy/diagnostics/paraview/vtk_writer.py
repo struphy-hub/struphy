@@ -1,8 +1,9 @@
 import os
 
-import vtk
-from vtk.util.numpy_support import vtk_to_numpy as vtk2np
-from vtk.util.numpy_support import numpy_to_vtk as np2vtk
+import vtkmodules.all as vtk
+from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
+from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
+from vtkmodules.vtkIOXML import vtkXMLUnstructuredGridWriter, vtkXMLRectilinearGridWriter
 
 """
 Some useful resources:  
@@ -38,7 +39,10 @@ class vtkWriter():
         self.format = format
 
         # Writes .vtu
-        self.vtu_writer = vtk.vtkXMLUnstructuredGridWriter()
+        self.vtu_writer = vtkXMLUnstructuredGridWriter()
+
+        # Writes .vtr
+        self.vtr_writer = vtkXMLRectilinearGridWriter()
 
         # Writes .vti
         self.vti_writer = vtk.vtkXMLImageDataWriter()
@@ -48,6 +52,8 @@ class vtkWriter():
 
         if format == 'vtu':
             self.writer = self.vtu_writer
+        elif format == 'vtr':
+            self.writer = self.vtr_writer
         # Others not implemented.
         else:
             raise NotImplementedError('.{} ParaView file format not implemented.'.format(format))
@@ -78,7 +84,4 @@ class vtkWriter():
         writer.SetFileName(filepath)
         success = writer.Write()
 
-        if success == 1:
-            return True
-        else:
-            return False
+        return success == 1
