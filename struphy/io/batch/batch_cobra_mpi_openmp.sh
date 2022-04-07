@@ -22,7 +22,4 @@
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # For pinning threads correctly:
-#export OMP_PLACES=cores 
-
-# Run the program:
-srun python3 -m cProfile -o $path_out/profile_tmp -s time $path_code/exec.py $code $arg_inp $arg_out None $arg_meta $file_mode > test.out
+#export OMP_PLACES=cores

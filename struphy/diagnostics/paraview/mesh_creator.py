@@ -1,9 +1,10 @@
 import numpy as np
 # from tqdm import tqdm
 
-import vtk
-from vtk.util.numpy_support import vtk_to_numpy as vtk2np
-from vtk.util.numpy_support import numpy_to_vtk as np2vtk
+import vtkmodules.all as vtk
+from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
+from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
+from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
 from gvec_to_python import GVEC, Form, Variable
 
@@ -43,7 +44,7 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec: GVEC, s_range
     print('vtk_points.GetNumberOfPoints()', vtk_points.GetNumberOfPoints(), flush=True)
 
     ugrid = setup_ugrid(vtk_points, num_pts)
-    connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, point_data, cell_data, periodic)
+    connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, cell_data, periodic)
     set_data(ugrid, point_data, cell_data)
     writer.write(vtk_dir, filename, ugrid)
     # vtk_render(ugrid)
@@ -256,7 +257,7 @@ def vtk_render(ugrid): # pragma: no cover
 # e.g. points, lines, quads, cells.
 # ============================================================
 
-def connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, point_data, cell_data, periodic):
+def connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, cell_data, periodic):
     """Create (initialize) cells of a `vtkUnstructuredGrid` using connectivity of its vertices.
 
     Inserted cells are of type `vtk.VTK_HEXAHEDRON`. Connected cells form the volume of a torus.
@@ -269,8 +270,6 @@ def connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, po
         Range of logical poloidal coordinates that was used to transform into Cartesian vertices.
     v_range : numpy.ndarray
         Range of logical toroidal coordinates that was used to transform into Cartesian vertices.
-    xyz_points : numpy.ndarray
-        (Unused) Associated Cartesian coordinate of each (s,u,v), indexed with the index of the (s,u,v) coordinate that generated that point.
     point_indices : numpy.ndarray
         Associated index of each `vtk_points`, indexed with the index of the (s,u,v) coordinate that generated that point.
     ugrid : vtk.vtkUnstructuredGrid
@@ -279,8 +278,9 @@ def connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, po
         (Unused) A dictionary of arrays to store data assoicated with each point/vertex.
     cell_data : dict
         (Unused) A dictionary of arrays to store data assoicated with each cell in the mesh.
-    periodic : bool
-        Connect the torus in toroidal direction if True.
+    periodic : 3-tuple of bool
+        Whether each direction is periodic.
+        e.g. Connect a torus in poloidal and toroidal directions if periodic==[False,True,True].
     """
 
     cell_idx = 0
@@ -292,7 +292,7 @@ def connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, po
         for u_idx, u in enumerate(u_range):
             for v_idx, v in enumerate(v_range):
 
-                if s_idx + 1 < len_s:
+                if (periodic[0] or s_idx + 1 < len_s) and (periodic[1] or u_idx + 1 < len_u) and (periodic[2] or v_idx + 1 < len_v):
 
                     vertex1 = point_indices[ s_idx,     u_idx         ,  v_idx         ]
                     vertex2 = point_indices[ s_idx,    (u_idx+1)%len_u,  v_idx         ]
@@ -303,17 +303,9 @@ def connect_cell(s_range, u_range, v_range, xyz_points, point_indices, ugrid, po
                     vertex7 = point_indices[(s_idx+1), (u_idx+1)%len_u, (v_idx+1)%len_v]
                     vertex8 = point_indices[(s_idx+1),  u_idx         , (v_idx+1)%len_v]
 
-                    if periodic:
-                        connected_idx = [vertex1, vertex2, vertex3, vertex4, vertex5, vertex6, vertex7, vertex8]
-                        ugrid.InsertNextCell(vtk.VTK_HEXAHEDRON, len(connected_idx), connected_idx)
-                        cell_data['Cell ID'].append(cell_idx)
-                        cell_idx += 1
-                    else:
-                        # If not periodic, don't let v-axis loop around.
-                        if v_idx + 1 < len_v:
-                            connected_idx = [vertex1, vertex2, vertex3, vertex4, vertex5, vertex6, vertex7, vertex8]
-                            ugrid.InsertNextCell(vtk.VTK_HEXAHEDRON, len(connected_idx), connected_idx)
-                            cell_data['Cell ID'].append(cell_idx)
-                            cell_idx += 1
+                    connected_idx = [vertex1, vertex2, vertex3, vertex4, vertex5, vertex6, vertex7, vertex8]
+                    ugrid.InsertNextCell(vtk.VTK_HEXAHEDRON, len(connected_idx), connected_idx)
+                    cell_data['Cell ID'].append(cell_idx)
+                    cell_idx += 1
 
     cell_data['Cell ID'] = np.array(cell_data['Cell ID'], dtype=np.int_)

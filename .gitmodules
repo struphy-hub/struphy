@@ -1,0 +1,6 @@
+[submodule "psydac"]
+	path = psydac
+	url = https://github.com/pyccel/psydac.git
+[submodule "gvec_to_python"]
+	path = gvec_to_python
+	url = ../../spossann/gvec_to_python.git

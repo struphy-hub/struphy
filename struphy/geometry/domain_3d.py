@@ -17,6 +17,8 @@ import struphy.linear_algebra.linalg_kron as linalg
 
 import struphy.feec.bsplines  as bsp
 
+from sympde.topology import Mapping
+
 
 
 # ==================================================
@@ -163,7 +165,7 @@ def prepare_args(x, y, z, flat_eval=False):
         x, y, z : float or list or np.array
             Evaluation point sets.
         flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+            Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
 
     Returns
     -------
@@ -258,7 +260,7 @@ def prepare_args(x, y, z, flat_eval=False):
 
 
 # ==================================================
-class Domain:
+class Domain():
     '''Defines the mapped domain.
 
     Parameters
@@ -312,9 +314,9 @@ class Domain:
     Available mappings (choices for "kind_map") are:
 
         * 'cuboid' :       
-            * X = b1 + (e1 - b1)*eta1
-            * Y = b2 + (e2 - b2)*eta2
-            * Z = b3 + (e3 - b3)*eta3   
+            * X = l1 + (r1 - l1)*eta1
+            * Y = l2 + (r2 - l2)*eta2
+            * Z = l3 + (r3 - l3)*eta3   
         * 'orthogonal' :   
             * X = Lx*(eta1 + alpha*sin(2*pi*eta1))
             * Y = Ly*(eta2 + alpha*sin(2*pi*eta2))
@@ -340,13 +342,18 @@ class Domain:
             * Y = y0 + (eta1*r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1*r2) * cos(2*pi*th) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
         * 'soloviev_approx' :
-            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * delta
+            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1 - eta1**2) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
         * 'soloviev_sqrt' :
             * Crafted s.t. derivative component 11 does not go to zero at the pole of the map.
             * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
+            * Z = z0 + (eta3*Lz)
+        * 'soloviev_cf' :
+            * Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
+            * X = x0 + R0 * [ 1 + (1 - eta1**2) * delta_x + eta1 * epsilon_gs * cos(2*pi*eta2 + arcsin(delta_gs)*eta1*sin(2*pi*eta2)) ]
+            * Y = y0 + R0 * [     (1 - eta1**2) * delta_y + eta1 * epsilon_gs * kappa_gs * sin(2*pi*eta2) ]
             * Z = z0 + (eta3*Lz)
         * 'spline': 
             * 3d discrete spline mapping. All information is stored in control points cx, cy, cz.
@@ -361,44 +368,79 @@ class Domain:
             * Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
             * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
     '''
-    
-    def __init__(self, kind_map, params_map={'b1': 0., 'e1': 1., 'b2': 0., 'e2': 1., 'b3': 0., 'e3': 1.}): 
+
+    def __init__(self, kind_map='cuboid', params_map={'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}): 
 
         if kind_map == 'cuboid':
             self.kind_map = 10
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
+                                                'y': 'l2 + (r2 - l2)*x2',
+                                                'z': 'l3 + (r3 - l3)*x3'}
+            # In future versions you only need to specify the Psydac_mapping expressions.
 
         elif kind_map == 'orthogonal':
             self.kind_map = 13
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
+                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
+                                                'z': 'Lz*x3'}
 
         elif kind_map == 'colella':
             self.kind_map = 12
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                                'z': 'Lz*x3'}
 
         elif kind_map == 'hollow_cyl':
             self.kind_map = 11
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
+                                                'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                                'z': '2*pi*R0*x3'}
 
         elif kind_map == 'hollow_torus':
             self.kind_map = 14
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
+                                                'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                                'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
 
         elif kind_map == 'ellipse':
             self.kind_map = 15
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'rotated_ellipse':
             self.kind_map = 16
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
+                                                'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'soloviev_approx':
             self.kind_map = 17
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'soloviev_sqrt':
             self.kind_map = 18
             self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
+                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                                'z': 'z0 + (x3*Lz)'}
+
+        elif kind_map == 'soloviev_cf':
+            self.kind_map = 19
+            self.params_map = list(params_map.values())
+            self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
+                                                'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
+                                                'z': 'z0 + (x3*Lz)'}
 
         elif kind_map == 'spline':
             # TODO: choose correct params_map
@@ -526,7 +568,14 @@ class Domain:
             '0_to_3' : 4, '3_to_0' : 5}
        
 
-    # ================================
+    class Psydac_mapping(Mapping):
+        '''To create a psydac domain.'''
+
+        _expressions = None
+        _ldim        = 3
+        _pdim        = 3   
+
+
     def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False, squeeze_output=True):
         '''Evaluate mapping/metric coefficients. 
 
@@ -541,7 +590,7 @@ class Domain:
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
             squeeze_output : boolean
-                Whether to remove singleton dimensions in output "values". 
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
@@ -592,9 +641,9 @@ class Domain:
 
         return values
 
-       
+
     # ================================
-    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
+    def pull(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False, squeeze_output=True):
         '''Pullback of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -608,7 +657,9 @@ class Domain:
             kind_fun:   str
                 Which p-form pull back to apply, see keys_pull
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
@@ -663,15 +714,18 @@ class Domain:
         else:
             pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        return values.squeeze()
-        
-    
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
+
+
     # ================================
-    def push(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False):
+    def push(self, a, eta1, eta2, eta3, kind_fun='0-form', flat_eval=False, squeeze_output=True):
         '''Push-forward of p-forms. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
-        
+
         Parameters
         -----------
             a:  callable or array-like
@@ -681,7 +735,9 @@ class Domain:
             kind_fun:   str
                 Which p-form push forward to apply, see keys_push
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
@@ -691,7 +747,7 @@ class Domain:
         Notes
         -----
             Possible choices for kind_fun:
-                
+
                 * '0_form', '3_form'
                 * '1_form_1', '1_form_2', '1_form_3'
                 * '2_form_1', '2_form_2', '2_form_3',
@@ -724,13 +780,16 @@ class Domain:
         else:
             pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
     
-        return values.squeeze()
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
 
 
     # ================================
-    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False):
+    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False, squeeze_output=True):
         '''Transformation between different p-forms on logical domain. 
-        
+
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
 
         Parameters
@@ -742,7 +801,9 @@ class Domain:
             kind_fun:   str
                 which transform to apply, see keys_transform
             flat_eval : boolean
-                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+            squeeze_output : boolean
+                Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
@@ -788,6 +849,9 @@ class Domain:
         else:
             tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
 
-        return values.squeeze()
+        if squeeze_output:
+            values = values.squeeze()
+
+        return values
 
 

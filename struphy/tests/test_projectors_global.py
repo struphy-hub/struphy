@@ -1,7 +1,3 @@
-from matplotlib.pyplot import subplot
-from numpy import NaN
-
-
 def test_projectors_1d(plot=False, p_range=6, N_range=8):
     '''
     1) test order of convergence
@@ -28,10 +24,10 @@ def test_projectors_1d(plot=False, p_range=6, N_range=8):
     print('1) convergence test:')
     # 1) convergence test
     for p in range(1, p_range): 
-        err0_per = [NaN]
-        err0_cla = [NaN]
-        err1_per = [NaN]
-        err1_cla = [NaN]
+        err0_per = [np.NaN]
+        err0_cla = [np.NaN]
+        err1_per = [np.NaN]
+        err1_cla = [np.NaN]
 
         order0_per = []
         order0_cla = []
@@ -431,7 +427,8 @@ def test_projectors_3d(p_range=6, N_range=5):
             Vh_eta2 = spl.Spline_space_1d(Nel, p, spl_kind=True)
             Vh_eta3 = spl.Spline_space_1d(Nel, p, spl_kind=True)
 
-            Vh_3d = spl.Tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) 
+            Vh_3d  = spl.Tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) 
+            Vh_pol = spl.Tensor_spline_space([Vh_eta1, Vh_eta2, Vh_eta3]) 
 
             # projectors
             Vh_eta1.set_projectors()
@@ -439,6 +436,7 @@ def test_projectors_3d(p_range=6, N_range=5):
             Vh_eta3.set_projectors()
 
             Vh_3d.set_projectors()
+            Vh_pol.set_projectors('general')
 
             # A) callable as input
             cijk_0                    = Vh_3d.projectors.PI_0(f)
@@ -477,15 +475,40 @@ def test_projectors_3d(p_range=6, N_range=5):
             cijk_23_mat = Vh_3d.projectors.PI_mat('23', dofs_23)
             cijk_3_mat  = Vh_3d.projectors.PI_mat('3', dofs_3)
 
+            # C) callable as input in 'general' peojectors
+            temp_0 = Vh_pol.projectors.pi_0(f)
+            temp_1 = Vh_pol.projectors.pi_1([f, f, f])
+            temp_2 = Vh_pol.projectors.pi_2([f, f, f])
+            temp_3 = Vh_pol.projectors.pi_3(f)
+
+            cijk_0_pol                            = Vh_pol.extract_0(temp_0)
+            cijk_11_pol, cijk_12_pol, cijk_13_pol = Vh_pol.extract_1(temp_1)
+            cijk_21_pol, cijk_22_pol, cijk_23_pol = Vh_pol.extract_2(temp_2)
+            cijk_3_pol                            = Vh_pol.extract_3(temp_3)
+
             # result from A) and B) must be the same
-            assert np.allclose(cijk_0, cijk_0_mat, atol=1e-14)
+            assert np.allclose(cijk_0,   cijk_0_mat, atol=1e-14)
             assert np.allclose(cijk_11, cijk_11_mat, atol=1e-14)
             assert np.allclose(cijk_12, cijk_12_mat, atol=1e-14)
             assert np.allclose(cijk_13, cijk_13_mat, atol=1e-14)
             assert np.allclose(cijk_21, cijk_21_mat, atol=1e-14)
             assert np.allclose(cijk_22, cijk_22_mat, atol=1e-14)
             assert np.allclose(cijk_23, cijk_23_mat, atol=1e-14)
-            assert np.allclose(cijk_3, cijk_3_mat, atol=1e-14)
+            assert np.allclose(cijk_3,   cijk_3_mat, atol=1e-14)
+
+            print('A) and B) yield same result.')
+
+            # result from A) and C) must be the same
+            assert np.allclose(cijk_0,   cijk_0_pol, atol=1e-13)
+            assert np.allclose(cijk_11, cijk_11_pol, atol=1e-13)
+            assert np.allclose(cijk_12, cijk_12_pol, atol=1e-13)
+            assert np.allclose(cijk_13, cijk_13_pol, atol=1e-13)
+            assert np.allclose(cijk_21, cijk_21_pol, atol=1e-13)
+            assert np.allclose(cijk_22, cijk_22_pol, atol=1e-13)
+            assert np.allclose(cijk_23, cijk_23_pol, atol=1e-13)
+            assert np.allclose(cijk_3,   cijk_3_pol, atol=1e-13)
+
+            print('A) and C) yield same result.')
 
             # evaluation of splines:
             fh_0  = np.empty((eta1_v.size, eta2_v.size, eta3_v.size))
@@ -725,7 +748,7 @@ def test_project_splines():
 
 
 if __name__ == '__main__':
-    test_projectors_1d(plot=True)
-    test_projectors_2d()
+    #test_projectors_1d(plot=True)
+    #test_projectors_2d()
     test_projectors_3d()
-    test_project_splines()
+    #test_project_splines()

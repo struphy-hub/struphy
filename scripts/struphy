@@ -1,143 +1,328 @@
 #!/bin/bash
 
-# defaults:
-code=lin_mhd 
-file=parameters.yml 
-out=sim_1 
-batch=
-mode=w # restart: 'a', new start: 'w' (default)
-num_threads=1 # number of openmp threads (pyccel, not needed for numba)
-
+# Python interpreter
 PYTHON=python3
 
-path_lib=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
-folder_inp=${path_lib}io/inp/
-folder_out=${path_lib}io/out/
-folder_batch=${path_lib}io/batch/
-path_code=${path_lib}models/codes/
+# Struphy paths
+PLATLIB=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy
+LOCAL=$($PYTHON -m site --user-site)/struphy
+SOURCE=
 
-while getopts ":hpstcr:i:o:b:m:n:" opt; do
-    case "${opt}" in
-        h)
-            echo Script name: $0
-            echo "Options:"
-            echo "   -h                 Display help."
-            echo "   -p                 Display paths to input/output/batch files."
-            echo "   -s                 Display platform information."
-            echo "   -t                 Display struphy tree (package directories)."
-            echo "   -c                 Compile struphy kernels (pyccel)."
-            echo "   -r <code>          Specify code to run. Available codes are:"
-            echo "                                * lin_mhd (linear MHD) -> default"
-            echo "                                * lin_mhd_MF (matrix-free linear MHD)"
-            echo "                                * cc_lin_mhd_6d (current coupling MHD-full Vlasov)"
-            echo "                                * cc_lin_mhd_6d_MF (matrix-free current coupling MHD-full Vlasov)"
-            echo "                                * pc_lin_mhd_6d_MF_full (matrix-free pressure coupling MHD-full Vlasov with full pressure tensor)"
-            echo "                                * pc_lin_mhd_6d_MF_perp (matrix-free pressure coupling MHD-full Vlasov with pressure tensor perpendicular to B)"
-            echo "                                * massless_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
-            echo "   -i <filename>      Parameter file (.yml), default is 'parameters.yml'."
-            echo "   -o <filename>      Output folder, default is 'sim_1'."    
-            echo "   -b <filename>      Batch script, default is 'None'."
-            echo "   -m <a|w>           Restart (a) or clean start (w), default is w."
-            echo "   -n <number>        Number of omp threads, default is 1."
-            exit 0
-            ;;
-        p)
-            echo "Parameter files (.yml) are in    " ${folder_inp}
-            echo "Output files (.hdf5, .txt) are in" ${folder_out}
-            echo "Your batch script are in         " ${folder_batch}
-            exit 0
-            ;;
-        s)  
-            echo $($PYTHON -c 'import sysconfig; print(sysconfig.get_platform())')
-            echo $($PYTHON --version)
-            exit 0
-            ;;
-        t)
-            echo "The struphy package is in" $path_lib
-            echo "Package content:"
-            echo
-            cd $path_lib
-            tree -d -I '__pycache__|__pyccel__'
-            exit 0
-            ;;
-        c)
-            echo "Start compiling struphy..."
-            cd ..
-            make -f ${path_lib}compile_struphy.mk
-            cd -
-            exit 0
-            ;;
-        r)
-            code=${OPTARG}
-            ;;
-        i)
-            file=${OPTARG}
-            ;;
-        o)
-            out=${OPTARG}
-            ;;
-        b)
-            batch=${OPTARG}
-            ;;
-        m)
-            mode=${OPTARG}
-            ;;
-        n)
-            num_threads=${OPTARG}
-            ;;
-        \? ) 
-            echo "Invalid Option: -$OPTARG" 1>&2
-            exit 1
-    esac
+# Defaults
+STRUPHY=$PLATLIB
+RUN=false
+COMPILE=false     
+CFLAGS=--openmp    
+CODE=lin_mhd             
+USER=false             
+OPENMP=true           
+INPUT=parameters.yml            
+INPUT_ABS=        
+OUTPUT=sim_1           
+OUTPUT_ABS=   
+BATCH=false            
+BATCH_SCRIPT=     
+BATCH_SCRIPT_ABS=         
+RESTART_FOLDER=          
+MPI_SIZE=
+RUN_CMD=$PYTHON
+OUT_CMD=
+
+function help {
+    echo
+    echo -e "\e[1mNAME\e[0m"
+    echo "      struphy - Structure-preserving hybrid codes for plasma physics."
+    echo
+    echo -e "\e[1mSYNOPSIS\e[0m"
+    echo -e "       \e[4mstruphy\e[0m [<options>]"
+    echo -e "       \e[4mstruphy\e[0m \e[4mcompile\e[0m [<compile options>]"
+    echo -e "       \e[4mstruphy\e[0m \e[4mrun\e[0m <model> [<run options>]"
+    echo 
+    echo -e "\e[1mDESCRIPTION\e[0m"
+    echo -e "      Compiles Struphy kernels (with pyccel) or runs one of several struphy models. 
+      Can run locally with mpi (for testing) or submit a batch script to SLURM.
+      For more info see \e]8;;https://clapp.pages.mpcdf.de/hylife/index.html\ahttps://clapp.pages.mpcdf.de/hylife/index.html\e]8;;\a."
+    echo
+    echo -e "\e[1mMODELS\e[0m"
+    echo "      lin_mhd (linear MHD)"
+    echo "      lin_mhd_MF (matrix-free linear MHD)"
+    echo "      lin_mhd_psydac (linear MHD with mpi)"
+    echo "      cc_lin_mhd_6d (current coupling MHD-full Vlasov)"
+    echo "      cc_lin_mhd_6d_MF (matrix-free current coupling MHD-full Vlasov)"
+    echo "      pc_lin_mhd_6d_MF_full (matrix-free pressure coupling MHD-full Vlasov with full pressure tensor)"
+    echo "      pc_lin_mhd_6d_MF_perp (matrix-free pressure coupling MHD-full Vlasov with pressure tensor perpendicular to B)"
+    echo "      pc_lin_mhd_6d (pressure coupling MHD-full Vlasov)"
+    echo "      kinetic_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
+    echo "      cc_cold_plasma_6d (cold plasma model coupled to full Vlasov via currents)"
+    echo
+    echo -e "\e[1mOPTIONS\e[0m "
+    echo "      -h, --help                 Display struphy help."
+    echo "      -p, --path                 Display possible struphy installation paths: platform- and user-specific."
+    echo "      -t, --tree                 Display struphy tree (package directories)."
+    echo
+    echo -e "\e[1mCOMPILE OPTIONS\e[0m "
+    echo "      --user                     Compile the user-specific installation (e.g. in .local/lib)."
+    echo "      -e                         Compile the source files in the git repository."
+    echo "      --no-openmp                Compile without OpenMP."
+    echo "      --delete                   Remove Fortran and .so files."
+    echo
+    echo -e "\e[1mRUN OPTIONS\e[0m "
+    echo "      --user                     Run from the user-specific installation (e.g. in .local/lib)."
+    echo "      -e                         Run from the source files in the git repository."
+    echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/; the default is 'parameters.yml'."
+    echo "      --input-abs <filename>     Parameter file (.yml), absolute path."
+    echo "      -o, --output <folder>      Output folder, path is relative to <install_path>/struphy/io/out/; the  default is 'sim_1'."  
+    echo "      --output-abs <folder>      Output folder, absolute path."  
+    echo "      -b, --batch  <filename>    Batch script, path is relative to <install_path>/struphy/io/batch/."
+    echo "      --batch-abs  <filename>    Batch script, absolute path."
+    echo "      -r, --restart <folder>     Run with restart, give absolute path to restart folder."
+    echo "      --mpi <int>                Use mpirun -n <int>."
+}
+
+# No arguments - display help and exit
+if [ $# -eq 0 ]; then
+    help
+    exit 0
+fi
+
+# Scan arguments
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--help)
+      help
+      exit 0
+      ;;
+    -p|--path)
+      echo "Platform:" $PLATLIB
+      echo "Local:   " $LOCAL
+      echo "Source:  " $SOURCE
+      echo "default in : <path_from_above>/io/inp" 
+      echo "default out: <path_from_above>/io/out/sim_1/"
+      exit 0
+      ;;
+    -t|--tree)
+      echo "Struphy package content"
+      echo ""
+      echo "- in platform-specific library" $PLATLIB:
+      cd $PLATLIB
+      tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
+      echo ""
+      echo "- in local library" $LOCAL:
+      cd $LOCAL
+      tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
+      exit 0
+      ;;
+    run) 
+      RUN=true
+      COMPILE=false
+      CODE="$2"
+      shift
+      shift
+      ;;
+    compile)
+      RUN=false
+      COMPILE=true
+      shift
+      ;;
+    --user)
+      STRUPHY="$LOCAL"
+      shift 
+      ;;
+    --no-openmp)
+      CFLAGS=
+      shift 
+      ;;
+    --delete)
+      CLEAN=true
+      shift 
+      ;;
+    -e)
+      if [ $(git rev-parse --is-inside-work-tree) ]; then
+        SOURCE=$(git rev-parse --show-toplevel)
+      else
+        echo "Not in the git repo. Source path cannot be determined." 
+        exit 0
+      fi
+      STRUPHY="$SOURCE"/struphy
+      shift 
+      ;;
+    -i|--input)
+      INPUT="$2"
+      shift
+      shift
+      ;;
+    --input-abs)
+      INPUT_ABS="$2"
+      shift
+      shift
+      ;;
+    -o|--output)
+      OUTPUT="$2"
+      shift
+      shift
+      ;;
+    --output-abs)
+      OUTPUT_ABS="$2"
+      shift
+      shift
+      ;;
+    -b|--batch)
+      BATCH=true
+      BATCH_SCRIPT="$2"
+      shift
+      shift
+      ;;
+    --batch-abs)
+      BATCH=true
+      BATCH_SCRIPT_ABS="$2"
+      shift
+      shift
+      ;;
+    -r|--restart)
+      RESTART_FOLDER="$2"
+      shift
+      shift
+      ;;
+    --mpi)
+      MPI_SIZE="$2"
+      shift
+      shift
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
 done
-shift $((OPTIND-1))
 
-file_inp=${folder_inp}$code/$file
-path_out=${folder_out}$out/
-mkdir -p ${path_out} # create output folder
-file_meta=${path_out}sim_meta_data.txt
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-echo ""
-echo "Starting struphy ..."
-echo "code:" $code
-echo "input parameters:" ${file_inp}
-echo "output folder:" ${path_out}
-echo "batch script:" $batch
-echo "omp threads:" $num_threads
-echo "restart:" $mode
+# Print parameters
+echo "USER             = ${USER}"
+echo "STRUPHY          = ${STRUPHY}"
+echo "COMPILE          = ${COMPILE}"
+echo "CFLAGS           = ${CFLAGS}"
+echo "CLEAN            = ${CLEAN}"
+echo "RUN              = ${RUN}"
+echo "CODE             = ${CODE}"
+echo "INPUT            = ${INPUT}"
+echo "OUTPUT           = ${OUTPUT}"
+echo "BATCH            = ${BATCH}"
+echo "BATCH_SCRIPT     = ${BATCH_SCRIPT}"
+echo "RESTART_FOLDER   = ${RESTART_FOLDER}"
+echo "MPI_SIZE         = ${MPI_SIZE}"
 
-cp ${file_inp} ${path_out}/parameters.yml
+# Code compilation
+if [ "$COMPILE" = true ]; then
 
-echo "Copied parameter file to output folder."
+  if [ "$CLEAN" = true ]; then
+    echo "Start cleaning up struphy..."
+    cd .. # change dir not be in source path
+    command make clean -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY 
+    exit 0
+  else
+    echo "Start compiling struphy..."
+    cd .. # change dir not be in source path
+    command make -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY flags_openmp_pic=$CFLAGS
+    exit 0
+  fi
 
-# remove existing files when no restart
-if [ $mode = w ] && [ -e ${path_out}data.hdf5 ]; then
+fi
 
-    # ask user to confirm: 
-    #echo 'Are you sure you want to delete data.hdf5 in' /$out '([y]/n)?'
-    #read check_user
+# Run
+if [ "$RUN" = true ] ; then
 
-    if [ -z $check_user ] || [$check_user = y]; then
-        rm ${path_out}data.hdf5
-        rm ${path_out}sim_meta_data.txt
-        echo 'data.hdf5 in' /$out 'deleted.'
+  # Restart
+  if [ $RESTART_FOLDER ]; then
+    echo "Restart not yet implemented."
+    exit 0
+  fi
+
+  # In-/output paths
+  if [ -z $INPUT_ABS ]; then
+    INPUT_ABS=$STRUPHY/io/inp/$CODE/$INPUT
+  fi
+
+  if [ -z $OUTPUT_ABS ]; then
+    OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
+  fi
+
+  mkdir -p $OUTPUT_ABS 
+  METAFILE=$OUTPUT_ABS/meta.txt 
+
+  # Run flags
+  CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/models/codes/exec.py"
+  ARGS="$CODE $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_FOLDER"
+
+  # Normal run  
+  RUN_CMD="$PYTHON $CPROFILE $ARGS"  
+
+  # MPI mode
+  if [ "$MPI_SIZE" ]; then
+    RUN_CMD="mpirun -n $MPI_SIZE $PYTHON $CPROFILE $ARGS"
+  fi
+
+  # Batch mode
+  if [ "$BATCH" = true ]; then
+
+    if [ -z $BATCH_SCRIPT_ABS ]; then
+      BATCH_SCRIPT_ABS=$STRUPHY/io/batch/$BATCH_SCRIPT
     fi
 
+    chmod +x $BATCH_SCRIPT_ABS
+
+    # Check if batch script already has an "srun" command; if yes, remove
+    LASTLINE=$(tail -1 $BATCH_SCRIPT_ABS)
+
+    if [[ $LASTLINE == *"srun"* ]]; then
+      sed -i '$ d' $BATCH_SCRIPT_ABS
+      sed -i '$ d' $BATCH_SCRIPT_ABS
+    elif [ "$LASTLINE" ]; then
+      echo -e "\n" >> $BATCH_SCRIPT_ABS 
+    fi
+
+    # Append run command to batch script
+    echo "# Run command added by Struphy" >> $BATCH_SCRIPT_ABS
+    echo "srun $PYTHON $CPROFILE $ARGS> $OUTPUT_ABS/struphy.out" >> $BATCH_SCRIPT_ABS
+
+    RUN_CMD="sbatch $BATCH_SCRIPT_ABS"
+
+  fi
+
+  echo "INPUT_ABS        = ${INPUT_ABS}"
+  echo "OUTPUT_ABS       = ${OUTPUT_ABS}"
+  echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}"
+  echo "RUN_CMD          = ${RUN_CMD}"
+  echo "OUT_CMD          = ${OUT_CMD}"
+  echo "METAFILE         = ${METAFILE}"
+ 
+  # Write to meta.txt
+  echo "USER             = ${USER}" > $METAFILE
+  echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
+  echo "CODE             = ${CODE}" >> $METAFILE
+  echo "INPUT            = ${INPUT}" >> $METAFILE
+  echo "OUTPUT           = ${OUTPUT}" >> $METAFILE
+  echo "BATCH            = ${BATCH}" >> $METAFILE
+  echo "BATCH_SCRIPT     = ${BATCH_SCRIPT}" >> $METAFILE
+  echo "RESTART_FOLDER   = ${RESTART_FOLDER}" >> $METAFILE
+  echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
+  echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE
+  echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE
+  echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}" >> $METAFILE
+  echo "RUN_CMD          = ${RUN_CMD}" >> $METAFILE
+  echo "OUT_CMD          = ${OUT_CMD}" >> $METAFILE
+  echo "METAFILE         = ${METAFILE}" >> $METAFILE
+
+  # Start code
+  $RUN_CMD
+
 fi
-
-# call exec.py
-if [ -z $batch ]; then
-    
-    export OMP_NUM_THREADS=$num_threads
-    $PYTHON -m cProfile -o ${path_out}profile_tmp -s time ${path_code}exec.py $code $file_inp $path_out None $file_meta $mode
-
-else
-
-    chmod +x ${folder_batch}$batch
-    ${folder_batch}$batch
-
-fi
-
 
 
 

@@ -101,7 +101,7 @@ def test_divB():
         read_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.dat'
         save_filepath = temp_dir.name
         save_filename = 'GVEC_ellipStell_profile_update_State_0000_00010000.json'
-        reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename)
+        reader = GVEC_Reader(read_filepath, read_filename, save_filepath, save_filename, with_spl_coef=True)
 
         # ============================================================
         # Load GVEC mapping.

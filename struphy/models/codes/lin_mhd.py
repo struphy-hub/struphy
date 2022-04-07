@@ -15,7 +15,6 @@ from struphy.mhd_init                   import mhd_init
 from struphy.feec.projectors.pro_global import mhd_operators_cc_lin_6d as mhd_ops  
 from struphy.models.substeps            import push_linear_mhd
 
-
 def execute(file_in, path_out, restart):
     '''Executes the code lin_mhd.
 
@@ -29,7 +28,6 @@ def execute(file_in, path_out, restart):
     restart : boolean
         Restart ('True') or new simulation ('False').
     '''
-
     print()
     print('Starting code "lin_mhd" ...')
     print()
