@@ -24,6 +24,7 @@ setup(
             'kinetic_extended/*.yml',
             'lin_Vlasov_Maxwell/*yml',
             'maxwell/*yml',
+            'maxwell_psydac/*yml',
             'cold_plasma/*yml',
             'cc_cold_plasma_6d/*yml',
         ],
