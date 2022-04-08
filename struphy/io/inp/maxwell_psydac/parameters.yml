@@ -1,0 +1,130 @@
+geometry : 
+      type           : cuboid # geometry (see mappings_3d.py for choices -> kind_map)   
+      params_cuboid :
+            l1       : 1.  # start of slice in eta1
+            r1       : 2.  # end of slice in eta1, e1 > b1
+            l2       : 10.
+            r2       : 20.
+            l3       : 100.
+            r3       : 200.
+      params_orthogonal :
+            Lx       : 1.
+            Ly       : 1.
+            alpha    : .1 # x-distortion
+            Lz       : 1.
+      params_colella :
+            Lx       : 1.
+            Ly       : 1.
+            alpha    : .1 # xy-distortion
+            Lz       : 1.
+      params_hollow_cyl :
+            a1       : .1 # inner radius
+            a2       : 1. # outer radius
+            Lz       : 1.
+      params_hollow_torus :
+            a1       : .1 # inner radius
+            a2       : 1. # minor radius
+            R0       : 1. # major radius
+      params_spline :
+            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5'
+            Nel      : [6, 6, 6] # number of grid cells > 1
+            p        : [2, 3, 3] # spline degree > 0
+            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+      params_spline_cyl :
+            a        : 1. # minor radius
+            R0       : 0. # major radius (shift of pole from zero)
+            Lz       : 4. # length of cylinder
+            Nel      : [16, 2] # number of grid cells > 1
+            p        : [3, 1] # spline degree > 0
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+      params_spline_torus :
+            a        : 1. # minor radius
+            R0       : 10. # major radius
+            Nel      : [16, 2] # number of grid cells > 1
+            p        : [3, 1] # spline degree > 0
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+
+fields : 
+      general :
+            names       : ['e_field', 'b_field', 'test_field'] 
+            spaces      : ['Hcurl', 'Hdiv', 'H1'] # H1, Hcurl, Hdiv or L2
+            init        : noise # unperturbed, modes_k, modes_mn, eigfun or noise
+            init_coords : physical # how init conds are prescribed: physical, logical or norm_logical (=normed vector fields)
+            init_comps  : [[True, True, False], [True, True, False], [True]] # list of len(names) of lists: True=initialize component 
+      params_modes_k : 
+            kind : sin # sin or cos 
+            k1 : [.8]
+            k2 : [0.]
+            k3 : [0.]
+            amp : [0.001]
+      params_modes_mn :  
+            modes_m : [1]
+            modes_n : [1]
+            amp : [0.001]
+      params_eigfun : 
+            n_tor    : -1 # toroidal mode number
+            profiles : False # project equilibrium profiles
+            eig_kind : 11 # real (11) or imag (12) part
+            eig_freq : 0. # squared eigenfreq.
+      params_noise : 
+            direction : z     # x, y, z (for 1d) or xy, xz, yz (for 2d)
+            amp   : 0.1       # noise amplitude
+
+grid :
+      Nel      : [8, 8, 4] # number of grid cells > p
+      p        : [2, 3, 2]  # spline degree > 1
+      spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+      bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
+      nq_el    : [2, 2, 2] # quadrature points per grid cell
+      nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for projection)
+      polar    : False # use polar splines       
+
+time : 
+      dt         : 0.05
+      Tend       : 50
+      max_time   : 300. # maximum runtime of program in minutes
+      split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
+
+solvers :
+      PRE         : FFT # pre-conditioner for linear systems (ILU or FFT)
+      tol_inv     : 0.1  # ILU: set tolerance for approximation (values < tol_inv are set to zero)
+      drop_tol_A  : 0.0001 # ILU: set drop_tol and fill_fac (default: drop_tol=1e-4, fill_fac=10.)
+      fill_fac_A  : 10.
+      drop_tol_S2 : 0.0001
+      fill_fac_S2 : 10.
+      solver_type_2 : cg # iterative solver used
+      solver_type_3 : cg
+      tol1 : 0.00000001 # iterative solver tolerance
+      tol2 : 0.00000001
+      tol3 : 0.00000001
+      tol6 : 0.00000001
+      maxiter1 : 1000  # maximum number of iterations
+      maxiter2 : 1000
+      maxiter3 : 1000
+      maxiter6 : 1000
+      show_info : False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------------
+
+

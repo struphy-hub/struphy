@@ -2,21 +2,24 @@ import struphy.feec.basics.mass_matrices_3d_pre as mass_3d_pre
 import scipy.sparse as spa
 import numpy as np
 
+from struphy.linear_algebra.schur_solver import Schur_solver
+from struphy.psydac_linear_operators.linear_operators import Product_matrix as Prod
+
 
 class Push_maxwell:
     '''The substeps of the Poisson splitting algorithm for linear MHD equations
-    
+
     [Ref] F. Holderied, S. Possanner and X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell",
             J. Comp. Phys. 433 (2021) 110143.
-    
+
     Parameters
     ----------            
         SPACES : obj
             FEEC spaces.
-            
+
         OPERATORS : obj
             operators from emw_operators.EMW_operators.
-        
+
         dts : list
             Time steps, one for each split step.
 
@@ -25,57 +28,58 @@ class Push_maxwell:
 
     '''
 
-    
     def __init__(self, DOMAIN, SPACES, time_steps, params):
 
         # Set objects
-        self.__DOMAIN     = DOMAIN
-        self.__SPACES     = SPACES
+        self.__DOMAIN = DOMAIN
+        self.__SPACES = SPACES
 
-        # Define Dimensions 
-        self.__dim_V1     = self.__SPACES.Ntot_1form_cum[-1]
-        self.__dim_V2     = self.__SPACES.Ntot_2form_cum[-1]
-
+        # Define Dimensions
+        self.__dim_V1 = self.__SPACES.Ntot_1form_cum[-1]
+        self.__dim_V2 = self.__SPACES.Ntot_2form_cum[-1]
 
         # Define parameter
-        self.__solver     = params['solvers']
-        self.__num_iters  = int(0)
-        self.__dts        = time_steps
+        self.__solver = params['solvers']
+        self.__num_iters = int(0)
+        self.__dts = time_steps
 
         # define the necessary linear operator for the maxwell step
-        self.__Schur_maxwell   = spa.linalg.LinearOperator( (self.__dim_V1, self.__dim_V1), matvec=self.__Schur_maxwell_mat)
-        self.__RHS_maxwell_e   = spa.linalg.LinearOperator( (self.__dim_V1, self.__dim_V1), matvec=self.__RHS_maxwell_e_mat)
-        self.__RHS_maxwell_b   = spa.linalg.LinearOperator( (self.__dim_V1, self.__dim_V2), matvec=self.__RHS_maxwell_b_mat)
-        self.__M1_inv          = mass_3d_pre.get_M1_PRE(self.__SPACES, self.__DOMAIN)
+        self.__Schur_maxwell = spa.linalg.LinearOperator(
+            (self.__dim_V1, self.__dim_V1), matvec=self.__Schur_maxwell_mat)
+        self.__RHS_maxwell_e = spa.linalg.LinearOperator(
+            (self.__dim_V1, self.__dim_V1), matvec=self.__RHS_maxwell_e_mat)
+        self.__RHS_maxwell_b = spa.linalg.LinearOperator(
+            (self.__dim_V1, self.__dim_V2), matvec=self.__RHS_maxwell_b_mat)
+        self.__M1_inv = mass_3d_pre.get_M1_PRE(self.__SPACES, self.__DOMAIN)
 
     # Counter function
     # ======================================
     def __counter(self):
         self.__num_iters += int(1)
 
-
     # Update operators for the maxwell step
     # ======================================
+
     def __Schur_maxwell_mat(self, u):
         return self.__SPACES.M1(u) + (self.__dts[0]**2/4.) * self.__SPACES.C0.T.dot(self.__SPACES.M2(self.__SPACES.C0.dot(u)))
-    
-    def __RHS_maxwell_e_mat(self, e):        
-        return self.__SPACES.M1(e)- (self.__dts[0]**2/4.) * self.__SPACES.C0.T.dot(self.__SPACES.M2(self.__SPACES.C0.dot(e)))
+
+    def __RHS_maxwell_e_mat(self, e):
+        return self.__SPACES.M1(e) - (self.__dts[0]**2/4.) * self.__SPACES.C0.T.dot(self.__SPACES.M2(self.__SPACES.C0.dot(e)))
 
     def __RHS_maxwell_b_mat(self, b):
         return self.__dts[0] * self.__SPACES.C0.T.dot(self.__SPACES.M2(b))
 
     # Executable steps
-    # ======================================  
+    # ======================================
     def step_maxwell(self, e1, b2, print_info=False):
         '''Substep for the maxwell case.
            updates electric field (e1) and magnetic field (b2).
-        
+
         Parameters
         ----------
             e1 : np.array
                 FE coefficients, flattened.
-                
+
             b2 : np.array
                 FE coefficients, flattened.
 
@@ -83,32 +87,110 @@ class Push_maxwell:
                 Print to screen a) solver info b) number of iterations and c) max difference of abs(input-output).
         '''
 
-        ## store initial values 
-        e1_old  = e1.copy()
-        b2_old  = b2.copy()
-        
-        ## calculate the 
-        rhs     = self.__RHS_maxwell_e(e1) + self.__RHS_maxwell_b(b2)
+        # store initial values
+        e1_old = e1.copy()
+        b2_old = b2.copy()
 
-        ## pick solver
+        # calculate the
+        rhs = self.__RHS_maxwell_e(e1) + self.__RHS_maxwell_b(b2)
+
+        # pick solver
         self.__num_iters = int(0)
-        if   self.__solver['solver_type_2'] == 'gmres':
-            e1[:], info = spa.linalg.gmres( self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'], maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter() )
+        if self.__solver['solver_type_2'] == 'gmres':
+            e1[:], info = spa.linalg.gmres(self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'],
+                                           maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter())
         elif self.__solver['solver_type_2'] == 'cg':
-            e1[:], info = spa.linalg.cg(    self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'], maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter() )
+            e1[:], info = spa.linalg.cg(self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'],
+                                        maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter())
         elif self.__solver['solver_type_2'] == 'cgs':
-            e1[:], info = spa.linalg.cgs(   self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'], maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter() )
+            e1[:], info = spa.linalg.cgs(self.__Schur_maxwell, rhs, x0=e1, tol=self.__solver['tol2'],
+                                         maxiter=self.__solver['maxiter2'], M=self.__M1_inv, callback=self.__counter())
         else:
             raise ValueError('only gmres and cg solvers available')
-        
-        ## update magnetic field (strong)
+
+        # update magnetic field (strong)
         b2[:] = b2 - self.__dts[0]*self.__SPACES.C0.dot((e1 + e1_old)/2.)
 
-        ## print info
-        if print_info: 
+        # print info
+        if print_info:
             print('Status     for step_maxwell:', info)
             print('Iterations for step_maxwell:', self.__num_iters)
             print('Maxdiff e1 for step_maxwell:', np.max(np.abs(e1 - e1_old)))
             print('Maxdiff b2 for step_maxwell:', np.max(np.abs(b2 - b2_old)))
+            print()
+
+
+class Push_maxwell_psydac:
+    '''Crank-Nicolson step
+
+    [e - en, b - bn] = dt/2* [[0 M1^{-1}*C^T], [-C*M1^{-1} 0]] [M1*(e + en), M2(b + bn)] ,
+
+    based on the Schur complement.
+
+    Parameters
+    ----------    
+        DR: obj
+            From struphy/psydac_api/fields.Field_init.
+
+        time_steps : list
+            Time steps, one for each split step.
+
+        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
+            Preconditioner for Schur, it should approximate the inverse of Schur.
+            Can either be:
+            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
+            * A LinearSolver object (in which case the out parameter is used)
+            * A callable with two parameters (S, r), where S is the LinearOperator from above, and r is the residual.
+
+        print_info: boolean
+            Show step info on screen. 
+
+    Arguments
+    ---------
+        en: StencilVector
+            Electric field coefficients.
+
+        bn: StencilVector
+            Magnetic field coefficients.
+
+    Returns
+    -------
+        Nothing. The coefficients are updated in place (overwritten).
+    '''
+
+    def __init__(self, DR, time_steps, pc=None, print_info=False):
+
+        # Set objects
+        self._DR = DR
+        self._dts = time_steps
+        self._pc = pc
+        self._info = print_info
+
+        # Define block matrix
+        _A = DR.M1
+        self._B = Prod(-time_steps[0]/2. * DR.curl.transpose(), DR.M2)
+        self._C = time_steps[0]/2. * DR.curl
+        _BC = Prod(self._B, self._C)
+
+        # Instantiate Schur solver
+        self._schur_solver = Schur_solver(_A, _BC)
+
+    def __call__(self, en, bn):
+
+        _e, info = self._schur_solver(en, self._B.dot(bn))
+        _b = bn - self._C.dot(_e + en)
+
+        # in place update
+        en[:] = _e[:] 
+        bn[:] = _b[:]
+
+        if self._info:
+            print('Status     for Push_maxwell_psydac:', info['success'])
+            print('Iterations for Push_maxwell_psydac:', info['niter'])
+            print('Maxdiff e1 for Push_maxwell_psydac:',
+                  np.max(np.abs(_e._data - en._data)))
+            print('Maxdiff b2 for Push_maxwell_psydac:',
+                  np.max(np.abs(_b._data - bn._data)))
             print()
 

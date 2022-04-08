@@ -55,6 +55,7 @@ MANIFEST
 *__pyc*
 .DS_*
 *~
+*.hdf5
 
 # Default simulations and diagnostics
 my_diagnostics
