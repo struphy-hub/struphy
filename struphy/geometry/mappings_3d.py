@@ -17,16 +17,16 @@ The following mappings are implemented:
 - kind_map = 1  : 2d spline mapping with control points cx, cy: F_pol = (eta_1, eta_2) --> (R, y), straight  in 3rd direction
 - kind_map = 2  : 2d spline mapping with control points cx, cy: F_pol = (eta_1, eta_2) --> (R, y), curvature in 3rd direction
 
-- kind_map = 10 : cuboid,          params_map = [l1, r1, l2, r2, l3, r3].
-- kind_map = 11 : hollow cylinder, params_map = [a1, a2, R0].
-- kind_map = 12 : colella,         params_map = [Lx, Ly, alpha, Lz].
-- kind_map = 13 : orthogonal,      params_map = [Lx, Ly, alpha, Lz].
-- kind_map = 14 : hollow torus,    params_map = [a1, a2, R0].
-- kind_map = 15 : ellipse,         params_map = [x0, y0, z0, rx, ry, Lz].
-- kind_map = 16 : rotated ellipse, params_map = [x0, y0, z0, r1, r2, Lz, th].
-- kind_map = 17 : soloviev approx, params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 18 : soloviev sqrt,   params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 19 : soloviev cf,     params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
+- kind_map = 10 : cuboid,             params_map = [l1, r1, l2, r2, l3, r3].
+- kind_map = 11 : hollow cylinder,    params_map = [a1, a2, R0].
+- kind_map = 12 : colella,            params_map = [Lx, Ly, alpha, Lz].
+- kind_map = 13 : orthogonal,         params_map = [Lx, Ly, alpha, Lz].
+- kind_map = 14 : hollow torus,       params_map = [a1, a2, R0].
+- kind_map = 15 : ellipse,            params_map = [x0, y0, z0, rx, ry, Lz].
+- kind_map = 16 : rotated ellipse,    params_map = [x0, y0, z0, r1, r2, Lz, th].
+- kind_map = 17 : shafranov shift,    params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 18 : shafranov sqrt,     params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 19 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
 """
 
 from numpy import shape
@@ -230,7 +230,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
         elif component == 3:
             value = z0 + (eta3 * Lz)
 
-    # ========= soloviev approx =====================
+    # ========= shafranov shift =====================
     elif kind_map == 17:
 
         x0 = params_map[0]
@@ -248,7 +248,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
         elif component == 3:
             value = z0 + (eta3 * Lz)
 
-    # ========= soloviev sqrt =====================
+    # ========= shafranov sqrt =====================
     elif kind_map == 18:
 
         x0 = params_map[0]
@@ -266,7 +266,7 @@ def f(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbas
         elif component == 3:
             value = z0 + (eta3 * Lz)
 
-    # ========= soloviev cf =====================
+    # ========= shafranov D-shaped =====================
     elif kind_map == 19:
 
         x0 = params_map[0]
@@ -403,7 +403,7 @@ def f_inv(x, y, z, component, kind_map, params_map):
         elif component == 3:
             value = (z - z0) / Lz
 
-    # ========= soloviev approx =====================
+    # ========= shafranov shift =====================
     elif kind_map == 17:
 
         x0 = params_map[0]
@@ -425,7 +425,7 @@ def f_inv(x, y, z, component, kind_map, params_map):
         elif component == 3:
             value = (z - z0) / Lz
 
-    # ========= soloviev sqrt =====================
+    # ========= shafranov sqrt =====================
     elif kind_map == 18:
 
         x0 = params_map[0]
@@ -438,7 +438,7 @@ def f_inv(x, y, z, component, kind_map, params_map):
 
         # Not implemented.
 
-    # ========= soloviev cf =====================
+    # ========= shafranov D-shaped =====================
     elif kind_map == 19:
 
         x0 = params_map[0]
@@ -770,7 +770,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 33:
             value = Lz
 
-    # ========= soloviev approx =====================
+    # ========= shafranov shift =====================
     elif kind_map == 17:
 
         x0 = params_map[0]
@@ -800,7 +800,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 33:
             value = Lz
 
-    # ========= soloviev sqrt =====================
+    # ========= shafranov sqrt =====================
     elif kind_map == 18:
 
         x0 = params_map[0]
@@ -830,7 +830,7 @@ def df(eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nba
         elif component == 33:
             value = Lz
 
-    # ========= soloviev cf =====================
+    # ========= shafranov D-shaped =====================
     elif kind_map == 19:
 
         x0 = params_map[0]

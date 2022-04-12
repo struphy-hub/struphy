@@ -52,6 +52,7 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
         op_enum = Operation.ALL
 
     no_cache = False
+    interactive = False
 
     # ============================================================
     # Imports.
@@ -103,9 +104,12 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
 
         # Please evaluate the mapping once to identify the origin.
         # Then shift the trial function by an appropriate amount.
-        x0 = gvec.mapX.f(0, 0, 0)
-        y0 = gvec.mapY.f(0, 0, 0)
-        z0 = gvec.mapZ.f(0, 0, 0)
+        # x0 = gvec.mapX.f(0, 0, 0)
+        # y0 = gvec.mapY.f(0, 0, 0)
+        # z0 = gvec.mapZ.f(0, 0, 0)
+        x0 = gvec.mapY.f(0, 0, 0.25)
+        y0 = gvec.mapZ.f(0, 0, 0.25)
+        z0 = gvec.mapX.f(0, 0, 0.25)
         print(f'Origin of slice of polidal spline:')
         print(f'x0: {x0}')
         print(f'y0: {y0}')
@@ -114,9 +118,9 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
         if func_test == FuncTest.GAUSSIAN:
             trial_params = {
                 'sd_x' : 0.1,
-                'sd_y' : 0.05,
+                'sd_y' : 0.075,
                 'mu_x' : 0.1 + x0,
-                'mu_y' : 0.05 + y0,
+                'mu_y' : 0.075 + y0,
             }
             func, dfdx, dfdy = generate_test_function(func_test, params=trial_params)
             func_3d, curl_3d, div_3d = func_3d_wrapper(func, dfdx, dfdy)
@@ -138,16 +142,17 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
 
     DOMAIN_F = map_generator(map_type, DOMAIN_F)
 
-    case_0form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum]
-    case_1form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
-    case_2form_args = [Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
+    case_0form_args = [params, Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum]
+    case_1form_args = [params, Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
+    case_2form_args = [params, Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum]
 
-    data_folder = f'~/ipp-cache/test_polar_splines_data'
+    data_folder = f'~/struphy-cache/test_polar_spline_{func_test.name}_{map_type.name}_{func_form.name}'
     data_folder = os.path.expanduser(data_folder)
     data_filename = f'{func_test.name}_{map_type.name}_{func_form.name}-Form_{space_type.name}_{domain_enum.name}'
     data_filename += f'_{str(Nel)}_{str(p)}_{str(spl_kind)}_{str(nq_el)}_{str(nq_pr)}_{str(bc)}'
     data_path = os.path.join(data_folder, f'{data_filename}.pkl')
     os.makedirs(data_folder, exist_ok=True)
+    print(f'data_filename: {data_filename}')
 
     if func_form == FuncForm.ZERO:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
@@ -171,8 +176,9 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
                 return plot_data_0form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
             plot_handles_0form = plot_wrapper(*plot_data_0form, map_type, func_test, func_form, space_type, Nel, p)
-            ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
-            ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
+            if interactive:
+                ref_fun_0form = plot_controls(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
+                ref_spl_0form = plot_spl_config(case_0form, case_0form_args, func_test, func_form, plot_handles_0form)
             plt.show()
     elif func_form == FuncForm.ONE:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
@@ -196,8 +202,9 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
                 return plot_data_1form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
             plot_handles_1form = plot_wrapper(*plot_data_1form, map_type, func_test, func_form, space_type, Nel, p)
-            ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
-            ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
+            if interactive:
+                ref_fun_1form = plot_controls(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
+                ref_spl_1form = plot_spl_config(case_1form, case_1form_args, func_test, func_form, plot_handles_1form)
             plt.show()
     elif func_form == FuncForm.TWO:
         if op_enum in [Operation.WRITEONLY, Operation.ALL]:
@@ -221,8 +228,9 @@ def test_polar_splines_3D(params, func_test=None, map_type=None, func_form=None,
                 return plot_data_2form
         if op_enum in [Operation.PLOTONLY, Operation.ALL]:
             plot_handles_2form = plot_wrapper(*plot_data_2form, map_type, func_test, func_form, space_type, Nel, p)
-            ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
-            ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
+            if interactive:
+                ref_fun_2form = plot_controls(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
+                ref_spl_2form = plot_spl_config(case_2form, case_2form_args, func_test, func_form, plot_handles_2form)
             plt.show()
 
     print('Done testing 3D polar splines.')
@@ -252,9 +260,9 @@ class MapType(Enum):
     CIRCLESHIFTED = 3
     ELLIPSE = 4
     ELLIPSEROTATED = 5
-    SOLOVIEV = 6
-    SOLOVIEVSQRT = 7
-    SOLOVIEVCF = 8
+    SHAFRANOVSHIFT = 6
+    SHAFRANOVSQRT = 7
+    SHAFRANOVDSHAPED = 8
     SPLINE = 9
 
 @unique
@@ -755,83 +763,107 @@ def generate_test_function(func_test=FuncTest.GAUSSIANCOSINE, params=None):
 
 
 
-def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
+def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None, params:dict=None, verbose:bool=False):
 
-    if map_type == MapType.CIRCLEIDENTICAL: # Unit circle centered at (10,0).
+    if map_type == MapType.CIRCLEIDENTICAL: # Unit disc centered at (10,0).
 
-        print('Running test case 01: Identity map == F1 (unit circle).')
+        if verbose: print('Running test case 01: Identity map == F1 (unit circle).')
         if DOMAIN_F is None: # A circle of radius (a2 - a1) offset by (a1 + R0, a1).
-            DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
+            if params is None:
+                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
+            else:
+                DOMAIN_F = dom.Domain('hollow_cyl', params)
 
         return DOMAIN_F
 
     elif map_type == MapType.CIRCLESCALED: # Circle scaled to radius = 0.5.
 
-        print('Running test case 02: Scaled circle.')
+        if verbose: print('Running test case 02: Scaled circle.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 0.5, 'R0': 10.})
+            if params is None:
+                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 0.5, 'R0': 10.})
+            else:
+                DOMAIN_F = dom.Domain('hollow_cyl', params)
 
         return DOMAIN_F
 
-    elif map_type == MapType.CIRCLESHIFTED: # Unit circle shifted to 10.005 instead of 10.
+    elif map_type == MapType.CIRCLESHIFTED: # Unit disc shifted to 10.005 instead of 10.
 
-        print('Running test case 03: Circular with x-axis offset.')
+        if verbose: print('Running test case 03: Circular with x-axis offset.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.005})
+            if params is None:
+                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.005})
+            else:
+                DOMAIN_F = dom.Domain('hollow_cyl', params)
 
         return DOMAIN_F
 
     elif map_type == MapType.ELLIPSE: # Ellipse centered at (10,0), with major and minor radii 1 and 0.5 respectively.
 
-        print('Running test case 04: Ellipse.')
+        if verbose: print('Running test case 04: Ellipse.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10.})
+            if params is None:
+                DOMAIN_F = dom.Domain('ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10.})
+            else:
+                DOMAIN_F = dom.Domain('ellipse', params)
 
         return DOMAIN_F
 
     elif map_type == MapType.ELLIPSEROTATED: # Ellipse centered at (10,0), with major and minor radii 1 and 0.5 respectively, rotated 30 degrees.
 
-        print('Running test case 05: Rotated ellipse.')
+        if verbose: print('Running test case 05: Rotated ellipse.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('rotated_ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10., 'theta': 30/360})
+            if params is None:
+                DOMAIN_F = dom.Domain('rotated_ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10., 'theta': 30/360})
+            else:
+                DOMAIN_F = dom.Domain('rotated_ellipse', params)
 
         return DOMAIN_F
 
-    elif map_type == MapType.SOLOVIEV: # Unit circle centered at (10,0), with a Grad-Shafranov shift delta of 0.1.
+    elif map_type == MapType.SHAFRANOVSHIFT: # Unit disc centered at (10,0), with a Shafranov shift delta of 0.1.
 
-        print('Running test case 06: Soloviev equilibrium (circular with Grad-Shafranov shift).')
+        if verbose: print('Running test case 06: Circular map with Shafranov shift.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('soloviev_approx', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.1})
+            if params is None:
+                DOMAIN_F = dom.Domain('shafranov_shift', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.1})
+            else:
+                DOMAIN_F = dom.Domain('shafranov_shift', params)
 
         return DOMAIN_F
 
-    elif map_type == MapType.SOLOVIEVSQRT: # Unit circle centered at (10,0), with a Grad-Shafranov shift delta of 0.01.
+    elif map_type == MapType.SHAFRANOVSQRT: # Unit disc centered at (10,0), with a Shafranov shift delta of 0.01.
 
-        print('Running test case 07: Soloviev equilibrium but with square root dependence on eta1, instead of square.')
+        if verbose: print('Running test case 07: Circular map with Shafranov shift, but with square root dependence on eta1, instead of square.')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('soloviev_sqrt', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.01})
+            if params is None:
+                DOMAIN_F = dom.Domain('shafranov_sqrt', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.01})
+            else:
+                DOMAIN_F = dom.Domain('shafranov_sqrt', params)
 
         return DOMAIN_F
 
-    elif map_type == MapType.SOLOVIEVCF: # Soloviev equilibrium centered at (10,0), as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
+    elif map_type == MapType.SHAFRANOVDSHAPED: # D-shaped map with Shafranov shift, centered at (10,0), as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
 
-        print('Running test case 08: ITER-like Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).')
+        if verbose: print('Running test case 08: D-shaped map with Shafranov shift, as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).')
         if DOMAIN_F is None:
-            DOMAIN_F = dom.Domain('soloviev_cf', {
-                'x0': 10. - 6.2, 'y0': 0., 'z0': 0., # Coordinate origin.
-                'R0': 6.2,
-                'Lz': 10.,
-                'delta_x': 0.03, 'delta_y': 0.02, # Grad-Shafranov shift: Artificially added asymmetry.
-                'delta_gs': 0.33, # Delta = sin(alpha), triangularity. Shift of high point.
-                'epsilon_gs': 0.32, # Inverse aspect ratio a/R0.
-                'kappa_gs': 1.7, # Ellipticity (elongation).
-            })
+            if params is None:
+                DOMAIN_F = dom.Domain('shafranov_dshaped', {
+                    'x0': 10. - 6.2, 'y0': 0., 'z0': 0., # Coordinate origin.
+                    'R0': 6.2,
+                    'Lz': 10.,
+                    'delta_x': 0.03, 'delta_y': 0.02, # Grad-Shafranov shift: Artificially added asymmetry.
+                    'delta_gs': 0.33, # Delta = sin(alpha), triangularity. Shift of high point.
+                    'epsilon_gs': 0.32, # Inverse aspect ratio a/R0.
+                    'kappa_gs': 1.7, # Ellipticity (elongation).
+                })
+            else:
+                DOMAIN_F = dom.Domain('shafranov_dshaped', params)
 
         return DOMAIN_F
 
     elif map_type == MapType.SPLINE:
 
-        print('Running test case 09: Generic spline map.')
+        if verbose: print('Running test case 09: Generic spline map.')
         if DOMAIN_F is None:
             raise ValueError('DOMAIN must not be None for spline map.')
 
@@ -843,7 +875,7 @@ def map_generator(map_type:MapType, DOMAIN_F:dom.Domain=None):
 
 
 
-def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum):
+def case_0form(params, Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1016,24 +1048,29 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
     f1_1_pol_F , f1_2_pol_F , f1_3_pol_F  = POLAR_SPACE_F.extract_1(proj_polar_F_1form)
     f1_1_pol_F1, f1_2_pol_F1, f1_3_pol_F1 = POLAR_SPACE_F1.extract_1(proj_polar_F1_1form)
 
-    # TODO: evaluate splines, push forward
-    lim_s = 1
-    num_s_log = 8
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
-    # eta1_range = np.linspace(1e-4, lim_s, 101)
-    eta2_range = np.linspace(0, 1, 101)
-    eta3_range = np.linspace(0, 1, 3)
-    # Evaluate at evaluation points:
-    # eta1_range = TENSOR_SPACE.spaces[0].el_b
-    # eta2_range = TENSOR_SPACE.spaces[1].el_b
-    # eta3_range = TENSOR_SPACE.spaces[2].el_b
+    # Grid for plotting.
+    if 'use_el_b' in params['plot'] and params['plot']['use_el_b']:
+        # Evaluate at element boundaries:
+        eta1_range = TENSOR_SPACE.spaces[0].el_b
+        eta2_range = TENSOR_SPACE.spaces[1].el_b
+        eta3_range = TENSOR_SPACE.spaces[2].el_b
+    elif 'eta_range' not in params['plot']:
+        # Default:
+        lim_s = 1
+        num_s_log = 8
+        eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
+        # eta1_range = np.linspace(1e-4, lim_s, 101)
+        eta2_range = np.linspace(0, 1, 101)
+        eta3_range = np.linspace(0, 1, 3)
+    else:
+        eta1_range = params['plot']['eta_range'][0]
+        eta2_range = params['plot']['eta_range'][1]
+        eta3_range = params['plot']['eta_range'][2]
     # print(f'eta1_range {eta1_range}')
     # print(f'eta2_range {eta2_range}')
     # print(f'eta3_range {eta3_range}')
 
-    eta1_sparse, eta2_sparse, eta3_sparse = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
-    eta1_dense,  eta2_dense,  eta3_dense  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
-    eta1,  eta2,  eta3  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
+    eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
 
     # Evaluate test function.
     evaled_0_tensor   = TENSOR_SPACE.evaluate_NNN(eta1, eta2, eta3, f0_ten)
@@ -1175,7 +1212,7 @@ def case_0form(Nel, p, spl_kind, nq_el, nq_pr, bc, func   , dfdx   , dfdy  , DOM
 
 
 
-def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
+def case_1form(params, Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1345,24 +1382,29 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     f2_1_pol_F , f2_2_pol_F , f2_3_pol_F  = POLAR_SPACE_F.extract_2(proj_polar_F_2form)
     f2_1_pol_F1, f2_2_pol_F1, f2_3_pol_F1 = POLAR_SPACE_F1.extract_2(proj_polar_F1_2form)
 
-    # TODO: evaluate splines, push forward
-    lim_s = 1
-    num_s_log = 8
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
-    # eta1_range = np.linspace(1e-4, lim_s, 101)
-    eta2_range = np.linspace(0, 1, 101)
-    eta3_range = np.linspace(0, 1, 3)
-    # Evaluate at evaluation points:
-    # eta1_range = TENSOR_SPACE.spaces[0].el_b
-    # eta2_range = TENSOR_SPACE.spaces[1].el_b
-    # eta3_range = TENSOR_SPACE.spaces[2].el_b
+    # Grid for plotting.
+    if 'use_el_b' in params['plot'] and params['plot']['use_el_b']:
+        # Evaluate at element boundaries:
+        eta1_range = TENSOR_SPACE.spaces[0].el_b
+        eta2_range = TENSOR_SPACE.spaces[1].el_b
+        eta3_range = TENSOR_SPACE.spaces[2].el_b
+    elif 'eta_range' not in params['plot']:
+        # Default:
+        lim_s = 1
+        num_s_log = 8
+        eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
+        # eta1_range = np.linspace(1e-4, lim_s, 101)
+        eta2_range = np.linspace(0, 1, 101)
+        eta3_range = np.linspace(0, 1, 3)
+    else:
+        eta1_range = params['plot']['eta_range'][0]
+        eta2_range = params['plot']['eta_range'][1]
+        eta3_range = params['plot']['eta_range'][2]
     # print(f'eta1_range {eta1_range}')
     # print(f'eta2_range {eta2_range}')
     # print(f'eta3_range {eta3_range}')
 
-    eta1_sparse, eta2_sparse, eta3_sparse = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
-    eta1_dense,  eta2_dense,  eta3_dense  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
-    eta1,  eta2,  eta3  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
+    eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
 
     # Evaluate test function.
     evaled_1_1_tensor   = TENSOR_SPACE.evaluate_DNN(eta1, eta2, eta3, f1_1_ten)
@@ -1540,7 +1582,7 @@ def case_1form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
 
 
 
-def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
+def case_2form(params, Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOMAIN_F, space_type, domain_enum):
 
     import numpy as np
     import matplotlib.pyplot as plt
@@ -1705,24 +1747,29 @@ def case_2form(Nel, p, spl_kind, nq_el, nq_pr, bc, func_3d, curl_3d, div_3d, DOM
     f3_pol_F  = POLAR_SPACE_F.extract_3(proj_polar_F_3form)
     f3_pol_F1 = POLAR_SPACE_F1.extract_3(proj_polar_F1_3form)
 
-    # TODO: evaluate splines, push forward
-    lim_s = 1
-    num_s_log = 8
-    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
-    # eta1_range = np.linspace(1e-4, lim_s, 101)
-    eta2_range = np.linspace(0, 1, 101)
-    eta3_range = np.linspace(0, 1, 3)
-    # Evaluate at evaluation points:
-    # eta1_range = TENSOR_SPACE.spaces[0].el_b
-    # eta2_range = TENSOR_SPACE.spaces[1].el_b
-    # eta3_range = TENSOR_SPACE.spaces[2].el_b
+    # Grid for plotting.
+    if 'use_el_b' in params['plot'] and params['plot']['use_el_b']:
+        # Evaluate at element boundaries:
+        eta1_range = TENSOR_SPACE.spaces[0].el_b
+        eta2_range = TENSOR_SPACE.spaces[1].el_b
+        eta3_range = TENSOR_SPACE.spaces[2].el_b
+    elif 'eta_range' not in params['plot']:
+        # Default:
+        lim_s = 1
+        num_s_log = 8
+        eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
+        # eta1_range = np.linspace(1e-4, lim_s, 101)
+        eta2_range = np.linspace(0, 1, 101)
+        eta3_range = np.linspace(0, 1, 3)
+    else:
+        eta1_range = params['plot']['eta_range'][0]
+        eta2_range = params['plot']['eta_range'][1]
+        eta3_range = params['plot']['eta_range'][2]
     # print(f'eta1_range {eta1_range}')
     # print(f'eta2_range {eta2_range}')
     # print(f'eta3_range {eta3_range}')
 
-    eta1_sparse, eta2_sparse, eta3_sparse = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=True)
-    eta1_dense,  eta2_dense,  eta3_dense  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
-    eta1,  eta2,  eta3  = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
+    eta1, eta2, eta3 = np.meshgrid(eta1_range, eta2_range, eta3_range, indexing='ij', sparse=False)
 
     # Evaluate test function.
     evaled_2_1_tensor   = TENSOR_SPACE.evaluate_NDD(eta1, eta2, eta3, f2_1_ten)
@@ -1986,16 +2033,21 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
 
     def X(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only x-component."""
-        return gvec.mapX.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+        return gvec.mapY.f(s(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), u(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), v(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0))
 
     def Y(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only y-component."""
-        return gvec.mapZ.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+        return gvec.mapZ.f(s(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), u(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), v(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0))
 
     def Z(eta1, eta2, eta3):
         """Mapping that goes from (eta1,eta2,eta3) to (s,u,v) then to (x,y,z). Only z-component."""
-        return gvec.mapY.f(s(eta1,eta2,eta3), u(eta1,eta2,eta3), v(eta1,eta2,eta3))
+        # return gvec.mapX.f(s(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), u(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0), v(eta1,eta2,(np.zeros_like(eta3)+0.25)%1.0))
+        return np.ones_like(eta1) * np.ones_like(eta2) * eta3
+        # return v(eta1,eta2,eta3)
 
+    # TODO: Swap Jacobian too?
+    # TODO: Swap the trial function too?
+    # TODO: Add another mapping in gvec_to_python that swaps?
 
 
     # ============================================================
@@ -2073,6 +2125,7 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
     EQ_MHD_P = Equilibrium_mhd_physical(mhd_equil_type, params_slab)
 
     # Actual initialization.
+    # Wouldn't work in this test file, because the axes are swapped.
     EQ_MHD = Equilibrium_mhd_gvec(params, DOMAIN, EQ_MHD_P, TENSOR_SPACE, SOURCE_DOMAIN)
     print('Initialized the `Equilibrium_mhd_gvec` class.')
 
@@ -2188,6 +2241,38 @@ map_enum, func_enum, form_enum, space_enum, Nel, p):
         df_exact[0], df_ten_F[0], df_pol_F[0], df_pol_F1[0])
         plot_handles.append(handle)
 
+        metadata = copy.deepcopy(metadata_base)
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_2 = \hat{{f}}^{{\,1}}_2$)'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['colscale'] = 1
+        metadata['axlim'] = 1
+        metadata['lplot'] = PlotTypeLeft.SURFACE
+        metadata['rplot'] = PlotTypeRight.SURFACE
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_2$'
+        metadata['show_el_b'] = False
+        handle = plot_comparison(metadata, x, y, z, 
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[1], df_ten_F[1], df_pol_F[1], df_pol_F1[1])
+        plot_handles.append(handle)
+
+        metadata = copy.deepcopy(metadata_base)
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_3 = \hat{{f}}^{{\,1}}_3$)'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['colscale'] = 1
+        metadata['axlim'] = 1
+        metadata['lplot'] = PlotTypeLeft.SURFACE
+        metadata['rplot'] = PlotTypeRight.SURFACE
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_3$'
+        metadata['show_el_b'] = False
+        handle = plot_comparison(metadata, x, y, z, 
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[2], df_ten_F[2], df_pol_F[2], df_pol_F1[2])
+        plot_handles.append(handle)
+
 
         metadata = copy.deepcopy(metadata_base)
         metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Original'
@@ -2201,42 +2286,42 @@ map_enum, func_enum, form_enum, space_enum, Nel, p):
         plot_handles.append(handle)
 
 
+        # metadata = copy.deepcopy(metadata_base)
+        # metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff'
+        # metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
+        # metadata['comptype'] = Comparison.DIFF
+        # metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        # metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
+        # metadata['lzlabeld'] = 'Relative difference'
+        # metadata['rzlabeld'] = 'Relative difference'
+        # handle = plot_comparison(metadata, x, y, z, 
+        #  f_exact   , gdra( f_ten_F   ,  f_exact   ), gdra( f_pol_F   ,  f_exact   ), gdra( f_pol_F1   ,  f_exact   ), 
+        # df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
+        # plot_handles.append(handle)
+
+
         metadata = copy.deepcopy(metadata_base)
-        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff'
-        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 1 Diff (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_1 = \hat{{f}}^{{\,1}}_1$)'
-        metadata['comptype'] = Comparison.DIFF
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_2 = \hat{{f}}^{{\,1}}_2$)'
+        metadata['comptype'] = Comparison.ORIG
         metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
-        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_1$'
-        metadata['lzlabeld'] = 'Relative difference'
-        metadata['rzlabeld'] = 'Relative difference'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_2$'
         handle = plot_comparison(metadata, x, y, z, 
-         f_exact   , gdra( f_ten_F   ,  f_exact   ), gdra( f_pol_F   ,  f_exact   ), gdra( f_pol_F1   ,  f_exact   ), 
-        df_exact[0], gdra(df_ten_F[0], df_exact[0]), gdra(df_pol_F[0], df_exact[0]), gdra(df_pol_F1[0], df_exact[0]))
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[1], df_ten_F[1], df_pol_F[1], df_pol_F1[1])
         plot_handles.append(handle)
 
 
-        # metadata = copy.deepcopy(metadata_base)
-        # metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original'
-        # metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 2 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_2 = \hat{{f}}^{{\,1}}_2$)'
-        # metadata['comptype'] = Comparison.ORIG
-        # metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
-        # metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_2$'
-        # handle = plot_comparison(metadata, x, y, z, 
-        #  f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
-        # df_exact[1], df_ten_F[1], df_pol_F[1], df_pol_F1[1])
-        # plot_handles.append(handle)
-
-
-        # metadata = copy.deepcopy(metadata_base)
-        # metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
-        # metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_3 = \hat{{f}}^{{\,1}}_3$)'
-        # metadata['comptype'] = Comparison.ORIG
-        # metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
-        # metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_3$'
-        # handle = plot_comparison(metadata, x, y, z, 
-        #  f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
-        # df_exact[2], df_ten_F[2], df_pol_F[2], df_pol_F1[2])
-        # plot_handles.append(handle)
+        metadata = copy.deepcopy(metadata_base)
+        metadata['wintitle'] = f'Polar Spline Comparison {func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original'
+        metadata['suptitle'] =                         f'{func_enum.name} {map_enum.name} {form_enum.name}-form 3 Original (LHS: $\hat{{f}}^{{\,0}}$, RHS: $[\hat{{\\nabla}} \hat{{f}}^{{\,0}}]_3 = \hat{{f}}^{{\,1}}_3$)'
+        metadata['comptype'] = Comparison.ORIG
+        metadata['lzlabel'] = '$f(x,y)=\hat{f}^{\,0}$'
+        metadata['rzlabel'] = '$[\hat{\\nabla} \hat{f}^{\,0}]_3$'
+        handle = plot_comparison(metadata, x, y, z, 
+         f_exact   ,  f_ten_F   ,  f_pol_F   ,  f_pol_F1   , 
+        df_exact[2], df_ten_F[2], df_pol_F[2], df_pol_F1[2])
+        plot_handles.append(handle)
 
 
         metadata = copy.deepcopy(metadata_base)
@@ -3848,6 +3933,7 @@ def plot_controls(case, case_args, func_test, func_form, plot_handles):
     from matplotlib.widgets import Button, RadioButtons, Slider
 
     references = []
+    case_args = case_args[1:] # Removing `params`.
 
 
 
@@ -4229,6 +4315,7 @@ def plot_spl_config(case, case_args, func_test, func_form, plot_handles):
     from matplotlib.widgets import Button, RadioButtons, Slider
 
     references = []
+    case_args = case_args[1:] # Removing `params`.
 
     Nel = case_args[0]
     p = case_args[1]
@@ -4323,7 +4410,7 @@ def update_fig_suptitle(plot_handles, Nel, p):
 
 
 
-def autoscale_y(ax, margin=0.5):
+def autoscale_y(ax, margin=0.2, ignore_labels=[], ignore_duplicates=False, maxi=1e5, mini=-1e5, force_finite=1e12):
     """Rescales the y-axis based on the data that is visible given the current xlim of the axis.
 
     Source: https://stackoverflow.com/questions/29461608/matplotlib-fixing-x-axis-scale-and-autoscale-y-axis
@@ -4334,32 +4421,61 @@ def autoscale_y(ax, margin=0.5):
         A matplotlib axes object.
     margin : float
         The fraction of the total height of the y-data to pad the upper and lower ylims.
+    ignore_labels : list
+        A list of axis labels that are to be ignored during autoscaling. `['Pole', 'Grid', 'el_b']` are always ignored.
+    ignore_duplicates : bool
+        Whether to ignore lines with identical labels.
+    maxi : float
+        If the data range contains y-values that exceed this number, the entire range will be ignored.
+    mini : float
+        If the data range contains y-values smaller than this number, the entire range will be ignored.
+    force_finite : float
+        Initialize the autoscale range to a finite number, instead of `np.inf` (`if force_finite is None`).
     """
 
     import numpy as np
 
-    def get_bottom_top(line):
+    def get_bottom_top(line, local_pad=False):
+        """Return the minimum and maximum y-values within the range given by `xlim`."""
         xd = line.get_xdata()
         yd = line.get_ydata()
         lo,hi = ax.get_xlim()
         y_displayed = yd[((xd>lo) & (xd<hi))]
-        h = np.nanmax(y_displayed) - np.nanmin(y_displayed)
-        bot = np.nanmin(y_displayed) - margin * h
-        top = np.nanmax(y_displayed) + margin * h
+        if local_pad: # Padding is added w.r.t each line.
+            h = np.nanmax(y_displayed) - np.nanmin(y_displayed)
+            bot = np.nanmin(y_displayed) - margin * h
+            top = np.nanmax(y_displayed) + margin * h
+        else: # Return vanilla minimum and maximum.
+            bot = np.nanmin(y_displayed)
+            top = np.nanmax(y_displayed)
         return bot, top
 
-    lines = ax.get_lines()
-    bot, top = np.inf, -np.inf
+    if force_finite is None:
+        bot, top = np.inf, -np.inf
+    else:
+        bot, top = force_finite, -force_finite
 
-    processed = ['Pole', 'Grid', 'el_b'] # Lines to ignore when computing y-axis limits.
+    lines = ax.get_lines()
+
+    processed = ['Pole', 'Grid', 'el_b'] + ignore_labels # Lines to ignore when computing y-axis limits.
+
     for line in lines:
     # for line in [lines[0], lines[4]]:
         if line.get_label() not in processed:
-            processed.append(line.get_label())
+            if ignore_duplicates: # Don't! This will only process the `pos` part of the plot!
+                processed.append(line.get_label())
             new_bot, new_top = get_bottom_top(line)
+            if new_bot < mini or new_top > maxi:
+                continue
+            # print(f'autoscale_y(): {line.get_label(): >12} range of y-values: {new_bot}, {new_top}')
             if new_bot < bot: bot = new_bot
             if new_top > top: top = new_top
 
+    # print(f'autoscale_y(): {"Be4 margin": >12} range of y-values: {bot}, {top}')
+    h = top - bot
+    bot -= margin * h / 2
+    top += margin * h / 2
+    # print(f'autoscale_y(): {"Final": >12} range of y-values: {bot}, {top}')
     ax.set_ylim(bot, top)
 
 
@@ -4371,9 +4487,56 @@ def unique_legends(ax):
 
 
 
+def multicolor_label(ax, list_of_strings, list_of_colors, axis='x', anchorpad=0, **kw):
+    """Creates axes labels with multiple colors.
+
+    Source: https://stackoverflow.com/questions/33159134/matplotlib-y-axis-label-with-multiple-colors
+
+    Parameters
+    ----------
+    ax
+        Specifies the axes object where the labels should be drawn
+    list_of_strings : list
+        A list of all of the text items
+    list_of_colors : list
+        A corresponding list of colors for the strings
+    axis : str
+        {'x', 'y', 'both'}, specifies which label(s) should be drawn
+    """
+
+    from matplotlib.offsetbox import AnchoredOffsetbox, TextArea, HPacker, VPacker
+
+    # x-axis label
+    if axis == 'x' or axis == 'both':
+        boxes = [TextArea(text, textprops=dict(color=color, ha='left', va='bottom', **kw))
+                 for text, color in zip(list_of_strings, list_of_colors)]
+        xbox = HPacker(children=boxes, align="center", pad=0, sep=5)
+        anchored_xbox = AnchoredOffsetbox(loc=3, child=xbox, pad=anchorpad, frameon=False, bbox_to_anchor=(0.2, -0.09),
+                                          bbox_transform=ax.transAxes, borderpad=0.)
+        ax.add_artist(anchored_xbox)
+
+    # y-axis label
+    if axis == 'y' or axis == 'both':
+        boxes = [TextArea(text, textprops=dict(color=color, ha='left', va='bottom', rotation=90, **kw))
+                 for text, color in zip(list_of_strings[::-1], list_of_colors)]
+        ybox = VPacker(children=boxes, align="center", pad=0, sep=5)
+        anchored_ybox = AnchoredOffsetbox(loc=3, child=ybox, pad=anchorpad, frameon=False, bbox_to_anchor=(-0.10, 0.2),
+                                          bbox_transform=ax.transAxes, borderpad=0.)
+        ax.add_artist(anchored_ybox)
+
+
+
 if __name__ == "__main__":
 
     import copy
+
+    # Plotting grid.
+    lim_s = 1
+    num_s_log = 8
+    eta1_range = np.concatenate((np.logspace(-num_s_log, -2, num_s_log*3-1), np.linspace(1e-2, lim_s, 101-num_s_log*3)[1:]))
+    # eta1_range = np.linspace(1e-4, lim_s, 101)
+    eta2_range = np.linspace(0, 1, 21)
+    eta3_range = np.linspace(0, 1, 3)
 
     params_base = {
         'grid' : {
@@ -4397,7 +4560,11 @@ if __name__ == "__main__":
             'bc'      : ['f', 'f'],          # BC in s-direction
             'spl_kind': [False, True, True], # Spline type: True=periodic, False=clamped
 
-        }
+        },
+        'plot' : {
+            'use_el_b' : False,
+            'eta_range' : [eta1_range, eta2_range, eta3_range],
+        },
     }
     params = copy.deepcopy(params_base)
 
@@ -4419,21 +4586,21 @@ if __name__ == "__main__":
     #             for func_form in FuncForm:
     #                 test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=map_type, func_form=func_form, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
 
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL, func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,   func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,         func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,  func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEV,        func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SOLOVIEVCF,      func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.SINEX, map_type=MapType.SPLINE,             func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.LINEARX, map_type=MapType.SPLINE,           func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
-    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,          func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL,  func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL,  func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLEIDENTICAL,  func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,     func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESCALED,     func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.CIRCLESHIFTED,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSE,          func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.ELLIPSEROTATED,   func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SHAFRANOVSHIFT,   func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SHAFRANOVSQRT,    func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SHAFRANOVSQRT,    func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SHAFRANOVSQRT,    func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SHAFRANOVDSHAPED, func_form=FuncForm.ZERO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.SINEX,    map_type=MapType.SPLINE,           func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.LINEARX,  map_type=MapType.SPLINE,           func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,           func_form=FuncForm.ZERO, space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,           func_form=FuncForm.ONE,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
+    # test_polar_splines_3D(params, func_test=FuncTest.GAUSSIAN, map_type=MapType.SPLINE,           func_form=FuncForm.TWO,  space_type=space_enum, domain_enum=domain_enum, op_enum=op_enum)
