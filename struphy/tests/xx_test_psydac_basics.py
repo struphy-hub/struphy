@@ -1,24 +1,28 @@
 import pytest
 
 
-@pytest.mark.parametrize('mapping', [['cuboid', {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-                                     ['orthogonal', {
-                                         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-                                     ['colella', {
-                                         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-                                     ['hollow_cyl', {
-                                         'a1': 1., 'a2': 2., 'R0': 3.}],
-                                     ['hollow_torus', {
-                                         'a1': 1., 'a2': 2., 'R0': 3.}],
-                                     ['ellipse', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
-                                     ['rotated_ellipse', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
-                                     ['soloviev_approx', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
-                                     ['soloviev_sqrt', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
-                                     ['soloviev_cf', {'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]])
+@pytest.mark.parametrize('mapping', [
+    ['cuboid', {
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
+    ['orthogonal', {
+        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
+    ['colella', {
+        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
+    ['hollow_cyl', {
+        'a1': 1., 'a2': 2., 'R0': 3.}],
+    ['hollow_torus', {
+        'a1': 1., 'a2': 2., 'R0': 3.}],
+    ['ellipse', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
+    ['rotated_ellipse', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
+    ['shafranov_shift', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+    ['shafranov_sqrt', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+    ['shafranov_dshaped', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+])
 def test_psydac_mapping(mapping):
 
     from struphy.geometry.domain_3d import Domain
@@ -127,24 +131,28 @@ def test_psydac_mapping(mapping):
 @pytest.mark.parametrize('Nel', [[6, 6, 4]])
 @pytest.mark.parametrize('p', [[3, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
-@pytest.mark.parametrize('mapping', [['cuboid', {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-                                     ['orthogonal', {
-                                         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-                                     ['colella', {
-                                         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-                                     ['hollow_cyl', {
-                                         'a1': 1., 'a2': 2., 'R0': 3.}],
-                                     ['hollow_torus', {
-                                         'a1': 1., 'a2': 2., 'R0': 3.}],
-                                     ['ellipse', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
-                                     ['rotated_ellipse', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
-                                     ['soloviev_approx', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
-                                     ['soloviev_sqrt', {
-                                         'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
-                                     ['soloviev_cf', {'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]])
+@pytest.mark.parametrize('mapping', [
+    ['cuboid', {
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
+    ['orthogonal', {
+        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
+    ['colella', {
+        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
+    ['hollow_cyl', {
+        'a1': 1., 'a2': 2., 'R0': 3.}],
+    ['hollow_torus', {
+        'a1': 1., 'a2': 2., 'R0': 3.}],
+    ['ellipse', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
+    ['rotated_ellipse', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
+    ['shafranov_shift', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+    ['shafranov_sqrt', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
+    ['shafranov_dshaped', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+])
 def test_psydac_derham(Nel, p, spl_kind, mapping):
     '''Requires pyccel==1.4.0, install manually (pyccel=0.10.1 installed by struphy).
 
@@ -583,7 +591,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
 
 
 if __name__ == '__main__':
-    test_psydac_mapping(
-        ['soloviev_cf', {'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
+    test_psydac_mapping(['shafranov_dshaped', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
     test_psydac_derham([8, 8, 4], [2, 3, 2], [False, True, True], ['cuboid', {
-                       'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
