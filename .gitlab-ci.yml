@@ -66,8 +66,10 @@ unittest:
     - struphy compile
   script:
     #- python setup.py test
+    - pip install pyccel==1.4
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
+    - pip install pyccel==0.10.1
     - struphy run lin_mhd
     - example_lin_Vlasov_Maxwell
     # - coverage run -m pytest

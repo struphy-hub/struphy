@@ -126,7 +126,7 @@ class Field_init:
 
             self._vector.update_ghost_regions()
 
-        print(f'Field "{self._name}" initialized in space {self._space_cont}.')
+        # print(f'Field "{self._name}" initialized in space {self._space_cont}.')
 
     @property
     def name(self):
