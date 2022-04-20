@@ -66,6 +66,9 @@ class Derham_build:
         # Psydac symbolic Derham
         self._derham_symb = Derham(self._domain_log)
 
+        # Boundary conditions
+        self._spl_kind = spl_kind
+
         # Discrete logical domain
         # logical domain, the parallelism is initiated here.
         self._domain_log_h = discretize(
@@ -73,7 +76,7 @@ class Derham_build:
 
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=p, periodic=spl_kind)
+                             degree=p, periodic=self._spl_kind)
 
         # Psydac spline spaces
         # --------------------

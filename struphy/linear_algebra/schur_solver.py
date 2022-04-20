@@ -1,7 +1,7 @@
 from psydac.linalg.iterative_solvers import pcg
 
-from struphy.psydac_linear_operators.linear_operators import Sum_matrix as Sum
-from struphy.psydac_linear_operators.linear_operators import Difference_matrix as Diff
+from struphy.psydac_linear_operators.linear_operators import SumLinearOperator as Sum
+from struphy.psydac_linear_operators.linear_operators import ScalarTimesLinearOperator as Multiply
 
 
 class Schur_solver:
@@ -9,12 +9,12 @@ class Schur_solver:
 
     [[A B], [C Id]] [x, y] = [[A -B], [-C Id]] [xn, yn] ,
 
-    using the Schur complement S=A-BC, where Id is the identity matrix and [a, b] is given.
+    using the Schur complement S=A-BC, where Id is the identity matrix and [xn, yn] is given.
     The solution is given by
 
     x = S^{-1}[(A + BC)*xn - 2B*yn] .'''
 
-    def __init__(self, A, BC, pc=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, A, BC, pc, tol, maxiter, verbose):
         '''
         Parameters
         ----------
@@ -58,15 +58,27 @@ class Schur_solver:
                 Convergence information.
         '''
 
+        self._A = A
+        self._BC = BC
+        self._domain = A.domain
+        self._codomain = A.codomain
+        self._dtype = A.dtype
+
+        assert A.domain == BC.domain
+        assert A.codomain == BC.codomain
+
         self._pc = pc
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
 
-        self._schur = Diff(A, BC)
+        self._schur = Sum( A, Multiply(-1., BC) )
         self._rhs_mat = Sum(A, BC)
 
     def __call__(self, xn, Byn):
+
+        assert xn.space == self._rhs_mat.domain
+        assert Byn.space == self._rhs_mat.codomain
 
         _rhs = self._rhs_mat.dot(xn) - 2.*Byn
 

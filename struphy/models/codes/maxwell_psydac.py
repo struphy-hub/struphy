@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-def execute(file_in, path_out, restart=False, verbose=True):
+def execute(file_in, path_out, comm, restart=False, verbose=False):
     '''Executes the code maxwell_psydac.
 
     Parameters
@@ -9,15 +9,22 @@ def execute(file_in, path_out, restart=False, verbose=True):
 
     file_in : str
         Absolute path to input parameters file (.yml).
+
     path_out : str
         Absolute path to output folder.
+
+    comm : mpi communicator
+
     restart : boolean
         Restart ('True') or new simulation ('False').
-    '''
 
-    from mpi4py import MPI      
+    verbose : boolean
+        Print more solver info.
+    '''
+     
     import yaml
     import time
+    import socket
     import numpy as np
 
     from struphy.feec.psydac_derham import Derham_build
@@ -32,8 +39,9 @@ def execute(file_in, path_out, restart=False, verbose=True):
     from psydac.linalg.stencil import StencilVector
 
     # mpi communicator
-    MPI_COMM = MPI.COMM_WORLD
+    MPI_COMM = comm
     mpi_rank = MPI_COMM.Get_rank()
+    print("Hello from rank {:0>4d} : {}".format(mpi_rank, socket.gethostname()))
     MPI_COMM.Barrier()
 
     if mpi_rank == 0:
@@ -116,13 +124,13 @@ def execute(file_in, path_out, restart=False, verbose=True):
     # Pointers to Stencil-/Blockvectors
     e = fields[0].vector
     b = fields[1].vector
+    # print('')
 
     # ========================================================================================= 
     # DATA object for saving
     # =========================================================================================
     DATA = Data_container(path_out, comm=MPI_COMM)
 
-    print('')
     for field in fields:
 
         if isinstance(field.vector, StencilVector):
@@ -175,20 +183,22 @@ def execute(file_in, path_out, restart=False, verbose=True):
 
     else:
         raise ValueError('Time stepping scheme not available.')
-    
-    # Initialize Update function
-    update_maxwell = Push_maxwell_psydac(DR, time_steps, print_info=True)  
 
+    # Initialize splitting substeps
+    update_maxwell = Push_maxwell_psydac(DR, time_steps, params['solvers']['step_maxwell'])  
+
+    # Define update function
     def update():
         if split_algo == 'LieTrotter':
             update_maxwell(e, b)
         elif split_algo == 'Strang':
-            update_maxwell(e, b) # the difference to LieTrotter is in time_steps above.
+            update_maxwell(e, b) # No splitting here in Maxwell equations.
         else:
             raise NotImplementedError('Only Lie-Trotter and Strang splitting available.')   
 
-    print('Update function set.')
-    print() 
+    if mpi_rank == 0:
+        print('Update function set.')
+        print()
         
     # =========================================================================================    
     # time integration 
@@ -212,11 +222,12 @@ def execute(file_in, path_out, restart=False, verbose=True):
         # stop time loop?
         if break_cond_1 or break_cond_2:
             # close output file and time loop
-            DATA.file.close()
+            DATA.f.close()
             end_simulation = time.time()
-            print()
-            print('time of simulation [sec]: ', end_simulation - start_simulation)
-            print()
+            if mpi_rank == 0:
+                print()
+                print('time of simulation [sec]: ', end_simulation - start_simulation)
+                print()
             break
             
         # call update function for time stepping
@@ -237,7 +248,7 @@ def execute(file_in, path_out, restart=False, verbose=True):
             str_len         = len(total_stetps)
             step            = str(time_steps_done).zfill(str_len)
             message         = 'time steps finished : ' + step + '/' + total_stetps
-            print('\r', message, end='')
+            print('\r', message, end='\n')
   
 
 if __name__ == '__main__':

@@ -27,6 +27,7 @@ setup(
             'maxwell_psydac/*yml',
             'cold_plasma/*yml',
             'cc_cold_plasma_6d/*yml',
+            'inverse_mass_test/*yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },

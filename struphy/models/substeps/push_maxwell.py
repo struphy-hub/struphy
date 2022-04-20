@@ -3,7 +3,14 @@ import scipy.sparse as spa
 import numpy as np
 
 from struphy.linear_algebra.schur_solver import Schur_solver
-from struphy.psydac_linear_operators.linear_operators import Product_matrix as Prod
+from struphy.psydac_linear_operators.linear_operators import CompositeLinearOperator as Compose
+from struphy.psydac_linear_operators.linear_operators import SumLinearOperator as Sum
+from struphy.psydac_linear_operators.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.psydac_linear_operators.linear_operators import InverseLinearOperator as Invert
+from struphy.psydac_linear_operators.preconditioner import MassMatrixPreConditioner as MassPre
+
+from psydac.linalg.stencil import StencilVector
+from psydac.linalg.block import BlockVector
 
 
 class Push_maxwell:
@@ -135,16 +142,8 @@ class Push_maxwell_psydac:
         time_steps : list
             Time steps, one for each split step.
 
-        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-            Preconditioner for Schur, it should approximate the inverse of Schur.
-            Can either be:
-            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-            * A LinearSolver object (in which case the out parameter is used)
-            * A callable with two parameters (S, r), where S is the LinearOperator from above, and r is the residual.
-
-        print_info: boolean
-            Show step info on screen. 
+        params: dict
+            Solver parameters for this splitting step. 
 
     Arguments
     ---------
@@ -159,38 +158,53 @@ class Push_maxwell_psydac:
         Nothing. The coefficients are updated in place (overwritten).
     '''
 
-    def __init__(self, DR, time_steps, pc=None, print_info=False):
+    def __init__(self, DR, time_steps, params):
 
-        # Set objects
         self._DR = DR
         self._dts = time_steps
-        self._pc = pc
-        self._info = print_info
+        self._info = params['info']
+
+        # Preconditioner
+        if params['pc'] == None:
+            pc = None
+        elif params['pc'] == 'fft':
+            pc = MassPre(DR.V1)
+        else:
+            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix
         _A = DR.M1
-        self._B = Prod(-time_steps[0]/2. * DR.curl.transpose(), DR.M2)
-        self._C = time_steps[0]/2. * DR.curl
-        _BC = Prod(self._B, self._C)
+        self._B = Multiply(-time_steps[0]/2., Compose(DR.curl.transpose(), DR.M2))
+        self._C = Multiply(time_steps[0]/2., DR.curl)
+        _BC = Compose(self._B, self._C)
 
         # Instantiate Schur solver
-        self._schur_solver = Schur_solver(_A, _BC)
+        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
 
     def __call__(self, en, bn):
+
+        assert isinstance(en, BlockVector)
+        assert isinstance(bn, BlockVector)
 
         _e, info = self._schur_solver(en, self._B.dot(bn))
         _b = bn - self._C.dot(_e + en)
 
-        # in place update
-        en[:] = _e[:] 
-        bn[:] = _b[:]
+        # in place update of e
+        _diff_e = []
+        for old, new in zip(en, _e):
+            _diff_e += [np.max(np.abs(new._data - old._data))]
+            old[:] = new[:]
+            
+        # in place update of b
+        _diff_b = []
+        for old, new in zip(bn, _b):
+            _diff_b += [np.max(np.abs(new._data - old._data))]
+            old[:] = new[:]
 
         if self._info:
             print('Status     for Push_maxwell_psydac:', info['success'])
             print('Iterations for Push_maxwell_psydac:', info['niter'])
-            print('Maxdiff e1 for Push_maxwell_psydac:',
-                  np.max(np.abs(_e._data - en._data)))
-            print('Maxdiff b2 for Push_maxwell_psydac:',
-                  np.max(np.abs(_b._data - bn._data)))
+            print('Maxdiff e1 for Push_maxwell_psydac:', max(_diff_e))
+            print('Maxdiff b2 for Push_maxwell_psydac:', max(_diff_b))
             print()
 

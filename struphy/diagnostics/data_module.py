@@ -48,8 +48,8 @@ class Data_container:
                 self._ids[key] = id(obj)
                 # Add object id as attribute
                 #self._f[key].attrs['id'] = id(obj)
-                print(f'Rank: {self._rank} | ' + key.ljust(20) +
-                      'will be saved to ' + self._data_name)
+                # print(f'Rank: {self._rank} | ' + key.ljust(20) +
+                #       'will be saved to ' + self._data_name)
 
     @property
     def file(self):
@@ -75,8 +75,8 @@ class Data_container:
             #self._f[key].attrs['id'] = id(obj)
             # save initial value
             self._f[key][-1] = obj
-            print(f'Rank: {self._rank} | ' + key.ljust(20) +
-                  'will be saved to ' + self._data_name)
+            # print(f'Rank: {self._rank} | ' + key.ljust(20) +
+            #       'will be saved to ' + self._data_name)
 
     def save_data(self, keys=None):
         '''Save data objects to hdf5 file.
@@ -143,7 +143,7 @@ class Data_container_psydac:
 
         # Write mode, deletes existing file
         self._f = h5py.File(path_out + self._data_name, 'w')
-        #self._ids = dict()
+        self._ids = dict()
 
         if data_dict is not None:
             for key, obj in data_dict.items():
@@ -151,11 +151,11 @@ class Data_container_psydac:
                 self._f.create_dataset(
                     key, (1,) + obj.shape, maxshape=(None,) + obj.shape, dtype=float, chunks=True)
                 # replace object with its id
-                #self._ids[key] = id(obj)
+                self._ids[key] = id(obj)
                 # Add object id as attribute
-                self._f[key].attrs['id'] = id(obj)
-                print(f'Rank: {self._rank} | ' + key.ljust(20) +
-                      'will be saved to ' + self._data_name)
+                #self._f[key].attrs['id'] = id(obj)
+                # print(f'Rank: {self._rank} | ' + key.ljust(20) +
+                #       'will be saved to ' + self._data_name)
 
     @property
     def f(self):
@@ -176,13 +176,13 @@ class Data_container_psydac:
             self._f.create_dataset(
                 key, (1,) + obj.shape, maxshape=(None,) + obj.shape, dtype=float, chunks=True)
             # replace object with its id
-            #self._ids[key] = id(obj)
+            self._ids[key] = id(obj)
             # Add object id as attribute
-            self._f[key].attrs['id'] = id(obj)
+            #self._f[key].attrs['id'] = id(obj)
             # save initial value
             self._f[key][-1] = obj
-            print(f'Rank: {self._rank} | ' + key.ljust(20) +
-                  'will be saved to ' + self._data_name)
+            # print(f'Rank: {self._rank} | ' + key.ljust(20) +
+            #       'will be saved to ' + self._data_name)
 
     def save_data(self, keys=None):
         '''Save data objects to hdf5 file.
@@ -199,8 +199,9 @@ class Data_container_psydac:
 
                 #print(ctypes.cast(obj, ctypes.py_object).value)
                 dset.resize(dset.shape[0] + 1, axis=0)
-                dset[-1] = ctypes.cast(dset.attrs['id'],
-                                       ctypes.py_object).value
+                dset[-1] = ctypes.cast(self._ids[key], ctypes.py_object).value
+                # dset[-1] = ctypes.cast(dset.attrs['id'],
+                                    #    ctypes.py_object).value
                 #print(key + ' saved to data.hdf5')
 
         else:
@@ -209,8 +210,7 @@ class Data_container_psydac:
 
                 self._f[key].resize(self._f[key].shape[0] + 1, axis=0)
                 #self._f[key][-1] = ctypes.cast(self.ids[key], ctypes.py_object).value
-                self._f[key][-1] = ctypes.cast(self._f[key].attrs['id'],
-                                               ctypes.py_object).value
+                self._f[key][-1] = ctypes.cast(self._ids[key], ctypes.py_object).value
                 #print(key + ' saved to data.hdf5')
 
     def info(self):

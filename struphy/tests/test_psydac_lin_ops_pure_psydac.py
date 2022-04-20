@@ -2,10 +2,22 @@ import pytest
 
 
 # TODO: why is spl_kind=True not working with Nel=10, 11? SAVE SIDE always take power of 2 for Nel.
-@pytest.mark.parametrize('Nel', [[8, 8, 4], [9, 9, 4], [10, 12, 4], [11, 8, 4]])
-@pytest.mark.parametrize('p',   [[2, 2, 2], [3, 3, 2], [4, 4, 2], [5, 5, 2]])
-@pytest.mark.parametrize('spl_kind', [[False, True, True]])
-def test_lin_mhd_ops(Nel, p, spl_kind):
+@pytest.mark.parametrize('Nel', [[8, 12, 4]])
+@pytest.mark.parametrize('p',   [[2, 3, 2]])
+@pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
+@pytest.mark.parametrize('mapping', [
+    ['cuboid', {
+        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}]
+    # ['cuboid', {
+    #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
+    # ['colella', {
+    #     'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
+    # ['hollow_torus', {
+    #     'a1': 1., 'a2': 2., 'R0': 3.}],
+    # ['shafranov_dshaped', {
+    #     'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
+])
+def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     '''Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain), 
@@ -39,8 +51,8 @@ def test_lin_mhd_ops(Nel, p, spl_kind):
     MPI_COMM.Barrier()
 
     # Domain object
-    map = 'cuboid'
-    params_map = {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+    map = mapping[0]
+    params_map = mapping[1]
 
     DOMAIN = Domain(map, params_map)
 
@@ -632,4 +644,5 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == '__main__':
-    test_lin_mhd_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True])
+    test_lin_mhd_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True], 
+                        mapping=['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])
