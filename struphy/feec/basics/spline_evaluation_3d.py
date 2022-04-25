@@ -59,6 +59,37 @@ def evaluation_kernel(p1, p2, p3, basis1, basis2, basis3, span1, span2, span3, n
         
     return value
 
+# =============================================================================
+@types(         'int','int','int','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]')
+def eval_kernel(p1,   p2,   p3,   basis1,     basis2,     basis3,     ind1,    ind2,    ind3,    coeff          ):
+    '''Summing non-zero contributions.
+
+    Parameters:
+    -----------
+        p1, p2, p3:                 int                 spline degrees
+        basis1, basis2, basis3:     double[:]           pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2,3)
+        ind1, ind2, ind3            int[:]              contain global indices of non-vanishing splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+
+    Returns:
+    --------
+    value: float
+        Value of B-spline at point (eta1, eta2, eta3).
+    '''
+    
+    value = 0.
+    
+    for il1 in range(p1 + 1):
+        i1 = ind1[il1]
+        for il2 in range(p2 + 1):
+            i2 = ind2[il2]
+            for il3 in range(p3 + 1):
+                i3 = ind3[il3]
+                
+                value += coeff[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
+        
+    return value
+
 
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
@@ -445,7 +476,6 @@ def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, c
     return value
 
 
-
 # =============================================================================
 @types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
 def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, coeff, eta1, eta2, eta3):
@@ -593,6 +623,457 @@ def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, c
 
     # sum up non-vanishing contributions
     value = evaluation_kernel(pd1, pd2, pd3, bd1, bd2, bd3, span_d1, span_d2, span_d3, nbase_d1, nbase_d2, nbase_d3, coeff)
+
+    return value
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (NNN)-tensor-product spline. 
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors
+        pn1, pn2, pn3:              int                 spline degrees
+        ind_n1, ind_n2, ind_n3      int[:]              contain global indices of non-vanishing splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NNN)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+
+    # find knot span indices
+    span_n1 = bsp.find_span(tn1, pn1, eta1)
+    span_n2 = bsp.find_span(tn2, pn2, eta2)
+    span_n3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.b_splines_slim(tn1, pn1, eta1, span_n1, bn1)
+    bsp.b_splines_slim(tn2, pn2, eta2, span_n2, bn2)
+    bsp.b_splines_slim(tn3, pn3, eta3, span_n3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_diffn_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (dN/deta NN)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors
+        pn1, pn2, pn3:              int                 spline degrees
+        ind_n1, ind_n2, ind_n3      int[:]              contain global indices of non-vanishing splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (dN/deta NN)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+
+    # find knot span indices
+    span_n1 = bsp.find_span(tn1, pn1, eta1)
+    span_n2 = bsp.find_span(tn2, pn2, eta2)
+    span_n3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+    
+    bsp.b_spl_1st_der_slim( tn1, pn1, eta1, span_n1, bn1)
+    bsp.b_splines_slim(     tn2, pn2, eta2, span_n2, bn2)
+    bsp.b_splines_slim(     tn3, pn3, eta3, span_n3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_diffn_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (N dN/deta N)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors
+        pn1, pn2, pn3:              int                 spline degrees
+        ind_n1, ind_n2, ind_n3      int[:]              contain global indices of non-vanishing splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (N dN/deta N)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+
+    # find knot span indices
+    span_n1 = bsp.find_span(tn1, pn1, eta1)
+    span_n2 = bsp.find_span(tn2, pn2, eta2)
+    span_n3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.b_splines_slim(     tn1, pn1, eta1, span_n1, bn1)
+    bsp.b_spl_1st_der_slim( tn2, pn2, eta2, span_n2, bn2)
+    bsp.b_splines_slim(     tn3, pn3, eta3, span_n3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_n_diffn(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (NN dN/deta)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors
+        pn1, pn2, pn3:              int                 spline degrees
+        ind_n1, ind_n2, ind_n3      int[:]              contain global indices of non-vanishing splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NN dN/deta)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+
+    # find knot span indices
+    span_n1 = bsp.find_span(tn1, pn1, eta1)
+    span_n2 = bsp.find_span(tn2, pn2, eta2)
+    span_n3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.b_splines_slim(     tn1, pn1, eta1, span_n1, bn1)
+    bsp.b_splines_slim(     tn2, pn2, eta2, span_n2, bn2)
+    bsp.b_spl_1st_der_slim( tn3, pn3, eta3, span_n3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_d_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (DNN)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_d1, ind_n2, ind_n3      int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DNN)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd1 = pn1 - 1
+
+    # find knot span indices
+    span1 = bsp.find_span(tn1, pn1, eta1)
+    span2 = bsp.find_span(tn2, pn2, eta2)
+    span3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bd1     = empty(pd1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.d_splines_slim(tn1, pn1, eta1, span1, bd1)
+    bsp.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+    bsp.b_splines_slim(tn3, pn3, eta3, span3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pd1, pn2, pn3, bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_d2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (NDN)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_n1, ind_d2, ind_n3      int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NDN)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd2 = pn2 - 1
+
+    # find knot span indices
+    span1 = bsp.find_span(tn1, pn1, eta1)
+    span2 = bsp.find_span(tn2, pd2, eta2)
+    span3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bd2     = empty(pd2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+    bsp.d_splines_slim(tn2, pn2, eta2, span2, bd2)
+    bsp.b_splines_slim(tn3, pn3, eta3, span3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pd2, pn3, bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (NND)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_n1, ind_n2, ind_d3:     int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NND)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd3 = pn3 - 1
+
+    # find knot span indices
+    span1 = bsp.find_span(tn1, pn1, eta1)
+    span2 = bsp.find_span(tn2, pn2, eta2)
+    span3 = bsp.find_span(tn3, pd3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bd3     = empty(pd3 + 1, dtype=float)
+
+    bsp.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+    bsp.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+    bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pn2, pd3, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_n_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_d2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (NDD)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_n1, ind_d2, ind_d3:     int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (NDD)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+
+    # find knot span indices
+    span1 = bsp.find_span(tn1, pn1, eta1)
+    span2 = bsp.find_span(tn2, pd2, eta2)
+    span3 = bsp.find_span(tn3, pd3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bn1     = empty(pn1 + 1, dtype=float)
+    bd2     = empty(pd2 + 1, dtype=float)
+    bd3     = empty(pd3 + 1, dtype=float)
+
+    bsp.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+    bsp.d_splines_slim(tn2, pn2, eta2, span2, bd2)
+    bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pn1, pd2, pd3, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_d_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_n2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (DND)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_d1, ind_n2, ind_d3:     int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DND)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd1 = pn1 - 1
+    pd3 = pn3 - 1
+
+    # find knot span indices
+    span1 = bsp.find_span(tn1, pn1, eta1)
+    span2 = bsp.find_span(tn2, pn2, eta2)
+    span3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bd1     = empty(pd1 + 1, dtype=float)
+    bn2     = empty(pn2 + 1, dtype=float)
+    bd3     = empty(pd3 + 1, dtype=float)
+
+    bsp.d_splines_slim(tn1, pn1, eta1, span1, bd1)
+    bsp.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+    bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pd1, pn2, pd3, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_d_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_d2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (DDN)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_d1, ind_d2, ind_n3:     int[:]              contain global indices of non-vanishing B-/D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DDN)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+
+    # find knot span indices
+    span_d1 = bsp.find_span(tn1, pn1, eta1)
+    span_d2 = bsp.find_span(tn2, pn2, eta2)
+    span_n3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bd1     = empty(pd1 + 1, dtype=float)
+    bd2     = empty(pd2 + 1, dtype=float)
+    bn3     = empty(pn3 + 1, dtype=float)
+
+    bsp.d_splines_slim(tn1, pn1, eta1, span_d1, bd1)
+    bsp.d_splines_slim(tn2, pn2, eta2, span_d2, bd2)
+    bsp.b_splines_slim(tn3, pn3, eta3, span_n3, bn3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pd1, pd2, pn3, bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, coeff)
+
+    return value
+
+
+# =============================================================================
+@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
+def eval_d_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_d2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+    """
+    Point-wise evaluation of (DDD)-tensor-product spline.
+
+    Parameters:
+    -----------
+        tn1, tn2, tn3:              double[:]           knot vectors of B-splines
+        pn1, pn2, pn3:              int                 B-spline degrees
+        ind_d1, ind_d2, ind_d3:     int[:]              contain global indices of non-vanishing D-splines
+        coeff:                      double[:, :, :]     spline coefficients c_ijk
+        eta1, eta2, eta3:           double              point of evaluation
+
+    Returns:
+    --------
+        value: float
+            Value of (DDD)-tensor-product spline at point (eta1, eta2, eta3).
+    """
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+
+    # find knot span indices
+    span_d1 = bsp.find_span(tn1, pn1, eta1)
+    span_d2 = bsp.find_span(tn2, pn2, eta2)
+    span_d3 = bsp.find_span(tn3, pn3, eta3)
+
+    # evaluate non-vanishing basis functions
+    bd1     = empty(pd1 + 1, dtype=float)
+    bd2     = empty(pd2 + 1, dtype=float)
+    bd3     = empty(pd3 + 1, dtype=float)
+
+    bsp.d_splines_slim(tn1, pn1, eta1, span_d1, bd1)
+    bsp.d_splines_slim(tn2, pn2, eta2, span_d2, bd2)
+    bsp.d_splines_slim(tn3, pn3, eta3, span_d3, bd3)
+
+    # sum up non-vanishing contributions
+    value = eval_kernel(pd1, pd2, pd3, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, coeff)
 
     return value
 
@@ -750,3 +1231,5 @@ def evaluate_sparse(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, et
                 # V3 - space
                 elif kind == 3:
                     values[i1, i2, i3] = evaluate_d_d_d(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+
+# TODO: write eval_tensor_product, eval_matrix, and eval_sparse

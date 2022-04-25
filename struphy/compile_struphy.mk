@@ -5,6 +5,8 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
+flags_openmp_pic=--openmp
+
 FLAG_PATH        := $(flag_path)
 FLAGS            := 
 FLAGS_openmp_mhd := $(flags_openmp_mhd)
@@ -122,13 +124,13 @@ $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
 $(AK3)$(SO_EXT) : $(AK3).py $(BK)$(SO_EXT) $(BS)$(SO_EXT) $(MVF)$(SO_EXT)
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
     
 $(PW)$(SO_EXT) : $(PW).py $(BK)$(SO_EXT) $(BS)$(SO_EXT)
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PPV)$(SO_EXT) : $(PPV).py $(BK)$(SO_EXT)
-	pyccel $< $(FLAGS)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(KPG)$(SO_EXT) : $(KPG).py
 	pyccel $< $(FLAGS)
@@ -162,6 +164,9 @@ $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)
 
 $(PLO)$(SO_EXT) : $(PLO).py
 	pyccel $< $(FLAGS)
+
+$(PA4)$(SO_EXT) : $(PA4).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)

@@ -3,6 +3,7 @@ import numpy as np
 from struphy.pic import pusher_pos
 from struphy.pic import pusher_vel_3d
 from struphy.pic import pusher_pos_vel_3d
+from struphy.pic import pusher_weights
 
 
 class Push:
@@ -188,7 +189,7 @@ class Push:
         # update global variable
         particles[:, :] = temp
 
-    def step_in_const_efield(self, particles, efield, accuracy, print_info=False):
+    def step_in_const_efield(self, particles, efield, accuracy, maxiter, print_info=False):
         """
         updates the system dx/dt = v ; dv/dt = q/m * e_0(x)
 
@@ -202,6 +203,12 @@ class Push:
 
             accuracy : array
                 sets the accuracy for the position (in [0]) and velocity (in [1]) with which the iterative scheme of the pusher_x_v_static_efield should work
+
+            maxiter : integer
+                sets the maximum number of iterations for the iterative scheme in pusher_x_v_static_efield
+            
+            print_info : Boolean
+                if true then max step sizes for x and v will be displayed
         """
         from numpy import polynomial
         temp = particles.copy()
@@ -216,36 +223,40 @@ class Push:
         pd3 = pn3 - 1
 
         # number of quadrature points in direction 1
-        n_quad1 = int(pd1*pn2*pn3/2) + 1
+        n_quad1 = int(pd1*pn2*pn3/2.) + 2
         # number of quadrature points in direction 2
-        n_quad2 = int(pn1*pd2*pn3/2) + 1
+        n_quad2 = int(pn1*pd2*pn3/2.) + 2
         # number of quadrature points in direction 3
-        n_quad3 = int(pn1*pn2*pd3/2) + 1
+        n_quad3 = int(pn1*pn2*pd3/2.) + 2
 
-        # compute quadrature weights and locations
+        # get quadrature weights and locations
         loc1, weight1 = polynomial.legendre.leggauss(n_quad1)
         loc2, weight2 = polynomial.legendre.leggauss(n_quad2)
         loc3, weight3 = polynomial.legendre.leggauss(n_quad3)
 
         pusher_pos_vel_3d.pusher_x_v_static_efield( temp,
-                                                    self.dts[0],
+                                                    self.dts[1],
                                                     self.SPACES.p,
-                                                    self.SPACES.T[0], self.SPACES.T[1], self.SPACES.T[2],
+                                                    self.SPACES.T[0],    self.SPACES.T[1],    self.SPACES.T[2],
                                                     self.SPACES.indN[0], self.SPACES.indN[1], self.SPACES.indN[2],
                                                     self.SPACES.indD[0], self.SPACES.indD[1], self.SPACES.indD[2],
-                                                    loc1, loc2, loc3,
+                                                    loc1,    loc2,    loc3,
                                                     weight1, weight2, weight3,
                                                     self.Np_loc,
                                                     self.SPACES.NbaseN, self.SPACES.NbaseD,
                                                     efield,
-                                                    accuracy
+                                                    accuracy,
+                                                    maxiter
                                                     )
 
+        if np.isnan(temp).any():
+            print('position of nan', np.where(np.isnan(temp)))
+            print()
+
         if print_info:
-            print('max step size for positions in step_in_const_efield: ',
-                  np.max(np.abs(particles[0:3, :] - temp[0:3, :])))
-            print('max step size for velocities in step_in_const_efield: ',
-                  np.max(np.abs(particles[3:6, :] - temp[3:6, :])))
+            print('max step size for positions  in step_in_const_efield: ', np.max(np.abs(particles[0:3, :] - temp[0:3, :])))
+            print('max step size for velocities in step_in_const_efield: ', np.max(np.abs(particles[3:6, :] - temp[3:6, :])))
+            print()
 
         # update particles
-        particles[:, :] = temp
+        particles[:, :] = temp[:, :]
