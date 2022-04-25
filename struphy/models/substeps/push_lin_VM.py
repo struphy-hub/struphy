@@ -48,9 +48,8 @@ class Push_lVM:
         self.__num_iters  = int(0)
         self.__dts        = dts
 
-
+        # accumulate and assemble accumulation matrix and vector
         self.__ACCUM.accumulate_e_W_step(self.__particles, self.__MPI_COMM, self.__Np_loc, self.v_shift, self.v_th, self.n0)
-
         self.__Accum_mat, self.__Accum_vec = self.__ACCUM.assemble_step_e_W(self.__Np_loc)
 
         # define the necessary linear operator for the maxwell step
@@ -58,7 +57,6 @@ class Push_lVM:
         self.__RHS_e            = spa.linalg.LinearOperator( (self.__dim_V1, self.__dim_V1), matvec=self.__RHS_e_mat)
 
         self.__M1_inv           = mass_3d_pre.get_M1_PRE(self.__SPACES, self.__DOMAIN)
-
 
     # Counter function
     # ======================================
@@ -73,8 +71,6 @@ class Push_lVM:
     
     def __RHS_e_mat(self, u):
         return self.__SPACES.M1(u) - (self.__dts[0]**2/4.) * self.__Accum_mat.dot(u)
-
-
 
     def step_e_W(self, particles, efield, print_info=False):
         """
@@ -96,43 +92,45 @@ class Push_lVM:
         old_e         = efield.copy()
         old_particles = particles.copy()
 
+        # accumulate and assemble accumulation matrix and vector
+        self.__ACCUM.accumulate_e_W_step(particles, self.__MPI_COMM, self.__Np_loc, self.v_shift, self.v_th, self.n0)
+        self.__Accum_mat, self.__Accum_vec = self.__ACCUM.assemble_step_e_W(self.__Np_loc)
+
         self.__update_e(efield, print_info=print_info)
 
         pusher_weights.push_weights(particles,
-                                    self.__SPACES.p,
-                                    self.__SPACES.T[0], self.__SPACES.T[1], self.__SPACES.T[2],
                                     self.__Np_loc,
+                                    self.__SPACES.p,
+                                    self.__SPACES.T[0],    self.__SPACES.T[1],    self.__SPACES.T[2],
                                     self.__SPACES.indN[0], self.__SPACES.indN[1], self.__SPACES.indN[2],
                                     self.__SPACES.indD[0], self.__SPACES.indD[1], self.__SPACES.indD[2],
                                     self.__SPACES.NbaseN, self.__SPACES.NbaseD,
-                                    old_e,
-                                    efield,
+                                    efield + old_e,
                                     self.__dts[0],
-                                    self.v_shift,
-                                    self.v_th,
-                                    self.n0
+                                    self.v_shift, self.v_th, self.n0
                                     )
         
         # print info
-        print('Iterations for step_e_W:', self.__num_iters)
-        print('Maxdiff e1 for step_e_W:', np.max(np.abs(efield - old_e)))
-        print('Maxdiff weights for step_e_W:', np.max(np.abs(particles[6,:] - old_particles[6,:])))
-        print()
-
-
+        if print_info:
+            print('Iterations           for step_e_W:', self.__num_iters)
+            print('Maxdiff    e1        for step_e_W:', np.max(np.abs(efield - old_e)))
+            print('Maxdiff    weights   for step_e_W:', np.max(np.abs(particles[6,:] - old_particles[6,:])))
+            print()
 
     def __update_e(self, efield, print_info=False):
         """
-        TODO
+        updates the e-field by inverting the Schur matrix in substep 3
+
+        Parameters :
+        ------------
+        efield : array
+            contains the values for the spline coefficients of the electric field
+        
+        print_info : Boolean
+            if true then success status for solver will be displayed
         """
         
         old_e = efield.copy()
-
-        print()
-        print(' Testing ')
-        print()
-        print('maxvalue of accum_vec:', np.max(self.__Accum_vec.flatten()))
-        print()
 
         ## calculate the RHS
         rhs = self.__RHS_e(old_e) - self.__dts[0] * self.__Accum_vec.flatten()
@@ -148,7 +146,6 @@ class Push_lVM:
         else:
             raise ValueError('only gmres and cg solvers available')
         
-
         # print info
         if print_info: 
             print('Status     for step_e_W:', info)

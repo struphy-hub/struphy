@@ -41,6 +41,24 @@ def scaling(t_d, p_d, span_d, values):
 # ==============================================================================
 @types('double[:]','int','double')
 def find_span(t, p, eta):
+    """
+    Computes the span, i.e. the index i for which the B-splines i-p until i are non-vanishing at this point
+
+    Parameters:
+    -----------
+        t : array
+            knot sequence
+        
+        p : integer
+            degree of the basis splines
+        
+        eta : double
+            Evaluation point
+    
+    Returns:
+    --------
+        span-index 
+    """
     
     # Knot index at left/right boundary
     low  = p
@@ -158,18 +176,128 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
 
 
 # =============================================================================
-@types(             'double[:]','int','double','int','double[:]','double[:]')
-def basis_funs_slim(t,          pn,   eta,     span, bn,         bd):
+@types(            'double[:]','int','double','int','double[:]')
+def b_splines_slim(t,          pn,   eta,     span, values     ):
     """
-    One function to compute the values (written into bn and bd) of non-vanishing basis functions (splines)
-    What is called 'b' here, is 'values' in the other functions
+    Computes the values of pn+1 non-vanishing B-splines at position eta
+
+    Parameters
+    ----------
+    t : array
+        Knots sequence.
+
+    pn : int
+        Polynomial degree of B-splines.
+
+    eta : double
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    Returns
+    -------
+    values : array
+        Values of p + 1 non-vanishing B-Splines at location eta.
+    """
+    
+    # Initialize variables left and right used for computing the values
+    left  = empty( pn, dtype=float )
+    right = empty( pn, dtype=float )
+    left[:]   = 0.
+    right[:]  = 0.
+   
+    values[0] = 1.
+    
+    for j in range(pn):
+        left[j]  = eta - t[span - j]
+        right[j] = t[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            temp      = values[r]/(right[r] + left[j - r])
+            values[r] = saved + right[r] * temp
+            saved     = left[j - r] * temp
+        values[j + 1] = saved
+
+    del(left)
+    del(right)
+
+
+# =============================================================================
+@types(            'double[:]','int','double','int','double[:]')
+def d_splines_slim(t,          pn,   eta,     span, values     ):
+    """
+    Computes the values of pn non-vanishing D-splines at position eta
+
+    Parameters
+    ----------
+    t : array
+        Knot sequence
+
+    pn : int
+        Polynomial degree of B-splines.
+
+    eta : double
+        Evaluation point.
+
+    span : int
+        Knot span index.
+
+    Returns
+    -------
+    values : array
+        Values of p non-vanishing D-Splines at location eta.
+    """
+    
+    # compute D-spline degree
+    pd = pn - 1
+
+    # make sure the arrays we are writing to are empty
+    values[:] = 0.
+
+    # Initialize variables left and right used for computing the B-splines up to degree p-1
+    left     = empty( pn - 1, dtype=float )
+    right    = empty( pn - 1, dtype=float )
+    left[:]  = 0.
+    right[:] = 0.
+
+    # Compute B-splines up to degree p-1
+    b_values    = empty( pn, dtype=float )
+    b_values[:] = 0.
+
+    b_values[0] = 1.
+
+    for j in range(pd):
+        left[j]  = eta - t[span - j]
+        right[j] = t[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            temp        = b_values[r] / (right[r] + left[j - r])
+            b_values[r] = saved + right[r] * temp
+            saved       = left[j - r] * temp
+        b_values[j + 1] = saved
+
+    # compute D-splines values by scaling
+    for il in range(pd + 1):
+        values[pd - il] = pn/(t[span - il + pn] - t[span - il]) * b_values[pd - il]
+
+    del(left)
+    del(right)
+    del(b_values)
+
+
+# =============================================================================
+@types(              'double[:]','int','double','int','double[:]','double[:]')
+def b_d_splines_slim(t,          pn,   eta,     span, bn,         bd         ):
+    """
+    One function to compute the values of non-vanishing B-splines and D-splines
 
     Arguments : 
         t : array
             len 2*p+1, contains the knot vectors
         
         pn : int
-            contains the degree of the B-spline in this direction
+            Polynomial degree of the B-spline in this direction
 
         span : integer
             index for non-vanishing basis functions; index i -> [i-p,i] basis functions are non-vanishing
@@ -184,44 +312,42 @@ def basis_funs_slim(t,          pn,   eta,     span, bn,         bd):
             len np, here the values for the non-vanishing D-splines will be written
     """
 
-    from numpy import empty
-
     # compute D-spline degree
     pd = pn - 1
 
     # make sure the arrays we are writing to are empty
-    bn[:] = 0
-    bd[:] = 0
+    bn[:] = 0.
+    bd[:] = 0.
 
     # Initialize variables left and right used for computing the value
-    left  = empty( pn, dtype=float )
-    right = empty( pn, dtype=float )
-    left[:]      = 0.
-    right[:]     = 0.
-    
-    b = empty( (pn+1, pn+1), dtype=float )
-    b[:, :] = 0.
-    b[0, 0] = 1.
+    left     = empty( pn, dtype=float )
+    right    = empty( pn, dtype=float )
+    left[:]  = 0.
+    right[:] = 0.
 
-    diff = empty( pn, dtype=float )
-    
+    bn[:] = 0.
+
+    bn[0] = 1.
+
     for j in range(pn):
         left[j]  = eta - t[span - j]
         right[j] = t[span + 1 + j] - eta
         saved    = 0.
-        for r in range(j + 1):
-            diff[r] = 1. / (right[r] + left[j - r])
-            temp = b[j, r] * diff[r]
-            b[j + 1, r] = saved + right[r] * temp
-            saved     = left[j - r] * temp
-        b[j + 1, j + 1] = saved
+
+        if j == pn-1:
+            # compute D-splines values by scaling B-splines of degree pn-1
+            for il in range(pd + 1):
+                bd[pd - il] = pn/(t[span - il + pn] - t[span - il]) * bn[pd - il]
         
-    diff[:] = diff*pn
+        for r in range(j + 1):
+            temp    = bn[r]/(right[r] + left[j - r])
+            bn[r]   = saved + right[r] * temp
+            saved   = left[j - r] * temp
 
-    bn[:] = b[pn, :]
+        bn[j + 1] = saved
 
-    bd[:] = b[pd, :pn] * diff[:]
-
+    del(left)
+    del(right)
 
 
 # =============================================================================
@@ -334,10 +460,48 @@ def basis_funs_1st_der(t, p, eta, span, left, right, values):
     values[p] = saved
 
 
+# ==============================================================================
+@types(                'double[:]','int','double','int','double[:]')
+def b_spl_1st_der_slim(t,          p,    eta,     span, values):
+    """
+    Parameters
+    ----------
+    t : array_like
+        Knots sequence.
 
+    p : int
+        Polynomial degree of B-splines.
 
+    eta : double
+        Evaluation point.
 
+    span : int
+        Knot span index.
 
+    Returns
+    -------
+    values : array
+        Derivatives of p + 1 non-vanishing B-Splines at location eta.
+    """
+    
+    # Compute nonzero basis functions and knot differences for splines up to degree p - 1
+    values_b = empty(p + 1, dtype=float)
+    b_splines_slim(t, p - 1, eta, span, values_b)
+
+    # Compute derivatives at x using formula based on difference of splines of degree p - 1
+    # -------
+    # j = 0
+    saved   = p * values_b[0] / (t[span + 1] - t[span + 1 - p])
+    values[0] = -saved
+    
+    # j = 1, ... , p - 1
+    for j in range(1, p):
+        temp    = saved
+        saved   = p * values_b[j] / (t[span + j + 1] - t[span + j + 1 - p])
+        values[j] = temp - saved
+    
+    # j = degree
+    values[p] = saved
 
 
 #========================================================================================
@@ -401,10 +565,6 @@ def piecewise_der(p, delta, eta):
     ierr = 0
 
 
-
-
-
-
 #========================================================================================
 @types('int','double[:]','double')
 def convolution(p, grids, eta):
@@ -436,7 +596,6 @@ def convolution(p, grids, eta):
     return result
 
     ierr = 0
-
 
 
 #========================================================================================

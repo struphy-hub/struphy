@@ -148,8 +148,8 @@ kinetic_init   :
             amp : [0.001]
 
 grid :
-      Nel      : [2, 3, 4] # number of grid cells > 1
-      p        : [1, 2, 3] # spline degree > 0
+      Nel      : [2, 2, 256] # number of grid cells > 1
+      p        : [1, 1, 3] # spline degree > 0
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
       nq_el    : [2, 2, 2] # quadrature points per grid cell
@@ -157,7 +157,7 @@ grid :
       polar    : False # use polar splines       
 
 markers :
-      Np            : 10 # total number of particles
+      Np            : 20000 # total number of particles
       control       : False # control variate (use delta-f)?
       loading       : pseudo_random # particle loading
       seed          : 1234 # seed for random number generator
@@ -166,11 +166,10 @@ markers :
       v_max         : 5. # maximum velocity for binning (in units of v_A)            
 
 time : 
-      dt         : 0.1
-      Tend       : 1.
+      dt         : 0.01
+      Tend       : 0.05
       max_time   : 60. # maximum runtime of program in minutes
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
-      loc_j_eq   : step_6 # location of j_eq X B term (either 'step_2' or 'step_6') 
 
 solvers :
       PRE : FFT # pre-conditioner for linear systems (ILU or FFT)
@@ -187,10 +186,13 @@ solvers :
       tol2 : 0.00000001
       tol3 : 0.00000001
       tol6 : 0.00000001
+      tol_x : 0.0000000001 # accuracy for iteartive solver step_in_const-efield
+      tol_v : 0.0000000001 # accuracy for iteartive solver step_in_const-efield
       maxiter1 : 1000 # maximum number of iterations
       maxiter2 : 1000
       maxiter3 : 1000
       maxiter6 : 1000
+      maxiter : 50 # maximum number of iterations for step_in_const_efield
       show_info_alfven : False
       show_info_sonic  : False
       show_info_maxwell : False

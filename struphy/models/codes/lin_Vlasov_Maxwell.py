@@ -58,6 +58,7 @@ def execute(file_in, path_out, restart):
     v_th    = np.array([params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['vth_x'],
                         params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['vth_y'],
                         params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['vth_z']])
+
     n0      = params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['nh0']
 
 
@@ -106,23 +107,6 @@ def execute(file_in, path_out, restart):
         SPACES.projectors.assemble_approx_inv(params['solvers']['tol_inv'])
 
 
-    # import struphy.feec.bsplines_kernels as bsp
-    # print()
-    # print('Testing')
-    # print()
-    # print('indN:')
-    # for i in range(3):
-    #     print(i)
-    #     print(SPACES.indN[i])
-    #     print()
-    # print()
-    # print('as numpy array:')
-    # for k in range(3):
-    #     print(k)
-    #     print(np.array(SPACES.indN)[k])
-    #     print()
-    # return
-
 
     # ========================================================================================= 
     # FIELDS EQUILIBRIUM Object
@@ -167,7 +151,6 @@ def execute(file_in, path_out, restart):
     print('Kinetic equilibrium (physical) set.')
     print()
 
-
     # kinetic equilibrium (logical)
     EQ_KINETIC_L = kinetic_equil_logical.Equilibrium_kinetic_logical(DOMAIN, EQ_KINETIC_P)
     print('Kinetic equilibrium (logical) set.')
@@ -179,15 +162,16 @@ def execute(file_in, path_out, restart):
     # MARKER and ACCUMULATION Objects
     # =========================================================================================
     # TODO: restart has to be done here
-    KIN = kinetic_init.Initialize_markers(DOMAIN, EQ_KINETIC_L, 
-                                        params['kinetic_init']['general'],
-                                        params['kinetic_init']['params_' + params['kinetic_init']['general']['type']],
-                                        params['markers'], MPI_COMM
-                                        )
+    KIN = kinetic_init.Initialize_markers(  DOMAIN, EQ_KINETIC_L, 
+                                            params['kinetic_init']['general'],
+                                            params['kinetic_init']['params_' + params['kinetic_init']['general']['type']],
+                                            params['markers'],
+                                            MPI_COMM
+                                            )
     print(KIN.Np_loc, 'markers initialized on rank', mpi_rank)
     print()
 
-    # # create particle accumulator (all processes)
+    # create particle accumulator (all processes)
     ACCUM = accumulation.Accumulation(SPACES, DOMAIN, MPI_COMM)
 
     print('Accumulator initialized on rank', mpi_rank)
@@ -241,10 +225,12 @@ def execute(file_in, path_out, restart):
     elif params['time']['split_algo'] == 'Strang':
 
         # set time steps for Strang splitting
-        dts_fields     = [params['time']['dt'],
-                       params['time']['dt']/2.]  
-        dts_markers     = [params['time']['dt'],
-                       params['time']['dt']/2] 
+        dts_markers     = [ params['time']['dt'],
+                            params['time']['dt']/2] 
+        dts_coupling    = [ params['time']['dt'],
+                            params['time']['dt']/2.]
+        dts_fields      = [ params['time']['dt'],
+                            params['time']['dt']]  
 
     else:
         raise ValueError('Time stepping scheme not available.')
@@ -271,9 +257,15 @@ def execute(file_in, path_out, restart):
     print('Coupling time stepping available.')
     print()
 
-
     # set accuracy for particles in constant electric field
     accuracy = [1e-10, 1e-10]
+
+
+    # get accuracy for particles in constant electric field
+    accuracy = [params['solvers']['tol_x'],
+                params['solvers']['tol_x']]
+
+    maxiter  = params['solvers']['maxiter']
 
 
 
@@ -283,34 +275,49 @@ def execute(file_in, path_out, restart):
 
             # substeps (Lie-Trotter splitting):
 
-            # substep 1 for \fJ_1 of X-V subsystem
-            UPDATE_MARKERS.step_in_const_efield(KIN.particles_loc, FIELDS.e1, accuracy, print_info=True)
-            print('step in const efield done!')
-            print()
-            MPI_COMM.Bcast(FIELDS.e1, root=0)
+            # substep 1 for \fJ_1 of X-V subsystem;  
+            UPDATE_MARKERS.step_in_const_efield(KIN.particles_loc, FIELDS.e1, accuracy, maxiter, print_info=True)
 
             # substep 2 for \fJ_2 of X-V subsystem
-            UPDATE_MARKERS.step_v_cyclotron_ana(KIN.particles_loc, b2_eq, 0*b2_eq, print_info=True)
-            print('step in cyclotron done!')
-            print()
+            UPDATE_MARKERS.step_v_cyclotron_ana(KIN.particles_loc, b2_eq, 0.*b2_eq, print_info=True)
 
             # W-e-b subsystem, step for \fJ_3 where bfield is constant
             UPDATE_E_W.step_e_W(KIN.particles_loc, FIELDS.e1, print_info=True)
             MPI_COMM.Bcast(FIELDS.e1, root=0)
-            print('step_e_W done!')
-            print()
 
             # W-e-b subsystem, step for \fJ_4 where weights are constant
-            UPDATE_FIELDS.step_maxwell(FIELDS.e1, FIELDS.b2, print_info=False)
+            UPDATE_FIELDS.step_maxwell(FIELDS.e1, FIELDS.b2, print_info=True)
             MPI_COMM.Bcast(FIELDS.e1, root=0)
             MPI_COMM.Bcast(FIELDS.b2, root=0)
-            print('step maxwell done!')
-            print()
 
         elif params['time']['split_algo'] == 'Strang':
 
             # substeps (Strang splitting):
-            pass
+
+            # substep 1 for \fJ_1 of X-V subsystem; with half-size time-step  
+            UPDATE_MARKERS.step_in_const_efield(KIN.particles_loc, FIELDS.e1, accuracy, maxiter, print_info=True)
+
+            # substep 2 for \fJ_2 of X-V subsystem;  with half-size time-step
+            UPDATE_MARKERS.step_v_cyclotron_ana(KIN.particles_loc, b2_eq, 0.*b2_eq, print_info=True)
+
+            # W-e-b subsystem, step for \fJ_3 where bfield is constant;  with half-size time-step
+            UPDATE_E_W.step_e_W(KIN.particles_loc, FIELDS.e1, print_info=True)
+            MPI_COMM.Bcast(FIELDS.e1, root=0)
+
+            # W-e-b subsystem, step for \fJ_4 where weights are constant;  with full-size time-step
+            UPDATE_FIELDS.step_maxwell(FIELDS.e1, FIELDS.b2, print_info=True)
+            MPI_COMM.Bcast(FIELDS.e1, root=0)
+            MPI_COMM.Bcast(FIELDS.b2, root=0)
+
+            # W-e-b subsystem, step for \fJ_3 where bfield is constant;  with half-size time-step
+            UPDATE_E_W.step_e_W(KIN.particles_loc, FIELDS.e1, print_info=True)
+
+            # substep 2 for \fJ_2 of X-V subsystem;  with half-size time-step
+            UPDATE_MARKERS.step_v_cyclotron_ana(KIN.particles_loc, b2_eq, 0.*b2_eq, print_info=True)
+
+            # substep 1 for \fJ_1 of X-V subsystem; with half-size time-step
+            UPDATE_MARKERS.step_in_const_efield(KIN.particles_loc, FIELDS.e1, accuracy, maxiter, print_info=True)
+
         else:
             raise NotImplementedError('Only Lie-Trotter and Strang splitting available.')   
 
