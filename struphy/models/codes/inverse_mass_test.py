@@ -142,17 +142,20 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     update() 
 
     # Verify results:
-    print(f'Maxdiff v0: {np.max(np.abs(DR.M0.dot(v0).toarray() - v0_old.toarray()))}')
-    print(f'Maxdiff v1: {np.max(np.abs(DR.M1.dot(v1).toarray() - v1_old.toarray()))}')
-    print(f'Maxdiff v2: {np.max(np.abs(DR.M2.dot(v2).toarray() - v2_old.toarray()))}')
-    print(f'Maxdiff v3: {np.max(np.abs(DR.M3.dot(v3).toarray() - v3_old.toarray()))}')
-
+ 
+    d0 = np.max(np.abs(DR.M0.dot(v0).toarray() - v0_old.toarray()))
+    d1 = np.max(np.abs(DR.M1.dot(v1).toarray() - v1_old.toarray()))
+    d2 = np.max(np.abs(DR.M2.dot(v2).toarray() - v2_old.toarray()))
+    d3 = np.max(np.abs(DR.M3.dot(v3).toarray() - v3_old.toarray()))
+    
     end_simulation = time.time()
+
     if mpi_rank == 0:
-        print()
-        print('time of simulation [sec]: ', end_simulation - start_simulation)
-        print() 
-  
+    	print(f'Maxdiff v0: {d0}')
+    	print(f'Maxdiff v1: {d1}')
+    	print(f'Maxdiff v2: {d2}')
+    	print(f'Maxdiff v3: {d3}')
+
 
 # if __name__ == '__main__':
 #     # do "pip install -e ." to use these paths

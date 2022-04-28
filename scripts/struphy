@@ -264,7 +264,9 @@ if [ "$RUN" = true ] ; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
   fi
 
-  mkdir -p $OUTPUT_ABS 
+  # Create ouput folder and copy parameters there
+  mkdir -p $OUTPUT_ABS
+  cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
   METAFILE=$OUTPUT_ABS/meta.txt 
 
   # Run flags

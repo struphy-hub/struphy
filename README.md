@@ -66,15 +66,12 @@ Not yet published.
 * Python 3 
 * pip3
 * Fortran compiler (gcc/gfortran)
+* openmpi
 
 as well as the following Ubuntu packages (`apt-get install`):
 
     libblas-dev 
     liblapack-dev
-    libopenmpi-dev
-    openmpi-bin
-    libomp-dev 
-    libomp5
 
 Necessary Python packages will be automatically installed with `pip install .` (list of packages in `setup.py`).
 
@@ -94,15 +91,6 @@ Installation of `h5py` when using homebrew::
 
     HDF5_DIR=/opt/homebrew/Cellar/hdf5/1.13.0 
     pip install h5py
-
-
-## Computing clusters
-
-Specifics for the HPC system `cobra` at IPP::
-
-    module load anaconda/3/2020.02
-    module load gcc
-    module load openmpi
 
 
 ## Installation 
@@ -127,7 +115,7 @@ Virtual environment install (recommended if not on computing cluster)::
     source <env_name>/bin/activate
     pip install .
 
-Next, install the submodules `gvec_to_python` and `psydac`::
+Next, install the submodules `gvec_to_python` and `psydac` ::
 
     git submodule init
     git submodule update
