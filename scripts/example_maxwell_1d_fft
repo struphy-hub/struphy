@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy -r maxwell -i 'parameters_example_1d_fft.yml' -o examples/maxwell_1d_fft
+struphy run maxwell -i 'parameters_example_1d_fft.yml' -o examples/maxwell_1d_fft
 
 path_lib=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
 

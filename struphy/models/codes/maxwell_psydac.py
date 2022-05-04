@@ -24,26 +24,19 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
      
     import yaml
     import time
-    import socket
     import numpy as np
 
-    from struphy.feec.psydac_derham import Derham_build
-    from struphy.diagnostics.data_module import Data_container_psydac as Data_container
     from struphy.geometry.domain_3d import Domain
-    from struphy.mhd_equil.gvec             import mhd_equil_gvec
-    from struphy.feec                       import spline_space
-    from struphy.models.substeps.push_maxwell import Push_maxwell_psydac
-    from struphy.mhd_init                   import emw_init
+    from struphy.feec.psydac_derham import Derham_build
     from struphy.psydac_linear_operators.fields import Field_init
-
+    from struphy.diagnostics.data_module import Data_container_psydac as Data_container
+    from struphy.models.substeps.push_maxwell import Push_maxwell_psydac
+    
     from psydac.linalg.stencil import StencilVector
 
     # mpi communicator
     MPI_COMM = comm
     mpi_rank = MPI_COMM.Get_rank()
-    print("Hello from rank {:0>4d} : {}".format(mpi_rank, socket.gethostname()))
-    MPI_COMM.Barrier()
-
     if mpi_rank == 0:
         print(f'\nMPI communicator initialized with {MPI_COMM.Get_size()} process(es).\n')
 
@@ -110,7 +103,7 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
 
     fields = []
     for name, space, comps in zip(f_names, f_spaces, f_comps):
-        fields += [Field_init(name, space, comps, f_init, f_coords, f_params, DR, DOMAIN)]
+        fields += [Field_init(name, space, DR, DOMAIN, comps=comps, init_type=f_init, init_coords=f_coords, init_params=f_params)]
 
         if verbose:
             print(f'Rank: {mpi_rank} | field      : {fields[-1].name}')
@@ -124,7 +117,6 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     # Pointers to Stencil-/Blockvectors
     e = fields[0].vector
     b = fields[1].vector
-    # print('')
 
     # ========================================================================================= 
     # DATA object for saving
@@ -142,7 +134,7 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
             DATA.f[key].attrs['pads'] = field.pads
         else:
             for n in range(3):
-                key = field.name + '_' + str(n + 1)
+                key = field.name + '_' + str(n)
                 DATA.add_data({key: field.vector[n]._data}) # save numpy array to be updated each time step.
                 DATA.f[key].attrs['space_cont'] = field.space_cont
                 DATA.f[key].attrs['starts'] = field.starts
@@ -163,7 +155,9 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
 
     DATA.add_data(time_series)
 
-    if mpi_rank == 0: print(f'Rank: {mpi_rank} | Initial time series saved.\n')
+    if mpi_rank == 0: 
+        print(f'Rank: {mpi_rank} | Initial time series saved.\n')
+        print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
 
     if verbose:
         if mpi_rank == 0: DATA.info()
@@ -177,10 +171,8 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     
     if split_algo == 'LieTrotter':
         time_steps     = [dt, dt]
-
     elif params['time']['split_algo'] == 'Strang':
         time_steps     = [dt, dt/2.]  
-
     else:
         raise ValueError('Time stepping scheme not available.')
 
@@ -249,9 +241,5 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
             step            = str(time_steps_done).zfill(str_len)
             message         = 'time steps finished : ' + step + '/' + total_stetps
             print('\r', message, end='\n')
+            print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
   
-
-if __name__ == '__main__':
-    # do "pip install -e ." to use these paths
-    execute('struphy/io/inp/maxwell_psydac/parameters.yml', 
-            'struphy/io/out/sim_1/', restart=False)

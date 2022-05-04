@@ -691,7 +691,7 @@ class Domain():
                 Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
                 Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
                 
-                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
+                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)], dtype=float)
             else:
                 a_in = np.array(a)
                 
@@ -763,7 +763,7 @@ class Domain():
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
                 
@@ -832,7 +832,7 @@ class Domain():
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
                 

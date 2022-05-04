@@ -30,6 +30,7 @@ if mpi_rank == 0:
         f.write('\ndate of simulation: '.ljust(20) + str(datetime.datetime.now()) + '\n')
         f.write('platform: '.ljust(20) + sysconfig.get_platform() + '\n')
         f.write('python version: '.ljust(20) + sysconfig.get_python_version() + '\n')
+        f.write('code: '.ljust(20) + code + '\n')
         f.write('# processes: '.ljust(20) + str(MPI_COMM.Get_size()) + '\n')
 
 # start simulation:   

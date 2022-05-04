@@ -84,8 +84,8 @@ initialization   :
             amp   : 0.1       # noise amplitude
 
 grid :
-      Nel      : [2, 2, 64] # number of grid cells > 1
-      p        : [1, 1, 3] # spline degree > 0
+      Nel      : [4, 4, 128] # number of grid cells > 1
+      p        : [2, 2, 3] # spline degree > 0
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
       nq_el    : [2, 2, 2] # quadrature points per grid cell
@@ -94,7 +94,7 @@ grid :
 
 time : 
       dt         : 0.05
-      Tend       : 50
+      Tend       : 0.5
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
 
@@ -115,7 +115,7 @@ solvers :
       maxiter2 : 1000
       maxiter3 : 1000
       maxiter6 : 1000
-      show_info : False
+      show_info : True
 
 
 

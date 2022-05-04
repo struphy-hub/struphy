@@ -7,7 +7,7 @@ from struphy.diagnostics.diagn_tools import load_values_from_path, get_dispersio
 from struphy.diagnostics.post_processing import Post_processing
 
 path_out        = sysconfig.get_path("platlib") + '/struphy/io/out/examples/maxwell_1d_fft/'
-params_name     = 'parameters_example_1d_fft.yml'
+params_name     = 'parameters.yml'
 data_name       = 'data.hdf5'
 eval_data_name  = 'eval_data.hdf5'
 

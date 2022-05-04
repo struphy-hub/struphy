@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
 
-from struphy.models.substeps.push_inverse_mass import InvertMassMatrices
-
-
 def execute(file_in, path_out, comm, restart=False, verbose=False):
     '''Executes the code inverse_mass_test.
 
@@ -26,8 +23,6 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     '''
      
     import yaml
-    import time
-    import socket
     import numpy as np
 
     from struphy.geometry.domain_3d import Domain
@@ -40,9 +35,6 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     # mpi communicator
     MPI_COMM = comm
     mpi_rank = MPI_COMM.Get_rank()
-    print("Hello from rank {:0>4d} : {}".format(mpi_rank, socket.gethostname()))
-    MPI_COMM.Barrier()
-
     if mpi_rank == 0:
         print(f'\nMPI communicator initialized with {MPI_COMM.Get_size()} process(es).\n')
 
@@ -130,8 +122,6 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
         print()
         print('Start inverting... ')
         print()
-
-    start_simulation = time.time()
             
     v0_old = v0.copy()
     v1_old = v1.copy()
@@ -142,22 +132,15 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     update() 
 
     # Verify results:
- 
     d0 = np.max(np.abs(DR.M0.dot(v0).toarray() - v0_old.toarray()))
     d1 = np.max(np.abs(DR.M1.dot(v1).toarray() - v1_old.toarray()))
     d2 = np.max(np.abs(DR.M2.dot(v2).toarray() - v2_old.toarray()))
     d3 = np.max(np.abs(DR.M3.dot(v3).toarray() - v3_old.toarray()))
-    
-    end_simulation = time.time()
 
     if mpi_rank == 0:
-    	print(f'Maxdiff v0: {d0}')
-    	print(f'Maxdiff v1: {d1}')
-    	print(f'Maxdiff v2: {d2}')
-    	print(f'Maxdiff v3: {d3}')
+        print(f'Maxdiff v0: {d0}')
+        print(f'Maxdiff v1: {d1}')
+        print(f'Maxdiff v2: {d2}')
+        print(f'Maxdiff v3: {d3}')
 
 
-# if __name__ == '__main__':
-#     # do "pip install -e ." to use these paths
-#     execute('struphy/io/inp/inverse_mass_test/parameters.yml', 
-#             'struphy/io/out/sim_1/', restart=False)

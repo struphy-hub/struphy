@@ -1,12 +1,12 @@
 from psydac.linalg.basic import LinearSolver
-from psydac.linalg.direct_solvers import DirectSolver
+from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix, BlockDiagonalSolver
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.linalg.kron import KroneckerLinearSolver
+from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
@@ -22,15 +22,15 @@ from numpy import ndarray, zeros_like, allclose, roll
 
 class MassMatrixPreConditioner(LinearSolver):
 
-    def __init__(self, femspace):
+    def __init__(self, femspace, use_fft=True):
 
         # Get dimensions (=number of elements for periodic boundary conditions) and degrees
         if isinstance(femspace, TensorFemSpace):
-            _Nel = [[space.nbasis for space in femspace.spaces]]
+            _Nel = [[space.ncells for space in femspace.spaces]]
             _p   = [[space.degree for space in femspace.spaces]]
             _basis = [[space.basis for space in femspace.spaces]]
         elif isinstance(femspace, ProductFemSpace):
-            _Nel = [[direction.nbasis for direction in space.spaces] for space in femspace.spaces]
+            _Nel = [[direction.ncells for direction in space.spaces] for space in femspace.spaces]
             _p   = [[direction.degree for direction in space.spaces] for space in femspace.spaces]
             _basis = [[direction.basis for direction in space.spaces] for space in femspace.spaces]
         else:
@@ -45,13 +45,15 @@ class MassMatrixPreConditioner(LinearSolver):
 
         # Obtain first column of 1d mass matrices 
         self._solvers = []
+        self._matrices = []
         for Nel_dirs, p_dirs, basis_dirs in zip(_Nel, _p, _basis):
             self._solvers += [[]]
+            self._matrices += [[]]
             for Nel, p, basis in zip(Nel_dirs, p_dirs, basis_dirs):
 
                 # Discrete logical domain, no mpi communicator passed (!), hence not distributed
                 _domain_log_h = discretize(_domain_log, ncells=[Nel])
-
+ 
                 # Discrete De Rham with periodic boundary conditions
                 if basis == 'M': p += 1
                 _derham = discretize(_derham_symb, _domain_log_h, degree=[p], periodic=[True])
@@ -73,17 +75,36 @@ class MassMatrixPreConditioner(LinearSolver):
 
                 _M = self._a_h.assemble()
 
-                self._solvers[-1] += [FFTSolver(_M.toarray())]
+                self._matrices[-1] += [_M]
+
+                if use_fft:
+                    self._solvers[-1] += [FFTSolver(_M.toarray())]
+                else:
+                    self._solvers[-1] += [SparseSolver(_M.tosparse())]
                 
         if len(self._solvers) == 1:
+
+            self._matrix = KroneckerStencilMatrix(self.space, self.space, *self._matrices[0])
             self._solver = KroneckerLinearSolver(self.space, self._solvers[0])
+
         else:
-            _blocks = [KroneckerLinearSolver(space, self._solvers[n]) for n, space in enumerate(self.space.spaces)]
-            self._solver = BlockDiagonalSolver(self.space, _blocks)
+
+            _blocks_list = [KroneckerStencilMatrix(space, space, *self._matrices[n]) for n, space in enumerate(self.space.spaces)]
+            _blocks = {}
+            for n in range(3):
+                _blocks[(n, n)] = _blocks_list[n]
+            self._matrix = BlockMatrix(self.space, self.space, _blocks)
+
+            _solver_blocks = [KroneckerLinearSolver(space, self._solvers[n]) for n, space in enumerate(self.space.spaces)]
+            self._solver = BlockDiagonalSolver(self.space, _solver_blocks)
 
     @property
     def space(self):
         return self._femspace.vector_space
+
+    @property
+    def matrix(self):
+        return self._matrix
 
     def solve( self, rhs, out=None, transposed=False ):
         assert isinstance(rhs, (StencilVector, BlockVector))
