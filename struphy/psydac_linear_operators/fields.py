@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
+# from psydac.linalg.block import BlockVector
+from psydac.fem.tensor import FemField
 
 from struphy.geometry.domain_3d import prepare_args
 from struphy.analytic_funcs.fourier import Modes_sin, Modes_cos
@@ -12,7 +13,7 @@ import numpy as np
 class Field_init:
     '''Initializes a field variable (i.e. its FE coefficients) in memory and assigns the initial condition.'''
 
-    def __init__(self, name, space, comps, init_type, init_coords, init_params, DR, DOMAIN):
+    def __init__(self, name, space, DR, DOMAIN, comps=None, init_type=None, init_coords=None, init_params=None):
         '''
         Parameters
         ----------
@@ -22,7 +23,13 @@ class Field_init:
             space: str
                 Space identifier for the field (H1, Hcurl, Hdiv or L2), specified in the parameters.yml file by the user.
 
-            comps: 3-list
+            DR: obj
+                From struphy/psydac_api/fields.Field_init.
+
+            DOMAIN: obj
+                From struphy/geometry/domain_3d.Domain.
+
+            comps: list
                 Booleans that specify whether field component has non-zero initial conditions (True).
 
             init_type: str
@@ -33,12 +40,6 @@ class Field_init:
 
             init_params: dict
                 Parameters of initial condition, specified in the parameters.yml file by the user.
-
-            DR: obj
-                From struphy/psydac_api/fields.Field_init.
-
-            DOMAIN: obj
-                From struphy/geometry/domain_3d.Domain.
         '''
 
         self._name = name
@@ -49,20 +50,23 @@ class Field_init:
         # Initialize field in memory
         if space == 'H1':
             self._space = DR.V0
-            self._vector = StencilVector(self._space.vector_space)
+            #self._vector = StencilVector(self._space.vector_space)
         elif space == 'Hcurl':
             self._space = DR.V1
-            self._vector = BlockVector(self._space.vector_space, [
-                StencilVector(comp) for comp in self._space.vector_space])
+            # self._vector = BlockVector(self._space.vector_space, [
+                # StencilVector(comp) for comp in self._space.vector_space])
         elif space == 'Hdiv':
             self._space = DR.V2
-            self._vector = BlockVector(self._space.vector_space, [
-                StencilVector(comp) for comp in self._space.vector_space])
+            # self._vector = BlockVector(self._space.vector_space, [
+                # StencilVector(comp) for comp in self._space.vector_space])
         elif space == 'L2':
             self._space = DR.V3
-            self._vector = StencilVector(self._space.vector_space)
+            # self._vector = StencilVector(self._space.vector_space)
         else:
             raise ValueError('Space for field not properly defined.')
+
+        self._field = FemField(self._space)
+        self._vector = self._field.coeffs
 
         # Global indices of each process, and paddings
         if isinstance(self._vector, StencilVector):
@@ -73,6 +77,11 @@ class Field_init:
             self._gl_s = [comp.starts for comp in self._vector]
             self._gl_e = [comp.ends for comp in self._vector]
             self._pads = [comp.pads for comp in self._vector]
+
+        # Quit if no initial conditions are specified
+        if comps == None:
+            print('Attention: zero intial conditions for all field quantities.')
+            return
 
         # Set initial conditions for each component
         assert isinstance(comps, list)
@@ -102,26 +111,32 @@ class Field_init:
                     _fun_tmp[n] = self._get_callable_from_params(n)
 
             # Pullback callable and project
+            self._fun = []
             if space == 'H1':
-                self._fun = Pulled_0form(init_coords, _fun_tmp, DOMAIN)
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '0_form')]
                 self._vector[:] = DR.P0(self._fun[0]).coeffs[:]
 
             elif space == 'Hcurl':
-                self._fun = Pulled_1form(init_coords, _fun_tmp, DOMAIN)
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_1')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_2')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_3')]
+                #self._fun = Pulled_1form(init_coords, _fun_tmp, DOMAIN)
                 _coeffs = DR.P1(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
 
             elif space == 'Hdiv':
-                self._fun = Pulled_2form(init_coords, _fun_tmp, DOMAIN)
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_1')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_2')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_3')]
                 _coeffs = DR.P2(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
 
             elif space == 'L2':
-                self._fun = Pulled_3form(init_coords, _fun_tmp, DOMAIN)
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '3_form')]
                 self._vector[:] = DR.P3(self._fun[0]).coeffs[:]
 
             self._vector.update_ghost_regions()
@@ -142,6 +157,11 @@ class Field_init:
     def space_cont(self):
         '''Continuous space fo the field.'''
         return self._space_cont
+
+    @property
+    def field(self):
+        '''Psydac Femfield.'''
+        return self._field
 
     @property
     def vector(self):
@@ -289,6 +309,69 @@ class Field_init:
                 raise ValueError('Invalid type for modes_k.')
 
         return fun
+
+
+class Pulled_pform:
+    '''Construct callable (component of) p-form on logical domain (unit cube).
+
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see struphy/geometry/domain_3d.prepare_args).
+
+    Returns a list of one np.array holding the values.'''
+
+    def __init__(self, coords, fun, DOMAIN, form):
+        '''
+        Parameters
+        ----------
+            coords : str
+                From which coordinate representation to pull, either 'logical' or 'physical'.
+
+            fun : list
+                Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
+
+            DOMAIN : obj
+                From struphy/geometry/domain_3d.Domain.
+
+            form : str
+                Which form to pull: '0_form', '1_form_1', '1_form_2', '1_form_3', '2_form_1', '2_form_2', '2_form_3', '3_form'.
+        '''
+
+        assert len(fun)==1 or len(fun)==3
+
+        self._fun = []
+        for f in fun:
+            if f == None:
+                def f(x, y, z): return 0.
+            assert callable(f)
+            self._fun += [f]
+
+        self._coords = coords
+        self._DOMAIN = DOMAIN
+        self._form = form
+
+        # define which component of the field is evaluated (=0 for scalar fields)
+        if len(self._fun) == 1:
+            self._comp = 0
+        else:
+            self._comp = int(self._form[-1]) - 1
+
+    def __call__(self, eta1, eta2, eta3):
+        '''Evaluate the component of the p-form specified in self._form.'''
+
+        if self._coords == 'logical':
+            E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3)
+            f = np.array(self._fun[self._comp](E1, E2, E3))
+
+        elif self._coords == 'physical':
+            # remove list for scalar fields
+            if len(self._fun) == 1:
+                self._fun = self._fun[0] 
+            f = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, self._form)
+
+        else:
+            raise ValueError(
+                'Coordinates to be used for p-form pullback not properly specified.')
+
+        return f
 
 
 class Pulled_0form:

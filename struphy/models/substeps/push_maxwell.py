@@ -194,12 +194,14 @@ class Push_maxwell_psydac:
         for old, new in zip(en, _e):
             _diff_e += [np.max(np.abs(new._data - old._data))]
             old[:] = new[:]
+            old.update_ghost_regions() # important: sync processes!
             
         # in place update of b
         _diff_b = []
         for old, new in zip(bn, _b):
             _diff_b += [np.max(np.abs(new._data - old._data))]
             old[:] = new[:]
+            old.update_ghost_regions() # important: sync processes!
 
         if self._info:
             print('Status     for Push_maxwell_psydac:', info['success'])

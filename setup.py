@@ -37,7 +37,8 @@ setup(
              'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
              'scripts/example_cold_plasma_1d_fft',
-             'scripts/example_lin_Vlasov_Maxwell'
+             'scripts/example_lin_Vlasov_Maxwell',
+             'scripts/example_pproc',
              ],
     # list of package dependencies (if necessary)
     install_requires=[

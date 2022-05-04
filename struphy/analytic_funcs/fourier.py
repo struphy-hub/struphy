@@ -10,13 +10,13 @@ class Modes_sin:
         Parameters
         ----------
             k1s : list
-                Mode numbers in x-direction, k1 = 2*pi/Lx.
+                Mode numbers in x-direction, k1 = o*2*pi/Lx.
 
             k2s : list
-                Mode numbers in y-direction, k2 = 2*pi/Ly.
+                Mode numbers in y-direction, k2 = m*2*pi/Ly.
 
             k3s : list
-                Mode numbers in z-direction, k3 = 2*pi/Lz.
+                Mode numbers in z-direction, k3 = n*2*pi/Lz.
 
             amps : list
                 Amplitude of each mode k = (k1, k2, k3).

@@ -104,6 +104,7 @@ Next, install the submodules ``gvec_to_python`` and ``psydac``::
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install .
+    pip install sympde==0.13.1
     cd ..
     cd gvec_to_python
     python3 -m pip install . -r requirements.txt

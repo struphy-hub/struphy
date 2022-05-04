@@ -200,6 +200,7 @@ class InverseLinearOperator(LinOpWithTransp):
         self._domain = operator.domain
         self._codomain = operator.codomain
         self._dtype = operator.dtype
+        self._info = None
 
     @property
     def domain( self ):

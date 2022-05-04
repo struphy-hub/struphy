@@ -12,7 +12,8 @@ SOURCE=
 STRUPHY=$PLATLIB
 RUN=false
 COMPILE=false 
-PROFILE=false    
+PROFILE=false
+PROFILE_ALL=false    
 CFLAGS=--openmp    
 CODE=lin_mhd             
 USER=false             
@@ -72,7 +73,8 @@ function help {
     echo -e "\e[1mRUN OPTIONS\e[0m "
     echo "      --user                     Run from the user-specific installation (e.g. in .local/lib)."
     echo "      -e                         Run from the source files in the git repository."
-    echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/; the default is 'parameters.yml'."
+    echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/;"
+    echo "                                 the default is 'parameters.yml'"
     echo "      --input-abs <filename>     Parameter file (.yml), absolute path."
     echo "      -o, --output <folder>      Output folder, path is relative to <install_path>/struphy/io/out/; the  default is 'sim_1'."  
     echo "      --output-abs <folder>      Output folder, absolute path."  
@@ -84,6 +86,8 @@ function help {
     echo -e "\e[1mPROFILE OPTIONS\e[0m "
     echo "      --user                     Profile script loaded from the user-specific installation (e.g. in .local/lib)."
     echo "      -e                         Profile script loaded from the source files in the git repository."
+    echo "      -a, --all                  Do not specify specific strings to profile, profile all called functions."
+    echo "                                 If not given, profile functions including ['assemble_', 'update', 'step_'] in their name."
     echo "      <sim1>                     Absolute path to "profile_tmp" file of finished simulation."
     echo ""
 }
@@ -135,6 +139,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     profile)
       PROFILE=true
+      shift
+      ;;
+    -a|--all)
+      PROFILE_ALL=true
       shift
       ;;
     --user)
@@ -338,7 +346,7 @@ if [ "$RUN" = true ] ; then
 fi
 
 if [ "$PROFILE" = true ]; then
-  $PYTHON $STRUPHY/diagnostics/profile_struphy.py ${POSITIONAL_ARGS[@]}
+  $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${POSITIONAL_ARGS[@]}
 fi
 
 
