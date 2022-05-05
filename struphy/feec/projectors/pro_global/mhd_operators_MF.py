@@ -72,8 +72,8 @@ class projectors_dot_x:
         self.dim_1  = self.space.Ntot_1form_cum[-1]
         self.dim_2  = self.space.Ntot_2form_cum[-1]
         self.dim_3  = self.space.Ntot_3form
-        self.M1     = self.space.M1
-        self.M2     = self.space.M2
+        # self.M1     = self.space.M1
+        # self.M2     = self.space.M2
         self.NbaseN = self.space.NbaseN
         self.NbaseD = self.space.NbaseD
 
@@ -289,16 +289,16 @@ class projectors_dot_x:
         self.df_0_32 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_32')
         self.df_0_33 = self.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_33')
 
-        # Operator A
-        if self.basis_u == 1:
-            self.A = spa.linalg.LinearOperator((self.dim_1, self.dim_1), matvec = lambda x : (self.M1.dot(self.W1_dot(x)) + self.transpose_W1_dot(self.M1.dot(x))) / 2 )
-            self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_1)))
+        # # Operator A
+        # if self.basis_u == 1:
+        #     self.A = spa.linalg.LinearOperator((self.dim_1, self.dim_1), matvec = lambda x : (self.M1.dot(self.W1_dot(x)) + self.transpose_W1_dot(self.M1.dot(x))) / 2 )
+        #     self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_1)))
 
-        elif self.basis_u == 2:
-            self.A = spa.linalg.LinearOperator((self.dim_2, self.dim_2), matvec = lambda x : (self.M2.dot(self.Q2_dot(x)) + self.transpose_Q2_dot(self.M2.dot(x))) / 2 )
-            self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_2)))
+        # elif self.basis_u == 2:
+        #     self.A = spa.linalg.LinearOperator((self.dim_2, self.dim_2), matvec = lambda x : (self.M2.dot(self.Q2_dot(x)) + self.transpose_Q2_dot(self.M2.dot(x))) / 2 )
+        #     self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_2)))
             
-        self.A_inv = spa.linalg.inv(self.A_mat)
+        # self.A_inv = spa.linalg.inv(self.A_mat)
 
     ########################################
     ########## 1-form formulation ##########

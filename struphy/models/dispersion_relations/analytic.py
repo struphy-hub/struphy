@@ -1,6 +1,106 @@
+from abc import ABCMeta, abstractmethod
 import numpy as np
 import scipy.special as sp
 
+
+class DispersionRelations1D( metaclass=ABCMeta ):
+    '''The base class for analytic 1d dispersion relations.
+    
+    Parameters
+    ..........
+        branch_names : list
+            Strings denoting the branches in the spectrum.
+        
+        kwargs : 
+            Keyword arguments describing the physical parameters necessary to compute the disp. rel., e.g. c=299792458.
+    '''
+
+    def __init__(self, branch_names, **kwargs):
+
+        self._branches = branch_names
+        self._nbranches = len(branch_names)
+        self._params = kwargs
+
+    @property
+    def branches( self ):
+        '''List of branch names in the spectrum.'''
+        return self._branches
+
+    @property
+    def nbranches( self ):
+        '''Integer: number of branches.'''
+        return self._nbranches
+
+    @property
+    def params( self ):
+        '''Dictionary of parameters necessary to compute the dispersion relation.'''
+        return self._params
+
+    @abstractmethod
+    def spectrum(self, kvec, kperp=None):
+        '''The calculation of all branches of a 1d dispersion relation.
+        
+        Parameters
+        ----------
+            kvec : np.array
+                Wave numbers.
+                
+            kperp : np.array
+                Optional: perpendicular wave numbers (w.r.t to background magnetic field).
+                kperp.size=kvec.size
+                
+        Returns
+        -------
+            A dictionary with key=name_of_branch and value=np.array(omega_values_of_branch).
+            value.size=kvec.size. 
+            value can be complex-valued.'''
+
+
+class Maxwell1D( DispersionRelations1D ):
+    '''Dispersion relation for Maxwell's equation in vacuum, in Struphy normalization (c=1).'''
+
+    def __init__(self):
+        super().__init__(['light wave', 'test branch'], c=1., test_param=.5) 
+
+    def spectrum(self, kvec, kperp=None):
+
+        # One complex array for each branch
+        tmps = []
+        for n in range(self.nbranches):
+            tmps += [np.zeros_like(kvec, dtype=complex)]
+
+        ########### Model specific part ##############################
+        # first branch
+        tmps[0][:] = self.params['c']*kvec
+        # second branch (for testing)
+        tmps[1][:] = self.params['test_param']*kvec
+        ##############################################################
+
+        # fill output dictionary
+        dict = {}
+        for name, tmp in zip(self.branches, tmps):
+            dict[name] = tmp
+
+        return dict
+
+
+def maxwell_1d(k):
+    '''Dispersion relation for the Struphy normalization of Maxwell's equation.
+    
+    Parameters
+    ----------
+        k : np.array
+            1d array of wave vector values.
+            
+    Returns
+    -------
+        A list of np.arrays of same size as k, each entry corresponding to one branch of the spectrum.'''
+
+    c = 1.
+
+
+
+    return [c*k, .5*c*k]
 
 # = dispersion relation for fast and slow magnetosonic waves propagating in the x-y-plane (B = B0x)=
 def omegaM_xy(kx, ky, pol, B0x, p0, rho0, gamma):

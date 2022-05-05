@@ -24,8 +24,10 @@ setup(
             'kinetic_extended/*.yml',
             'lin_Vlasov_Maxwell/*yml',
             'maxwell/*yml',
+            'maxwell_psydac/*yml',
             'cold_plasma/*yml',
             'cc_cold_plasma_6d/*yml',
+            'inverse_mass_test/*yml',
         ],
         'struphy': ['compile_struphy.mk'],
     },
@@ -35,7 +37,8 @@ setup(
              'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
              'scripts/example_cold_plasma_1d_fft',
-             'scripts/example_lin_Vlasov_Maxwell'
+             'scripts/example_lin_Vlasov_Maxwell',
+             'scripts/example_pproc',
              ],
     # list of package dependencies (if necessary)
     install_requires=[

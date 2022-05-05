@@ -11,7 +11,9 @@ SOURCE=
 # Defaults
 STRUPHY=$PLATLIB
 RUN=false
-COMPILE=false     
+COMPILE=false 
+PROFILE=false
+PROFILE_ALL=false    
 CFLAGS=--openmp    
 CODE=lin_mhd             
 USER=false             
@@ -37,10 +39,12 @@ function help {
     echo -e "       \e[4mstruphy\e[0m [<options>]"
     echo -e "       \e[4mstruphy\e[0m \e[4mcompile\e[0m [<compile options>]"
     echo -e "       \e[4mstruphy\e[0m \e[4mrun\e[0m <model> [<run options>]"
+    echo -e "       \e[4mstruphy\e[0m \e[4mprofile\e[0m [<profile options>] <sim1> [<sim2> ...] "
     echo 
     echo -e "\e[1mDESCRIPTION\e[0m"
-    echo -e "      Compiles Struphy kernels (with pyccel) or runs one of several struphy models. 
+    echo -e "      Compiles Struphy kernels (with pyccel), runs one of several struphy models or profiles finished runs. 
       Can run locally with mpi (for testing) or submit a batch script to SLURM.
+      The profiler checks for function names containing 'update', 'step_' and 'assemble_'.
       For more info see \e]8;;https://clapp.pages.mpcdf.de/hylife/index.html\ahttps://clapp.pages.mpcdf.de/hylife/index.html\e]8;;\a."
     echo
     echo -e "\e[1mMODELS\e[0m"
@@ -69,7 +73,8 @@ function help {
     echo -e "\e[1mRUN OPTIONS\e[0m "
     echo "      --user                     Run from the user-specific installation (e.g. in .local/lib)."
     echo "      -e                         Run from the source files in the git repository."
-    echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/; the default is 'parameters.yml'."
+    echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/;"
+    echo "                                 the default is 'parameters.yml'"
     echo "      --input-abs <filename>     Parameter file (.yml), absolute path."
     echo "      -o, --output <folder>      Output folder, path is relative to <install_path>/struphy/io/out/; the  default is 'sim_1'."  
     echo "      --output-abs <folder>      Output folder, absolute path."  
@@ -77,6 +82,14 @@ function help {
     echo "      --batch-abs  <filename>    Batch script, absolute path."
     echo "      -r, --restart <folder>     Run with restart, give absolute path to restart folder."
     echo "      --mpi <int>                Use mpirun -n <int>."
+    echo
+    echo -e "\e[1mPROFILE OPTIONS\e[0m "
+    echo "      --user                     Profile script loaded from the user-specific installation (e.g. in .local/lib)."
+    echo "      -e                         Profile script loaded from the source files in the git repository."
+    echo "      -a, --all                  Do not specify specific strings to profile, profile all called functions."
+    echo "                                 If not given, profile functions including ['assemble_', 'update', 'step_'] in their name."
+    echo "      <sim1>                     Absolute path to "profile_tmp" file of finished simulation."
+    echo ""
 }
 
 # No arguments - display help and exit
@@ -116,14 +129,20 @@ while [[ $# -gt 0 ]]; do
       ;;
     run) 
       RUN=true
-      COMPILE=false
       CODE="$2"
       shift
       shift
       ;;
     compile)
-      RUN=false
       COMPILE=true
+      shift
+      ;;
+    profile)
+      PROFILE=true
+      shift
+      ;;
+    -a|--all)
+      PROFILE_ALL=true
       shift
       ;;
     --user)
@@ -253,7 +272,9 @@ if [ "$RUN" = true ] ; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
   fi
 
-  mkdir -p $OUTPUT_ABS 
+  # Create ouput folder and copy parameters there
+  mkdir -p $OUTPUT_ABS
+  cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
   METAFILE=$OUTPUT_ABS/meta.txt 
 
   # Run flags
@@ -322,6 +343,10 @@ if [ "$RUN" = true ] ; then
   # Start code
   $RUN_CMD
 
+fi
+
+if [ "$PROFILE" = true ]; then
+  $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${POSITIONAL_ARGS[@]}
 fi
 
 

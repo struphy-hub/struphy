@@ -17,6 +17,11 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+doc/_build/
+
+# pyccel
+__gpyccel__/
+__psydac__/
 
 # Compiled Object files
 *.slo
@@ -55,6 +60,8 @@ MANIFEST
 *__pyc*
 .DS_*
 *~
+*.hdf5
+*acquisition.lock
 
 # Default simulations and diagnostics
 my_diagnostics
@@ -62,3 +69,4 @@ my_struphy_sims
 /diagnostics.sh
 /run_STRUPHY*.sh
 logs
+env/

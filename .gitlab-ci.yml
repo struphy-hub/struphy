@@ -56,7 +56,9 @@ unittest:
     - export HDF5_DIR=/path/to/hdf5/openmpi
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    - pip install .; cd ..
+    - pip install .
+    - pip install sympde==0.13.1
+    - cd ..
     - cd gvec_to_python
     - python3 -m pip install . -r requirements.txt
     - pip install sympy==1.6.1 
@@ -66,8 +68,10 @@ unittest:
     - struphy compile
   script:
     #- python setup.py test
+    - pip install pyccel==1.4
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
+    - pip install pyccel==0.10.1
     - struphy run lin_mhd
     - example_lin_Vlasov_Maxwell
     # - coverage run -m pytest
