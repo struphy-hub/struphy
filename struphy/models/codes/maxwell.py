@@ -122,6 +122,7 @@ def execute(file_in, path_out, restart):
         DATA.add_data({'magnetic field': VARIABLES.b2})
         DATA.add_data(time_series)
         print()
+        print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
 
 
     # ========================================================================================= 
@@ -209,5 +210,6 @@ def execute(file_in, path_out, restart):
             str_len         = len(total_stetps)
             step            = str(time_steps_done).zfill(str_len)
             message         = 'time steps finished : ' + step + '/' + total_stetps
-            print('\r', message, end='')
+            print('\r', message, end='\n')
+            print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
   

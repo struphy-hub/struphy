@@ -3,7 +3,7 @@ import numpy as np
 
 class MHD_ops:
 
-    def __init__(self, DERHAM, nq_pr, EQ_MHD_L, F, assemble_all=False, mpi_comm=None):
+    def __init__(self, DERHAM, V0vec, nq_pr, EQ_MHD_L, F, assemble_all=False, mpi_comm=None):
         '''Assembles required MHD projection operators.
 
         See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x`.
@@ -33,6 +33,8 @@ class MHD_ops:
         In order not to modify the `MHD_operator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
         '''
 
+        from struphy.psydac_linear_operators.H1vec_psydac import Projector_H1vec
+
         self._mpi_comm = mpi_comm
 
         # Missing in Psydac: inverse metric tensor
@@ -48,6 +50,10 @@ class MHD_ops:
         self._V1 = _V1
         self._V2 = _V2
         self._V3 = _V3
+
+        # Spaces for operators X1 and X2
+        self._V0vec = V0vec
+        self._Pi0vec = Projector_H1vec(self._V0vec)
 
         # Psydac projectors
         _P0, _P1, _P2, _P3 = DERHAM.projectors(nquads=nq_pr)
@@ -196,11 +202,15 @@ class MHD_ops:
             self._S1 = MHD_operator(_V1, _V2, _P2, _fun_S1, self._mpi_comm)
             self._S10 = MHD_operator(_V1, _V1, _P1, _fun_S10, self._mpi_comm)
             self._K1 = MHD_operator(_V3, _V3, _P3, [[_fun_K1]], self._mpi_comm)
-            self._K10 = MHD_operator(_V0, _V0, _P0, [[_fun_K10]], self._mpi_comm)
+            self._K10 = MHD_operator(
+                _V0, _V0, _P0, [[_fun_K10]], self._mpi_comm)
             self._T1 = MHD_operator(_V1, _V1, _P1, _fun_T1, self._mpi_comm)
-            self._X11 = MHD_operator(_V1, _V0, _P0, [_fun_X1[0]], self._mpi_comm)  # Row 1
-            self._X12 = MHD_operator(_V1, _V0, _P0, [_fun_X1[1]], self._mpi_comm)  # Row 2
-            self._X13 = MHD_operator(_V1, _V0, _P0, [_fun_X1[2]], self._mpi_comm)  # Row 3
+            self._X11 = MHD_operator(
+                _V1, _V0, _P0, [_fun_X1[0]], self._mpi_comm)  # Row 1
+            self._X12 = MHD_operator(
+                _V1, _V0, _P0, [_fun_X1[1]], self._mpi_comm)  # Row 2
+            self._X13 = MHD_operator(
+                _V1, _V0, _P0, [_fun_X1[2]], self._mpi_comm)  # Row 3
             self._X1 = [self._X11, self._X12, self._X13]
 
             # MHD operators with velocity (up) as 2-form:
@@ -209,33 +219,43 @@ class MHD_ops:
             self._P2 = MHD_operator(_V2, _V2, _P2, _fun_P2, self._mpi_comm)
             self._S2 = MHD_operator(_V2, _V2, _P2, _fun_S2, self._mpi_comm)
             self._K2 = MHD_operator(_V3, _V3, _P3, [[_fun_K2]], self._mpi_comm)
-            self._X21 = MHD_operator(_V2, _V0, _P0, [_fun_X2[0]], self._mpi_comm)  # Row 1
-            self._X22 = MHD_operator(_V2, _V0, _P0, [_fun_X2[1]], self._mpi_comm)  # Row 2
-            self._X23 = MHD_operator(_V2, _V0, _P0, [_fun_X2[2]], self._mpi_comm)  # Row 3
+            self._X21 = MHD_operator(
+                _V2, _V0, _P0, [_fun_X2[0]], self._mpi_comm)  # Row 1
+            self._X22 = MHD_operator(
+                _V2, _V0, _P0, [_fun_X2[1]], self._mpi_comm)  # Row 2
+            self._X23 = MHD_operator(
+                _V2, _V0, _P0, [_fun_X2[2]], self._mpi_comm)  # Row 3
             self._Z20 = MHD_operator(_V2, _V1, _P1, _fun_Z20, self._mpi_comm)
-            self._Y20 = MHD_operator(_V0, _V3, _P3, [[_fun_Y20]], self._mpi_comm)
+            self._Y20 = MHD_operator(
+                _V0, _V3, _P3, [[_fun_Y20]], self._mpi_comm)
             self._S20 = MHD_operator(_V2, _V1, _P1, _fun_S20, self._mpi_comm)
             self._X2 = [self._X21, self._X22, self._X23]
 
     # Assemble operators only when needed. Otherwise it takes a full minute to initialize the following classes.
 
     def assemble_Q1(self):
-        self._Q1 = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_Q1, self._mpi_comm)
+        self._Q1 = MHD_operator(
+            self._V1, self._V2, self._Pi2, self._fun_Q1, self._mpi_comm)
 
     def assemble_W1(self):
-        self._W1 = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_W1, self._mpi_comm)
+        self._W1 = MHD_operator(
+            self._V1, self._V1, self._Pi1, self._fun_W1, self._mpi_comm)
 
     def assemble_U1(self):
-        self._U1 = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_U1, self._mpi_comm)
+        self._U1 = MHD_operator(
+            self._V1, self._V2, self._Pi2, self._fun_U1, self._mpi_comm)
 
     def assemble_P1(self):
-        self._P1 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_P1, self._mpi_comm)
+        self._P1 = MHD_operator(
+            self._V2, self._V1, self._Pi1, self._fun_P1, self._mpi_comm)
 
     def assemble_S1(self):
-        self._S1 = MHD_operator(self._V1, self._V2, self._Pi2, self._fun_S1, self._mpi_comm)
+        self._S1 = MHD_operator(
+            self._V1, self._V2, self._Pi2, self._fun_S1, self._mpi_comm)
 
     def assemble_S10(self):
-        self._S10 = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_S10, self._mpi_comm)
+        self._S10 = MHD_operator(
+            self._V1, self._V1, self._Pi1, self._fun_S10, self._mpi_comm)
 
     def assemble_K1(self):
         self._K1 = MHD_operator(
@@ -246,110 +266,194 @@ class MHD_ops:
             self._V0, self._V0, self._Pi0, [[self._fun_K10]], self._mpi_comm)
 
     def assemble_T1(self):
-        self._T1 = MHD_operator(self._V1, self._V1, self._Pi1, self._fun_T1, self._mpi_comm)
+        self._T1 = MHD_operator(
+            self._V1, self._V1, self._Pi1, self._fun_T1, self._mpi_comm)
 
     def assemble_X1(self):
-        self._X11 = MHD_operator(self._V1, self._V0, self._Pi0, [
-                                 self._fun_X1[0]], self._mpi_comm)  # Row 1
-        self._X12 = MHD_operator(self._V1, self._V0, self._Pi0, [
-                                 self._fun_X1[1]], self._mpi_comm)  # Row 2
-        self._X13 = MHD_operator(self._V1, self._V0, self._Pi0, [
-                                 self._fun_X1[2]], self._mpi_comm)  # Row 3
-        self._X1 = [self._X11, self._X12, self._X13]
+        self._X1 = MHD_operator(self._V1, self._V0vec, self._Pi0vec, self._fun_X1, self._mpi_comm) 
+        # self._X11 = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #                          self._fun_X1[0]], self._mpi_comm)  # Row 1
+        # self._X12 = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #                          self._fun_X1[1]], self._mpi_comm)  # Row 2
+        # self._X13 = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #                          self._fun_X1[2]], self._mpi_comm)  # Row 3
+        # self._X1 = [self._X11, self._X12, self._X13]
+        # for transpose:
+        # self._X11T = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #     [self._fun_X1[0][0], self._fun_X1[1][0], self._fun_X1[2][0]]], self._mpi_comm)  # Column 1
+        # self._X12T = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #     [self._fun_X1[0][1], self._fun_X1[1][1], self._fun_X1[2][1]]], self._mpi_comm)  # Column 2
+        # self._X13T = MHD_operator(self._V1, self._V0, self._Pi0, [
+        #     [self._fun_X1[0][2], self._fun_X1[1][2], self._fun_X1[2][2]]], self._mpi_comm)  # Column 3
+        # self._X1T = [self._X11T, self._X12T, self._X13T]
 
     def assemble_Q2(self):
-        self._Q2 = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_Q2, self._mpi_comm)
+        self._Q2 = MHD_operator(
+            self._V2, self._V2, self._Pi2, self._fun_Q2, self._mpi_comm)
 
     def assemble_T2(self):
-        self._T2 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_T2, self._mpi_comm)
+        self._T2 = MHD_operator(
+            self._V2, self._V1, self._Pi1, self._fun_T2, self._mpi_comm)
 
     def assemble_P2(self):
-        self._P2 = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_P2, self._mpi_comm)
+        self._P2 = MHD_operator(
+            self._V2, self._V2, self._Pi2, self._fun_P2, self._mpi_comm)
 
     def assemble_S2(self):
-        self._S2 = MHD_operator(self._V2, self._V2, self._Pi2, self._fun_S2, self._mpi_comm)
+        self._S2 = MHD_operator(
+            self._V2, self._V2, self._Pi2, self._fun_S2, self._mpi_comm)
 
     def assemble_K2(self):
         self._K2 = MHD_operator(
             self._V3, self._V3, self._Pi3, [[self._fun_K2]], self._mpi_comm)
 
     def assemble_X2(self):
-        self._X21 = MHD_operator(self._V2, self._V0, self._Pi0, [
-                                 self._fun_X2[0]], self._mpi_comm)  # Row 1
-        self._X22 = MHD_operator(self._V2, self._V0, self._Pi0, [
-                                 self._fun_X2[1]], self._mpi_comm)  # Row 2
-        self._X23 = MHD_operator(self._V2, self._V0, self._Pi0, [
-                                 self._fun_X2[2]], self._mpi_comm)  # Row 3
-        self._X2 = [self._X21, self._X22, self._X23]
+        self._X2 = MHD_operator(self._V2, self._V0vec, self._Pi0vec, self._fun_X2, self._mpi_comm) 
+        # self._X21 = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #                          self._fun_X2[0]], self._mpi_comm)  # Row 1
+        # self._X22 = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #                          self._fun_X2[1]], self._mpi_comm)  # Row 2
+        # self._X23 = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #                          self._fun_X2[2]], self._mpi_comm)  # Row 3
+        # self._X2 = [self._X21, self._X22, self._X23]
+        # # for transpose:
+        # self._X21T = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #     [self._fun_X2[0][0], self._fun_X2[1][0], self._fun_X2[2][0]]], self._mpi_comm)  # Column 1
+        # self._X22T = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #     [self._fun_X2[0][1], self._fun_X2[1][1], self._fun_X2[2][1]]], self._mpi_comm)  # Column 2
+        # self._X23T = MHD_operator(self._V2, self._V0, self._Pi0, [
+        #     [self._fun_X2[0][2], self._fun_X2[1][2], self._fun_X2[2][2]]], self._mpi_comm)  # Column 3
+        # self._X2T = [self._X21T, self._X22T, self._X23T]
 
     def assemble_Z20(self):
-        self._Z20 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_Z20, self._mpi_comm)
+        self._Z20 = MHD_operator(
+            self._V2, self._V1, self._Pi1, self._fun_Z20, self._mpi_comm)
 
     def assemble_Y20(self):
         self._Y20 = MHD_operator(
             self._V0, self._V3, self._Pi3, [[self._fun_Y20]], self._mpi_comm)
 
     def assemble_S20(self):
-        self._S20 = MHD_operator(self._V2, self._V1, self._Pi1, self._fun_S20, self._mpi_comm)
+        self._S20 = MHD_operator(
+            self._V2, self._V1, self._Pi1, self._fun_S20, self._mpi_comm)
 
     # The actual MHD operators.
 
     def Q1(self, x):
         return self._Q1.dot(x)
 
+    def Q1T(self, x):
+        return self._Q1.transpose_dot(x)
+
     def W1(self, x):
         return self._W1.dot(x)
+
+    def W1T(self, x):
+        return self._W1.transpose_dot(x)
 
     def U1(self, x):
         return self._U1.dot(x)
 
-    def P1(self, x):
+    def U1T(self, x):
+        return self._U1.transpose_dot(x)
+
+    def P1(
+            self, x):
         return self._P1.dot(x)
+
+    def P1T(
+            self, x):
+        return self._P1.transpose_dot(x)
 
     def S1(self, x):
         return self._S1.dot(x)
 
+    def S1T(self, x):
+        return self._S1.transpose_dot(x)
+
     def S10(self, x):
         return self._S10.dot(x)
+
+    def S10T(self, x):
+        return self._S10.transpose_dot(x)
 
     def K1(self, x):
         return self._K1.dot(x)
 
+    def K1T(self, x):
+        return self._K1.transpose_dot(x)
+
     def K10(self, x):
         return self._K10.dot(x)
+
+    def K10T(self, x):
+        return self._K10.transpose_dot(x)
 
     def T1(self, x):
         return self._T1.dot(x)
 
+    def T1T(self, x):
+        return self._T1.transpose_dot(x)
+
     def X1(self, x):
-        return [self._X11.dot(x), self._X12.dot(x), self._X13.dot(x)]
+        return self._X1.dot(x) 
+
+    def X1T(self, x):
+        return self._X1.transpose_dot(x)
 
     def Q2(self, x):
         return self._Q2.dot(x)
 
+    def Q2T(self, x):
+        return self._Q2.transpose_dot(x)
+
     def T2(self, x):
         return self._T2.dot(x)
+
+    def T2T(self, x):
+        return self._T2.transpose_dot(x)
 
     def P2(self, x):
         return self._P2.dot(x)
 
+    def P2T(self, x):
+        return self._P2.transpose_dot(x)
+
     def S2(self, x):
         return self._S2.dot(x)
+
+    def S2T(self, x):
+        return self._S2.transpose_dot(x)
 
     def K2(self, x):
         return self._K2.dot(x)
 
+    def K2T(self, x):
+        return self._K2.transpose_dot(x)
+
     def X2(self, x):
-        return [self._X21.dot(x), self._X22.dot(x), self._X23.dot(x)]
+        return self._X2.dot(x)
+
+    def X2T(self, x):
+        return self._X2.transpose_dot(x)
 
     def Z20(self, x):
         return self._Z20.dot(x)
 
+    def Z20T(self, x):
+        return self._Z20.transpose_dot(x)
+
     def Y20(self, x):
         return self._Y20.dot(x)
 
+    def Y20T(self, x):
+        return self._Y20.transpose_dot(x)
+
     def S20(self, x):
         return self._S20.dot(x)
+
+    def S20T(self, x):
+        return self._S20.transpose_dot(x)
 
 
 class MHD_operator:
@@ -398,23 +502,33 @@ class MHD_operator:
         self._solver = pi_W.solver
 
         # Input space: Stencil vector spaces and 1d spaces
-        if V.symbolic_space.name in {'H1', 'L2'}:
-            _Vspaces = [V.vector_space]
-            _V1ds = [V.spaces]
+        if hasattr(V.symbolic_space, 'name'):
+            if V.symbolic_space.name in {'H1', 'L2'}:
+                _Vspaces = [V.vector_space]
+                _V1ds = [V.spaces]
+            else:
+                _Vspaces = V.vector_space
+                _V1ds = [comp.spaces for comp in V.spaces]
+            print(f'From {V.symbolic_space.name} ...')
         else:
             _Vspaces = V.vector_space
             _V1ds = [comp.spaces for comp in V.spaces]
+            print(f'From H1vec ...')
 
         # Output space: Stencil vector spaces and 1d spaces
-        if W.symbolic_space.name in {'H1', 'L2'}:
-            _Wspaces = [W.vector_space]
-            _W1ds = [W.spaces]
+        if hasattr(W.symbolic_space, 'name'):
+            if W.symbolic_space.name in {'H1', 'L2'}:
+                _Wspaces = [W.vector_space]
+                _W1ds = [W.spaces]
 
+            else:
+                _Wspaces = W.vector_space
+                _W1ds = [comp.spaces for comp in W.spaces]
+            print(f'... to {W.symbolic_space.name}.')
         else:
             _Wspaces = W.vector_space
             _W1ds = [comp.spaces for comp in W.spaces]
-
-        print(f'From {V.symbolic_space.name} to {W.symbolic_space.name}')
+            print(f'... to H1vec.')
 
         # Block matrix for dofs
         _blocks = []
@@ -434,7 +548,8 @@ class MHD_operator:
                 _ends_out = _dofs.codomain.ends
                 _pads_out = _dofs.codomain.pads
 
-                _ptsG, _wtsG, _spans, _bases, _subs = self.prepare_projection_of_basis(V1d, W1d, _starts_out, _ends_out)
+                _ptsG, _wtsG, _spans, _bases, _subs = self.prepare_projection_of_basis(
+                    V1d, W1d, _starts_out, _ends_out)
 
                 _fun_w = evaluate_fun_weights(_ptsG, _wtsG, f)
 
@@ -478,6 +593,24 @@ class MHD_operator:
         assert rhs.space == self._solver.space
 
         return self._solver.solve(rhs)
+
+    def transpose_dot(self, v):
+        '''Applies the transposed MHD operator to the FE coefficients v belonging to the codomain.
+
+        Parameters
+        ----------
+            v : StencilVector or BlockVector
+                Output FE coefficients from W.vector_space.
+
+        Returns
+        -------
+            A StencilVector or BlockVector from V.vector_space.'''
+
+        tmp = self._solver.solve(v, transposed=True)
+
+        tmp.update_ghost_regions()
+
+        return self._dofs_mat.transpose().dot(tmp)
 
     def prepare_projection_of_basis(self, V1d, W1d, starts_out, ends_out):
         '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
@@ -526,8 +659,8 @@ class MHD_operator:
         k = 0
         for space_in, space_out, s, e in zip(V1d, W1d, starts_out, ends_out):
 
-            _greville_loc = space_out.greville[s : e + 1]
-            _histopol_loc = space_out.histopolation_grid[s : e + 2]
+            _greville_loc = space_out.greville[s: e + 1]
+            _histopol_loc = space_out.histopolation_grid[s: e + 2]
 
             # k += 1
             # print(f'\nrank: {self._mpi_comm.Get_rank()} | Direction {k}, space_out attributes:')
@@ -567,7 +700,8 @@ class MHD_operator:
                 tmp.sort()
                 tmp_a = np.array(tmp)
 
-                x_grid += [tmp_a[np.logical_and(tmp_a >= np.min(_histopol_loc) - 1e-14, tmp_a <= np.max(_histopol_loc) + 1e-14)]]
+                x_grid += [tmp_a[np.logical_and(tmp_a >= np.min(
+                    _histopol_loc) - 1e-14, tmp_a <= np.max(_histopol_loc) + 1e-14)]]
 
                 # determine subinterval index (= 0 or 1):
                 subs += [np.zeros(x_grid[-1][:-1].size, dtype=int)]

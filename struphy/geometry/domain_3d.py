@@ -341,16 +341,16 @@ class Domain():
             * X = x0 + (eta1*r1) * cos(2*pi*th) * cos(2*pi*eta2) - (eta1*r2) * sin(2*pi*th) * sin(2*pi*eta2)
             * Y = y0 + (eta1*r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1*r2) * cos(2*pi*th) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
-        * 'soloviev_approx' :
+        * 'shafranov_shift' :
             * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1 - eta1**2) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
-        * 'soloviev_sqrt' :
+        * 'shafranov_sqrt' :
             * Crafted s.t. derivative component 11 does not go to zero at the pole of the map.
             * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * delta
             * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
             * Z = z0 + (eta3*Lz)
-        * 'soloviev_cf' :
+        * 'shafranov_dshaped' :
             * Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
             * X = x0 + R0 * [ 1 + (1 - eta1**2) * delta_x + eta1 * epsilon_gs * cos(2*pi*eta2 + arcsin(delta_gs)*eta1*sin(2*pi*eta2)) ]
             * Y = y0 + R0 * [     (1 - eta1**2) * delta_y + eta1 * epsilon_gs * kappa_gs * sin(2*pi*eta2) ]
@@ -421,21 +421,21 @@ class Domain():
                                                 'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
 
-        elif kind_map == 'soloviev_approx':
+        elif kind_map == 'shafranov_shift':
             self.kind_map = 17
             self.params_map = list(params_map.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
 
-        elif kind_map == 'soloviev_sqrt':
+        elif kind_map == 'shafranov_sqrt':
             self.kind_map = 18
             self.params_map = list(params_map.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
 
-        elif kind_map == 'soloviev_cf':
+        elif kind_map == 'shafranov_dshaped':
             self.kind_map = 19
             self.params_map = list(params_map.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
@@ -691,7 +691,7 @@ class Domain():
                 Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
                 Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
                 
-                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)])
+                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)], dtype=float)
             else:
                 a_in = np.array(a)
                 
@@ -763,7 +763,7 @@ class Domain():
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
                 
@@ -832,7 +832,7 @@ class Domain():
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)])
+                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
                 

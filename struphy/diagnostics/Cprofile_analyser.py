@@ -97,7 +97,7 @@ def compare_cprofile_data(path, list_of_funcs=None):
             print(k.ljust(60), v['cumtime'])
             if counter>49:
                 break
-        elif any(func in k for func in list_of_funcs):
+        elif any(func in k for func in list_of_funcs) and 'dependencies_' not in k:
             print(k.ljust(60), v['cumtime'])
 
 

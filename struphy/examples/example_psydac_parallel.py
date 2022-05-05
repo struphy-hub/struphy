@@ -59,6 +59,9 @@ assert isinstance(V3.vector_space, StencilVectorSpace)
 x0 = StencilVector(V0.vector_space)
 A0 = StencilMatrix(V0.vector_space, V0.vector_space)
 
+print(f'Rank: {mpi_rank} | A domain  : {A0.domain}, dimension: {A0.domain.dimension}')
+print(f'Rank: {mpi_rank} | A codomain: {A0.codomain}, dimension: {A0.codomain.dimension}')
+
 # Global indices of each process, and paddings
 gl_s = x0.starts 
 gl_e = x0.ends
@@ -122,6 +125,15 @@ y0 = x0.copy()
 x0[gl_s[0] : gl_e[0] + 1, gl_s[1] : gl_e[1] + 1, gl_s[2]] = mpi_rank
 x0.update_ghost_regions()
 
+# try writing without end index:
+z0 = x0.copy()
+try:
+    print(f'\nz0[:].shape[0]: {z0[:].shape[0]}') 
+    for i in range(z0[:].shape[0]):
+        z0[i] = i
+except:
+    print('\nWrong acces of Stencilvector (!): for i in range(x0[:].shape[0]) gets out of bounds.\n')
+
 print(f'Rank: {mpi_rank}, x0[:, :, gl_s]={x0[:, :, gl_s[2]]}')
 MPI_COMM.Barrier()
 
@@ -129,6 +141,14 @@ MPI_COMM.Barrier()
 # ----------------------------------------------------------------------------
 y0._data[pads[0] : -pads[0], pads[1] : -pads[1], pads[2]] = mpi_rank
 y0.update_ghost_regions()
+
+# try writing without end index:
+try:
+    print(f'\nz0._data.shape[0]: {z0._data.shape[0]}')
+    for i in range(z0._data.shape[0]):
+        z0._data[i] = i
+except:
+    print('\nWrong acces of ._data (!): for i in range(x0._data.shape[0]).\n')
 
 #print(f'Rank: {mpi_rank}, y0[:, :, gl_s]={y0[:, :, gl_s[2]]}')
 #MPI_COMM.Barrier()

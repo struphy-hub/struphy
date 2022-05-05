@@ -4,10 +4,14 @@
 Main execution file.
 '''
 
+from mpi4py import MPI 
+
+MPI_COMM = MPI.COMM_WORLD
+mpi_rank = MPI_COMM.Get_rank()
+
 import sys
 import sysconfig
 import datetime
-import struphy.diagnostics.diagn_tools as tools
 
 # print('Number of arguments:', len(sys.argv), 'arguments.')
 # print('Argument List:', sys.argv)
@@ -21,10 +25,13 @@ mode = 'w' # needs fix
 if len(sys.argv) > 6: 
     mode = sys.argv[6]
 
-with open(file_meta, 'a') as f:
-    f.write('\ndate of simulation: '.ljust(20) + str(datetime.datetime.now()) + '\n')
-    f.write('platform: '.ljust(20) + sysconfig.get_platform() + '\n')
-    f.write('python version: '.ljust(20) + sysconfig.get_python_version() + '\n')
+if mpi_rank == 0: 
+    with open(file_meta, 'w') as f:
+        f.write('\ndate of simulation: '.ljust(20) + str(datetime.datetime.now()) + '\n')
+        f.write('platform: '.ljust(20) + sysconfig.get_platform() + '\n')
+        f.write('python version: '.ljust(20) + sysconfig.get_python_version() + '\n')
+        f.write('code: '.ljust(20) + code + '\n')
+        f.write('# processes: '.ljust(20) + str(MPI_COMM.Get_size()) + '\n')
 
 # start simulation:   
 if code=='lin_mhd':
@@ -62,6 +69,14 @@ elif code=='kinetic_extended':
 elif code=='maxwell':
     from struphy.models.codes import maxwell 
     maxwell.execute(file_in, path_out, mode=='a')
+
+elif code=='maxwell_psydac':
+    from struphy.models.codes import maxwell_psydac as code_file
+    code_file.execute(file_in, path_out, MPI_COMM)
+
+elif code=='inverse_mass_test':
+    from struphy.models.codes import inverse_mass_test as code_file
+    code_file.execute(file_in, path_out, MPI_COMM)
 
 elif code=='cold_plasma':
     from struphy.models.codes import cold_plasma

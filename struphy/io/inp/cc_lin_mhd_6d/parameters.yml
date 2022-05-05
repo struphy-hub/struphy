@@ -25,6 +25,48 @@ geometry :
             a1       : .1 # inner radius
             a2       : 1. # minor radius
             R0       : 1. # major radius
+      params_ellipse :
+            x0       : 1. # origin
+            y0       : 1. # origin
+            z0       : 1. # origin
+            rx       : 1. # major radius
+            ry       : 1. # minor radius
+            Lz       : 1. # length of cylinder and major radius
+      params_rotated_ellipse :
+            x0       : 1. # origin
+            y0       : 1. # origin
+            z0       : 1. # origin
+            r1       : 1. # major radius
+            r2       : 1. # minor radius
+            Lz       : 1. # length of cylinder and major radius
+            th       : 1. # rotation angle
+      params_shafranov_shift :
+            x0       : 1. # origin
+            y0       : 1. # origin
+            z0       : 1. # origin
+            rx       : 1. # major radius
+            ry       : 1. # minor radius
+            Lz       : 1. # length of cylinder and major radius
+            delta    : 1. # shafranov shift
+      params_shafranov_sqrt :
+            x0       : 1. # origin
+            y0       : 1. # origin
+            z0       : 1. # origin
+            rx       : 1. # major radius
+            ry       : 1. # minor radius
+            Lz       : 1. # length of cylinder and major radius
+            delta    : 1. # shafranov shift
+      params_shafranov_dshaped :
+            x0       : 1. # origin
+            y0       : 1. # origin
+            z0       : 1. # origin
+            R0       : 1. # major radius
+            Lz       : 1. # length of cylinder and major radius
+            delta_x  : 1. # shafranov shift along x
+            delta_y  : 1. # shafranov shift along y
+            delta_gs : 1. # triangularity
+            epsilon_gs : 1. # inverse aspect ratio a/R0
+            kappa_gs : 1. # ellipticity
       params_spline :
             file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5'
             Nel      : [6, 6, 6] # number of grid cells > 1
