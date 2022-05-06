@@ -4,41 +4,82 @@ Installation
 Requirements
 ------------
 
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` has been tested on Debian ``linux-x86_64`` systems; it requires
+- Linux (Ubuntu 20 or higher). If you are using a different OS, please run the `Multipass virtual machine <https://multipass.run/>`_.
+- Access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ packages `Struphy <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_ and `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
-* Python 3 
-* pip3
-* Fortran compiler (gcc/gfortran)
-* openmpi
+Linux packages
+--------------
 
-as well as the following Ubuntu packages (``apt-get install``):
+::
 
-* libblas-dev 
-* liblapack-dev
+    sudo apt-get update
+    sudo apt-get install gfortran
+    sudo apt-get install gcc
+    sudo apt-get install libblas-dev liblapack-dev
+    sudo apt-get install libopenmpi-dev openmpi-bin
+    sudo apt-get install libomp-dev libomp5
+    sudo apt-get install python3-pip
+    sudo apt-get install python3-mpi4py
 
-Necessary Python packages will be automatically installed with ``pip install .`` (list of packages in ``setup.py``).
 
-.. _mac:
+.. _user_install:
 
-Mac with M1 chip
-----------------
+Struphy package install from PYPI
+---------------------------------
 
-Numba must be installed from source::
+Not yet available.
 
-    git clone https://github.com/numba/llvmlite.git
-    cd llvmlite; python setup.py install
-    git clone git://github.com/numba/numba.git
-    cd numba
-    python setup.py build_ext --inplace 
-    python setup.py install
 
-Installation of ``h5py``::
+.. _source_install:
 
-    HDF5_DIR=/opt/homebrew/Cellar/hdf5/1.13.0 
+Struphy package install from source
+-----------------------------------
+
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, checkout the ``devel`` branch and name the repo ``<name>``::
+
+    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git <name>
+
+Install the submodules ``psydac`` and ``gvec_to_python``::
+
+    cd <name>
+    git submodule init
+    git submodule update
     pip install h5py
+    cd psydac
+    git pull origin devel
+    export CC="mpicc"
+    export HDF5_MPI="ON"
+    export HDF5_DIR=/path/to/hdf5/openmpi
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
+    pip install .
+    cd psydac/core
+    pyccel kernels.py --language fortran
+    cd -
+    cd ..
+    cd gvec_to_python
+    python3 -m pip install . -r requirements.txt
+    pip install sympy==1.6.1 
+    cd ..
 
+Install ``struphy`` via::
 
-.. _clusters:
+    pip install <option> .
+
+where ``<option>`` is either empty (for Python environment installation), ``--user`` (for installation in ``.local/lib``) or ``-e`` (or installation in development mode).
+
+In case of a user installation (``<option>=--user``), it is safe to extend the ``PATH`` variable::
+
+    export PATH=$PATH:~/.local/bin
+
+Quick help::
+
+    struphy
+
+Struphy compilation::
+
+    struphy compile
+    pip install -U pyccel
 
 Computing clusters
 ------------------
@@ -49,10 +90,10 @@ Specifics for the HPC system ``cobra`` at IPP::
     module load gcc openmpi anaconda/3/2020.02 mpi4py
     module list
 
-Struphy must be **installed, ran and profiled** with the user flag ``--user`` (see below) because the module environment cannot be installed to.
-Add the relevant paths (this is done in the provided batch scripts as well)::
+Continue with :ref:`source_install` from above.
 
-    export PATH="${PATH}:$HOME/.local/bin"
+Extend the ``PYTHONPATH``::
+
     export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)" 
 
 In order to suppress fork warnings in the slurm output::
@@ -61,63 +102,4 @@ In order to suppress fork warnings in the slurm output::
     export OMPI_MCA_mpi_warn_on_fork 
 
  
-.. _user_install:
 
-From PYPI
----------
-
-Not yet available.
-
-
-From source
------------
-
-Clone and checkout the ``devel`` branch::
-
-    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git struphy
-    cd struphy
-
-User specific install::
-
-    pip install --user .
-
-For developers (path search in cloned repo first)::
-
-    pip install -e .
-
-Virtual environment install (recommended if not on computing cluster)::
-
-    python3 -m pip install --user virtualenv
-    python3 -m venv <env_name>
-    source <env_name>/bin/activate
-    pip install .
-
-Next, install the submodules ``gvec_to_python`` and ``psydac``::
-
-    git submodule init
-    git submodule update
-    cd psydac
-    git pull origin devel
-    export CC="mpicc"
-    export HDF5_MPI="ON"
-    export HDF5_DIR=/path/to/hdf5/openmpi
-    python3 -m pip install -r requirements.txt
-    python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    pip install .
-    pip install sympde==0.13.1
-    cd ..
-    cd gvec_to_python
-    python3 -m pip install . -r requirements.txt
-    pip install sympy==1.6.1 
-    cd ..
-    
-Quick help::
-
-    struphy
-
-
-Source
-------
-
-The source code of :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` can be found at `https://gitlab.mpcdf.mpg.de/clapp/hylife <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_. 
-In case of access problems please contact `Stefan Possanner <spossann@ipp.mpg.de>`_.
