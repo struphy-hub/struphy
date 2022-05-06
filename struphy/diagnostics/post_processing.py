@@ -39,14 +39,14 @@ def create_femfields(path, snapshots=None):
             From which code the data has been obtained.
     '''
 
-    with open(path + 'meta.txt', 'r') as f:
+    with open(path + '/meta.txt', 'r') as f:
         lines = f.readlines()
 
     # number of processes
     code = lines[-2].split()[-1]
     nproc = int(lines[-1].split()[-1])
 
-    with open(path + 'parameters.yml', 'r') as f:
+    with open(path + '/parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # =========================================================================================

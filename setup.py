@@ -38,7 +38,8 @@ setup(
              'scripts/example_psydac_parallel',
              'scripts/example_cold_plasma_1d_fft',
              'scripts/example_lin_Vlasov_Maxwell',
-             'scripts/example_pproc',
+             'scripts/example_pproc_serial',
+             'scripts/example_pproc_mpi_3',
              ],
     # list of package dependencies (if necessary)
     install_requires=[

@@ -4,22 +4,25 @@ Installation
 Requirements
 ------------
 
-- Linux (Ubuntu 20 or higher). If you are using a different OS, please run the `Multipass virtual machine <https://multipass.run/>`_.
+- Linux (Ubuntu 20 or higher). If you are using a different OS, please run the :ref:`multipass`.
 - Access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ packages `Struphy <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_ and `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
+
+
+.. _linux_packages:
 
 Linux packages
 --------------
 
 ::
 
-    sudo apt-get update
-    sudo apt-get install gfortran
-    sudo apt-get install gcc
-    sudo apt-get install libblas-dev liblapack-dev
-    sudo apt-get install libopenmpi-dev openmpi-bin
-    sudo apt-get install libomp-dev libomp5
-    sudo apt-get install python3-pip
-    sudo apt-get install python3-mpi4py
+    sudo apt update
+    sudo apt install gfortran
+    sudo apt install gcc
+    sudo apt install libblas-dev liblapack-dev
+    sudo apt install libopenmpi-dev openmpi-bin
+    sudo apt install libomp-dev libomp5
+    sudo apt install python3-pip
+    sudo apt install python3-mpi4py
 
 
 .. _user_install:
@@ -34,6 +37,10 @@ Not yet available.
 
 Struphy package install from source
 -----------------------------------
+
+Before starting, it is safe to extend the ``PATH`` variable with your local path::
+
+    export PATH=$PATH:~/.local/bin
 
 Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, checkout the ``devel`` branch and name the repo ``<name>``::
 
@@ -68,10 +75,6 @@ Install ``struphy`` via::
 
 where ``<option>`` is either empty (for Python environment installation), ``--user`` (for installation in ``.local/lib``) or ``-e`` (or installation in development mode).
 
-In case of a user installation (``<option>=--user``), it is safe to extend the ``PATH`` variable::
-
-    export PATH=$PATH:~/.local/bin
-
 Quick help::
 
     struphy
@@ -100,6 +103,41 @@ In order to suppress fork warnings in the slurm output::
 
     OMPI_MCA_mpi_warn_on_fork=0
     export OMPI_MCA_mpi_warn_on_fork 
+
+
+.. _multipass:
+
+Multipass Virtual Machine
+-------------------------
+
+Download and documentation at `https://multipass.run <https://multipass.run/>`_.
+
+After intallation, launch a VM with the name ``<VM-name>`` via::
+
+    multipass launch --name <VM-name> --cpus 4
+
+Quick info::
+
+    multipass info --all
+
+Enter the shell::
+
+    multipass shell <VM-name>
+
+Continue with the installation of :ref:`linux_packages`, then proceed to :ref:`source_install`.
+
+In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, generate an ssh key::
+
+    ssh-keygen
+
+The copy the key under ``.sss/id_rsa.pub`` to your Gitlab profile.
+
+| You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance). 
+| For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
+
+    multipass mount /Path/to/Folder/on/Host/ <VM-name>:/home/ubuntu/<folder-name>/ 
+
+
 
  
 

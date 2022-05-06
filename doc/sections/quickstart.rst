@@ -33,11 +33,12 @@ Note that the older version of ``pyccel`` is needed only for compilation and wil
 Simple example
 --------------
 
-Struphy comes with some example work flows. A simple one is executed via::
+Struphy comes with some example work flows. Two simple ones are executed via::
 
-    example_pproc
+    example_pproc_serial
+    example_pproc_mpi_4
 
-This runs a Maxwell solver on 4 mpi processes with random noise as initial condition, then plots the light wave dispersion relation. 
+This runs a Maxwell solver in serial mode and on 4 mpi processes with random noise as initial condition, then plots the light wave dispersion relation. 
 
 To get a little more busy, we can create a struphy simulations folder,
 and copy input/output folders there::
