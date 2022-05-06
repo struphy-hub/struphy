@@ -4,5 +4,24 @@ PYTHON=python3
 
 struphy run maxwell_psydac --mpi 4 -o sim_1
 
-path_e=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/examples/
-$PYTHON ${path_e}example_pproc_1dfft.py
+# Struphy path
+STRUPHY=
+li=$(pip show struphy)
+#echo $li
+take=false
+for i in $li; do
+
+    if [ "$take" = "true" ]; then
+        #echo $take
+        STRUPHY=$i/struphy
+        break
+    fi
+    #echo "$i"
+    if [ "$i" = "Location:" ]; then
+        #echo "$i"
+        take=true
+    fi
+done
+
+path_e=$STRUPHY/examples
+$PYTHON ${path_e}/example_pproc_1dfft.py

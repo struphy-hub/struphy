@@ -3,20 +3,32 @@
 # Python interpreter
 PYTHON=python3
 
-# Struphy paths
-PLATLIB=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy
-LOCAL=$($PYTHON -m site --user-site)/struphy
-SOURCE=
+# Struphy path
+STRUPHY=
+li=$(pip show struphy)
+#echo $li
+take=false
+for i in $li; do
+
+    if [ "$take" = "true" ]; then
+        #echo $take
+        STRUPHY=$i/struphy
+        break
+    fi
+    #echo "$i"
+    if [ "$i" = "Location:" ]; then
+        #echo "$i"
+        take=true
+    fi
+done
 
 # Defaults
-STRUPHY=$PLATLIB
 RUN=false
 COMPILE=false 
 PROFILE=false
 PROFILE_ALL=false    
 CFLAGS=--openmp    
-CODE=lin_mhd             
-USER=false             
+CODE=lin_mhd                          
 OPENMP=true           
 INPUT=parameters.yml            
 INPUT_ABS=        
@@ -44,7 +56,6 @@ function help {
     echo -e "\e[1mDESCRIPTION\e[0m"
     echo -e "      Compiles Struphy kernels (with pyccel), runs one of several struphy models or profiles finished runs. 
       Can run locally with mpi (for testing) or submit a batch script to SLURM.
-      The profiler checks for function names containing 'update', 'step_' and 'assemble_'.
       For more info see \e]8;;https://clapp.pages.mpcdf.de/hylife/index.html\ahttps://clapp.pages.mpcdf.de/hylife/index.html\e]8;;\a."
     echo
     echo -e "\e[1mMODELS\e[0m"
@@ -65,14 +76,10 @@ function help {
     echo "      -t, --tree                 Display struphy tree (package directories)."
     echo
     echo -e "\e[1mCOMPILE OPTIONS\e[0m "
-    echo "      --user                     Compile the user-specific installation (e.g. in .local/lib)."
-    echo "      -e                         Compile the source files in the git repository."
     echo "      --no-openmp                Compile without OpenMP."
     echo "      --delete                   Remove Fortran and .so files."
     echo
     echo -e "\e[1mRUN OPTIONS\e[0m "
-    echo "      --user                     Run from the user-specific installation (e.g. in .local/lib)."
-    echo "      -e                         Run from the source files in the git repository."
     echo "      -i, --input <filename>     Parameter file (.yml), path is relative to <install_path>/struphy/io/inp/<model>/;"
     echo "                                 the default is 'parameters.yml'"
     echo "      --input-abs <filename>     Parameter file (.yml), absolute path."
@@ -84,8 +91,6 @@ function help {
     echo "      --mpi <int>                Use mpirun -n <int>."
     echo
     echo -e "\e[1mPROFILE OPTIONS\e[0m "
-    echo "      --user                     Profile script loaded from the user-specific installation (e.g. in .local/lib)."
-    echo "      -e                         Profile script loaded from the source files in the git repository."
     echo "      -a, --all                  Do not specify specific strings to profile, profile all called functions."
     echo "                                 If not given, profile functions including ['assemble_', 'update', 'step_'] in their name."
     echo "      <sim1>                     Absolute path to "profile_tmp" file of finished simulation."
@@ -108,11 +113,10 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     -p|--path)
-      echo "Platform:" $PLATLIB
-      echo "Local:   " $LOCAL
-      echo "Source:  " $SOURCE
-      echo "default in : <path_from_above>/io/inp" 
-      echo "default out: <path_from_above>/io/out/sim_1/"
+      echo "Struphy installation path:" $STRUPHY
+      echo "default input:            " $STRUPHY/io/inp 
+      echo "default output:           " $STRUPHY/io/out
+      echo "template batch scripts:   " $STRUPHY/io/batch
       exit 0
       ;;
     -t|--tree)
@@ -145,26 +149,12 @@ while [[ $# -gt 0 ]]; do
       PROFILE_ALL=true
       shift
       ;;
-    --user)
-      STRUPHY="$LOCAL"
-      shift 
-      ;;
     --no-openmp)
       CFLAGS=
       shift 
       ;;
     --delete)
       CLEAN=true
-      shift 
-      ;;
-    -e)
-      if [ $(git rev-parse --is-inside-work-tree) ]; then
-        SOURCE=$(git rev-parse --show-toplevel)
-      else
-        echo "Not in the git repo. Source path cannot be determined." 
-        exit 0
-      fi
-      STRUPHY="$SOURCE"/struphy
       shift 
       ;;
     -i|--input)
@@ -223,7 +213,6 @@ done
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
 # Print parameters
-echo "USER             = ${USER}"
 echo "STRUPHY          = ${STRUPHY}"
 echo "COMPILE          = ${COMPILE}"
 echo "CFLAGS           = ${CFLAGS}"
@@ -324,7 +313,6 @@ if [ "$RUN" = true ] ; then
   echo "METAFILE         = ${METAFILE}"
  
   # Write to meta.txt
-  echo "USER             = ${USER}" > $METAFILE
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
   echo "CODE             = ${CODE}" >> $METAFILE
   echo "INPUT            = ${INPUT}" >> $METAFILE

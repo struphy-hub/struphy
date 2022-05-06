@@ -165,9 +165,6 @@ $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)
 $(PLO)$(SO_EXT) : $(PLO).py
 	pyccel $< $(FLAGS)
 
-$(PA4)$(SO_EXT) : $(PA4).py $(MF3)$(SO_EXT) $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
 $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)
 

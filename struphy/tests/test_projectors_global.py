@@ -72,10 +72,10 @@ def test_projectors_1d(plot=False, p_range=6, N_range=8):
             f1_h_per = Vh_per.evaluate_D(eta_plot, c1_per)
             f1_h_cla = Vh_cla.evaluate_D(eta_plot, c1_cla)
             
-            err0_per.append(np.abs(np.max(f0_h_per - f_per(eta_plot))))
-            err0_cla.append(np.abs(np.max(f0_h_cla - f_cla(eta_plot))))
-            err1_per.append(np.abs(np.max(f1_h_per - f_per(eta_plot))))
-            err1_cla.append(np.abs(np.max(f1_h_cla - f_cla(eta_plot))))
+            err0_per.append(np.max(np.abs(f0_h_per - f_per(eta_plot))))
+            err0_cla.append(np.max(np.abs(f0_h_cla - f_cla(eta_plot))))
+            err1_per.append(np.max(np.abs(f1_h_per - f_per(eta_plot))))
+            err1_cla.append(np.max(np.abs(f1_h_cla - f_cla(eta_plot))))
 
             order0_per.append(np.log2(err0_per[-2]/err0_per[-1]))
             order0_cla.append(np.log2(err0_cla[-2]/err0_cla[-1]))
@@ -249,7 +249,7 @@ def test_projectors_1d(plot=False, p_range=6, N_range=8):
             
 
 
-def test_projectors_2d(p_range=6, N_range=8):
+def test_projectors_2d(p_range=6, N_range=6):
 
     import sys
     sys.path.append('..')
@@ -331,7 +331,7 @@ def test_projectors_2d(p_range=6, N_range=8):
             fh_2  = fh_0.copy()
             f_mat = fh_0.copy()
             
-            print(cij_0.shape)
+            #print(cij_0.shape)
 
             fh_0  = Vh_2d.evaluate_NN(eta1_v, eta2_v, np.array([0.]), cij_0.flatten() , 'V0')[:, :, 0]
             fh_11 = Vh_2d.evaluate_DN(eta1_v, eta2_v, np.array([0.]), np.concatenate((cij_11.flatten(), cij_12.flatten(), cij_0.flatten())), 'V1')[:, :, 0]
@@ -341,10 +341,10 @@ def test_projectors_2d(p_range=6, N_range=8):
             # compute error:
             f_mat = f(ee1, ee2)
 
-            err0.append(np.abs(np.max(fh_0 - f_mat)))
-            err11.append(np.abs(np.max(fh_11 - f_mat)))
-            err12.append(np.abs(np.max(fh_12 - f_mat)))
-            err2.append(np.abs(np.max(fh_2 - f_mat)))
+            err0.append(np.max(np.abs(fh_0 - f_mat)))
+            err11.append(np.max(np.abs(fh_11 - f_mat)))
+            err12.append(np.max(np.abs(fh_12 - f_mat)))
+            err2.append(np.max(np.abs(fh_2 - f_mat)))
 
             order0.append(np.log2(err0[-2]/err0[-1]))
             order11.append(np.log2(err11[-2]/err11[-1]))
@@ -496,7 +496,7 @@ def test_projectors_3d(p_range=6, N_range=5):
             assert np.allclose(cijk_23, cijk_23_mat, atol=1e-14)
             assert np.allclose(cijk_3,   cijk_3_mat, atol=1e-14)
 
-            print('A) and B) yield same result.')
+            #print('A) and B) yield same result.')
 
             # result from A) and C) must be the same
             assert np.allclose(cijk_0,   cijk_0_pol, atol=1e-13)
@@ -508,7 +508,7 @@ def test_projectors_3d(p_range=6, N_range=5):
             assert np.allclose(cijk_23, cijk_23_pol, atol=1e-13)
             assert np.allclose(cijk_3,   cijk_3_pol, atol=1e-13)
 
-            print('A) and C) yield same result.')
+            #print('A) and C) yield same result.')
 
             # evaluation of splines:
             fh_0  = np.empty((eta1_v.size, eta2_v.size, eta3_v.size))
@@ -533,14 +533,14 @@ def test_projectors_3d(p_range=6, N_range=5):
             # compute error
             f_mat = f(ee1, ee2, ee3)
 
-            err0.append(np.abs(np.max(fh_0 - f_mat)))
-            err11.append(np.abs(np.max(fh_11 - f_mat)))
-            err12.append(np.abs(np.max(fh_12 - f_mat)))
-            err13.append(np.abs(np.max(fh_13 - f_mat)))
-            err21.append(np.abs(np.max(fh_21 - f_mat)))
-            err22.append(np.abs(np.max(fh_22 - f_mat)))
-            err23.append(np.abs(np.max(fh_23 - f_mat)))
-            err3.append(np.abs(np.max(fh_3 - f_mat)))
+            err0.append(np.max(np.abs(fh_0 - f_mat)))
+            err11.append(np.max(np.abs(fh_11 - f_mat)))
+            err12.append(np.max(np.abs(fh_12 - f_mat)))
+            err13.append(np.max(np.abs(fh_13 - f_mat)))
+            err21.append(np.max(np.abs(fh_21 - f_mat)))
+            err22.append(np.max(np.abs(fh_22 - f_mat)))
+            err23.append(np.max(np.abs(fh_23 - f_mat)))
+            err3.append(np.max(np.abs(fh_3 - f_mat)))
 
             order0.append(np.log2(err0[-2]/err0[-1]))
             order11.append(np.log2(err11[-2]/err11[-1]))
@@ -749,6 +749,6 @@ def test_project_splines():
 
 if __name__ == '__main__':
     #test_projectors_1d(plot=True)
-    #test_projectors_2d()
-    test_projectors_3d()
+    test_projectors_2d()
+    #test_projectors_3d()
     #test_project_splines()
