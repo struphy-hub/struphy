@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy run maxwell_psydac --mpi 4 -o sim_1
+struphy run maxwell_psydac -o sim_1
 
 # Struphy path
 STRUPHY=
@@ -24,4 +24,4 @@ for i in $li; do
 done
 
 path_e=$STRUPHY/examples
-$PYTHON ${path_e}/example_pproc_1dfft.py
+$PYTHON ${path_e}/example_pproc_1dfft.py $STRUPHY/io/out/sim_1
