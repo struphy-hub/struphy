@@ -43,18 +43,21 @@ class Schur_solver:
 
         Arguments
         ---------
-            xn: StencilVector
+            xn : StencilVector
                 Solution from previous time step.
 
-            Byn: StencilVector
+            Byn : StencilVector
                 The product B*yn.
+
+            dt: float
+                Time step size.
 
         Returns
         -------
-            x: StencilVector
+            x : StencilVector
                 Converged solution.
 
-            info: dict
+            info : dict
                 Convergence information.
         '''
 
@@ -72,15 +75,15 @@ class Schur_solver:
         self._maxiter = maxiter
         self._verbose = verbose
 
-        self._schur = Sum( A, Multiply(-1., BC) )
-        self._rhs_mat = Sum(A, BC)
+    def __call__(self, xn, Byn, dt):
 
-    def __call__(self, xn, Byn):
+        self._schur   = Sum(self._A, Multiply(-dt**2, self._BC) )
+        self._rhs_mat = Sum(self._A, Multiply(dt**2, self._BC))
 
         assert xn.space == self._rhs_mat.domain
         assert Byn.space == self._rhs_mat.codomain
 
-        _rhs = self._rhs_mat.dot(xn) - 2.*Byn
+        _rhs = self._rhs_mat.dot(xn) - dt*2.*Byn
 
         x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
                       maxiter=self._maxiter, verbose=self._verbose)

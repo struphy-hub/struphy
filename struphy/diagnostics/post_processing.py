@@ -106,7 +106,7 @@ def create_femfields(path, snapshots=None):
     # Get hdf5 data
     for n in range(nproc):
 
-        f_name = 'data_proc' + str(n) + '.hdf5'
+        f_name = '/data_proc' + str(n) + '.hdf5'
         #print(f'File: {f_name}')
         f = h5py.File(path + f_name, 'r')
 
@@ -119,12 +119,12 @@ def create_femfields(path, snapshots=None):
                 #print('Skipping time series dataset...')
                 continue
 
-            space_cont = dset.attrs['space_cont']
+            space_id = dset.attrs['space_id']
             starts = dset.attrs['starts']
             ends = dset.attrs['ends']
             pads = dset.attrs['pads']
 
-            if space_cont in ('Hcurl', 'Hdiv'):
+            if space_id in ('Hcurl', 'Hdiv'):
                 comp = int(key[-1])
                 name = key[:-2]
             else:
@@ -148,7 +148,7 @@ def create_femfields(path, snapshots=None):
             p2 = pads[comp][2]
 
             for t, time in enumerate(fields[name]):
-                if space_cont in ('Hcurl', 'Hdiv'):
+                if space_id in ('Hcurl', 'Hdiv'):
                     fields[name][time][comp].coeffs[s0:e0 + 1, s1:e1 + 1,
                                             s2:e2 + 1] = dset[t, p0:-p0, p1:-p1, p2:-p2]
                 else:

@@ -11,55 +11,39 @@ import numpy as np
 
 
 class Field_init:
-    '''Initializes a field variable (i.e. its FE coefficients) in memory and assigns the initial condition.'''
+    '''Initializes a field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial condition.'''
 
-    def __init__(self, name, space, DR, DOMAIN, comps=None, init_type=None, init_coords=None, init_params=None):
+    def __init__(self, name, space_id, DR):
         '''
         Parameters
         ----------
             name: str
                 Key to be used in the hdf5 file, specified in the parameters.yml file by the user.
 
-            space: str
+            space_id: str
                 Space identifier for the field (H1, Hcurl, Hdiv or L2), specified in the parameters.yml file by the user.
 
             DR: obj
                 From struphy/psydac_api/fields.Field_init.
-
-            DOMAIN: obj
-                From struphy/geometry/domain_3d.Domain.
-
-            comps: list
-                Booleans that specify whether field component has non-zero initial conditions (True).
-
-            init_type: str
-                Type of initial condition, specified in the parameters.yml file by the user.
-
-            init_coords: str
-                In which coordinate system the initial condition is given (logical, physical or norm_logical), specified in the parameters.yml file by the user.
-
-            init_params: dict
-                Parameters of initial condition, specified in the parameters.yml file by the user.
         '''
 
         self._name = name
-        self._space_cont = space
-        self._init_type = init_type
-        self._init_params = init_params
+        self._space_id = space_id
+        self._DR = DR
 
         # Initialize field in memory
-        if space == 'H1':
+        if space_id == 'H1':
             self._space = DR.V0
             #self._vector = StencilVector(self._space.vector_space)
-        elif space == 'Hcurl':
+        elif space_id == 'Hcurl':
             self._space = DR.V1
             # self._vector = BlockVector(self._space.vector_space, [
                 # StencilVector(comp) for comp in self._space.vector_space])
-        elif space == 'Hdiv':
+        elif space_id == 'Hdiv':
             self._space = DR.V2
             # self._vector = BlockVector(self._space.vector_space, [
                 # StencilVector(comp) for comp in self._space.vector_space])
-        elif space == 'L2':
+        elif space_id == 'L2':
             self._space = DR.V3
             # self._vector = StencilVector(self._space.vector_space)
         else:
@@ -78,71 +62,6 @@ class Field_init:
             self._gl_e = [comp.ends for comp in self._vector]
             self._pads = [comp.pads for comp in self._vector]
 
-        # Quit if no initial conditions are specified
-        if comps == None:
-            print('Attention: zero intial conditions for all field quantities.')
-            return
-
-        # Set initial conditions for each component
-        assert isinstance(comps, list)
-
-        if init_type == 'noise':
-
-            # Set white noise FE coefficients
-            if space in {'H1', 'L2'}:
-                if comps[0]:
-                    self._add_noise()
-
-            elif space in {'Hcurl', 'Hdiv'}:
-                for n, comp in enumerate(comps):
-                    if comp:
-                        self._add_noise(n=n)
-
-            self._vector.update_ghost_regions()
-
-        else:
-
-            # Contruct callable
-            _fun_tmp = [None] * len(comps)
-            #_key_tmp = []
-            for n, comp in enumerate(comps):
-                # _key_tmp += [self._space_cont + '_' + str(n)] # string to identtify comp in pullback/transformation
-                if comp:
-                    _fun_tmp[n] = self._get_callable_from_params(n)
-
-            # Pullback callable and project
-            self._fun = []
-            if space == 'H1':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '0_form')]
-                self._vector[:] = DR.P0(self._fun[0]).coeffs[:]
-
-            elif space == 'Hcurl':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_1')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_2')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_3')]
-                #self._fun = Pulled_1form(init_coords, _fun_tmp, DOMAIN)
-                _coeffs = DR.P1(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
-
-            elif space == 'Hdiv':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_1')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_2')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_3')]
-                _coeffs = DR.P2(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
-
-            elif space == 'L2':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '3_form')]
-                self._vector[:] = DR.P3(self._fun[0]).coeffs[:]
-
-            self._vector.update_ghost_regions()
-
-        # print(f'Field "{self._name}" initialized in space {self._space_cont}.')
-
     @property
     def name(self):
         '''Name of the field in DATA container.'''
@@ -150,13 +69,18 @@ class Field_init:
 
     @property
     def space(self):
-        '''Discrete space of the field.'''
+        '''Discrete space of the field (Psydac object).'''
         return self._space
 
     @property
-    def space_cont(self):
-        '''Continuous space fo the field.'''
-        return self._space_cont
+    def space_id(self):
+        '''Continuous space fo the field (string).'''
+        return self._space_id
+
+    @property
+    def DR(self):
+        '''3d Derham complex.'''
+        return self._DR
 
     @property
     def field(self):
@@ -186,6 +110,92 @@ class Field_init:
     def pads(self):
         '''Paddings for ghost regions.'''
         return self._pads
+
+    def set_initial_conditions(self, DOMAIN, comps, init_type, init_coords, init_params):
+        '''
+        Sets the initial conditions for self.vector.
+
+        Parameters
+        ----------
+            DOMAIN: obj
+                From struphy/geometry/domain_3d.Domain.
+
+            comps: list
+                Booleans that specify whether field component has non-zero initial conditions (True).
+
+            init_type: str
+                Type of initial condition, specified in the parameters.yml file by the user.
+
+            init_coords: str
+                In which coordinate system the initial condition is given (logical, physical or norm_logical), specified in the parameters.yml file by the user.
+
+            init_params: dict
+                Parameters of initial condition, specified in the parameters.yml file by the user.
+        '''
+
+        # Set initial conditions for each component
+        assert isinstance(comps, list)
+
+        self._init_type = init_type
+        self._init_params = init_params
+
+        if init_type == 'noise':
+
+            # Set white noise FE coefficients
+            if self.space_id in {'H1', 'L2'}:
+                if comps[0]:
+                    self._add_noise()
+
+
+            elif self.space_id in {'Hcurl', 'Hdiv'}:
+                for n, comp in enumerate(comps):
+                    if comp:
+                        self._add_noise(n=n)
+
+            self._vector.update_ghost_regions()
+
+        else:
+
+            # Contruct callable
+            _fun_tmp = [None] * len(comps)
+            #_key_tmp = []
+            for n, comp in enumerate(comps):
+                # _key_tmp += [self._space_id + '_' + str(n)] # string to identtify comp in pullback/transformation
+                if comp:
+                    _fun_tmp[n] = self._get_callable_from_params(n)
+
+            # Pullback callable and project
+            self._fun = []
+            if self.space == 'H1':
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '0_form')]
+                self._vector[:] = self.DR.P0(self._fun[0]).coeffs[:]
+
+            elif self.space == 'Hcurl':
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_1')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_2')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_3')]
+                #self._fun = Pulled_1form(init_coords, _fun_tmp, DOMAIN)
+                _coeffs = self.DR.P1(self._fun).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
+
+            elif self.space == 'Hdiv':
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_1')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_2')]
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_3')]
+                _coeffs = self.DR.P2(self._fun).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
+
+            elif self.space == 'L2':
+                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '3_form')]
+                self._vector[:] = self.DR.P3(self._fun[0]).coeffs[:]
+
+            self._vector.update_ghost_regions()
+
+        # print(f'Field "{self._name}" initialized in space {self._space_id}.')
 
     @property
     def init_type(self):
