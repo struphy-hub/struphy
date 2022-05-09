@@ -139,9 +139,6 @@ class Push_maxwell_psydac:
         DR: obj
             From struphy/psydac_api/fields.Field_init.
 
-        time_steps : list
-            Time steps, one for each split step.
-
         params: dict
             Solver parameters for this splitting step. 
 
@@ -153,15 +150,17 @@ class Push_maxwell_psydac:
         bn: StencilVector
             Magnetic field coefficients.
 
+        dt : float
+            Time step size.
+
     Returns
     -------
         Nothing. The coefficients are updated in place (overwritten).
     '''
 
-    def __init__(self, DR, time_steps, params):
+    def __init__(self, DR, params):
 
         self._DR = DR
-        self._dts = time_steps
         self._info = params['info']
 
         # Preconditioner
@@ -172,22 +171,22 @@ class Push_maxwell_psydac:
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
-        # Define block matrix
+        # Define block matrix (without time step size dt in the diangonals)
         _A = DR.M1
-        self._B = Multiply(-time_steps[0]/2., Compose(DR.curl.transpose(), DR.M2))
-        self._C = Multiply(time_steps[0]/2., DR.curl)
+        self._B = Multiply(-1./2., Compose(DR.curl.transpose(), DR.M2)) # no dt
+        self._C = Multiply(1./2., DR.curl) # no dt
         _BC = Compose(self._B, self._C)
 
         # Instantiate Schur solver
         self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
 
-    def __call__(self, en, bn):
+    def __call__(self, en, bn, dt):
 
         assert isinstance(en, BlockVector)
         assert isinstance(bn, BlockVector)
 
-        _e, info = self._schur_solver(en, self._B.dot(bn))
-        _b = bn - self._C.dot(_e + en)
+        _e, info = self._schur_solver(en, self._B.dot(bn), dt)
+        _b = bn - dt*self._C.dot(_e + en)
 
         # in place update of e
         _diff_e = []

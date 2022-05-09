@@ -134,22 +134,6 @@ def test_psydac_mapping(mapping):
 @pytest.mark.parametrize('mapping', [
     ['cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-    ['orthogonal', {
-        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-    ['colella', {
-        'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-    ['hollow_cyl', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
-    ['hollow_torus', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
-    ['ellipse', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6.}],
-    ['rotated_ellipse', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'r1': 4., 'r2': 5., 'Lz': 6., 'th': 7.}],
-    ['shafranov_shift', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
-    ['shafranov_sqrt', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'rx': 4., 'ry': 5., 'Lz': 6., 'delta': 7.}],
     ['shafranov_dshaped', {
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])

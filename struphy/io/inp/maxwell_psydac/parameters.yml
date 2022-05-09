@@ -87,7 +87,7 @@ time :
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
 
 solvers :
-      step_maxwell : 
+      option_1 : 
             pc : 'fft' # null or 'fft'
             tol : 1.e-8
             maxiter : 3000

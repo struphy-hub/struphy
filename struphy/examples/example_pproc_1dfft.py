@@ -1,14 +1,10 @@
 from struphy.diagnostics.post_processing import create_femfields, eval_femfields
 from struphy.diagnostics.diagn_tools import fourier_1d
 
-from psydac.fem.vector import ProductFemSpace
+import sys
 
-import sysconfig
-import matplotlib.pyplot as plt
-import numpy as np
-
-path = sysconfig.get_path("platlib") + '/struphy/io/out/sim_1/'
-#path = 'struphy/io/out/sim_1/'
+path = sys.argv[1] 
+print(path)
 
 fields, DOMAIN, code = create_femfields(path)
 

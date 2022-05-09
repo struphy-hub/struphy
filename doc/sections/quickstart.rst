@@ -36,9 +36,9 @@ Simple example
 Struphy comes with some example work flows. Two simple ones are executed via::
 
     example_pproc_serial
-    example_pproc_mpi_4
+    example_pproc_mpi_3
 
-This runs a Maxwell solver in serial mode and on 4 mpi processes with random noise as initial condition, then plots the light wave dispersion relation. 
+This runs a Maxwell solver in serial mode and on 3 mpi processes with random noise as initial condition, then plots the light wave dispersion relation. 
 
 To get a little more busy, we can create a struphy simulations folder,
 and copy input/output folders there::
@@ -76,7 +76,6 @@ Once all simulations are finished, we can compare the run times via::
 Example on  Cobra (IPP Garching)
 --------------------------------
 
-On `Cobra <https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html>`__ the flag ``--user`` must be used when installing/calling struphy.
 Assuming struphy is installed and compiled, with the path called ``<userlib>``, we can copy input, output and batch files to ``$HOME``::
 
     cd ~

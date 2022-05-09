@@ -16,13 +16,8 @@ Linux packages
 ::
 
     sudo apt update
-    sudo apt install gfortran
-    sudo apt install gcc
-    sudo apt install libblas-dev liblapack-dev
-    sudo apt install libopenmpi-dev openmpi-bin
-    sudo apt install libomp-dev libomp5
-    sudo apt install python3-pip
-    sudo apt install python3-mpi4py
+    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    sudo apt install -y python3-pip python3-mpi4py
 
 
 .. _user_install:
@@ -126,14 +121,18 @@ Enter the shell::
 
 Continue with the installation of :ref:`linux_packages`, then proceed to :ref:`source_install`.
 
-In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, generate an ssh key::
+Exit the VM with::
+
+    exit
+
+In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, in case there is none, generate an ssh key::
 
     ssh-keygen
 
-The copy the key under ``.sss/id_rsa.pub`` to your Gitlab profile.
+Then copy the key under ``.ssh/id_rsa.pub`` to your Gitlab profile.
 
-| You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance). 
-| For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
+You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance). 
+For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
 
     multipass mount /Path/to/Folder/on/Host/ <VM-name>:/home/ubuntu/<folder-name>/ 
 

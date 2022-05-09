@@ -126,6 +126,21 @@ Coding style
 - Include ``test_`` files (= unit tests) in the folder ``struphy/tests``. It is advisable that new features come with a test file, where users can understand the functionality and CI can automate testing.
 
 
+.. _change_doc:
+
+Changing the documentation 
+--------------------------
+
+The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. To review changes you made::
+
+    cd doc
+    make html
+
+To view the documentation in firefox::
+
+    firefox doc/_build/html/index.html
+
+
 .. _add_model:
 
 Adding a new model 
