@@ -17,6 +17,7 @@ Linux packages
 
     sudo apt update
     sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    sudo apt install -y libhdf5-openmpi-dev
     sudo apt install -y python3-pip python3-mpi4py
 
 
@@ -41,21 +42,33 @@ Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, chec
 
     git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git <name>
 
-Install the submodules ``psydac`` and ``gvec_to_python``::
+Install the submodules ``psydac``::
 
     cd <name>
     git submodule init
     git submodule update
-    pip install h5py
     cd psydac
     git pull origin devel
     export CC="mpicc"
     export HDF5_MPI="ON"
-    export HDF5_DIR=/path/to/hdf5/openmpi
+
+Determine the ``HDF5_DIR`` via::
+
+    dpkg -L libhdf5-openmpi-dev
+
+The correct path is the one that ends with ``hdf5/openmpi``, for example ``/usr/lib/x86_64-linux-gnu/hdf5/openmpi`` on a standard Ubuntu system. Set the correct path as in::
+
+    export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+
+Install psydac::
+
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install .
     cd ..
+
+Install the submodule ``gvec_to_python``::
+
     cd gvec_to_python
     python3 -m pip install . -r requirements.txt
     pip install sympy==1.6.1 
