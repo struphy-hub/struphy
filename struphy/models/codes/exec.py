@@ -101,8 +101,6 @@ elif code=='maxwell_psydac':
     if mpi_rank == 0:
         print(f'\nMPI communicator initialized with {MPI_COMM.Get_size()} process(es).\n')
         print('Starting code ' + code +  '...\n')
-        print(f'file_in : {file_in}')
-        print(f'path_out: {path_out}\n')
     
     # load simulation VARIABLES
     with open(file_in) as file:
@@ -117,9 +115,7 @@ elif code=='maxwell_psydac':
     
     if mpi_rank == 0:
         print(f'domain type: {dom_type}')
-        print(f'domain parameters: {dom_params}')
-        print(f'DOMAIN of type "' + dom_type + '" set.')
-        print()
+        print(f'domain parameters: {dom_params}\n')
     
     # DERHAM object
     Nel             = params['grid']['Nel']             # Number of grid cells

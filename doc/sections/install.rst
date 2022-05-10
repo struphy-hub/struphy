@@ -55,14 +55,32 @@ Install the submodules ``psydac`` and ``gvec_to_python``::
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install .
-    cd psydac/core
-    pyccel kernels.py --language fortran
-    cd -
     cd ..
     cd gvec_to_python
     python3 -m pip install . -r requirements.txt
     pip install sympy==1.6.1 
     cd ..
+
+Find out where psydac is installed::
+
+    pip show psydac
+
+which yields something like::
+
+    Name: psydac
+    Version: 0.1
+    Summary: Python package for BSplines/NURBS
+    Home-page: http://www.ahmed.ratnani.org
+    Author: Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü, Said Hadjout
+    Author-email: ratnaniahmed@gmail.com
+    License: LICENSE.txt
+    Location: $HOME/git_repos/struphy/env/lib/python3.8/site-packages
+    Requires: gelato, pyyaml, tblib, sympy, sympde, igakit, pytest, numpy, pyevtk, scipy, pyccel, packaging, matplotlib, numba, h5py, mpi4py
+    Required-by:
+
+The ``<path>`` under ``Location:`` is what we are looking for. Compile psydac kernels via::
+
+    pyccel <path>/psydac/core/kernels.py --language fortran
 
 Install ``struphy`` via::
 
