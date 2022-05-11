@@ -59,16 +59,7 @@ function help {
       For more info see \e]8;;https://clapp.pages.mpcdf.de/hylife/index.html\ahttps://clapp.pages.mpcdf.de/hylife/index.html\e]8;;\a."
     echo
     echo -e "\e[1mMODELS\e[0m"
-    echo "      lin_mhd (linear MHD)"
-    echo "      lin_mhd_MF (matrix-free linear MHD)"
-    echo "      lin_mhd_psydac (linear MHD with mpi)"
-    echo "      cc_lin_mhd_6d (current coupling MHD-full Vlasov)"
-    echo "      cc_lin_mhd_6d_MF (matrix-free current coupling MHD-full Vlasov)"
-    echo "      pc_lin_mhd_6d_MF_full (matrix-free pressure coupling MHD-full Vlasov with full pressure tensor)"
-    echo "      pc_lin_mhd_6d_MF_perp (matrix-free pressure coupling MHD-full Vlasov with pressure tensor perpendicular to B)"
-    echo "      pc_lin_mhd_6d (pressure coupling MHD-full Vlasov)"
-    echo "      kinetic_extended (full Vlasov, massless fluid electrons, extended Ohm's law)"
-    echo "      cc_cold_plasma_6d (cold plasma model coupled to full Vlasov via currents)"
+    echo "      maxwell (Maxwell equations in vacuum.)"
     echo
     echo -e "\e[1mOPTIONS\e[0m "
     echo "      -h, --help                 Display struphy help."
@@ -219,10 +210,6 @@ echo "CFLAGS           = ${CFLAGS}"
 echo "CLEAN            = ${CLEAN}"
 echo "RUN              = ${RUN}"
 echo "CODE             = ${CODE}"
-echo "INPUT            = ${INPUT}"
-echo "OUTPUT           = ${OUTPUT}"
-echo "BATCH            = ${BATCH}"
-echo "BATCH_SCRIPT     = ${BATCH_SCRIPT}"
 echo "RESTART_FOLDER   = ${RESTART_FOLDER}"
 echo "MPI_SIZE         = ${MPI_SIZE}"
 
@@ -254,7 +241,7 @@ if [ "$RUN" = true ] ; then
 
   # In-/output paths
   if [ -z $INPUT_ABS ]; then
-    INPUT_ABS=$STRUPHY/io/inp/$CODE/$INPUT
+    INPUT_ABS=$STRUPHY/io/inp/$INPUT
   fi
 
   if [ -z $OUTPUT_ABS ]; then
@@ -315,10 +302,6 @@ if [ "$RUN" = true ] ; then
   # Write to meta.txt
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
   echo "CODE             = ${CODE}" >> $METAFILE
-  echo "INPUT            = ${INPUT}" >> $METAFILE
-  echo "OUTPUT           = ${OUTPUT}" >> $METAFILE
-  echo "BATCH            = ${BATCH}" >> $METAFILE
-  echo "BATCH_SCRIPT     = ${BATCH_SCRIPT}" >> $METAFILE
   echo "RESTART_FOLDER   = ${RESTART_FOLDER}" >> $METAFILE
   echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
   echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE

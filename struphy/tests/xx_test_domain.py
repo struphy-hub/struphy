@@ -7,7 +7,7 @@ def test_evaluation_mappings():
 
     from struphy.geometry import domain_3d
 
-    file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
+    file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/parameters.yml'
     print(f'Path to parameters file: {file_in}')
 
     with open(file_in) as file:
