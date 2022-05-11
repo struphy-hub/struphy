@@ -5,6 +5,7 @@ from struphy.diagnostics import data_module
 
 import os
 import yaml
+import pickle
 import h5py
 from tqdm import tqdm
 
@@ -13,6 +14,126 @@ from struphy.feec.psydac_derham import Derham_build
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
+from psydac.api.postprocessing import PostProcessManager
+from sympde.topology import Cube
+
+
+def post_process_fields(path, snapshots=None, npts_per_cell=1):
+    '''
+    Parameters
+    ----------
+        path : str
+            Absolute path to folder with hdf5 data file.
+
+        snapshots : list of int
+            Time indices at which FemFields are to be created; must be <= #time_steps. If None, all time steps are processed.
+
+        npts_per_cell : int or 3-tupel or 3-list
+            Grid refinement in each eta direction, >0. If int, is assumed to be the same in each direction.
+
+    Returns
+    -------
+        code : str
+            From which code the data has been obtained.
+
+        values : dict
+            Nested dictionary holding values of B-spline FemFields on the grid as 3d np.arrays:
+            values[name][t] contains the values of field "name" at time step t. 
+            
+        grids : dict
+            grids[name] contains a 3-list with the logical grids corresponding to values[name]. Each entry is 1d grid in one
+            eta-direction in the format (Nel[i], npts_per_cell[i]). Grids are equally spaced.
+            
+        grids_phys : dict
+            grids_phys[name] contains a 3-list holding 3d np.arrays which are the mapping components F_i evaluated at meshgrid(*grids).
+    '''
+
+
+    with open(path + '/meta.txt', 'r') as f:
+        lines = f.readlines()
+
+    with open(path + '/MODEL_names.bin', 'rb') as handle:
+        names = pickle.load(handle)[0]
+
+    # code name
+    code = lines[-2].split()[-1]
+    # number of processes
+    nproc = int(lines[-1].split()[-1])
+
+    with open(path + '/parameters.yml', 'r') as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+
+    # domain object
+    dom_type = params['geometry']['type']
+    dom_params = params['geometry']['params_' + dom_type]
+    DOMAIN = Domain(dom_type, dom_params)
+    F_psy = DOMAIN.Psydac_mapping('F', **dom_params)
+
+    domain_log = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
+
+    POST = PostProcessManager(domain=domain_log,
+                              space_file=path + '/FIELD_DATA_spaces.yml',
+                              fields_file=path + '/FIELD_DATA_fields.h5',
+                              ncells=params['grid']['Nel'])
+
+    V0 = POST.spaces['V0']
+    V1 = POST.spaces['V1']
+    V2 = POST.spaces['V2']
+    V3 = POST.spaces['V3']
+
+    dt = params['time']['dt']
+    nt = int(params['time']['Tend'] / dt)
+    if snapshots == 'all':
+        snapshots = [i for i in range(nt + 1)]
+    else:
+        assert len(snapshots) <= nt + 1
+
+    values = {}
+    grids = {}
+    grids_phys = {}
+    for n in snapshots:
+        POST.load_snapshot(n, names)
+        snapshot_dict = POST._snapshot_fields
+        print(snapshot_dict.keys())
+
+        for name, field in snapshot_dict.items():
+
+            if n == snapshots[0]:
+                # create the grid from first snapshot
+                if isinstance(field.space, ProductFemSpace):
+                    Nel = [space.ncells for space in field.space.spaces[0].spaces]
+                else:
+                    assert isinstance(field.space, TensorFemSpace)
+                    Nel = [space.ncells for space in field.space.spaces]
+
+                _grids = [np.linspace(0, 1, n_i*Nel_i) for Nel_i, n_i in zip(Nel, npts_per_cell)]
+
+                # physical grids
+                grids_phys[name] = [DOMAIN.evaluate(*_grids, 'x'), DOMAIN.evaluate(*_grids, 'y'), DOMAIN.evaluate(*_grids, 'z')]
+
+                # reshape grid
+                for i in range(3):
+                    _grids[i] = np.reshape(_grids[i], newshape=(Nel[i], npts_per_cell[i]))
+
+                grids[name] = _grids
+
+                # values on grid
+                values[name] = {}
+
+            temp_val = field.space.eval_fields(_grids, field, npts_per_cell=npts_per_cell)[0]
+
+            if isinstance(temp_val, np.ndarray):
+                temp_val = [temp_val]
+
+            values[name][n*dt] = temp_val
+
+    mesh, all_fields = POST.export_to_vtk(path + '/view_data', 
+                                          grids, 
+                                          npts_per_cell=npts_per_cell, 
+                                          snapshots='all', 
+                                          debug=True)
+
+    return code, values, grids, grids_phys, mesh, all_fields
 
 
 def create_femfields(path, snapshots=None):
@@ -39,14 +160,21 @@ def create_femfields(path, snapshots=None):
             From which code the data has been obtained.
     '''
 
-    with open(path + 'meta.txt', 'r') as f:
+    with open(path + '/meta.txt', 'r') as f:
         lines = f.readlines()
 
-    # number of processes
+    with open(path + '/MODEL_names.bin', 'rb') as handle:
+        tmp = pickle.load(handle)
+        names = tmp[0]
+        space_ids = tmp[1]
+        del tmp
+
+    # code name
     code = lines[-2].split()[-1]
+    # number of processes
     nproc = int(lines[-1].split()[-1])
 
-    with open(path + 'parameters.yml', 'r') as f:
+    with open(path + '/parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # =========================================================================================
@@ -72,11 +200,7 @@ def create_femfields(path, snapshots=None):
     # =========================================================================================
     # FemFields
     # =========================================================================================
-    # TODO: restart has to be done here
-    names = params['fields']['general']['names']
-    spaces = params['fields']['general']['spaces']
     dt = params['time']['dt']
-
     nt = int(params['time']['Tend'] / dt)
     if snapshots == None:
         snapshots = [i for i in range(nt + 1)]
@@ -84,7 +208,7 @@ def create_femfields(path, snapshots=None):
         assert len(snapshots) <= nt + 1
 
     fields = {}
-    for name, space in zip(names, spaces):
+    for name, space in zip(names, space_ids):
 
         if space == 'H1':
             _space = DR.V0
@@ -106,7 +230,7 @@ def create_femfields(path, snapshots=None):
     # Get hdf5 data
     for n in range(nproc):
 
-        f_name = 'data_proc' + str(n) + '.hdf5'
+        f_name = '/data_proc' + str(n) + '.hdf5'
         #print(f'File: {f_name}')
         f = h5py.File(path + f_name, 'r')
 
@@ -119,12 +243,12 @@ def create_femfields(path, snapshots=None):
                 #print('Skipping time series dataset...')
                 continue
 
-            space_cont = dset.attrs['space_cont']
+            space_id = dset.attrs['space_id']
             starts = dset.attrs['starts']
             ends = dset.attrs['ends']
             pads = dset.attrs['pads']
 
-            if space_cont in ('Hcurl', 'Hdiv'):
+            if space_id in ('Hcurl', 'Hdiv'):
                 comp = int(key[-1])
                 name = key[:-2]
             else:
@@ -148,7 +272,7 @@ def create_femfields(path, snapshots=None):
             p2 = pads[comp][2]
 
             for t, time in enumerate(fields[name]):
-                if space_cont in ('Hcurl', 'Hdiv'):
+                if space_id in ('Hcurl', 'Hdiv'):
                     fields[name][time][comp].coeffs[s0:e0 + 1, s1:e1 + 1,
                                             s2:e2 + 1] = dset[t, p0:-p0, p1:-p1, p2:-p2]
                 else:

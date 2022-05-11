@@ -6,45 +6,45 @@ Quickstart
 Command line interface
 ----------------------
 
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is command-line based, i.e. there exists a binary ``<env>/bin/struphy``. 
-
-To get help type::
+Get help::
 
     struphy 
 
-There are three different modes, ``compile``, ``run`` and ``profile``, for calling struphy::
-
-    struphy compile [<compile options>]
-    struphy run <model> [<run options>]
-    struphy profile [<profile options>] <sim1> [<sim2> ...]
-
-All three modes come with the flags ``--user`` and ``-e``. Without those flags, struphy packages will be assumed in a platform specfifc path 
-(given in ``sysconfig.get_path("platlib"``). With ``--user``, struphy packages are assumed in ``<user>/.local/lib/`` (or similar). With ``-e``, 
-struphy packages are assumed in the top level of the git repository. These paths can be accessed via::
+View installation path::
 
     struphy -p
 
 which leads to an output like::
 
-    Platform: /usr/lib64/python3.4/site-packages/struphy
-    Local:    /u/spossann/.local/lib/python3.4/site-packages/struphy
-    Source:  
-    default in : <path_from_above>/io/inp
-    default out: <path_from_above>/io/out/sim_1/
+    Struphy installation path: $HOME/git_repos/struphy/struphy
+    default input:             $HOME/git_repos/struphy/struphy/io/inp
+    default output:            $HOME/git_repos/struphy/struphy/io/out
+    template batch scripts:    $HOME/git_repos/struphy/struphy/io/batch
 
-The "Source:" path pertaining to the ``-e`` flag is not given but is displayed when running for example ``struphy compile -e``.
+Compile kernels::
+
+    pip install pyccel==0.10.1
+    struphy compile
+    pip install -U pyccel
+
+Note that the older version of ``pyccel`` is needed only for compilation and will be removed completely in the near future.
 
 
 Simple example
 --------------
 
-Let us assume that struphy has been installed and compiled in the platform specific path, henceforth called ``<platlib>``. 
-Since the struphy binary is globally available, we can go to our home directory ``$HOME``, create a struphy simulations folder,
+Struphy comes with some example work flows. Two simple ones are executed via::
+
+    example_pproc_serial
+    example_pproc_mpi_3
+
+This runs a Maxwell solver in serial mode and on 3 mpi processes with random noise as initial condition, then plots the light wave dispersion relation. 
+
+To get a little more busy, we can create a struphy simulations folder,
 and copy input/output folders there::
 
-    cd ~
     mkdir my_sims
-    cp -r <platlib>/io/ my_sims/io/ 
+    cp -r <install_path>/io/ my_sims/io/ 
 
 We now have input files, output directories and batch scripts available in ``my_sims/io/inp/``, ``my_sims/io/out/`` and ``my_sims/io/batch/``, respectively.
 Let us run the code ``maxwell_psydac`` with two different resolutions and store the results in different folders. 
@@ -76,7 +76,6 @@ Once all simulations are finished, we can compare the run times via::
 Example on  Cobra (IPP Garching)
 --------------------------------
 
-On `Cobra <https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html>`__ the flag ``--user`` must be used when installing/calling struphy.
 Assuming struphy is installed and compiled, with the path called ``<userlib>``, we can copy input, output and batch files to ``$HOME``::
 
     cd ~

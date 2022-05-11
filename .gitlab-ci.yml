@@ -48,7 +48,7 @@ unittest:
     # - python -m venv env_test
     # - source env_test/bin/activate
     - pip install -U pytest coverage
-    - pip install .
+    - pip install h5py
     - cd psydac
     - git pull origin devel
     - export CC="mpicc"
@@ -57,23 +57,25 @@ unittest:
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .
-    - pip install sympde==0.13.1
+    - cd psydac/core
+    - pyccel kernels.py --language fortran
+    - cd -
     - cd ..
     - cd gvec_to_python
     - python3 -m pip install . -r requirements.txt
     - pip install sympy==1.6.1 
     - cd ..
-    #- make
+    - pip install .
     - struphy
     - struphy compile
   script:
     #- python setup.py test
-    - pip install pyccel==1.4
+    - pip install -U pyccel
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
-    - pip install pyccel==0.10.1
     - struphy run lin_mhd
     - example_lin_Vlasov_Maxwell
+    # - example_pproc
     # - coverage run -m pytest
     # - coverage xml
     # - coverage report --skip-empty
@@ -107,7 +109,7 @@ pages:
    - mv _build/html/ ../public/
  artifacts:
    paths:
-     - public
+      - public
 #  rules:
 #    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 

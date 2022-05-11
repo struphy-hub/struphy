@@ -1,0 +1,27 @@
+#!/bin/bash
+
+PYTHON=python3
+
+struphy run maxwell_psydac -o sim_1
+
+# Struphy path
+STRUPHY=
+li=$(pip show struphy)
+#echo $li
+take=false
+for i in $li; do
+
+    if [ "$take" = "true" ]; then
+        #echo $take
+        STRUPHY=$i/struphy
+        break
+    fi
+    #echo "$i"
+    if [ "$i" = "Location:" ]; then
+        #echo "$i"
+        take=true
+    fi
+done
+
+path_e=$STRUPHY/examples
+$PYTHON ${path_e}/example_pproc_1dfft.py $STRUPHY/io/out/sim_1

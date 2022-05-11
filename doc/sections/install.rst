@@ -4,41 +4,111 @@ Installation
 Requirements
 ------------
 
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` has been tested on Debian ``linux-x86_64`` systems; it requires
-
-* Python 3 
-* pip3
-* Fortran compiler (gcc/gfortran)
-* openmpi
-
-as well as the following Ubuntu packages (``apt-get install``):
-
-* libblas-dev 
-* liblapack-dev
-
-Necessary Python packages will be automatically installed with ``pip install .`` (list of packages in ``setup.py``).
-
-.. _mac:
-
-Mac with M1 chip
-----------------
-
-Numba must be installed from source::
-
-    git clone https://github.com/numba/llvmlite.git
-    cd llvmlite; python setup.py install
-    git clone git://github.com/numba/numba.git
-    cd numba
-    python setup.py build_ext --inplace 
-    python setup.py install
-
-Installation of ``h5py``::
-
-    HDF5_DIR=/opt/homebrew/Cellar/hdf5/1.13.0 
-    pip install h5py
+- Linux (Ubuntu 20 or higher). If you are using a different OS, please run the :ref:`multipass`.
+- Access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ packages `Struphy <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_ and `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
 
-.. _clusters:
+.. _linux_packages:
+
+Linux packages
+--------------
+
+::
+
+    sudo apt update
+    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    sudo apt install -y libhdf5-openmpi-dev
+    sudo apt install -y python3-pip python3-mpi4py
+
+
+.. _user_install:
+
+Struphy package install from PYPI
+---------------------------------
+
+Not yet available.
+
+
+.. _source_install:
+
+Struphy package install from source
+-----------------------------------
+
+Before starting, it is safe to extend the ``PATH`` variable with your local path::
+
+    export PATH=$PATH:~/.local/bin
+
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, checkout the ``devel`` branch and name the repo ``<name>``::
+
+    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git <name>
+
+Install the submodules ``psydac``::
+
+    cd <name>
+    git submodule init
+    git submodule update
+    cd psydac
+    git pull origin devel
+    export CC="mpicc"
+    export HDF5_MPI="ON"
+
+Determine the ``HDF5_DIR`` via::
+
+    dpkg -L libhdf5-openmpi-dev
+
+The correct path is the one that ends with ``hdf5/openmpi``, for example ``/usr/lib/x86_64-linux-gnu/hdf5/openmpi`` on a standard Ubuntu system. Set the correct path as in::
+
+    export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+
+Install psydac::
+
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
+    pip install .
+    cd ..
+
+Install the submodule ``gvec_to_python``::
+
+    cd gvec_to_python
+    python3 -m pip install . -r requirements.txt
+    pip install sympy==1.6.1 
+    cd ..
+
+Find out where psydac is installed::
+
+    pip show psydac
+
+which yields something like::
+
+    Name: psydac
+    Version: 0.1
+    Summary: Python package for BSplines/NURBS
+    Home-page: http://www.ahmed.ratnani.org
+    Author: Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü, Said Hadjout
+    Author-email: ratnaniahmed@gmail.com
+    License: LICENSE.txt
+    Location: $HOME/git_repos/struphy/env/lib/python3.8/site-packages
+    Requires: gelato, pyyaml, tblib, sympy, sympde, igakit, pytest, numpy, pyevtk, scipy, pyccel, packaging, matplotlib, numba, h5py, mpi4py
+    Required-by:
+
+The ``<path>`` under ``Location:`` is what we are looking for. Compile psydac kernels via::
+
+    pyccel <path>/psydac/core/kernels.py --language fortran
+
+Install ``struphy`` via::
+
+    pip install <option> .
+
+where ``<option>`` is either empty (for Python environment installation), ``--user`` (for installation in ``.local/lib``) or ``-e`` (or installation in development mode).
+
+Quick help::
+
+    struphy
+
+Struphy compilation::
+
+    struphy compile
+    pip install -U pyccel
 
 Computing clusters
 ------------------
@@ -49,10 +119,10 @@ Specifics for the HPC system ``cobra`` at IPP::
     module load gcc openmpi anaconda/3/2020.02 mpi4py
     module list
 
-Struphy must be **installed, ran and profiled** with the user flag ``--user`` (see below) because the module environment cannot be installed to.
-Add the relevant paths (this is done in the provided batch scripts as well)::
+Continue with :ref:`source_install` from above.
 
-    export PATH="${PATH}:$HOME/.local/bin"
+Extend the ``PYTHONPATH``::
+
     export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)" 
 
 In order to suppress fork warnings in the slurm output::
@@ -60,67 +130,77 @@ In order to suppress fork warnings in the slurm output::
     OMPI_MCA_mpi_warn_on_fork=0
     export OMPI_MCA_mpi_warn_on_fork 
 
+
+.. _multipass:
+
+Multipass Virtual Machine
+-------------------------
+
+Download and documentation at `https://multipass.run <https://multipass.run/>`_.
+
+After intallation, launch a VM via::
+
+    multipass launch --name <VM-name> --cpus 4 --mem 4G --disk 16G
+
+These are the recommended options, you can choose anything for ``<VM-name>``. The standard user is named ``ubuntu``.
+
+Quick info::
+
+    multipass info --all
+
+Enter the shell::
+
+    multipass shell <VM-name>
+
+Continue with the installation of :ref:`linux_packages`, then proceed to :ref:`source_install`.
+
+To shut down the VM::
+
+    exit
+
+and stop it from the host machine::
+
+    multipass stop <VM-name>
+
+In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, in case there is none, generate an ssh key::
+
+    ssh-keygen
+
+Then copy the key under ``.ssh/id_rsa.pub`` to your Gitlab profile.
+
+You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance).
+``<folder-name>`` should be empty, as any content would be overwritten during ``mount``.
+For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
+
+    multipass mount /Path/to/Folder/on/Host/ <VM-name>:/home/ubuntu/<folder-name>/ 
+
+(You should do this **before** you put anything in these folders.)
+
+It is possible to access the GUI of your VM by installing ``ubuntu-desktop``::
+
+    sudo apt-get install ubuntu-desktop xrdp -y
+
+Then set your password via::
+
+    sudo passwd ubuntu
+
+You can also first create another user for that purpose by::
+
+    sudo adduser USERNAME
+
+and giving it superuser-rights::
+
+    sudo usermod -aG sudo USERNAME
+
+Then you can access the VM via a remote connection tool 
+(e.g. Microsoft Remote Desktop on Windows and MacOS, and Remmina for Linux). 
+For this you need the ip-address of your VM which you can find by running::
+
+    multipass info
+
+on the host machine. Then add a new PC with the ip-address as the PC name and login with your username and password. 
+You should not update the VM from the GUI !
+
+
  
-.. _user_install:
 
-From PYPI
----------
-
-Not yet available.
-
-
-From source
------------
-
-Clone and checkout the ``devel`` branch::
-
-    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git struphy
-    cd struphy
-
-User specific install::
-
-    pip install --user .
-
-For developers (path search in cloned repo first)::
-
-    pip install -e .
-
-Virtual environment install (recommended if not on computing cluster)::
-
-    python3 -m pip install --user virtualenv
-    python3 -m venv <env_name>
-    source <env_name>/bin/activate
-    pip install .
-
-Next, install the submodules ``gvec_to_python`` and ``psydac``::
-
-    git submodule init
-    git submodule update
-    cd psydac
-    git pull origin devel
-    export CC="mpicc"
-    export HDF5_MPI="ON"
-    export HDF5_DIR=/path/to/hdf5/openmpi
-    python3 -m pip install -r requirements.txt
-    python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    pip install .
-    pip install sympde==0.13.1
-    cd psydac/core
-    pyccel kernels.py --language fortran
-    cd -
-    cd ..
-    cd gvec_to_python
-    python3 -m pip install . -r requirements.txt
-    pip install sympy==1.6.1 
-    cd ..
-    
-Quick help::
-
-    struphy
-
-
-Source
-------
-
-The source code of :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` can be found at `https://gitlab.mpcdf.mpg.de/clapp/hylife <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_. 
-In case of access problems please contact `Stefan Possanner <spossann@ipp.mpg.de>`_.

@@ -1,8 +1,0 @@
-#!/bin/bash
-
-PYTHON=python3
-
-struphy run maxwell_psydac --mpi 4 -o sim_1
-
-path_e=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/examples/
-$PYTHON ${path_e}example_pproc_1dfft.py
