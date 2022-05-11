@@ -53,7 +53,6 @@ unittest:
     - git pull origin devel
     - export CC="mpicc"
     - export HDF5_MPI="ON"
-    - export HDF5_DIR=/path/to/hdf5/openmpi
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .
@@ -73,8 +72,7 @@ unittest:
     - pip install -U pyccel
     - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
     - pytest
-    - struphy run lin_mhd
-    - example_lin_Vlasov_Maxwell
+    # - example_pproc_serial
     # - example_pproc
     # - coverage run -m pytest
     # - coverage xml
