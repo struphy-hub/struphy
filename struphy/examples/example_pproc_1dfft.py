@@ -4,7 +4,6 @@ from struphy.diagnostics.diagn_tools import fourier_1d
 import sys
 
 path = sys.argv[1] 
-print(path)
 
 fields, DOMAIN, code = create_femfields(path)
 

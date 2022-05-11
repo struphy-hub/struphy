@@ -8,7 +8,6 @@ from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
 from sympde.calculus import dot
 from sympde.topology import Cube, Derham
-from sympde.topology import Cube, Derham
 
 from sympy import sqrt
 

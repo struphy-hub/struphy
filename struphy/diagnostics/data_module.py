@@ -122,6 +122,7 @@ class Data_container_psydac:
         data_name : string
             name to hdf5 file (otional)
 
+        comm : MPI communicator
     '''
 
     def __init__(self, path_out, data_dict=None, data_name=None, comm=None):

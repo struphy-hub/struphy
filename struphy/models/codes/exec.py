@@ -13,6 +13,7 @@ import sys
 import sysconfig
 import datetime
 import yaml
+import pickle
 import time
 import numpy as np
 
@@ -22,6 +23,7 @@ from struphy.models.codes import models
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
 from psydac.linalg.stencil import StencilVector
+from psydac.api.postprocessing import OutputManager
 
 # print('Number of arguments:', len(sys.argv), 'arguments.')
 # print('Argument List:', sys.argv)
@@ -132,25 +134,54 @@ elif code=='maxwell_psydac':
         print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')
         print()
 
-    # FE fields
-    names  = params['fields']['general']['names']
-    spaces = params['fields']['general']['spaces']
     # ======================================= 
     # MODEL SPECIFIC: instance of model class
     # =======================================
     if code=='maxwell_psydac':
-        MODEL = models.Maxwell(names, spaces, DR, DOMAIN, params['solvers']['option_1'])
+        MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['pcg_1'])
     else:
         raise NotImplementedError(f'Model {code} not implemented.')
         exit()
+    # ======================================= 
+    # END OF MODEL SPECIFIC PART
+    # =======================================
+
+    # Save MODEL object
+    if mpi_rank == 0:
+        with open(path_out + 'MODEL_names.bin', 'wb') as handle:
+            pickle.dump([MODEL.names, MODEL.space_ids], handle, protocol=pickle.HIGHEST_PROTOCOL) 
 
     # Set initial conditions
-    init_type   = params['fields']['general']['init']
-    init_coords = params['fields']['general']['init_coords']
-    init_comps  = params['fields']['general']['init_comps']
+    init_type   = params['fields']['init']['type']
+    init_coords = params['fields']['init']['coords']
+    init_comps  = params['fields']['init']['comps']
     init_params = params['fields']['params_' + init_type]
 
     MODEL.set_initial_conditions(init_comps, init_type, init_coords, init_params)
+
+    # TODO: Psydac Derham functionaltiy not yet implemented.
+    # Output Manager Initialization
+    # FIELD_DATA = OutputManager(path_out + 'FIELD_DATA_spaces.yml', path_out + 'FIELD_DATA_fields.h5')
+    # FIELD_DATA.add_spaces(V0=DR.V0, V1=DR.V1, V2=DR.V2, V3=DR.V3)
+    # for patch in FIELD_DATA.space_info['patches']:
+    #     for space in patch['vector_spaces']:
+    #         for key, val in space.items():
+    #             print(key)
+    #             print(val)
+    #             print('')
+    #             if isinstance(val, list):
+    #                 for va in val:
+    #                     for k, v in va.items():
+    #                         print(k)
+    #                         print(v)
+    #                 print('')
+                    
+    # field_dict = {}
+    # for field in MODEL.fields:
+    #     field_dict[field.name] = field.field
+
+    # FIELD_DATA.add_snapshot(t=0., ts=0)
+    # FIELD_DATA.export_fields(**field_dict)
 
     # DATA object for saving
     DATA = Data_container(path_out, comm=MPI_COMM)
@@ -173,35 +204,22 @@ elif code=='maxwell_psydac':
                 DATA.f[key].attrs['ends'] = field.ends
                 DATA.f[key].attrs['pads'] = field.pads
 
-    # TODO: ad hoc, needs fix:
-    # Add other variables to be saved
-    time_series  = {'time' : np.empty(1, dtype=float),
-                    'en_E' : np.empty(1, dtype=float), 
-                    'en_B' : np.empty(1, dtype=float), 
-                    }
- 
-    e = MODEL.fields[0].vector
-    b = MODEL.fields[1].vector
+    DATA.add_data(MODEL.scalar_quantities)
 
-    time_series['time'][0] = 0.
-    time_series['en_E'][0] = 1/2*e.dot(DR.M1.dot(e))
-    time_series['en_B'][0] = 1/2*b.dot(DR.M2.dot(b))
-
-    DATA.add_data(time_series)
+    MODEL.update_scalar_quantities(0.)
 
     if mpi_rank == 0: 
         print(f'Rank: {mpi_rank} | Initial time series saved.\n')
-        print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
+        MODEL.print_scalar_quantities()
 
     # Define stepping scheme
     dt = params['time']['dt']
     split_algo = params['time']['split_algo']
 
-    # Define update function
     def update():
         if split_algo == 'LieTrotter':
             
-            for prop, vars in zip(MODEL.propagators(), MODEL.substep_vars()):
+            for prop, vars in zip(MODEL.propagators, MODEL.substep_vars):
                 prop(*vars, dt)
 
         else:
@@ -228,6 +246,7 @@ elif code=='maxwell_psydac':
         if break_cond_1 or break_cond_2:
             # close output file and time loop
             DATA.f.close()
+            #FIELD_DATA.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
             end_simulation = time.time()
             if mpi_rank == 0:
                 print()
@@ -240,20 +259,20 @@ elif code=='maxwell_psydac':
         time_steps_done += 1  
 
         # update time series
-        time_series['time'][0] = 0.
-        time_series['en_E'][0] = 1/2*e.dot(DR.M1.dot(e))
-        time_series['en_B'][0] = 1/2*b.dot(DR.M2.dot(b))
+        MODEL.update_scalar_quantities( dt*time_steps_done )
 
         # save data:
+        # FIELD_DATA.add_snapshot(t=dt*time_steps_done, ts=time_steps_done) TODO: Psydac Derham functionaltiy not yet implemented.
+        # FIELD_DATA.export_fields(**field_dict)
         DATA.save_data() 
 
         # print number of finished time steps and current energies
         if mpi_rank == 0 and time_steps_done%1 == 0:
-            total_stetps    = str(int(round(params['time']['Tend'] / params['time']['dt']))) 
-            str_len         = len(total_stetps)
+            total_steps    = str(int(round(params['time']['Tend'] / params['time']['dt']))) 
+            str_len         = len(total_steps)
             step            = str(time_steps_done).zfill(str_len)
-            message         = 'time steps finished : ' + step + '/' + total_stetps
+            message         = 'time steps finished : ' + step + '/' + total_steps
             print('\r', message, end='\n')
-            print(f'total energy: {time_series["en_E"][0] + time_series["en_B"][0]}')
+            MODEL.print_scalar_quantities()
 
 
