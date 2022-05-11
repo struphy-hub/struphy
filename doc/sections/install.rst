@@ -142,7 +142,7 @@ After intallation, launch a VM via::
 
     multipass launch --name <VM-name> --cpus 4 --mem 4G --disk 16G
 
-These are the recommended options, you can choose anything for ``<VM-name>``. The standard user is named ubuntu.
+These are the recommended options, you can choose anything for ``<VM-name>``. The standard user is named ``ubuntu``.
 
 Quick info::
 
@@ -154,11 +154,11 @@ Enter the shell::
 
 Continue with the installation of :ref:`linux_packages`, then proceed to :ref:`source_install`.
 
-To shut down the VM, you first have to exit it::
+To shut down the VM::
 
     exit
 
-and then you stop it from the host machine via
+and stop it from the host machine::
 
     multipass stop <VM-name>
 
@@ -168,34 +168,38 @@ In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ rep
 
 Then copy the key under ``.ssh/id_rsa.pub`` to your Gitlab profile.
 
-You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance). 
+You can mirror a folder ``<folder-name>`` to your host machine (for using a nice editor for instance).
+``<folder-name>`` should be empty, as any content would be overwritten during ``mount``.
 For this, create a new folder on your host (e.g. MacOS) and open a new terminal where you type::
 
     multipass mount /Path/to/Folder/on/Host/ <VM-name>:/home/ubuntu/<folder-name>/ 
 
-(you should do this **before** you put anything in these folders.)
+(You should do this **before** you put anything in these folders.)
 
-You can also access the GUI of your VM by installing ``ubuntu-desktop``::
+It is possible to access the GUI of your VM by installing ``ubuntu-desktop``::
 
     sudo apt-get install ubuntu-desktop xrdp -y
 
-Then set your password via
+Then set your password via::
 
     sudo passwd ubuntu
 
-You can also first create another user for that purpose by
+You can also first create another user for that purpose by::
 
     sudo adduser USERNAME
 
-and giving it superuser-rights
+and giving it superuser-rights::
 
     sudo usermod -aG sudo USERNAME
 
-Then you can access the VM via a remote connection tool (e.g. Microsoft Remote Desktop on Windows and MacOS, and Remmina for Linux). For this you need the ip-address of your VM which you can find by running
+Then you can access the VM via a remote connection tool 
+(e.g. Microsoft Remote Desktop on Windows and MacOS, and Remmina for Linux). 
+For this you need the ip-address of your VM which you can find by running::
 
     multipass info
 
-on the host machine. Then add a new PC with the ip-address as the PC name and login with your username and password. You should not update the VM from the GUI !
+on the host machine. Then add a new PC with the ip-address as the PC name and login with your username and password. 
+You should not update the VM from the GUI !
 
 
  

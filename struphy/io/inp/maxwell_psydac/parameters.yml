@@ -45,12 +45,10 @@ geometry :
             spl_kind : [False, True] # spline type: True=periodic, False=clamped
 
 fields : 
-      general :
-            names       : ['e_field', 'b_field', 'test_field'] 
-            spaces      : ['Hcurl', 'Hdiv', 'H1'] # H1, Hcurl, Hdiv or L2
-            init        : noise # unperturbed, modes_k, modes_mn, eigfun or noise
-            init_coords : physical # how init conds are prescribed: physical, logical or norm_logical (=normed vector fields)
-            init_comps  : [[True, True, False], [True, True, False], [False]] # list of len(names) of lists: True=initialize component 
+      init :
+            type   : noise # unperturbed, modes_k, modes_mn, eigfun or noise
+            coords : physical # how init conds are prescribed: physical, logical or norm_logical (=normed vector fields)
+            comps  : all # Default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
       params_modes_k : 
             kind : sin # sin or cos 
             k1 : [6.283186]
@@ -87,12 +85,32 @@ time :
       split_algo : LieTrotter # 'Lie-Trotter' or 'Strang'
 
 solvers :
-      option_1 : 
+      pcg_1 : 
             pc : 'fft' # null or 'fft'
             tol : 1.e-8
             maxiter : 3000
             info : False
             verbose : False
+      pcg_2 : 
+            pc : 'fft' # null or 'fft'
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+      pcg_3 : 
+            pc : 'fft' # null or 'fft'
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+      pcg_4 : 
+            pc : 'fft' # null or 'fft'
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+
+      
 
 
 
