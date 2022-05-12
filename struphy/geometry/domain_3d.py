@@ -525,6 +525,13 @@ class Domain():
             self.cx     =  np.zeros((1, 1, 1), dtype=float)
             self.cy     =  np.zeros((1, 1, 1), dtype=float)
             self.cz     =  np.zeros((1, 1, 1), dtype=float)
+            
+        # trasform parameter list to numpy array
+        self.params_map = np.array(self.params_map)
+        
+        #self.Nel    = np.array(self.Nel)
+        #self.p      = np.array(self.p)
+        #self.NbaseN = np.array(self.NbaseN)
 
    
         # keys for evaluating mapping related quantities
@@ -630,11 +637,11 @@ class Domain():
             values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if is_sparse_meshgrid:
-            mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -708,11 +715,11 @@ class Domain():
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -774,11 +781,11 @@ class Domain():
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
     
         if squeeze_output:
             values = values.squeeze()
@@ -843,11 +850,11 @@ class Domain():
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], self.p, self.NbaseN, self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()

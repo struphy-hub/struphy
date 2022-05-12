@@ -4,28 +4,28 @@
 
 
 # ==========================================================================================          
-def kernel_mass(nel1 : 'int', nel2 : 'int', nel3 : 'int', p1 : 'int', p2 : 'int', p3 : 'int', nq1 : 'int', nq2 : 'int', nq3 : 'int', ni1 : 'int', ni2 : 'int', ni3 : 'int', nj1 : 'int', nj2 : 'int', nj3 : 'int', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', bi1 : 'double[:,:,:,:]', bi2 : 'double[:,:,:,:]', bi3 : 'double[:,:,:,:]', bj1 : 'double[:,:,:,:]', bj2 : 'double[:,:,:,:]', bj3 : 'double[:,:,:,:]', ind_base1 : 'int[:,:]', ind_base2 : 'int[:,:]', ind_base3 : 'int[:,:]', mat : 'double[:,:,:,:,:,:]', mat_fun : 'double[:,:,:,:,:,:]'):
+def kernel_mass(nel : 'int[:]', p : 'int[:]', nq : 'int[:]', ni : 'int[:]', nj : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', bi1 : 'double[:,:,:,:]', bi2 : 'double[:,:,:,:]', bi3 : 'double[:,:,:,:]', bj1 : 'double[:,:,:,:]', bj2 : 'double[:,:,:,:]', bj3 : 'double[:,:,:,:]', ind_base1 : 'int[:,:]', ind_base2 : 'int[:,:]', ind_base3 : 'int[:,:]', mat : 'double[:,:,:,:,:,:]', mat_fun : 'double[:,:,:,:,:,:]'):
     
     mat[:, :, :, :, :, :] = 0.
      
     #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, value, q1, q2, q3, wvol, bi, bj)
     #$ omp for reduction ( + : mat) 
-    for ie1 in range(nel1):
-        for ie2 in range(nel2):
-            for ie3 in range(nel3):
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
+            for ie3 in range(nel[2]):
 
-                for il1 in range(p1 + 1 - ni1):
-                    for il2 in range(p2 + 1 - ni2):
-                        for il3 in range(p3 + 1 - ni3):
-                            for jl1 in range(p1 + 1 - nj1):
-                                for jl2 in range(p2 + 1 - nj2):
-                                    for jl3 in range(p3 + 1 - nj3):
+                for il1 in range(p[0] + 1 - ni[0]):
+                    for il2 in range(p[1] + 1 - ni[1]):
+                        for il3 in range(p[2] + 1 - ni[2]):
+                            for jl1 in range(p[0] + 1 - nj[0]):
+                                for jl2 in range(p[1] + 1 - nj[1]):
+                                    for jl3 in range(p[2] + 1 - nj[2]):
 
                                         value = 0.
 
-                                        for q1 in range(nq1):
-                                            for q2 in range(nq2):
-                                                for q3 in range(nq3):
+                                        for q1 in range(nq[0]):
+                                            for q2 in range(nq[1]):
+                                                for q3 in range(nq[2]):
                                                     
                                                     wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_fun[ie1, q1, ie2, q2, ie3, q3]
                                                     bi   = bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2] * bi3[ie3, il3, 0, q3]
@@ -33,32 +33,32 @@ def kernel_mass(nel1 : 'int', nel2 : 'int', nel3 : 'int', p1 : 'int', p2 : 'int'
                                                     
                                                     value += wvol * bi * bj
 
-                                        mat[ind_base1[ie1, il1], ind_base2[ie2, il2], ind_base3[ie3, il3], p1 + jl1 - il1, p2 + jl2 - il2, p3 + jl3 - il3] += value
+                                        mat[ind_base1[ie1, il1], ind_base2[ie2, il2], ind_base3[ie3, il3], p[0] + jl1 - il1, p[1] + jl2 - il2, p[2] + jl3 - il3] += value
     #$ omp end parallel
     
     ierr = 0
 
 
 # ==========================================================================================          
-def kernel_inner(nel1 : 'int', nel2 : 'int', nel3 : 'int', p1 : 'int', p2 : 'int', p3 : 'int', nq1 : 'int', nq2 : 'int', nq3 : 'int', ni1 : 'int', ni2 : 'int', ni3 : 'int', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', bi1 : 'double[:,:,:,:]', bi2 : 'double[:,:,:,:]', bi3 : 'double[:,:,:,:]', ind_base1 : 'int[:,:]', ind_base2 : 'int[:,:]', ind_base3 : 'int[:,:]', mat : 'double[:,:,:]', mat_fun : 'double[:,:,:,:,:,:]'):
+def kernel_inner(nel : 'int[:]', p : 'int[:]', nq : 'int[:]', ni : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', bi1 : 'double[:,:,:,:]', bi2 : 'double[:,:,:,:]', bi3 : 'double[:,:,:,:]', ind_base1 : 'int[:,:]', ind_base2 : 'int[:,:]', ind_base3 : 'int[:,:]', mat : 'double[:,:,:]', mat_fun : 'double[:,:,:,:,:,:]'):
     
     mat[:, :, :] = 0.
     
     #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, value, q1, q2, q3, wvol, bi)
     #$ omp for reduction ( + : mat) 
-    for ie1 in range(nel1):
-        for ie2 in range(nel2):
-            for ie3 in range(nel3):
+    for ie1 in range(nel[0]):
+        for ie2 in range(nel[1]):
+            for ie3 in range(nel[2]):
 
-                for il1 in range(p1 + 1 - ni1):
-                    for il2 in range(p2 + 1 - ni2):
-                        for il3 in range(p3 + 1 - ni3):
+                for il1 in range(p[0] + 1 - ni[0]):
+                    for il2 in range(p[1] + 1 - ni[1]):
+                        for il3 in range(p[2] + 1 - ni[2]):
                             
                             value = 0.
 
-                            for q1 in range(nq1):
-                                for q2 in range(nq2):
-                                    for q3 in range(nq3):
+                            for q1 in range(nq[0]):
+                                for q2 in range(nq[1]):
+                                    for q3 in range(nq[2]):
 
                                         wvol = w1[ie1, q1] * w2[ie2, q2] * w3[ie3, q3] * mat_fun[ie1, q1, ie2, q2, ie3, q3]
                                         bi   = bi1[ie1, il1, 0, q1] * bi2[ie2, il2, 0, q2] * bi3[ie3, il3, 0, q3]
