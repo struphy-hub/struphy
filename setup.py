@@ -32,7 +32,7 @@ setup(
         'matplotlib',
         'mpi4py',
         'numpy',
-        'pyccel=1.5.0',
+        'pyccel==1.5.0',
         'PyYAML',
         'scipy',
         'sympy<1.7,>=1.2',
