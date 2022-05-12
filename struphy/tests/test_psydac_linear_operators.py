@@ -81,8 +81,8 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     DT = D.transpose()
     assert np.allclose(DT.dot(v0).toarray(), v0.toarray(), atol=1e-5)
 
-    # Need smaller tolerance 1e-8 to pass assert with 1e-5 here:
-    E = Compose(Invert(DR.M1, pc=None, tol=1e-8, maxiter=30000, verbose=False), DR.M1)
+    # Need smaller tolerance 1e-9 to pass assert with 1e-5 here:
+    E = Compose(Invert(DR.M1, pc=None, tol=1e-9, maxiter=30000, verbose=False), DR.M1)
     print(f'type E: {type(E)}')
     print(f'shape E: {E.shape}')
     res = E.dot(v1)

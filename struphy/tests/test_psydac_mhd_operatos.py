@@ -17,7 +17,7 @@ import pytest
     # ['shafranov_dshaped', {
     #     'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
-def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
+def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     '''Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
 
     Here, PI_ijk is the commuting projector of the output space (codomain), 
@@ -270,7 +270,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nK1 (V3 --> V3, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.K1(x3_st)
+    res_PSY = OPS_PSY.K1.dot(x3_st)
     res_STR = OPS_STR.K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
@@ -278,7 +278,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.K1T(x3_st)
+    res_PSY = OPS_PSY.K1T.dot(x3_st)
     res_STR = OPS_STR.transpose_K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
@@ -292,7 +292,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nK10 (V0 --> V0, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.K10(x0_st)
+    res_PSY = OPS_PSY.K10.dot(x0_st)
     res_STR = OPS_STR.K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
@@ -300,7 +300,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.K10T(x0_st)
+    res_PSY = OPS_PSY.K10T.dot(x0_st)
     res_STR = OPS_STR.transpose_K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
@@ -314,7 +314,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nY20 (V0 --> V3):')
 
-    res_PSY = OPS_PSY.Y20(x0_st)
+    res_PSY = OPS_PSY.Y20.dot(x0_st)
     res_STR = OPS_STR.Y20_dot(x0.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
@@ -322,7 +322,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Y20T(x3_st)
+    res_PSY = OPS_PSY.Y20T.dot(x3_st)
     res_STR = OPS_STR.transpose_Y20_dot(x3.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
@@ -336,7 +336,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nQ1 (V1 --> V2):')
 
-    res_PSY = OPS_PSY.Q1(x1_st)
+    res_PSY = OPS_PSY.Q1.dot(x1_st)
     res_STR = OPS_STR.Q1_dot(
         np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
@@ -359,7 +359,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Q1T(x2_st)
+    res_PSY = OPS_PSY.Q1T.dot(x2_st)
     res_STR = OPS_STR.transpose_Q1_dot(
         np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
@@ -389,7 +389,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nW1 (V1 --> V1, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.W1(x1_st)
+    res_PSY = OPS_PSY.W1.dot(x1_st)
     res_STR = OPS_STR.W1_dot(
         np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
@@ -412,7 +412,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.W1T(x1_st)
+    res_PSY = OPS_PSY.W1T.dot(x1_st)
     res_STR = OPS_STR.transpose_W1_dot(
         np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
@@ -442,7 +442,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nQ2 (V2 --> V2, Identity operator in this case):')
 
-    res_PSY = OPS_PSY.Q2(x2_st)
+    res_PSY = OPS_PSY.Q2.dot(x2_st)
     res_STR = OPS_STR.Q2_dot(
         np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
@@ -465,7 +465,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Q2T(x2_st)
+    res_PSY = OPS_PSY.Q2T.dot(x2_st)
     res_STR = OPS_STR.transpose_Q2_dot(
         np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
@@ -495,7 +495,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     if mpi_rank == 0:
         print('\nX1 (V1 --> V0 x V0 x V0):')
 
-    res_PSY = OPS_PSY.X1(x1_st)
+    res_PSY = OPS_PSY.X1.dot(x1_st)
     res_STR = OPS_STR.X1_dot(
         np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0 = SPACES.extract_0(res_STR[0])
@@ -520,7 +520,7 @@ def test_lin_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.X1T(x0vec_st)
+    res_PSY = OPS_PSY.X1T.dot(x0vec_st)
     res_STR = OPS_STR.transpose_X1_dot([x0.flatten(), x0.flatten(), x0.flatten()])
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
@@ -644,5 +644,5 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 
 if __name__ == '__main__':
-    test_lin_mhd_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True], 
+    test_some_mhd_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True], 
                         mapping=['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])
