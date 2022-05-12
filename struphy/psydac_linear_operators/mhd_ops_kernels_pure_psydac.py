@@ -1,8 +1,4 @@
-from pyccel.decorators import types
-
-
-@types('double[:,:,:,:,:,:], int[:], int[:], int[:], int[:], int[:], int[:], double[:,:,:,:,:,:], int[:,:], int[:,:], int[:,:], double[:,:,:], double[:,:,:], double[:,:,:], int[:], int[:], int[:], int, int, int, int, int, int')
-def assemble_dofs_for_weighted_basisfuns(mat, starts_in, ends_in, pads_in, starts_out, ends_out, pads_out, fun_w, span1, span2, span3, basis1, basis2, basis3, sub1, sub2, sub3, dim1_in, dim2_in, dim3_in, p1_out, p2_out, p3_out):
+def assemble_dofs_for_weighted_basisfuns(mat : 'double[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_w : 'double[:,:,:,:,:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'double[:,:,:]', basis2 : 'double[:,:,:]', basis3 : 'double[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', sub3 : 'int[:]', dim1_in : 'int', dim2_in : 'int', dim3_in : 'int', p1_out : 'int', p2_out : 'int', p3_out : 'int'):
     '''Kernel for assembling the matrix
 
     A_(ijk,mno) = DOFS_ijk(fun*Lambda^in_mno) ,

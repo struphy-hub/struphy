@@ -2,13 +2,8 @@
 pyccel functions to accumulate the mu,nu-elements of a matrix and the mu-indices of a matrix vector product in accumulation step.
 """
 
-# import pyccel decorators
-from pyccel.decorators import types
-
-
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat11_v1(p,       bd1,        bn2,        bn3,        indd1,   indn2,   indn3,   mat11,                filling11):
+def fill_mat11_v1(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat11 : 'double[:,:,:,:,:,:]', filling11 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -68,8 +63,7 @@ def fill_mat11_v1(p,       bd1,        bn2,        bn3,        indd1,   indn2,  
                             mat11[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat12_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3,        indd1,   indn2,   indn3,   mat12,                filling12):
+def fill_mat12_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat12 : 'double[:,:,:,:,:,:]', filling12 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
 
@@ -137,8 +131,7 @@ def fill_mat12_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3, 
                             mat12[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat13_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3,        indd1,   indn2,   indn3,   mat12,                filling12):
+def fill_mat13_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat12 : 'double[:,:,:,:,:,:]', filling12 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
 
@@ -206,8 +199,7 @@ def fill_mat13_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3, 
                             mat12[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat21_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3,        indn1,   indd2,   indn3,   mat21,                filling21):
+def fill_mat21_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat21 : 'double[:,:,:,:,:,:]', filling21 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
 
@@ -275,8 +267,7 @@ def fill_mat21_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3, 
                             mat21[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' )
-def fill_mat22_v1(p,       bn1,        bd2,        bn3,        indn1,   indd2,   indn3,   mat22,                filling22):
+def fill_mat22_v1(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat22 : 'double[:,:,:,:,:,:]', filling22 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
 
@@ -336,8 +327,7 @@ def fill_mat22_v1(p,       bn1,        bd2,        bn3,        indn1,   indd2,  
                             mat22[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' )
-def fill_mat23_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3,        indn1,   indd2,   indn3,   mat23,                filling23):
+def fill_mat23_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat23 : 'double[:,:,:,:,:,:]', filling23 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
 
@@ -405,8 +395,7 @@ def fill_mat23_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3, 
                             mat23[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat31_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3,        indn1,   indn2,   indd3,   mat31,                filling31):
+def fill_mat31_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat31 : 'double[:,:,:,:,:,:]', filling31 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
 
@@ -474,8 +463,7 @@ def fill_mat31_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3, 
                             mat31[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' )
-def fill_mat32_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3,        indn1,   indn2,   indd3,   mat32,                filling32):
+def fill_mat32_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat32 : 'double[:,:,:,:,:,:]', filling32 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
 
@@ -543,8 +531,7 @@ def fill_mat32_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3, 
                             mat32[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' )
-def fill_mat33_v1(p,       bn1,        bn2,        bd3,        indn1,   indn2,   indd3,   mat33,                filling33):
+def fill_mat33_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]',   indd3 : 'int[:]', mat33 : 'double[:,:,:,:,:,:]', filling33 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
 
@@ -604,8 +591,7 @@ def fill_mat33_v1(p,       bn1,        bn2,        bd3,        indn1,   indn2,  
                             mat33[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat11_v2(p,       bn1,        bd2,        bd3,        indn1,   indd2,   indd3,   mat11,                filling11):
+def fill_mat11_v2(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat11 : 'double[:,:,:,:,:,:]', filling11 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
 
@@ -665,8 +651,7 @@ def fill_mat11_v2(p,       bn1,        bd2,        bd3,        indn1,   indd2,  
                             mat11[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat12_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3,        indn1,   indd2,   indd3,   mat12,                filling12):
+def fill_mat12_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat12 : 'double[:,:,:,:,:,:]', filling12 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
 
@@ -734,8 +719,7 @@ def fill_mat12_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3, 
                             mat12[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat13_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3,        indn1,   indd2,   indd3,   mat13,                filling13):
+def fill_mat13_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat13 : 'double[:,:,:,:,:,:]', filling13 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
 
@@ -803,8 +787,7 @@ def fill_mat13_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3, 
                             mat13[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat21_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3,        indd1,   indn2,   indd3,   mat21,                filling21):
+def fill_mat21_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat21 : 'double[:,:,:,:,:,:]', filling21 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
 
@@ -872,8 +855,7 @@ def fill_mat21_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3, 
                             mat21[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat22_v2(p,       bd1,        bn2,        bd3,        indd1,   indn2,   indd3,   mat22,                filling22):
+def fill_mat22_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat22 : 'double[:,:,:,:,:,:]', filling22 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
 
@@ -933,8 +915,7 @@ def fill_mat22_v2(p,       bd1,        bn2,        bd3,        indd1,   indn2,  
                             mat22[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat23_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3,        indd1,   indn2,   indd3,   mat23,                filling23):
+def fill_mat23_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat23 : 'double[:,:,:,:,:,:]', filling23 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
 
@@ -1002,8 +983,7 @@ def fill_mat23_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3, 
                             mat23[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat31_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3,        indd1,   indd2,   indn3,   mat31,                filling31):
+def fill_mat31_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat31 : 'double[:,:,:,:,:,:]', filling31 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
 
@@ -1071,8 +1051,7 @@ def fill_mat31_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3, 
                             mat31[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat32_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3,        indd1,   indd2,   indn3,   mat32,                filling32):
+def fill_mat32_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat32 : 'double[:,:,:,:,:,:]', filling32 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
 
@@ -1140,8 +1119,7 @@ def fill_mat32_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3, 
                             mat32[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(           'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double')
-def fill_mat33_v2(p,       bd1,        bd2,        bn3,        indd1,   indd2,   indn3,   mat33,                filling33):
+def fill_mat33_v2(p : 'int[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat33 : 'double[:,:,:,:,:,:]', filling33 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
 
@@ -1201,8 +1179,7 @@ def fill_mat33_v2(p,       bd1,        bd2,        bn3,        indd1,   indd2,  
                             mat33[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat11_vec1_v1(p,       bd1,        bn2,        bn3,        indd1,   indn2,   indn3,   mat11,                filling11, vec1,           filling1):
+def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat11 : 'double[:,:,:,:,:,:]', filling11 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -1270,8 +1247,7 @@ def fill_mat11_vec1_v1(p,       bd1,        bn2,        bn3,        indd1,   ind
                             mat11[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat12_vec1_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3,        indd1,   indn2,   indn3,   mat12,                filling12, vec1,           filling1):
+def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat12 : 'double[:,:,:,:,:,:]', filling12 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
 
@@ -1347,8 +1323,7 @@ def fill_mat12_vec1_v1(p,       bn1,        bd1,        bn2,        bd2,        
                             mat12[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat13_vec1_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3,        indd1,   indn2,   indn3,   mat13,                filling13, vec1,           filling1):
+def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', mat13 : 'double[:,:,:,:,:,:]', filling13 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
 
@@ -1424,8 +1399,7 @@ def fill_mat13_vec1_v1(p,       bn1,        bd1,        bn2,        bn3,        
                             mat13[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat21_vec2_v1(p,       bn1,        bd1,        bn2,        bd2,        bn3,        indn1,   indd2,   indn3,   mat21,                filling21, vec2,           filling2):
+def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat21 : 'double[:,:,:,:,:,:]', filling21 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
 
@@ -1501,8 +1475,7 @@ def fill_mat21_vec2_v1(p,       bn1,        bd1,        bn2,        bd2,        
                             mat21[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat22_vec2_v1(p,       bn1,        bd2,        bn3,        indn1,   indd2,   indn3,   mat22,                filling22, vec2,           filling2):
+def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat22 : 'double[:,:,:,:,:,:]', filling22 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
 
@@ -1570,8 +1543,7 @@ def fill_mat22_vec2_v1(p,       bn1,        bd2,        bn3,        indn1,   ind
                             mat22[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat23_vec2_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3,        indn1,   indd2,   indn3,   mat23,                filling23, vec2,           filling2):
+def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat23 : 'double[:,:,:,:,:,:]', filling23 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
 
@@ -1647,8 +1619,7 @@ def fill_mat23_vec2_v1(p,       bn1,        bn2,        bd2,        bn3,        
                             mat23[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat31_vec3_v1(p,       bn1,        bd1,        bn2,        bn3,        bd3,        indn1,   indn2,   indd3,   mat31,                filling31, vec3,           filling3):
+def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat31 : 'double[:,:,:,:,:,:]', filling31 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
 
@@ -1724,8 +1695,7 @@ def fill_mat31_vec3_v1(p,       bn1,        bd1,        bn2,        bn3,        
                             mat31[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat32_vec3_v1(p,       bn1,        bn2,        bd2,        bn3,        bd3,        indn1,   indn2,   indd3,   mat32,                filling32, vec3,           filling3):
+def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat32 : 'double[:,:,:,:,:,:]', filling32 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
 
@@ -1801,8 +1771,7 @@ def fill_mat32_vec3_v1(p,       bn1,        bn2,        bd2,        bn3,        
                             mat32[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat33_vec3_v1(p,       bn1,        bn2,        bd3,        indn1,   indn2,   indd3,   mat33,                filling33, vec3,           filling3):
+def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat33 : 'double[:,:,:,:,:,:]', filling33 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
 
@@ -1870,8 +1839,7 @@ def fill_mat33_vec3_v1(p,       bn1,        bn2,        bd3,        indn1,   ind
                             mat33[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double',  'double[:,:,:]','double')
-def fill_mat11_vec1_v2(p,       bn1,        bd2,        bd3,        indn1,   indd2,   indd3,   mat11,                filling11, vec1,           filling1):
+def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat11 : 'double[:,:,:,:,:,:]', filling11 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
 
@@ -1939,8 +1907,7 @@ def fill_mat11_vec1_v2(p,       bn1,        bd2,        bd3,        indn1,   ind
                             mat11[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat12_vec1_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3,        indn1,   indd2,   indd3,   mat12,                filling12, vec1,           filling1):
+def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat12 : 'double[:,:,:,:,:,:]', filling12 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
 
@@ -2016,8 +1983,7 @@ def fill_mat12_vec1_v2(p,       bn1,        bd1,        bn2,        bd2,        
                             mat12[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat13_vec1_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3,        indn1,   indd2,   indd3,   mat13,                filling13, vec1,           filling1):
+def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', mat13 : 'double[:,:,:,:,:,:]', filling13 : 'double', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
 
@@ -2093,8 +2059,7 @@ def fill_mat13_vec1_v2(p,       bn1,        bd1,        bd2,        bn3,        
                             mat13[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat21_vec2_v2(p,       bn1,        bd1,        bn2,        bd2,        bd3,        indd1,   indn2,   indd3,   mat21,                filling21, vec2,           filling2):
+def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat21 : 'double[:,:,:,:,:,:]', filling21 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
 
@@ -2170,8 +2135,7 @@ def fill_mat21_vec2_v2(p,       bn1,        bd1,        bn2,        bd2,        
                             mat21[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat22_vec2_v2(p,       bd1,        bn2,        bd3,        indd1,   indn2,   indd3,   mat22,                filling22, vec2,           filling2):
+def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat22 : 'double[:,:,:,:,:,:]', filling22 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
 
@@ -2239,8 +2203,7 @@ def fill_mat22_vec2_v2(p,       bd1,        bn2,        bd3,        indd1,   ind
                             mat22[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat23_vec2_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3,        indd1,   indn2,   indd3,   mat23,                filling23, vec2,           filling2):
+def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', mat23 : 'double[:,:,:,:,:,:]', filling23 : 'double', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
 
@@ -2316,8 +2279,7 @@ def fill_mat23_vec2_v2(p,       bd1,        bn2,        bd2,        bn3,        
                             mat23[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat31_vec3_v2(p,       bn1,        bd1,        bd2,        bn3,        bd3,        indd1,   indd2,   indn3,   mat31,                filling31, vec3,           filling3):
+def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'double[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat31 : 'double[:,:,:,:,:,:]', filling31 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
 
@@ -2393,8 +2355,7 @@ def fill_mat31_vec3_v2(p,       bn1,        bd1,        bd2,        bn3,        
                             mat31[i1, i2, i3, pn1 + jl1 - il1, pd2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat32_vec3_v2(p,       bd1,        bn2,        bd2,        bn3,        bd3,        indd1,   indd2,   indn3,   mat32,                filling32, vec3,           filling3):
+def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat32 : 'double[:,:,:,:,:,:]', filling32 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
 
@@ -2470,8 +2431,7 @@ def fill_mat32_vec3_v2(p,       bd1,        bn2,        bd2,        bn3,        
                             mat32[i1, i2, i3, pd1 + jl1 - il1, pn2 + jl2 - il2, pd3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(                'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:,:,:,:]','double' , 'double[:,:,:]','double')
-def fill_mat33_vec3_v2(p,       bd1,        bd2,        bn3,        indd1,   indd2,   indn3,   mat33,                filling33, vec3,           filling3):
+def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', mat33 : 'double[:,:,:,:,:,:]', filling33 : 'double', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
 
@@ -2539,8 +2499,7 @@ def fill_mat33_vec3_v2(p,       bd1,        bd2,        bn3,        indd1,   ind
                             mat33[i1, i2, i3, pd1 + jl1 - il1, pd2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec1_v1(p,       bd1,        bn2,        bn3,        indd1,   indn2,   indn3,   vec1,           filling1):
+def fill_vec1_v1(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indn3 : 'int[:]', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the mu=1 element of a vector in V1 and fills it with basis functions times filling1
 
@@ -2593,8 +2552,7 @@ def fill_vec1_v1(p,       bd1,        bn2,        bn3,        indd1,   indn2,   
                 vec1[i1, i2, i3] += bi3 * filling1
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec2_v1(p,       bn1,        bd2,        bn3,        indn1,   indd2,   indn3,   vec2,           filling2):
+def fill_vec2_v1(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the mu=2 element of a vector in V1 and fills it with basis functions times filling2
 
@@ -2647,8 +2605,7 @@ def fill_vec2_v1(p,       bn1,        bd2,        bn3,        indn1,   indd2,   
                 vec2[i1, i2, i3] += bi3 * filling2
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec3_v1(p,       bn1,        bn2,        bd3,        indn1,   indn2,   indd3,   vec3,           filling3):
+def fill_vec3_v1(p : 'int[:]', bn1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the mu=3 element of a vector in V1 and fills it with basis functions times filling3
 
@@ -2701,8 +2658,7 @@ def fill_vec3_v1(p,       bn1,        bn2,        bd3,        indn1,   indn2,   
                 vec3[i1, i2, i3] += bi3 * filling3
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec1_v2(p,       bn1,        bd2,        bd3,        indn1,   indd2,   indd3,   vec1,           filling1):
+def fill_vec1_v2(p : 'int[:]', bn1 : 'double[:]', bd2 : 'double[:]', bd3 : 'double[:]', indn1 : 'int[:]', indd2 : 'int[:]', indd3 : 'int[:]', vec1 : 'double[:,:,:]', filling1 : 'double'):
     """
     Computes the mu=1 element of a vector in V2 and fills it with basis functions times filling1
 
@@ -2755,8 +2711,7 @@ def fill_vec1_v2(p,       bn1,        bd2,        bd3,        indn1,   indd2,   
                 vec1[i1, i2, i3] += bi3 * filling1
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec2_v2(p,       bd1,        bn2,        bd3,        indd1,   indn2,   indd3,   vec2,           filling2):
+def fill_vec2_v2(p : 'int[:]', bd1 : 'double[:]', bn2 : 'double[:]', bd3 : 'double[:]', indd1 : 'int[:]', indn2 : 'int[:]', indd3 : 'int[:]', vec2 : 'double[:,:,:]', filling2 : 'double'):
     """
     Computes the mu=2 element of a vector in V2 and fills it with basis functions times filling2
 
@@ -2809,8 +2764,7 @@ def fill_vec2_v2(p,       bd1,        bn2,        bd3,        indd1,   indn2,   
                 vec2[i1, i2, i3] += bi3 * filling2
 
 # =====================================================================================================
-@types(          'int[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double')
-def fill_vec3_v2(p,       bd1,        bd2,        bn3,        indd1,   indd2,   indn3,   vec3,           filling3):
+def fill_vec3_v2(p : 'int[:]', bd1 : 'double[:]', bd2 : 'double[:]', bn3 : 'double[:]', indd1 : 'int[:]', indd2 : 'int[:]', indn3 : 'int[:]', vec3 : 'double[:,:,:]', filling3 : 'double'):
     """
     Computes the mu=3 element of a vector in V2 and fills it with basis functions times filling3
 

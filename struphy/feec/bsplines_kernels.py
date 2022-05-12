@@ -6,13 +6,10 @@
 Basic functions for point-wise B-spline evaluation
 """
 
-from pyccel.decorators import types
-
 from numpy import empty, zeros
 
 # ==============================================================================
-@types('double[:]','int','int','double[:]')
-def scaling(t_d, p_d, span_d, values):
+def scaling(t_d : 'double[:]', p_d : 'int', span_d : 'int', values : 'double[:]'):
     """
     Scales local B-spline values to M-spline values
     
@@ -39,8 +36,7 @@ def scaling(t_d, p_d, span_d, values):
 
 
 # ==============================================================================
-@types('double[:]','int','double')
-def find_span(t, p, eta):
+def find_span(t : 'double[:]', p : 'int', eta : 'double') -> 'int':
     """
     Computes the span, i.e. the index i for which the B-splines i-p until i are non-vanishing at this point
 
@@ -89,8 +85,7 @@ def find_span(t, p, eta):
 
 
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:]')
-def basis_funs(t, p, eta, span, left, right, values):
+def basis_funs(t : 'double[:]', p : 'int', eta : 'double', span : 'int', left : 'double[:]', right : 'double[:]', values : 'double[:]'):
     """
     Parameters
     ----------
@@ -129,8 +124,7 @@ def basis_funs(t, p, eta, span, left, right, values):
         
         
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]')
-def basis_funs_all(t, p, eta, span, left, right, values, diff):
+def basis_funs_all(t : 'double[:]', p : 'int', eta : 'double', span : 'int', left : 'double[:]', right : 'double[:]', values : 'double[:,:]', diff : 'double[:]'):
     """
     Parameters
     ----------
@@ -176,8 +170,7 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
 
 
 # =============================================================================
-@types(            'double[:]','int','double','int','double[:]')
-def b_splines_slim(t,          pn,   eta,     span, values     ):
+def b_splines_slim(t : 'double[:]', pn : 'int', eta : 'double', span : 'int', values : 'double[:]'):
     """
     Computes the values of pn+1 non-vanishing B-splines at position eta
 
@@ -224,8 +217,7 @@ def b_splines_slim(t,          pn,   eta,     span, values     ):
 
 
 # =============================================================================
-@types(            'double[:]','int','double','int','double[:]')
-def d_splines_slim(t,          pn,   eta,     span, values     ):
+def d_splines_slim(t : 'double[:]', pn : 'int', eta : 'double', span : 'int', values : 'double[:]'):
     """
     Computes the values of pn non-vanishing D-splines at position eta
 
@@ -287,8 +279,7 @@ def d_splines_slim(t,          pn,   eta,     span, values     ):
 
 
 # =============================================================================
-@types(              'double[:]','int','double','int','double[:]','double[:]')
-def b_d_splines_slim(t,          pn,   eta,     span, bn,         bd         ):
+def b_d_splines_slim(t : 'double[:]', pn : 'int', eta : 'double', span : 'int', bn : 'double[:]', bd : 'double[:]'):
     """
     One function to compute the values of non-vanishing B-splines and D-splines
 
@@ -351,8 +342,7 @@ def b_d_splines_slim(t,          pn,   eta,     span, bn,         bd         ):
 
 
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]','double[:]')
-def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
+def basis_funs_and_der(t : 'double[:]', p : 'int', eta : 'double', span : 'int', left : 'double[:]', right : 'double[:]', values : 'double[:,:]', diff : 'double[:]', der : 'double[:]'):
     """
     Parameters
     ----------
@@ -417,8 +407,7 @@ def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
             
             
 # ==============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:]')
-def basis_funs_1st_der(t, p, eta, span, left, right, values):
+def basis_funs_1st_der(t : 'double[:]', p : 'int', eta : 'double', span : 'int', left : 'double[:]', right : 'double[:]', values : 'double[:]'):
     """
     Parameters
     ----------
@@ -461,8 +450,7 @@ def basis_funs_1st_der(t, p, eta, span, left, right, values):
 
 
 # ==============================================================================
-@types(                'double[:]','int','double','int','double[:]')
-def b_spl_1st_der_slim(t,          p,    eta,     span, values):
+def b_spl_1st_der_slim(t : 'double[:]', p : 'int', eta : 'double', span : 'int', values : 'double[:]'):
     """
     Parameters
     ----------
@@ -505,8 +493,7 @@ def b_spl_1st_der_slim(t,          p,    eta,     span, values):
 
 
 #========================================================================================
-@types('int','double','double')
-def piecewise(p, delta, eta):
+def piecewise(p : 'int', delta : 'double', eta : 'double') -> 'double':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
     if abs(eta) > delta * (p+1)*0.5:
@@ -534,8 +521,7 @@ def piecewise(p, delta, eta):
 
 
 #========================================================================================
-@types('int','double','double')
-def piecewise_der(p, delta, eta):
+def piecewise_der(p : 'int', delta : 'double', eta : 'double') -> 'double':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
     if abs(eta) > delta * (p+1)*0.5:
@@ -566,8 +552,7 @@ def piecewise_der(p, delta, eta):
 
 
 #========================================================================================
-@types('int','double[:]','double')
-def convolution(p, grids, eta):
+def convolution(p : 'int', grids : 'double[:]', eta : 'double')  -> 'double':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function
     # 'grids' is the knots in the support of shape function centered at particle position
@@ -599,8 +584,7 @@ def convolution(p, grids, eta):
 
 
 #========================================================================================
-@types('int','double[:]','double')
-def convolution_der(p, grids, eta):
+def convolution_der(p : 'int', grids : 'double[:]', eta : 'double')  -> 'double':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function
     # 'grids' is the knots in the support of shape function centered at particle position, length is p + 1

@@ -1,5 +1,7 @@
-# import pyccel decorators
-from pyccel.decorators import types
+# import modules for B-spline evaluation
+import struphy.feec.bsplines_kernels as bsp
+
+import struphy.feec.basics.spline_evaluation_2d as eva2
 
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
@@ -7,15 +9,10 @@ import struphy.linear_algebra.core as linalg
 # import modules for mapping evaluation
 import struphy.geometry.mappings_3d_fast as mapping_fast
 
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
-
-import struphy.feec.basics.spline_evaluation_2d as eva2
 
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','int')
-def pusher_v_mhd_electric(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2, b_eq_3, b_p_1, b_p_2, b_p_3, b_norm, u1, u2, u3, basis_u, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mu, n_tor):
+def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'double[:,:,:]', b_eq_2 : 'double[:,:,:]', b_eq_3 : 'double[:,:,:]', b_p_1 : 'double[:,:,:]', b_p_2 : 'double[:,:,:]', b_p_3 : 'double[:,:,:]', b_norm : 'double[:,:,:]', u1 : 'double[:,:,:]', u2 : 'double[:,:,:]', u3 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mu : 'double[:]', n_tor : 'int'):
     
     from numpy import empty, zeros, sin, cos, pi
     
@@ -108,8 +105,8 @@ def pusher_v_mhd_electric(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b
     # ==========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, der1, der2, bn1, bn2, bd1, bd2, cs, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, der1, der2, bn1, bn2, bd1, bd2, cs, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
+    #$ omp for 
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -247,7 +244,6 @@ def pusher_v_mhd_electric(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b
         particles[5, ip] += dt*e_cart[2]
         # ==========================================
         
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
@@ -256,8 +252,7 @@ def pusher_v_mhd_electric(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b
     
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int')
-def pusher_vxb(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2, b_eq_3, b_p_1, b_p_2, b_p_3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, n_tor):
+def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'double[:,:,:]', b_eq_2 : 'double[:,:,:]', b_eq_3 : 'double[:,:,:]', b_p_1 : 'double[:,:,:]', b_p_2 : 'double[:,:,:]', b_p_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', n_tor : 'int'):
     
     from numpy import empty, zeros, sqrt, cos, sin, pi
     
@@ -344,8 +339,8 @@ def pusher_vxb(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq
     # ==========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
+    #$ omp for 
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -435,7 +430,6 @@ def pusher_vxb(particles, dt, t1, t2, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq
         particles[3:6, ip] = vpar*b0 + cos(b_norm*dt)*vperp - sin(b_norm*dt)*b0xvperp
         # ==========================================
     
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0

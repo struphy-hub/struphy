@@ -1,6 +1,3 @@
-# import pyccel decorators
-from pyccel.decorators import types
-
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
 
@@ -9,8 +6,7 @@ import struphy.kinetic_equil.analytical.background_sol as bs
 
 
 # ==========================================================================================================
-@types(          'double[:,:]','int','int[:]','double[:]','double[:]','double[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:]','double', 'double[:]','double[:]','double')
-def push_weights(particles,    np,   p,       t1,         t2,         t3,         indN1,     indN2,     indN3,     indD1,     indD2,     indD3,     nbase_n, nbase_d, e_field,    dt      , v_shift,    v_th,       n0      ):
+def push_weights(particles : 'double[:,:]', np : 'int', p : 'int[:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', e_field : 'double[:]', dt : 'double', v_shift : 'double[:]', v_th : 'double[:]', n0 :  'double'):
     """
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system
 
@@ -34,22 +30,22 @@ def push_weights(particles,    np,   p,       t1,         t2,         t3,       
         t3 : array
             contains the knot vector in direction 3
 
-        indN1 : array
+        indn1 : array
             indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
 
-        indN2 : array
+        indn2 : array
             indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
 
-        indN3 : array
+        indn3 : array
             indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
-        indD1 : array
+        indd1 : array
             indD[0] from TensorSpline class, contains the global indices of non-zero D-splines in direction 1
 
-        indD2 : array
+        indd2 : array
             indD[1] from TensorSpline class, contains the global indices of non-zero D-splines in direction 2
 
-        indD3 : array
+        indd3 : array
             indD[2] from TensorSpline class, contains the global indices of non-zero D-splines in direction 3
         
         nbase_n : int array
@@ -96,8 +92,8 @@ def push_weights(particles,    np,   p,       t1,         t2,         t3,       
 
     v = empty( 3, dtype=float )
 
-    #$ omp parallel
-    #$ omp do private (ip, eta1, eta2, eta3, v1, v2, v3, v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, ie1, ie2, ie3, f0, temp1, temp2, temp3, i1, i2, i3, il1, il2, il3, bi1, bi2, update)
+    #$ omp parallel private(ip, eta1, eta2, eta3, v1, v2, v3, v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, ie1, ie2, ie3, f0, temp1, temp2, temp3, i1, i2, i3, il1, il2, il3, bi1, bi2, update)
+    #$ omp for 
     for ip in range(np):
         
         # position
@@ -111,7 +107,7 @@ def push_weights(particles,    np,   p,       t1,         t2,         t3,       
         v3      = particles[5, ip]
         v       = [v1, v2, v3]
 
-        # spans (i.e. index for non-vanishing basis functions)
+        # spans (i.e. index for non-vanisle of manishing basis functions)
         span1 = bsp.find_span(t1, pn1, eta1)
         span2 = bsp.find_span(t2, pn2, eta2)
         span3 = bsp.find_span(t3, pn3, eta3)
@@ -133,41 +129,39 @@ def push_weights(particles,    np,   p,       t1,         t2,         t3,       
 
         # first component (DNN)
         for il1 in range(pd1 + 1):
-            i1  = indD1[ie1,il1]
+            i1  = indd1[ie1,il1]
             bi1 = bd1[il1]
             for il2 in range(pn2 + 1):
-                i2  = indN2[ie2,il2]
+                i2  = indn2[ie2,il2]
                 bi2 = bi1 * bn2[il2]
                 for il3 in range(pn3 + 1):
-                    i3  = indN3[ie3,il3]
+                    i3  = indn3[ie3,il3]
                     temp1 += bi2 * bn3[il3] * e_field[ nbase_n[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
 
         # second component (NDN)
         for il1 in range(pn1 + 1):
-            i1  = indN1[ie1,il1]
+            i1  = indn1[ie1,il1]
             bi1 = bn1[il1]
             for il2 in range(pd2 + 1):
-                i2  = indD2[ie2,il2]
+                i2  = indd2[ie2,il2]
                 bi2 = bi1 * bd2[il2]
                 for il3 in range(pn3 + 1):
-                    i3  = indN3[ie3,il3]
+                    i3  = indn3[ie3,il3]
                     temp2 += bi2 * bn3[il3] * e_field[ nbase_d[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
         
         # third component (NND)
         for il1 in range(pn1 + 1):
-            i1  = indN1[ie1,il1]
+            i1  = indn1[ie1,il1]
             bi1 = bn1[il1]
             for il2 in range(pn2 + 1):
-                i2  = indN2[ie2,il2]
+                i2  = indn2[ie2,il2]
                 bi2 = bi1 * bn2[il2]
                 for il3 in range(pd3 + 1):
-                    i3  = indD3[ie3,il3]
+                    i3  = indd3[ie3,il3]
                     temp3 += bi2 * bd3[il3] * e_field[ nbase_n[1]*nbase_d[2]*i1 + nbase_d[2]*i2 + i3 ]
 
         update = ( temp1*v1 + temp2*v2 + temp3*v3 ) * sqrt(f0) * dt/2.
         particles[6,ip] += update
-
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0

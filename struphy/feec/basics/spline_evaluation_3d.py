@@ -21,15 +21,13 @@ Possible combinations for tensor product (BBB):
 (DDD) 
 """
 
-from pyccel.decorators import types
 from numpy import empty
 
 import struphy.feec.bsplines_kernels as bsp
 
 
 # =============================================================================
-@types('int','int','int','double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]')
-def evaluation_kernel(p1, p2, p3, basis1, basis2, basis3, span1, span2, span3, nbase1, nbase2, nbase3, coeff):
+def evaluation_kernel_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', basis3 : 'double[:]', span1 : 'int', span2 : 'int', span3 : 'int', nbase1 : 'int', nbase2 : 'int', nbase3 : 'int', coeff : 'double[:,:,:]') -> 'double':
     '''Summing non-zero contributions.
 
     Parameters:
@@ -59,9 +57,9 @@ def evaluation_kernel(p1, p2, p3, basis1, basis2, basis3, span1, span2, span3, n
         
     return value
 
+
 # =============================================================================
-@types(         'int','int','int','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]')
-def eval_kernel(p1,   p2,   p3,   basis1,     basis2,     basis3,     ind1,    ind2,    ind3,    coeff          ):
+def eval_kernel_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', basis3 : 'double[:]', ind1 : 'int[:]', ind2 : 'int[:]', ind3 : 'int[:]', coeff : 'double[:,:,:]') -> 'double':
     '''Summing non-zero contributions.
 
     Parameters:
@@ -92,8 +90,7 @@ def eval_kernel(p1,   p2,   p3,   basis1,     basis2,     basis3,     ind1,    i
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_n_n_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (NNN)-tensor-product spline. 
 
     Parameters:
@@ -133,14 +130,13 @@ def evaluate_n_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, c
     bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_diffn_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_diffn_n_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (dN/deta NN)-tensor-product spline. 
 
     Parameters:
@@ -180,14 +176,13 @@ def evaluate_diffn_n_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_diffn_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_n_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (N dN/deta N)-tensor-product spline. 
 
     Parameters:
@@ -227,14 +222,13 @@ def evaluate_n_diffn_n(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bsp.basis_funs(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_n_diffn(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_n_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (NN dN/deta)-tensor-product spline. 
 
     Parameters:
@@ -274,14 +268,13 @@ def evaluate_n_n_diffn(tn1, tn2, tn3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n
     bsp.basis_funs_1st_der(tn3, pn3, eta3, span_n3, bl3, br3, bn3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_d_n_n(td1, tn2, tn3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_d_n_n(td1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pd1 : 'int', pn2 : 'int', pn3 : 'int', nbase_d1 : 'int', nbase_n2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (DNN)-tensor-product spline. 
 
     Parameters:
@@ -323,14 +316,13 @@ def evaluate_d_n_n(td1, tn2, tn3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, c
     bsp.scaling(td1, pd1, span_d1, bd1)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span_d1, span_n2, span_n3, nbase_d1, nbase_n2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span_d1, span_n2, span_n3, nbase_d1, nbase_n2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_d_n(tn1, td2, tn3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_n_d_n(tn1 : 'double[:]', td2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pd2 : 'int', pn3 : 'int', nbase_n1 : 'int', nbase_d2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (NDN)-tensor-product spline. 
 
     Parameters:
@@ -372,14 +364,13 @@ def evaluate_n_d_n(tn1, td2, tn3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, c
     bsp.scaling(td2, pd2, span_d2, bd2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span_n1, span_d2, span_n3, nbase_n1, nbase_d2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span_n1, span_d2, span_n3, nbase_n1, nbase_d2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_n_d(tn1, tn2, td3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, coeff, eta1, eta2, eta3):
+def evaluate_n_n_d(tn1 : 'double[:]', tn2 : 'double[:]', td3 : 'double[:]', pn1 : 'int', pn2 : 'int', pd3 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', nbase_d3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (NND)-tensor-product spline. 
 
     Parameters:
@@ -421,14 +412,13 @@ def evaluate_n_n_d(tn1, tn2, td3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, c
     bsp.scaling(td3, pd3, span_d3, bd3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span_n1, span_n2, span_d3, nbase_n1, nbase_n2, nbase_d3, coeff)
+    value = evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span_n1, span_n2, span_d3, nbase_n1, nbase_n2, nbase_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, coeff, eta1, eta2, eta3):
+def evaluate_n_d_d(tn1 : 'double[:]', td2 : 'double[:]', td3 : 'double[:]', pn1 : 'int', pd2 : 'int', pd3 : 'int' , nbase_n1 : 'int', nbase_d2 : 'int', nbase_d3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (NDD)-tensor-product spline. 
 
     Parameters:
@@ -471,14 +461,13 @@ def evaluate_n_d_d(tn1, td2, td3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, c
     bsp.scaling(td3, pd3, span_d3, bd3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span_n1, span_d2, span_d3, nbase_n1, nbase_d2, nbase_d3, coeff)
+    value = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span_n1, span_d2, span_d3, nbase_n1, nbase_d2, nbase_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, coeff, eta1, eta2, eta3):
+def evaluate_d_n_d(td1 : 'double[:]', tn2 : 'double[:]', td3 : 'double[:]', pd1 : 'int', pn2 : 'int', pd3 : 'int' , nbase_d1 : 'int', nbase_n2 : 'int', nbase_d3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (DND)-tensor-product spline. 
 
     Parameters:
@@ -521,14 +510,13 @@ def evaluate_d_n_d(td1, tn2, td3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, c
     bsp.scaling(td3, pd3, span_d3, bd3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span_d1, span_n2, span_d3, nbase_d1, nbase_n2, nbase_d3, coeff)
+    value = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span_d1, span_n2, span_d3, nbase_d1, nbase_n2, nbase_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_d_d_n(td1, td2, tn3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, coeff, eta1, eta2, eta3):
+def evaluate_d_d_n(td1 : 'double[:]', td2 : 'double[:]', tn3 : 'double[:]', pd1 : 'int', pd2 : 'int' , pn3 : 'int', nbase_d1 : 'int', nbase_d2 : 'int', nbase_n3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (DDN)-tensor-product spline. 
 
     Parameters:
@@ -571,14 +559,13 @@ def evaluate_d_d_n(td1, td2, tn3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, c
     bsp.scaling(td2, pd2, span_d2, bd2)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span_d1, span_d2, span_n3, nbase_d1, nbase_d2, nbase_n3, coeff)
+    value = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span_d1, span_d2, span_n3, nbase_d1, nbase_d2, nbase_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double','double','double')
-def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, coeff, eta1, eta2, eta3):
+def evaluate_d_d_d(td1 : 'double[:]', td2 : 'double[:]', td3 : 'double[:]', pd1 : 'int', pd2 : 'int' , pd3 : 'int' , nbase_d1 : 'int', nbase_d2 : 'int', nbase_d3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     '''Point-wise evaluation of (DDD)-tensor-product spline. 
 
     Parameters:
@@ -622,13 +609,13 @@ def evaluate_d_d_d(td1, td2, td3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, c
     bsp.scaling(td3, pd3, span_d3, bd3)
 
     # sum up non-vanishing contributions
-    value = evaluation_kernel(pd1, pd2, pd3, bd1, bd2, bd3, span_d1, span_d2, span_d3, nbase_d1, nbase_d2, nbase_d3, coeff)
+    value = evaluation_kernel_3d(pd1, pd2, pd3, bd1, bd2, bd3, span_d1, span_d2, span_d3, nbase_d1, nbase_d2, nbase_d3, coeff)
 
     return value
 
+
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_n_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (NNN)-tensor-product spline. 
 
@@ -661,14 +648,13 @@ def eval_n_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  in
     bsp.b_splines_slim(tn3, pn3, eta3, span_n3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+    value = eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_diffn_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_diffn_n_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (dN/deta NN)-tensor-product spline.
 
@@ -701,14 +687,13 @@ def eval_diffn_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,
     bsp.b_splines_slim(     tn3, pn3, eta3, span_n3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+    value = eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_diffn_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (N dN/deta N)-tensor-product spline.
 
@@ -741,14 +726,13 @@ def eval_n_diffn_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,
     bsp.b_splines_slim(     tn3, pn3, eta3, span_n3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+    value = eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(            'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_n_diffn(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (NN dN/deta)-tensor-product spline.
 
@@ -781,14 +765,13 @@ def eval_n_n_diffn(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,
     bsp.b_spl_1st_der_slim( tn3, pn3, eta3, span_n3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
+    value = eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_d_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_n2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_d_n_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_d1 : 'int[:]', ind_n2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (DNN)-tensor-product spline.
 
@@ -822,14 +805,13 @@ def eval_d_n_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  in
     bsp.b_splines_slim(tn3, pn3, eta3, span3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pd1, pn2, pn3, bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, coeff)
+    value = eval_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_d2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_d_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_d2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (NDN)-tensor-product spline.
 
@@ -863,14 +845,13 @@ def eval_n_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  in
     bsp.b_splines_slim(tn3, pn3, eta3, span3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pd2, pn3, bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, coeff)
+    value = eval_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_n2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_n_d(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', ind_d3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (NND)-tensor-product spline.
 
@@ -904,14 +885,13 @@ def eval_n_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  in
     bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pn2, pd3, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, coeff)
+    value = eval_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_n_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  ind_d2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_n_d_d(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_n1 : 'int[:]', ind_d2 : 'int[:]', ind_d3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (NDD)-tensor-product spline.
 
@@ -946,14 +926,13 @@ def eval_n_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_n1,  in
     bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pn1, pd2, pd3, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, coeff)
+    value = eval_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_d_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_n2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_d_n_d(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_d1 : 'int[:]', ind_n2 : 'int[:]', ind_d3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (DND)-tensor-product spline.
 
@@ -988,14 +967,13 @@ def eval_d_n_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  in
     bsp.d_splines_slim(tn3, pn3, eta3, span3, bd3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pd1, pn2, pd3, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, coeff)
+    value = eval_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_d_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_d2,  ind_n3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_d_d_n(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_d1 : 'int[:]', ind_d2 : 'int[:]', ind_n3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (DDN)-tensor-product spline.
 
@@ -1030,14 +1008,13 @@ def eval_d_d_n(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  in
     bsp.b_splines_slim(tn3, pn3, eta3, span_n3, bn3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pd1, pd2, pn3, bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, coeff)
+    value = eval_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, coeff)
 
     return value
 
 
 # =============================================================================
-@types(        'double[:]','double[:]','double[:]','int','int','int','int[:]','int[:]','int[:]','double[:,:,:]','double','double','double')
-def eval_d_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  ind_d2,  ind_d3,  coeff,          eta1,    eta2,    eta3    ):
+def eval_d_d_d(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'int', pn2 : 'int', pn3 : 'int', ind_d1 : 'int[:]', ind_d2 : 'int[:]', ind_d3 : 'int[:]', coeff : 'double[:,:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double') -> 'double':
     """
     Point-wise evaluation of (DDD)-tensor-product spline.
 
@@ -1073,14 +1050,13 @@ def eval_d_d_d(tn1,        tn2,        tn3,        pn1,  pn2,  pn3,  ind_d1,  in
     bsp.d_splines_slim(tn3, pn3, eta3, span_d3, bd3)
 
     # sum up non-vanishing contributions
-    value = eval_kernel(pd1, pd2, pd3, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, coeff)
+    value = eval_kernel_3d(pd1, pd2, pd3, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, coeff)
 
     return value
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:]','double[:]','double[:]','double[:,:,:]','int')
-def evaluate_tensor_product(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, values, kind):
+def evaluate_tensor_product(t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p1 : 'int', p2 : 'int', p3 : 'int', nbase_1 : 'int', nbase_2 : 'int', nbase_3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double[:]', eta2 : 'double[:]', eta3 : 'double[:]', values : 'double[:,:,:]', kind : 'int'):
     '''Tensor product evaluation (meshgrid) of tensor product splines (3d). 
 
     Parameters:
@@ -1130,8 +1106,7 @@ def evaluate_tensor_product(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, c
                         
                     
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','int','double[:,:,:]','int')
-def evaluate_matrix(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, n1, n2, n3, values, kind):
+def evaluate_matrix(t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p1 : 'int',  p2 : 'int', p3 : 'int', nbase_1 : 'int', nbase_2 : 'int', nbase_3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double[:,:,:]', eta2 : 'double[:,:,:]', eta3 : 'double[:,:,:]', n1 : 'int', n2 : 'int', n3 : 'int', values : 'double[:,:,:]', kind : 'int'):
     '''Matrix evaluation of tensor product splines (3d). 
 
     Parameters:
@@ -1181,8 +1156,7 @@ def evaluate_matrix(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, et
 
 
 # =============================================================================
-@types('double[:]','double[:]','double[:]','int','int','int','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','int','double[:,:,:]','int')
-def evaluate_sparse(t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1, eta2, eta3, n1, n2, n3, values, kind):
+def evaluate_sparse(t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p1 : 'int', p2 : 'int', p3 : 'int', nbase_1 : 'int', nbase_2 : 'int', nbase_3 : 'int', coeff : 'double[:,:,:]', eta1 : 'double[:,:,:]', eta2 : 'double[:,:,:]', eta3 : 'double[:,:,:]', n1 : 'int', n2 : 'int', n3 : 'int', values : 'double[:,:,:]', kind : 'int'):
     '''Evaluation of tensor product splines (3d) at point sets obtained from sparse meshgrid.
 
     Sparse meshgrid output has shape (n1, 1, 1), (1, n2, 1) and (1, 1, n3)
