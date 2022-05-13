@@ -2457,28 +2457,38 @@ def g_inv(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', 
     df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-
+    
     detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
-
+    
+    df_inv_11 = (df_22*df_33 - df_32*df_23)/detdf
+    df_inv_12 = (df_32*df_13 - df_12*df_33)/detdf
+    df_inv_13 = (df_12*df_23 - df_22*df_13)/detdf
+    
+    df_inv_21 = (df_23*df_31 - df_33*df_21)/detdf
+    df_inv_22 = (df_33*df_11 - df_13*df_31)/detdf
+    df_inv_23 = (df_13*df_21 - df_23*df_11)/detdf
+        
+    df_inv_31 = (df_21*df_32 - df_31*df_22)/detdf
+    df_inv_32 = (df_31*df_12 - df_11*df_32)/detdf
+    df_inv_33 = (df_11*df_22 - df_21*df_12)/detdf
+    
     if   component == 11:
-        value = (df_22*df_33 - df_23*df_32)**2 + (df_13*df_32 - df_12*df_33)**2 + (df_12*df_23 - df_13*df_33)**2
+        value = df_inv_11*df_inv_11 + df_inv_12*df_inv_12 + df_inv_13*df_inv_13
                   
     elif component == 22:                                              
-        value = (df_23*df_31 - df_21*df_33)**2 + (df_11*df_33 - df_13*df_31)**2 + (df_13*df_21 - df_11*df_23)**2
+        value = df_inv_21*df_inv_21 + df_inv_22*df_inv_22 + df_inv_23*df_inv_23
                   
     elif component == 33:                                              
-        value = (df_21*df_32 - df_22*df_31)**2 + (df_12*df_31 - df_11*df_32)**2 + (df_11*df_22 - df_12*df_21)**2
+        value = df_inv_31*df_inv_31 + df_inv_32*df_inv_32 + df_inv_33*df_inv_33
                   
     elif component == 12 or component == 21:
-        value = (df_22*df_33 - df_23*df_32)*(df_23*df_31 - df_21*df_33) + (df_13*df_32 - df_12*df_33)*(df_11*df_33 - df_13*df_31) + (df_12*df_23 - df_13*df_33)*(df_13*df_21 - df_11*df_23)
+        value = df_inv_11*df_inv_21 + df_inv_12*df_inv_22 + df_inv_13*df_inv_23
                   
     elif component == 13 or component == 31:
-        value = (df_22*df_33 - df_23*df_32)*(df_21*df_32 - df_22*df_31) + (df_13*df_32 - df_12*df_33)*(df_12*df_31 - df_11*df_32) + (df_12*df_23 - df_13*df_33)*(df_11*df_22 - df_12*df_21)
+        value = df_inv_11*df_inv_31 + df_inv_12*df_inv_32 + df_inv_13*df_inv_33
                   
     elif component == 23 or component == 32:  
-        value = (df_23*df_31 - df_21*df_33)*(df_21*df_32 - df_22*df_31) + (df_11*df_33 - df_13*df_31)*(df_12*df_31 - df_11*df_32) + (df_13*df_21 - df_11*df_23)*(df_11*df_22 - df_12*df_21)
-        
-    value = value/detdf**2
+        value = df_inv_21*df_inv_31 + df_inv_22*df_inv_32 + df_inv_23*df_inv_33
     
     return value
 
