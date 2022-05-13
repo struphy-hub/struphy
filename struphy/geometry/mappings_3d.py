@@ -1674,6 +1674,8 @@ def df_mat(eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', 
     # ========= invalid mapping =================
     else:
         print('Invalid mapping given !!')
+        
+        
 # =======================================================================
 def df_ana(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]') -> 'double':
     """
@@ -1988,6 +1990,8 @@ def df_ana(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int',
             value = Lz
 
     return value
+
+
 # =======================================================================
 def df_ana_mat(eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', params_map : 'double[:]', mat_out : 'double[:,:]'):
     """
@@ -2284,7 +2288,7 @@ def det_df_mat(eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'in
 
 
 # =======================================================================
-def df_inv(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', divide : 'int') -> 'double':
+def df_inv(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     """Point-wise evaluation of ij-th component of the inverse Jacobian matrix df^(-1)_ij (i,j=1,2,3). 
     
     The 3 x 3 inverse is computed directly from df, using the cross product of the columns of df:
@@ -2303,7 +2307,6 @@ def df_inv(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int',
         pn:                     int[:]              spline degrees for mapping
         nbase_n:                int[:]              dimensions of univariate spline spaces for mapping 
         cx, cy, cz:             double[:, :, :]     control points of (f_1, f_2, f_3)
-        divide:                 int                 whether to include (1) or not include (0) division by |det_df|
 
     Returns:
     --------
@@ -2328,29 +2331,23 @@ def df_inv(eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int',
     detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
 
     if   component == 11:
-        value = df_22*df_33 - df_32*df_23
+        value = (df_22*df_33 - df_32*df_23)/detdf
     elif component == 12:
-        value = df_32*df_13 - df_12*df_33
+        value = (df_32*df_13 - df_12*df_33)/detdf
     elif component == 13:
-        value = df_12*df_23 - df_22*df_13
+        value = (df_12*df_23 - df_22*df_13)/detdf
     elif component == 21:
-        value = df_23*df_31 - df_33*df_21
+        value = (df_23*df_31 - df_33*df_21)/detdf
     elif component == 22:
-        value = df_33*df_11 - df_13*df_31
+        value = (df_33*df_11 - df_13*df_31)/detdf
     elif component == 23:
-        value = df_13*df_21 - df_23*df_11
+        value = (df_13*df_21 - df_23*df_11)/detdf
     elif component == 31:
-        value = df_21*df_32 - df_31*df_22
+        value = (df_21*df_32 - df_31*df_22)/detdf
     elif component == 32:
-        value = df_31*df_12 - df_11*df_32
+        value = (df_31*df_12 - df_11*df_32)/detdf
     elif component == 33:
-        value = df_11*df_22 - df_21*df_12
-        
-    if detdf < 0.:
-        value = -value
-    
-    if divide == 1:
-        value = value/abs(detdf)
+        value = (df_11*df_22 - df_21*df_12)/detdf
             
     return value
 
@@ -2549,23 +2546,23 @@ def mappings_all(eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_fun : '
         
     # inverse Jacobian matrix df_inv
     elif kind_fun == 21:
-        value = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 22:
-        value = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 23:
-        value = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 24:
-        value = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 25:
-        value = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 26:
-        value = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 27:
-        value = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 28:
-        value = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     elif kind_fun == 29:
-        value = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        value = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
         
     # metric tensor g
     elif kind_fun == 31:

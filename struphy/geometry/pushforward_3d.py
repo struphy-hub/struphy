@@ -15,7 +15,7 @@ Basic push-forward (logical --> physical) operations between scalar fields, vect
 
 from numpy import shape
 
-from struphy.geometry.mappings_3d import df, df_inv, det_df
+from struphy.geometry.mappings_3d import df, det_df
 
 
 # ==============================================================================
@@ -29,29 +29,33 @@ def push_0_form(a0 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double'
 # ==============================================================================
 def push_1_form(a1_1 : 'double', a1_2 : 'double', a1_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
+    
     if   component == 1:
         
-        dfinv_11 = df_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_21 = df_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_31 = df_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        
-        a = dfinv_11*a1_1 + dfinv_21*a1_2 + dfinv_31*a1_3
+        a = (df_22*df_33 - df_32*df_23)*a1_1 + (df_23*df_31 - df_33*df_21)*a1_2 + (df_21*df_32 - df_31*df_22)*a1_3 
     
     elif component == 2:
         
-        dfinv_12 = df_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_22 = df_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_32 = df_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        
-        a = dfinv_12*a1_1 + dfinv_22*a1_2 + dfinv_32*a1_3
+        a = (df_32*df_13 - df_12*df_33)*a1_1 + (df_33*df_11 - df_13*df_31)*a1_2 + (df_31*df_12 - df_11*df_32)*a1_3 
         
     elif component == 3:
         
-        dfinv_13 = df_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_23 = df_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
-        dfinv_33 = df_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, 1)
+        a = (df_12*df_23 - df_22*df_13)*a1_1 + (df_13*df_21 - df_23*df_11)*a1_2 + (df_11*df_22 - df_21*df_12)*a1_3
         
-        a = dfinv_13*a1_1 + dfinv_23*a1_2 + dfinv_33*a1_3
+    a = a / detdf
         
     return a
 
