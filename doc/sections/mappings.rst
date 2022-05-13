@@ -1,8 +1,3 @@
-.. _domain_class:
-
-Domain class
-------------
-
 In :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` equations are discretized on the unit cube (*logical domain*)
 :math:`\hat \Omega = [0,1]^3` with logical coordinates :math:`\boldsymbol \eta = (\eta_1, \eta_2,\eta_3) \in \hat \Omega`. 
 The *physical domain* :math:`\Omega \subset \mathbb R^3` is the image of :math:`\hat\Omega` under the mapping

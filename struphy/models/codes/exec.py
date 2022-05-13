@@ -160,10 +160,23 @@ dt = params['time']['dt']
 split_algo = params['time']['split_algo']
 
 def update():
+
     if split_algo == 'LieTrotter':
         
-        for prop, vars in zip(MODEL.propagators, MODEL.substep_vars):
-            prop(*vars, dt)
+        for propagator in MODEL.propagators:
+            propagator.push(dt)
+
+    elif split_algo == 'Strang':
+
+        assert len(MODEL.propagators) > 1
+        
+        for propagator in MODEL.propagators[-1]:
+            propagator.push(dt/2.)
+
+        MODEL.propagators[-1].push(dt)
+
+        for propagator in MODEL.propagators[::-1][1:]:
+            propagator.push(dt/2.)
 
     else:
         raise NotImplementedError(f'Splitting scheme {split_algo} not available.') 

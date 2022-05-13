@@ -20,10 +20,10 @@ import sphinx_rtd_theme
 
 project = 'STRUPHY'
 copyright = '2021, Max Planck Institute for Plasma Physics'
-author = 'Florian Holderied, Stefan Possanner and group members'
+author = 'Max Planck Institute for Plasma Physics'
 
 # The full version, including alpha/beta/rc tags
-release = '1.7 beta'
+release = '1.8.2 beta'
 
 # -- General configuration ---------------------------------------------------
 
@@ -65,3 +65,5 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+highlight_language = 'none'
