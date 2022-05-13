@@ -214,11 +214,11 @@ Base classes
 Struphy models are built upon two base classes:
 
 .. autoclass:: struphy.models.codes.models.StruphyModel
-   :members: a
+   :members: 
    :undoc-members:
 
 .. autoclass:: struphy.models.codes.propagators.Propagator
-   :members: a
+   :members: 
    :undoc-members:
 
 | All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/code/models.py``. 
@@ -310,7 +310,7 @@ It remains to fill the lists ``self._propagators`` and ``self._scalar_quantities
 The first list holds all propagators of the model, which amounts to just one in this example:
 
 .. autoclass:: struphy.models.codes.propagators.StepMaxwell
-    :members: a
+    :members: 
     :undoc-members:
 
 .. literalinclude:: ../../struphy/models/codes/propagators.py
