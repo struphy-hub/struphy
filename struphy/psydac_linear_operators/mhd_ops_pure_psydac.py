@@ -405,8 +405,8 @@ class MHD_operator( LinOpWithTransp ):
 
                 # Call the kernel
                 assemble(_dofs._data,
-                         _starts_in, _ends_in, _pads_in,
-                         _starts_out, _ends_out, _pads_out,
+                         np.array(_starts_in), np.array(_ends_in), np.array(_pads_in),
+                         np.array(_starts_out), np.array(_ends_out), np.array(_pads_out),
                          _fun_w,
                          _spans[0], _spans[1], _spans[2],
                          _bases[0], _bases[1], _bases[2],
