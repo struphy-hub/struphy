@@ -23,11 +23,7 @@ which leads to an output like::
 
 Compile kernels::
 
-    pip install pyccel==0.10.1
     struphy compile
-    pip install -U pyccel
-
-Note that the older version of ``pyccel`` is needed only for compilation and will be removed completely in the near future.
 
 
 Simple example

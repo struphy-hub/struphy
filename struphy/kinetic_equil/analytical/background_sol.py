@@ -2,13 +2,9 @@
     Pyccel-ised function to return values of the background solution (Maxwellian, ...)
 """
 
-# import pyccel decorators
-from pyccel.decorators import types
-
 
 # ==========================================================================================================
-@types('double[:]','double[:]','double[:]','double')
-def maxwellian_point(v, v0, vth, n0):
+def maxwellian_point(v : 'double[:]', v0 : 'double[:]', vth : 'double[:]', n0 : 'double') -> double:
     """
     Takes single 3-vector for v, v0, v_th and evaluates the Maxwellian function homogeneous in x with constant density in space nh0
 

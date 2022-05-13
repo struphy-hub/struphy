@@ -1,12 +1,8 @@
-# import pyccel decorators
-from pyccel.decorators import types
-
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
 
 # ==========================================================================================================
-@types(                'double[:]','double','int[:]','double[:]','double[:]','double[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:]','double[:]','int'  ,'int')
-def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,         indN1,     indN2,     indN3,     indD1,     indD2,     indD3,     loc1,       loc2,       loc3,       weight1,    weight2,    weight3,    nbase_n, nbase_d, e0_coeffs,  eps,        maxiter, ip):
+def aux_fun_x_v_stat_e(particle : 'double[:]', dt : 'double', p : 'int[:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', loc1 : 'double[:]', loc2 : 'double[:]', loc3 : 'double[:]', weight1 : 'double[:]', weight2 : 'double[:]', weight3 : 'double[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', e0_coeffs : 'double[:]', eps : 'double[:]', maxiter : 'int', ip : 'int'):
     """
     Auxiliary function for the pusher_x_v_static_efield, introduced to enable time-step splitting if scheme does not converge for the standard dt
 
@@ -30,22 +26,22 @@ def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,
         t3 : array
             contains the knot vector in direction 3
         
-        indN1 : array
+        indn1 : array
             indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
 
-        indN2 : array
+        indn2 : array
             indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
 
-        indN3 : array
+        indn3 : array
             indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
-        indD1 : array
+        indd1 : array
             indD[0] from TensorSpline class, contains the global indices of non-zero D-splines in direction 1
 
-        indD2 : array
+        indd2 : array
             indD[1] from TensorSpline class, contains the global indices of non-zero D-splines in direction 2
 
-        indD3 : array
+        indd3 : array
             indD[2] from TensorSpline class, contains the global indices of non-zero D-splines in direction 3
         
         loc1 : array
@@ -191,13 +187,13 @@ def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,
 
             # (DNN)
             for il1 in range(pd1 + 1):
-                i1 = indD1[ie1,il1]
+                i1 = indd1[ie1,il1]
                 bi1 = bd1[il1]
                 for il2 in range(pn2 +1):
-                    i2 = indN2[ie2,il2]
+                    i2 = indn2[ie2,il2]
                     bi2 = bi1 * bn2[il2]
                     for il3 in range(pn3 + 1):
-                        i3 = indN3[ie3,il3]
+                        i3 = indn3[ie3,il3]
                         bi3 = bi2 * bn3[il3] * e0_coeffs[ nbase_n[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
 
                         temp += bi3 * weight1[k]
@@ -231,13 +227,13 @@ def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,
 
             # (NDN)
             for il1 in range(pn1 + 1):
-                i1 = indN1[ie1,il1]
+                i1 = indn1[ie1,il1]
                 bi1 = bn1[il1]
                 for il2 in range(pd2 +1):
-                    i2 = indD2[ie2,il2]
+                    i2 = indd2[ie2,il2]
                     bi2 = bi1 * bd2[il2]
                     for il3 in range(pn3 + 1):
-                        i3 = indN3[ie3,il3]
+                        i3 = indn3[ie3,il3]
                         bi3 = bi2 * bn3[il3] * e0_coeffs[ nbase_d[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
                         
                         temp += bi3 * weight2[k]
@@ -271,13 +267,13 @@ def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,
         
             # (NND)
             for il1 in range(pn1 + 1):
-                i1 = indN1[ie1,il1]
+                i1 = indn1[ie1,il1]
                 bi1 = bn1[il1]
                 for il2 in range(pn2 +1):
-                    i2 = indN2[ie2,il2]
+                    i2 = indn2[ie2,il2]
                     bi2 = bi1 * bn2[il2]
                     for il3 in range(pd3 + 1):
-                        i3 = indD3[ie3,il3]
+                        i3 = indd3[ie3,il3]
                         bi3 = bi2 * bd3[il3] * e0_coeffs[ nbase_n[1]*nbase_d[2]*i1 + nbase_d[2]*i2 + i3 ]
                         
                         temp += bi3 * weight3[k]
@@ -306,8 +302,7 @@ def aux_fun_x_v_stat_e(particle,   dt,      p,       t1,         t2,         t3,
 
 
 # ==========================================================================================================
-@types(                      'double[:,:]','double','int[:]','double[:]','double[:]','double[:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','int','int[:]','int[:]','double[:]','double[:]','int')
-def pusher_x_v_static_efield(particles,    dt,      p,       t1,         t2,         t3,         indN1,     indN2,     indN3,     indD1,     indD2,     indD3,     loc1,       loc2,       loc3,       weight1,    weight2,    weight3,    np,   nbase_n, nbase_d, e0_coeffs,  eps,        maxiter):
+def pusher_x_v_static_efield(particles : 'double[:,:]', dt : 'double', p : 'int[:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', loc1 : 'double[:]', loc2 : 'double[:]', loc3 : 'double[:]', weight1 : 'double[:]', weight2 : 'double[:]', weight3 : 'double[:]', np : 'int', nbase_n : 'int[:]', nbase_d : 'int[:]', e0_coeffs : 'double[:]', eps : 'double[:]', maxiter : 'int'):
     """
     particle pusher for ODE dx/dt = v ; dv/dt = q/m * e_o(x)
 
@@ -331,22 +326,22 @@ def pusher_x_v_static_efield(particles,    dt,      p,       t1,         t2,    
         t3 : array
             contains the knot vector in direction 3
         
-        indN1 : array
+        indn1 : array
             indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
 
-        indN2 : array
+        indn2 : array
             indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
 
-        indN3 : array
+        indn3 : array
             indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
-        indD1 : array
+        indd1 : array
             indD[0] from TensorSpline class, contains the global indices of non-zero D-splines in direction 1
 
-        indD2 : array
+        indd2 : array
             indD[1] from TensorSpline class, contains the global indices of non-zero D-splines in direction 2
 
-        indD3 : array
+        indd3 : array
             indD[2] from TensorSpline class, contains the global indices of non-zero D-splines in direction 3
         
         loc1 : array
@@ -390,8 +385,8 @@ def pusher_x_v_static_efield(particles,    dt,      p,       t1,         t2,    
 
     particle = zeros( 7, dtype=float )
 
-    #$ omp parallel
-    #$ omp do private (ip, run, temp, k, m, particle, dt2)
+    #$ omp parallel private(ip, run, temp, k, m, particle, dt2)
+    #$ omp for
     for ip in range(np):
 
         particle[:] = particles[:,ip]
@@ -411,13 +406,11 @@ def pusher_x_v_static_efield(particles,    dt,      p,       t1,         t2,    
             dt2 = dt/k
 
             for m in range(k):
-                temp = aux_fun_x_v_stat_e(particle, dt2, p, t1, t2, t3, indN1, indN2, indN3, indD1, indD2, indD3, loc1, loc2, loc3, weight1, weight2, weight3, nbase_n, nbase_d, e0_coeffs, eps, maxiter, ip)
+                temp = aux_fun_x_v_stat_e(particle, dt2, p, t1, t2, t3, indn1, indn2, indn3, indd1, indd2, indd3, loc1, loc2, loc3, weight1, weight2, weight3, nbase_n, nbase_d, e0_coeffs, eps, maxiter, ip)
                 run += temp
 
         # write the results in the particles array
         particles[:,ip] = particle[:]
-
-    #$ omp end do
     #$ omp end parallel
 
     ierr = 0

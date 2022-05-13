@@ -53,7 +53,7 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     
     M  = np.zeros((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
     
-    ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 0, 0, 0, 0, wts[0], wts[1], basisN[0], basisN[1], basisN[0], basisN[1], indN[0], indN[1], M, mat_w*det_df)
+    ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array([0, 0]), np.array([0, 0]), wts[0], wts[1], basisN[0], basisN[1], basisN[0], basisN[1], indN[0], indN[1], M, mat_w*det_df)
               
     # conversion to sparse matrix
     indices = np.indices((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1))
@@ -139,7 +139,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ns[a][0], ns[a][1], ns[b][0], ns[b][1], wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w*det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w*det_df)
             
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1))
@@ -232,7 +232,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ns[a][0], ns[a][1], ns[b][0], ns[b][1], wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w/det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w/det_df)
                     
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1))
@@ -306,7 +306,7 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     
     M  = np.zeros((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1), dtype=float)
     
-    ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], 1, 1, 1, 1, wts[0], wts[1], basisD[0], basisD[1], basisD[0], basisD[1], indD[0], indD[1], M, mat_w/det_df)
+    ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array([1, 1]), np.array([1, 1]), wts[0], wts[1], basisD[0], basisD[1], basisD[0], basisD[1], indD[0], indD[1], M, mat_w/det_df)
               
     # conversion to sparse matrix
     indices = np.indices((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1))
@@ -390,7 +390,7 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], p[0], p[1], n_quad[0], n_quad[1], ns[a][0], ns[a][1], ns[b][0], ns[b][1], wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w*det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], basis[a][0], basis[a][1], basis[b][0], basis[b][1], ind[a][0], ind[a][1], M[a][b], mat_w*det_df)
                     
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], 2*p[0] + 1, 2*p[1] + 1))

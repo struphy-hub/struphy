@@ -16,15 +16,13 @@ Possible combinations for tensor product (BB):
 (DD) 
 """
 
-from pyccel.decorators import types
 from numpy import empty
 
 import struphy.feec.bsplines_kernels as bsp
 
 
 # =============================================================================
-@types('int','int','double[:]','double[:]','int','int','int','int','double[:,:]')
-def evaluation_kernel_2d(p1, p2, basis1, basis2, span1, span2, nbase1, nbase2, coeff):
+def evaluation_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', span1 : 'int', span2 : 'int', nbase1 : 'int', nbase2 : 'int', coeff : 'double[:,:]') -> 'double':
     '''Summing non-zero contributions.
 
     Parameters:
@@ -52,9 +50,9 @@ def evaluation_kernel_2d(p1, p2, basis1, basis2, span1, span2, nbase1, nbase2, c
         
     return value
 
+
 # =============================================================================
-@types(            'int','int','double[:]','double[:]','int[:]','int[:]','double[:,:]')
-def eval_kernel_2d(p1,   p2,   basis1,     basis2,     ind1,    ind2,    coeff        ):
+def eval_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]') -> 'double':
     """
     Summing non-zero contributions.
 
@@ -84,8 +82,7 @@ def eval_kernel_2d(p1,   p2,   basis1,     basis2,     ind1,    ind2,    coeff  
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_n_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
+def evaluate_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (NN)-tensor-product spline. 
 
     Parameters:
@@ -126,8 +123,7 @@ def evaluate_n_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_diffn_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
+def evaluate_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (dN/deta N)-tensor-product spline. 
 
     Parameters:
@@ -168,8 +164,7 @@ def evaluate_diffn_n(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_n_diffn(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
+def evaluate_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (N dN/deta)-tensor-product spline. 
 
     Parameters:
@@ -210,8 +205,7 @@ def evaluate_n_diffn(tn1, tn2, pn1, pn2, nbase_n1, nbase_n2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_d_n(td1, tn2, pd1, pn2, nbase_d1, nbase_n2, coeff, eta1, eta2):
+def evaluate_d_n(td1 : 'double[:]', tn2 : 'double[:]', pd1 : 'int', pn2 : 'int', nbase_d1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (DN)-tensor-product spline. 
 
     Parameters:
@@ -254,8 +248,7 @@ def evaluate_d_n(td1, tn2, pd1, pn2, nbase_d1, nbase_n2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_n_d(tn1, td2, pn1, pd2, nbase_n1, nbase_d2, coeff, eta1, eta2):
+def evaluate_n_d(tn1 : 'double[:]', td2 : 'double[:]', pn1 : 'int', pd2 : 'int', nbase_n1 : 'int', nbase_d2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (ND)-tensor-product spline. 
 
     Parameters:
@@ -298,8 +291,7 @@ def evaluate_n_d(tn1, td2, pn1, pd2, nbase_n1, nbase_d2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double','double')
-def evaluate_d_d(td1, td2, pd1, pd2, nbase_d1, nbase_d2, coeff, eta1, eta2):
+def evaluate_d_d(td1 : 'double[:]', td2 : 'double[:]', pd1 : 'int', pd2 : 'int', nbase_d1 : 'int', nbase_d2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     '''Point-wise evaluation of (DD)-tensor-product spline. 
 
     Parameters:
@@ -343,8 +335,7 @@ def evaluate_d_d(td1, td2, pd1, pd2, nbase_d1, nbase_d2, coeff, eta1, eta2):
 
 
 # =============================================================================
-@types(      'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_n_n(tn1,        tn2,        pn1,  pn2, ind_n1,   ind_n2,  coeff,        eta1,    eta2):
+def eval_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int',  pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     """
     Point-wise evaluation of (NN)-tensor-product spline. 
 
@@ -380,8 +371,7 @@ def eval_n_n(tn1,        tn2,        pn1,  pn2, ind_n1,   ind_n2,  coeff,       
 
 
 # =============================================================================
-@types(          'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_diffn_n(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_n2,  coeff,        eta1,    eta2    ):
+def eval_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     """
     Point-wise evaluation of (dN/deta N)-tensor-product spline. 
 
@@ -417,8 +407,7 @@ def eval_diffn_n(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_n2,  coeff,   
 
 
 # =============================================================================
-@types(          'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_n_diffn(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_n2,  coeff,        eta1,    eta2    ):
+def eval_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 :  'double') -> 'double':
     """
     Point-wise evaluation of (N dN/deta)-tensor-product spline.
 
@@ -454,8 +443,7 @@ def eval_n_diffn(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_n2,  coeff,   
 
 
 # =============================================================================
-@types(      'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_d_n(tn1,        tn2,        pn1,  pn2,  ind_d1,  ind_n2,  coeff,        eta1,    eta2    ):
+def eval_d_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     """
     Point-wise evaluation of (DN)-tensor-product spline.
 
@@ -492,8 +480,7 @@ def eval_d_n(tn1,        tn2,        pn1,  pn2,  ind_d1,  ind_n2,  coeff,       
 
 
 # =============================================================================
-@types(      'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_n_d(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_d2,  coeff,        eta1,    eta2    ):
+def eval_n_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     """
     Point-wise evaluation of (ND)-tensor-product spline.
 
@@ -530,8 +517,7 @@ def eval_n_d(tn1,        tn2,        pn1,  pn2,  ind_n1,  ind_d2,  coeff,       
 
 
 # =============================================================================
-@types(      'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double','double')
-def eval_d_d(tn1,        tn2,        pn1,  pn2,  ind_d1,  ind_d2,  coeff,        eta1,    eta2    ):
+def eval_d_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
     """
     Point-wise evaluation of (DD)-tensor-product spline.
 
@@ -569,8 +555,7 @@ def eval_d_d(tn1,        tn2,        pn1,  pn2,  ind_d1,  ind_d2,  coeff,       
 
 
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double[:]','double[:]','double[:,:]','int')
-def evaluate_tensor_product(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2, values, kind):
+def evaluate_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'double[:,:]', eta1 : 'double[:]', eta2 : 'double[:]', values : 'double[:,:]', kind : 'int'):
     '''Tensor product evaluation (meshgrid) of tensor product splines (2d). 
 
     Parameters:
@@ -602,12 +587,11 @@ def evaluate_tensor_product(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2,
 
             # V2 - space
             elif kind == 2:
-                values[i1, i2] = evaluate_d_d(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1[i1], eta2[i2])
+                values[i1, i2] = evaluate_d_d(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1[i1], eta2[i2])   
+
                 
-             
 # =============================================================================
-@types('double[:]','double[:]','int','int','int','int','double[:,:]','double[:,:]','double[:,:]','int','int','double[:,:]','int')
-def evaluate_matrix(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2, n1, n2, values, kind):
+def evaluate_matrix(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'double[:,:]', eta1 : 'double[:,:]', eta2 : 'double[:,:]', n1 : 'int', n2 : 'int', values : 'double[:,:]', kind : 'int'):
     '''Matrix evaluation of tensor product splines (2d). 
 
     Parameters:
@@ -644,8 +628,7 @@ def evaluate_matrix(t1, t2, p1, p2, nbase_1, nbase_2, coeff, eta1, eta2, n1, n2,
 
 
 # =============================================================================
-@types(                 'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double[:]','double[:]','double[:,:]','int')
-def eval_tensor_product(t1,         t2,         p1,   p2,   ind1,    ind2,    coeff,        eta1,       eta2,       values,       kind):
+def eval_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double[:]', eta2 : 'double[:]', values : 'double[:,:]', kind : 'int'):
     """
     Tensor product evaluation (meshgrid) of tensor product splines (2d). 
 
@@ -680,10 +663,9 @@ def eval_tensor_product(t1,         t2,         p1,   p2,   ind1,    ind2,    co
             elif kind == 2:
                 values[i1, i2] = eval_d_d(t1, t2, p1, p2, ind1, ind2, coeff, eta1[i1], eta2[i2])
                 
-             
+                            
 # =============================================================================
-@types(         'double[:]','double[:]','int','int','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','int','int','double[:,:]','int')
-def eval_matrix(t1,         t2,         p1,   p2,   ind1,    ind2,    coeff,        eta1,         eta2,         n1,   n2,   values,       kind):
+def eval_matrix(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double[:,:]', eta2 : 'double[:,:]', n1 : 'int', n2 : 'int', values : 'double[:,:]', kind : 'int'):
     """
     Matrix evaluation of tensor product splines (2d). 
 

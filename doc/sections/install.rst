@@ -108,7 +108,6 @@ Quick help::
 Struphy compilation::
 
     struphy compile
-    pip install -U pyccel
 
 Computing clusters
 ------------------

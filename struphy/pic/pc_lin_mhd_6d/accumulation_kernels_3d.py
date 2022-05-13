@@ -1,5 +1,5 @@
-# import pyccel decorators
-from pyccel.decorators import types
+# import modules for B-spline evaluation
+import struphy.feec.bsplines_kernels as bsp
 
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
@@ -7,14 +7,12 @@ import struphy.linear_algebra.core as linalg
 # import module for mapping evaluation
 import struphy.geometry.mappings_3d_fast as mapping_fast
 
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
+
 
 # ==============================================================================
-@types('double[:,:]','int', 'double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]')
-def kernel_step_ph_full(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3):
+def kernel_step_ph_full(particles : 'double[:,:]', basis_u : 'int', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mat11 : 'double[:,:,:,:,:,:,:,:]', mat12 : 'double[:,:,:,:,:,:,:,:]', mat13 : 'double[:,:,:,:,:,:,:,:]', mat22 : 'double[:,:,:,:,:,:,:,:]', mat23 : 'double[:,:,:,:,:,:,:,:]', mat33 : 'double[:,:,:,:,:,:,:,:]', vec1 : 'double[:,:,:,:]', vec2 : 'double[:,:,:,:]', vec3 : 'double[:,:,:,:]'):
 
-    from numpy import empty, zeros, dot
+    from numpy import empty, zeros
     
     # reset arrays
     mat11[:, :, :, :, :, :, :, :] = 0.
@@ -113,8 +111,8 @@ def kernel_step_ph_full(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
 
     # ==========================================================
         
-    #$ omp parallel
-    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, vp, vq, eta1, eta2, eta3, v, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, ginv, ie1, ie2, ie3, temp_mat, temp_vec, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3)
+    #$ omp parallel private(ip, vp, vq, eta1, eta2, eta3, v, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, ginv, ie1, ie2, ie3, temp_mat, temp_vec, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) 
     for ip in range(np):
 
         eta1 = particles[0, ip]
@@ -169,7 +167,7 @@ def kernel_step_ph_full(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
         linalg.matrix_vector(dfinv, v, temp_vec)
 
         # perform V^T G^-1 V
-        temp_mat = ginv
+        temp_mat[:, :] = ginv
 
         temp11 = particles[6, ip] * temp_mat[0, 0]
         temp12 = particles[6, ip] * temp_mat[0, 1]
@@ -382,17 +380,15 @@ def kernel_step_ph_full(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
                                         for vq in range(3):
                                             mat33[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq] += bj3 * v[vp] * v[vq]
 
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
 
 
 # ==============================================================================
-@types('double[:,:]','int', 'double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:,:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]','double[:,:,:,:]')
-def kernel_step_ph_perp(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3):
+def kernel_step_ph_perp(particles : 'double[:,:]', basis_u : 'int', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mat11 : 'double[:,:,:,:,:,:,:,:]', mat12 : 'double[:,:,:,:,:,:,:,:]', mat13 : 'double[:,:,:,:,:,:,:,:]', mat22 : 'double[:,:,:,:,:,:,:,:]', mat23 : 'double[:,:,:,:,:,:,:,:]', mat33 : 'double[:,:,:,:,:,:,:,:]', vec1 : 'double[:,:,:,:]', vec2 : 'double[:,:,:,:]', vec3 : 'double[:,:,:,:]'):
 
-    from numpy import empty, zeros, dot
+    from numpy import empty, zeros
     
     # reset arrays
     mat11[:, :, :, :, :, :, :, :] = 0.
@@ -491,8 +487,8 @@ def kernel_step_ph_perp(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
 
     # ==========================================================
         
-    #$ omp parallel
-    #$ omp do reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) private (ip, vp, vq, eta1, eta2, eta3, v, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, ginv, ie1, ie2, ie3, temp_mat, temp_vec, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3)
+    #$ omp parallel private(ip, vp, vq, eta1, eta2, eta3, v, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, ginv, ie1, ie2, ie3, temp_mat, temp_vec, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3) 
     for ip in range(np):
 
         eta1 = particles[0, ip]
@@ -547,7 +543,7 @@ def kernel_step_ph_perp(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
         linalg.matrix_vector(dfinv, v, temp_vec)
 
         # perform V^T G^-1 V
-        temp_mat = ginv
+        temp_mat[:, :] = ginv
 
         temp11 = particles[6, ip] * temp_mat[0, 0]
         temp12 = particles[6, ip] * temp_mat[0, 1]
@@ -760,7 +756,6 @@ def kernel_step_ph_perp(particles, basis_u, t1, t2, t3, p, nel, nbase_n, nbase_d
                                         for vq in range(2):
                                             mat33[i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp+1, vq+1] += bj3 * v[vp+1] * v[vq+1]
 
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0

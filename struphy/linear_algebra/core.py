@@ -1,11 +1,7 @@
-from pyccel.decorators import types
-
-
 # ============================================ 3D ======================================
 
 # =========================================
-@types('double[:,:]','double[:]','double[:]')
-def matrix_vector(a, b, c):
+def matrix_vector(a : 'double[:,:]', b : 'double[:]', c : 'double[:]'):
     
     c[:] = 0.
     
@@ -15,8 +11,7 @@ def matrix_vector(a, b, c):
 
 
 # =========================================
-@types('double[:,:]','double[:,:]','double[:,:]')
-def matrix_matrix(a, b, c):
+def matrix_matrix(a : 'double[:,:]', b : 'double[:,:]', c : 'double[:,:]'):
     
     c[:, :] = 0.
     
@@ -27,8 +22,7 @@ def matrix_matrix(a, b, c):
 
 
 # =========================================
-@types('double[:,:]','double[:,:]')
-def transpose(a, b):
+def transpose(a : 'double[:,:]', b : 'double[:,:]'):
     
     b[:, :] = 0.
     
@@ -38,8 +32,7 @@ def transpose(a, b):
 
             
 # =========================================
-@types('double[:,:]')
-def det(a):
+def det(a : 'double[:,:]') -> 'double':
     
     plus  = a[0, 0]*a[1, 1]*a[2, 2] + a[0, 1]*a[1, 2]*a[2, 0] + a[0, 2]*a[1, 0]*a[2, 1]
     minus = a[2, 0]*a[1, 1]*a[0, 2] + a[2, 1]*a[1, 2]*a[0, 0] + a[2, 2]*a[1, 0]*a[0, 1]
@@ -48,8 +41,7 @@ def det(a):
 
 
 # =======================================================
-@types('double[:]','double[:]','double[:]')
-def cross(a, b, c):
+def cross(a : 'double[:]', b : 'double[:]', c : 'double[:]'):
     
     c[:] = 0.
     
@@ -59,8 +51,7 @@ def cross(a, b, c):
     
     
 # =========================================
-@types('double[:,:]','double[:,:]')
-def matrix_inv(a, b):
+def matrix_inv(a : 'double[:,:]', b : 'double[:,:]'):
     
     # inverse determinant
     over_det_a = 1.0 / det(a)

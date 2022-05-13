@@ -10,15 +10,13 @@ S(eta) = sum_i c_i * B_i(eta)      with c_i in R.
 where B can be N, D or dN/deta. 
 """
 
-from pyccel.decorators import types
 from numpy import empty
 
 import struphy.feec.bsplines_kernels as bsp
 
 
 # ========================================================
-@types('int','double[:]','int','int','double[:]')
-def evaluation_kernel(p, basis, span, nbase, coeff):
+def evaluation_kernel_1d(p : 'int', basis : 'double[:]', span : 'int', nbase : 'int', coeff : 'double[:]') -> 'double':
     '''Summing non-zero contributions.
 
     Parameters:
@@ -38,15 +36,41 @@ def evaluation_kernel(p, basis, span, nbase, coeff):
     value = 0.
     
     for il in range(p + 1):
-        i = (span - il)%nbase   # Why modulo nbase here? Because knots are added for boundary treatment?
+        i = (span - il)%nbase
         value += coeff[i] * basis[p - il]
         
     return value
 
 
 # ========================================================
-@types('double[:]','int','int','double[:]','double')
-def evaluate_n(tn, pn, nbase_n, coeff, eta):
+def eval_kernel_1d(p : 'int', basis : 'double[:]', span : 'int', ind : 'int[:]', coeff : 'double[:]') -> 'double':
+    '''Summing non-zero contributions.
+
+    Parameters:
+    -----------
+        p:      int         spline degree
+        basis:  double[:]   p+1 values of non-zero basis splines at one point eta from 'basis_funs'
+        span:   int         knot span index from 'find_span'
+        ind:    int[:]      contains the global indices of non-vanishing basis functions
+        coeff:  double[:]   spline coefficients c_i
+
+    Returns:
+    --------
+        value: float
+            Value of B-spline at point eta.
+    '''
+    
+    value = 0.
+    
+    for il in range(p + 1):
+        i = ind[il]
+        value += coeff[i] * basis[il]
+        
+    return value
+
+
+# ========================================================
+def evaluate_n(tn : 'double[:]', pn : 'int', nbase_n : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
     '''Point-wise evaluation of N-spline. 
 
     Parameters:
@@ -74,14 +98,13 @@ def evaluate_n(tn, pn, nbase_n, coeff, eta):
     bsp.basis_funs(tn, pn, eta, span_n, bl, br, bn) # Why do you give back bl, br?
 
     # sum up non-vanishing contributions
-    value  = evaluation_kernel(pn, bn, span_n, nbase_n, coeff)
+    value  = evaluation_kernel_1d(pn, bn, span_n, nbase_n, coeff)
 
     return value
 
 
 # ========================================================
-@types('double[:]','int','int','double[:]','double')
-def evaluate_d(td, pd, nbase_d, coeff, eta):
+def evaluate_d(td : 'double[:]', pd : 'int', nbase_d : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
     '''Point-wise evaluation of D-spline.
 
     Parameters:
@@ -110,14 +133,13 @@ def evaluate_d(td, pd, nbase_d, coeff, eta):
     bsp.scaling(td, pd, span_d, bd)
 
     # sum up non-vanishing contributions
-    value  = evaluation_kernel(pd, bd, span_d, nbase_d, coeff)
+    value  = evaluation_kernel_1d(pd, bd, span_d, nbase_d, coeff)
 
     return value
 
 
 # ========================================================
-@types('double[:]','int','int','double[:]','double')
-def evaluate_diffn(tn, pn, nbase_n, coeff, eta):
+def evaluate_diffn(tn : 'double[:]', pn : 'int', nbase_n : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
     '''Point-wise evaluation of derivative of N-spline. 
 
     Parameters:
@@ -144,14 +166,13 @@ def evaluate_diffn(tn, pn, nbase_n, coeff, eta):
     bsp.basis_funs_1st_der(tn, pn, eta, span_n, bl, br, bn)
 
     # sum up non-vanishing contributions
-    value  = evaluation_kernel(pn, bn, span_n, nbase_n, coeff)
+    value  = evaluation_kernel_1d(pn, bn, span_n, nbase_n, coeff)
 
     return value
 
 
 # ========================================================
-@types('double[:]','int','int','double[:]','double[:]','double[:]','int')
-def evaluate_vector(t, p, nbase, coeff, eta, values, kind):
+def evaluate_vector(t : 'double[:]', p : 'int', nbase : 'int', coeff : 'double[:]', eta : 'double[:]', values : 'double[:]', kind : 'int'):
     '''Vector evaluation of N-spline or D-spline. 
 
     Parameters:

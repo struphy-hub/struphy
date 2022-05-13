@@ -1,21 +1,18 @@
-# import pyccel decorators
-from pyccel.decorators import types
-
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
-
-# import modules for mapping evaluation
-import struphy.geometry.mappings_3d      as mapping
-import struphy.geometry.mappings_3d_fast as mapping_fast
 
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
 import struphy.feec.basics.spline_evaluation_3d as eva
 
+# import modules for mapping evaluation
+import struphy.geometry.mappings_3d      as mapping
+import struphy.geometry.mappings_3d_fast as mapping_fast
+
+
 
 # ==========================================================================================================
-@types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def pusher_rk4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
+def pusher_rk4(particles : 'double[:,:]', dt : 'double', np : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
     
     from numpy import empty, sqrt, arctan2, pi, cos, sin
     
@@ -70,8 +67,8 @@ def pusher_rk4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf,
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, k1, k2, k3, k4)
+    #$ omp parallel private(ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, k1, k2, k3, k4)
+    #$ omp for 
     for ip in range(np):
         
         eta[:] = particles[0:3, ip]
@@ -162,8 +159,6 @@ def pusher_rk4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf,
         particles[1, ip] = (eta[1] + dt*(k1[1] + 2*k2[1] + 2*k3[1] + k4[1])/6)%1.0
         particles[2, ip] = (eta[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.0
         # ------------------------------------------------------------------
-    
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
@@ -171,8 +166,7 @@ def pusher_rk4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf,
     
     
 # ========================================================================================================    
-@types('double[:,:]','double[:,:]','double[:]')
-def reflect(df, df_inv, v):
+def reflect(df : 'double[:,:]', df_inv : 'double[:,:]', v : 'double[:]'):
     
     from numpy import empty, sqrt
     
@@ -205,8 +199,7 @@ def reflect(df, df_inv, v):
 
 
 # ==========================================================================================================
-@types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double','double')
-def pusher_rk4_pseudo(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, a, r0):
+def pusher_rk4_pseudo(particles : 'double[:,:]', dt : 'double', np : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', a : 'double', r0 : 'double'):
     
     from numpy import empty, zeros
     
@@ -278,8 +271,8 @@ def pusher_rk4_pseudo(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta, v, fx_pseudo, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df_old, fx, dfinv_old, df_pseudo_old, df, dfinv, df_pseudo, v_temp, k1, k2, k3, k4)
+    #$ omp parallel private (ip, eta, v, fx_pseudo, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df_old, fx, dfinv_old, df_pseudo_old, df, dfinv, df_pseudo, v_temp, k1, k2, k3, k4)
+    #$ omp for 
     for ip in range(np):
         
         # only do something if particle is inside the logical domain (s < 1)
@@ -482,8 +475,6 @@ def pusher_rk4_pseudo(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
             particles[5, ip] = v[2]
             
             break
-    
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
@@ -492,8 +483,7 @@ def pusher_rk4_pseudo(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf
 
     
 # ==========================================================================================================
-@types('double[:,:]','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double')
-def pusher_exact(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, tol):
+def pusher_exact(particles : 'double[:,:]', dt : 'double', np : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', tol : 'double'):
     
     from numpy import empty
     
@@ -544,8 +534,8 @@ def pusher_exact(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
+    #$ omp parallel private(ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
+    #$ omp for 
     for ip in range(np):
         
         e[:] = particles[0:3, ip]
@@ -590,8 +580,6 @@ def pusher_exact(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
             
             # evaluate inverse Jacobian matrix
             mapping_fast.df_inv_all(df, dfinv)
-    
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
@@ -599,8 +587,7 @@ def pusher_exact(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
 
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, u1, u2, u3, basis_u, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
+def pusher_rk4_pc_full(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', u1 : 'double[:,:,:]', u2 : 'double[:,:,:]', u3 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
     
     from numpy import empty
 
@@ -714,8 +701,8 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, Ginv, det_df, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_u, k2_u, k3_u, k4_u, k1_v, k2_v, k3_v, k4_v)
+    #$ omp parallel private(ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, Ginv, det_df, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_u, k2_u, k3_u, k4_u, k1_v, k2_v, k3_v, k4_v)
+    #$ omp for 
     for ip in range(np):
         
         eta[:] = particles[0:3, ip]
@@ -768,16 +755,16 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k1_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k1_u[:] = u/det_df
         
@@ -836,16 +823,16 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k2_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k2_u[:] = u/det_df
         
@@ -903,16 +890,16 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k3_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k3_u[:] = u/det_df
         
@@ -970,16 +957,16 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k4_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k4_u[:] = u/det_df
         
@@ -995,16 +982,13 @@ def pusher_rk4_pc_full(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
         particles[2, ip] = (eta[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.0
 
         # ------------------------------------------------------------------
-    
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
 
 
 # ==========================================================================================================
-@types('double[:,:]','double','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, u1, u2, u3, basis_u, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
+def pusher_rk4_pc_perp(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', u1 : 'double[:,:,:]', u2 : 'double[:,:,:]', u3 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
     
     from numpy import empty
 
@@ -1118,8 +1102,8 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
     # ========================================================
     
     
-    #$ omp parallel
-    #$ omp do private (ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, Ginv, det_df, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_u, k2_u, k3_u, k4_u, k1_v, k2_v, k3_v, k4_v)
+    #$ omp parallel private(ip, eta, v, pos1, pos2, pos3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, Ginv, det_df, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_u, k2_u, k3_u, k4_u, k1_v, k2_v, k3_v, k4_v)
+    #$ omp for 
     for ip in range(np):
         
         eta[:] = particles[0:3, ip]
@@ -1172,16 +1156,16 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k1_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k1_u[:] = u/det_df
         
@@ -1242,16 +1226,16 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k2_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k2_u[:] = u/det_df
         
@@ -1311,16 +1295,16 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k3_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k3_u[:] = u/det_df
             
@@ -1380,16 +1364,16 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
 
         # velocity field
         if basis_u == 1:
-            u[0] = eva.evaluation_kernel(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva.evaluation_kernel(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva.evaluation_kernel(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
             
             linalg.matrix_vector(Ginv, u, k4_u)
             
         elif basis_u ==2:
-            u[0] = eva.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = eva.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
+            u[1] = eva.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
+            u[2] = eva.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
 
             k4_u[:] = u/det_df
             
@@ -1407,8 +1391,6 @@ def pusher_rk4_pc_perp(particles, dt, t1, t2, t3, p, nel, nbase_n, nbase_d, np, 
         particles[2, ip] = (eta[2] + dt*(k1[2] + 2*k2[2] + 2*k3[2] + k4[2])/6)%1.0
 
         # ------------------------------------------------------------------
-    
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0

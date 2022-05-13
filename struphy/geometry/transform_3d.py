@@ -1,9 +1,5 @@
 # coding: utf-8
 
-from numpy import shape, sqrt
-from pyccel.decorators import types
-import struphy.geometry.mappings_3d as mapping
-
 """Transform between functions which are defined at different domains
 
 Methods
@@ -12,8 +8,8 @@ transformation type:
 norm scalar to 0-form
 norm scalarto 3-form
 norm vector to vector
-norm vectorto 1-form          
-norm vectorto 2-form
+norm vector to 1-form          
+norm vector to 2-form
 0-form to 3-form         
 1-form to 2-form
 2-form to 1-form
@@ -24,10 +20,13 @@ kernel_evaluate
 kernel_evaluate_sparse
 """
 
+from numpy import shape, sqrt
+
+from struphy.geometry.mappings_3d import df, det_df
+
 
 # ==============================================================================
-@types('double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_norm_scalar_to_0_form(norm_a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_norm_scalar_to_0_form(norm_a : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     scalar
     norm logical to 0-form: a^0 = a
@@ -38,233 +37,286 @@ def transform_norm_scalar_to_0_form(norm_a, eta1, eta2, eta3, kind_map, params_m
 
 
 # ==============================================================================
-@types('double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_norm_scalar_to_3_form(norm_a, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_norm_scalar_to_3_form(norm_a : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     scalar
     norm logical to 3-form:  a^3 = |det(DF)| * a
     '''
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-    a3 = norm_a * detdf
+    a3 = norm_a * abs(detdf)
     
     return a3
 
 
 # ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_norm_vector_to_vector(norm_ax, norm_ay, norm_az, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_norm_vector_to_vector(norm_a_1 : 'double', norm_a_2 : 'double', norm_a_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     vector
     norm logical to vector: 
-    (ax, ay, az)          =   (ax^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
-                               ay^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
-                               az^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
+    (a_1, a_2, a_3) = (a_1^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
+                       a_2^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
+                       a_3^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
     '''
     if component == 1:
 
-        DF_11 = mapping.df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_21 = mapping.df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_31 = mapping.df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
     
-        a = norm_ax / sqrt(DF_11**2 + DF_21**2 + DF_31**2)
+        a = norm_a_1 / sqrt(df_11**2 + df_21**2 + df_31**2)
 
     elif component == 2:
-        DF_12 = mapping.df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_22 = mapping.df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_32 = mapping.df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-        a = norm_ay / sqrt(DF_12**2 + DF_22**2 + DF_32**2)
+        a = norm_a_2 / sqrt(df_12**2 + df_22**2 + df_32**2)
 
     elif component == 3:
-        DF_13 = mapping.df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_23 = mapping.df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        DF_33 = mapping.df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        
+        df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-        a = norm_az / sqrt(DF_13**2 + DF_23**2 + DF_33**2)
+        a = norm_a_3 / sqrt(df_13**2 + df_23**2 + df_33**2)
         
     return a
 
+
 # ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_norm_vector_to_1_form(norm_ax, norm_ay, norm_az, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_norm_vector_to_1_form(norm_a_1 : 'double', norm_a_2 : 'double', norm_a_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     vector
     norm logical to 1-form: 
-    (ax, ay, az)          =   (ax^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
-                               ay^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
-                               az^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
-    (a^1_1, a^1_2, a^1_3) = G (ax, ay, az)
+    (a_1, a_2, a_3)       =   (a_1^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
+                               a_2^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
+                               a_3^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
+    (a^1_1, a^1_2, a^1_3) = G (a_1, a_2, a_3)
     '''
-    ax = transform_norm_vector_to_vector(norm_ax, norm_ay, norm_az, eta1, eta2, eta3, 1,  kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    ay = transform_norm_vector_to_vector(norm_ay, norm_ay, norm_az, eta1, eta2, eta3, 2,  kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    az = transform_norm_vector_to_vector(norm_az, norm_ay, norm_az, eta1, eta2, eta3, 3,  kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
     if   component == 1:
         
-        g_11 = mapping.g(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_12 = mapping.g(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_13 = mapping.g(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_11 = df_11*df_11 + df_21*df_21 + df_31*df_31
+        g_12 = df_11*df_12 + df_21*df_22 + df_31*df_32
+        g_13 = df_11*df_13 + df_21*df_23 + df_31*df_33
         
-        a = g_11*ax + g_12*ay + g_13*az
+        a  = g_11*norm_a_1/sqrt(df_11**2 + df_21**2 + df_31**2) 
+        a += g_12*norm_a_2/sqrt(df_12**2 + df_22**2 + df_32**2) 
+        a += g_13*norm_a_3/sqrt(df_13**2 + df_23**2 + df_33**2)
     
     elif component == 2:
         
-        g_21 = mapping.g(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_22 = mapping.g(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_23 = mapping.g(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_21 = df_11*df_12 + df_21*df_22 + df_31*df_32
+        g_22 = df_12*df_12 + df_22*df_22 + df_32*df_32
+        g_23 = df_12*df_13 + df_22*df_23 + df_32*df_33
         
-        a = g_21*ax + g_22*ay + g_23*az
+        a  = g_21*norm_a_1/sqrt(df_11**2 + df_21**2 + df_31**2) 
+        a += g_22*norm_a_2/sqrt(df_12**2 + df_22**2 + df_32**2) 
+        a += g_23*norm_a_3/sqrt(df_13**2 + df_23**2 + df_33**2)
         
     elif component == 3:
         
-        g_31 = mapping.g(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_32 = mapping.g(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_33 = mapping.g(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_31 = df_11*df_13 + df_21*df_23 + df_31*df_33
+        g_32 = df_12*df_13 + df_22*df_23 + df_32*df_33
+        g_33 = df_13*df_13 + df_23*df_23 + df_33*df_33
         
-        a = g_31*ax + g_32*ay + g_33*az
+        a  = g_31*norm_a_1/sqrt(df_11**2 + df_21**2 + df_31**2) 
+        a += g_32*norm_a_2/sqrt(df_12**2 + df_22**2 + df_32**2) 
+        a += g_33*norm_a_3/sqrt(df_13**2 + df_23**2 + df_33**2)
         
     return a
 
 
 # ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_norm_vector_to_2_form(norm_ax, norm_ay, norm_az, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_norm_vector_to_2_form(norm_a_1 : 'double', norm_a_2 : 'double', norm_a_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     vector
     norm logical to 2-form: 
-    (ax, ay, az)          =             (ax^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
-                                         ay^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
-                                         az^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
-    (a^1_1, a^1_2, a^1_3) = |det(DF)| * (ax, ay, az)
+    (a_1, a_2, a_3)       =             (a_1^* / sqrt(DF_11**2 + DF_21**2 + DF_31**2),
+                                         a_2^* / sqrt(DF_12**2 + DF_22**2 + DF_32**2), 
+                                         a_3^* / sqrt(DF_13**2 + DF_23**2 + DF_33**2)) 
+    (a^1_1, a^1_2, a^1_3) = |det(DF)| * (a_1, a_2, a_3)
     '''
-    ax = transform_norm_vector_to_vector(norm_ax, norm_ay, norm_az, eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    ay = transform_norm_vector_to_vector(norm_ay, norm_ay, norm_az, eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-    az = transform_norm_vector_to_vector(norm_az, norm_ay, norm_az, eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
 
     if   component == 1:
 
-        a = ax * detdf
+        a = abs(detdf)*norm_a_1/sqrt(df_11**2 + df_21**2 + df_31**2)
     
     elif component == 2:
 
-        a = ay * detdf
+        a = abs(detdf)*norm_a_2/sqrt(df_12**2 + df_22**2 + df_32**2)
         
     elif component == 3:
 
-        a = az * detdf
+        a = abs(detdf)*norm_a_3/sqrt(df_13**2 + df_23**2 + df_33**2)
         
     return a
 
 
 # ==============================================================================
-@types('double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_0_form_to_3_form(a0, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_0_form_to_3_form(a0 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     scalar
     0 form to 3 form
     a^3 = a^0 * |det(DF)|
     '''
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-    a3 = a0 * detdf
+    a3 = a0 * abs(detdf)
     
     return a3
 
+
 # ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_1_form_to_2_form(a1x, a1y, a1z, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_1_form_to_2_form(a1_1 : 'double', a1_2 : 'double', a1_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     vector
     1 form to 2 form:
     (a^2_1, a^2_2, a^2_3) = G_inv (a^1_1, a^1_2, a^1_3) * |det(DF)|
     '''
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+    detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
     
     if   component == 1:
         
-        ginv_11 = mapping.g_inv(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_12 = mapping.g_inv(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_13 = mapping.g_inv(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        ginv_11 = (df_22*df_33 - df_23*df_32)*(df_22*df_33 - df_23*df_32) + (df_13*df_32 - df_12*df_33)*(df_13*df_32 - df_12*df_33) + (df_12*df_23 - df_13*df_33)*(df_12*df_23 - df_13*df_33)
         
-        a = (ginv_11*a1x + ginv_12*a1y + ginv_13*a1z) * detdf
+        ginv_12 = (df_22*df_33 - df_23*df_32)*(df_23*df_31 - df_21*df_33) + (df_13*df_32 - df_12*df_33)*(df_11*df_33 - df_13*df_31) + (df_12*df_23 - df_13*df_33)*(df_13*df_21 - df_11*df_23)
+        
+        ginv_13 = (df_22*df_33 - df_23*df_32)*(df_21*df_32 - df_22*df_31) + (df_13*df_32 - df_12*df_33)*(df_12*df_31 - df_11*df_32) + (df_12*df_23 - df_13*df_33)*(df_11*df_22 - df_12*df_21)
+        
+        a = (ginv_11*a1_1 + ginv_12*a1_2 + ginv_13*a1_3) * abs(detdf)
     
     elif component == 2:
         
-        ginv_21 = mapping.g_inv(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_22 = mapping.g_inv(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_23 = mapping.g_inv(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        ginv_21 = (df_22*df_33 - df_23*df_32)*(df_23*df_31 - df_21*df_33) + (df_13*df_32 - df_12*df_33)*(df_11*df_33 - df_13*df_31) + (df_12*df_23 - df_13*df_33)*(df_13*df_21 - df_11*df_23)
         
-        a = (ginv_21*a1x + ginv_22*a1y + ginv_23*a1z) * detdf
+        ginv_22 = (df_23*df_31 - df_21*df_33)*(df_23*df_31 - df_21*df_33) + (df_11*df_33 - df_13*df_31)*(df_11*df_33 - df_13*df_31) + (df_13*df_21 - df_11*df_23)*(df_13*df_21 - df_11*df_23)
+        
+        ginv_23 = (df_23*df_31 - df_21*df_33)*(df_21*df_32 - df_22*df_31) + (df_11*df_33 - df_13*df_31)*(df_12*df_31 - df_11*df_32) + (df_13*df_21 - df_11*df_23)*(df_11*df_22 - df_12*df_21)
+        
+        a = (ginv_21*a1_1 + ginv_22*a1_2 + ginv_23*a1_3) * abs(detdf)
         
     elif component == 3:
         
-        ginv_31 = mapping.g_inv(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_32 = mapping.g_inv(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        ginv_33 = mapping.g_inv(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        ginv_31 = (df_22*df_33 - df_23*df_32)*(df_21*df_32 - df_22*df_31) + (df_13*df_32 - df_12*df_33)*(df_12*df_31 - df_11*df_32) + (df_12*df_23 - df_13*df_33)*(df_11*df_22 - df_12*df_21)
         
-        a = (ginv_31*a1x + ginv_32*a1y + ginv_33*a1z) * detdf
+        ginv_32 = (df_23*df_31 - df_21*df_33)*(df_21*df_32 - df_22*df_31) + (df_11*df_33 - df_13*df_31)*(df_12*df_31 - df_11*df_32) + (df_13*df_21 - df_11*df_23)*(df_11*df_22 - df_12*df_21)
+        
+        ginv_33 = (df_21*df_32 - df_22*df_31)*(df_21*df_32 - df_22*df_31) + (df_12*df_31 - df_11*df_32)*(df_12*df_31 - df_11*df_32) + (df_11*df_22 - df_12*df_21)*(df_11*df_22 - df_12*df_21)
+        
+        a = (ginv_31*a1_1 + ginv_32*a1_2 + ginv_33*a1_3) * abs(detdf)
         
     return a 
 
 
 # ==============================================================================
-@types('double','double','double','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_2_form_to_1_form(a2x, a2y, a2z, eta1, eta2, eta3, component, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_2_form_to_1_form(a2_1 : 'double', a2_2 : 'double', a2_3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', component : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     vector
     2 form to 1 form:
     (a^1_1, a^1_2, a^1_3) = G (a^2_1, a^2_2, a^2_3) / |det(DF)|
     '''
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_11 = df(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_12 = df(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_13 = df(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_21 = df(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_22 = df(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_23 = df(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    df_31 = df(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_32 = df(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    df_33 = df(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+
+    detdf = df_11*(df_22*df_33 - df_32*df_23) + df_21*(df_32*df_13 - df_12*df_33) + df_31*(df_12*df_23 - df_22*df_13)
     
     if   component == 1:
         
-        g_11 = mapping.g(eta1, eta2, eta3, 11, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_12 = mapping.g(eta1, eta2, eta3, 12, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_13 = mapping.g(eta1, eta2, eta3, 13, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_11 = df_11*df_11 + df_21*df_21 + df_31*df_31
+        g_12 = df_11*df_12 + df_21*df_22 + df_31*df_32
+        g_13 = df_11*df_13 + df_21*df_23 + df_31*df_33
         
-        a = (g_11*a2x + g_12*a2y + g_13*a2z) / detdf
+        a = (g_11*a2_1 + g_12*a2_2 + g_13*a2_3) / abs(detdf)
     
     elif component == 2:
         
-        g_21 = mapping.g(eta1, eta2, eta3, 21, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_22 = mapping.g(eta1, eta2, eta3, 22, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_23 = mapping.g(eta1, eta2, eta3, 23, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_21 = df_11*df_12 + df_21*df_22 + df_31*df_32
+        g_22 = df_12*df_12 + df_22*df_22 + df_32*df_32
+        g_23 = df_12*df_13 + df_22*df_23 + df_32*df_33
         
-        a = (g_21*a2x + g_22*a2y + g_23*a2z) / detdf
+        a = (g_21*a2_1 + g_22*a2_2 + g_23*a2_3) / abs(detdf)
         
     elif component == 3:
         
-        g_31 = mapping.g(eta1, eta2, eta3, 31, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_32 = mapping.g(eta1, eta2, eta3, 32, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        g_33 = mapping.g(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+        g_31 = df_11*df_13 + df_21*df_23 + df_31*df_33
+        g_32 = df_12*df_13 + df_22*df_23 + df_32*df_33
+        g_33 = df_13*df_13 + df_23*df_23 + df_33*df_33
         
-        a = (g_31*a2x + g_32*a2y + g_33*a2z) / detdf
+        a = (g_31*a2_1 + g_32*a2_2 + g_33*a2_3) / abs(detdf)
         
     return a 
 
 
 # ==============================================================================
-@types('double','double','double','double','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_3_form_to_0_form(a3, eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_3_form_to_0_form(a3 : 'double', eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
     '''
     scalar
     3 form to 0 form
     a^0 = a^3 / |det(DF)|
     '''
-    detdf = mapping.det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
+    
+    detdf = det_df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
 
-    a0 = a3 / detdf
+    a0 = a3 / abs(detdf)
     
     return a3
 
 
 # ==============================================================================
-@types('double[:]','double','double','double','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def transform_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def transform_all(a : 'double[:]', eta1 : 'double', eta2 : 'double', eta3 : 'double', kind_fun : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]') -> 'double':
 
     value = 0.
 
@@ -329,8 +381,7 @@ def transform_all(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2,
 
 
 # ==============================================================================
-@types('double[:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+def kernel_evaluate(a : 'double[:,:,:,:]', eta1 : 'double[:,:,:]', eta2 : 'double[:,:,:]', eta3 : 'double[:,:,:]', kind_fun : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', values : 'double[:,:,:]'):
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -343,8 +394,7 @@ def kernel_evaluate(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn
 
 
 # ==============================================================================
-@types('double[:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def kernel_evaluate_sparse(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+def kernel_evaluate_sparse(a : 'double[:,:,:,:]', eta1 : 'double[:,:,:]', eta2 : 'double[:,:,:]', eta3 : 'double[:,:,:]', kind_fun : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', values : 'double[:,:,:]'):
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
@@ -357,8 +407,7 @@ def kernel_evaluate_sparse(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, 
 
 
 # ==============================================================================
-@types('double[:,:]','double[:]','double[:]','double[:]','int','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]')
-def kernel_evaluate_flat(a, eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz, values):
+def kernel_evaluate_flat(a : 'double[:,:]', eta1 : 'double[:]', eta2 : 'double[:]', eta3 : 'double[:]', kind_fun : 'int', kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', values : 'double[:]'):
     """Same as `kernel_evaluate`, but for flat evaluation.
 
     Returns
