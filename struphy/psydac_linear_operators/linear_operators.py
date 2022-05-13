@@ -14,7 +14,7 @@ class LinOpWithTransp(LinearOperator):
 
 
 class CompositeLinearOperator(LinOpWithTransp):
-    '''L_n(L_{n-1}(...L_2(L_1(v))...) .'''
+    '''Composition of n linear operators: L_n(L_{n-1}(...L_2(L_1(v))...) .'''
 
     def __init__(self, *operators):
         '''
@@ -161,7 +161,7 @@ class SumLinearOperator(LinOpWithTransp):
 
 
 class InverseLinearOperator(LinOpWithTransp):
-    '''L^{-1}.'''
+    '''Inverse linear operator L^{-1}.'''
 
     def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, verbose=False):
         '''

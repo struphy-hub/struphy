@@ -5,22 +5,19 @@ import scipy.special as sp
 from struphy.psydac_linear_operators.fields import Field_init
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container   
 
+__all__ = ['StruphyModels',
+            'Maxwell',]
 
-class StruphyModels( metaclass=ABCMeta ):
+
+class StruphyModel( metaclass=ABCMeta ):
     '''The base class for Struphy models.
     
     Parameters
     ..........
-        names : list of str
-            Names of FE fields.
-        
-        spaces : list of str
-            One of "H1", "Hcurl", "Hdiv" or "L2"; len(spaces)==len(names), one space for each name.
-
-        DR: obj
+        DR: Derham obj
             From struphy/feec/psydac_derham.Derham_build.
 
-        DOMAIN: obj
+        DOMAIN: Domain obj
             From struphy/geometry/domain_3d.Domain.
 
         solver_params : list
@@ -98,7 +95,6 @@ class StruphyModels( metaclass=ABCMeta ):
         '''Dictionary of scalar quantities to be saved during simulation.'''
         return self._scalar_quantities
 
-    @property
     @abstractmethod
     def update_scalar_quantities( self, time ):
         '''
@@ -140,14 +136,27 @@ class StruphyModels( metaclass=ABCMeta ):
             field.set_initial_conditions(self.DOMAIN, comps=comps, init_type=init_type, init_coords=init_coords, init_params=init_params)
 
     
-class Maxwell( StruphyModels ):
-    '''Maxwell's equations in vacuum, in Struphy normalization (c=1).'''
+class Maxwell( StruphyModel ):
+    '''Maxwell's equations in vacuum, in Struphy normalization (c=1).
+    
+    Parameters
+    ..........
+        DR: Derham obj
+            From struphy/feec/psydac_derham.Derham_build.
+
+        DOMAIN: Domain obj
+            From struphy/geometry/domain_3d.Domain.
+
+        solver_params : list
+            Each entry corresponds to one linear solver used in the model. 
+            An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
+    '''
 
     def __init__(self, DR, DOMAIN, *solver_params):
 
-        from struphy.models.substeps.push_maxwell import Push_maxwell_psydac
+        from struphy.models.codes.propagators import StepMaxwell
 
-        super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv', test_field='H1')
+        super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv')
 
         # Assemble necessary mass matrices 
         self.DR.assemble_M1()
@@ -158,8 +167,7 @@ class Maxwell( StruphyModels ):
         self._b = self.fields[1].vector
 
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators += [Push_maxwell_psydac(DR, self.solver_params[0])]
-        self._substep_vars +=[[self._e, self._b]]   
+        self._propagators += [StepMaxwell(self._e, self._b, DR, self.solver_params[0])]  
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
