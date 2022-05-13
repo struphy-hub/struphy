@@ -13,7 +13,6 @@ Linear operators
 
 .. automodule:: struphy.psydac_linear_operators.linear_operators
     :members: 
-    :undoc-members:
 
 
 .. _schur_solver:
@@ -22,8 +21,7 @@ Schur solver
 ------------
 
 .. autoclass:: struphy.linear_algebra.schur_solver.Schur_solver
-    :members: a
-    :undoc-members:
+    :members: 
 
 
 .. _preconditioner:
@@ -41,5 +39,5 @@ MHD operators
 -------------
 
 .. autoclass:: struphy.psydac_linear_operators.mhd_ops_pure_psydac.MHD_ops
-    :members: a
+    :members: 
     :undoc-members:
