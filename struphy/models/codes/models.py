@@ -44,11 +44,6 @@ class StruphyModel( metaclass=ABCMeta ):
         for name, space_id in zip(self._names, self._space_ids):
             self._fields += [Field_init(name, space_id, self.DR)]
 
-        # These need to be filled in each model class
-        self._propagators = []
-        self._substep_vars = []
-        self._scalar_quantities = {}
-
     @property
     def names( self ):
         '''List of FE variable names (str).'''
@@ -80,24 +75,25 @@ class StruphyModel( metaclass=ABCMeta ):
         return self._solver_params
 
     @property
+    @abstractmethod
     def propagators( self ):
-        '''Must return list of callable propagators/integrators/substeps used in the time stepping of the model.'''
-        return self._propagators
+        '''List of callable struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
+        pass
 
     @property
-    def substep_vars( self ):
-        '''Must return list of lists, where substep_vars[i][j] points to the j-th variable updated in the i-th substep
-        specified in propagators; len(substep_vars)==len(propagators).'''
-        return self._substep_vars
-
-    @property
+    @abstractmethod
     def scalar_quantities( self ):
-        '''Dictionary of scalar quantities to be saved during simulation.'''
-        return self._scalar_quantities
+        '''Dictionary of scalar quantities to be saved during simulation. 
+        Must be initialized as empty np.array of size 1, e.g.
+        
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
+        pass
 
     @abstractmethod
     def update_scalar_quantities( self, time ):
         '''
+        Specify an update rule for each item in scalar_quantities.
+
         Parameters
         ----------
             time : float
@@ -167,13 +163,23 @@ class Maxwell( StruphyModel ):
         self._b = self.fields[1].vector
 
         # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
         self._propagators += [StepMaxwell(self._e, self._b, DR, self.solver_params[0])]  
 
         # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float) 
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
     
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time

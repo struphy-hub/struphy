@@ -31,13 +31,11 @@ Preconditioner
 
 .. automodule:: struphy.psydac_linear_operators.preconditioner
     :members: 
-    :undoc-members:
 
 .. _mhd_operators:
 
 MHD operators
 -------------
 
-.. autoclass:: struphy.psydac_linear_operators.mhd_ops_pure_psydac.MHD_ops
+.. automodule:: struphy.psydac_linear_operators.mhd_ops_pure_psydac
     :members: 
-    :undoc-members:

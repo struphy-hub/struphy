@@ -44,7 +44,10 @@ If you have a bigger code change in mind that might take several days or weeks::
 4. Click ``Create milestone``.
 5. Add issues that correspond to your milestone (see above).
 
-Regularly comment on isuues that you are working on. Close an issue by mentioning the corresponding :ref:`merge_request`.
+Regularly comment on issues that you are working on. 
+
+**Closing an issue**: mention the issue via its link (bottom of the right side panel of the issue's page) in the corresponding 
+:ref:`merge request <merge_requests>`, then close the issue.
 
 .. _main_branches:
 
@@ -89,7 +92,7 @@ When you are done coding the new feature, create a new remote branch and push yo
 
 You can continue working locally on your feature, then use ``git push`` to update the new remote branch.
 
-.. _merge_request:
+.. _merge_requests:
 
 Merge requests 
 ^^^^^^^^^^^^^^
@@ -180,16 +183,16 @@ Adding new models
 Requirements
 ^^^^^^^^^^^^
 
-Struphy can accomodate only models that satisfy the following criteria:
+Struphy can accommodate only models that satisfy the following criteria:
 
 * 3d in space
 * Initial-boundary value problem or eigenvalue problem
 * Smooth solutions
 * Field variables depending on :math:`(\mathbf x,t)` are discretized within the :ref:`3d_derham_complex`
-* (Gyro-)kinetic variables depending in :math:`(\mathbf x, \mathbf v,t)` are discretzed with a particle method
+* (Gyro-)kinetic variables depending in :math:`(\mathbf x, \mathbf v,t)` are discretized with a particle method
 * Single patch mapping (see :ref:`add_mapping`)
 
-Moreover, the time stepping scheme must be composed of several well-defined **propagators**.
+The time stepping scheme can be composed of several well-defined **propagators**.
 Assuming our model features the unknowns :math:`vars(t)`, the overall propagator
 can be denoted as :math:`\Phi_{\Delta t}[vars(t)] = vars(t + \Delta t)`.
 Struphy can handle models where :math:`\Phi_{\Delta t}` is decomposed (or split):  
@@ -197,7 +200,7 @@ Struphy can handle models where :math:`\Phi_{\Delta t}` is decomposed (or split)
 .. math::
     \Phi_{\Delta t}[vars(t)] = \Phi^1_{\Delta t}[\textnormal{subset1}(vars(t))] \circ \Phi^2_{\Delta t}[\textnormal{subset2}(vars(t))] \circ ...
 
-with substeps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t)`. 
+with sub steps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t)`. 
 More refined splitting schemes than Lie-Trotter are available in Struphy (see ``struphy/models/codes/exec.py`` lines 162-182):
 
 .. literalinclude:: ../../struphy/models/codes/exec.py
@@ -214,26 +217,22 @@ Base classes
 Struphy models are built upon two base classes:
 
 .. autoclass:: struphy.models.codes.models.StruphyModel
-   :members: 
-   :undoc-members:
 
 .. autoclass:: struphy.models.codes.propagators.Propagator
-   :members: 
-   :undoc-members:
 
-| All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/code/models.py``. 
-| ``StruphyModel`` demands a list of propagators in the sense explained in :ref:`model_requirements`. 
-| All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/code/propagators.py`` 
+.. note::
+    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/codes/models.py``.  
+    All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/codes/propagators.py`` 
 
 
-.. _maxwell_example:
+.. _model_example:
 
-Example: Maxwell equations
+Model example: ``maxwell``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Let us look at the example of the model ``maxwell`` (:ref:`maxwell`). 
 The model has two field variables (FE coefficients) :math:`\mathbf e \in \mathbb R^{N_1}` and :math:`\mathbf b \in \mathbb R^{N_2}` that 
-are updated with a single propagator derived from a Cranck-Nicolson discretization:
+are updated with a single propagator derived from a Crank-Nicolson discretization:
 
     .. math::
         \begin{bmatrix}
@@ -252,14 +251,13 @@ are updated with a single propagator derived from a Cranck-Nicolson discretizati
 The corresponding ``StruphyModel`` is
 
 .. autoclass:: struphy.models.codes.models.Maxwell
-    :members: a
-    :undoc-members:
+    :members: 
 
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 139
-    :lines: 139-182
+    :lineno-start: 135
+    :lines: 135-189
 
 Let us go through the source code one-by-one.
 The ``__init__`` function is called from the base class via ``super()``:
@@ -267,8 +265,8 @@ The ``__init__`` function is called from the base class via ``super()``:
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 159
-    :lines: 159
+    :lineno-start: 155
+    :lines: 155
 
 The field variables of the model are specified as in ``e_field='Hcurl'``, where the keyword ``e_field`` 
 is the name of the variable used for saving and the value ``'Hcurl'`` is the space of the variable 
@@ -279,39 +277,51 @@ Mass matrices have to be assembled model-specific. In this case we only need :ma
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
+    :lineno-start: 158
+    :lines: 158-159
+
+The actual ``Stencil-/BlockVectors`` holding the FE coefficients have been created by ``super().__init__``
+and can be retrieved from the ``fields`` property defined in the base class ``StruphyModel``:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
     :lineno-start: 162
     :lines: 162-163
 
-The actual ``Stencil-/BlockVectors`` holding the FE coefficients have been created by ``super().__init__``
-and can be retrieved from the ``fields`` property:
+The abstract properties ``propagators`` and ``scalar_quantities`` are defined as
 
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 166
-    :lines: 166-167
+    :lineno-start: 176
+    :lines: 176-183
 
-The only ``@abstractmethod`` to be implemented is ``update_scalar_quantities``:
-
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 178
-    :lines: 178-182
-
-It remains to fill the lists ``self._propagators`` and ``self._scalar_quantities``:
+The returned lists ``self._propagators`` and ``self._scalar_quantities`` have to be filled with model specific propagator objects 
+(just one in the case of ``maxwell``) and scalar quantities of interest:
 
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 170
-    :lines: 170-176
+    :lineno-start: 165
+    :lines: 165-174
 
-The first list holds all propagators of the model, which amounts to just one in this example:
+The only abstract method to be implemented is ``update_scalar_quantities``:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 185
+    :lines: 185-189
+
+.. _model_example:
+
+Propagator example: ``StepMaxwell``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The one propagator used in the model ``maxwell`` is
 
 .. autoclass:: struphy.models.codes.propagators.StepMaxwell
-    :members: 
-    :undoc-members:
 
 .. literalinclude:: ../../struphy/models/codes/propagators.py
     :language: python
@@ -319,16 +329,30 @@ The first list holds all propagators of the model, which amounts to just one in 
     :lineno-start: 84
     :lines: 84-152
 
-Let us go through the propagator's source one-by-one. The instantiation is model-specific (not done by the base class):
+Let us go through the propagator's source one-by-one. The ``__init__`` call is model-specific (not done by the base class).
+The present propagator needs a :ref:`preconditioner`
 
 .. literalinclude:: ../../struphy/models/codes/propagators.py
     :language: python
     :linenos: 
-    :lineno-start: 106
-    :lines: 106-131
+    :lineno-start: 116
+    :lines: 116-122
 
-Model-specific objects needed in this propagator are
-a :ref:`preconditioner`, one 2x2 block matrix and a :ref:`schur_solver`.
+one 2x2 block matrix 
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 124
+    :lines: 124-128
+
+and a :ref:`schur_solver`
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 130
+    :lines: 130-131
 
 The definition of the abstract property ``variables`` is a must in each propagator:
 
@@ -338,7 +362,7 @@ The definition of the abstract property ``variables`` is a must in each propagat
     :lineno-start: 133
     :lines: 133-135
 
-It returns a list of the variables updates by the propagator.
+It returns a list of the variables updated by the propagator.
 Finally, also the abstract method ``push`` must be defined in each propagator:
 
 .. literalinclude:: ../../struphy/models/codes/propagators.py
@@ -347,14 +371,9 @@ Finally, also the abstract method ``push`` must be defined in each propagator:
     :lineno-start: 137
     :lines: 137-152
 
-It ony takes the time step ``dt`` as an argument and updates the variabels specified in ``self.variables``.
-Note that the function ``self.in_place_update`` can be used to perform the in-place update of the variables:
-
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 42
-    :lines: 42-81
+It only takes the time step ``dt`` as argument and updates the variables specified in ``self.variables``.
+Note that the function ``self.in_place_update``  from the base class ``Propagators`` can be used 
+to perform the in-place update of the variables.
 
 
 .. _to_do_list_model:
@@ -388,6 +407,51 @@ The following steps must be taken to add a new model to Struphy:
 Adding new dispersion relations 
 -------------------------------
 
+.. _base_classes:
+
+Base classes
+^^^^^^^^^^^^
+
+Struphy dispersion relations are derived from the base class
+
+.. autoclass:: struphy.models.dispersion_relations.analytic.DispersionRelations1D
+
+.. note::
+    All Struphy dispersion relations are subclasses of ``DispersionRelations1D`` and should be added to 
+    ``struphy/models/dispersion_relations/analytic.py``.  
+
+As an example, consider
+
+.. autoclass:: struphy.models.disperion_relations.analytic.Maxwell1D
+    :members:
+
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 59
+    :lines: 59-82  
+
+The initialization is done via the base class:
+
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 63
+    :lines: 63
+
+One has to provide a name for each branch of the spectrum (here just the ``light wave``) and all parameters necessary for
+computing the dispersion relation (here just the speed of light ``c``, which is 1 in Struphy normalization, see :ref:`maxwell`).
+
+The abstract method ``spectrum`` must be defined; the only really model-specific part is the definition 
+of the computation of each branch:
+
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 72
+    :lines: 72-75  
+
+Here, there is just one branch, namely the light wave in vacuum which propagates at the speed ``c``.
 
 .. _add_mapping:
 

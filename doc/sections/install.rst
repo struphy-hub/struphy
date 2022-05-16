@@ -161,7 +161,7 @@ and stop it from the host machine::
 
     multipass stop <VM-name>
 
-In order to have acces to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, in case there is none, generate an ssh key::
+In order to have access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ repositories, in case there is none, generate an ssh key::
 
     ssh-keygen
 

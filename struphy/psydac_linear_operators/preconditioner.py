@@ -1,6 +1,6 @@
 from psydac.linalg.basic import LinearSolver
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector, BlockMatrix, BlockDiagonalSolver
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -10,17 +10,24 @@ from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
-from sympde.calculus import dot
 from sympde.topology import Line, Derham
 
-from struphy.feec.psydac_derham import Derham_build
-#from struphy.linear_algebra.linalg_kron import kron_fftsolve_3d
-
-from scipy.linalg import solve_circulant, circulant
-from numpy import ndarray, zeros_like, allclose, roll
+from scipy.linalg import solve_circulant
+from numpy import ndarray, allclose, roll
 
 
 class MassMatrixPreConditioner(LinearSolver):
+    '''Preconditioner for inverting mass matrices M^{-1} of 3d Derham spaces. 
+    The approximate inverse is a Kronecker solver of a mass matrix in periodic boundary conditions without mapping.
+    
+    Parameters
+    ----------
+        femspace : FemSpace
+            The space of the targeted mass matrix.
+            
+        use_fft : boolean
+            CHoose Kronecker solver: FFTSolver (true) or SparseSolver (false).
+    '''
 
     def __init__(self, femspace, use_fft=True):
 
@@ -174,6 +181,7 @@ class FFTSolver(DirectSolver):
 
 
 def is_circulant(mat):
+    '''Returns true if matrix is circulant.'''
     
     assert isinstance(mat, ndarray)
     assert len(mat.shape) == 2
