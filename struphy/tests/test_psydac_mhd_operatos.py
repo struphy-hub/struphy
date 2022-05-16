@@ -30,8 +30,8 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
 
     from struphy.geometry.domain_3d import Domain
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.mhd_equil.mhd_equil_physical import Equilibrium_mhd_physical
-    from struphy.mhd_equil.mhd_equil_logical import Equilibrium_mhd_logical
+    from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
+    from struphy.mhd_equil.mhd_equil_logical import EquilibriumMhdLogical
 
     from sympde.topology import Cube, Derham
 
@@ -87,11 +87,11 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Mhd equilibirum
     mhd_equil_general = {'type': 'slab', 'mass_number': 1}
     mhd_equil_params = {'B0x': 0., 'B0y': 0.,
-                        'B0z': 1., 'rho0': 1., 'beta': 200.}
+                        'B0z': 1., 'beta': 200.}
 
-    EQ_MHD_P = Equilibrium_mhd_physical(
+    EQ_MHD_P = EquilibriumMhdPhysical(
         mhd_equil_general['type'], mhd_equil_params)
-    EQ_MHD_L = Equilibrium_mhd_logical(DOMAIN, EQ_MHD_P)
+    EQ_MHD_L = EquilibriumMhdLogical(DOMAIN, EQ_MHD_P)
 
     # Psydac spline spaces
     V0 = DERHAM_PSY.V0

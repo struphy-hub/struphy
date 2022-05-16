@@ -1,6 +1,6 @@
 import numpy as np
 
-class Equilibrium_mhd_slab:
+class EquilibriumMhdSlab:
     """
     TODO
     """
@@ -12,20 +12,14 @@ class Equilibrium_mhd_slab:
         self.b0y = params['B0y']
         self.b0z = params['B0z']
         
-        # uniform density
-        self.rho0 = params['rho0']
-        
-        # uniform pressure
+        # plasma beta
         self.beta = params['beta']
 
-
-    # equilibrium bulk pressure
-    def p_eq(self, x, y, z):
-        
-        p = (self.b0x**2 + self.b0y**2 + self.b0z**2)/2.*self.beta/100 - 0*x
-
-        return p
-
+    
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+    
     # equilibrium magnetic field (x - component)
     def b_eq_x(self, x, y, z):
         
@@ -47,6 +41,7 @@ class Equilibrium_mhd_slab:
 
         return bz
 
+    
     # equilibrium current (x - component, curl of equilibrium magnetic field)
     def j_eq_x(self, x, y, z):
 
@@ -67,10 +62,19 @@ class Equilibrium_mhd_slab:
         jz = 0*x
 
         return jz
-
-    # equilibrium bulk density
-    def r_eq(self, x, y, z):
+    
+    
+    # equilibrium bulk pressure
+    def p_eq(self, x, y, z):
         
-        rho = self.rho0 - 0*x
+        p = self.beta/200*(self.b0x**2 + self.b0y**2 + self.b0z**2) - 0*x
 
-        return rho
+        return p
+
+    
+    # equilibrium bulk number density
+    def n_eq(self, x, y, z):
+        
+        n = 1 - 0*x
+
+        return n
