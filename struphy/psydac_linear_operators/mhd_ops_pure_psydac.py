@@ -11,9 +11,7 @@ from struphy.psydac_linear_operators.H1vec_psydac import Projector_H1vec
 
 
 class MHD_ops:
-
-    def __init__(self, DERHAM, V0vec, nq_pr, EQ_MHD_L, F, assemble_all=False, mpi_comm=None):
-        '''Assembles some or all MHD operators needed for various discretizations of linear MHD equations.
+    '''Assembles some or all MHD operators needed for various discretizations of linear MHD equations.
 
         See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x`.
 
@@ -43,7 +41,9 @@ class MHD_ops:
         -----
         The `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
         In order not to modify the `MHD_operator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
-        '''
+    '''
+
+    def __init__(self, DERHAM, V0vec, nq_pr, EQ_MHD_L, F, assemble_all=False, mpi_comm=None):
 
         self._mpi_comm = mpi_comm
 
@@ -303,32 +303,32 @@ class MHD_ops:
 
 
 class MHD_operator( LinOpWithTransp ):
+    '''
+    Class for MHD specific projection operators PI_ijk(fun Lambda_mno).
+
+    Parameters
+    ----------
+        V : TensorFemSpace or ProductFemSpace
+            Domain of the operator, henceforth called "input space".
+
+        W : TensorFemSpace or ProductFemSpace
+            Codomain of the operator, henceforth called "output space".
+
+        pi_W : GlobalProjector
+            Psydac de Rham projector into space W.
+
+        fun : list
+            List of functions of (eta1, eta2, eta3) that multiply the basis functions of the input space V.
+            3x3 matrix-valued (nested list [[f11, f12, f13], [f21, f22, f23], [f31, f32, f33]]) if V is ProductFemSPace, 
+            scalar-valued [f] list otherwise.
+
+        mpi_comm : MPI communicator
+
+        transposed : boolean
+            False: map V -> W or True: map W -> v.
+    '''
 
     def __init__(self, V, W, pi_W, fun, mpi_comm, transposed=False):
-        '''
-        Class for MHD specific projection operators PI_ijk(fun Lambda_mno).
-
-        Parameters
-        ----------
-            V : TensorFemSpace or ProductFemSpace
-                Domain of the operator, henceforth called "input space".
-
-            W : TensorFemSpace or ProductFemSpace
-                Codomain of the operator, henceforth called "output space".
-
-            pi_W : GlobalProjector
-                Psydac de Rham projector into space W.
-
-            fun : list
-                List of functions of (eta1, eta2, eta3) that multiply the basis functions of the input space V.
-                3x3 matrix-valued (nested list [[f11, f12, f13], [f21, f22, f23], [f31, f32, f33]]) if V is ProductFemSPace, 
-                scalar-valued [f] list otherwise.
-
-            mpi_comm : MPI communicator
-
-            transposed : boolean
-                False: map V -> W or True: map W -> v.
-        '''
 
         assert isinstance(V, FemSpace) 
         assert isinstance(W, FemSpace) 

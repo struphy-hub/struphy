@@ -27,7 +27,7 @@ Run a Struphy code::
 
         struphy run <model> [<run options>]
 
-Currently availabe models (``<model>``) in Struphy:
+Currently available models (``<model>``) in Struphy:
 
 ========================== =============================================================== ================================
 Model                      Description                                                     
@@ -97,7 +97,7 @@ A finished run can be profiled (list individual run times of called sub-function
 
         struphy profile <sim1>
 
-Here, ``<sim1>`` is the absolute apth to the output folder. Multiple runs **of the same model** can be compared::
+Here, ``<sim1>`` is the absolute path to the output folder. Multiple runs **of the same model** can be compared::
 
         struphy profile <sim1> <sim2> ...
 

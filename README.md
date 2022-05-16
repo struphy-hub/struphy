@@ -26,13 +26,13 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## Installation
 
-* [See the Struphy user guide](https://clapp.pages.mpcdf.de/hylife/)
+* [Struphy user guide](https://clapp.pages.mpcdf.de/hylife/)
 
 ## Key references
 
 * F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
 
-* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axisymmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
+* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
 
 ## Contributors
 
