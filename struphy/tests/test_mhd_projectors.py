@@ -6,11 +6,13 @@ def test_1form_projectors_dot():
         import numpy as np
         import time
 
-        import struphy.geometry.domain_3d as dom
-        import struphy.feec.spline_space as spl
+        from struphy.geometry.domain_3d import Domain
         
-        import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
-        import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
+        from struphy.feec.spline_space import Spline_space_1d
+        from struphy.feec.spline_space import Tensor_spline_space
+        
+        from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
+        from struphy.mhd_equil.mhd_equil_logical  import EquilibriumMhdLogical
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -23,7 +25,7 @@ def test_1form_projectors_dot():
         kind_map = 'cuboid'     
 
         # 1d B-spline spline spaces for finite elements
-        spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+        spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
         
         # 1D commuting projectors
@@ -32,13 +34,13 @@ def test_1form_projectors_dot():
         spaces_FEM[2].set_projectors(n_quad[2])
 
         # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+        tensor_space_FEM = Tensor_spline_space(spaces_FEM)
 
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = dom.Domain(kind_map)
-        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
+        DOMAIN = Domain(kind_map)
+        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
         tensor_space_FEM.assemble_M0(DOMAIN)
@@ -49,8 +51,8 @@ def test_1form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
+        eq_MHD_p = EquilibriumMhdPhysical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
+        eq_MHD_l = EquilibriumMhdLogical(DOMAIN, eq_MHD_p)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD_l, DOMAIN, 2, 3)
 
@@ -67,7 +69,7 @@ def test_1form_projectors_dot():
         print()
         print('MHD_equilibrium :')
         print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
-        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.n3_eq_fun(0.,0.,0.))
         print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
         print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
         print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
@@ -178,17 +180,17 @@ def test_1form_projectors_dot():
 
         # rhoeq_Ginv_lambda1 for Q1
         def rhoeq_Ginv_lambda1_1(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
         def rhoeq_Ginv_lambda1_2(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
         def rhoeq_Ginv_lambda1_3(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.r3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.r3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
 
         # gsqrt_Ginv_lambda1 for U1
         def gsqrt_Ginv_lambda1_1(eta1, eta2, eta3) :  
@@ -297,12 +299,14 @@ def test_2form_projectors_dot():
         import time
 
     
-        import struphy.geometry.domain_3d as dom
-        import struphy.feec.spline_space as spl
+        from struphy.geometry.domain_3d import Domain
         
-        import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
-        import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
-
+        from struphy.feec.spline_space import Spline_space_1d
+        from struphy.feec.spline_space import Tensor_spline_space
+        
+        from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
+        from struphy.mhd_equil.mhd_equil_logical  import EquilibriumMhdLogical
+        
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
         # spline spaces
@@ -314,7 +318,7 @@ def test_2form_projectors_dot():
         kind_map = 'cuboid'     
 
         # 1d B-spline spline spaces for finite elements
-        spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+        spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
         
         # 1D commuting projectors
@@ -323,13 +327,13 @@ def test_2form_projectors_dot():
         spaces_FEM[2].set_projectors(n_quad[2])
 
         # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+        tensor_space_FEM = Tensor_spline_space(spaces_FEM)
 
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = dom.Domain(kind_map)
-        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
+        DOMAIN = Domain(kind_map)
+        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
         tensor_space_FEM.assemble_M0(DOMAIN)
@@ -340,8 +344,8 @@ def test_2form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
+        eq_MHD_p = EquilibriumMhdPhysical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
+        eq_MHD_l = EquilibriumMhdLogical(DOMAIN, eq_MHD_p)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD_l, DOMAIN, 2, 3)
 
@@ -357,7 +361,7 @@ def test_2form_projectors_dot():
         print()
         print('MHD_equilibrium :')
         print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
-        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.n3_eq_fun(0.,0.,0.))
         print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
         print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
         print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
@@ -566,11 +570,13 @@ def test_1form_symmetric():
 
         import numpy as np
     
-        import struphy.geometry.domain_3d as dom
-        import struphy.feec.spline_space as spl
+        from struphy.geometry.domain_3d import Domain
         
-        import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
-        import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
+        from struphy.feec.spline_space import Spline_space_1d
+        from struphy.feec.spline_space import Tensor_spline_space
+        
+        from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
+        from struphy.mhd_equil.mhd_equil_logical  import EquilibriumMhdLogical
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -583,7 +589,7 @@ def test_1form_symmetric():
         kind_map = 'cuboid'     
 
         # 1d B-spline spline spaces for finite elements
-        spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+        spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
         
         # 1D commuting projectors
@@ -592,13 +598,13 @@ def test_1form_symmetric():
         spaces_FEM[2].set_projectors(n_quad[2])
 
         # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+        tensor_space_FEM = Tensor_spline_space(spaces_FEM)
 
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = dom.Domain(kind_map)
-        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
+        DOMAIN = Domain(kind_map)
+        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
         tensor_space_FEM.assemble_M0(DOMAIN)
@@ -609,8 +615,8 @@ def test_1form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
+        eq_MHD_p = EquilibriumMhdPhysical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
+        eq_MHD_l = EquilibriumMhdLogical(DOMAIN, eq_MHD_p)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD_l, DOMAIN, 2, 3)
 
@@ -619,7 +625,7 @@ def test_1form_symmetric():
         print()
         print('MHD_equilibrium :')
         print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
-        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.n3_eq_fun(0.,0.,0.))
         print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
         print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
         print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))
@@ -731,11 +737,13 @@ def test_2form_symmetric():
         import numpy as np
 
 
-        import struphy.geometry.domain_3d as dom
-        import struphy.feec.spline_space as spl
+        from struphy.geometry.domain_3d import Domain
         
-        import struphy.mhd_equil.mhd_equil_physical as eq_mhd_p
-        import struphy.mhd_equil.mhd_equil_logical  as eq_mhd_l
+        from struphy.feec.spline_space import Spline_space_1d
+        from struphy.feec.spline_space import Tensor_spline_space
+        
+        from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
+        from struphy.mhd_equil.mhd_equil_logical  import EquilibriumMhdLogical
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -748,7 +756,7 @@ def test_2form_symmetric():
         kind_map = 'cuboid'     
 
         # 1d B-spline spline spaces for finite elements
-        spaces_FEM = [spl.Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
+        spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
                     for Nel_i, p_i, spl_kind_i, n_quad_i in zip(Nel, p, spl_kind, n_quad)]
         
         # 1D commuting projectors
@@ -757,13 +765,13 @@ def test_2form_symmetric():
         spaces_FEM[2].set_projectors(n_quad[2])
 
         # 3d tensor-product B-spline space for finite elements
-        tensor_space_FEM = spl.Tensor_spline_space(spaces_FEM)
+        tensor_space_FEM = Tensor_spline_space(spaces_FEM)
 
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = dom.Domain(kind_map)
-        #DOMAIN = dom.Domain(kind_map, params_map, Nel, p, spl_kind)
+        DOMAIN = Domain(kind_map)
+        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
         tensor_space_FEM.assemble_M0(DOMAIN)
@@ -774,8 +782,8 @@ def test_2form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD_p = eq_mhd_p.Equilibrium_mhd_physical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'rho0' : 1., 'beta' : 200.})
-        eq_MHD_l = eq_mhd_l.Equilibrium_mhd_logical(DOMAIN, eq_MHD_p)
+        eq_MHD_p = EquilibriumMhdPhysical('slab', {'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
+        eq_MHD_l = EquilibriumMhdLogical(DOMAIN, eq_MHD_p)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD_l, DOMAIN, 2, 3)
 
@@ -784,7 +792,7 @@ def test_2form_symmetric():
         print()
         print('MHD_equilibrium :')
         print('p_eq =', dot_ops.p3_eq_fun(0.,0.,0.))
-        print('r_eq =', dot_ops.r3_eq_fun(0.,0.,0.))
+        print('r_eq =', dot_ops.n3_eq_fun(0.,0.,0.))
         print('b_eq_x =', dot_ops.b2_eq_1_fun(0.,0.,0.))
         print('b_eq_y =', dot_ops.b2_eq_2_fun(0.,0.,0.))
         print('b_eq_z =', dot_ops.b2_eq_3_fun(0.,0.,0.))

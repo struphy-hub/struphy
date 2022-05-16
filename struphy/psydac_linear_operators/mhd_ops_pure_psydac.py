@@ -143,8 +143,8 @@ class MHD_ops:
             for n in range(3):
                 # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
                 _fun_Q1[-1] += [lambda x1, x2, x3, m=m,
-                                n=n: EQ_MHD_L.r3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
-                _fun_W1[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.r3_eq(
+                                n=n: EQ_MHD_L.n3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_W1[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.n3_eq(
                     x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m == n else 0.]
                 _fun_U1[-1] += [lambda x1, x2, x3, m=m,
                                 n=n: np.sqrt(F.metric_det(x1, x2, x3)) * _Ginv(x1, x2, x3)[m, n]]
@@ -159,7 +159,7 @@ class MHD_ops:
                 _fun_X1[-1] += [lambda x1, x2, x3, m=m,
                                 n=n: (F.jacobian_inv(x1, x2, x3).T)[m, n]]
 
-                _fun_Q2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.r3_eq(
+                _fun_Q2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.n3_eq(
                     x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m == n else 0.]
                 _fun_T2[-1] += [lambda x1, x2, x3, m=m, n=n: _cross_mask[m][n] *
                                 _b2_cross[m][n](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]

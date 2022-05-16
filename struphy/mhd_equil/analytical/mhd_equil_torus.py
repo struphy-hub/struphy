@@ -1,19 +1,13 @@
 import numpy as np
 
-from scipy.integrate import quad
-
-import struphy.feec.spline_space as spl
-
-
-class Equilibrium_mhd_torus:
+class EquilibriumMhdTorus:
     """
-    Define an analytical ad hoc equilibrium for a torus with circular cross section.
+    TODO
     """
     
     def __init__(self, params):
         
-         
-        # minor and major radius
+        # geometric parameters
         self.a  = params['a']
         self.r0 = params['R0']
         
@@ -23,213 +17,77 @@ class Equilibrium_mhd_torus:
         # safety factor profile
         self.q0 = params['q0']
         self.q1 = params['q1']
-        self.rl = params['rl']
         
-        # toroidal correction factor
-        self.q_add = params['q_add']
-        
-        # density profile
-        self.r1 = params['r1']
-        self.r2 = params['r2']
-        self.ra = params['ra']
+        # bulk number density profile: n(r) = (1 - na)*(1 - (r/a)^n1)^n2 + na
+        self.n1 = params['n1']
+        self.n2 = params['n2']
+        self.na = params['na']
         
         # pressure profile (plasma beta is on-axis)
-        self.beta = params['beta']
-        self.p1   = params['p1']
-        self.p2   = params['p2']
+        # p_kind = 0 : cylindrical presssure profile
+        # p_kind = 1 : p(r) = B0^2*beta/2*(1 - p1*(r/a)^2 - p2*(r/a)^4)
+        self.p_kind = params['p_kind']
+        self.beta   = params['beta']
+        self.p1     = params['p1']
+        self.p2     = params['p2']
         
         # inverse toroidal coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r     = lambda x, y, z : np.sqrt((np.sqrt(x**2 + z**2) - self.r0)**2 + y**2)
         self.theta = lambda x, y, z : np.arctan2(y, np.sqrt(x**2 + z**2) - self.r0)
         self.phi   = lambda x, y, z : np.arctan2(z, x)
         
-        # radial coordiante normalized to major
-        self.eps = lambda r : r/self.r0
+        # inverse aspect ratio
+        self.eps = self.a/self.r0
+        
+        # local inverse aspect ratio
+        self.eps_loc = lambda r : r/self.r0
         
         # distance from axis of symmetry
-        self.R = lambda r, theta : self.r0*(1 + self.eps(r)*np.cos(theta))
+        self.R = lambda r, theta : self.r0*(1 + self.eps_loc(r)*np.cos(theta))
         
-        # calculate rp parameter in safety factor profile
-        if self.q0 == self.q1:
-            self.rp = np.inf
-        else:
-            self.rp = ((self.q1/self.q0)**self.rl - 1)**(-1/(2*self.rl))
-            
-        # calculate scaling of current profile such that q_min = q0 (for monotonic profiles j0 = 1)
-        self.j0 = 1
         
         
     # ===============================================================
-    #                   toroidal coordinates
+    #           profiles for a straight tokamak geometry
     # ===============================================================
+    def n(self, r):
+        
+        nout = (1 - self.na)*(1 - (r/self.a)**self.n1)**self.n2 + self.na
+        
+        return nout
     
-    
-    # -----------------------------------------------------------------------
-    # axial current profile (determines b_theta)
-    # -----------------------------------------------------------------------
-    def j_phi(self, r):
+    def q(self, r):
         
-        rn = r/self.a
-
-        jout = 2/self.q0*1/((1 + (rn/self.rp)**(2*self.rl))**(1/self.rl + 1))
-
-        return self.j0*self.b0/self.r0*jout
-    
-    
-    # -----------------------------------------------------------------------
-    # poloidal magnetic field component and its derivative in cylindrical limit
-    # -----------------------------------------------------------------------
-    def b_theta(self, r):
-        
-        # analytical limit for r --> 0
-        limit = 0.
-        
-        if isinstance(r, float):
-            if r == 0.:
-                return limit  
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-            r_zeros = np.where(r == 0.)[0]
-            r[r_zeros] += 1e-10
-        
-        bout = (1/self.q0)*r*(1 + (r/(self.a*self.rp))**(2*self.rl))**(-1/self.rl)
-            
-        bout = self.j0*self.b0/self.r0*bout
-        
-        if not isinstance(r, float):
-            bout[r_zeros] = limit
-            bout = bout.reshape(r_shape)
-            
-        return bout
-    
-    def b_theta_p(self, r):
-        
-        # analytical limit for r --> 0
-        limit = self.j0*self.b0/(self.r0*self.q0)
-        
-        if isinstance(r, float):
-            if r == 0.:
-                return limit
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-            r_zeros = np.where(r == 0.)[0]
-            r[r_zeros] += 1e-10
-        
-        temp = 1 + (r/(self.a*self.rp))**(2*self.rl)
-        
-        bout = 1/self.q0*temp**(-1/self.rl) - r/(self.q0*self.rl)*temp**(-1/self.rl - 1)*2*self.rl*(r/(self.a*self.rp))**(2*self.rl - 1)*1/(self.a*self.rp)
-        
-        bout = self.j0*self.b0/self.r0*bout
-        
-        if not isinstance(r, float):
-            bout[r_zeros] = limit
-            bout = bout.reshape(r_shape)
-            
-        return bout
-    
-    
-    # -----------------------------------------------------------------------
-    # safety factor and its derivative in cylindrical limit
-    # -----------------------------------------------------------------------
-    def q(self, r, cor=0):
-        
-        # analytical limit for r --> 0
-        limit = self.b0/(self.r0*self.b_theta_p(0.))
-        
-        if isinstance(r, float):
-            if r == 0.:
-                return limit
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-            r_zeros = np.where(r == 0.)[0]
-            r[r_zeros] += 1e-10
-            
-        qout = r*self.b0/(self.r0*self.b_theta(r))*np.sqrt(1 - cor*self.eps(r)**2) 
-        
-        if not isinstance(r, float):
-            qout[r_zeros] = limit
-            qout = qout.reshape(r_shape)
+        qout = self.q0 + (self.q1 - self.q0)*(r/self.a)**2
         
         return qout
     
-    def q_p(self, r, cor=0):
+    def q_p(self, r):
         
-        # analytical limit for r --> 0
-        limit = 0.
-        
-        if isinstance(r, float):
-            if r == 0.:
-                return limit
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-            r_zeros = np.where(r == 0.)[0]
-            r[r_zeros] += 1e-10
-            
-        qout = (self.b0/self.r0*(self.b_theta(r) - r*self.b_theta_p(r))/self.b_theta(r)**2)*np.sqrt(1 - cor*self.eps(r)**2) + self.q(r, cor)*cor*self.eps(r)/(self.r0*np.sqrt(1 - cor*self.eps(r)**2))
-        
-        if not isinstance(r, float):
-            qout[r_zeros] = limit
-            qout = qout.reshape(r_shape)
+        qout = 2*(self.q1 - self.q0)*r/self.a**2
         
         return qout
     
-    
-    # -----------------------------------------------------------------------
-    # poloidal magnetic flux function in cylindrical limit
-    # -----------------------------------------------------------------------
-    def psi0(self, r):
-        
-        if isinstance(r, float):
-            r_shape = 0.
-            r = np.array([r])
-        else:
-            r_shape = r.shape
-            r = r.flatten()
-        
-        psiout = np.zeros(r.size, dtype=float)
-        
-        psi_a = -quad(self.b_theta, 0., self.a)[0]
-        
-        for i in range(r.size):
-            psiout[i] = -quad(self.b_theta, 0., r[i])[0] - psi_a
-            
-        if r_shape == 0:
-            psiout = psiout[0]
-        else:
-            psiout = psiout.reshape(r_shape)
-            
-        return psiout
-    
-    
-    # -----------------------------------------------------------------------
-    # pressure profile
-    # -----------------------------------------------------------------------
     def p(self, r):
-        return self.b0**2*self.beta/200*(1 - self.p1*r**2/self.a**2 - self.p2*r**4/self.a**4)
-    
-    
-    # -----------------------------------------------------------------------
-    # density profile
-    # -----------------------------------------------------------------------
-    def rho(self, r):
-        return (1 - self.ra)*(1 - (r/self.a)**self.r1)**self.r2 + self.ra
-    
-    
-    # ===============================================================
-    #                       physical domain
-    # ===============================================================
-    
-    
-    # equilibrium bulk pressure
-    def p_eq(self, x, y, z):
         
-        r = self.r(x, y, z)
+        if self.p_kind == 0:
 
-        return self.p(r)
+            if self.q0 == self.q1:
+                pout = self.b0**2*self.beta/200 - 0*r
+            else:
+                pout = self.b0**2*self.eps**2*self.q0/(2*(self.q1 - self.q0))*(1/self.q(r)**2 - 1/self.q1**2)
+                
+        else:
+            
+            pout = self.b0**2*self.beta/200*(1 - self.p1*r**2/self.a**2 - self.p2*r**4/self.a**4)
+               
+        return pout
+        
+    
+    
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
     
     # equilibrium magnetic field (x - component)
     def b_eq_x(self, x, y, z):
@@ -238,19 +96,23 @@ class Equilibrium_mhd_torus:
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
         
-        # toroidal components
-        b_theta = r*self.b0/(self.R(r, theta)*self.q(r, self.q_add))
+        q = self.q(r)
+        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
         
-        if b_theta.max() < 1e-10:
-            b_theta = np.zeros(b_theta.shape, dtype=float)
+        # poloidal component
+        if np.all(q >= 100.):
+            b_theta = 0*r
+        else:
+            b_theta = self.b0*r/(self.R(r, theta)*q_bar)
             
+        # toroidal component
         b_phi = self.b0*self.r0/self.R(r, theta)
 
-        # cartesian component
+        # cartesian x-component
         bx = -b_theta*np.sin(theta)*np.cos(phi) - b_phi*np.sin(phi)
 
         return bx
-
+    
     # equilibrium magnetic field (y - component)
     def b_eq_y(self, x, y, z):
         
@@ -258,19 +120,20 @@ class Equilibrium_mhd_torus:
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
         
-        # toroidal components
-        b_theta = r*self.b0/(self.R(r, theta)*self.q(r, self.q_add))
+        q = self.q(r)
+        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
         
-        if b_theta.max() < 1e-10:
-            b_theta = np.zeros(b_theta.shape, dtype=float)
-            
-        b_phi = self.b0*self.r0/self.R(r, theta)
+        # poloidal component
+        if np.all(q >= 100.):
+            b_theta = 0*r
+        else:
+            b_theta = self.b0*r/(self.R(r, theta)*q_bar)
 
-        # cartesian component
+        # cartesian y-component
         by = b_theta*np.cos(theta)
 
         return by
-
+    
     # equilibrium magnetic field (z - component)
     def b_eq_z(self, x, y, z):
         
@@ -278,33 +141,44 @@ class Equilibrium_mhd_torus:
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
         
-        # toroidal components
-        b_theta = r*self.b0/(self.R(r, theta)*self.q(r, self.q_add))
+        q = self.q(r)
+        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
         
-        if b_theta.max() < 1e-10:
-            b_theta = np.zeros(b_theta.shape, dtype=float)
+        # poloidal component
+        if np.all(q >= 100.):
+            b_theta = 0*r
+        else:
+            b_theta = self.b0*r/(self.R(r, theta)*q_bar)
             
+        # toroidal component
         b_phi = self.b0*self.r0/self.R(r, theta)
-        
-        # cartesian component
+
+        # cartesian x-component
         bz = -b_theta*np.sin(theta)*np.sin(phi) + b_phi*np.cos(phi)
 
         return bz
-
+    
+    
     # equilibrium current (x - component, curl of equilibrium magnetic field)
     def j_eq_x(self, x, y, z):
-        
+
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
-
-        # toroidal components
-        j_phi = self.b0/(self.R(r, theta)*self.q(r, self.q_add)**2)*(2*self.q(r, self.q_add) - r*self.q_p(r, self.q_add) - r/self.R(r, theta)*self.q(r, self.q_add)*np.cos(theta))
         
-        if j_phi.max() < 1e-10:
-            j_phi = np.zeros(j_phi.shape, dtype=float)
+        q = self.q(r)
+        q_p = self.q_p(r)
         
-        # cartesian components
+        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
+        q_bar_p = q_p*np.sqrt(1 - self.eps_loc(r)**2) - q*self.eps_loc(r)/(self.r0*np.sqrt(1 - self.eps_loc(r)**2))
+        
+        # toroidal component
+        if np.all(q >= 100.):
+            j_phi = 0*r
+        else:
+            j_phi = self.b0/(self.R(r, theta)*q_bar**2)*(2*q_bar - r*q_bar_p - r/self.R(r, theta)*q_bar*np.cos(theta))
+        
+        # cartesian x-component
         jx = -j_phi*np.sin(phi)
 
         return jx
@@ -322,21 +196,36 @@ class Equilibrium_mhd_torus:
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
-
-        # toroidal components
-        j_phi = self.b0/(self.R(r, theta)*self.q(r, self.q_add)**2)*(2*self.q(r, self.q_add) - r*self.q_p(r, self.q_add) - r/self.R(r, theta)*self.q(r, self.q_add)*np.cos(theta))
         
-        if j_phi.max() < 1e-10:
-            j_phi = np.zeros(j_phi.shape, dtype=float)
+        q = self.q(r)
+        q_p = self.q_p(r)
         
-        # cartesian components
+        q_bar = q*np.sqrt(1 - self.eps_loc(r)**2)
+        q_bar_p = q_p*np.sqrt(1 - self.eps_loc(r)**2) - q*self.eps_loc(r)/(self.r0*np.sqrt(1 - self.eps_loc(r)**2))
+        
+        # toroidal component
+        if np.all(q >= 100.):
+            j_phi = 0*r
+        else:
+            j_phi = self.b0/(self.R(r, theta)*q_bar**2)*(2*q_bar - r*q_bar_p - r/self.R(r, theta)*q_bar*np.cos(theta))
+        
+        # cartesian x-component
         jz = j_phi*np.cos(phi)
-
+        
         return jz
 
-    # equilibrium bulk density
-    def r_eq(self, x, y, z):
+    
+    # equilibrium bulk pressure
+    def p_eq(self, x, y, z):
+        
+        p = self.p(self.r(x, y, z))
 
-        r = self.r(x, y, z)
+        return p
+    
+    
+    # equilibrium bulk number density
+    def n_eq(self, x, y, z):
+        
+        n = self.n(self.r(x, y, z))
 
-        return self.rho(r)
+        return n
