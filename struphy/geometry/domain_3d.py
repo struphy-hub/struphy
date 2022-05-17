@@ -742,7 +742,7 @@ class Domain():
         if squeeze_output:
             values = values.squeeze()
             
-        if values.size == 1:
+        if values.ndim == 0:
             values = values.item()
 
         return values
@@ -823,7 +823,7 @@ class Domain():
         if squeeze_output:
             values = values.squeeze()
             
-        if values.size == 1:
+        if values.ndim == 0:
             values = values.item()
 
         return values
@@ -892,7 +892,7 @@ class Domain():
         if squeeze_output:
             values = values.squeeze()
             
-        if values.size == 1:
+        if values.ndim == 0:
             values = values.item()
 
         return values
@@ -964,7 +964,7 @@ class Domain():
         if squeeze_output:
             values = values.squeeze()
             
-        if values.size == 1:
+        if values.ndim == 0:
             values = values.item()
 
         return values
