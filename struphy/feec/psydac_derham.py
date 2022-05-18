@@ -13,6 +13,8 @@ from sympy import sqrt
 
 from struphy.psydac_linear_operators.H1vec_psydac import Projector_H1vec
 
+import numpy as np
+
 
 class Derham_build:
     '''Psydac API for discrete Derham sequence on the logical domain, and mass matrices.'''
@@ -99,6 +101,23 @@ class Derham_build:
             self._grad, self._curl, self._div = _derham.derivatives_as_matrices
         else:
             self._grad, self._curl, self._div = _derham.derivatives_as_operators
+
+
+        # global indices of non-vanishing splines in each element in format (Nel, p + 1)
+        self._NbaseN  = np.array([ _derham.spaces[0].spaces[k].nbasis for k in range(3) ])
+        self._NbaseD  = np.array([0, 0, 0])
+        for k in range(3):
+            if spl_kind[k]:
+                self._NbaseD[k] = self._NbaseN[k] - 1
+            else:
+                self._NbaseD[k] = self._NbaseN[k]
+
+        self._indN = np.array([ (np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 0))[1] + np.arange(_derham.spaces[0].ncells[k])[:, None])%self._NbaseN[k] for k in range(3) ])      # global indices of non-vanishing B-splines on each cell
+        self._indD = np.array([ (np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 1))[1] + np.arange(_derham.spaces[0].ncells[k])[:, None])%self._NbaseD[k] for k in range(3) ])      # global indices of non-vanishing D-splines on each cell
+
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
 
     # Psydac mass matrices
     # --------------------
@@ -247,3 +266,23 @@ class Derham_build:
             return self._M3
         else:
             raise AttributeError('M3 not assembled.')
+        
+    @property
+    def NbaseN(self):
+        """np.array of B-splines in each direction"""
+        return self._NbaseN
+        
+    @property
+    def NbaseD(self):
+        """np.array of D-splines in each direction"""
+        return self._NbaseD
+    
+    @property
+    def indN(self):
+        """global indices of non-vanishing B-splines in each direction in each cell"""
+        return self._indN
+    
+    @property
+    def indD(self):
+        """global indices of non-vanishing B-splines in each direction in each cell"""
+        return self._indD

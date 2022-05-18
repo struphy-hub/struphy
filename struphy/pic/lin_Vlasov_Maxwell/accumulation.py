@@ -94,7 +94,7 @@ class Accumulation:
 
             accum_step_e_w( particles,
                             self.domain.kind_map, self.domain.params_map,
-                            self.space.p,
+                            np.array(self.space.p),
                             self.space.T[0], self.space.T[1], self.space.T[2],
                             Np,
                             self.space.indN[0], self.space.indN[1], self.space.indN[2],
@@ -115,22 +115,14 @@ class Accumulation:
         else:
             raise ValueError('Only 3D implemented for now !')
         
-        # for a in range(3):
-        #     ind = np.where(np.isnan(self.vecs_loc[a]))
-
-
         
         for a in range(3):
+
+            assert np.isnan(self.vecs_loc[a]).any() == False, 'NaN found in accumulation vector'
+
             for b in range(3):
-                assert np.isnan(self.blocks_loc[a][b]).any() == False, 'NaN in accum matrix, found by assert'
+                assert np.isnan(self.blocks_loc[a][b]).any() == False, 'NaN found in accumulation matrix'
 
-                if np.isnan(self.blocks_loc[a][b]).any():
-                    raise ValueError('NaN encountered in accumulation matrix!')
-            
-            assert np.isnan(self.vecs_loc[a]).any() == False, 'NaN in accum vector, found by assert'
-
-            if np.isnan(self.vecs_loc[a]).any():
-                raise ValueError('NaN encountered in accumulation vector!')
 
         mpi_comm.Reduce(self.blocks_loc[0][0], self.blocks[0][0], op=MPI.SUM, root=0)
         mpi_comm.Reduce(self.blocks_loc[0][1], self.blocks[0][1], op=MPI.SUM, root=0)

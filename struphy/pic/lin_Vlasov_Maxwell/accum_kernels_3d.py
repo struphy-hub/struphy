@@ -1,15 +1,10 @@
 # import modules for matrix-matrix and matrix-vector multiplications
-import struphy.feec.bsplines_kernels                    as bsp
+import struphy.kinetic_equil.analytical.background_sol  as bs
+import struphy.pic.mat_vec_filler                       as mvf
 import struphy.geometry.mappings_3d_fast                as mapping_fast
 
-import struphy.linear_algebra.core                      as linalg
-import struphy.kinetic_equil.analytical.background_sol  as bs
-
-import struphy.pic.mat_vec_filler                       as mvf
-
-
 # ==========================================================================================================
-def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'double[:]', p : 'int[:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', np : 'int', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', mat11 : 'double[:,:,:,:,:,:]', mat12 : 'double[:,:,:,:,:,:]', mat13 : 'double[:,:,:,:,:,:]', mat21 : 'double[:,:,:,:,:,:]', mat22 : 'double[:,:,:,:,:,:]', mat23 : 'double[:,:,:,:,:,:]', mat31 : 'double[:,:,:,:,:,:]', mat32 : 'double[:,:,:,:,:,:]', mat33 : 'double[:,:,:,:,:,:]', vec1 : 'double[:,:,:]', vec2 : 'double[:,:,:]', vec3 : 'double[:,:,:]', v_shift : 'double[:]', v_th : 'double[:]', n0 : 'double', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def accum_step_e_w(particles: 'float[:,:]', kind_map: 'int', params_map: 'float[:]', p: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', np: 'int', indN1: 'int[:,:]', indN2: 'int[:,:]', indN3: 'int[:,:]', mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', vec1: 'float[:,:,:]', vec2: 'float[:,:,:]', vec3: 'float[:,:,:]', v_shift: 'float[:]', v_th: 'float[:]', n0: 'float', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
     """
     Does the Accumulation in the 3rd substep (e_w step, with b=const)
 
@@ -39,13 +34,13 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
         np : int
             total number of particles
         
-        indn1 : array of integers
+        indN1 : array of integers
             contains the global indices of the non-vanishing B-splines in direction 1
 
-        indn2 : array of integers
+        indN2 : array of integers
             contains the global indices of the non-vanishing B-splines in direction 2
 
-        indn3 : array of integers
+        indN3 : array of integers
             contains the global indices of the non-vanishing B-splines in direction 3
 
         indD1 : array of integers
@@ -98,10 +93,6 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
     """
     from numpy import empty, sqrt
 
-    pn1 = p[0]
-    pn2 = p[1]
-    pn3 = p[2]
-
     v = empty( 3, dtype=float )
 
     df      = empty( (3,3), dtype=float )
@@ -113,8 +104,8 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
     Gv = empty ( 3, dtype=float )
     Dv = empty ( 3, dtype=float )
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, df, fx, df_inv, g_inv, Gv, Dv, v, v1, v2, v3, weight, f0, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, filling_v1, filling_v2, filling_v3)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3) 
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, fx, df_inv, g_inv, Gv, Dv, v, v1, v2, v3, weight, f0, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, filling_v1, filling_v2, filling_v3)
+    #$ omp for reduction ( + :mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(np):
 
         # position
@@ -133,7 +124,7 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
         # background solution
         f0 = bs.maxwellian_point(v, v_shift, v_th, n0)
 
-        mapping_fast.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indn1, indn2, indn3, eta1, eta2, eta3, df, fx, 0)
+        mapping_fast.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
         mapping_fast.df_inv_all(df, df_inv)
@@ -149,7 +140,7 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
         Dv[1] = df_inv[1,0] * v1 + df_inv[1,1] * v2 + df_inv[1,2] * v3
         Dv[2] = df_inv[2,0] * v1 + df_inv[2,1] * v2 + df_inv[2,2] * v3
 
-        # Compute filling for matrix: f_0(x,v) * v^2
+        # Compute filling for matrix: f_0(x,v) * ( G^{-1} v )_mu ( DL^{-1} v )_nu
         filling_m11 = f0 * Gv[0] * Dv[0]
         filling_m12 = f0 * Gv[0] * Dv[1]
         filling_m13 = f0 * Gv[0] * Dv[2]
@@ -160,13 +151,14 @@ def accum_step_e_w(particles : 'double[:,:]', kind_map : 'int', params_map : 'do
         filling_m32 = f0 * Gv[2] * Dv[1]
         filling_m33 = f0 * Gv[2] * Dv[2]
 
-        # Compute filling for vector: sqrt(f_0(x,v)) * w_p * v
+        # Compute filling for vector: sqrt(f_0(x,v)) * w_p * ( G^{-1} v )
         filling_v1 = sqrt(f0) * weight * Gv[0]
         filling_v2 = sqrt(f0) * weight * Gv[1]
         filling_v3 = sqrt(f0) * weight * Gv[2]
 
         # fill matrix and vector
-        mvf.m_v_fill_b_v1_full(p, t1, t2, t3, indn1, indn2, indn3, eta1, eta2, eta3, mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, vec1, vec2, vec3, filling_v1, filling_v2, filling_v3)
+        mvf.m_v_fill_b_v1_full(p, t1, t2, t3, indN1, indN2, indN3, eta1, eta2, eta3, mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, vec1, vec2, vec3, filling_v1, filling_v2, filling_v3)
+
     #$ omp end parallel
 
     ierr = 0

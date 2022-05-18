@@ -3,7 +3,7 @@ from   struphy.feec                  import spline_space
 
 import numpy as np
 
-def main():
+def test_Bsplines_Kernels():
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
@@ -144,4 +144,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_Bsplines_Kernels()

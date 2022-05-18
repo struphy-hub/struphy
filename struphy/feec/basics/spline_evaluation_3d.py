@@ -1048,7 +1048,7 @@ def eval_d_d_d(tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn1 : 'i
     bsp.d_splines_slim(tn1, pn1, eta1, span_d1, bd1)
     bsp.d_splines_slim(tn2, pn2, eta2, span_d2, bd2)
     bsp.d_splines_slim(tn3, pn3, eta3, span_d3, bd3)
-
+    
     # sum up non-vanishing contributions
     value = eval_kernel_3d(pd1, pd2, pd3, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, coeff)
 

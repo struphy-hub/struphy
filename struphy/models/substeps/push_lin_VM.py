@@ -3,7 +3,14 @@ import scipy.sparse as spa
 
 import struphy.feec.basics.mass_matrices_3d_pre as mass_3d_pre
 
-from struphy.pic.lin_Vlasov_Maxwell import pusher_weights
+from struphy.pic.lin_Vlasov_Maxwell         import pusher_weights
+from struphy.linear_algebra.schur_solver    import Schur_solver
+
+from struphy.psydac_linear_operators.linear_operators   import CompositeLinearOperator      as Compose
+from struphy.psydac_linear_operators.linear_operators   import ScalarTimesLinearOperator    as Multiply
+from struphy.psydac_linear_operators.preconditioner     import MassMatrixPreConditioner     as MassPre
+
+from time import time
 
 
 class Push_lVM:
@@ -92,22 +99,30 @@ class Push_lVM:
         old_e         = efield.copy()
         old_particles = particles.copy()
 
+        start_time = time()
+
         # accumulate and assemble accumulation matrix and vector
         self.__ACCUM.accumulate_e_W_step(particles, self.__MPI_COMM, self.__Np_loc, self.v_shift, self.v_th, self.n0)
         self.__Accum_mat, self.__Accum_vec = self.__ACCUM.assemble_step_e_W(self.__Np_loc)
 
+        end_time = time()
+
+        print('Accumulation took '+str(np.round(end_time - start_time, 2))+' seconds.')
+
         self.__update_e(efield, print_info=print_info)
 
         pusher_weights.push_weights(particles,
+                                    self.__DOMAIN.kind_map, self.__DOMAIN.params_map,
                                     self.__Np_loc,
-                                    self.__SPACES.p,
+                                    np.array(self.__SPACES.p),
                                     self.__SPACES.T[0],    self.__SPACES.T[1],    self.__SPACES.T[2],
                                     self.__SPACES.indN[0], self.__SPACES.indN[1], self.__SPACES.indN[2],
                                     self.__SPACES.indD[0], self.__SPACES.indD[1], self.__SPACES.indD[2],
-                                    self.__SPACES.NbaseN, self.__SPACES.NbaseD,
+                                    np.array(self.__SPACES.NbaseN), np.array(self.__SPACES.NbaseD),
                                     efield + old_e,
                                     self.__dts[0],
-                                    self.v_shift, self.v_th, self.n0
+                                    self.v_shift, self.v_th, self.n0,
+                                    self.__DOMAIN.cx, self.__DOMAIN.cy, self.__DOMAIN.cz
                                     )
         
         # print info
@@ -149,3 +164,4 @@ class Push_lVM:
         # print info
         if print_info: 
             print('Status     for step_e_W:', info)
+

@@ -4,9 +4,11 @@ import struphy.feec.bsplines_kernels as bsp
 # import pyccel-ised background solutions
 import struphy.kinetic_equil.analytical.background_sol as bs
 
+# import module for mapping evaluation
+import struphy.geometry.mappings_3d_fast as mapping_fast
 
 # ==========================================================================================================
-def push_weights(particles : 'double[:,:]', np : 'int', p : 'int[:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', e_field : 'double[:]', dt : 'double', v_shift : 'double[:]', v_th : 'double[:]', n0 :  'double'):
+def push_weights(particles: 'float[:,:]', kind_map: 'int', params_map: 'float[:]', np: 'int', p: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', indN1: 'int[:,:]', indN2: 'int[:,:]', indN3: 'int[:,:]', indD1: 'int[:,:]', indD2: 'int[:,:]', indD3: 'int[:,:]', nbase_n: 'int[:]', nbase_d: 'int[:]', e_field: 'float[:]', dt: 'float', v_shift: 'float[:]', v_th: 'float[:]', n0: 'float', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
     """
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system
 
@@ -90,10 +92,13 @@ def push_weights(particles : 'double[:,:]', np : 'int', p : 'int[:]', t1 : 'doub
     bd2 = empty( pd2 + 1, dtype=float)
     bd3 = empty( pd3 + 1, dtype=float)
 
-    v = empty( 3, dtype=float )
+    df      = empty( (3,3), dtype=float )
+    df_inv  = empty( (3,3), dtype=float )
+    fx      = empty( 3    , dtype=float )
+    v       = empty( 3    , dtype=float )
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, v1, v2, v3, v, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, ie1, ie2, ie3, f0, temp1, temp2, temp3, i1, i2, i3, il1, il2, il3, bi1, bi2, update)
-    #$ omp for 
+    #$ omp parallel private (ip, eta1, eta2, eta3, v1, v2, v3, v, df, df_inv, fx, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, ie1, ie2, ie3, f0, temp1, temp2, temp3, i1, i2, i3, il1, il2, il3, bi1, bi2, update)
+    #$ omp for
     for ip in range(np):
         
         # position
@@ -123,45 +128,54 @@ def push_weights(particles : 'double[:,:]', np : 'int', p : 'int[:]', t1 : 'doub
         
         f0 = bs.maxwellian_point(v, v_shift, v_th, n0)
 
+        mapping_fast.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, eta1, eta2, eta3, df, fx, 0)
+        mapping_fast.df_inv_all(df, df_inv)
+
         temp1 = 0.
         temp2 = 0.
         temp3 = 0.
 
         # first component (DNN)
         for il1 in range(pd1 + 1):
-            i1  = indd1[ie1,il1]
+            i1  = indD1[ie1,il1]
             bi1 = bd1[il1]
             for il2 in range(pn2 + 1):
-                i2  = indn2[ie2,il2]
+                i2  = indN2[ie2,il2]
                 bi2 = bi1 * bn2[il2]
                 for il3 in range(pn3 + 1):
-                    i3  = indn3[ie3,il3]
+                    i3  = indN3[ie3,il3]
                     temp1 += bi2 * bn3[il3] * e_field[ nbase_n[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
 
         # second component (NDN)
         for il1 in range(pn1 + 1):
-            i1  = indn1[ie1,il1]
+            i1  = indN1[ie1,il1]
             bi1 = bn1[il1]
             for il2 in range(pd2 + 1):
-                i2  = indd2[ie2,il2]
+                i2  = indD2[ie2,il2]
                 bi2 = bi1 * bd2[il2]
                 for il3 in range(pn3 + 1):
-                    i3  = indn3[ie3,il3]
+                    i3  = indN3[ie3,il3]
                     temp2 += bi2 * bn3[il3] * e_field[ nbase_d[1]*nbase_n[2]*i1 + nbase_n[2]*i2 + i3 ]
         
         # third component (NND)
         for il1 in range(pn1 + 1):
-            i1  = indn1[ie1,il1]
+            i1  = indN1[ie1,il1]
             bi1 = bn1[il1]
             for il2 in range(pn2 + 1):
-                i2  = indn2[ie2,il2]
+                i2  = indN2[ie2,il2]
                 bi2 = bi1 * bn2[il2]
                 for il3 in range(pd3 + 1):
-                    i3  = indd3[ie3,il3]
+                    i3  = indD3[ie3,il3]
                     temp3 += bi2 * bd3[il3] * e_field[ nbase_n[1]*nbase_d[2]*i1 + nbase_d[2]*i2 + i3 ]
 
-        update = ( temp1*v1 + temp2*v2 + temp3*v3 ) * sqrt(f0) * dt/2.
+        prod1 = df_inv[0,0]*v1 + df_inv[0,1]*v2 + df_inv[0,2]*v3
+        prod2 = df_inv[1,0]*v1 + df_inv[1,1]*v2 + df_inv[1,2]*v3
+        prod3 = df_inv[2,0]*v1 + df_inv[2,1]*v2 + df_inv[2,2]*v3
+
+        # w_{n+1} = w_n + dt/2 * sqrt(f) * ( DF^{-1} v ) * ( e_{n+1} + e_n )
+        update = ( prod1*temp1 + prod2*temp2 + prod3*temp3 ) * sqrt(f0) * dt/2.
         particles[6,ip] += update
+    
     #$ omp end parallel
     
     ierr = 0
