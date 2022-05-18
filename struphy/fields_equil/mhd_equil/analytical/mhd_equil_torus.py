@@ -1,11 +1,15 @@
 import numpy as np
 
-class EquilibriumMhdTorus:
+from struphy.fields_equil.mhd_equil.mhd_equils import EquilibriumMHD
+
+class EquilibriumMHDTorus(EquilibriumMHD):
     """
     TODO
     """
     
     def __init__(self, params):
+        
+        super().__init__()
         
         # geometric parameters
         self.a  = params['a']

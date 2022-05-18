@@ -1,69 +1,77 @@
 import numpy as np
 
-class EquilibriumMhdShearedSlab:
+from struphy.fields_equil.mhd_equil.mhd_equils import EquilibriumMHD
+
+class EquilibriumMHDCylinder(EquilibriumMHD):
     """
     TODO
     """
     
     def __init__(self, params):
         
+        super().__init__()
+        
         # geometric parameters
         self.a  = params['a']
         self.r0 = params['R0']
         
-        # constant toroidal magnetic field (Bz), if q = 0, constant poloidal magnetic field (By)
+        # uniform axial magnetic field (Bz)
         self.b0 = params['B0']
         
-        # safety factor profile: q(x) = q0 + (q1 - q0)*(x/a)^2
+        # safety factor profile
         self.q0 = params['q0']
         self.q1 = params['q1']
         
-        # bulk number density profile: n(x) = (1 - na)*(1 - (x/a)^n1)^n2 + na
+        # bulk number density profile: n(r) = (1 - na)*(1 - (r/a)^n1)^n2 + na
         self.n1 = params['n1']
         self.n2 = params['n2']
         self.na = params['na']
         
-        # plasma beta at x = 0
+        # plasma beta in case of pure axial magnetic field
         self.beta = params['beta']
         
         # inverse aspect ratio
         self.eps = self.a/self.r0
         
+        # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
+        self.r     = lambda x, y, z : np.sqrt((x - self.r0)**2 + y**2)
+        self.theta = lambda x, y, z : np.arctan2(y, x - self.r0)
+        self.z     = lambda x, y, z : 1*z
         
     
+    
+    
     # ===============================================================
-    #             profiles for a sheared slab geometry
+    #           profiles for a straight tokamak geometry
     # ===============================================================
-    def n(self, x):
+    def n(self, r):
         
-        nout = (1 - self.na)*(1 - (x/self.a)**self.n1)**self.n2 + self.na
+        nout = (1 - self.na)*(1 - (r/self.a)**self.n1)**self.n2 + self.na
         
         return nout
     
-    def q(self, x):
+    def q(self, r):
         
-        qout = self.q0 + (self.q1 - self.q0)*(x/self.a)**2
-        
-        return qout
-    
-    def q_p(self, x):
-        
-        qout = 2*(self.q1 - self.q0)*x/self.a**2
+        qout = self.q0 + (self.q1 - self.q0)*(r/self.a)**2
         
         return qout
     
-    def p(self, x):
+    def q_p(self, r):
         
-        q = self.q(x)
+        qout = 2*(self.q1 - self.q0)*r/self.a**2
         
-        if np.all(q >= 100.) or np.all(q == 0.):
-            pout = self.b0**2*self.beta/200 - 0*x
+        return qout
+    
+    def p(self, r):
+        
+        if self.q0 == self.q1:
+            pout = self.b0**2*self.beta/200 - 0*r
         else:
-            pout = self.b0**2*self.beta/200*(1 + self.eps**2/q**2) + self.b0**2*self.eps**2*(1/self.q0**2 - 1/q**2)
+            pout = self.b0**2*self.eps**2*self.q0/(2*(self.q1 - self.q0))*(1/self.q(r)**2 - 1/self.q1**2)
                
         return pout
 
-
+    
     # ===============================================================
     #                  profiles on physical domain
     # ===============================================================
@@ -71,33 +79,45 @@ class EquilibriumMhdShearedSlab:
     # equilibrium magnetic field (x - component)
     def b_eq_x(self, x, y, z):
         
-        bx = 0*x
+        r     = self.r(x, y, z)
+        theta = self.theta(x, y, z)
+        
+        q = self.q(r)
+        
+        # azimuthal component
+        if np.all(q >= 100.):
+            b_theta = 0*r
+        else:
+            b_theta = self.b0*r/(self.r0*q)
+
+        # cartesian x-component
+        bx = -b_theta*np.sin(theta)
 
         return bx
 
     # equilibrium magnetic field (y - component)
     def b_eq_y(self, x, y, z):
         
-        q = self.q(x)
+        r     = self.r(x, y, z)
+        theta = self.theta(x, y, z)
         
-        if   np.all(q >= 100.):
-            by = 0*x
-        elif np.all(q == 0.):
-            by = self.b0 - 0*x
+        q = self.q(r)
+        
+        # azimuthal component
+        if np.all(q >= 100.):
+            b_theta = 0*r
         else:
-            by = self.b0*self.eps/q
+            b_theta = self.b0*r/(self.r0*q)
+
+        # cartesian y-component
+        by = b_theta*np.cos(theta)
 
         return by
 
     # equilibrium magnetic field (z - component)
     def b_eq_z(self, x, y, z):
         
-        q = self.q(x)
-        
-        if np.all(q == 0.):
-            bz = 0*x
-        else:
-            bz = self.b0 - 0*x
+        bz = self.b0 - 0*x
 
         return bz
     
@@ -118,30 +138,31 @@ class EquilibriumMhdShearedSlab:
 
     # equilibrium current (z - component, curl of equilibrium magnetic field)
     def j_eq_z(self, x, y, z):
+
+        r = self.r(x, y, z)
         
-        q = self.q(x)
+        q = self.q(r)
+        q_p = self.q_p(r)
         
-        if   np.all(q >= 100.):
-            jz = 0*x
-        elif np.all(q == 0.):
+        if np.all(q >= 100.):
             jz = 0*x
         else:
-            jz = -self.b0*self.eps*self.q_p(x)/q**2
+            jz = self.b0/(self.r0*q**2)*(2*q - r*q_p)
 
         return jz
-
     
+
     # equilibrium bulk pressure
     def p_eq(self, x, y, z):
         
-        p = self.p(x)
+        p = self.p(self.r(x, y, z))
 
         return p
-    
+
     
     # equilibrium bulk number density
     def n_eq(self, x, y, z):
         
-        n = self.n(x)
-
+        n = self.n(self.r(x, y, z))
+        
         return n

@@ -30,8 +30,8 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
 
     from struphy.geometry.domain_3d import Domain
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.mhd_equil.mhd_equil_physical import EquilibriumMhdPhysical
-    from struphy.mhd_equil.mhd_equil_logical import EquilibriumMhdLogical
+    
+    from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
 
     from sympde.topology import Cube, Derham
 
@@ -84,14 +84,11 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     DERHAM_PSY = discretize(DERHAM_symb, DOMAIN_PSY,
                             degree=p, periodic=spl_kind)
 
-    # Mhd equilibirum
-    mhd_equil_general = {'type': 'slab', 'mass_number': 1}
-    mhd_equil_params = {'B0x': 0., 'B0y': 0.,
-                        'B0z': 1., 'beta': 200.}
-
-    EQ_MHD_P = EquilibriumMhdPhysical(
-        mhd_equil_general['type'], mhd_equil_params)
-    EQ_MHD_L = EquilibriumMhdLogical(DOMAIN, EQ_MHD_P)
+    # Mhd equilibirum (slab)
+    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200.}
+    
+    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params)
+    EQ_MHD.enable_pullbacks(DOMAIN)
 
     # Psydac spline spaces
     V0 = DERHAM_PSY.V0
@@ -147,7 +144,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     print(f'Rank {mpi_rank} | Init PSYDAC `MHD_operators` ...')
     elapsed = time()
     OPS_PSY = MHD_ops(DERHAM_PSY, V0vec, n_quad,
-                      EQ_MHD_L, F, mpi_comm=MPI_COMM)
+                      EQ_MHD, F, mpi_comm=MPI_COMM)
     OPS_PSY.assemble_K1()
     OPS_PSY.assemble_K10()
     OPS_PSY.assemble_Y20()
@@ -160,7 +157,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Struphy matrix-free MHD operators
     print(f'Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...')
     elapsed = time()
-    OPS_STR = projectors_dot_x(SPACES, EQ_MHD_L, DOMAIN, 1, 0)
+    OPS_STR = projectors_dot_x(SPACES, EQ_MHD, 1, 0)
     print(
         f'Rank {mpi_rank} | Init `projectors_dot_x` done ({time()-elapsed:.4f}s).')
 

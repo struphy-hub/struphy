@@ -1,11 +1,15 @@
 import numpy as np
 
-class EquilibriumMhdSlab:
+from struphy.fields_equil.mhd_equil.mhd_equils import EquilibriumMHD
+
+class EquilibriumMHDSlab(EquilibriumMHD):
     """
     TODO
     """
     
     def __init__(self, params):
+        
+        super().__init__()
         
         # uniform magnetic field
         self.b0x = params['B0x']
@@ -40,6 +44,15 @@ class EquilibriumMhdSlab:
         bz = self.b0z - 0*x
 
         return bz
+    
+    # equilibrium magnetic field (absolute value)
+    def b_eq(self, x, y, z):
+        
+        bx = self.b_eq_x(x, y, z)
+        by = self.b_eq_y(x, y, z)
+        bz = self.b_eq_z(x, y, z)
+        
+        return np.sqrt(bx**2 + by**2 + bz**2)
 
     
     # equilibrium current (x - component, curl of equilibrium magnetic field)
