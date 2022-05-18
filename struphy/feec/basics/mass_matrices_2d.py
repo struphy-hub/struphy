@@ -10,7 +10,7 @@ import struphy.feec.basics.kernels_2d as ker
 
 
 # ================ mass matrix in V0 ===========================
-def get_M0(tensor_space_FEM, domain, weight=None):
+def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 2D mass matrix [[NN NN]] * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -21,6 +21,9 @@ def get_M0(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight function
@@ -37,14 +40,14 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     basisN = tensor_space_FEM.basisN  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of weight function at quadrature points
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.)
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
@@ -71,13 +74,18 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
     
     # apply spline extraction operator and return
-    return tensor_space_FEM.E0_pol_0.dot(M.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E0_pol_0.dot(M.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E0_pol.dot(M.dot(tensor_space_FEM.E0_pol.T)).tocsr()
+    
+    return M
 
 
 
 
 # ================ mass matrix in V1 ===========================
-def get_M1(tensor_space_FEM, domain, weight=None):
+def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 2D mass matrix [[DN DN, DN ND, DN NN], [ND DN, ND ND, ND NN], [NN DN, NN ND, NN NN]] * G^(-1) * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -88,6 +96,9 @@ def get_M1(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -111,7 +122,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
     ns    = [[1, 0], [0, 1], [0, 0]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of inverse metric tensor
@@ -131,9 +142,9 @@ def get_M1(tensor_space_FEM, domain, weight=None):
             
             # evaluate inverse metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.)
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -161,8 +172,12 @@ def get_M1(tensor_space_FEM, domain, weight=None):
     M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
     M22 = M[2][2]
     
-    M11 = tensor_space_FEM.E1_pol_0.dot(M11.dot(tensor_space_FEM.E1_pol_0.T)).tocsr()
-    M22 = tensor_space_FEM.E0_pol_0.dot(M22.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
+    if apply_boundary_ops:
+        M11 = tensor_space_FEM.E1_pol_0.dot(M11.dot(tensor_space_FEM.E1_pol_0.T)).tocsr()
+        M22 = tensor_space_FEM.E0_pol_0.dot(M22.dot(tensor_space_FEM.E0_pol_0.T)).tocsr()
+    else:
+        M11 = tensor_space_FEM.E1_pol.dot(M11.dot(tensor_space_FEM.E1_pol.T)).tocsr()
+        M22 = tensor_space_FEM.E0_pol.dot(M22.dot(tensor_space_FEM.E0_pol.T)).tocsr()
     
     return M11, M22
 
@@ -170,7 +185,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
 
 
 # ================ mass matrix in V2 ===========================
-def get_M2(tensor_space_FEM, domain, weight=None):
+def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 2D mass matrix [[ND ND, ND DN, ND DD], [DN ND, DN DN, DN DD], [DD ND, DD DN, DD DD]] * G / |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -181,6 +196,9 @@ def get_M2(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -204,7 +222,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
     ns    = [[0, 1], [1, 0], [1, 1]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of metric tensor
@@ -224,9 +242,9 @@ def get_M2(tensor_space_FEM, domain, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.)
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -254,8 +272,12 @@ def get_M2(tensor_space_FEM, domain, weight=None):
     M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
     M22 = M[2][2]
     
-    M11 = tensor_space_FEM.E2_pol_0.dot(M11.dot(tensor_space_FEM.E2_pol_0.T)).tocsr()
-    M22 = tensor_space_FEM.E3_pol_0.dot(M22.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
+    if apply_boundary_ops:
+        M11 = tensor_space_FEM.E2_pol_0.dot(M11.dot(tensor_space_FEM.E2_pol_0.T)).tocsr()
+        M22 = tensor_space_FEM.E3_pol_0.dot(M22.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
+    else:
+        M11 = tensor_space_FEM.E2_pol.dot(M11.dot(tensor_space_FEM.E2_pol.T)).tocsr()
+        M22 = tensor_space_FEM.E3_pol.dot(M22.dot(tensor_space_FEM.E3_pol.T)).tocsr()
 
     return M11, M22 
 
@@ -263,7 +285,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
 
 
 # ================ mass matrix in V3 ===========================
-def get_M3(tensor_space_FEM, domain, weight=None):
+def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix [[DD DD]] / |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -274,6 +296,9 @@ def get_M3(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight function
@@ -290,14 +315,14 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     basisD = tensor_space_FEM.basisD  # evaluated basis functions at quadrature points
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # evaluation of weight function at quadrature points
     if weight == None:
         mat_w = np.ones(det_df.shape, dtype=float)
     else:
-        mat_w = weight(pts[0].flatten(), pts[1].flatten(), np.array([0.]))
+        mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.)
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # assembly of global mass matrix
@@ -324,13 +349,18 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E3_pol_0.dot(M.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E3_pol_0.dot(M.dot(tensor_space_FEM.E3_pol_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E3_pol.dot(M.dot(tensor_space_FEM.E3_pol.T)).tocsr()
+    
+    return M
 
 
 
 
 # ============= mass matrix of vector field =========================
-def get_Mv(tensor_space_FEM, domain, weight=None):
+def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 2D mass matrix [[NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN], [NN NN, NN NN, NN NN]] * G * |det(DF)| of the given tensor product B-spline spaces of bi-degree (p1, p2) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -341,6 +371,9 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -362,7 +395,7 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
     ns    = [[0, 0], [0, 0], [0, 0]]
     
     # evaluation of |det(DF)| at eta3 = 0 and quadrature points in format (Nel1, nq1, Nel2, nq2)
-    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), 'det_df'))
+    det_df = abs(domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., 'det_df'))
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
     
     # keys for components of metric tensor
@@ -382,9 +415,9 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
             
             # evaluate metric tensor at quadrature points
             if weight == None:
-                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), np.array([0.]), kind_funs[a][b])  
+                mat_w = domain.evaluate(pts[0].flatten(), pts[1].flatten(), 0., kind_funs[a][b])  
             else:
-                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), np.array([0.]))
+                mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.)
                 
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
             
@@ -412,7 +445,11 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
     M11 = spa.bmat([[M[0][0], M[0][1]], [M[1][0], M[1][1]]])
     M22 = M[2][2]
     
-    M11 = tensor_space_FEM.Ev_pol_0.dot(M11.dot(tensor_space_FEM.Ev_pol_0.T)).tocsr()
-    M22 = tensor_space_FEM.E0_pol.dot(M22.dot(tensor_space_FEM.E0_pol.T)).tocsr()
+    if apply_boundary_ops:
+        M11 = tensor_space_FEM.Ev_pol_0.dot(M11.dot(tensor_space_FEM.Ev_pol_0.T)).tocsr()
+        M22 = tensor_space_FEM.E0_pol.dot(M22.dot(tensor_space_FEM.E0_pol.T)).tocsr()
+    else:
+        M11 = tensor_space_FEM.Ev_pol.dot(M11.dot(tensor_space_FEM.Ev_pol.T)).tocsr()
+        M22 = tensor_space_FEM.E0_pol.dot(M22.dot(tensor_space_FEM.E0_pol.T)).tocsr()
     
     return M11, M22

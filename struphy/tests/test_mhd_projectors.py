@@ -42,10 +42,10 @@ def test_1form_projectors_dot():
         #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_M0(DOMAIN)
-        tensor_space_FEM.assemble_M1(DOMAIN) 
-        tensor_space_FEM.assemble_M2(DOMAIN)
-        tensor_space_FEM.assemble_M3(DOMAIN)
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
@@ -334,10 +334,10 @@ def test_2form_projectors_dot():
         #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_M0(DOMAIN)
-        tensor_space_FEM.assemble_M1(DOMAIN) 
-        tensor_space_FEM.assemble_M2(DOMAIN)
-        tensor_space_FEM.assemble_M3(DOMAIN)
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
@@ -604,10 +604,10 @@ def test_1form_symmetric():
         #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_M0(DOMAIN)
-        tensor_space_FEM.assemble_M1(DOMAIN) 
-        tensor_space_FEM.assemble_M2(DOMAIN)
-        tensor_space_FEM.assemble_M3(DOMAIN)
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
@@ -770,10 +770,10 @@ def test_2form_symmetric():
         #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_M0(DOMAIN)
-        tensor_space_FEM.assemble_M1(DOMAIN) 
-        tensor_space_FEM.assemble_M2(DOMAIN)
-        tensor_space_FEM.assemble_M3(DOMAIN)
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
+        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
         print('Assembly of mass matrices done.')
         print()
 

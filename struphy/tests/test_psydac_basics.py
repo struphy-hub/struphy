@@ -432,11 +432,12 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     ### TEST MASS MATRICES ###
     ##########################
     # Struphy mass matrices
+
     print('Struphy')
-    DR_STR.assemble_M0(DOMAIN)
-    DR_STR.assemble_M1(DOMAIN)
-    DR_STR.assemble_M2(DOMAIN)
-    DR_STR.assemble_M3(DOMAIN)
+    DR_STR.assemble_Mk(DOMAIN, 'V0')
+    DR_STR.assemble_Mk(DOMAIN, 'V1')
+    DR_STR.assemble_Mk(DOMAIN, 'V2')
+    DR_STR.assemble_Mk(DOMAIN, 'V3')
 
     print('Psydac')
     # Psydac mass matrices
