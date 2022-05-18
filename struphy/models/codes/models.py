@@ -187,10 +187,4 @@ class Maxwell( StruphyModel ):
         self._scalar_quantities['en_B'][0] = 1/2*self._b.dot(self.DR.M2.dot(self._b))
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + self._scalar_quantities['en_B'][0]
 
-
-
-
-        
-    
-
     

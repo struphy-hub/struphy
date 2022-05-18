@@ -6,7 +6,7 @@ import struphy.feec.basics.spline_evaluation_3d as eva_3d
 
 import numpy as np
 
-def main():
+def test_Spline_Evaluation():
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
@@ -105,12 +105,12 @@ def main():
         # 3d case
         coeff3d = np.random.rand( nbase_n1+1, nbase_n2+1, nbase_n3+1 )
 
-        kern_leg = eva_3d.evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n1, nbase_n2, nbase_n3, coeff3d)
+        kern_leg = eva_3d.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n1, nbase_n2, nbase_n3, coeff3d)
 
         assert np.isnan(kern_leg) == False
         assert np.isinf(kern_leg) == False
 
-        kern = eva_3d.eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
+        kern = eva_3d.eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
 
         assert np.isnan(kern) == False
         assert np.isinf(kern) == False
@@ -436,4 +436,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_Spline_Evaluation()

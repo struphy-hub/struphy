@@ -9,7 +9,7 @@ from struphy.geometry import domain_3d
 
 import numpy as np
 
-def main():
+def test_Mappings():
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
@@ -39,10 +39,7 @@ def main():
     N = 100
     decimals = 12
 
-    # file_in = 'struphy/io/inp/test_params/parameters.yml'
-
-    # map_types = ['cuboid', 'orthogonal', 'colella', 'hollow_cyl', 'hollow_torus', 'ellipse', 'rotated_ellipse', 'soloviev_approx', 'soloviev_sqrt', 'soloviev_cf', 'spline_cyl', 'spline_torus']
-    map_types = ['cuboid', 'orthogonal', 'colella', 'hollow_cyl', 'hollow_torus', 'ellipse', 'rotated_ellipse', 'soloviev_approx', 'soloviev_sqrt', 'soloviev_cf']
+    map_types = ['cuboid', 'orthogonal', 'colella', 'hollow_cyl', 'hollow_torus', 'ellipse', 'rotated_ellipse', 'shafranov_sqrt', 'shafranov_dshaped']
 
     for map_type in map_types:
 
@@ -78,7 +75,7 @@ def main():
             # Test mapping vector
             vec_out = np.empty( 3, dtype=float )
 
-            mapping.f_vec(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, vec_out)
+            mapping.f_vec(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, vec_out)
 
             assert np.isnan(vec_out).any() == False
             assert np.isinf(vec_out).any() == False
@@ -86,7 +83,7 @@ def main():
             vec_leg = np.empty( 3, dtype=float )
 
             for comp in range(3):
-                vec_leg[comp] = mapping.f(eta1, eta2, eta3, comp+1, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, SPACES.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
+                vec_leg[comp] = mapping.f(eta1, eta2, eta3, comp+1, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), np.array(SPACES.NbaseN), DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
 
             assert np.isnan(vec_leg).any() == False
             assert np.isinf(vec_leg).any() == False
@@ -122,7 +119,7 @@ def main():
             # Test Jacobian matrix
             mat_out = np.empty( (3,3), dtype=float )
 
-            mapping.df_mat(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, mat_out)
+            mapping.df_mat(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, mat_out)
 
             assert np.isnan(mat_out).any() == False
             assert np.isinf(mat_out).any() == False
@@ -132,7 +129,7 @@ def main():
             for comp_x in range(3):
                 for comp_y in range(3):
                     comp = int(str(comp_x+1) + str(comp_y+1))
-                    mat_leg[comp_x,comp_y] = mapping.df(eta1, eta2, eta3, comp, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, SPACES.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
+                    mat_leg[comp_x,comp_y] = mapping.df(eta1, eta2, eta3, comp, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), np.array(SPACES.NbaseN), DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
 
             assert np.isnan(mat_leg).any() == False
             assert np.isinf(mat_leg).any() == False
@@ -168,12 +165,12 @@ def main():
 
 
             # Test determinant
-            value = mapping.det_df_mat(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
+            value = mapping.det_df_mat(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
 
             assert np.isnan(value) == False
             assert np.isinf(value) == False
 
-            value_leg = mapping.det_df(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, SPACES.NbaseN, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
+            value_leg = mapping.det_df(eta1, eta2, eta3, DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), np.array(SPACES.NbaseN), DOMAIN.cx, DOMAIN.cy, DOMAIN.cz)
 
             assert np.isnan(value_leg) == False
             assert np.isinf(value_leg) == False
@@ -216,8 +213,8 @@ def main():
             for mat_or_vec in range(3):
 
                 df_mat = np.empty( (3,3), dtype=float )
-                df_vec = np.empty( (3,3), dtype=float )
-                mapping_fast.dl_all(DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], eta1, eta2, eta3, df_mat, df_vec, mat_or_vec)
+                df_vec = np.empty( 3    , dtype=float )
+                mapping_fast.dl_all(DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, ind_n1, ind_n2, ind_n3, eta1, eta2, eta3, df_mat, df_vec, mat_or_vec)
 
                 assert np.isnan(df_mat).any() == False
                 assert np.isinf(df_mat).any() == False
@@ -226,23 +223,32 @@ def main():
                 assert np.isinf(df_vec).any() == False
 
                 df_mat_leg = np.empty( (3,3), dtype=float )
-                df_vec_leg = np.empty( (3,3), dtype=float )
+                df_vec_leg = np.empty( 3    , dtype=float )
                 left1      = np.empty( pn1  , dtype=float )
                 left2      = np.empty( pn2  , dtype=float )
                 left3      = np.empty( pn3  , dtype=float )
                 right1     = np.empty( pn1  , dtype=float )
                 right2     = np.empty( pn2  , dtype=float )
                 right3     = np.empty( pn3  , dtype=float )
-                bn1        = np.empty( pn1+1, dtype=float )
-                bn2        = np.empty( pn2+1, dtype=float )
-                bn3        = np.empty( pn3+1, dtype=float )
+                bn1        = np.empty( (pn1+1,pn1+1), dtype=float )
+                bn2        = np.empty( (pn2+1,pn2+1), dtype=float )
+                bn3        = np.empty( (pn3+1,pn3+1), dtype=float )
                 bd1        = np.empty( pn1  , dtype=float )
                 bd2        = np.empty( pn2  , dtype=float )
                 bd3        = np.empty( pn3  , dtype=float )
+                diff1      = np.empty( pn1+1, dtype=float )
+                diff2      = np.empty( pn2+1, dtype=float )
+                diff3      = np.empty( pn3+1, dtype=float )
                 der1       = np.empty( pn1+1, dtype=float )
                 der2       = np.empty( pn2+1, dtype=float )
                 der3       = np.empty( pn3+1, dtype=float )
-                mapping_fast.df_all(DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, SPACES.p, SPACES.NbaseN, span1, span2, span3, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, left1, left2, left3, right1, right2, right3, bn1, bn2, bn3, bd1, bd2, bd3, der1, der2, der3, eta1, eta2, eta3, df_mat_leg, df_vec_leg, mat_or_vec)
+                bsp.basis_funs_all(t1, pn1, eta1, span1, left1, right1, bn1, diff1)
+                bsp.basis_funs_all(t2, pn2, eta2, span2, left2, right2, bn2, diff2)
+                bsp.basis_funs_all(t3, pn3, eta3, span3, left3, right3, bn3, diff3)
+                bsp.basis_funs_1st_der(t1, pn1, eta1, span1, left1, right1, der1)
+                bsp.basis_funs_1st_der(t2, pn2, eta2, span2, left2, right2, der2)
+                bsp.basis_funs_1st_der(t3, pn3, eta3, span3, left3, right3, der3)
+                mapping_fast.df_all(DOMAIN.kind_map, DOMAIN.params_map, t1, t2, t3, np.array(SPACES.p), np.array(SPACES.NbaseN), span1, span2, span3, DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, left1, left2, left3, right1, right2, right3, bn1, bn2, bn3, bd1, bd2, bd3, der1, der2, der3, eta1, eta2, eta3, df_mat_leg, df_vec_leg, mat_or_vec)
 
                 assert np.isnan(df_mat_leg).any() == False
                 assert np.isinf(df_mat_leg).any() == False
@@ -371,7 +377,7 @@ def parameters(map_type):
         answer = {'x0':x0, 'y0':y0, 'z0':z0, 'rx':rx, 'ry':ry, 'Lz':Lz, 'delta':delta}
         return answer
 
-    elif map_type == 'soloviev_sqrt':
+    elif map_type == 'shafranov_sqrt':
         x0 = np.random.rand()
         y0 = np.random.rand()
         z0 = np.random.rand()
@@ -382,7 +388,7 @@ def parameters(map_type):
         answer = {'x0':x0, 'y0':y0, 'z0':z0, 'rx':rx, 'ry':ry, 'Lz':Lz, 'delta':delta}
         return answer
 
-    elif map_type == 'soloviev_cf':
+    elif map_type == 'shafranov_dshaped':
         x0 = np.random.rand()*10
         y0 = np.random.rand()*10
         z0 = np.random.rand()*10
@@ -419,4 +425,4 @@ def parameters(map_type):
 
 
 if __name__ == '__main__':
-    main()
+    test_Mappings()

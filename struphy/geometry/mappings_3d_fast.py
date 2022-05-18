@@ -18,7 +18,7 @@ import struphy.geometry.mappings_3d as mapping
 
 
 # ==========================================================================
-def df_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', nbase_n : 'int[:]', span_n1 : 'int', span_n2 : 'int', span_n3 : 'int', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', l1 : 'double[:]', l2 : 'double[:]', l3 : 'double[:]', r1 : 'double[:]', r2 : 'double[:]', r3 : 'double[:]', b1 : 'double[:,:]', b2 : 'double[:,:]', b3 : 'double[:,:]', d1 : 'double[:]', d2 : 'double[:]', d3 : 'double[:]', der1 : 'double[:]', der2 : 'double[:]', der3 : 'double[:]', eta1 : 'double', eta2 : 'double', eta3 : 'double', mat_out : 'double[:,:]', vec_out : 'double[:]', mat_or_vec : 'int'):
+def df_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', nbase_n : 'int[:]', span_n1 : 'int', span_n2 : 'int', span_n3 : 'int', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', l1 : 'float[:]', l2 : 'float[:]', l3 : 'float[:]', r1 : 'float[:]', r2 : 'float[:]', r3 : 'float[:]', b1 : 'float[:,:]', b2 : 'float[:,:]', b3 : 'float[:,:]', d1 : 'float[:]', d2 : 'float[:]', d3 : 'float[:]', der1 : 'float[:]', der2 : 'float[:]', der3 : 'float[:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat_out : 'float[:,:]', vec_out : 'float[:]', mat_or_vec : 'int'):
     """
     TODO: write documentation, implement faster eval_kernels (with list of global indices, not modulo-operation)
     """
@@ -147,12 +147,10 @@ def df_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 
             vec_out[0] = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
             vec_out[1] = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
             vec_out[2] = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-            
-            
-            
+      
             
 # ==========================================================================
-def dl_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 'double[:]', tn3 : 'double[:]', pn : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', eta1 : 'double', eta2 : 'double', eta3 : 'double', mat_out : 'double[:,:]', vec_out : 'double[:]', mat_or_vec : 'int'):
+def dl_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat_out : 'float[:,:]', vec_out : 'float[:]', mat_or_vec : 'int'):
     """
     function to write Jacobian matrix entries into mat_out
 
@@ -173,7 +171,7 @@ def dl_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 
         cx, cy, cz : array
             contains the spline coefficients for the mapping
         
-        eta1, eta2, eta3 : double
+        eta1, eta2, eta3 : float
             position, logical coordinates in [0,1]
         
         mat_out : array
@@ -244,7 +242,6 @@ def dl_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 
     elif kind_map == 1:
         
         lz = 2*pi*cx[0, 0, 0]
-
         # evaluate Jacobian matrix
         if mat_or_vec == 0 or mat_or_vec == 2:
 
@@ -312,10 +309,9 @@ def dl_all(kind_map : 'int', params_map : 'double[:]', tn1 : 'double[:]', tn2 : 
             
             mapping.f_vec_ana(eta1, eta2, eta3, kind_map, params_map, vec_out)
             
- 
-        
+     
 # ===========================================================================
-def df_inv_all(mat_in : 'double[:,:]', mat_out : 'double[:,:]'):
+def df_inv_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Inverts the Jacobain matrix (mat_in) and writes it to mat_out
 
@@ -343,11 +339,10 @@ def df_inv_all(mat_in : 'double[:,:]', mat_out : 'double[:,:]'):
     mat_out[2, 0] = (mat_in[1, 0]*mat_in[2, 1] - mat_in[2, 0]*mat_in[1, 1]) * over_det_df
     mat_out[2, 1] = (mat_in[2, 0]*mat_in[0, 1] - mat_in[0, 0]*mat_in[2, 1]) * over_det_df
     mat_out[2, 2] = (mat_in[0, 0]*mat_in[1, 1] - mat_in[1, 0]*mat_in[0, 1]) * over_det_df
-    
-    
+     
     
 # ===========================================================================
-def g_all(mat_in : 'double[:,:]', mat_out : 'double[:,:]'):
+def g_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Compute the metric tensor (mat_out) from Jacobian matrix (mat_in)
 
@@ -372,9 +367,8 @@ def g_all(mat_in : 'double[:,:]', mat_out : 'double[:,:]'):
     mat_out[2, 2] = mat_in[0, 2]*mat_in[0, 2] + mat_in[1, 2]*mat_in[1, 2] + mat_in[2, 2]*mat_in[2, 2]
     
     
-    
 # ===========================================================================
-def g_inv_all(mat_in : 'double[:,:]', mat_out : 'double[:,:]'):
+def g_inv_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Compute the inverse metric tensor (mat_out) from inverse Jacobian matrix (mat_in)
 
