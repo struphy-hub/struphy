@@ -26,8 +26,8 @@ class MHD_ops:
         nq_pr : list
             Number of quadrature points used in histopolation in each direction.
 
-        EQ_MHD_L : Struphy object
-            MHD equilibirum on the logical domain from struphy.mhd_equil.mhd_equil_logical.Equilibrium_mhd_logical
+        EQ_MHD : Struphy object
+            MHD equilibrium from struphy.fields_equil.mhd_equil (pullbacks must be enabled).
 
         F : Psydac mapping
             Obtained via .get_callable_mapping()
@@ -43,7 +43,7 @@ class MHD_ops:
         In order not to modify the `MHD_operator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
     '''
 
-    def __init__(self, DERHAM, V0vec, nq_pr, EQ_MHD_L, F, assemble_all=False, mpi_comm=None):
+    def __init__(self, DERHAM, V0vec, nq_pr, EQ_MHD, F, assemble_all=False, mpi_comm=None):
 
         self._mpi_comm = mpi_comm
 
@@ -83,25 +83,25 @@ class MHD_ops:
             [-1,  1,  1],
         ]
         _j2_cross = [
-            [lambda x1, x2, x3: 0,   EQ_MHD_L.j2_eq_3,   EQ_MHD_L.j2_eq_2],
-            [EQ_MHD_L.j2_eq_3, lambda x1, x2, x3: 0,   EQ_MHD_L.j2_eq_1],
-            [EQ_MHD_L.j2_eq_2,   EQ_MHD_L.j2_eq_1, lambda x1, x2, x3: 0],
+            [lambda x1, x2, x3: 0,   EQ_MHD.j2_eq_3,   EQ_MHD.j2_eq_2],
+            [EQ_MHD.j2_eq_3, lambda x1, x2, x3: 0,   EQ_MHD.j2_eq_1],
+            [EQ_MHD.j2_eq_2,   EQ_MHD.j2_eq_1, lambda x1, x2, x3: 0],
         ]
         _b2_cross = [
-            [lambda x1, x2, x3: 0,   EQ_MHD_L.b2_eq_3,   EQ_MHD_L.b2_eq_2],
-            [EQ_MHD_L.b2_eq_3, lambda x1, x2, x3: 0,   EQ_MHD_L.b2_eq_1],
-            [EQ_MHD_L.b2_eq_2,   EQ_MHD_L.b2_eq_1, lambda x1, x2, x3: 0],
+            [lambda x1, x2, x3: 0,   EQ_MHD.b2_eq_3,   EQ_MHD.b2_eq_2],
+            [EQ_MHD.b2_eq_3, lambda x1, x2, x3: 0,   EQ_MHD.b2_eq_1],
+            [EQ_MHD.b2_eq_2,   EQ_MHD.b2_eq_1, lambda x1, x2, x3: 0],
         ]
 
         def _eval_cross(x1, x2, x3, fun_list): return np.array(
             [[_cross_mask[m][n] * ele(x1, x2, x3) for n, ele in enumerate(row)] for m, row in enumerate(fun_list)])
 
         # Scalar functions
-        def _fun_K1(x1, x2, x3): return EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        def _fun_K1(x1, x2, x3): return EQ_MHD.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
 
-        _fun_K10 = EQ_MHD_L.p0_eq
+        _fun_K10 = EQ_MHD.p0_eq
 
-        def _fun_K2(x1, x2, x3): return EQ_MHD_L.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
+        def _fun_K2(x1, x2, x3): return EQ_MHD.p3_eq(x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))
 
         def _fun_Y20(x1, x2, x3): return np.sqrt(F.metric_det(x1, x2, x3))
 
@@ -143,35 +143,35 @@ class MHD_ops:
             for n in range(3):
                 # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
                 _fun_Q1[-1] += [lambda x1, x2, x3, m=m,
-                                n=n: EQ_MHD_L.n3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
-                _fun_W1[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.n3_eq(
+                                n=n: EQ_MHD.n3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                _fun_W1[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD.n3_eq( 
                     x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m == n else 0.]
                 _fun_U1[-1] += [lambda x1, x2, x3, m=m,
                                 n=n: np.sqrt(F.metric_det(x1, x2, x3)) * _Ginv(x1, x2, x3)[m, n]]
                 _fun_P1[-1] += [lambda x1, x2, x3, m=m, n=n: _cross_mask[m][n] *
                                 _j2_cross[m][n](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
                 _fun_S1[-1] += [lambda x1, x2, x3, m=m,
-                                n=n: EQ_MHD_L.p3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
+                                n=n: EQ_MHD.p3_eq(x1, x2, x3) * _Ginv(x1, x2, x3)[m, n]]
                 _fun_S10[-1] += [lambda x1, x2, x3, m=m,
-                                 n=n: EQ_MHD_L.p0_eq(x1, x2, x3) if m == n else 0.]
+                                 n=n: EQ_MHD.p0_eq(x1, x2, x3) if m == n else 0.]
                 _fun_T1[-1] += [lambda x1, x2, x3, m=m, n=n: (_eval_cross(
                     x1, x2, x3, _b2_cross) @ _Ginv(x1, x2, x3))[m, n]]  # Matrix product!
                 _fun_X1[-1] += [lambda x1, x2, x3, m=m,
                                 n=n: (F.jacobian_inv(x1, x2, x3).T)[m, n]]
 
-                _fun_Q2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.n3_eq(
+                _fun_Q2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD.n3_eq( 
                     x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m == n else 0.]
                 _fun_T2[-1] += [lambda x1, x2, x3, m=m, n=n: _cross_mask[m][n] *
                                 _b2_cross[m][n](x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3))]
                 _fun_P2[-1] += [lambda x1, x2, x3, m=m, n=n: (_Ginv(x1, x2, x3) @ _eval_cross(
                     x1, x2, x3, _j2_cross))[m, n]]  # Matrix product!
-                _fun_S2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.p3_eq(
+                _fun_S2[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD.p3_eq(
                     x1, x2, x3) / np.sqrt(F.metric_det(x1, x2, x3)) if m == n else 0.]
                 _fun_X2[-1] += [lambda x1, x2, x3, m=m,
                                 n=n: F.jacobian(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
                 _fun_Z20[-1] += [lambda x1, x2, x3, m=m,
                                  n=n: F.metric(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
-                _fun_S20[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD_L.p0_eq(
+                _fun_S20[-1] += [lambda x1, x2, x3, m=m, n=n: EQ_MHD.p0_eq(
                     x1, x2, x3) * F.metric(x1, x2, x3)[m, n] / np.sqrt(F.metric_det(x1, x2, x3))]
 
         # Scalar functions
