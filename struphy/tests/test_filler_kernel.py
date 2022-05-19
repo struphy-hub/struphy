@@ -1,3 +1,5 @@
+import pytest
+
 import struphy.feec.bsplines_kernels as bsp
 from   struphy.feec                  import spline_space 
 from   struphy.pic                   import filler_kernel
@@ -5,13 +7,13 @@ from   struphy.pic                   import filler_kernel
 import numpy as np
 
 
-def test_Filler_Kernel():
+@pytest.mark.parametrize('Nel', [[8,5,6], [4, 4, 128]])
+@pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
+@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
+def test_Filler_Kernel(Nel, p, spl_kind):
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
-    Nel         = [4,5,6]
-    p           = [2,2,3]
-    spl_kind    = [True, True, True]
 
     spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0]) 
     spaces_FEM_2 = spline_space.Spline_space_1d(Nel[1], p[1], spl_kind[1])
@@ -325,4 +327,7 @@ def test_Filler_Kernel():
     print('test_filler_kernel passed!')
 
 if __name__ == '__main__':
-    test_Filler_Kernel()
+    Nel         = [4,5,6]
+    p           = [2,2,3]
+    spl_kind    = [True, True, True]
+    test_Filler_Kernel(Nel, p, spl_kind)

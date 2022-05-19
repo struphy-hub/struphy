@@ -1,30 +1,29 @@
-import struphy.feec.bsplines_kernels as     bsp
-from   struphy.feec                  import spline_space 
-from   struphy.pic                   import mat_vec_filler
+import pytest
+
+import struphy.feec.bsplines_kernels as bsp
+
+from struphy.feec   import spline_space 
+from struphy.pic    import mat_vec_filler
 
 import numpy as np
 
-
-def test_Mat_Vec_Filler():
+@pytest.mark.parametrize('Nel', [[8,5,6], [4, 4, 128]])
+@pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
+@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
+def test_Mat_Vec_Filler(Nel, p, spl_kind):
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
-    Nel         = [4,5,6]
-    p           = [2,2,3]
-    spl_kind    = [True, True, True]
-    nq_el       = [2, 2, 2]
-
-    spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0]) 
-    spaces_FEM_2 = spline_space.Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1])
-    spaces_FEM_3 = spline_space.Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2])
+    
+    spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0])
+    spaces_FEM_2 = spline_space.Spline_space_1d(Nel[1], p[1], spl_kind[1])
+    spaces_FEM_3 = spline_space.Spline_space_1d(Nel[2], p[2], spl_kind[2])
 
     SPACES = spline_space.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
     t1, t2, t3 = SPACES.T
 
     indn1, indn2, indn3 = SPACES.indN[0], SPACES.indN[1], SPACES.indN[2]
-
-
 
 
     # ========================================================================================= 
@@ -397,4 +396,7 @@ def test_Mat_Vec_Filler():
     print('test_mat_vec_filler passed!')
 
 if __name__ == '__main__':
-    test_Mat_Vec_Filler()
+    Nel         = [4,5,6]
+    p           = [2,2,3]
+    spl_kind    = [True, True, True]
+    test_Mat_Vec_Filler(Nel, p, spl_kind)

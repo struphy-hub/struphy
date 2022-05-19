@@ -112,9 +112,9 @@ def mat_fill_b_v1_diag(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -237,9 +237,9 @@ def m_v_fill_b_v1_diag(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22, vec2, filling2)
-    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22, vec2, filling2)
+    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -339,9 +339,9 @@ def mat_fill_b_v2_diag(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -463,9 +463,9 @@ def m_v_fill_b_v2_diag(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22, vec2, filling2)
-    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22, vec2, filling2)
+    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -565,9 +565,9 @@ def mat_fill_b_v1_asym(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
 
 
 # =====================================================================================================
@@ -690,10 +690,10 @@ def m_v_fill_b_v1_asym(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat12_vec1_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12, vec1, filling1)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat23_vec2_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23, vec2, filling2)
-    fk.fill_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], vec3, filling3)
+    fk.fill_mat12_vec1_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12, vec1, filling1)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat23_vec2_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23, vec2, filling2)
+    fk.fill_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], vec3, filling3)
 
 
 # =====================================================================================================
@@ -793,9 +793,9 @@ def mat_fill_b_v2_asym(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
 
 
 # =====================================================================================================
@@ -918,10 +918,10 @@ def m_v_fill_b_v2_asym(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat12_vec1_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12, vec1, filling1)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat23_vec2_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23, vec2, filling2)
-    fk.fill_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], vec3, filling3)
+    fk.fill_mat12_vec1_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12, vec1, filling1)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat23_vec2_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23, vec2, filling2)
+    fk.fill_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], vec3, filling3)
 
 
 # =====================================================================================================
@@ -1042,12 +1042,12 @@ def mat_fill_b_v1_symm(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -1191,12 +1191,12 @@ def m_v_fill_b_v1_symm(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22, vec2, filling2)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22, vec2, filling2)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -1317,12 +1317,12 @@ def mat_fill_b_v2_symm(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -1466,12 +1466,12 @@ def m_v_fill_b_v2_symm(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22, vec2, filling2)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22, vec2, filling2)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -1613,15 +1613,15 @@ def mat_fill_b_v1_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -1786,15 +1786,15 @@ def m_v_fill_b_v1_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -1936,15 +1936,15 @@ def mat_fill_b_v2_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -2109,15 +2109,15 @@ def m_v_fill_b_v2_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - pn2
     ie3 = span3 - pn3
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -2188,6 +2188,10 @@ def mat_fill_v1_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V1 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat22[:,:,:,:,:,:] = 0.
@@ -2198,9 +2202,9 @@ def mat_fill_v1_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -2289,6 +2293,10 @@ def m_v_fill_v1_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V1 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat22[:,:,:,:,:,:] = 0.
@@ -2304,9 +2312,9 @@ def m_v_fill_v1_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22, vec2, filling2)
-    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22, vec2, filling2)
+    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -2368,6 +2376,10 @@ def mat_fill_v2_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V2 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat22[:,:,:,:,:,:] = 0.
@@ -2378,9 +2390,9 @@ def mat_fill_v2_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -2460,6 +2472,10 @@ def m_v_fill_v2_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V2 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat22[:,:,:,:,:,:] = 0.
@@ -2475,9 +2491,9 @@ def m_v_fill_v2_diag(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22, vec2, filling2)
-    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22, vec2, filling2)
+    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -2539,6 +2555,10 @@ def mat_fill_v1_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V1 and written to mat23
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat12[:,:,:,:,:,:] = 0.
     mat13[:,:,:,:,:,:] = 0.
@@ -2549,9 +2569,9 @@ def mat_fill_v1_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
 
 
 # =====================================================================================================
@@ -2631,6 +2651,10 @@ def m_v_fill_v1_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V1 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat12[:,:,:,:,:,:] = 0.
     mat13[:,:,:,:,:,:] = 0.
@@ -2646,10 +2670,10 @@ def m_v_fill_v1_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat12_vec1_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12, vec1, filling1)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat23_vec2_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23, vec2, filling2)
-    fk.fill_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], vec3, filling3)
+    fk.fill_mat12_vec1_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12, vec1, filling1)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat23_vec2_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23, vec2, filling2)
+    fk.fill_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], vec3, filling3)
 
 
 # =====================================================================================================
@@ -2711,6 +2735,10 @@ def mat_fill_v2_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V2 and written to mat23
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat12[:,:,:,:,:,:] = 0.
     mat13[:,:,:,:,:,:] = 0.
@@ -2721,9 +2749,9 @@ def mat_fill_v2_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
 
 
 # =====================================================================================================
@@ -2803,6 +2831,10 @@ def m_v_fill_v2_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V2 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat12[:,:,:,:,:,:] = 0.
     mat13[:,:,:,:,:,:] = 0.
@@ -2818,10 +2850,10 @@ def m_v_fill_v2_asym(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat12_vec1_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12, vec1, filling1)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat23_vec2_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23, vec2, filling2)
-    fk.fill_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], vec3, filling3)
+    fk.fill_mat12_vec1_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12, vec1, filling1)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat23_vec2_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23, vec2, filling2)
+    fk.fill_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], vec3, filling3)
 
 
 # =====================================================================================================
@@ -2901,6 +2933,10 @@ def mat_fill_v1_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V1 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -2914,12 +2950,12 @@ def mat_fill_v1_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -3017,6 +3053,10 @@ def m_v_fill_v1_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V1 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3035,12 +3075,12 @@ def m_v_fill_v1_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22, vec2, filling2)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat22_vec2_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22, vec2, filling2)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat33_vec3_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -3120,6 +3160,10 @@ def mat_fill_v2_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V2 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3133,12 +3177,12 @@ def mat_fill_v2_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
     
 # =====================================================================================================
@@ -3236,6 +3280,10 @@ def m_v_fill_v2_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V2 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3254,12 +3302,12 @@ def m_v_fill_v2_symm(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22, vec2, filling2)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33, vec3, filling3)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat22_vec2_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22, vec2, filling2)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat33_vec3_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33, vec3, filling3)
 
 
 # =====================================================================================================
@@ -3354,6 +3402,10 @@ def mat_fill_v1_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V1 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3370,15 +3422,15 @@ def mat_fill_v1_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -3491,6 +3543,10 @@ def m_v_fill_v1_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V1 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3512,15 +3568,15 @@ def m_v_fill_v1_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -3615,6 +3671,10 @@ def mat_fill_v2_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multiplied by the basis functions of V1 and written to mat33
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3631,15 +3691,15 @@ def mat_fill_v2_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -3752,6 +3812,10 @@ def m_v_fill_v2_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
             number that will be multplied by the basis functions of V2 and written to vec3
     """
 
+    pn1 = p[0]
+    pn2 = p[1]
+    pn3 = p[2]
+    
     # make sure the matrices that are written to are empty
     mat11[:,:,:,:,:,:] = 0.
     mat12[:,:,:,:,:,:] = 0.
@@ -3768,15 +3832,15 @@ def m_v_fill_v2_full(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'flo
     ie2 = span[1] - p[1]
     ie3 = span[2] - p[2]
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -3927,15 +3991,15 @@ def mat_fill_b_v1_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - p[1]
     ie3 = span3 - p[2]
 
-    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -4109,15 +4173,15 @@ def m_v_fill_b_v1_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - p[1]
     ie3 = span3 - p[2]
 
-    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
-    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
-    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat22, filling22)
-    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,:], mat23, filling23)
-    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat32, filling32)
-    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,1:], mat33, filling33)
+    fk.fill_mat11_vec1_v1(p, bd1, bn2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat12, filling12)
+    fk.fill_mat13_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:], mat13, filling13)
+    fk.fill_mat21_vec2_v1(p, bn1, bd1, bn2, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v1(p, bn1, bd2, bn3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat22, filling22)
+    fk.fill_mat23_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:], mat23, filling23)
+    fk.fill_mat31_vec3_v1(p, bn1, bd1, bn2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v1(p, bn1, bn2, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat32, filling32)
+    fk.fill_mat33_v1(p, bn1, bn2, bd3, indn1[ie1,:], indn2[ie2,:], indn3[ie3,:pn3], mat33, filling33)
 
 
 # =====================================================================================================
@@ -4268,15 +4332,15 @@ def mat_fill_b_v2_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - p[1]
     ie3 = span3 - p[2]
 
-    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================
@@ -4445,15 +4509,15 @@ def m_v_fill_b_v2_full(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'flo
     ie2 = span2 - p[1]
     ie3 = span3 - p[2]
 
-    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat11, filling11, vec1, filling1)
-    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat12, filling12)
-    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,1:], indn3[ie3,1:], mat13, filling13)
-    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat21, filling21, vec2, filling2)
-    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat22, filling22)
-    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,:], indn3[ie3,1:], mat23, filling23)
-    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat31, filling31, vec3, filling3)
-    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat32, filling32)
-    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,1:], indn2[ie2,1:], indn3[ie3,:], mat33, filling33)
+    fk.fill_mat11_vec1_v2(p, bn1, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat11, filling11, vec1, filling1)
+    fk.fill_mat12_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat12, filling12)
+    fk.fill_mat13_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:], indn2[ie2,:pn2], indn3[ie3,:pn3], mat13, filling13)
+    fk.fill_mat21_vec2_v2(p, bn1, bd1, bn2, bd2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat21, filling21, vec2, filling2)
+    fk.fill_mat22_v2(p, bd1, bn2, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat22, filling22)
+    fk.fill_mat23_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:], indn3[ie3,:pn3], mat23, filling23)
+    fk.fill_mat31_vec3_v2(p, bn1, bd1, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat31, filling31, vec3, filling3)
+    fk.fill_mat32_v2(p, bd1, bn2, bd2, bn3, bd3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat32, filling32)
+    fk.fill_mat33_v2(p, bd1, bd2, bn3, indn1[ie1,:pn1], indn2[ie2,:pn2], indn3[ie3,:], mat33, filling33)
 
 
 # =====================================================================================================

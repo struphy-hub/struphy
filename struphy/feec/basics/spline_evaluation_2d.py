@@ -22,16 +22,16 @@ import struphy.feec.bsplines_kernels as bsp
 
 
 # =============================================================================
-def evaluation_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', span1 : 'int', span2 : 'int', nbase1 : 'int', nbase2 : 'int', coeff : 'double[:,:]') -> 'double':
+def evaluation_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'float[:]', basis2 : 'float[:]', span1 : 'int', span2 : 'int', nbase1 : 'int', nbase2 : 'int', coeff : 'float[:,:]') -> 'float':
     '''Summing non-zero contributions.
 
     Parameters:
     -----------
         p1, p2:         int             spline degrees
-        basis1, basis2: double[:]       pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2)
+        basis1, basis2: float[:]       pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2)
         span1, span2:   int             knot span indices from 'find_span'
         nbase1, nbase2: int             dimensions of spline spaces 
-        coeff:          double[:, :]    spline coefficients c_ij
+        coeff:          float[:, :]    spline coefficients c_ij
 
     Returns:
     --------
@@ -52,16 +52,16 @@ def evaluation_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 
 
 
 # =============================================================================
-def eval_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 'double[:]', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]') -> 'double':
+def eval_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'float[:]', basis2 : 'float[:]', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'float[:,:]') -> 'float':
     """
     Summing non-zero contributions.
 
     Parameters:
     -----------
         p1, p2:         int             spline degrees
-        basis1, basis2: double[:]       pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2)
+        basis1, basis2: float[:]       pn+1 values of non-zero basis splines at one point eta_n from 'basis_funs' (n=1,2)
         ind1, ind2      int[:]          contains the global indices of non-vanishing basis functions
-        coeff:          double[:, :]    spline coefficients c_ij
+        coeff:          float[:, :]    spline coefficients c_ij
 
     Returns:
     --------
@@ -82,16 +82,16 @@ def eval_kernel_2d(p1 : 'int', p2 : 'int', basis1 : 'double[:]', basis2 : 'doubl
 
 
 # =============================================================================
-def evaluate_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_n_n(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (NN)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         nbase_n1, nbase_n2: int             dimensions of univariate spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -123,16 +123,16 @@ def evaluate_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int',
 
 
 # =============================================================================
-def evaluate_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_diffn_n(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (dN/deta N)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         nbase_n1, nbase_n2: int             dimensions of spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -164,16 +164,16 @@ def evaluate_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'i
 
 
 # =============================================================================
-def evaluate_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_n_diffn(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', nbase_n1 : 'int', nbase_n2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (N dN/deta)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         nbase_n1, nbase_n2: int             dimensions of spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -205,16 +205,16 @@ def evaluate_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'i
 
 
 # =============================================================================
-def evaluate_d_n(td1 : 'double[:]', tn2 : 'double[:]', pd1 : 'int', pn2 : 'int', nbase_d1 : 'int', nbase_n2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_d_n(td1 : 'float[:]', tn2 : 'float[:]', pd1 : 'int', pn2 : 'int', nbase_d1 : 'int', nbase_n2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (DN)-tensor-product spline. 
 
     Parameters:
     -----------
-        td1, tn2:           double[:]       knot vectors
+        td1, tn2:           float[:]       knot vectors
         pd1, pn2:           int             spline degrees
         nbase_d1, nbase_n2: int             dimensions of spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -248,16 +248,16 @@ def evaluate_d_n(td1 : 'double[:]', tn2 : 'double[:]', pd1 : 'int', pn2 : 'int',
 
 
 # =============================================================================
-def evaluate_n_d(tn1 : 'double[:]', td2 : 'double[:]', pn1 : 'int', pd2 : 'int', nbase_n1 : 'int', nbase_d2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_n_d(tn1 : 'float[:]', td2 : 'float[:]', pn1 : 'int', pd2 : 'int', nbase_n1 : 'int', nbase_d2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (ND)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, td2:           double[:]       knot vectors
+        tn1, td2:           float[:]       knot vectors
         pn1, pd2:           int             spline degrees
         nbase_n1, nbase_d2: int             dimensions of spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -291,16 +291,16 @@ def evaluate_n_d(tn1 : 'double[:]', td2 : 'double[:]', pn1 : 'int', pd2 : 'int',
 
 
 # =============================================================================
-def evaluate_d_d(td1 : 'double[:]', td2 : 'double[:]', pd1 : 'int', pd2 : 'int', nbase_d1 : 'int', nbase_d2 : 'int', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def evaluate_d_d(td1 : 'float[:]', td2 : 'float[:]', pd1 : 'int', pd2 : 'int', nbase_d1 : 'int', nbase_d2 : 'int', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     '''Point-wise evaluation of (DD)-tensor-product spline. 
 
     Parameters:
     -----------
-        td1, td2:           double[:]       knot vectors
+        td1, td2:           float[:]       knot vectors
         pd1, pd2:           int             spline degrees
         nbase_d1, nbase_d2: int             dimensions of spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -335,17 +335,17 @@ def evaluate_d_d(td1 : 'double[:]', td2 : 'double[:]', pd1 : 'int', pd2 : 'int',
 
 
 # =============================================================================
-def eval_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int',  pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def eval_n_n(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int',  pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     """
     Point-wise evaluation of (NN)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         ind_n1, ind_n2      int[:]          contains the global indices of non-vanishing basis functions
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -371,17 +371,17 @@ def eval_n_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int',  pn2 : 'int', in
 
 
 # =============================================================================
-def eval_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def eval_diffn_n(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     """
     Point-wise evaluation of (dN/deta N)-tensor-product spline. 
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         ind1, ind2          int[:]          contains the global indices of non-vanishing basis functions
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -407,17 +407,17 @@ def eval_diffn_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int',
 
 
 # =============================================================================
-def eval_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 :  'double') -> 'double':
+def eval_n_diffn(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 :  'float') -> 'float':
     """
     Point-wise evaluation of (N dN/deta)-tensor-product spline.
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors
+        tn1, tn2:           float[:]       knot vectors
         pn1, pn2:           int             spline degrees
         ind1, ind2          int[:]          contains the global indices of non-vanishing basis functions
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -443,17 +443,17 @@ def eval_n_diffn(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int',
 
 
 # =============================================================================
-def eval_d_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def eval_d_n(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_n2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     """
     Point-wise evaluation of (DN)-tensor-product spline.
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors of B-splines
+        tn1, tn2:           float[:]       knot vectors of B-splines
         pn1, pn2:           int             B-spline degrees
         ind_d1, ind_n2      int[:]          contains the global indices of non-vanishing B-/D-splines
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -480,17 +480,17 @@ def eval_d_n(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind
 
 
 # =============================================================================
-def eval_n_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def eval_n_d(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', ind_n1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     """
     Point-wise evaluation of (ND)-tensor-product spline.
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors of B-splines
+        tn1, tn2:           float[:]       knot vectors of B-splines
         pn1, pn2:           int             B-spline degrees
         ind_n1, ind_d2      int[:]          contains the global indices of non-vanishing B-/D-splines
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -517,17 +517,17 @@ def eval_n_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind
 
 
 # =============================================================================
-def eval_d_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double', eta2 : 'double') -> 'double':
+def eval_d_d(tn1 : 'float[:]', tn2 : 'float[:]', pn1 : 'int', pn2 : 'int', ind_d1 : 'int[:]', ind_d2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float', eta2 : 'float') -> 'float':
     """
     Point-wise evaluation of (DD)-tensor-product spline.
 
     Parameters:
     -----------
-        tn1, tn2:           double[:]       knot vectors of B-splines
+        tn1, tn2:           float[:]       knot vectors of B-splines
         pn1, pn2:           int             B-spline degrees
         ind_d1, ind_d2      int[:]          contains the global indices of non-vanishing D-splines
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double          point of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float          point of evaluation
 
     Returns:
     --------
@@ -555,21 +555,21 @@ def eval_d_d(tn1 : 'double[:]', tn2 : 'double[:]', pn1 : 'int', pn2 : 'int', ind
 
 
 # =============================================================================
-def evaluate_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'double[:,:]', eta1 : 'double[:]', eta2 : 'double[:]', values : 'double[:,:]', kind : 'int'):
+def evaluate_tensor_product(t1 : 'float[:]', t2 : 'float[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'float[:,:]', eta1 : 'float[:]', eta2 : 'float[:]', values : 'float[:,:]', kind : 'int'):
     '''Tensor product evaluation (meshgrid) of tensor product splines (2d). 
 
     Parameters:
     -----------
-        t1, t2:             double[:]       knot vectors
+        t1, t2:             float[:]       knot vectors
         p1, p2:             int             spline degrees
         nbase_1, nbase_2:   int             dimensions of univariate spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double[:]       1d arrays of points of evaluation in respective direction
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float[:]       1d arrays of points of evaluation in respective direction
         kind:               int             which tensor product spline, 0: (NN), 11: (DN), 12: (ND), 2: (DD)
 
     Returns:
     --------
-        values:             double[:, :]    values of spline at points from np.meshgrid(eta1, eta2, indexing='ij').
+        values:             float[:, :]    values of spline at points from np.meshgrid(eta1, eta2, indexing='ij').
     '''
     
     for i1 in range(len(eta1)):
@@ -591,22 +591,22 @@ def evaluate_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 :
 
                 
 # =============================================================================
-def evaluate_matrix(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'double[:,:]', eta1 : 'double[:,:]', eta2 : 'double[:,:]', n1 : 'int', n2 : 'int', values : 'double[:,:]', kind : 'int'):
+def evaluate_matrix(t1 : 'float[:]', t2 : 'float[:]', p1 : 'int', p2 : 'int', nbase_1 : 'int', nbase_2 : 'int', coeff : 'float[:,:]', eta1 : 'float[:,:]', eta2 : 'float[:,:]', n1 : 'int', n2 : 'int', values : 'float[:,:]', kind : 'int'):
     '''Matrix evaluation of tensor product splines (2d). 
 
     Parameters:
     -----------
-        t1, t2:             double[:]       knot vectors
+        t1, t2:             float[:]       knot vectors
         p1, p2:             int             spline degrees
         nbase_1, nbase_2:   int             dimensions of univariate spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double[:, :]    points of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float[:, :]    points of evaluation
         n1, n2:             int             eta1.shape = (n1, n2)
         kind:               int             which tensor product spline, 0: (NN), 11: (DN), 12: (ND), 2: (DD)
 
     Returns:
     --------
-        values:             double[:, :]    values of spline at points (eta1, eta2).
+        values:             float[:, :]    values of spline at points (eta1, eta2).
     '''
     
     for i1 in range(n1):
@@ -628,22 +628,22 @@ def evaluate_matrix(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', 
 
 
 # =============================================================================
-def eval_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double[:]', eta2 : 'double[:]', values : 'double[:,:]', kind : 'int'):
+def eval_tensor_product(t1 : 'float[:]', t2 : 'float[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float[:]', eta2 : 'float[:]', values : 'float[:,:]', kind : 'int'):
     """
     Tensor product evaluation (meshgrid) of tensor product splines (2d). 
 
     Parameters:
     -----------
-        t1, t2:             double[:]       knot vectors
+        t1, t2:             float[:]       knot vectors
         p1, p2:             int             spline degrees
         nbase_1, nbase_2:   int             dimensions of univariate spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double[:]       1d arrays of points of evaluation in respective direction
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float[:]       1d arrays of points of evaluation in respective direction
         kind:               int             which tensor product spline, 0: (NN), 11: (DN), 12: (ND), 2: (DD)
 
     Returns:
     --------
-        values:             double[:, :]    values of spline at points from np.meshgrid(eta1, eta2, indexing='ij').
+        values:             float[:, :]    values of spline at points from np.meshgrid(eta1, eta2, indexing='ij').
     """
     
     for i1 in range(len(eta1)):
@@ -665,23 +665,23 @@ def eval_tensor_product(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'in
                 
                             
 # =============================================================================
-def eval_matrix(t1 : 'double[:]', t2 : 'double[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'double[:,:]', eta1 : 'double[:,:]', eta2 : 'double[:,:]', n1 : 'int', n2 : 'int', values : 'double[:,:]', kind : 'int'):
+def eval_matrix(t1 : 'float[:]', t2 : 'float[:]', p1 : 'int', p2 : 'int', ind1 : 'int[:]', ind2 : 'int[:]', coeff : 'float[:,:]', eta1 : 'float[:,:]', eta2 : 'float[:,:]', n1 : 'int', n2 : 'int', values : 'float[:,:]', kind : 'int'):
     """
     Matrix evaluation of tensor product splines (2d). 
 
     Parameters:
     -----------
-        t1, t2:             double[:]       knot vectors
+        t1, t2:             float[:]       knot vectors
         p1, p2:             int             spline degrees
         nbase_1, nbase_2:   int             dimensions of univariate spline spaces 
-        coeff:              double[:, :]    spline coefficients c_ij
-        eta1, eta2:         double[:, :]    points of evaluation
+        coeff:              float[:, :]    spline coefficients c_ij
+        eta1, eta2:         float[:, :]    points of evaluation
         n1, n2:             int             eta1.shape = (n1, n2)
         kind:               int             which tensor product spline, 0: (NN), 11: (DN), 12: (ND), 2: (DD)
 
     Returns:
     --------
-        values:             double[:, :]    values of spline at points (eta1, eta2).
+        values:             float[:, :]    values of spline at points (eta1, eta2).
     """
     
     for i1 in range(n1):
