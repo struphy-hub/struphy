@@ -3,103 +3,239 @@
 # This specific template is located at:
 # https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Python.gitlab-ci.yml
 
+# Keyword reference for the .gitlab-ci.yml file: 
+# https://gitlab.mpcdf.mpg.de/help/ci/yaml/index.md
+
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/python/tags/
-image: python:3.9-bullseye
+
+  
+
+default:
+  #image: python:3.9-bullseye
+  #image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
+
+  before_script:
+    - module purge
+    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module list
+    - echo "Hello ${GITLAB_USER_NAME} !"
+    - echo "This is job ${CI_JOB_ID}"
+    - python -V 
+    - python3 -V
+    - pwd
+    - ls -1
+    - echo "Project $CI_PROJECT_NAME"
+    - VERSION=$(python3 -c 'from struphy.version import __version__; print(__version__)')
+    - echo "Version $VERSION"
+    - source ${GLOBAL_CACHE_PATH}/env/bin/activate
+    - which python3
+    - ENV_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_path("platlib"))')
+    - echo ${ENV_PATH}
+    - pip list
+    # - apt-get -y update
+    # - apt-get install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    # - apt-get install -y libhdf5-openmpi-dev
+
+  #cache:
+  #  paths:
+  #    - .cache/pip
+  #    - env/
+
+  tags:
+    - ipp_vm_linux_struphy
 
 # Change pip's cache directory to be inside the project directory since we can
 # only cache local items.
-#variables:
-#  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/struphy_${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
+  #VENV_NAME: "env/"
 
 # Pip's cache doesn't store the python packages
 # https://pip.pypa.io/en/stable/reference/pip_install/#caching
 #
 # If you want to also cache the installed packages, you have to install
 # them in a virtualenv and cache it as well.
-#cache:
-#  paths:
-#    - .cache/pip
-#    - venv/
-
-variables:
-  GIT_SUBMODULE_STRATEGY: recursive
 
 stages:
-  #- Lint
+  - startup
+  - build
+  - install
   - test
   - deploy
+  - cleanup
+
+# Create virtual environment (cached)
+create_venv:
+  stage: startup
+
+  before_script:
+    - echo "Creating virtual environment..."
+    - module purge
+    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module list
+
+  script:
+    #- rm -rf env
+    - pip install -U virtualenv
+    - python3 -m venv ${GLOBAL_CACHE_PATH}/env
+    - source ${GLOBAL_CACHE_PATH}/env/bin/activate
+    - python3 -m pip install --upgrade pip
+    - pip install -U pytest coverage h5py pylint build wheel # somehow the build package is not cached
+    - pip list
+
+# Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
+ci_variables:
+  stage: startup
+
+  before_script:
+    - echo "All CI predefined variables:"
+    - module purge
+    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module list
+
+  script:
+    - echo $CHAT_CHANNEL
+    - echo $CHAT_INPUT
+    - echo $CHAT_USER_ID
+    - echo $CI
+    - echo $CI_API_V4_URL
+    - echo $CI_BUILDS_DIR
+    - echo $CI_COMMIT_AUTHOR
+    - echo $CI_COMMIT_BEFORE_SHA
+    - echo $CI_COMMIT_BRANCH
+    - echo $CI_COMMIT_DESCRIPTION
+    - echo $CI_COMMIT_MESSAGE
+    - echo $CI_COMMIT_REF_NAME
+    - echo $CI_COMMIT_REF_PROTECTED
+    - echo $CI_COMMIT_REF_SLUG
+    - echo $CI_COMMIT_SHA
+    - echo $CI_COMMIT_SHORT_SHA
+    - echo $CI_COMMIT_TAG
+    - echo $CI_COMMIT_TIMESTAMP
+    - echo $CI_COMMIT_TITLE
+    - echo $CI_CONCURRENT_ID
+    - echo $CI_CONCURRENT_PROJECT_ID
+    - echo $CI_CONFIG_PATH
+    - echo $CI_DEBUG_TRACE
+    - echo $CI_DEFAULT_BRANCH
+    - echo $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX
+    - echo $CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX
+    - echo $CI_DEPENDENCY_PROXY_PASSWORD
+    - echo $CI_DEPENDENCY_PROXY_SERVER
+    - echo $CI_DEPENDENCY_PROXY_USER
+    - echo $CI_DEPLOY_FREEZE
+    - echo $CI_DEPLOY_PASSWORD
+    - echo $CI_DEPLOY_USER
+    - echo $CI_DISPOSABLE_ENVIRONMENT
+    - echo $CI_ENVIRONMENT_NAME
+    - echo $CI_ENVIRONMENT_SLUG
+    - echo $CI_ENVIRONMENT_URL
+    - echo $CI_ENVIRONMENT_ACTION
+    - echo $CI_ENVIRONMENT_TIER
+    - echo $CI_HAS_OPEN_REQUIREMENTS
+    - echo $CI_JOB_ID
+    - echo $CI_JOB_IMAGE
+    - echo $CI_JOB_JWT
+    - echo $CI_JOB_JWT_V1
+    - echo $CI_JOB_JWT_V2
+    - echo $CI_JOB_MANUAL
+    - echo $CI_JOB_NAME
+    - echo $CI_JOB_STAGE
+    - echo $CI_JOB_STATUS
+    - echo $CI_JOB_TOKEN
+    - echo $CI_JOB_URL
+    - echo $CI_JOB_STARTED_AT
+    - echo $CI_KUBERNETES_ACTIVE
+    - echo $CI_NODE_INDEX
+    - echo $CI_NODE_TOTAL
+    - echo $CI_OPEN_MERGE_REQUESTS
+    - echo $CI_PAGES_DOMAIN
+    - echo $CI_PAGES_URL
+    - echo $CI_PIPELINE_ID
+    - echo $CI_PIPELINE_IID
+    - echo $CI_PIPELINE_SOURCE
+    - echo $CI_PIPELINE_TRIGGERED
+    - echo $CI_PIPELINE_URL
+    - echo $CI_PIPELINE_CREATED_AT
+    - echo $CI_PROJECT_CONFIG_PATH
+    - echo $CI_PROJECT_DIR
+    - echo $CI_PROJECT_ID
+    - echo $CI_PROJECT_NAME
+    - echo $CI_PROJECT_NAMESPACE
+    - echo $CI_PROJECT_PATH_SLUG
+    - echo $CI_PROJECT_PATH
+    - echo $CI_PROJECT_REPOSITORY_LANGUAGES
+    - echo $CI_PROJECT_ROOT_NAMESPACE
+    - echo $CI_PROJECT_TITLE
+    - echo $CI_PROJECT_URL
+    - echo $CI_PROJECT_VISIBILITY
+    - echo $CI_PROJECT_CLASSIFICATION_LABEL
+    - echo $CI_REGISTRY_IMAGE
+    - echo $CI_REGISTRY_PASSWORD
+    - echo $CI_REGISTRY_USER
+    - echo $CI_REGISTRY
+    - echo $CI_REPOSITORY_URL
+    - echo $CI_RUNNER_DESCRIPTION
+    - echo $CI_RUNNER_EXECUTABLE_ARCH
+    - echo $CI_RUNNER_ID
+    - echo $CI_RUNNER_REVISION
+    - echo $CI_RUNNER_SHORT_TOKEN
+    - echo $CI_RUNNER_TAGS
+    - echo $CI_RUNNER_VERSION
+    - echo $CI_SERVER_HOST
+    - echo $CI_SERVER_NAME
+    - echo $CI_SERVER_PORT
+    - echo $CI_SERVER_PROTOCOL
+    - echo $CI_SERVER_REVISION
+    - echo $CI_SERVER_URL
+    - echo $CI_SERVER_VERSION_MAJOR
+    - echo $CI_SERVER_VERSION_MINOR
+    - echo $CI_SERVER_VERSION_PATCH
+    - echo $CI_SERVER_VERSION
+    - echo $CI_SERVER
+    - echo $CI_SHARED_ENVIRONMENT
+    - echo $GITLAB_CI
+    - echo $GITLAB_FEATURES
+    - echo $GITLAB_USER_EMAIL
+    - echo $GITLAB_USER_ID
+    - echo $GITLAB_USER_LOGIN
+    - echo $GITLAB_USER_NAME
+    - echo $TRIGGER_PAYLOAD
 
 # Verify the PEP-8 guidelines for your code
-#linting:
-#  stage: Lint
-#  script:
-#    - pylint *.py  
+linting:
+  stage: build 
 
-unittest:
-  stage: test
-  # artifacts:
-  #   reports:
-  #     cobertura: tests/coverage.xml
-  before_script:
-    - apt-get -y update
-    - apt-get -y install libopenmpi-dev tree
-    # - pip install virtualenv
-    # - python -m venv env_test
-    # - source env_test/bin/activate
-    - pip install -U pytest coverage
-    - pip install h5py
-    - cd psydac
-    - git pull origin devel
-    - export CC="mpicc"
-    - export HDF5_MPI="ON"
-    - python3 -m pip install -r requirements.txt
-    - python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    - pip install .
-    - cd psydac/core
-    - pyccel kernels.py --language fortran
-    - cd -
-    - cd ..
-    - cd gvec_to_python
-    - python3 -m pip install . -r requirements.txt
-    - pip install sympy==1.6.1 
-    - cd ..
-    - pip install .
-    - struphy
-    - struphy compile
   script:
-    #- python setup.py test
-    - pip install -U pyccel
-    - cd $(python -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/tests/
-    - pytest
-    # - example_pproc_serial
-    # - example_pproc
-    # - coverage run -m pytest
-    # - coverage xml
-    # - coverage report --skip-empty
-    # - coverage erase
-    # - cd ..
+    - FLAGS="--recursive=y --exit-zero --reports=yes"
+    - mkdir linting
+    - pylint struphy/analytic_funcs/           --output-format=text:linting/analytic_funcs.txt $FLAGS
+    - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
+    - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
+    - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
+    - pylint struphy/fields_equil/             --output-format=text:linting/fields_equil.txt $FLAGS
+    - pylint struphy/fields_init/              --output-format=text:linting/fields_init.txt $FLAGS
+    - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
+    - pylint struphy/kinetic_equil/            --output-format=text:linting/kinetic_equil.txt $FLAGS
+    - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
+    - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
+    - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
+    - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
+    - pylint struphy/psydac_linear_operators/  --output-format=text:linting/psydac_linear_operators.txt $FLAGS
+    - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
+    
+  artifacts:
+    paths:
+      - linting/
 
-#run:
-#  script:
-#    - python setup.py bdist_wheel
-#    # an alternative approach is to install and run:
-#    - pip install dist/*
-#    # run the command here
-#  artifacts:
-#    paths:
-#      - dist/*.whl
-
-pages:
- stage: deploy
- before_script:
-    - apt-get -y update
-    - apt-get -y install libopenmpi-dev tree
-    # - pip install virtualenv
-    # - python -m venv env_test
-    # - source env_test/bin/activate
-    - pip install -U pytest coverage
-    - pip install h5py
+# Build struphy
+build:
+  stage: build
+  
+  script:
     - cd psydac
     - git pull origin devel
     - export CC="mpicc"
@@ -107,22 +243,84 @@ pages:
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .
-    - cd psydac/core
-    - pyccel kernels.py --language fortran
-    - cd -
     - cd ..
     - cd gvec_to_python
     - python3 -m pip install . -r requirements.txt
     - pip install sympy==1.6.1 
     - cd ..
-    - pip install .
+    - python -m build # build struphy (.whl)
+    - ls -1 
+
+  artifacts:
+    paths:
+      - dist/
+
+# Install and compile
+install:
+  stage: install
+
+  script:
+    - pip install dist/struphy*.whl
+    - pip show struphy
     - struphy
- script:
-   - cd doc ; make html
-   - mv _build/html/ ../public/
- artifacts:
-   paths:
-      - public
-#  rules:
-#    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - pip install -U pyccel
+    - struphy compile
+    - pip list
+    - cd ${ENV_PATH}/psydac/core
+    - pyccel kernels.py --language fortran
+
+# Testing suite
+unit_tests:
+  stage: test
+
+  script:
+    #- pip install dist/struphy*.whl
+    #- struphy compile
+    - cd ${ENV_PATH}/struphy/tests/
+    - coverage run --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
+    - cd -
+    - ls -1
+    - coverage xml
+    - coverage report --skip-empty
+    - coverage erase
+
+  artifacts:
+    reports:
+      cobertura: coverage.xml
+
+code_tests:
+  stage: test
+
+  script:
+    #- pip install dist/struphy*.whl
+    #- struphy compile
+    # Test maxwell
+    - struphy run maxwell -i params_ci_1.yml -o sim_1
+    - struphy run maxwell -i params_ci_2.yml -o sim_2
+    - struphy run maxwell -i params_ci_2.yml -o sim_3 --mpi 2
+    - struphy profile ${ENV_PATH}/struphy/io/out/sim_1/ ${ENV_PATH}/struphy/io/out/sim_2/ ${ENV_PATH}/struphy/io/out/sim_3/
+    # Add Test for each model
+
+
+# Deployment
+pages:
+  stage: deploy
+
+  script:
+    - cd doc ; make html
+    - mv _build/html/ ../public/
+
+  artifacts:
+    paths:
+       - public/
+
+
+cleanup:
+  stage: cleanup
+
+  script:
+    - pwd
+    - echo "on ${CI_RUNNER_DESCRIPTION}."
+    - echo "remove:" ${GLOBAL_CACHE_PATH}
+    - rm -rf ${GLOBAL_CACHE_PATH}
 

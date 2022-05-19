@@ -70,9 +70,9 @@ fields :
             amp   : 0.1       # noise amplitude
 
 grid :
-      Nel      : [4, 4, 128] # number of grid cells > p
-      p        : [2, 2, 3]  # spline degree > 1
-      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      Nel      : [8, 8, 4] # number of grid cells > p
+      p        : [2, 3, 2]  # spline degree > 1
+      spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # normal component boundary conditions in eta_1 for 2-forms (homogeneous Dirichlet = d, free boundary = f)
       nq_el    : [2, 2, 2] # quadrature points per grid cell
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for projection)
@@ -80,7 +80,7 @@ grid :
 
 time : 
       dt         : 0.05
-      Tend       : 100
+      Tend       : 0.5
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # 'LieTrotter' or 'Strang'
 

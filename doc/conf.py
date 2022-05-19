@@ -15,6 +15,7 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 import sphinx_rtd_theme
+from struphy.version import __version__
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +24,7 @@ copyright = '2021, Max Planck Institute for Plasma Physics'
 author = 'Max Planck Institute for Plasma Physics'
 
 # The full version, including alpha/beta/rc tags
-release = '1.8.2 beta'
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 

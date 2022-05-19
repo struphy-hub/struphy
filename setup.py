@@ -1,11 +1,11 @@
-import setuptools  # this is the "magic" import
-from setuptools import setup
-#from numpy.distutils.core import setup, Extension
+from setuptools import setup, find_packages
+
+
 
 setup(
     name="struphy",
-    version="1.8.2",
-    packages=setuptools.find_packages(),
+    #version='1.8.2', # auto-detected
+    packages=find_packages(),
     package_data={
         'struphy.mhd_equil': [
             'gvec/*.dat',
@@ -13,7 +13,9 @@ setup(
             'gvec/*.hdf5',
         ],
         'struphy.io': ['batch/*.sh'],
-        'struphy.io.inp': ['parameters.yml'],
+        'struphy.io.inp': ['parameters.yml',
+                           'params_ci_1.yml',
+                           'params_ci_2.yml'],
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
@@ -51,7 +53,7 @@ setup(
     author="Max Planck Institute for Plasma Physics, Garching, Germany",
     author_email="stefan.possanner@ipp.mpg.de, florian.holderied@ipp.mpg.de, xin.wang@ipp.mpg.de",
     description="Multi-model plasma physics package",
-    license="GNU",
+    license="not yet licensed.",
     keywords="plasma, partial differential equations, energetic particles",
     url="https://clapp.pages.mpcdf.de/hylife/",   # project home page, if any
 )
