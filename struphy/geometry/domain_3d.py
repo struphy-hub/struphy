@@ -970,3 +970,26 @@ class Domain():
         return values
 
 
+    def show_domain(self):
+        '''Plots isolines of the 2D domain at eta3 = 0.''' 
+        
+        import matplotlib.pyplot as plt
+        
+        e1 = np.linspace(0., 1., 101)
+        e2 = np.linspace(0., 1., 101)
+        
+        X = self.evaluate(e1, e2, 0., 'x')
+        Y = self.evaluate(e1, e2, 0., 'y')
+        
+        # eta1-isolines
+        for i in range(e1.size//5 + 1):
+            plt.plot(X[i*5, :], Y[i*5, :], 'k')
+            
+        # eta2-isolines
+        for j in range(e2.size//5 + 1):
+            plt.plot(X[:, j*5], Y[:, j*5], 'r')
+            
+        plt.xlabel('x')
+        plt.ylabel('y')
+            
+        plt.show()

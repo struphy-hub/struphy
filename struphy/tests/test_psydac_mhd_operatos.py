@@ -87,8 +87,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Mhd equilibirum (slab)
     mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200.}
     
-    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params)
-    EQ_MHD.enable_pullbacks(DOMAIN)
+    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params, DOMAIN)
 
     # Psydac spline spaces
     V0 = DERHAM_PSY.V0
