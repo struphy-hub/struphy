@@ -44,7 +44,10 @@ If you have a bigger code change in mind that might take several days or weeks::
 4. Click ``Create milestone``.
 5. Add issues that correspond to your milestone (see above).
 
-Regularly comment on issues that you are working on. 
+.. note::
+
+    Create :ref:`feature_branches` to work an an issue or a group of issues. **Delete** the feature branch after the merge request.
+    Do not keep a feature branch too long (usually a couple of days, 1-2 weeks max). 
 
 **Closing an issue**: mention the issue via its link (bottom of the right side panel of the issue's page) in the corresponding 
 :ref:`merge request <merge_requests>`, then close the issue.
@@ -66,9 +69,9 @@ Feature branches
 When implementing changes to ``devel`` you must do this via a **feature branch** in the following way::
 
     git checkout devel
-    git checkout -b <name_of_feature>
+    git checkout -b feature
 
-This creates locally on your machine the new feature branch `<name_of_feature>` and checks it out.
+This creates locally on your machine the new feature branch `feature` and checks it out.
 Work on your new feature and commit changes in a timely manner::
 
     git commit -m 'I made this and that.'
@@ -82,13 +85,18 @@ From time to time, it is important to check whether the main branch has changed
     git checkout devel
     git status
 
-In case the main branch has changed you must perform :ref:`rebasing`. 
+In case the main branch has changed you must perform either :ref:`rebasing` or :ref:`merging` (see `here <https://www.atlassian.com/de/git/tutorials/merging-vs-rebasing>`_ for a comparison of the two concepts). 
+Merging must be done instead of rebasing if
+
+1. Your branch is published (pushed to origin)
+2. Your branch is not yet merged with main
+3. The main branch has changed since your feature creation or last rebase
 
 **The golden rule of rebasing: only rebase a private branch!** This means you rebase **before** publishing your feature branch to the repository.
 
 When you are done coding the new feature, create a new remote branch and push your changes::
 
-    git push -u origin <name_of_feature>
+    git push -u origin feature
 
 You can continue working locally on your feature, then use ``git push`` to update the new remote branch.
 
@@ -101,8 +109,8 @@ Once you are done working on the new feature, you must create a **merge request*
 There are several ways to do this, one of which is as follows: 
 
     1. On the gitlab webpage go to "Merge requests" on the left panel of the page. 
-    2. Choose ``<name_of_feature>`` as the **source branch** and ``devel`` as the **target branch**.
-    3. Select *Stefan Possanner* as **Assignee** and *Florian Holderied* as **Reviewer**.
+    2. Choose ``feature`` as the **source branch** and ``devel`` as the **target branch**.
+    3. Select either *Stefan Possanner* or *Florian Holderied* as **Assignee**.
     4. Check both boxes ``delete source branch`` and ``sqash commits``.
     5. Click "Create merge request".
 
@@ -124,10 +132,10 @@ In this case it is advised to **rebase your feature branch** as follows
 
     git checkout devel
     git pull
-    git checkout <name_of_feature>
+    git checkout feature
     git rebase devel
 
-This will add your ``<name_of_feature>`` commits on top of the main branch's current state.
+This will add your ``feature`` commits on top of the main branch's current state.
 
 **The golden rule of rebasing: only rebase a private branch!** 
 This means you rebase **before** publishing your feature branch to the repository.
@@ -156,6 +164,27 @@ If no files have to be changed you can move forward with ``git rebase --skip``.
 In case that you made an error during the rebase process you can always go back to your local state with ``git rebase --abort``.
 
 
+.. _merging:
+
+Merging
+^^^^^^^
+
+Merging must be done instead of rebasing if
+
+1. Your branch is published (pushed to origin)
+2. Your branch is not yet merged with main
+3. The main branch has changed since your feature creation or last rebase
+
+Merging is easy::
+
+    git checkout devel
+    git pull
+    git checkout feature
+    git merge devel
+
+Merging will create a meaningless merge commit in your ``git log``. 
+
+
 .. _change_doc:
 
 Changing the documentation 
@@ -168,9 +197,10 @@ If you make changes to these files, you can review them in your browser (e.g. fi
     make html
     firefox _build/html/index.html
 
-When making firther changes, just do ``make html`` and refresh the window in your browser.
+When making further changes, just do ``make html`` and refresh the window in your browser.
 
-**Please keep the documentation up-to-date with your added features.**
+.. note::
+    Please keep the documentation up-to-date with your added features.
 
 
 .. _add_model:
@@ -193,21 +223,21 @@ Struphy can accommodate only models that satisfy the following criteria:
 * Single patch mapping (see :ref:`add_mapping`)
 
 The time stepping scheme can be composed of several well-defined **propagators**.
-Assuming our model features the unknowns :math:`vars(t)`, the overall propagator
-can be denoted as :math:`\Phi_{\Delta t}[vars(t)] = vars(t + \Delta t)`.
+Assuming our model features the unknowns :math:`vars(t^n)` at time :math:`t^n`, the overall propagator
+can be denoted as :math:`\Phi_{\Delta t}[vars(t^n)] = vars(t^n + \Delta t)`.
 Struphy can handle models where :math:`\Phi_{\Delta t}` is decomposed (or split):  
 
 .. math::
-    \Phi_{\Delta t}[vars(t)] = \Phi^1_{\Delta t}[\textnormal{subset1}(vars(t))] \circ \Phi^2_{\Delta t}[\textnormal{subset2}(vars(t))] \circ ...
+    \Phi_{\Delta t}[vars(t^n)] = \Phi^1_{\Delta t}[\textnormal{subset1}(vars(t^n))] \circ \Phi^2_{\Delta t}[\textnormal{subset2}(vars(t^n))] \circ ...
 
-with sub steps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t)`. 
+with sub steps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t^n)`. 
 More refined splitting schemes than Lie-Trotter are available in Struphy (see ``struphy/models/codes/exec.py`` lines 162-182):
 
 .. literalinclude:: ../../struphy/models/codes/exec.py
     :language: python
     :linenos: 
     :lineno-start: 162
-    :lines: 162-182
+    :lines: 162-184
 
 .. _base_classes:
 
@@ -471,6 +501,37 @@ Adding new equilibria
 
 Adding new PIC accumulation routines 
 ------------------------------------
+
+
+.. _ci:
+
+Continuous integration 
+----------------------
+
+`Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
+On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
+
+In Struphy, there are two ways of testing code:
+
+1. **Unit tests**: test small units of ``Python`` code (functions, modules).
+2. **Code tests**: runs a complete code via ``struphy run`` on only a few points in space-time.
+
+The **unit tests** have to be added in the folder ``struphy/tests``. The files therein have to start with ``test_`` 
+and contain ONLY functions that also start with ``test_``. In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 258
+    :lines: 258-258
+
+The **code tests** must be added directly in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 273
+    :lines: 273-277
+
+There are pre-defined parameter files starting with ``params_ci_`` available for code tests (you can add to these if necessary). 
 
 
 

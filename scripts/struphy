@@ -113,12 +113,7 @@ while [[ $# -gt 0 ]]; do
     -t|--tree)
       echo "Struphy package content"
       echo ""
-      echo "- in platform-specific library" $PLATLIB:
-      cd $PLATLIB
-      tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
-      echo ""
-      echo "- in local library" $LOCAL:
-      cd $LOCAL
+      cd $STRUPHY
       tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
       exit 0
       ;;

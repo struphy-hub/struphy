@@ -161,16 +161,18 @@ split_algo = params['time']['split_algo']
 
 def update():
 
+    # First order in time
     if split_algo == 'LieTrotter':
         
         for propagator in MODEL.propagators:
             propagator.push(dt)
 
+    # Second order in time
     elif split_algo == 'Strang':
 
         assert len(MODEL.propagators) > 1
         
-        for propagator in MODEL.propagators[-1]:
+        for propagator in MODEL.propagators[:-1]:
             propagator.push(dt/2.)
 
         MODEL.propagators[-1].push(dt)

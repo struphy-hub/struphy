@@ -15,7 +15,7 @@ Linux packages
 
 ::
 
-    sudo apt update
+    sudo apt update -y
     sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
     sudo apt install -y libhdf5-openmpi-dev
     sudo apt install -y python3-pip python3-mpi4py

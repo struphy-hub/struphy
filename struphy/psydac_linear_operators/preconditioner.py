@@ -31,19 +31,21 @@ class MassMatrixPreConditioner(LinearSolver):
 
     def __init__(self, femspace, use_fft=True):
 
-        # Get dimensions (=number of elements for periodic boundary conditions) and degrees
+        # Get 1d space infos:
         if isinstance(femspace, TensorFemSpace):
-            _Nel = [[space.ncells for space in femspace.spaces]]
+            _dims = [[space.nbasis for space in femspace.spaces]]
             _p   = [[space.degree for space in femspace.spaces]]
             _basis = [[space.basis for space in femspace.spaces]]
         elif isinstance(femspace, ProductFemSpace):
-            _Nel = [[direction.ncells for direction in space.spaces] for space in femspace.spaces]
+            _dims = [[direction.nbasis for direction in space.spaces] for space in femspace.spaces]
             _p   = [[direction.degree for direction in space.spaces] for space in femspace.spaces]
             _basis = [[direction.basis for direction in space.spaces] for space in femspace.spaces]
         else:
             raise AssertionError('Argument "femspace" not of correct type.')
 
         self._femspace = femspace
+
+        # Deter
 
         # Psydac symbolic logical domain
         _domain_log = Line('L', bounds=(0, 1))
@@ -53,13 +55,14 @@ class MassMatrixPreConditioner(LinearSolver):
         # Obtain first column of 1d mass matrices 
         self._solvers = []
         self._matrices = []
-        for Nel_dirs, p_dirs, basis_dirs in zip(_Nel, _p, _basis):
+        for dim_i, p_dirs, basis_dirs in zip(_dims, _p, _basis):
             self._solvers += [[]]
             self._matrices += [[]]
-            for Nel, p, basis in zip(Nel_dirs, p_dirs, basis_dirs):
+            for dim, p, basis in zip(dim_i, p_dirs, basis_dirs):
 
-                # Discrete logical domain, no mpi communicator passed (!), hence not distributed
-                _domain_log_h = discretize(_domain_log, ncells=[Nel])
+                # Discrete logical domain, no mpi communicator passed, hence not distributed
+                # Preconditioner is periodic, hence ncells=dim
+                _domain_log_h = discretize(_domain_log, ncells=[dim])
  
                 # Discrete De Rham with periodic boundary conditions
                 if basis == 'M': p += 1
