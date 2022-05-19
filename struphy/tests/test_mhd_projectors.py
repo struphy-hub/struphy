@@ -50,8 +50,7 @@ def test_1form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
-        eq_MHD.enable_pullbacks(DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
 
@@ -342,8 +341,7 @@ def test_2form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
-        eq_MHD.enable_pullbacks(DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
 
@@ -612,8 +610,7 @@ def test_1form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
-        eq_MHD.enable_pullbacks(DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
 
@@ -778,8 +775,7 @@ def test_2form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.})
-        eq_MHD.enable_pullbacks(DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
 
