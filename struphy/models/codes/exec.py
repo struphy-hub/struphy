@@ -18,7 +18,7 @@ import time
 import numpy as np
 
 from struphy.geometry.domain_3d import Domain
-from struphy.feec.psydac_derham import Derham_build
+from struphy.psydac_api.psydac_derham import Derham_build
 from struphy.models.codes import models
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 

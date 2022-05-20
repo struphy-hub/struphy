@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import scipy.special as sp
 
-from struphy.psydac_linear_operators.fields import Field_init
+from struphy.psydac_api.fields import Field_init
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container   
 
 __all__ = ['StruphyModels',
@@ -15,7 +15,7 @@ class StruphyModel( metaclass=ABCMeta ):
     Parameters
     ..........
         DR: Derham obj
-            From struphy/feec/psydac_derham.Derham_build.
+            From struphy/psydac_api/psydac_derham.Derham_build.
 
         DOMAIN: Domain obj
             From struphy/geometry/domain_3d.Domain.
@@ -56,12 +56,12 @@ class StruphyModel( metaclass=ABCMeta ):
 
     @property
     def fields( self ):
-        '''List of Struphy fields, see struphy/psydac_linear_operators/fields.'''
+        '''List of Struphy fields, see struphy/psydac_api/fields.'''
         return self._fields
 
     @property
     def DR( self ):
-        '''3d Derham sequence, see struphy/feec/psydac_derham.'''
+        '''3d Derham sequence, see struphy/psydac_api/psydac_derham.'''
         return self._DR
 
     @property
@@ -138,7 +138,7 @@ class Maxwell( StruphyModel ):
     Parameters
     ..........
         DR: Derham obj
-            From struphy/feec/psydac_derham.Derham_build.
+            From struphy/psydac_api/psydac_derham.Derham_build.
 
         DOMAIN: Domain obj
             From struphy/geometry/domain_3d.Domain.

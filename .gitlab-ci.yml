@@ -224,7 +224,7 @@ linting:
     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
     - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
-    - pylint struphy/psydac_linear_operators/  --output-format=text:linting/psydac_linear_operators.txt $FLAGS
+    - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
     - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
     
   artifacts:
@@ -232,7 +232,7 @@ linting:
       - linting/
 
 # Build struphy
-build:
+build_struphy:
   stage: build
   
   script:
@@ -255,15 +255,16 @@ build:
     paths:
       - dist/
 
-# Install and compile
-install:
+# Install from wheel and compile
+install_and_compile:
   stage: install
+
+  needs: ["build_struphy"]
 
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
     - struphy
-    - pip install -U pyccel
     - struphy compile
     - pip list
     - cd ${ENV_PATH}/psydac/core
@@ -274,8 +275,6 @@ unit_tests:
   stage: test
 
   script:
-    #- pip install dist/struphy*.whl
-    #- struphy compile
     - cd ${ENV_PATH}/struphy/tests/
     - coverage run --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
     - cd -
@@ -292,8 +291,6 @@ code_tests:
   stage: test
 
   script:
-    #- pip install dist/struphy*.whl
-    #- struphy compile
     # Test maxwell
     - struphy run maxwell -i params_ci_1.yml -o sim_1
     - struphy run maxwell -i params_ci_2.yml -o sim_2

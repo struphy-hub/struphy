@@ -26,7 +26,7 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     import numpy as np
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.feec.psydac_derham import Derham_build
+    from struphy.psydac_api.psydac_derham import Derham_build
     from struphy.models.substeps.push_inverse_mass import InvertMassMatrices
 
     from psydac.linalg.stencil import StencilVector

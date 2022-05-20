@@ -11,7 +11,7 @@ from sympde.topology import Cube, Derham
 
 from sympy import sqrt
 
-from struphy.psydac_linear_operators.H1vec_psydac import Projector_H1vec
+from struphy.psydac_api.H1vec_psydac import Projector_H1vec
 
 import numpy as np
 
