@@ -6,9 +6,9 @@ import struphy.feec.basics.mass_matrices_3d_pre as mass_3d_pre
 from struphy.pic.lin_Vlasov_Maxwell         import pusher_weights
 from struphy.linear_algebra.schur_solver    import Schur_solver
 
-from struphy.psydac_linear_operators.linear_operators   import CompositeLinearOperator      as Compose
-from struphy.psydac_linear_operators.linear_operators   import ScalarTimesLinearOperator    as Multiply
-from struphy.psydac_linear_operators.preconditioner     import MassMatrixPreConditioner     as MassPre
+from struphy.psydac_api.linear_operators   import CompositeLinearOperator      as Compose
+from struphy.psydac_api.linear_operators   import ScalarTimesLinearOperator    as Multiply
+from struphy.psydac_api.preconditioner     import MassMatrixPreConditioner     as MassPre
 
 from time import time
 

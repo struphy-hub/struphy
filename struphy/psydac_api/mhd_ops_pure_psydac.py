@@ -4,10 +4,10 @@ from psydac.fem.basic import FemSpace
 from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockMatrix
 
-from struphy.psydac_linear_operators.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns as assemble
-from struphy.psydac_linear_operators.prepare_projection import evaluate_fun_weights
-from struphy.psydac_linear_operators.linear_operators import LinOpWithTransp
-from struphy.psydac_linear_operators.H1vec_psydac import Projector_H1vec
+from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns as assemble
+from struphy.psydac_api.prepare_projection import evaluate_fun_weights
+from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.psydac_api.H1vec_psydac import Projector_H1vec
 
 
 class MHD_ops:

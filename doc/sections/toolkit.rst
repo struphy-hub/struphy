@@ -11,7 +11,7 @@ This is a collection of modules/functions that help with the implementation of n
 Linear operators
 ----------------
 
-.. automodule:: struphy.psydac_linear_operators.linear_operators
+.. automodule:: struphy.psydac_api.linear_operators
     :members: 
 
 
@@ -29,7 +29,7 @@ Schur solver
 Preconditioner
 --------------
 
-.. automodule:: struphy.psydac_linear_operators.preconditioner
+.. automodule:: struphy.psydac_api.preconditioner
     :members: 
 
 .. _mhd_operators:
@@ -37,5 +37,5 @@ Preconditioner
 MHD operators
 -------------
 
-.. automodule:: struphy.psydac_linear_operators.mhd_ops_pure_psydac
+.. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 

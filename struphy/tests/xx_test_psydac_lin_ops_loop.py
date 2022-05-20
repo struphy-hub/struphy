@@ -6,7 +6,7 @@ def test_lin_mhd_ops():
     and fun is an arbitrary (matrix-valued) function.
     '''
 
-    from struphy.psydac_linear_operators.mhd_ops import MHD_ops, MHD_operator
+    from struphy.psydac_api.mhd_ops import MHD_ops, MHD_operator
     from struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests import projectors_dot_x
 
     from struphy.geometry.domain_3d            import Domain

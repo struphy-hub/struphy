@@ -2,12 +2,12 @@ import pytest
 import numpy as np
 
 from struphy.geometry.domain_3d import Domain
-from struphy.feec.psydac_derham import Derham_build
-from struphy.psydac_linear_operators.linear_operators import LinOpWithTransp
-from struphy.psydac_linear_operators.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_linear_operators.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_linear_operators.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_linear_operators.linear_operators import InverseLinearOperator as Invert
+from struphy.psydac_api.psydac_derham import Derham_build
+from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
+from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
+from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector

@@ -143,7 +143,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.feec.psydac_derham import Derham_build
+    from struphy.psydac_api.psydac_derham import Derham_build
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.fem.tensor import TensorFemSpace

@@ -25,7 +25,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     and fun is an arbitrary (matrix-valued) function.
     '''
 
-    from struphy.psydac_linear_operators.mhd_ops_pure_psydac import MHD_ops
+    from struphy.psydac_api.mhd_ops_pure_psydac import MHD_ops
     from struphy.feec.projectors.pro_global.mhd_operators_MF import projectors_dot_x
 
     from struphy.geometry.domain_3d import Domain

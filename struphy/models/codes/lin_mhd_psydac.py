@@ -14,7 +14,7 @@ from struphy.mhd_init.mhd_init             import Initialize_mhd_psydac
 
 from struphy.diagnostics                   import data_module
 
-from struphy.psydac_linear_operators.mhd_ops import MHD_ops  
+from struphy.psydac_api.mhd_ops         import MHD_ops  
 from struphy.models.substeps            import push_linear_mhd
 
 from sympde.topology import Cube, Derham

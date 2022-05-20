@@ -1,10 +1,11 @@
 from setuptools import setup, find_packages
 
-
+with open('struphy/version.py') as f:  
+    exec(f.read())
 
 setup(
     name="struphy",
-    #version='1.8.2', # auto-detected
+    version=__version__, # auto-detected from struphy/version.py
     packages=find_packages(),
     package_data={
         'struphy.mhd_equil': [

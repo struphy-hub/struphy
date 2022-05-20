@@ -25,12 +25,12 @@ from struphy.models.substeps                import push_lin_VM
 
 
 # import Psydac 
-from struphy.feec.psydac_derham             import Derham_build
+from struphy.psydac_api.psydac_derham       import Derham_build
 from struphy.diagnostics.data_module        import Data_container_psydac as Data_container
 from struphy.geometry.domain_3d             import Domain
 from struphy.mhd_equil.gvec                 import mhd_equil_gvec
 from struphy.mhd_init                       import emw_init
-from struphy.psydac_linear_operators.fields import Field_init
+from struphy.psydac_api.fields import Field_init
 
 from psydac.linalg.stencil                  import StencilVector
 
