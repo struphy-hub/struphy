@@ -1,3 +1,5 @@
+import pytest
+
 from  struphy.feec import spline_space
 
 import struphy.feec.bsplines_kernels            as bsp
@@ -6,13 +8,14 @@ import struphy.feec.basics.spline_evaluation_3d as eva_3d
 
 import numpy as np
 
-def main():
+@pytest.mark.parametrize('Nel', [[8,5,6], [4, 4, 128]])
+@pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
+@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
+@pytest.mark.parametrize('N', [100])
+def test_Spline_Evaluation(Nel, p, spl_kind, N):
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
-    Nel         = [8,5,6]
-    p           = [5,2,3]
-    spl_kind    = [True, True, True]
 
     spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0]) 
     spaces_FEM_2 = spline_space.Spline_space_1d(Nel[1], p[1], spl_kind[1])
@@ -20,25 +23,22 @@ def main():
 
     SPACES = spline_space.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
-    # how many times the test should run with random position and to what precision equality of legacy and slim functions should be tested
-    N = 1000
-    decimals = 12
+    # To what precision equality of legacy and slim functions should be tested
+    decimals = 1
 
     ind_n1 = SPACES.indN[0]
     ind_n2 = SPACES.indN[1]
     ind_n3 = SPACES.indN[2]
 
-    ind_d1 = SPACES.indD[0]
-    ind_d2 = SPACES.indD[1]
-    ind_d3 = SPACES.indD[2]
-
+    # B-spline knot vectors
     t1  = SPACES.T[0]
     t2  = SPACES.T[1]
     t3  = SPACES.T[2]
 
-    T1  = SPACES.T[0]
-    T2  = SPACES.T[1]
-    T3  = SPACES.T[2]
+    # D-spline knot vectors
+    T1  = SPACES.t[0]
+    T2  = SPACES.t[1]
+    T3  = SPACES.t[2]
 
     pn1 = SPACES.p[0]
     pn2 = SPACES.p[1]
@@ -100,22 +100,22 @@ def main():
         assert np.isnan(kern) == False
         assert np.isinf(kern) == False
 
-        assert np.round(kern - kern_leg, decimals) == 0.
+        assert np.round(kern - kern_leg, decimals) == 0. , 'value: '+str(kern)+'  legacy: '+str(kern_leg)
 
         # 3d case
         coeff3d = np.random.rand( nbase_n1+1, nbase_n2+1, nbase_n3+1 )
 
-        kern_leg = eva_3d.evaluation_kernel(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n1, nbase_n2, nbase_n3, coeff3d)
+        kern_leg = eva_3d.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n1, nbase_n2, nbase_n3, coeff3d)
 
         assert np.isnan(kern_leg) == False
         assert np.isinf(kern_leg) == False
 
-        kern = eva_3d.eval_kernel(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
+        kern = eva_3d.eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
 
         assert np.isnan(kern) == False
         assert np.isinf(kern) == False
 
-        assert np.round(kern - kern_leg, decimals) == 0.
+        assert np.round(kern - kern_leg, decimals) == 0. , 'value: '+str(kern)+'  legacy: '+str(kern_leg)
 
         del(bn1)
         del(bn2)
@@ -161,7 +161,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # diffn_n
@@ -175,7 +175,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_diffn
@@ -189,7 +189,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_n
@@ -198,12 +198,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_d_n(t1, t2, pn1, pn2, ind_n1[ie1,1:], ind_n2[ie2,:], coeff2d, eta1, eta2)
+        value = eva_2d.eval_d_n(t1, t2, pn1, pn2, ind_n1[ie1,:pn1], ind_n2[ie2,:], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_d
@@ -212,12 +212,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_n_d(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,1:], coeff2d, eta1, eta2)
+        value = eva_2d.eval_n_d(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,:pn2], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_d
@@ -226,12 +226,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_d_d(t1, t2, pn1, pn2, ind_n1[ie1,1:], ind_n2[ie2,1:], coeff2d, eta1, eta2)
+        value = eva_2d.eval_d_d(t1, t2, pn1, pn2, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
     
 
     for j in range(N):
@@ -284,7 +284,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # diffn_n_n
@@ -298,7 +298,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_diffn_n
@@ -312,7 +312,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_n_diffn
@@ -326,7 +326,7 @@ def main():
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_n_n
@@ -335,12 +335,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_n_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,1:], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_d_n_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_d_n
@@ -349,12 +349,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,1:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_n_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:pn2], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_n_d
@@ -363,12 +363,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,1:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_n_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_d_n
@@ -377,12 +377,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,1:], ind_n2[ie2,1:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_d_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_n_d
@@ -391,12 +391,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,1:], ind_n2[ie2,:], ind_n3[ie3,1:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_d_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # n_d_d
@@ -405,12 +405,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,1:], ind_n3[ie3,1:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_n_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:pn2], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
         # d_d_d
@@ -419,12 +419,12 @@ def main():
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,1:], ind_n2[ie2,1:], ind_n3[ie3,1:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.eval_d_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
 
-        assert np.round(value - value_leg, decimals) == 0.
+        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
     
 
     for j in range(N):
@@ -436,4 +436,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    Nel         = [8,15,64]
+    p           = [2,6,8]
+    spl_kind    = [True, False, True]
+    N           = 100
+    test_Spline_Evaluation(Nel, p, spl_kind, N)

@@ -70,3 +70,4 @@ my_struphy_sims
 /run_STRUPHY*.sh
 logs
 env/
+struphy/io/out/sim_*

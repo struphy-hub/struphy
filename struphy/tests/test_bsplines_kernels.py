@@ -1,15 +1,19 @@
+import pytest
+
 import struphy.feec.bsplines_kernels as bsp
 from   struphy.feec                  import spline_space 
 
 import numpy as np
 
-def main():
+@pytest.mark.parametrize('Nel', [[8,5,6], [4, 4, 128]])
+@pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
+@pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
+@pytest.mark.parametrize('N', [100])
+def test_Bsplines_Kernels(Nel, p, spl_kind, N):
+
     # ========================================================================================= 
     # FEEC SPACES Object & related quantities
     # =========================================================================================
-    Nel         = [14,5,6]
-    p           = [6,2,3]
-    spl_kind    = [True, True, True]
 
     spaces_FEM_1 = spline_space.Spline_space_1d(Nel[0], p[0], spl_kind[0]) 
     spaces_FEM_2 = spline_space.Spline_space_1d(Nel[1], p[1], spl_kind[1])
@@ -17,8 +21,7 @@ def main():
 
     SPACES = spline_space.Tensor_spline_space([spaces_FEM_1, spaces_FEM_2, spaces_FEM_3])
 
-    # how many times the test should run with random position and to what precision equality of legacy and slim functions should be tested
-    N = 1000
+    # To what precision equality of legacy and slim functions should be tested
     decimals = 12
 
     # ========================================================================================= 
@@ -66,6 +69,7 @@ def main():
             # Assert legacy and slim versions give the same result
             assert np.sum(np.abs(bn - bn_leg)) == 0.
 
+            del(bn)
 
             bn_all_leg = np.empty( (pn+1, pn+1), dtype=float )
             diff       = np.empty( pn          , dtype=float )
@@ -85,29 +89,14 @@ def main():
             assert np.isnan(right).any() == False
             assert np.isinf(right).any() == False
 
-            del(bn)
+            bd   = np.empty( pn, dtype=float )
+            span = bsp.find_span(t, pn, eta)
 
-            # Test B- and D-splines at all degrees
-            for pl in range(1, pn):
-                bn = np.empty( pl + 1, dtype=float )
-                bd = np.empty( pl    , dtype=float )
+            bsp.d_splines_slim(t, pn, eta, span, bd)
 
-                span = bsp.find_span(t, pl, eta)
-
-                bsp.b_splines_slim(t, pl, eta, span, bn)
-                bsp.d_splines_slim(t, pl, eta, span, bd)
-
-                assert np.round(np.sum(np.abs( bn - bn_all_leg[pl,:pl+1] )), decimals) == 0.
-                assert np.round(np.sum(np.abs( bd - diff[pl] * bn_all_leg[pl-1,:pl] )), decimals) == 0.
-
-                bsp.b_d_splines_slim(t, pl, eta, span, bn, bd)
-
-                assert np.round(np.sum(np.abs( bn - bn_all_leg[pl,:pl+1] )), decimals) == 0.
-                assert np.round(np.sum(np.abs( bd - diff[pl] * bn_all_leg[pl-1,:pl] )), decimals) == 0.
-
-                del(bn)
-                del(bd)
+            assert np.round( np.sum( np.abs( bd - diff * bn_all_leg[pn-1,:pn] ) ), decimals ) == 0.
             
+            del(bd)
             del(left)
             del(right)
             del(bn_all_leg)
@@ -139,9 +128,12 @@ def main():
 
     # TODO: Tests for piecewise and convolution functions (Yingzhe)
 
-    
     print('test_bsplines_kernels passed!')
 
 
 if __name__ == '__main__':
-    main()
+    Nel         = [14,5,6]
+    p           = [6,2,3]
+    spl_kind    = [True, False, True]
+    N           = 100
+    test_Bsplines_Kernels(Nel, p, spl_kind, N)

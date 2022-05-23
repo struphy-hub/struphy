@@ -1,18 +1,12 @@
-from pyccel.decorators import types
-
 from numpy import shape
-
 
 
 # ===========================================================================================================
 #                                                   1d
 # ===========================================================================================================
 
-
-
 # =============================================================================
-@types('int[:]','int[:]','double[:,:]','double[:]','double[:]')
-def rhs0_1d(row1, col1, bsp1, mat_eq, rhs):
+def rhs0_1d(row1 : 'int[:]', col1 : 'int[:]', bsp1 : 'double[:,:]', mat_eq : 'double[:]', rhs : 'double[:]'):
     
     n_rows_1 = len(row1)
     
@@ -22,8 +16,7 @@ def rhs0_1d(row1, col1, bsp1, mat_eq, rhs):
         
         
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','double[:]')
-def rhs1_1d(row1, col1, subs1, subs_cum1, wts1, bsp1, mat_eq, rhs):
+def rhs1_1d(row1 : 'int[:]', col1 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', mat_eq : 'double[:,:]', rhs : 'double[:]'):
     
     n_rows_1 = len(row1)
     
@@ -41,8 +34,7 @@ def rhs1_1d(row1, col1, subs1, subs_cum1, wts1, bsp1, mat_eq, rhs):
         
         
 # =============================================================================                
-@types('int[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]')
-def rhs0_f_1d(indices1, bsp11, bsp12, mat_eq, f, rhs, row, col):
+def rhs0_f_1d(indices1 : 'int[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', mat_eq : 'double[:]', f : 'double[:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     rhs[:] = 0.
     
@@ -57,8 +49,7 @@ def rhs0_f_1d(indices1, bsp11, bsp12, mat_eq, f, rhs, row, col):
 
         
 # =============================================================================                
-@types('int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:]','double[:]','int[:]','int[:]')
-def rhs1_f_1d(indices1, subs1, subs_cum1, wts1, bsp11, bsp12, mat_eq, f, rhs, row, col):  
+def rhs1_f_1d(indices1 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', mat_eq : 'double[:,:]', f : 'double[:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
@@ -88,8 +79,7 @@ def rhs1_f_1d(indices1, subs1, subs_cum1, wts1, bsp11, bsp12, mat_eq, f, rhs, ro
         
 
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','int[:]','int[:]')
-def rhs0_2d(row1, row2, col1, col2, bsp1, bsp2, mat_eq, rhs, row, col):
+def rhs0_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', mat_eq : 'double[:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -112,8 +102,7 @@ def rhs0_2d(row1, row2, col1, col2, bsp1, bsp2, mat_eq, rhs, row, col):
 
         
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs11_2d(row1, row2, col1, col2, subs1, subs_cum1, wts1, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs11_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -145,8 +134,7 @@ def rhs11_2d(row1, row2, col1, col2, subs1, subs_cum1, wts1, bsp1, bsp2, nbase_n
         
 
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs12_2d(row1, row2, col1, col2, subs2, subs_cum2, wts2, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs12_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -179,8 +167,7 @@ def rhs12_2d(row1, row2, col1, col2, subs2, subs_cum2, wts2, bsp1, bsp2, nbase_n
 
             
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs2_2d(row1, row2, col1, col2, subs1, subs2, subs_cum1, subs_cum2, wts1, wts2, bsp1, bsp2, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -221,11 +208,10 @@ def rhs2_2d(row1, row2, col1, col2, subs1, subs2, subs_cum1, subs_cum2, wts1, wt
             
                 
 # =============================================================================                
-@types('int[:,:]','int[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
-def rhs0_f_2d(indices1, indices2, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', mat_eq : 'double[:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]
@@ -250,13 +236,12 @@ def rhs0_f_2d(indices1, indices2, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, ro
                 
                 
 # =============================================================================                
-@types('int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
-def rhs11_f_2d(indices1, indices2, subs1, subs_cum1, wts1, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', mat_eq : 'double[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -286,13 +271,12 @@ def rhs11_f_2d(indices1, indices2, subs1, subs_cum1, wts1, bsp11, bsp12, bsp21, 
                 
 
 # =============================================================================                
-@types('int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','complex[:,:]','complex[:]','int[:]','int[:]')
-def rhs12_f_2d(indices1, indices2, subs2, subs_cum2, wts2, bsp11, bsp12, bsp21, bsp22, mat_eq, f, rhs, row, col):  
+def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:,:]', bsp22 : 'double[:,:,:]', mat_eq : 'double[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq2 = shape(wts2)[1]
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -317,11 +301,14 @@ def rhs12_f_2d(indices1, indices2, subs2, subs_cum2, wts2, bsp11, bsp12, bsp21, 
 
             row[i]  = n2i*indices1[1, i1] + indices2[1, i2]
             col[i]  = n2j*indices1[2, i1] + indices2[2, i2]
-                
-                
-                
-
-                
+            
+            
+            
+            
+            
+               
+               
+               
 # ===========================================================================================================
 #                                                   3d
 # ===========================================================================================================                
@@ -330,7 +317,7 @@ def rhs12_f_2d(indices1, indices2, subs2, subs_cum2, wts2, bsp11, bsp12, bsp21, 
                 
 # =============================================================================
 @types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row, col):
+def rhs0(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', mat_eq : 'double[:]', rhs, row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -340,8 +327,8 @@ def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row,
     n2i, n2j = shape(bsp2)
     n3i, n3j = shape(bsp3)
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, i, bsp)
+    #$ omp parallel private(i1, i2, i3, i, bsp)
+    #$ omp for
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -354,16 +341,13 @@ def rhs0(row1, row2, row3, col1, col2, col3, bsp1, bsp2, bsp3, mat_eq, rhs, row,
                 
                 row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs11(row1, row2, row3, col1, col2, col3, subs1, subs_cum1, wts1, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs11(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -379,8 +363,8 @@ def rhs11(row1, row2, row3, col1, col2, col3, subs1, subs_cum1, wts1, bsp1, bsp2
     
     nq1 = shape(wts1)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j1, q1, i)
+    #$ omp parallel private(i1, i2, i3, value, j1, q1, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -397,16 +381,13 @@ def rhs11(row1, row2, row3, col1, col2, col3, subs1, subs_cum1, wts1, bsp1, bsp2
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs12(row1, row2, row3, col1, col2, col3, subs2, subs_cum2, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs12(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -422,8 +403,8 @@ def rhs12(row1, row2, row3, col1, col2, col3, subs2, subs_cum2, wts2, bsp1, bsp2
     
     nq2 = shape(wts2)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j2, q2, i)
+    #$ omp parallel private(i1, i2, i3, value, j2, q2, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -440,16 +421,13 @@ def rhs12(row1, row2, row3, col1, col2, col3, subs2, subs_cum2, wts2, bsp1, bsp2
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs13(row1, row2, row3, col1, col2, col3, subs3, subs_cum3, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs13(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs3 : 'int[:]', subs_cum3 : 'int[:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -465,8 +443,8 @@ def rhs13(row1, row2, row3, col1, col2, col3, subs3, subs_cum3, wts3, bsp1, bsp2
     
     nq3 = shape(wts3)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j3, q3, i)
+    #$ omp parallel private(i1, i2, i3, value, j3, q3, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -483,16 +461,13 @@ def rhs13(row1, row2, row3, col1, col2, col3, subs3, subs_cum3, wts3, bsp1, bsp2
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs21(row1, row2, row3, col1, col2, col3, subs2, subs3, subs_cum2, subs_cum3, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs21(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts2 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -509,8 +484,8 @@ def rhs21(row1, row2, row3, col1, col2, col3, subs2, subs3, subs_cum2, subs_cum3
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp parallel private(i1, i2, i3, value, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -533,17 +508,13 @@ def rhs21(row1, row2, row3, col1, col2, col3, subs2, subs3, subs_cum2, subs_cum3
                 rhs[i]   = value * bsp1[row1[i1], col1[i1]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
-                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs22(row1, row2, row3, col1, col2, col3, subs1, subs3, subs_cum1, subs_cum3, wts1, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs22(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -560,8 +531,8 @@ def rhs22(row1, row2, row3, col1, col2, col3, subs1, subs3, subs_cum1, subs_cum3
     nq1 = shape(wts1)[1]
     nq3 = shape(wts3)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j1, q1, j3, q3, w_vol, basis, i)
+    #$ omp parallel private(i1, i2, i3, value, j1, q1, j3, q3, w_vol, basis, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -585,16 +556,13 @@ def rhs22(row1, row2, row3, col1, col2, col3, subs1, subs3, subs_cum1, subs_cum3
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','int[:]','int[:]','double[:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs23(row1, row2, row3, col1, col2, col3, subs1, subs2, subs_cum1, subs_cum2, wts1, wts2, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs23(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -611,8 +579,8 @@ def rhs23(row1, row2, row3, col1, col2, col3, subs1, subs2, subs_cum1, subs_cum2
     nq1 = shape(wts1)[1]
     nq2 = shape(wts2)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j1, q1, j2, q2, w_vol, basis, i)
+    #$ omp parallel private(i1, i2, i3, value, j1, q1, j2, q2, w_vol, basis, i)
+    #$ omp for 
     for i1 in range(n_rows_1): 
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -636,16 +604,13 @@ def rhs23(row1, row2, row3, col1, col2, col3, subs1, subs2, subs_cum1, subs_cum2
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
     
     
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:]','int[:]','double[:,:,:,:,:,:]','double[:]','int[:]','int[:]')
-def rhs3(row1, row2, row3, col1, col2, col3, subs1, subs2, subs3, subs_cum1, subs_cum2, subs_cum3, wts1, wts2, wts3, bsp1, bsp2, bsp3, nbase_n, nbase_d, mat_eq, rhs, row, col):
+def rhs3(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -663,8 +628,8 @@ def rhs3(row1, row2, row3, col1, col2, col3, subs1, subs2, subs3, subs_cum1, sub
     nq2 = shape(wts2)[1]
     nq3 = shape(wts3)[1]
     
-    #$ omp parallel
-    #$ omp do private (i1, i2, i3, value, j1, q1, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp parallel private(i1, i2, i3, value, j1, q1, j2, q2, j3, q3, w_vol, basis, i)
+    #$ omp for 
     for i1 in range(n_rows_1):
         for i2 in range(n_rows_2):
             for i3 in range(n_rows_3):
@@ -691,22 +656,19 @@ def rhs3(row1, row2, row3, col1, col2, col3, subs1, subs2, subs3, subs_cum1, sub
                 
                 row[i] = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
                 col[i] = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
-                
-    #$ omp end do
     #$ omp end parallel
     
     ierr = 0
                     
                     
 # =============================================================================                
-@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs11_f(indices1, indices2, indices3, n_row_sub1, sub1_cum, wts1, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub1 : 'int[:]', sub1_cum : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', bsp31 : 'double[:,:]', bsp32 : 'double[:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
-    nv3 = max(indices3[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
+    nv3 = indices3[3].max() + 1
     
     n1i = shape(bsp11)[2]
     n2i = shape(bsp21)[1]
@@ -740,14 +702,13 @@ def rhs11_f(indices1, indices2, indices3, n_row_sub1, sub1_cum, wts1, bsp11, bsp
     
     
 # =============================================================================                
-@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:]','double[:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs12_f(indices1, indices2, indices3, n_row_sub2, sub2_cum, wts2, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub2 : 'int[:]', sub2_cum : 'int[:]', wts2 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:,:]', bsp22 : 'double[:,:,:]', bsp31 : 'double[:,:]', bsp32 : 'double[:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq2 = shape(wts2)[1]
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
-    nv3 = max(indices3[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
+    nv3 = indices3[3].max() + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[2]
@@ -781,14 +742,13 @@ def rhs12_f(indices1, indices2, indices3, n_row_sub2, sub2_cum, wts2, bsp11, bsp
                 
                 
 # =============================================================================                
-@types('int[:,:]','int[:,:]','int[:,:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs13_f(indices1, indices2, indices3, n_row_sub3, sub3_cum, wts3, bsp11, bsp12, bsp21, bsp22, bsp31, bsp32, mat_eq, f, rhs, row, col):  
+def rhs13_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub3 : 'int[:]', sub3_cum : 'int[:]', wts3 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', bsp31 : 'double[:,:,:]', bsp32 : 'double[:,:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq3 = shape(wts3)[1]
     
-    nv1 = max(indices1[3]) + 1
-    nv2 = max(indices2[3]) + 1
-    nv3 = max(indices3[3]) + 1
+    nv1 = indices1[3].max() + 1
+    nv2 = indices2[3].max() + 1
+    nv3 = indices3[3].max() + 1
     
     n1i = shape(bsp11)[1]
     n2i = shape(bsp21)[1]

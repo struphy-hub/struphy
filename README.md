@@ -6,6 +6,20 @@ simulating energetic particles in plasma fluids.__
 STRUPHY stands for STRUcture-Preserving HYbrid codes. The package is developed since 2019 at [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/) 
 in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mpg.de/ippcms/de/for/bereiche/numerik).
 
+## What's new in version 1.9.0
+
+* Tear-down and rebuild has begun: only models based on the `StruphyModel` base class can be executed (just `maxwell` at the moment), no backward compatibility
+* Added propagator base class `struphy.models.codes.propagators.Propagator`
+* Added MHD equilibirum base class `struphy.fields_equil.mhd_equil.mhd_equils.EquilibriumMHD` and 4 subclasses `EquilibriumMHDSlab`, `EquilibriumMHDShearedSlab`, `EquilibriumMHDCylinder` and `EquilibriumMHDTorus`.
+* Removed pyccel requirement in the setup file, always install newest version
+* Improved continuous integration: use dedicated MPCDF runner for struphy (thanks to Flo Hindenlang), linting, code tests, `.whl` file available as artifact
+* Improved documentation: 
+    * Install from wheel (no source code needed)
+    * workflow for adding code
+    * detailed explanation of how to add new models, propagators
+    * Section Continuous Integration shows how to add tests
+    * Added new top-level section Toolkit 
+
 ## What you can do with STRUPHY
 
 * Solve a variety of [PDEs for plasma physics](https://clapp.pages.mpcdf.de/hylife/sections/models.html) 
@@ -26,13 +40,13 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## Installation
 
-* [See the Struphy user guide](https://clapp.pages.mpcdf.de/hylife/)
+* [Struphy user guide](https://clapp.pages.mpcdf.de/hylife/)
 
 ## Key references
 
 * F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
 
-* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axisymmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
+* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
 
 ## Contributors
 

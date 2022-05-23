@@ -9,7 +9,7 @@ import struphy.feec.basics.kernels_3d as ker
 
 
 # ================ mass matrix in V0 ===========================
-def get_M0(tensor_space_FEM, domain, weight=None):
+def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix with integrand [[NNN NNN]] * |det(DF)|.
     
@@ -20,6 +20,9 @@ def get_M0(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight function
@@ -52,7 +55,7 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     
     M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 0, 0, 0, 0, 0, 0, wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], M, mat_w*det_df)
+    ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array([0, 0, 0]), np.array([0, 0, 0]), wts[0], wts[1], wts[2], basisN[0], basisN[1], basisN[2], basisN[0], basisN[1], basisN[2], indN[0], indN[1], indN[2], M, mat_w*det_df)
               
     # conversion to sparse matrix
     indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
@@ -71,12 +74,17 @@ def get_M0(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
     
     # apply spline extraction operator and return
-    return tensor_space_FEM.E0_0.dot(M.dot(tensor_space_FEM.E0_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E0_0.dot(M.dot(tensor_space_FEM.E0_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E0.dot(M.dot(tensor_space_FEM.E0.T)).tocsr()
+    
+    return M
 
 
 
 # ================ mass matrix in V1 ===========================
-def get_M1(tensor_space_FEM, domain, weight=None):
+def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix with integrand
     [[DNN DNN, DNN NDN, DNN NND], [NDN DNN, NDN NDN, NDN NND], [NND DNN, NND NDN, NND NND]] * G^(-1) * |det(DF)|.
@@ -88,6 +96,9 @@ def get_M1(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -138,7 +149,7 @@ def get_M1(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
             
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
@@ -159,12 +170,17 @@ def get_M1(tensor_space_FEM, domain, weight=None):
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E1_0.dot(M.dot(tensor_space_FEM.E1_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E1_0.dot(M.dot(tensor_space_FEM.E1_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E1.dot(M.dot(tensor_space_FEM.E1.T)).tocsr()
+    
+    return M
 
 
 
 # ================ mass matrix in V2 ===========================
-def get_M2(tensor_space_FEM, domain, weight=None):
+def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix [[NDD NDD, NDD DND, NDD DDN], [DND NDD, DND DND, DND DDN], [DDN NDD, DDN DND, DDN DDN]] * G / |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -175,6 +191,9 @@ def get_M2(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -225,7 +244,7 @@ def get_M2(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w/det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w/det_df)
             
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
@@ -246,12 +265,17 @@ def get_M2(tensor_space_FEM, domain, weight=None):
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E2_0.dot(M.dot(tensor_space_FEM.E2_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E2_0.dot(M.dot(tensor_space_FEM.E2_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E2.dot(M.dot(tensor_space_FEM.E2.T)).tocsr()
+    
+    return M
 
 
 
 # ================ mass matrix in V3 ===========================
-def get_M3(tensor_space_FEM, domain, weight=None):
+def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix [[DDD DDD]] of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -262,6 +286,9 @@ def get_M3(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight function
@@ -294,7 +321,7 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     
     M  = np.zeros((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
     
-    ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], 1, 1, 1, 1, 1, 1, wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], M, mat_w/det_df)
+    ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array([1, 1, 1]), np.array([1, 1, 1]), wts[0], wts[1], wts[2], basisD[0], basisD[1], basisD[2], basisD[0], basisD[1], basisD[2], indD[0], indD[1], indD[2], M, mat_w/det_df)
               
     # conversion to sparse matrix
     indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
@@ -313,13 +340,18 @@ def get_M3(tensor_space_FEM, domain, weight=None):
     M.eliminate_zeros()
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.E3_0.dot(M.dot(tensor_space_FEM.E3_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.E3_0.dot(M.dot(tensor_space_FEM.E3_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.E3.dot(M.dot(tensor_space_FEM.E3.T)).tocsr()
+    
+    return M
 
 
 
 
 # ================ mass matrix for vector fields in V2 ===========================
-def get_Mv(tensor_space_FEM, domain, weight=None):
+def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     """
     Assembles the 3D mass matrix [[NNN NNN, NNN NNN, NNN NNN], [NNN NNN, NNN NNN, NNN NNN], [NNN NNN, NNN NNN, NNN NNN]] * G * |det(DF)| of the given tensor product B-spline spaces of tri-degree (p1, p2, p3) within a computational domain defined by the given object "domain" from struphy.geometry.domain.
     
@@ -330,6 +362,9 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
         
     domain : domain
         domain object defining the geometry
+        
+    apply_boundary_ops : boolean
+        whether to include boundary operators (True) or not (False)
         
     weight : callable
         optional additional weight functions
@@ -392,7 +427,7 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
             
             # assemble block if weight is not zero
             if np.any(mat_w):
-                ker.kernel_mass(Nel[0], Nel[1], Nel[2], p[0], p[1], p[2], n_quad[0], n_quad[1], n_quad[2], ns[a][0], ns[a][1], ns[a][2], ns[b][0], ns[b][1], ns[b][2], wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
+                ker.kernel_mass(np.array(Nel), np.array(p), np.array(n_quad), np.array(ns[a]), np.array(ns[b]), wts[0], wts[1], wts[2], basis[a][0], basis[a][1], basis[a][2], basis[b][0], basis[b][1], basis[b][2], ind[a][0], ind[a][1], ind[a][2], M[a][b], mat_w*det_df)
                 
             # convert to sparse matrix
             indices = np.indices((Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1))
@@ -413,4 +448,9 @@ def get_Mv(tensor_space_FEM, domain, weight=None):
     M = spa.bmat([[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format='csr')
                 
     # apply spline extraction operator and return
-    return tensor_space_FEM.Ev_0.dot(M.dot(tensor_space_FEM.Ev_0.T)).tocsr()
+    if apply_boundary_ops:
+        M = tensor_space_FEM.Ev_0.dot(M.dot(tensor_space_FEM.Ev_0.T)).tocsr()
+    else:
+        M = tensor_space_FEM.Ev.dot(M.dot(tensor_space_FEM.Ev.T)).tocsr()
+    
+    return M

@@ -2,25 +2,22 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import scipy.special as sp
 
-from struphy.psydac_linear_operators.fields import Field_init
+from struphy.psydac_api.fields import Field_init
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container   
 
+__all__ = ['StruphyModels',
+            'Maxwell',]
 
-class StruphyModels( metaclass=ABCMeta ):
+
+class StruphyModel( metaclass=ABCMeta ):
     '''The base class for Struphy models.
     
     Parameters
     ..........
-        names : list of str
-            Names of FE fields.
-        
-        spaces : list of str
-            One of "H1", "Hcurl", "Hdiv" or "L2"; len(spaces)==len(names), one space for each name.
+        DR: Derham obj
+            From struphy/psydac_api/psydac_derham.Derham_build.
 
-        DR: obj
-            From struphy/feec/psydac_derham.Derham_build.
-
-        DOMAIN: obj
+        DOMAIN: Domain obj
             From struphy/geometry/domain_3d.Domain.
 
         solver_params : list
@@ -47,11 +44,6 @@ class StruphyModels( metaclass=ABCMeta ):
         for name, space_id in zip(self._names, self._space_ids):
             self._fields += [Field_init(name, space_id, self.DR)]
 
-        # These need to be filled in each model class
-        self._propagators = []
-        self._substep_vars = []
-        self._scalar_quantities = {}
-
     @property
     def names( self ):
         '''List of FE variable names (str).'''
@@ -64,12 +56,12 @@ class StruphyModels( metaclass=ABCMeta ):
 
     @property
     def fields( self ):
-        '''List of Struphy fields, see struphy/psydac_linear_operators/fields.'''
+        '''List of Struphy fields, see struphy/psydac_api/fields.'''
         return self._fields
 
     @property
     def DR( self ):
-        '''3d Derham sequence, see struphy/feec/psydac_derham.'''
+        '''3d Derham sequence, see struphy/psydac_api/psydac_derham.'''
         return self._DR
 
     @property
@@ -83,25 +75,25 @@ class StruphyModels( metaclass=ABCMeta ):
         return self._solver_params
 
     @property
+    @abstractmethod
     def propagators( self ):
-        '''Must return list of callable propagators/integrators/substeps used in the time stepping of the model.'''
-        return self._propagators
-
-    @property
-    def substep_vars( self ):
-        '''Must return list of lists, where substep_vars[i][j] points to the j-th variable updated in the i-th substep
-        specified in propagators; len(substep_vars)==len(propagators).'''
-        return self._substep_vars
-
-    @property
-    def scalar_quantities( self ):
-        '''Dictionary of scalar quantities to be saved during simulation.'''
-        return self._scalar_quantities
+        '''List of callable struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
+        pass
 
     @property
     @abstractmethod
+    def scalar_quantities( self ):
+        '''Dictionary of scalar quantities to be saved during simulation. 
+        Must be initialized as empty np.array of size 1, e.g.
+        
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
+        pass
+
+    @abstractmethod
     def update_scalar_quantities( self, time ):
         '''
+        Specify an update rule for each item in scalar_quantities.
+
         Parameters
         ----------
             time : float
@@ -140,14 +132,27 @@ class StruphyModels( metaclass=ABCMeta ):
             field.set_initial_conditions(self.DOMAIN, comps=comps, init_type=init_type, init_coords=init_coords, init_params=init_params)
 
     
-class Maxwell( StruphyModels ):
-    '''Maxwell's equations in vacuum, in Struphy normalization (c=1).'''
+class Maxwell( StruphyModel ):
+    '''Maxwell's equations in vacuum, in Struphy normalization (c=1).
+    
+    Parameters
+    ..........
+        DR: Derham obj
+            From struphy/psydac_api/psydac_derham.Derham_build.
+
+        DOMAIN: Domain obj
+            From struphy/geometry/domain_3d.Domain.
+
+        solver_params : list
+            Each entry corresponds to one linear solver used in the model. 
+            An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
+    '''
 
     def __init__(self, DR, DOMAIN, *solver_params):
 
-        from struphy.models.substeps.push_maxwell import Push_maxwell_psydac
+        from struphy.models.codes.propagators import StepMaxwell
 
-        super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv', test_field='H1')
+        super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv')
 
         # Assemble necessary mass matrices 
         self.DR.assemble_M1()
@@ -158,25 +163,28 @@ class Maxwell( StruphyModels ):
         self._b = self.fields[1].vector
 
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators += [Push_maxwell_psydac(DR, self.solver_params[0])]
-        self._substep_vars +=[[self._e, self._b]]   
+        self._propagators = []
+        self._propagators += [StepMaxwell(self._e, self._b, DR, self.solver_params[0])]  
 
         # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float) 
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
     
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         self._scalar_quantities['en_E'][0] = 1/2*self._e.dot(self.DR.M1.dot(self._e))
         self._scalar_quantities['en_B'][0] = 1/2*self._b.dot(self.DR.M2.dot(self._b))
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + self._scalar_quantities['en_B'][0]
-
-
-
-
-        
-    
 
     

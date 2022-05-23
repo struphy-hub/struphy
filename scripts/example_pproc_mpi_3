@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy run maxwell_psydac --mpi 3 -o sim_2
+struphy run maxwell --mpi 3 -o sim_2
 
 # Struphy path
 STRUPHY=

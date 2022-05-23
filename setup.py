@@ -1,11 +1,12 @@
-import setuptools  # this is the "magic" import
-from setuptools import setup
-#from numpy.distutils.core import setup, Extension
+from setuptools import setup, find_packages
+
+with open('struphy/version.py') as f:  
+    exec(f.read())
 
 setup(
     name="struphy",
-    version="1.7",
-    packages=setuptools.find_packages(),
+    version=__version__, # auto-detected from struphy/version.py
+    packages=find_packages(),
     package_data={
         'struphy.mhd_equil': [
             'gvec/*.dat',
@@ -13,22 +14,9 @@ setup(
             'gvec/*.hdf5',
         ],
         'struphy.io': ['batch/*.sh'],
-        'struphy.io.inp': [
-            'lin_mhd/*.yml',
-            'lin_mhd_MF/*.yml',
-            'lin_mhd_psydac/*.yml',
-            'cc_lin_mhd_6d/*.yml',
-            'cc_lin_mhd_6d_MF/*.yml',
-            'pc_lin_mhd_6d_MF_full/*.yml',
-            'pc_lin_mhd_6d_MF_perp/*.yml',
-            'kinetic_extended/*.yml',
-            'lin_Vlasov_Maxwell/*yml',
-            'maxwell/*yml',
-            'maxwell_psydac/*yml',
-            'cold_plasma/*yml',
-            'cc_cold_plasma_6d/*yml',
-            'inverse_mass_test/*yml',
-        ],
+        'struphy.io.inp': ['parameters.yml',
+                           'params_ci_1.yml',
+                           'params_ci_2.yml'],
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
@@ -47,7 +35,7 @@ setup(
         'matplotlib',
         'mpi4py',
         'numpy',
-        'pyccel==0.10.1',
+        'pyccel',
         'PyYAML',
         'scipy',
         'sympy<1.7,>=1.2',
@@ -61,12 +49,15 @@ setup(
         'vtk',
         'docutils==0.15',
         'wheel',
+        'tqdm',
+        'psydac',
+        'gvec_to_python',
     ],
     # more information, necessary for an upload to PyPI
-    author="Stefan Possanner",
-    author_email="spossann@ipp.mpg.de",
-    description="Multi-model plasma physics package for the simulation energetic particles",
-    license="GNU",
-    keywords="plasma, energetic particles, particle-in-cell, discrete differential forms",
+    author="Max Planck Institute for Plasma Physics, Garching, Germany",
+    author_email="stefan.possanner@ipp.mpg.de, florian.holderied@ipp.mpg.de, xin.wang@ipp.mpg.de",
+    description="Multi-model plasma physics package",
+    license="not yet licensed.",
+    keywords="plasma, partial differential equations, energetic particles",
     url="https://clapp.pages.mpcdf.de/hylife/",   # project home page, if any
 )

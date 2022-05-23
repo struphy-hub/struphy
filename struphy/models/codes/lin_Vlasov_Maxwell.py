@@ -3,6 +3,7 @@
 from mpi4py import MPI      
 import yaml
 import time
+import socket
 import numpy as np
 
 from struphy.diagnostics                    import data_module 
@@ -23,6 +24,16 @@ from struphy.models.substeps                import push_markers
 from struphy.models.substeps                import push_lin_VM
 
 
+# import Psydac 
+from struphy.psydac_api.psydac_derham       import Derham_build
+from struphy.diagnostics.data_module        import Data_container_psydac as Data_container
+from struphy.geometry.domain_3d             import Domain
+from struphy.mhd_equil.gvec                 import mhd_equil_gvec
+from struphy.mhd_init                       import emw_init
+from struphy.psydac_api.fields import Field_init
+
+from psydac.linalg.stencil                  import StencilVector
+
 def execute(file_in, path_out, restart):
     '''Executes the code lin_Vlasov_Maxwell.
 
@@ -37,15 +48,35 @@ def execute(file_in, path_out, restart):
         Restart ('True') or new simulation ('False').
     '''
 
+    # these two will be arguments of execute later
+    comm = MPI.COMM_WORLD
+    verbose = False
+
+
+    # ========================================================================================= 
+    # MPI parallelization
+    # =========================================================================================
+
     print()
     print('Starting code "lin_Vlasov_Maxwell" ...')
     print()
-
-    # mpi communicator
-    MPI_COMM = MPI.COMM_WORLD
-    mpi_size = MPI_COMM.Get_size()
+    
+    MPI_COMM = comm
     mpi_rank = MPI_COMM.Get_rank()
+    print("Hello from rank {:0>4d} : {}".format(mpi_rank, socket.gethostname()))
     MPI_COMM.Barrier()
+
+    if mpi_rank == 0:
+        print(f'\nMPI communicator initialized with {MPI_COMM.Get_size()} process(es).\n')
+
+
+    code_name = '"lin_Vlasov_Maxwell"'
+
+    if mpi_rank == 0:
+        print('Starting code ' + code_name +  '...\n')
+        print(f'file_in : {file_in}')
+        print(f'path_out: {path_out}\n')
+
 
     # load simulation parameters
     with open(file_in) as file:
@@ -59,22 +90,35 @@ def execute(file_in, path_out, restart):
                         params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['vth_y'],
                         params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['vth_z']])
 
-    n0      = params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['nh0']
+    n0      =           params['kinetic_equilibrium']['params_Maxwell_homogen_slab']['nh0']
 
 
 
     # ========================================================================================= 
     # DOMAIN Object
     # =========================================================================================
-    domain_type = params['geometry']['type']
-    DOMAIN   = domain_3d.Domain(domain_type, params['geometry']['params_' + domain_type])
-    print('Domain object of type "' + domain_type + '" set.')
-    print()
+    domain_type   = params['geometry']['type']
+    domain_params = params['geometry']['params_' + domain_type]
+    # DOMAIN        = domain_3d.Domain(domain_type, domain_params)
+    DOMAIN        = Domain(domain_type, domain_params)
+    F_psy         = DOMAIN.Psydac_mapping('F', **domain_params)
+    # print('Domain object of type "' + domain_type + '" set.')
+    # print()
     
+    if mpi_rank == 0:
+        print(f'domain parameters: {domain_params}')
+        print(f'Domain of type "' + domain_type + '" set.')
+        print()
+
+
+
+
+
+
 
 
     # ========================================================================================= 
-    # FEEC SPACES Object
+    # FEEC SPACES Object (will be replaced)
     # =========================================================================================
     Nel         = params['grid']['Nel']
     p           = params['grid']['p']
@@ -106,10 +150,46 @@ def execute(file_in, path_out, restart):
     if params['solvers']['PRE'] == 'ILU':
         SPACES.projectors.assemble_approx_inv(params['solvers']['tol_inv'])
 
+    DOMAIN.cx
+
+
+    # # ========================================================================================= 
+    # # DERHAM sequence (Psydac)
+    # # =========================================================================================
+    # # Grid parameters
+    # Nel             = params['grid']['Nel']             # Number of grid cells
+    # p               = params['grid']['p']               # spline degree
+    # spl_kind        = params['grid']['spl_kind']        # Spline type
+
+    # DERHAM = Derham_build(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
+
+    # if mpi_rank == 0:
+    #     print('GRID parameters:')
+    #     print(f'Nel     : {Nel}')
+    #     print(f'p       : {p}')
+    #     print(f'spl_kind: {spl_kind}\n')
+    #     print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')
+    #     print()
+
+    # # Assemble necessary mass matrices 
+    # DERHAM.assemble_M1()
+    # if verbose: print(f'Rank: {mpi_rank} | Assembly of M1 done.')
+    # DERHAM.assemble_M2()
+    # if verbose: print(f'Rank: {mpi_rank} | Assembly of M2 done.\n')
+    
+
+    # # preconditioner ?
+
+
+
+
+
+
+
 
 
     # ========================================================================================= 
-    # FIELDS EQUILIBRIUM Object
+    # FIELDS EQUILIBRIUM Object (will be replaced)
     # =========================================================================================
     
     # FIELDS equilibirum (physical)
@@ -128,7 +208,7 @@ def execute(file_in, path_out, restart):
 
 
     # ========================================================================================= 
-    # FIELDS Variables Object
+    # FIELDS Variables Object (will be replaced)
     # =========================================================================================
     
     # Initialize variables for the field objects
@@ -137,6 +217,43 @@ def execute(file_in, path_out, restart):
                                                   params['fields_init']['params_' + fields_init_type])
     print('FIELDS variables of type "' + fields_init_type + '" initialized.')
     print()
+
+
+
+    # # ========================================================================================= 
+    # # Field Variables Objects (with FEEC)
+    # # =========================================================================================
+    # f_names  = params['fields']['general']['names']
+    # f_spaces = params['fields']['general']['spaces']
+    # f_init   = params['fields']['general']['init']
+    # f_coords = params['fields']['general']['init_coords']
+    # f_comps  = params['fields']['general']['init_comps']
+    # f_params = params['fields']['params_' + f_init]
+
+    # fields = []
+    # for name, space, comps in zip(f_names, f_spaces, f_comps):
+    #     fields += [Field_init(name, space, comps, f_init, f_coords, f_params, DERHAM, DOMAIN)]
+
+    #     if verbose:
+    #         print(f'Rank: {mpi_rank} | field      : {fields[-1].name}')
+    #         print(f'Rank: {mpi_rank} | space_cont : {fields[-1].space_cont}')
+    #         print(f'Rank: {mpi_rank} | starts     : {fields[-1].starts}')
+    #         print(f'Rank: {mpi_rank} | ends       : {fields[-1].ends}')
+    #         print(f'Rank: {mpi_rank} | pads       : {fields[-1].pads}')
+
+    #     MPI_COMM.Barrier()
+
+    # # Pointers to Stencil-/Blockvectors
+    # e = fields[0].vector
+    # b = fields[1].vector
+
+
+
+
+
+
+
+
 
 
 
@@ -161,7 +278,6 @@ def execute(file_in, path_out, restart):
     # ========================================================================================= 
     # MARKER and ACCUMULATION Objects
     # =========================================================================================
-    # TODO: restart has to be done here
     KIN = kinetic_init.Initialize_markers(  DOMAIN, EQ_KINETIC_L, 
                                             params['kinetic_init']['general'],
                                             params['kinetic_init']['params_' + params['kinetic_init']['general']['type']],
@@ -176,6 +292,12 @@ def execute(file_in, path_out, restart):
 
     print('Accumulator initialized on rank', mpi_rank)
     print()
+
+
+
+
+
+
 
 
 
@@ -205,6 +327,55 @@ def execute(file_in, path_out, restart):
         # DATA.add_data({'weights': FIELDS.w})
         DATA.add_data(time_series)
         print()
+
+    # # ========================================================================================= 
+    # # DATA Object for Saving (with Psydac)
+    # # =========================================================================================
+    # DATA = Data_container(path_out, comm=MPI_COMM)
+
+    # for field in fields:
+
+    #     if isinstance(field.vector, StencilVector):
+    #         key = field.name
+    #         DATA.add_data({key: field.vector._data}) # save numpy array to be updated each time step.
+    #         DATA.f[key].attrs['space_cont'] = field.space_cont
+    #         DATA.f[key].attrs['starts'] = field.starts
+    #         DATA.f[key].attrs['ends'] = field.ends
+    #         DATA.f[key].attrs['pads'] = field.pads
+    #     else:
+    #         for n in range(3):
+    #             key = field.name + '_' + str(n + 1)
+    #             DATA.add_data({key: field.vector[n]._data}) # save numpy array to be updated each time step.
+    #             DATA.f[key].attrs['space_cont'] = field.space_cont
+    #             DATA.f[key].attrs['starts'] = field.starts
+    #             DATA.f[key].attrs['ends'] = field.ends
+    #             DATA.f[key].attrs['pads'] = field.pads
+
+    # if mpi_rank == 0: print(f'Rank: {mpi_rank} | Field initial conditions saved.\n')
+    
+    # # Add other variables to be saved
+    # time_series  = {'time' : np.empty(1, dtype=float),
+    #                 'en_E' : np.empty(1, dtype=float), 
+    #                 'en_B' : np.empty(1, dtype=float), 
+    #                 # 'en_W' : np.empty(1, dtype=float), 
+    #                 # 'divB' : np.empty(1, dtype=float),
+    #                 }
+ 
+    # time_series['time'][0] = 0.
+    # time_series['en_E'][0] = 1/2*e.dot(DERHAM.M1.dot(e))
+    # time_series['en_B'][0] = 1/2*b.dot(DERHAM.M2.dot(b))
+
+    # DATA.add_data(time_series)
+
+    # if mpi_rank == 0: print(f'Rank: {mpi_rank} | Initial time series saved.\n')
+
+    # if verbose:
+    #     if mpi_rank == 0: DATA.info()
+
+
+
+
+
 
 
 
@@ -238,6 +409,7 @@ def execute(file_in, path_out, restart):
 
 
     UPDATE_FIELDS = push_maxwell.Push_maxwell(DOMAIN, SPACES, dts_fields, params)  
+    # UPDATE_FIELDS_PSYDAC = push_maxwell.Push_maxwell_psydac(DERHAM, dts_fields, params)  
     print('Fields time stepping available.')  
     print() 
 
@@ -275,20 +447,29 @@ def execute(file_in, path_out, restart):
 
             # substeps (Lie-Trotter splitting):
 
-            # substep 1 for \fJ_1 of X-V subsystem;  
+            # substep 1 for \fJ_1 of X-V subsystem;
+            # print('Now comes step_in_const_efield')
             UPDATE_MARKERS.step_in_const_efield(KIN.particles_loc, FIELDS.e1, accuracy, maxiter, print_info=True)
+            # print('step_in_const_efield done')
 
             # substep 2 for \fJ_2 of X-V subsystem
+            # print('Now comes step_v_cyclotron')
             UPDATE_MARKERS.step_v_cyclotron_ana(KIN.particles_loc, b2_eq, 0.*b2_eq, print_info=True)
+            # print('step_v_cyclotron done')
 
             # W-e-b subsystem, step for \fJ_3 where bfield is constant
+            # print('Now comes step_e_W')
             UPDATE_E_W.step_e_W(KIN.particles_loc, FIELDS.e1, print_info=True)
             MPI_COMM.Bcast(FIELDS.e1, root=0)
+            # print('step_e_W done')
 
             # W-e-b subsystem, step for \fJ_4 where weights are constant
+            # print('Now comes step_maxwell')
             UPDATE_FIELDS.step_maxwell(FIELDS.e1, FIELDS.b2, print_info=True)
+            # UPDATE_FIELDS_PSYDAC(FIELDS.e1, FIELDS.b2)
             MPI_COMM.Bcast(FIELDS.e1, root=0)
             MPI_COMM.Bcast(FIELDS.b2, root=0)
+            # print('step_maxwell done')
 
         elif params['time']['split_algo'] == 'Strang':
 

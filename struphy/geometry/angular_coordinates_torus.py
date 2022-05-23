@@ -3,12 +3,12 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Analytical coordinate transformation theta(eta1, eta2) for circular torus correspondong to ad hoc magnetic field (straight field line or equal arc).
+Analytical coordinate transformation theta(eta1, eta2) for circular torus corresponding to ad hoc magnetic field (straight field line or equal arc).
 """
 
 import numpy as np
 
-def theta(eta1, eta2, a, R0, kind='straight'):
+def theta(eta1, eta2, a, R0, kind):
     """Analytical coordinate transformations theta(eta1, eta2) for circular torus with ad hoc magnetic field.
     
     Parameters
