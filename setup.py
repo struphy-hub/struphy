@@ -49,6 +49,9 @@ setup(
         'vtk',
         'docutils==0.15',
         'wheel',
+        'tqdm',
+        'psydac',
+        'gvec_to_python',
     ],
     # more information, necessary for an upload to PyPI
     author="Max Planck Institute for Plasma Physics, Garching, Germany",

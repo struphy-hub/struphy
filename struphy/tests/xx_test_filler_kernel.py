@@ -190,13 +190,13 @@ def test_Filler_Kernel(Nel, p, spl_kind):
                 assert np.isnan(vector).any() == False
                 assert np.isinf(vector).any() == False
                 
-    del(matrix)
-    del(vector)
-    del(filling_m)
-    del(filling_v)
-    del(function_m)
-    del(function_mv)
-    del(function_v)
+        del(matrix)
+        del(vector)
+        del(filling_m)
+        del(filling_v)
+        del(function_m)
+        del(function_mv)
+        del(function_v)
 
 
 
@@ -316,13 +316,13 @@ def test_Filler_Kernel(Nel, p, spl_kind):
                 assert np.isnan(vector).any() == False
                 assert np.isinf(vector).any() == False
 
-    del(matrix)
-    del(vector)
-    del(filling_m)
-    del(filling_v)
-    del(function_m)
-    del(function_mv)
-    del(function_v)
+        del(matrix)
+        del(vector)
+        del(filling_m)
+        del(filling_v)
+        del(function_m)
+        del(function_mv)
+        del(function_v)
 
     print('test_filler_kernel passed!')
 
