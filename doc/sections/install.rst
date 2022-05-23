@@ -4,6 +4,9 @@ Installation
 Requirements
 ------------
 
+System
+^^^^^^
+
 - Linux (Ubuntu 20 or higher). If you are using a different OS, please run the :ref:`multipass`.
 - Access to the `Gitlab.mpcdf <https://gitlab.mpcdf.mpg.de/>`_ packages `Struphy <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_ and `gvec_to_python <https://gitlab.mpcdf.mpg.de/spossann/gvec_to_python>`_.
 
@@ -11,7 +14,7 @@ Requirements
 .. _linux_packages:
 
 Linux packages
---------------
+^^^^^^^^^^^^^^
 
 ::
 
@@ -21,34 +24,30 @@ Linux packages
     sudo apt install -y python3-pip python3-mpi4py
 
 
-.. _user_install:
+.. _gvec_to_python:
 
-Struphy package install from PYPI
----------------------------------
+gvec_to_python
+^^^^^^^^^^^^^^
 
-Not yet available.
+Get ``gvec_to_python`` wheel file::
 
+    curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab.mpcdf.mpg.de/api/v4/projects/5368/jobs/1679220/artifacts/dist/gvec_to_python-0.1.2-py3-none-any.whl"
 
-.. _source_install:
+Install from wheel::
 
-Struphy package install from source
------------------------------------
+    pip install gvec_to_python-0.1.2-py3-none-any.whl
 
-Before starting, it is safe to extend the ``PATH`` variable with your local path::
+.. _psydac:
 
-    export PATH=$PATH:~/.local/bin
+psydac
+^^^^^^
 
-Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, checkout the ``devel`` branch and name the repo ``<name>``::
+Get ``psydac`` source code (no wheel available yet)::
 
-    git clone -b devel git@gitlab.mpcdf.mpg.de:clapp/hylife.git <name>
+    git clone https://github.com/pyccel/psydac.git
 
-Install the submodules ``psydac``::
+Set variables for hdf5::
 
-    cd <name>
-    git submodule init
-    git submodule update
-    cd psydac
-    git pull origin devel
     export CC="mpicc"
     export HDF5_MPI="ON"
 
@@ -65,14 +64,6 @@ Install psydac::
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install .
-    cd ..
-
-Install the submodule ``gvec_to_python``::
-
-    cd gvec_to_python
-    python3 -m pip install . -r requirements.txt
-    pip install sympy==1.6.1 
-    cd ..
 
 Find out where psydac is installed::
 
@@ -95,6 +86,47 @@ The ``<path>`` under ``Location:`` is what we are looking for. Compile psydac ke
 
     pyccel <path>/psydac/core/kernels.py --language fortran
 
+
+.. _user_install:
+
+User install
+------------
+
+Before starting, it is safe to extend the ``PATH`` variable with your local path::
+
+    export PATH=$PATH:~/.local/bin
+
+Get current ``struphy`` wheel file::
+
+    curl -O --header "PRIVATE-TOKEN: glpat-6HCAcowp8yKfBzDYWqA_" "https://gitlab.mpcdf.mpg.de/api/v4/projects/2599/jobs/1679170/artifacts/dist/struphy-1.9.0-py3-none-any.whl"
+
+Install from wheel::
+
+    pip install struphy-1.9.0-py3-none-any.whl
+
+
+.. _source_install:
+
+Developer install
+-----------------
+
+Before starting, it is safe to extend the ``PATH`` variable with your local path::
+
+    export PATH=$PATH:~/.local/bin
+
+Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_, checkout the ``devel`` branch, update submodules 
+and name the repo ``<name>`` via::
+
+    git clone -b devel --recurse-submodules git@gitlab.mpcdf.mpg.de:clapp/hylife.git <name>
+
+Install the submodule in ``<name>/psydac`` according to :ref:`psydac` (without cloning the repo). Install the submodule in ``<name>/gvec_to_python``
+according to::
+
+    cd gvec_to_python
+    python3 -m pip install . -r requirements.txt
+    pip install sympy==1.6.1 
+    cd ..
+
 Install ``struphy`` via::
 
     pip install <option> .
@@ -112,13 +144,13 @@ Struphy compilation::
 Computing clusters
 ------------------
 
-Specifics for the HPC system ``cobra`` at IPP::
+Specifics for the HPC systems ``cobra`` and ``draco`` at IPP::
 
     module purge
     module load gcc openmpi anaconda/3/2020.02 mpi4py
     module list
 
-Continue with :ref:`source_install` from above.
+Continue with :ref:`user_install` from above.
 
 Extend the ``PYTHONPATH``::
 

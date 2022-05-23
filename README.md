@@ -14,6 +14,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 * Removed pyccel requirement in the setup file, always install newest version
 * Improved continuous integration: use dedicated MPCDF runner for struphy (thanks to Flo Hindenlang), linting, code tests, `.whl` file available as artifact
 * Improved documentation: 
+    * Install from wheel (no source code needed)
     * workflow for adding code
     * detailed explanation of how to add new models, propagators
     * Section Continuous Integration shows how to add tests

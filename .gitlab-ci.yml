@@ -276,10 +276,10 @@ unit_tests:
 
   script:
     - cd ${ENV_PATH}/struphy/tests/
-    - coverage run --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
-    - cd -
-    - ls -1
+    - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
+    - cd $CI_PROJECT_DIR
     - coverage xml
+    - ls -1
     - coverage report --skip-empty
     - coverage erase
 
@@ -297,7 +297,6 @@ code_tests:
     - struphy run maxwell -i params_ci_2.yml -o sim_3 --mpi 2
     - struphy profile ${ENV_PATH}/struphy/io/out/sim_1/ ${ENV_PATH}/struphy/io/out/sim_2/ ${ENV_PATH}/struphy/io/out/sim_3/
     # Add Test for each model
-
 
 # Deployment
 pages:
