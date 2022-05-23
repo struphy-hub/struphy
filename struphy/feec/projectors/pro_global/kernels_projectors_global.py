@@ -2,7 +2,7 @@ from numpy import shape
 
 
 # ========= kernel for integration in 1d ==================
-def kernel_int_1d(nq1 : 'int', w1 : 'double[:]', mat_f : 'double[:]') -> 'double':
+def kernel_int_1d(nq1 : 'int', w1 : 'float[:]', mat_f : 'float[:]') -> 'float':
     
     f_loc = 0.
     
@@ -13,7 +13,7 @@ def kernel_int_1d(nq1 : 'int', w1 : 'double[:]', mat_f : 'double[:]') -> 'double
 
 
 # ========= kernel for integration in 2d ==================
-def kernel_int_2d(nq1 : 'int', nq2 : 'int', w1 : 'double[:]', w2 : 'double[:]', mat_f : 'double[:,:]') -> 'double':
+def kernel_int_2d(nq1 : 'int', nq2 : 'int', w1 : 'float[:]', w2 : 'float[:]', mat_f : 'float[:,:]') -> 'float':
     
     f_loc = 0.
     
@@ -25,7 +25,7 @@ def kernel_int_2d(nq1 : 'int', nq2 : 'int', w1 : 'double[:]', w2 : 'double[:]', 
 
 
 # ========= kernel for integration in 3d ==================
-def kernel_int_3d(nq1 : 'int', nq2 : 'int', nq3 : 'int', w1 : 'double[:]', w2 : 'double[:]', w3 : 'double[:]', mat_f : 'double[:,:,:]') -> 'double':
+def kernel_int_3d(nq1 : 'int', nq2 : 'int', nq3 : 'int', w1 : 'float[:]', w2 : 'float[:]', w3 : 'float[:]', mat_f : 'float[:,:,:]') -> 'float':
     
     f_loc = 0.
     
@@ -46,7 +46,7 @@ def kernel_int_3d(nq1 : 'int', nq2 : 'int', nq3 : 'int', w1 : 'double[:]', w2 : 
 # ===========================================================================================================
 
 # ========= kernel for integration along eta1 direction, reducing to a 2d array  ============================
-def kernel_int_2d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'float[:,:]', mat_f : 'float[:,:,:]', f_int : 'float[:,:]'):
     
     n1, n2 = shape(f_int)
     
@@ -65,7 +65,7 @@ def kernel_int_2d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'double[:,:]
 
             
 # ========= kernel for integration along eta2 direction, reducing to a 2d array  ============================
-def kernel_int_2d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:]', f_int : 'float[:,:]'):
     
     n1, n2 = shape(f_int)
     
@@ -84,7 +84,7 @@ def kernel_int_2d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'double[:,:]
             
             
 # ========= kernel for integration along eta1 direction, reducing to a 2d array  ============================
-def kernel_int_2d_eta1_old(w1 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta1_old(w1 : 'float[:,:]', mat_f : 'float[:,:,:]', f_int : 'float[:,:]'):
     
     ne1, nq1, n2 = shape(mat_f)
     
@@ -98,7 +98,7 @@ def kernel_int_2d_eta1_old(w1 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 
                 
                 
 # ========= kernel for integration along eta2 direction, reducing to a 2d array  ============================
-def kernel_int_2d_eta2_old(w2 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta2_old(w2 : 'float[:,:]', mat_f : 'float[:,:,:]', f_int : 'float[:,:]'):
     
     n1, ne2, nq2 = shape(mat_f)
     
@@ -119,7 +119,7 @@ def kernel_int_2d_eta2_old(w2 : 'double[:,:]', mat_f : 'double[:,:,:]', f_int : 
             
             
 # ========= kernel for integration in eta1-eta2 plane, reducing to a 2d array  ==============================
-def kernel_int_2d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'float[:,:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:]'):
     
     n1, n2 = shape(f_int)
     
@@ -147,7 +147,7 @@ def kernel_int_2d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int
                 
                 
 # ========= kernel for integration in eta1-eta2 plane, reducing to a 2d array  =======================
-def kernel_int_2d_eta1_eta2_old(w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:]'):
+def kernel_int_2d_eta1_eta2_old(w1 : 'float[:,:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:]'):
     
     ne1, nq1, ne2, nq2 = shape(mat_f)
     
@@ -176,7 +176,7 @@ def kernel_int_2d_eta1_eta2_old(w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 
 
 
 # ========= kernel for integration along eta1 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
    
@@ -194,7 +194,7 @@ def kernel_int_3d_eta1(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'double[:,:]
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta1_transpose(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:]'):
+def kernel_int_3d_eta1_transpose(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -209,7 +209,7 @@ def kernel_int_3d_eta1_transpose(subs1 : 'int[:]', subs_cum1 : 'int[:]', w1 : 'd
 #============================================================================================================
             
 # ========= kernel for integration along eta2 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
    
@@ -227,7 +227,7 @@ def kernel_int_3d_eta2(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'double[:,:]
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta2_transpose(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:]'):
+def kernel_int_3d_eta2_transpose(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
 
@@ -244,7 +244,7 @@ def kernel_int_3d_eta2_transpose(subs2 : 'int[:]', subs_cum2 : 'int[:]', w2 : 'd
 #============================================================================================================
 
 # ========= kernel for integration along eta3 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta3(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta3(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
    
@@ -262,7 +262,7 @@ def kernel_int_3d_eta3(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'double[:,:]
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta3_transpose(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:]'):
+def kernel_int_3d_eta3_transpose(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
 
@@ -279,7 +279,7 @@ def kernel_int_3d_eta3_transpose(subs3 : 'int[:]', subs_cum3 : 'int[:]', w3 : 'd
 #============================================================================================================                                        
                     
 # ========= kernel for integration along eta1 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta1_old(w1 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_old(w1 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     ne1, nq1, n2, n3 = shape(mat_f)
     
@@ -294,7 +294,7 @@ def kernel_int_3d_eta1_old(w1 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int 
 
 
 # ========= kernel for integration along eta2 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta2_old(w2 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta2_old(w2 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, ne2, nq2, n3 = shape(mat_f)
     
@@ -309,7 +309,7 @@ def kernel_int_3d_eta2_old(w2 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int 
 
 
 # ========= kernel for integration along eta3 direction, reducing to a 3d array  ============================
-def kernel_int_3d_eta3_old(w3 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta3_old(w3 : 'float[:,:]', mat_f : 'float[:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, ne3, nq3 = shape(mat_f)
     
@@ -330,7 +330,7 @@ def kernel_int_3d_eta3_old(w3 : 'double[:,:]', mat_f : 'double[:,:,:,:]', f_int 
                     
                     
 # ========= kernel for integration in eta2-eta3 plane, reducing to a 3d array  ==============================
-def kernel_int_3d_eta2_eta3(subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w2 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta2_eta3(subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w2 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -354,7 +354,7 @@ def kernel_int_3d_eta2_eta3(subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta2_eta3_transpose(subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w2 : 'double[:,:]', w3 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:,:]'):
+def kernel_int_3d_eta2_eta3_transpose(subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w2 : 'float[:,:]', w3 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -375,7 +375,7 @@ def kernel_int_3d_eta2_eta3_transpose(subs2 : 'int[:]', subs3 : 'int[:]', subs_c
                                 mat_f[i1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]                    
 
 # ========= kernel for integration in eta1-eta3 plane, reducing to a 3d array  ==============================
-def kernel_int_3d_eta1_eta3(subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta3(subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -399,7 +399,7 @@ def kernel_int_3d_eta1_eta3(subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta1_eta3_transpose(subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'double[:,:]', w3 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:,:]'):
+def kernel_int_3d_eta1_eta3_transpose(subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'float[:,:]', w3 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -420,7 +420,7 @@ def kernel_int_3d_eta1_eta3_transpose(subs1 : 'int[:]', subs3 : 'int[:]', subs_c
                                 mat_f[i1 + j1 + subs_cum1[i1], q1, i2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]
                     
 # ========= kernel for integration in eta1-eta2 plane, reducing to a 3d array  ==============================
-def kernel_int_3d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'float[:,:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -444,7 +444,7 @@ def kernel_int_3d_eta1_eta2(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta1_eta2_transpose(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:,:]'):
+def kernel_int_3d_eta1_eta2_transpose(subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', w1 : 'float[:,:]', w2 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]'):
     
     n1, n2, n3 = shape(f_int)
     
@@ -465,7 +465,7 @@ def kernel_int_3d_eta1_eta2_transpose(subs1 : 'int[:]', subs2 : 'int[:]', subs_c
                                 mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3] = wvol * f_int[i1, i2, i3]
                     
 # ========= kernel for integration in eta2-eta3 plane, reducing to a 3d array  ==============================
-def kernel_int_3d_eta2_eta3_old(w2 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta2_eta3_old(w2 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1, ne2, nq2, ne3, nq3 = shape(mat_f)
     
@@ -481,7 +481,7 @@ def kernel_int_3d_eta2_eta3_old(w2 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 
 
 
 # ========= kernel for integration eta1-eta3 plane, reducing to a 3d array  ================================
-def kernel_int_3d_eta1_eta3_old(w1 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta3_old(w1 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     ne1, nq1, n2, ne3, nq3 = shape(mat_f)
     
@@ -497,7 +497,7 @@ def kernel_int_3d_eta1_eta3_old(w1 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 
 
 
 # ========= kernel for integration in eta1-eta2 plane, reducing to a 3d array  ============================
-def kernel_int_3d_eta1_eta2_old(w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 'double[:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta2_old(w1 : 'float[:,:]', w2 : 'float[:,:]', mat_f : 'float[:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     ne1, nq1, ne2, nq2, n3 = shape(mat_f)
     
@@ -521,7 +521,7 @@ def kernel_int_3d_eta1_eta2_old(w1 : 'double[:,:]', w2 : 'double[:,:]', mat_f : 
                         
                         
 # ========= kernel for integration in eta1-eta2-eta3 cell, reducing to a 3d array  ==============================
-def kernel_int_3d_eta1_eta2_eta3(subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta2_eta3(subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'float[:,:]', w2 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     n1  = len(subs1)
     n2  = len(subs2)
@@ -550,7 +550,7 @@ def kernel_int_3d_eta1_eta2_eta3(subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'in
 
                 f_int[i1, i2, i3] = value
 
-def kernel_int_3d_eta1_eta2_eta3_transpose(subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', f_int : 'double[:,:,:]', mat_f : 'double[:,:,:,:,:,:]'):
+def kernel_int_3d_eta1_eta2_eta3_transpose(subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', w1 : 'float[:,:]', w2 : 'float[:,:]', w3 : 'float[:,:]', f_int : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:,:]'):
     
     n1  = len(subs1)
     n2  = len(subs2)
@@ -576,7 +576,7 @@ def kernel_int_3d_eta1_eta2_eta3_transpose(subs1 : 'int[:]', subs2 : 'int[:]', s
                                         mat_f[i1 + j1 + subs_cum1[i1], q1, i2 + j2 + subs_cum2[i2], q2, i3 + j3 + subs_cum3[i3], q3] = wvol * f_int[i1, i2, i3]
                         
 # ========= kernel for integration in eta1-eta2-eta3 cell, reducing to a 3d array  =======================
-def kernel_int_3d_eta1_eta2_eta3_old(w1 : 'double[:,:]', w2 : 'double[:,:]', w3 : 'double[:,:]', mat_f : 'double[:,:,:,:,:,:]', f_int : 'double[:,:,:]'):
+def kernel_int_3d_eta1_eta2_eta3_old(w1 : 'float[:,:]', w2 : 'float[:,:]', w3 : 'float[:,:]', mat_f : 'float[:,:,:,:,:,:]', f_int : 'float[:,:,:]'):
     
     ne1, nq1, ne2, nq2, ne3, nq3 = shape(mat_f)
     

@@ -6,7 +6,7 @@ from numpy import shape
 # ===========================================================================================================
 
 # =============================================================================
-def rhs0_1d(row1 : 'int[:]', col1 : 'int[:]', bsp1 : 'double[:,:]', mat_eq : 'double[:]', rhs : 'double[:]'):
+def rhs0_1d(row1 : 'int[:]', col1 : 'int[:]', bsp1 : 'float[:,:]', mat_eq : 'float[:]', rhs : 'float[:]'):
     
     n_rows_1 = len(row1)
     
@@ -16,7 +16,7 @@ def rhs0_1d(row1 : 'int[:]', col1 : 'int[:]', bsp1 : 'double[:,:]', mat_eq : 'do
         
         
 # =============================================================================
-def rhs1_1d(row1 : 'int[:]', col1 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', mat_eq : 'double[:,:]', rhs : 'double[:]'):
+def rhs1_1d(row1 : 'int[:]', col1 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'float[:,:]', bsp1 : 'float[:,:,:]', mat_eq : 'float[:,:]', rhs : 'float[:]'):
     
     n_rows_1 = len(row1)
     
@@ -34,7 +34,7 @@ def rhs1_1d(row1 : 'int[:]', col1 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int
         
         
 # =============================================================================                
-def rhs0_f_1d(indices1 : 'int[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', mat_eq : 'double[:]', f : 'double[:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs0_f_1d(indices1 : 'int[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', mat_eq : 'float[:]', f : 'float[:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     rhs[:] = 0.
     
@@ -49,7 +49,7 @@ def rhs0_f_1d(indices1 : 'int[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]
 
         
 # =============================================================================                
-def rhs1_f_1d(indices1 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', mat_eq : 'double[:,:]', f : 'double[:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs1_f_1d(indices1 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'float[:,:]', bsp11 : 'float[:,:,:]', bsp12 : 'float[:,:,:]', mat_eq : 'float[:,:]', f : 'float[:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
@@ -79,7 +79,7 @@ def rhs1_f_1d(indices1 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts
         
 
 # =============================================================================
-def rhs0_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', mat_eq : 'double[:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs0_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:]', mat_eq : 'float[:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -102,7 +102,7 @@ def rhs0_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', 
 
         
 # =============================================================================
-def rhs11_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs11_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -134,7 +134,7 @@ def rhs11_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]',
         
 
 # =============================================================================
-def rhs12_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs12_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'float[:,:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -167,7 +167,7 @@ def rhs12_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]',
 
             
 # =============================================================================
-def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -208,7 +208,7 @@ def rhs2_2d(row1 : 'int[:]', row2 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', 
             
                 
 # =============================================================================                
-def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', mat_eq : 'double[:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', mat_eq : 'float[:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
     
     nv1 = indices1[3].max() + 1
     nv2 = indices2[3].max() + 1
@@ -236,7 +236,7 @@ def rhs0_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', bsp11 : 'double[:,:]
                 
                 
 # =============================================================================                
-def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', mat_eq : 'double[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'float[:,:]', bsp11 : 'float[:,:,:]', bsp12 : 'float[:,:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', mat_eq : 'float[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
@@ -271,7 +271,7 @@ def rhs11_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs1 : 'int[:]', s
                 
 
 # =============================================================================                
-def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:,:]', bsp22 : 'double[:,:,:]', mat_eq : 'double[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'float[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:,:]', bsp22 : 'float[:,:,:]', mat_eq : 'float[:,:,:]', f : 'complex[:,:]', rhs : 'complex[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq2 = shape(wts2)[1]
     
@@ -316,8 +316,7 @@ def rhs12_f_2d(indices1 : 'int[:,:]', indices2 : 'int[:,:]', subs2 : 'int[:]', s
                 
                 
 # =============================================================================
-@types('int[:]','int[:]','int[:]','int[:]','int[:]','int[:]','double[:,:]','double[:,:]','double[:,:]','double[:,:,:]','double[:]','int[:]','int[:]')
-def rhs0(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', mat_eq : 'double[:]', rhs, row : 'int[:]', col : 'int[:]'):
+def rhs0(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:]', bsp3 : 'float[:,:]', mat_eq : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -347,7 +346,7 @@ def rhs0(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col
     
     
 # =============================================================================
-def rhs11(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs11(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs_cum1 : 'int[:]', wts1 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:]', bsp3 : 'float[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -387,7 +386,7 @@ def rhs11(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs12(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs12(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs_cum2 : 'int[:]', wts2 : 'float[:,:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:,:]', bsp3 : 'float[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -427,7 +426,7 @@ def rhs12(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs13(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs3 : 'int[:]', subs_cum3 : 'int[:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs13(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs3 : 'int[:]', subs_cum3 : 'int[:]', wts3 : 'float[:,:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:]', bsp3 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -467,7 +466,7 @@ def rhs13(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs21(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts2 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs21(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', bsp1 : 'float[:,:]', bsp2 : 'float[:,:,:]', bsp3 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -514,7 +513,7 @@ def rhs21(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs22(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs22(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'float[:,:]', wts3 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:]', bsp3 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -562,7 +561,7 @@ def rhs22(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs23(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs23(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:,:]', bsp3 : 'float[:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -610,7 +609,7 @@ def rhs23(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
     
     
 # =============================================================================
-def rhs3(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'double[:,:]', wts2 : 'double[:,:]', wts3 : 'double[:,:]', bsp1 : 'double[:,:,:]', bsp2 : 'double[:,:,:]', bsp3 : 'double[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'double[:,:,:,:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):
+def rhs3(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col2 : 'int[:]', col3 : 'int[:]', subs1 : 'int[:]', subs2 : 'int[:]', subs3 : 'int[:]', subs_cum1 : 'int[:]', subs_cum2 : 'int[:]', subs_cum3 : 'int[:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', bsp1 : 'float[:,:,:]', bsp2 : 'float[:,:,:]', bsp3 : 'float[:,:,:]', nbase_n : 'int[:]', nbase_d : 'int[:]', mat_eq : 'float[:,:,:,:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):
     
     n_rows_1 = len(row1)
     n_rows_2 = len(row2)
@@ -662,7 +661,7 @@ def rhs3(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', col
                     
                     
 # =============================================================================                
-def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub1 : 'int[:]', sub1_cum : 'int[:]', wts1 : 'double[:,:]', bsp11 : 'double[:,:,:]', bsp12 : 'double[:,:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', bsp31 : 'double[:,:]', bsp32 : 'double[:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub1 : 'int[:]', sub1_cum : 'int[:]', wts1 : 'float[:,:]', bsp11 : 'float[:,:,:]', bsp12 : 'float[:,:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', bsp31 : 'float[:,:]', bsp32 : 'float[:,:]', mat_eq : 'float[:,:,:,:]', f : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq1 = shape(wts1)[1]
     
@@ -702,7 +701,7 @@ def rhs11_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
     
     
 # =============================================================================                
-def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub2 : 'int[:]', sub2_cum : 'int[:]', wts2 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:,:]', bsp22 : 'double[:,:,:]', bsp31 : 'double[:,:]', bsp32 : 'double[:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub2 : 'int[:]', sub2_cum : 'int[:]', wts2 : 'float[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:,:]', bsp22 : 'float[:,:,:]', bsp31 : 'float[:,:]', bsp32 : 'float[:,:]', mat_eq : 'float[:,:,:,:]', f : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq2 = shape(wts2)[1]
     
@@ -742,7 +741,7 @@ def rhs12_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]',
                 
                 
 # =============================================================================                
-def rhs13_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub3 : 'int[:]', sub3_cum : 'int[:]', wts3 : 'double[:,:]', bsp11 : 'double[:,:]', bsp12 : 'double[:,:]', bsp21 : 'double[:,:]', bsp22 : 'double[:,:]', bsp31 : 'double[:,:,:]', bsp32 : 'double[:,:,:]', mat_eq : 'double[:,:,:,:]', f : 'double[:,:,:]', rhs : 'double[:]', row : 'int[:]', col : 'int[:]'):  
+def rhs13_f(indices1 : 'int[:,:]', indices2 : 'int[:,:]', indices3 : 'int[:,:]', n_row_sub3 : 'int[:]', sub3_cum : 'int[:]', wts3 : 'float[:,:]', bsp11 : 'float[:,:]', bsp12 : 'float[:,:]', bsp21 : 'float[:,:]', bsp22 : 'float[:,:]', bsp31 : 'float[:,:,:]', bsp32 : 'float[:,:,:]', mat_eq : 'float[:,:,:,:]', f : 'float[:,:,:]', rhs : 'float[:]', row : 'int[:]', col : 'int[:]'):  
         
     nq3 = shape(wts3)[1]
     
