@@ -75,6 +75,27 @@ class Schur_solver:
         self._maxiter = maxiter
         self._verbose = verbose
 
+    @property
+    def A(self):
+        """Upper left block from [[A B], [C Id]]."""
+        return self._A
+    
+    @property
+    def BC(self):
+        """Product from [[A B], [C Id]]."""
+        return self._BC
+    
+    @A.setter
+    def A(self, a):
+        """Upper left block from [[A B], [C Id]]."""
+        self._A = a
+    
+    @BC.setter
+    def BC(self, bc):
+        """Product from [[A B], [C Id]]."""
+        self._BC = bc
+    
+
     def __call__(self, xn, Byn, dt):
 
         self._schur   = Sum(self._A, Multiply(-dt**2, self._BC) )
