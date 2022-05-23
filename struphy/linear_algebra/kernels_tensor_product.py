@@ -1,9 +1,5 @@
-from pyccel.decorators import types
-
-    
 # ===============================================================
-@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def projector_tensor_strong(pi1, pi2, pi3, ind1, ind2, ind3, a, b, c):
+def projector_tensor_strong(pi1 : 'double[:,:,:]', pi2 : 'double[:,:,:]', pi3 : 'double[:,:,:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', a : 'double[:,:,:]', b : 'double[:,:,:]', c : 'double[:,:,:]'):
     
     n1 = len(ind1[0])
     n2 = len(ind2[0])
@@ -18,8 +14,7 @@ def projector_tensor_strong(pi1, pi2, pi3, ind1, ind2, ind3, a, b, c):
                 
                 
 # ===============================================================
-@types('double[:,:]','double[:,:]','double[:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:]','double[:,:,:]')
-def projector_tensor_strong_reduced(pi1, pi2, pi3, ind1, ind2, ind3, a, c):
+def projector_tensor_strong_reduced(pi1 : 'double[:,:]', pi2 : 'double[:,:]', pi3 : 'double[:,:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', a : 'double[:,:,:]', c : 'double[:,:,:]'):
     
     n1 = len(ind1[0])
     n2 = len(ind2[0])
@@ -34,8 +29,7 @@ def projector_tensor_strong_reduced(pi1, pi2, pi3, ind1, ind2, ind3, a, c):
                                 
                 
 # ===============================================================                
-@types('double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def projector_tensor_weak(pi1, pi2, pi3, ind1, ind2, ind3, a, b, c):
+def projector_tensor_weak(pi1 : 'double[:,:,:]', pi2 : 'double[:,:,:]', pi3 : 'double[:,:,:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', a : 'double[:,:,:]', b : 'double[:,:,:]', c : 'double[:,:,:]'):
     
     n1 = len(ind1[0])
     n2 = len(ind2[0])

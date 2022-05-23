@@ -3,7 +3,6 @@ import numpy as np
 from struphy.pic import pusher_pos
 from struphy.pic import pusher_vel_3d
 from struphy.pic import pusher_pos_vel_3d
-from struphy.pic import pusher_weights
 
 
 class Push:
@@ -173,11 +172,11 @@ class Push:
                                  self.params['particle_charge'] /
                                  self.params['particle_mass'],
                                  self.SPACES.T[0], self.SPACES.T[1], self.SPACES.T[2],
-                                 self.SPACES.p, self.SPACES.Nel, self.SPACES.NbaseN, self.SPACES.NbaseD, self.Np_loc,
+                                 np.array(self.SPACES.p), np.array(self.SPACES.Nel), np.array(self.SPACES.NbaseN), np.array(self.SPACES.NbaseD), self.Np_loc,
                                  b2_ten_1, b2_ten_2, b2_ten_3,
                                  self.DOMAIN.kind_map, self.DOMAIN.params_map,
                                  self.DOMAIN.T[0], self.DOMAIN.T[1], self.DOMAIN.T[2],
-                                 self.DOMAIN.p, self.DOMAIN.Nel, self.DOMAIN.NbaseN,
+                                 np.array(self.DOMAIN.p), np.array(self.DOMAIN.Nel), np.array(self.DOMAIN.NbaseN),
                                  self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
                                  )
 
@@ -223,11 +222,11 @@ class Push:
         pd3 = pn3 - 1
 
         # number of quadrature points in direction 1
-        n_quad1 = int(pd1*pn2*pn3/2.) + 2
+        n_quad1 = int( np.floor( pd1*pn2*pn3 / 2 + 1 ) )
         # number of quadrature points in direction 2
-        n_quad2 = int(pn1*pd2*pn3/2.) + 2
+        n_quad2 = int( np.floor( pn1*pd2*pn3 / 2 + 1 ) )
         # number of quadrature points in direction 3
-        n_quad3 = int(pn1*pn2*pd3/2.) + 2
+        n_quad3 = int( np.floor( pn1*pn2*pd3 / 2 + 1 ) )
 
         # get quadrature weights and locations
         loc1, weight1 = polynomial.legendre.leggauss(n_quad1)
@@ -235,18 +234,22 @@ class Push:
         loc3, weight3 = polynomial.legendre.leggauss(n_quad3)
 
         pusher_pos_vel_3d.pusher_x_v_static_efield( temp,
+                                                    self.DOMAIN.kind_map, self.DOMAIN.params_map,
                                                     self.dts[1],
-                                                    self.SPACES.p,
+                                                    np.array(self.SPACES.p),
+                                                    np.array(self.SPACES.Nel),
+                                                    self.SPACES.el_b[0], self.SPACES.el_b[1], self.SPACES.el_b[2],
                                                     self.SPACES.T[0],    self.SPACES.T[1],    self.SPACES.T[2],
                                                     self.SPACES.indN[0], self.SPACES.indN[1], self.SPACES.indN[2],
                                                     self.SPACES.indD[0], self.SPACES.indD[1], self.SPACES.indD[2],
                                                     loc1,    loc2,    loc3,
                                                     weight1, weight2, weight3,
                                                     self.Np_loc,
-                                                    self.SPACES.NbaseN, self.SPACES.NbaseD,
+                                                    np.array(self.SPACES.NbaseN), np.array(self.SPACES.NbaseD),
                                                     efield,
-                                                    accuracy,
-                                                    maxiter
+                                                    np.array(accuracy),
+                                                    maxiter,
+                                                    self.DOMAIN.cx, self.DOMAIN.cy, self.DOMAIN.cz
                                                     )
 
         if np.isnan(temp).any():

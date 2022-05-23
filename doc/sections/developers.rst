@@ -6,28 +6,72 @@ Developer's guide
 
 .. _repo:
 
-GitLab repository
------------------
+Git repository
+--------------
+
+The Struphy repo is on `gitlab.mpcdf.mpg.de <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_.
+
+You need a developer to grant access.
+
+
+.. _adding_code:
+
+Adding code
+-----------
+
+.. _workflow:
+
+Workflow 
+^^^^^^^^
+
+When adding code to Struphy it is important that other developers can follow what you are planning/doing.
+For this we use the ``Issue`` tracker on the left panel of the `repo webpage <https://gitlab.mpcdf.mpg.de/clapp/hylife>`_.
+
+If you plan to add a small feature (finished in a couple of days):
+
+1. Create an ``Issue`` by clicking on the blue button ``New issue`` in the top-right corner.
+2. Insert informative title and description. 
+3. Assign to yourself.
+4. Select a corresponding Milestone if the issue fits.
+5. [Optional: select a due date.]
+6. Click ``Create Issue``.
+
+If you have a bigger code change in mind that might take several days or weeks::
+
+1. Click ``New milestone`` in ``Issues/Milestone`` from the left panel.
+2. Insert informative title and description (point by point).
+3. [Optional: select a due date.]
+4. Click ``Create milestone``.
+5. Add issues that correspond to your milestone (see above).
+
+.. note::
+
+    Create :ref:`feature_branches` to work an an issue or a group of issues. **Delete** the feature branch after the merge request.
+    Do not keep a feature branch too long (usually a couple of days, 1-2 weeks max). 
+
+**Closing an issue**: mention the issue via its link (bottom of the right side panel of the issue's page) in the corresponding 
+:ref:`merge request <merge_requests>`, then close the issue.
 
 .. _main_branches:
 
 Main branches 
 ^^^^^^^^^^^^^
 
-There are two main branches, ``master`` and ``devel``. No one can push directly to these branches. The master branch holds the current pre-release of the code. 
-``devel`` is the main branch for developers. Merge requests must always go into ``devel``.
+There are two main branches, ``master`` and ``devel``. Nobody can push directly to these branches. 
+The master branch holds the current release of the code. 
+``devel`` is the main branch for developers. The code in ``devel`` can be modified via :ref:`feature_branches`.
 
 .. _feature_branches:
 
 Feature branches 
 ^^^^^^^^^^^^^^^^
 
-When implementing changes to ``devel`` you should do this via a **feature branch** in the following way::
+When implementing changes to ``devel`` you must do this via a **feature branch** in the following way::
 
     git checkout devel
-    git checkout -b <name_of_feature>
+    git checkout -b feature
 
-This creates locally on your machine the new feature branch `<name_of_feature>` and checks it out.
+This creates locally on your machine the new feature branch `feature` and checks it out.
 Work on your new feature and commit changes in a timely manner::
 
     git commit -m 'I made this and that.'
@@ -41,26 +85,39 @@ From time to time, it is important to check whether the main branch has changed
     git checkout devel
     git status
 
-In case the main branch has changed you must perform :ref:`rebasing`. 
+In case the main branch has changed you must perform either :ref:`rebasing` or :ref:`merging` (see `here <https://www.atlassian.com/de/git/tutorials/merging-vs-rebasing>`_ for a comparison of the two concepts). 
+Merging must be done instead of rebasing if
+
+1. Your branch is published (pushed to origin)
+2. Your branch is not yet merged with main
+3. The main branch has changed since your feature creation or last rebase
 
 **The golden rule of rebasing: only rebase a private branch!** This means you rebase **before** publishing your feature branch to the repository.
 
 When you are done coding the new feature, create a new remote branch and push your changes::
 
-    git push -u origin <name_of_feature>
+    git push -u origin feature
 
 You can continue working locally on your feature, then use ``git push`` to update the new remote branch.
-Once you are done working on the new feature, you must create a **merge request** (called pull requeston Github) 
-such that your changes can be incorporated into ``devel``. There are several ways to do this, one of which is as follows: 
 
-    1. On the gitlab webpage go to "Merge requests" on the left side of the page. 
-    2. Choose ``<name_of_feature>`` as the **source branch** and ``devel`` as the **target branch**.
-    3. Select *Stefan Possanner* as **Assignee** and *Florian Holderied* as **Reviewer**.
-    4. Click "Create merge request" and you are done.
+.. _merge_requests:
+
+Merge requests 
+^^^^^^^^^^^^^^
+
+Once you are done working on the new feature, you must create a **merge request** (called pull request on Github). 
+There are several ways to do this, one of which is as follows: 
+
+    1. On the gitlab webpage go to "Merge requests" on the left panel of the page. 
+    2. Choose ``feature`` as the **source branch** and ``devel`` as the **target branch**.
+    3. Select either *Stefan Possanner* or *Florian Holderied* as **Assignee**.
+    4. Check both boxes ``delete source branch`` and ``sqash commits``.
+    5. Click "Create merge request".
 
 Once the merge is accepted your code is merged into ``devel``, 
 the remote feature branch gets deleted and the commits are squashed.
 
+In order to mention the merge request in issues/comments, go to its page and copy/paste the link under ``Reference:`` from the right panel.
 
 .. _rebasing:
 
@@ -75,10 +132,10 @@ In this case it is advised to **rebase your feature branch** as follows
 
     git checkout devel
     git pull
-    git checkout <name_of_feature>
+    git checkout feature
     git rebase devel
 
-This will add your ``<name_of_feature>`` commits on top of the main branch's current state.
+This will add your ``feature`` commits on top of the main branch's current state.
 
 **The golden rule of rebasing: only rebase a private branch!** 
 This means you rebase **before** publishing your feature branch to the repository.
@@ -107,23 +164,25 @@ If no files have to be changed you can move forward with ``git rebase --skip``.
 In case that you made an error during the rebase process you can always go back to your local state with ``git rebase --abort``.
 
 
-.. _coding_style:
+.. _merging:
 
-Coding style
-------------
+Merging
+^^^^^^^
 
-- **Always stay close to the main branch (``devel`` for developers).** Make a feature branch when you need to add functionalty. Never work more than several days on a feature branch before merging.
+Merging must be done instead of rebasing if
 
-- Make regular commits when working on a feature, such that your work can be recapitulated easily.
+1. Your branch is published (pushed to origin)
+2. Your branch is not yet merged with main
+3. The main branch has changed since your feature creation or last rebase
 
-- Choose self-explaining module and variable names (Classes start with a capital letter).
+Merging is easy::
 
-- **Always include a docstring** (`numpy style via Napolean extension <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#module-sphinx.ext.napoleon>`_): 
-    1. one or two lines explaining what the function does.
-    2. give "Parameters" (input vars) and "Returns" (output vars), and maybe "Attributes" (for classes) and/or "Notes".
-    3. See :ref:`linear_operators` for an example of how to write docstrings.
+    git checkout devel
+    git pull
+    git checkout feature
+    git merge devel
 
-- Include ``test_`` files (= unit tests) in the folder ``struphy/tests``. It is advisable that new features come with a test file, where users can understand the functionality and CI can automate testing.
+Merging will create a meaningless merge commit in your ``git log``. 
 
 
 .. _change_doc:
@@ -131,161 +190,351 @@ Coding style
 Changing the documentation 
 --------------------------
 
-The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. To review changes you made::
+The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. 
+If you make changes to these files, you can review them in your browser (e.g. firefox)::
 
     cd doc
     make html
+    firefox _build/html/index.html
 
-To view the documentation in firefox::
+When making further changes, just do ``make html`` and refresh the window in your browser.
 
-    firefox doc/_build/html/index.html
+.. note::
+    Please keep the documentation up-to-date with your added features.
 
 
 .. _add_model:
 
-Adding a new model 
-------------------
+Adding new models 
+-----------------
 
-In :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` it is pretty easy to add new model equations, 
-because all building blocks for discrete differential forms (FEEC, de Rham diagram), particle-in-cell (PIC)
-discretization and mapped domains are provided by the package.
+.. _model_requirements:
 
-First you have to create a **feature branch** (see :ref:`above <feature_branches>`).
-In order to add a new model it is best to follow an existing code as a template; the main files are located in::
+Requirements
+^^^^^^^^^^^^
 
-    struphy/models/codes
+Struphy can accommodate only models that satisfy the following criteria:
 
-You have to create a new file for your code in this folder (using for instance ``cc_lin_mhd_6d`` as template)::
+* 3d in space
+* Initial-boundary value problem or eigenvalue problem
+* Smooth solutions
+* Field variables depending on :math:`(\mathbf x,t)` are discretized within the :ref:`3d_derham_complex`
+* (Gyro-)kinetic variables depending in :math:`(\mathbf x, \mathbf v,t)` are discretized with a particle method
+* Single patch mapping (see :ref:`add_mapping`)
 
-    cp cc_lin_mhd_6d.py <my_new_model>.py
+The time stepping scheme can be composed of several well-defined **propagators**.
+Assuming our model features the unknowns :math:`vars(t^n)` at time :math:`t^n`, the overall propagator
+can be denoted as :math:`\Phi_{\Delta t}[vars(t^n)] = vars(t^n + \Delta t)`.
+Struphy can handle models where :math:`\Phi_{\Delta t}` is decomposed (or split):  
 
-Now you can adapt the file ``<my_new_model>.py`` to implement the new model. 
-Check out :ref:`objects` to get an overview of the code structure.
-In order to run your code you need to perform two more steps:
+.. math::
+    \Phi_{\Delta t}[vars(t^n)] = \Phi^1_{\Delta t}[\textnormal{subset1}(vars(t^n))] \circ \Phi^2_{\Delta t}[\textnormal{subset2}(vars(t^n))] \circ ...
 
-1. Add a new if-clause in ``struphy/models/codes/exec.py``::
+with sub steps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t^n)`. 
+More refined splitting schemes than Lie-Trotter are available in Struphy (see ``struphy/models/codes/exec.py`` lines 162-182):
 
-    elif code=='<my_new_model>':
-        from struphy.models.codes import <my_new_model> 
-        <my_new_model>.execute(file_in, path_out, mode=='a')
+.. literalinclude:: ../../struphy/models/codes/exec.py
+    :language: python
+    :linenos: 
+    :lineno-start: 162
+    :lines: 162-184
 
-2. Add an input folder and a parameter file::
+.. _base_classes:
 
-    cd struphy/io/inp
-    mkdir <my_new_model>/
-    cp cc_lin_mhd_6d/parameters.yml <my_new_model>/parameters.yml
+Base classes
+^^^^^^^^^^^^
 
-3. Add the parameter file to the ``package_data`` dictionary in ``setup.py``, under the key ``'struphy.io.inp'``.
+Struphy models are built upon two base classes:
 
-Adapt the file ``parameters.yml`` to your model, see :ref:`params_file`.
-Moreover, there are certain folders where new modules (``.py``-files) should be put:
+.. autoclass:: struphy.models.codes.models.StruphyModel
 
-    * :ref:`linear_operators` go in ``struphy/linear_operators/<code_name>``
-    * PIC accumulation/deposition routines go in ``struphy/pic/<code_name>``
-    * MHD equilibria go in ``struphy/mhd_equil/analytical``
-    * Kinetic equilibria go in ``struphy/kinetic_equil/analytical``
-    * dispersion relation solvers go in ``struphy/models/dispersion_relations``
-    * diagnostic files go in ``struphy/diagnostics``
+.. autoclass:: struphy.models.codes.propagators.Propagator
 
-Last but not least, it is important to add a minimal documentation for your model.
-For this, add a line in ``bin/struphy.sh`` in the help ``h)``, namely under the line::
-
-    echo "   -r <code>          Specify code to run. Available codes are:"
-
-Moreover, please add your model and code name to the section :ref:`models`. 
-Finally, you could add a line to the table in :ref:`intro` of the :ref:`userguide`.
+.. note::
+    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/codes/models.py``.  
+    All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/codes/propagators.py`` 
 
 
-.. _profiler:
+.. _model_example:
 
-Profiling 
----------
+Model example: ``maxwell``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Comparing the runtime of different code parts is very useful for code optimization.
-This can be automated using the Python profiler `Cprofile <https://docs.python.org/3/library/profile.html>`_.
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` provides a module for quick reading of Cprofile data:
+Let us look at the example of the model ``maxwell`` (:ref:`maxwell`). 
+The model has two field variables (FE coefficients) :math:`\mathbf e \in \mathbb R^{N_1}` and :math:`\mathbf b \in \mathbb R^{N_2}` that 
+are updated with a single propagator derived from a Crank-Nicolson discretization:
 
-.. automodule:: struphy.diagnostics.Cprofile_analyser
+    .. math::
+        \begin{bmatrix}
+        \mathbf e^{n+1} - \mathbf e^n \\[2mm] \mathbf b^{n+1} - \mathbf b^n
+       \end{bmatrix} = 
+       \frac{\Delta t}{2} 
+       \begin{bmatrix}
+        0 & \mathbb{M}_1^{-1}\mathbb{C}^\top 
+        \\[2mm] 
+        - \mathbb{C}\mathbb{M}_1^{-1}  & 0
+       \end{bmatrix}
+       \begin{bmatrix}
+        \mathbb{M}_1 (\mathbf e^{n+1} + \mathbf e^n) \\[2mm] \mathbb M^2 (\mathbf b^{n+1} + \mathbf b^n)
+       \end{bmatrix} \,.
+
+The corresponding ``StruphyModel`` is
+
+.. autoclass:: struphy.models.codes.models.Maxwell
+    :members: 
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 135
+    :lines: 135-189
+
+Let us go through the source code one-by-one.
+The ``__init__`` function is called from the base class via ``super()``:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 155
+    :lines: 155
+
+The field variables of the model are specified as in ``e_field='Hcurl'``, where the keyword ``e_field`` 
+is the name of the variable used for saving and the value ``'Hcurl'`` is the space of the variable 
+(can also be ``'H1'``, ``'Hdiv'`` or ``'L2'``).
+
+Mass matrices have to be assembled model-specific. In this case we only need :math:`\mathbb M_1` and :math:`\mathbb M_2`:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 158
+    :lines: 158-159
+
+The actual ``Stencil-/BlockVectors`` holding the FE coefficients have been created by ``super().__init__``
+and can be retrieved from the ``fields`` property defined in the base class ``StruphyModel``:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 162
+    :lines: 162-163
+
+The abstract properties ``propagators`` and ``scalar_quantities`` are defined as
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 176
+    :lines: 176-183
+
+The returned lists ``self._propagators`` and ``self._scalar_quantities`` have to be filled with model specific propagator objects 
+(just one in the case of ``maxwell``) and scalar quantities of interest:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 165
+    :lines: 165-174
+
+The only abstract method to be implemented is ``update_scalar_quantities``:
+
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 185
+    :lines: 185-189
+
+.. _model_example:
+
+Propagator example: ``StepMaxwell``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The one propagator used in the model ``maxwell`` is
+
+.. autoclass:: struphy.models.codes.propagators.StepMaxwell
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 84
+    :lines: 84-152
+
+Let us go through the propagator's source one-by-one. The ``__init__`` call is model-specific (not done by the base class).
+The present propagator needs a :ref:`preconditioner`
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 116
+    :lines: 116-122
+
+one 2x2 block matrix 
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 124
+    :lines: 124-128
+
+and a :ref:`schur_solver`
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 130
+    :lines: 130-131
+
+The definition of the abstract property ``variables`` is a must in each propagator:
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 133
+    :lines: 133-135
+
+It returns a list of the variables updated by the propagator.
+Finally, also the abstract method ``push`` must be defined in each propagator:
+
+.. literalinclude:: ../../struphy/models/codes/propagators.py
+    :language: python
+    :linenos: 
+    :lineno-start: 137
+    :lines: 137-152
+
+It only takes the time step ``dt`` as argument and updates the variables specified in ``self.variables``.
+Note that the function ``self.in_place_update``  from the base class ``Propagators`` can be used 
+to perform the in-place update of the variables.
+
+
+.. _to_do_list_model:
+
+TODO for adding a model
+^^^^^^^^^^^^^^^^^^^^^^^
+
+The following steps must be taken to add a new model to Struphy:
+
+1. Write a new model class in ``struphy/models/codes/models.py`` based on ``StruphyModel`` (add the name to ``__all__``)
+2. Possibly add new propagators in ``struphy/models/codes/propagators.py`` based on ``Propagator`` (add the name to ``__all__``). The name must start with ``Step``.
+3. Change the default input file ``struphy/io/inp/parameters.yml`` if needed.
+4. Add a new if-clause for your model in ``exec.py`` after line 81::
+
+    if code=='maxwell':
+        MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['pcg_1'])
+    else:
+        raise NotImplementedError(f'Model {code} not implemented.')
+        exit()
+
+5. Test your model and optionally add an ``example_`` bash script in ``scripts/`` and/or ``struphy/examples``.
+6. Add a description of your model in
+
+    a. the help function of ``scripts/struphy``
+    b. the doc under ``doc/section/userguide.rst`` in the table of section :ref:`running_codes`
+    c. the doc under ``doc/section/models.rst``
+
+
+.. _add_dispersion:
+
+Adding new dispersion relations 
+-------------------------------
+
+.. _base_classes:
+
+Base classes
+^^^^^^^^^^^^
+
+Struphy dispersion relations are derived from the base class
+
+.. autoclass:: struphy.models.dispersion_relations.analytic.DispersionRelations1D
+
+.. note::
+    All Struphy dispersion relations are subclasses of ``DispersionRelations1D`` and should be added to 
+    ``struphy/models/dispersion_relations/analytic.py``.  
+
+As an example, consider
+
+.. autoclass:: struphy.models.disperion_relations.analytic.Maxwell1D
     :members:
-    :undoc-members:
 
-An example of how to use the module is in `struphy/tests/test_Cprofiler.py`, here is its source::
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 59
+    :lines: 59-82  
 
-    def test_Cprofiler():
-        '''Test code profiler.'''
+The initialization is done via the base class:
 
-        import sysconfig
-        from struphy.diagnostics import Cprofile_analyser 
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 63
+    :lines: 63
 
-        path = sysconfig.get_path("platlib") + '/struphy/io/out/sim_1/'
-        Cprofile_analyser.get_cprofile_data(path)
-        Cprofile_analyser.compare_cprofile_data([path], ['parameters.yml'])
-        print()
-        Cprofile_analyser.compare_cprofile_data([path], ['parameters.yml'], ['step_', '_dot'])
+One has to provide a name for each branch of the spectrum (here just the ``light wave``) and all parameters necessary for
+computing the dispersion relation (here just the speed of light ``c``, which is 1 in Struphy normalization, see :ref:`maxwell`).
 
+The abstract method ``spectrum`` must be defined; the only really model-specific part is the definition 
+of the computation of each branch:
 
-    if __name__ == '__main__':
-        test_Cprofiler()
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 72
+    :lines: 72-75  
 
+Here, there is just one branch, namely the light wave in vacuum which propagates at the speed ``c``.
 
-.. _objects:
+.. _add_mapping:
 
-STRUPHY objects
----------------
-
-:abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is an object-oriented code, which means it relies heavily on *Python classes*. 
-From the first paragraph of the `official Python documentation <https://docs.python.org/3/tutorial/classes.html>`_:
-
-    Classes provide a means of bundling data and functionality together. 
-    Creating a new class creates a new type of object, allowing new instances of that type to be made. 
-    Each class instance can have attributes attached to it for maintaining its state. 
-    Class instances can also have methods (defined by its class) for modifying its state.
-
-Classes are very efficient for interchanging information. 
-Instead of passing many variables and/or functions one-by-one to a function, 
-these are first grouped together in an instance of a class (the "object"), and then the object is passed. 
-Moreover, each instance of a class can be different, depending on the parameters passed to the class at initialization.
-For example, in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` there is an object called ``EQ_MHD_P`` 
-which holds all information about the MHD equilibirum in Cartesian space. 
-This information consists of Physics parameters but also of callable functions such as the equilibirum pressure and the magnetic field.
-
-Each code in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` is based on more or less the same set of Classes, 
-which are listed in the following table:
-
-============================ ============================================ ===================== ========================================== =========
-Class name                   Location in ``struphy.``                     Instance name in code Description                        
-============================ ============================================ ===================== ========================================== =========
-Domain                       ``geometry.domain_3d``                       DOMAIN                metric coefficients, push, pull, transform :ref:`more info <domain_class>`            
-Tensor_spline_space          ``feec.spline_space``                        SPACES                discrete De Rham sequence and projectors   :ref:`more info <derham>`
-Equilibrium_mhd_physical     ``mhd_equil.mhd_equil_physical``             EQ_MHD_P              MHD eqilibrium functions in physical space :ref:`more info <mhd_equil_p>`
-Equilibrium_mhd_logical      ``mhd_equil.mhd_equil_logical``              EQ_MHD_L              MHD eqilibrium functions in logical space  :ref:`more info <mhd_equil_l>`
-Initialize_mhd               ``mhd_init.mhd_init``                        MHD                   MHD variables                              :ref:`more info <mhd_class>` 
-MHD_operators                ``feec.mhd_operators.linear``                MHD_OPS               MHD projection operators                   :ref:`more info <linear_operators>` 
-Equilibrium_kinetic_physical ``kinetic_equil.kinetic_equil_physical``     EQ_KINETIC_P          kinetic equilibirum in physical space      :ref:`more info <kinetic_equil_p>` 
-Equilibrium_kinetic_logical  ``kinetic_equil.kinetic_equil_logical``      Q_KINETIC_L           kinetic equilibirum in logical space       :ref:`more info <kinetic_equil_l>` 
-Initialize_markers           ``kinetic_init.kinetic_init``                KIN                   marker information                         :ref:`more info <markers_class>`  
-Accumulation                 ``pic.<code_name>.accumulation``             ACCUM                 pic accumulation/deposition routines       :ref:`more info <accum>` 
-Linear_mhd                   ``struphy.models.substeps.push_linear_mhd``  UPDATE_MHD            MHD propagators (split steps)              :ref:`more info <push_mhd>` 
-Push                         ``struphy.models.substeps.push_markers``     UPDATE_MARKERS        marker propagators (split steps)           :ref:`more info <push_markers>`
-<code_dependent>             ``struphy.models.substeps.push_<code_name>`` UPDATE_COUPL          coupling terms propagators (split steps)   :ref:`more info <push_coupl>` 
-============================ ============================================ ===================== ========================================== =========
-
-The dependencies between these objects is depicted in the Figure below.
-We see for example that ``DOMAIN`` has no dependencies and is therefore the lowest level.
-``SPACES`` depends on ``DOMAIN`` because of polar splines bases, which rely on the iso-geometroc approach (IGA). 
-Moreover, ``UPDATE_COUPL`` depends on five lower-level objects.
-
-.. image:: ../pics/obj_network.png
-
+Adding new mappings 
+--------------------------------
 
 .. include:: mappings.rst
-.. include:: derham.rst
-.. include:: mhd_equil.rst
-.. include:: mhd.rst
-.. include:: linear_ops.rst
-.. include:: kinetic_equil.rst
-.. include:: markers.rst
-.. include:: accum.rst
-.. include:: update.rst
-.. include:: data.rst
+
+
+.. _add_equil:
+
+Adding new equilibria 
+---------------------
+
+
+.. _add_accum:
+
+Adding new PIC accumulation routines 
+------------------------------------
+
+
+.. _ci:
+
+Continuous integration 
+----------------------
+
+`Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
+On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
+
+In Struphy, there are two ways of testing code:
+
+1. **Unit tests**: test small units of ``Python`` code (functions, modules).
+2. **Code tests**: runs a complete code via ``struphy run`` on only a few points in space-time.
+
+The **unit tests** have to be added in the folder ``struphy/tests``. The files therein have to start with ``test_`` 
+and contain ONLY functions that also start with ``test_``. In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 258
+    :lines: 258-258
+
+The **code tests** must be added directly in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 273
+    :lines: 273-277
+
+There are pre-defined parameter files starting with ``params_ci_`` available for code tests (you can add to these if necessary). 
+
+
+
+
+
 

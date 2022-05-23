@@ -143,7 +143,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.feec.psydac_derham import Derham_build
+    from struphy.psydac_api.psydac_derham import Derham_build
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.fem.tensor import TensorFemSpace
@@ -432,11 +432,14 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     ### TEST MASS MATRICES ###
     ##########################
     # Struphy mass matrices
-    DR_STR.assemble_M0(DOMAIN)
-    DR_STR.assemble_M1(DOMAIN)
-    DR_STR.assemble_M2(DOMAIN)
-    DR_STR.assemble_M3(DOMAIN)
 
+    print('Struphy')
+    DR_STR.assemble_Mk(DOMAIN, 'V0')
+    DR_STR.assemble_Mk(DOMAIN, 'V1')
+    DR_STR.assemble_Mk(DOMAIN, 'V2')
+    DR_STR.assemble_Mk(DOMAIN, 'V3')
+
+    print('Psydac')
     # Psydac mass matrices
     DR.assemble_M0()
     DR.assemble_M1()

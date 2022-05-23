@@ -1,5 +1,8 @@
-# import pyccel decorators
-from pyccel.decorators import types
+# import modules for B-spline evaluation
+import struphy.feec.bsplines_kernels as bsp
+
+import struphy.feec.basics.spline_evaluation_2d as eva2
+import struphy.feec.basics.spline_evaluation_3d as eva3
 
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
@@ -7,16 +10,10 @@ import struphy.linear_algebra.core as linalg
 # import module for mapping evaluation
 import struphy.geometry.mappings_3d_fast as mapping_fast
 
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
-
-import struphy.feec.basics.spline_evaluation_2d as eva2
-import struphy.feec.basics.spline_evaluation_3d as eva3
 
 
 # ==============================================================================
-@types('double[:,:]','double[:,:]','int')
-def set_particles_symmetric(numbers, particles, np):
+def set_particles_symmetric(numbers : 'double[:,:]', particles : 'double[:,:]', np : 'int'):
     
     from numpy import zeros
     
@@ -55,8 +52,7 @@ def set_particles_symmetric(numbers, particles, np):
         
 
 # ==============================================================================
-@types('double[:,:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','int[:]','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def convert(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2, b_eq_3, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz):
+def convert(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'double[:,:,:]', b_eq_2 : 'double[:,:,:]', b_eq_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
     
     from numpy import empty, sqrt, cos, sin
     
@@ -185,9 +181,9 @@ def convert(particles, t1, t2, t3, p, nel, nbase_n, nbase_d, np, b_eq_1, b_eq_2,
         # magnetic field (2-form)
         if nel[2] > 0:
         
-            b[0] = eva3.evaluation_kernel(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b_eq_1)
-            b[1] = eva3.evaluation_kernel(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b_eq_2)
-            b[2] = eva3.evaluation_kernel(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b_eq_3)
+            b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b_eq_1)
+            b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b_eq_2)
+            b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b_eq_3)
             
         else:
             

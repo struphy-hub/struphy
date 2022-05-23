@@ -1,16 +1,10 @@
-# import pyccel decorators
-from pyccel.decorators import types
-
 # import modules for matrix-matrix and matrix-vector multiplications
-import struphy.linear_algebra.core                      as linalg
 import struphy.kinetic_equil.analytical.background_sol  as bs
-import struphy.feec.bsplines_kernels                    as bsp
 import struphy.pic.mat_vec_filler                       as mvf
 import struphy.geometry.mappings_3d_fast                as mapping_fast
 
 # ==========================================================================================================
-@types(            'double[:,:]','int',    'double[:]','int[:]','double[:]','double[:]','double[:]','int','int[:,:]','int[:,:]','int[:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:,:,:,:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double','double[:,:,:]','double[:,:,:]','double[:,:,:]')
-def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2,         t3,         np,   indN1,     indN2,     indN3,     mat11,                mat12,                mat13,                mat21,                mat22,                mat23,                mat31,                mat32,                mat33,                vec1,           vec2,           vec3,           v_shift,    v_th,       n0,      cx,             cy,             cz             ):
+def accum_step_e_w(particles: 'float[:,:]', kind_map: 'int', params_map: 'float[:]', p: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', np: 'int', indN1: 'int[:,:]', indN2: 'int[:,:]', indN3: 'int[:,:]', mat11: 'float[:,:,:,:,:,:]', mat12: 'float[:,:,:,:,:,:]', mat13: 'float[:,:,:,:,:,:]', mat21: 'float[:,:,:,:,:,:]', mat22: 'float[:,:,:,:,:,:]', mat23: 'float[:,:,:,:,:,:]', mat31: 'float[:,:,:,:,:,:]', mat32: 'float[:,:,:,:,:,:]', mat33: 'float[:,:,:,:,:,:]', vec1: 'float[:,:,:]', vec2: 'float[:,:,:]', vec3: 'float[:,:,:]', v_shift: 'float[:]', v_th: 'float[:]', n0: 'float', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
     """
     Does the Accumulation in the 3rd substep (e_w step, with b=const)
 
@@ -99,10 +93,6 @@ def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2, 
     """
     from numpy import empty, sqrt
 
-    pn1 = p[0]
-    pn2 = p[1]
-    pn3 = p[2]
-
     v = empty( 3, dtype=float )
 
     df      = empty( (3,3), dtype=float )
@@ -114,8 +104,8 @@ def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2, 
     Gv = empty ( 3, dtype=float )
     Dv = empty ( 3, dtype=float )
 
-    #$ omp parallel
-    #$ omp do reduction ( + :mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3) private(ip, eta1, eta2, eta3, df, fx, df_inv, g_inv, Gv, Dv, v, v1, v2, v3, weight, f0, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, filling_v1, filling_v2, filling_v3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, df, fx, df_inv, g_inv, Gv, Dv, v, v1, v2, v3, weight, f0, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, filling_v1, filling_v2, filling_v3)
+    #$ omp for reduction ( + :mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(np):
 
         # position
@@ -150,7 +140,7 @@ def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2, 
         Dv[1] = df_inv[1,0] * v1 + df_inv[1,1] * v2 + df_inv[1,2] * v3
         Dv[2] = df_inv[2,0] * v1 + df_inv[2,1] * v2 + df_inv[2,2] * v3
 
-        # Compute filling for matrix: f_0(x,v) * v^2
+        # Compute filling for matrix: f_0(x,v) * ( G^{-1} v )_mu ( DL^{-1} v )_nu
         filling_m11 = f0 * Gv[0] * Dv[0]
         filling_m12 = f0 * Gv[0] * Dv[1]
         filling_m13 = f0 * Gv[0] * Dv[2]
@@ -161,7 +151,7 @@ def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2, 
         filling_m32 = f0 * Gv[2] * Dv[1]
         filling_m33 = f0 * Gv[2] * Dv[2]
 
-        # Compute filling for vector: sqrt(f_0(x,v)) * w_p * v
+        # Compute filling for vector: sqrt(f_0(x,v)) * w_p * ( G^{-1} v )
         filling_v1 = sqrt(f0) * weight * Gv[0]
         filling_v2 = sqrt(f0) * weight * Gv[1]
         filling_v3 = sqrt(f0) * weight * Gv[2]
@@ -169,7 +159,6 @@ def accum_step_e_w(particles,    kind_map, params_map, p,       t1,         t2, 
         # fill matrix and vector
         mvf.m_v_fill_b_v1_full(p, t1, t2, t3, indN1, indN2, indN3, eta1, eta2, eta3, mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, vec1, vec2, vec3, filling_v1, filling_v2, filling_v3)
 
-    #$ omp end do
     #$ omp end parallel
 
     ierr = 0

@@ -7,21 +7,18 @@ Efficient modules for point-wise evaluation of a 3d analytical (kind_map >= 10) 
 Especially suited for PIC routines since it avoids computing the Jacobian matrix multiple times.
 """
 
-from pyccel.decorators import types
-
-import struphy.geometry.mappings_3d as mapping
+from numpy import empty, cos, sin, pi
 
 import struphy.feec.bsplines_kernels as bsp
 
-import struphy.feec.basics.spline_evaluation_2d as eva_2d
-import struphy.feec.basics.spline_evaluation_3d as eva_3d
+from struphy.feec.basics.spline_evaluation_2d import evaluation_kernel_2d, eval_kernel_2d
+from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d, eval_kernel_3d
 
-from numpy import empty, cos, sin, pi
+import struphy.geometry.mappings_3d as mapping
 
 
 # ==========================================================================
-@types('int','double[:]','double[:]','double[:]','double[:]','int[:]','int[:]','int','int','int','double[:,:,:]','double[:,:,:]','double[:,:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:,:]','double[:,:]','double[:,:]','double[:]','double[:]','double[:]','double[:]','double[:]','double[:]','double','double','double','double[:,:]','double[:]','int')
-def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, span_n3, cx, cy, cz, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1, eta2, eta3, mat_out, vec_out, mat_or_vec):
+def df_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', nbase_n : 'int[:]', span_n1 : 'int', span_n2 : 'int', span_n3 : 'int', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', l1 : 'float[:]', l2 : 'float[:]', l3 : 'float[:]', r1 : 'float[:]', r2 : 'float[:]', r3 : 'float[:]', b1 : 'float[:,:]', b2 : 'float[:,:]', b3 : 'float[:,:]', d1 : 'float[:]', d2 : 'float[:]', d3 : 'float[:]', der1 : 'float[:]', der2 : 'float[:]', der3 : 'float[:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat_out : 'float[:,:]', vec_out : 'float[:]', mat_or_vec : 'int'):
     """
     TODO: write documentation, implement faster eval_kernels (with list of global indices, not modulo-operation)
     """
@@ -37,26 +34,26 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
         if mat_or_vec == 0 or mat_or_vec == 2:
             
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
-            mat_out[0, 1] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
-            mat_out[0, 2] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
+            mat_out[0, 0] = evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
+            mat_out[0, 1] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
+            mat_out[0, 2] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
-            mat_out[1, 1] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
-            mat_out[1, 2] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
+            mat_out[1, 0] = evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
+            mat_out[1, 1] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
+            mat_out[1, 2] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-            mat_out[2, 0] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
-            mat_out[2, 1] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
-            mat_out[2, 2] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
+            mat_out[2, 0] = evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
+            mat_out[2, 1] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], der2, b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
+            mat_out[2, 2] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], der3, span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
         
         # evaluate mapping
         if mat_or_vec == 1 or mat_or_vec == 2:
             
-            vec_out[0] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
-            vec_out[1] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
-            vec_out[2] = eva_3d.evaluation_kernel(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
+            vec_out[0] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cx)
+            vec_out[1] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cy)
+            vec_out[2] = evaluation_kernel_3d(pn[0], pn[1], pn[2], b1[pn[0]], b2[pn[1]], b3[pn[2]], span_n1, span_n2, span_n3, nbase_n[0], nbase_n[1], nbase_n[2], cz)
             
            
     # discrete cylinder
@@ -72,13 +69,13 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
         if mat_or_vec == 0 or mat_or_vec == 2:
 
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
-            mat_out[0, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
+            mat_out[0, 0] = evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
+            mat_out[0, 1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
             mat_out[0, 2] = 0.
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
-            mat_out[1, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            mat_out[1, 0] = evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            mat_out[1, 1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
             mat_out[1, 2] = 0.
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
@@ -89,8 +86,8 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
         # evaluate mapping
         if mat_or_vec == 1 or mat_or_vec == 2:
             
-            vec_out[0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
-            vec_out[1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            vec_out[0] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0])
+            vec_out[1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
             vec_out[2] = lz * eta3
         
     # discrete torus
@@ -104,26 +101,26 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
         if mat_or_vec == 0 or mat_or_vec == 2:
 
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
-            mat_out[0, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
-            mat_out[0, 2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3) * (-2*pi)
+            mat_out[0, 0] = evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
+            mat_out[0, 1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
+            mat_out[0, 2] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3) * (-2*pi)
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
-            mat_out[1, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            mat_out[1, 0] = evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            mat_out[1, 1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
             mat_out[1, 2] = 0.
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-            mat_out[2, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
-            mat_out[2, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
-            mat_out[2, 2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3) * 2*pi
+            mat_out[2, 0] = evaluation_kernel_2d(pn[0], pn[1], der1, b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
+            mat_out[2, 1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], der2, span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
+            mat_out[2, 2] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3) * 2*pi
         
         # evaluate mapping
         if mat_or_vec == 1 or mat_or_vec == 2:
             
-            vec_out[0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
-            vec_out[1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
-            vec_out[2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
+            vec_out[0] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * cos(2*pi*eta3)
+            vec_out[1] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cy[:, :, 0])
+            vec_out[2] = evaluation_kernel_2d(pn[0], pn[1], b1[pn[0]], b2[pn[1]], span_n1, span_n2, nbase_n[0], nbase_n[1], cx[:, :, 0]) * sin(2*pi*eta3)
            
     
     # analytical mapping
@@ -150,11 +147,10 @@ def df_all(kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, span_n1, span_n2, s
             vec_out[0] = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
             vec_out[1] = mapping.f(eta1, eta2, eta3, 2, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
             vec_out[2] = mapping.f(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
-        
-
+      
+            
 # ==========================================================================
-@types(    'int',    'double[:]','double[:]','double[:]','double[:]','int[:]','double[:,:,:]','double[:,:,:]','double[:,:,:]','int[:,:]','int[:,:]','int[:,:]','double','double','double','double[:,:]','double[:]','int')
-def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx,             cy,             cz,             ind_N1,    ind_N2,    ind_N3,    eta1,    eta2,    eta3,    mat_out,      vec_out,    mat_or_vec):
+def dl_all(kind_map : 'int', params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat_out : 'float[:,:]', vec_out : 'float[:]', mat_or_vec : 'int'):
     """
     function to write Jacobian matrix entries into mat_out
 
@@ -175,7 +171,7 @@ def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx
         cx, cy, cz : array
             contains the spline coefficients for the mapping
         
-        eta1, eta2, eta3 : double
+        eta1, eta2, eta3 : float
             position, logical coordinates in [0,1]
         
         mat_out : array
@@ -227,37 +223,36 @@ def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx
         if mat_or_vec == 0 or mat_or_vec == 2:
             
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_3d.eval_kernel(pn1, pn2, pn3, der1, b2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cx)
-            mat_out[0, 1] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, der2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cx)
-            mat_out[0, 2] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, b2, der3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cx)
+            mat_out[0, 0] = eval_kernel_3d(pn1, pn2, pn3, der1, b2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cx)
+            mat_out[0, 1] = eval_kernel_3d(pn1, pn2, pn3, b1, der2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cx)
+            mat_out[0, 2] = eval_kernel_3d(pn1, pn2, pn3, b1, b2, der3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cx)
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_3d.eval_kernel(pn1, pn2, pn3, der1, b2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cy)
-            mat_out[1, 1] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, der2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cy)
-            mat_out[1, 2] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, b2, der3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cy)
+            mat_out[1, 0] = eval_kernel_3d(pn1, pn2, pn3, der1, b2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cy)
+            mat_out[1, 1] = eval_kernel_3d(pn1, pn2, pn3, b1, der2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cy)
+            mat_out[1, 2] = eval_kernel_3d(pn1, pn2, pn3, b1, b2, der3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cy)
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-            mat_out[2, 0] = eva_3d.eval_kernel(pn1, pn2, pn3, der1, b2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cz)
-            mat_out[2, 1] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, der2, b3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cz)
-            mat_out[2, 2] = eva_3d.eval_kernel(pn1, pn2, pn3, b1, b2, der3, ind_N1[ie1,:], ind_N2[ie2,:], ind_N3[ie3,:], cz)
+            mat_out[2, 0] = eval_kernel_3d(pn1, pn2, pn3, der1, b2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cz)
+            mat_out[2, 1] = eval_kernel_3d(pn1, pn2, pn3, b1, der2, b3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cz)
+            mat_out[2, 2] = eval_kernel_3d(pn1, pn2, pn3, b1, b2, der3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], cz)
         
            
     # discrete cylinder
     elif kind_map == 1:
         
         lz = 2*pi*cx[0, 0, 0]
-
         # evaluate Jacobian matrix
         if mat_or_vec == 0 or mat_or_vec == 2:
 
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_2d.eval_kernel_2d(pn1, pn2, der1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0])
-            mat_out[0, 1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, der2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0])
+            mat_out[0, 0] = eval_kernel_2d(pn1, pn2, der1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0])
+            mat_out[0, 1] = eval_kernel_2d(pn1, pn2, b1, der2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0])
             mat_out[0, 2] = 0.
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_2d.eval_kernel_2d(pn1, pn2, der1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
-            mat_out[1, 1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, der2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
+            mat_out[1, 0] = eval_kernel_2d(pn1, pn2, der1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
+            mat_out[1, 1] = eval_kernel_2d(pn1, pn2, b1, der2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
             mat_out[1, 2] = 0.
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
@@ -268,8 +263,8 @@ def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx
         # evaluate mapping
         if mat_or_vec == 1 or mat_or_vec == 2:
             
-            vec_out[0] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0])
-            vec_out[1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
+            vec_out[0] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0])
+            vec_out[1] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
             vec_out[2] = lz * eta3
         
     # discrete torus
@@ -279,26 +274,26 @@ def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx
         if mat_or_vec == 0 or mat_or_vec == 2:
 
             # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
-            mat_out[0, 0] = eva_2d.eval_kernel_2d(pn1, pn2, der1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * cos(2*pi*eta3)
-            mat_out[0, 1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, der2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * cos(2*pi*eta3)
-            mat_out[0, 2] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * sin(2*pi*eta3) * (-2*pi)
+            mat_out[0, 0] = eval_kernel_2d(pn1, pn2, der1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * cos(2*pi*eta3)
+            mat_out[0, 1] = eval_kernel_2d(pn1, pn2, b1, der2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * cos(2*pi*eta3)
+            mat_out[0, 2] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * sin(2*pi*eta3) * (-2*pi)
 
             # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
-            mat_out[1, 0] = eva_2d.eval_kernel_2d(pn1, pn2, der1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
-            mat_out[1, 1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, der2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
+            mat_out[1, 0] = eval_kernel_2d(pn1, pn2, der1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
+            mat_out[1, 1] = eval_kernel_2d(pn1, pn2, b1, der2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
             mat_out[1, 2] = 0.
 
             # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
-            mat_out[2, 0] = eva_2d.eval_kernel_2d(pn1, pn2, der1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * sin(2*pi*eta3)
-            mat_out[2, 1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, der2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * sin(2*pi*eta3)
-            mat_out[2, 2] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * cos(2*pi*eta3) * 2*pi
+            mat_out[2, 0] = eval_kernel_2d(pn1, pn2, der1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * sin(2*pi*eta3)
+            mat_out[2, 1] = eval_kernel_2d(pn1, pn2, b1, der2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * sin(2*pi*eta3)
+            mat_out[2, 2] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * cos(2*pi*eta3) * 2*pi
         
         # evaluate mapping
         if mat_or_vec == 1 or mat_or_vec == 2:
             
-            vec_out[0] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * cos(2*pi*eta3)
-            vec_out[1] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cy[:, :, 0])
-            vec_out[2] = eva_2d.eval_kernel_2d(pn1, pn2, b1, b2, ind_N1[ie1,:], ind_N2[ie2,:], cx[:, :, 0]) * sin(2*pi*eta3)
+            vec_out[0] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * cos(2*pi*eta3)
+            vec_out[1] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cy[:, :, 0])
+            vec_out[2] = eval_kernel_2d(pn1, pn2, b1, b2, ind_n1[ie1, :], ind_n2[ie2, :], cx[:, :, 0]) * sin(2*pi*eta3)
            
     
     # analytical mapping
@@ -313,11 +308,10 @@ def dl_all(kind_map, params_map, tn1,        tn2,        tn3,        pn,      cx
         if mat_or_vec == 1 or mat_or_vec == 2:
             
             mapping.f_vec_ana(eta1, eta2, eta3, kind_map, params_map, vec_out)
- 
-        
+            
+     
 # ===========================================================================
-@types('double[:,:]','double[:,:]')
-def df_inv_all(mat_in, mat_out):
+def df_inv_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Inverts the Jacobain matrix (mat_in) and writes it to mat_out
 
@@ -345,11 +339,10 @@ def df_inv_all(mat_in, mat_out):
     mat_out[2, 0] = (mat_in[1, 0]*mat_in[2, 1] - mat_in[2, 0]*mat_in[1, 1]) * over_det_df
     mat_out[2, 1] = (mat_in[2, 0]*mat_in[0, 1] - mat_in[0, 0]*mat_in[2, 1]) * over_det_df
     mat_out[2, 2] = (mat_in[0, 0]*mat_in[1, 1] - mat_in[1, 0]*mat_in[0, 1]) * over_det_df
-    
+     
     
 # ===========================================================================
-@types('double[:,:]','double[:,:]')
-def g_all(mat_in, mat_out):
+def g_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Compute the metric tensor (mat_out) from Jacobian matrix (mat_in)
 
@@ -375,8 +368,7 @@ def g_all(mat_in, mat_out):
     
     
 # ===========================================================================
-@types('double[:,:]','double[:,:]')
-def g_inv_all(mat_in, mat_out):
+def g_inv_all(mat_in : 'float[:,:]', mat_out : 'float[:,:]'):
     """
     Compute the inverse metric tensor (mat_out) from inverse Jacobian matrix (mat_in)
 

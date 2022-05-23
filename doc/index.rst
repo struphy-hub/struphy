@@ -21,6 +21,8 @@ Indices and tables
    sections/userguide
    sections/developers
    sections/models
+   sections/toolkit
+   sections/theory
    sections/examples
    
 

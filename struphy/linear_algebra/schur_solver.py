@@ -1,7 +1,7 @@
 from psydac.linalg.iterative_solvers import pcg
 
-from struphy.psydac_linear_operators.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_linear_operators.linear_operators import ScalarTimesLinearOperator as Multiply
+from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
+from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 
 
 class Schur_solver:

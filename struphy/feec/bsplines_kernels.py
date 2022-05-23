@@ -6,13 +6,10 @@
 Basic functions for point-wise B-spline evaluation
 """
 
-from pyccel.decorators import types
-
 from numpy import empty, zeros
 
 # ==============================================================================
-@types('double[:]','int','int','double[:]')
-def scaling(t_d, p_d, span_d, values):
+def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
     """
     Scales local B-spline values to M-spline values
     
@@ -39,8 +36,7 @@ def scaling(t_d, p_d, span_d, values):
 
 
 # ==============================================================================
-@types('double[:]','int','double')
-def find_span(t, p, eta):
+def find_span(t : 'float[:]', p : 'int', eta : 'float') -> 'int':
     """
     Computes the span, i.e. the index i for which the B-splines i-p until i are non-vanishing at this point
 
@@ -52,7 +48,7 @@ def find_span(t, p, eta):
         p : integer
             degree of the basis splines
         
-        eta : double
+        eta : float
             Evaluation point
     
     Returns:
@@ -89,8 +85,7 @@ def find_span(t, p, eta):
 
 
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:]')
-def basis_funs(t, p, eta, span, left, right, values):
+def basis_funs(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:]'):
     """
     Parameters
     ----------
@@ -100,7 +95,7 @@ def basis_funs(t, p, eta, span, left, right, values):
     p : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -129,8 +124,7 @@ def basis_funs(t, p, eta, span, left, right, values):
         
         
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]')
-def basis_funs_all(t, p, eta, span, left, right, values, diff):
+def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:,:]', diff : 'float[:]'):
     """
     Parameters
     ----------
@@ -140,7 +134,7 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
     p : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -176,8 +170,7 @@ def basis_funs_all(t, p, eta, span, left, right, values, diff):
 
 
 # =============================================================================
-@types(            'double[:]','int','double','int','double[:]')
-def b_splines_slim(t,          pn,   eta,     span, values     ):
+def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Computes the values of pn+1 non-vanishing B-splines at position eta
 
@@ -189,7 +182,7 @@ def b_splines_slim(t,          pn,   eta,     span, values     ):
     pn : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -224,8 +217,7 @@ def b_splines_slim(t,          pn,   eta,     span, values     ):
 
 
 # =============================================================================
-@types(            'double[:]','int','double','int','double[:]')
-def d_splines_slim(t,          pn,   eta,     span, values     ):
+def d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Computes the values of pn non-vanishing D-splines at position eta
 
@@ -237,7 +229,7 @@ def d_splines_slim(t,          pn,   eta,     span, values     ):
     pn : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -287,8 +279,7 @@ def d_splines_slim(t,          pn,   eta,     span, values     ):
 
 
 # =============================================================================
-@types(              'double[:]','int','double','int','double[:]','double[:]')
-def b_d_splines_slim(t,          pn,   eta,     span, bn,         bd         ):
+def b_d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn : 'float[:]', bd : 'float[:]'):
     """
     One function to compute the values of non-vanishing B-splines and D-splines
 
@@ -351,8 +342,7 @@ def b_d_splines_slim(t,          pn,   eta,     span, bn,         bd         ):
 
 
 # =============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:,:]','double[:]','double[:]')
-def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
+def basis_funs_and_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:,:]', diff : 'float[:]', der : 'float[:]'):
     """
     Parameters
     ----------
@@ -362,7 +352,7 @@ def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
     p : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -417,8 +407,7 @@ def basis_funs_and_der(t, p, eta, span, left, right, values, diff, der):
             
             
 # ==============================================================================
-@types('double[:]','int','double','int','double[:]','double[:]','double[:]')
-def basis_funs_1st_der(t, p, eta, span, left, right, values):
+def basis_funs_1st_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:]'):
     """
     Parameters
     ----------
@@ -428,7 +417,7 @@ def basis_funs_1st_der(t, p, eta, span, left, right, values):
     p : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -461,8 +450,7 @@ def basis_funs_1st_der(t, p, eta, span, left, right, values):
 
 
 # ==============================================================================
-@types(                'double[:]','int','double','int','double[:]')
-def b_spl_1st_der_slim(t,          p,    eta,     span, values):
+def b_spl_1st_der_slim(t : 'float[:]', p : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Parameters
     ----------
@@ -472,7 +460,7 @@ def b_spl_1st_der_slim(t,          p,    eta,     span, values):
     p : int
         Polynomial degree of B-splines.
 
-    eta : double
+    eta : float
         Evaluation point.
 
     span : int
@@ -505,8 +493,7 @@ def b_spl_1st_der_slim(t,          p,    eta,     span, values):
 
 
 #========================================================================================
-@types('int','double','double')
-def piecewise(p, delta, eta):
+def piecewise(p : 'int', delta : 'float', eta : 'float') -> 'float':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
     if abs(eta) > delta * (p+1)*0.5:
@@ -534,8 +521,7 @@ def piecewise(p, delta, eta):
 
 
 #========================================================================================
-@types('int','double','double')
-def piecewise_der(p, delta, eta):
+def piecewise_der(p : 'int', delta : 'float', eta : 'float') -> 'float':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
     if abs(eta) > delta * (p+1)*0.5:
@@ -566,8 +552,7 @@ def piecewise_der(p, delta, eta):
 
 
 #========================================================================================
-@types('int','double[:]','double')
-def convolution(p, grids, eta):
+def convolution(p : 'int', grids : 'float[:]', eta : 'float')  -> 'float':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function
     # 'grids' is the knots in the support of shape function centered at particle position
@@ -599,8 +584,7 @@ def convolution(p, grids, eta):
 
 
 #========================================================================================
-@types('int','double[:]','double')
-def convolution_der(p, grids, eta):
+def convolution_der(p : 'int', grids : 'float[:]', eta : 'float')  -> 'float':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function
     # 'grids' is the knots in the support of shape function centered at particle position, length is p + 1
@@ -630,3 +614,4 @@ def convolution_der(p, grids, eta):
     return result
 
     ierr = 0
+

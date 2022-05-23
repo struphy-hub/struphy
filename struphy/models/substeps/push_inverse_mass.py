@@ -1,5 +1,5 @@
-from struphy.psydac_linear_operators.linear_operators import InverseLinearOperator as Invert
-from struphy.psydac_linear_operators.preconditioner import MassMatrixPreConditioner as MassPre
+from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
+from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
 
 
 class InvertMassMatrices:

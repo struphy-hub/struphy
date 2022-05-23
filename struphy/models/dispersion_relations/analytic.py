@@ -9,17 +9,17 @@ class DispersionRelations1D( metaclass=ABCMeta ):
     Parameters
     ..........
         branch_names : list
-            Strings denoting the branches in the spectrum.
+            Strings denoting the branches of the spectrum.
         
-        kwargs : 
-            Keyword arguments describing the physical parameters necessary to compute the disp. rel., e.g. c=299792458.
+        params : dict
+            Physical parameters necessary to compute the dispersion relatio, e.g. c=299792458.
     '''
 
-    def __init__(self, branch_names, **kwargs):
+    def __init__(self, *branch_names, **params):
 
         self._branches = branch_names
         self._nbranches = len(branch_names)
-        self._params = kwargs
+        self._params = params
 
     @property
     def branches( self ):
@@ -60,7 +60,7 @@ class Maxwell1D( DispersionRelations1D ):
     '''Dispersion relation for Maxwell's equation in vacuum, in Struphy normalization (c=1).'''
 
     def __init__(self):
-        super().__init__(['light wave', 'test branch'], c=1., test_param=.5) 
+        super().__init__('light wave', c=1.) 
 
     def spectrum(self, kvec, kperp=None):
 
@@ -71,9 +71,7 @@ class Maxwell1D( DispersionRelations1D ):
 
         ########### Model specific part ##############################
         # first branch
-        tmps[0][:] = self.params['c']*kvec
-        # second branch (for testing)
-        tmps[1][:] = self.params['test_param']*kvec
+        tmps[0][:] = self.params['c'] * kvec
         ##############################################################
 
         # fill output dictionary
@@ -97,8 +95,6 @@ def maxwell_1d(k):
         A list of np.arrays of same size as k, each entry corresponding to one branch of the spectrum.'''
 
     c = 1.
-
-
 
     return [c*k, .5*c*k]
 

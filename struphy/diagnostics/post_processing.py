@@ -10,7 +10,7 @@ import h5py
 from tqdm import tqdm
 
 from struphy.geometry.domain_3d import Domain
-from struphy.feec.psydac_derham import Derham_build
+from struphy.psydac_api.psydac_derham import Derham_build
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace

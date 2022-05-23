@@ -2,6 +2,10 @@
 #
 # Copyright 2021 Florian Holderied
 
+"""
+Modules to assemble discrete derivatives.
+"""
+
 import numpy        as np
 import scipy.sparse as spa
 
@@ -76,12 +80,13 @@ def discrete_derivatives_3d(space):
     if space.dim == 3:
         grad_1d_3 = space.spaces[2].G.copy()
     else:
-        if   space.basis_tor == 'n':
+        if space.n_tor == 0:
             grad_1d_3 = 0*spa.identity(1, format='csr')
-        elif space.basis_tor == 'i':
-            grad_1d_3 = 1j*2*np.pi*space.n_tor*spa.identity(1, format='csr')    
         else:
-            grad_1d_3 = 2*np.pi*space.n_tor*spa.csr_matrix(np.array([[0., -1.], [1., 0.]]))
+            if space.basis_tor == 'r':
+                grad_1d_3 = 2*np.pi*space.n_tor*spa.csr_matrix(np.array([[0., 1.], [-1., 0.]]))
+            else:
+                grad_1d_3 = 1j*2*np.pi*space.n_tor*spa.identity(1, format='csr') 
     
     
     # standard tensor-product derivatives
