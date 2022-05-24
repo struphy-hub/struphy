@@ -750,7 +750,7 @@ class MHDOperatorsCore:
                     EQ = self.equilibrium.n3_eq(self.eta_int[0], self.eta_his[1].flatten(), 0.)
                 else:
                     EQ = self.equilibrium.p3_eq(self.eta_int[0], self.eta_his[1].flatten(), 0.)
-/-/tree/merge_v1-9-0
+
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # evaluate Jacobian determinant at interpolation and quadrature points

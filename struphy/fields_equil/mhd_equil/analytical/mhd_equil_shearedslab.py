@@ -13,7 +13,7 @@ class EquilibriumMHDShearedSlab(EquilibriumMHD):
     n(x) = ( 1 - na )*( 1 - (x/a)^n1 )^n2 + na.
     
     Parameters
-    ..........
+    ----------
         params: dictionary
             Parameters that characterize the MHD equilibrium.
                 * a    : minor radius (Lx = a, Ly = 2*pi*a)
@@ -26,7 +26,7 @@ class EquilibriumMHDShearedSlab(EquilibriumMHD):
                 * na   : number density at x=a
                 * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)
             
-        DOMAIN: Domain obj (optional)
+        DOMAIN: Domain obj, optional
             From struphy.geometry.domain_3d.Domain.       
     """
     
