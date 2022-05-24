@@ -13,7 +13,7 @@ class EquilibriumMHDCylinder(EquilibriumMHD):
     n(r) = ( 1 - na )*( 1 - (r/a)^n1 )^n2 + na.
     
     Parameters
-    ..........
+    ----------
         params: dictionary
             Parameters that characterize the MHD equilibrium.
                 * a    : minor radius (radius of cylinder)
@@ -26,7 +26,7 @@ class EquilibriumMHDCylinder(EquilibriumMHD):
                 * na   : number density at r=a
                 * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
             
-        DOMAIN: Domain obj (optional)
+        DOMAIN: Domain obj, optional
             From struphy.geometry.domain_3d.Domain.       
     """
     

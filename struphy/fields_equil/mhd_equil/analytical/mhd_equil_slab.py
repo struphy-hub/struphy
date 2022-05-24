@@ -13,7 +13,7 @@ class EquilibriumMHDSlab(EquilibriumMHD):
     n = 1.
     
     Parameters
-    ..........
+    ----------
         params: dictionary
             Parameters that characterize the MHD equilibrium.
                 * B0x  : magnetic field in x-direction
@@ -21,7 +21,7 @@ class EquilibriumMHDSlab(EquilibriumMHD):
                 * B0z  : magnetic field in z-direction
                 * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        DOMAIN: Domain obj (optional)
+        DOMAIN: Domain obj, optional
             From struphy.geometry.domain_3d.Domain.       
     """
     

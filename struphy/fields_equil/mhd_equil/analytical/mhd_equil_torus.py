@@ -19,7 +19,7 @@ class EquilibriumMHDTorus(EquilibriumMHD):
     n(r) = ( 1 - na )*( 1 - (r/a)^n1 )^n2 + na.
     
     Parameters
-    ..........
+    ----------
         params: dictionary
             Parameters that characterize the MHD equilibrium.
                 * a      : minor radius of torus
@@ -35,7 +35,7 @@ class EquilibriumMHDTorus(EquilibriumMHD):
                 * p2     : shape factor for ad hoc pressure profile
                 * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        DOMAIN: Domain obj (optional)
+        DOMAIN: Domain obj, optional
             From struphy.geometry.domain_3d.Domain.       
     """
     
