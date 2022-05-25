@@ -4734,7 +4734,7 @@ def mat_vec_fill_b_v0(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'floa
 
 
 # =====================================================================================================
-def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
+def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
     """
     fills the independent element (of size N_k x (p+1)) of a "matrix" with basis functions in V3 times the filling
 
@@ -4752,8 +4752,14 @@ def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]
         t3 : array
             the knot vector in direction 3
         
-        indD : array
-            indN from TensorSpline class, contains the global indices of non-zero D-splines in all directions
+        indn1 : array
+            indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
+
+        indn2 : array
+            indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
+
+        indn3 : array
+            indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
         eta1 : float
             (logical) position of the particle in direction 1
@@ -4812,13 +4818,13 @@ def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]
 
     # (DDD DDD)
     for il1 in range(pd1 + 1):
-        i1  = indd1[ie1,il1]
+        i1  = indn1[ie1,il1]
         bi1 = bd1[il1] * filling
         for il2 in range(pd2 + 1):
-            i2  = indd2[ie2,il2]
+            i2  = indn2[ie2,il2]
             bi2 = bi1 * bd2[il2]
             for il3 in range(pd3 + 1):
-                i3  = indd3[ie3,il3]
+                i3  = indn3[ie3,il3]
                 bi3 = bi2 * bd3[il3]
 
                 for jl1 in range(pd1 + 1):
@@ -4832,7 +4838,7 @@ def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def mat_vec_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     fills the independent element (of size N_k x (p+1)) of a "matrix" with basis functions in V3 times the filling
 
@@ -4850,8 +4856,14 @@ def mat_vec_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'floa
         t3 : array
             the knot vector in direction 3
         
-        indD : array
-            indN from TensorSpline class, contains the global indices of non-zero D-splines in all directions
+        indn1 : array
+            indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
+
+        indn2 : array
+            indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
+
+        indn3 : array
+            indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
         eta1 : float
             (logical) position of the particle in direction 1
@@ -4919,13 +4931,13 @@ def mat_vec_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'floa
 
     # (DDD DDD)
     for il1 in range(pd1 + 1):
-        i1  = indd1[ie1,il1]
+        i1  = indn1[ie1,il1]
         bi1 = bd1[il1]
         for il2 in range(pd2 + 1):
-            i2  = indd2[ie2,il2]
+            i2  = indn2[ie2,il2]
             bi2 = bi1 * bd2[il2]
             for il3 in range(pd3 + 1):
-                i3  = indd3[ie3,il3]
+                i3  = indn3[ie3,il3]
                 bi3 = bi2 * bd3[il3]
 
                 vec[i1, i2, i3] += bi3 * filling_v
@@ -5102,7 +5114,7 @@ def mat_vec_fill_v0(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'floa
 
 
 # =====================================================================================================
-def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
+def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
     """
     fills the element (of size N_k x (p+1)) of a "matrix" with basis functions in V3 times the filling
 
@@ -5114,7 +5126,7 @@ def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]
         span : array
             contains the three values of the span index in each direction
         
-    bn1 : 'float[:]' : array
+        bn1 : 'float[:]' : array
             contains the values of non-vanishing D-splines in direction 1
 
         bn2 : array
@@ -5123,14 +5135,14 @@ def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]
         bn3 : array
             contains the values of non-vanishing D-splines in direction 3
         
-        indd1 : array
-            indD[0] from TensorSpline class, contains the global indices of non-zero D-splines in direction 1
+        indn1 : array
+            indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
 
-        indd2 : array
-            indD[1] from TensorSpline class, contains the global indices of non-zero D-splines in direction 2
+        indn2 : array
+            indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
 
-        indd3 : array
-            indD[2] from TensorSpline class, contains the global indices of non-zero D-splines in direction 3
+        indn3 : array
+            indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
         eta1 : float
             (logical) position of the particle in direction 1
@@ -5163,13 +5175,13 @@ def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]
 
     # (DDD DDD)
     for il1 in range(pd1 + 1):
-        i1  = indd1[ie1,il1]
+        i1  = indn1[ie1,il1]
         bi1 = bd1[il1] * filling
         for il2 in range(pd2 + 1):
-            i2  = indd2[ie2,il2]
+            i2  = indn2[ie2,il2]
             bi2 = bi1 * bd2[il2]
             for il3 in range(pd3 + 1):
-                i3  = indd3[ie3,il3]
+                i3  = indn3[ie3,il3]
                 bi3 = bi2 * bd3[il3]
 
                 for jl1 in range(pd1 + 1):
@@ -5183,7 +5195,7 @@ def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', indd1 : 'int[:,:]', indd2 : 'int[:,:]', indd3 : 'int[:,:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def mat_vec_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', indn1 : 'int[:,:]', indn2 : 'int[:,:]', indn3 : 'int[:,:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     fills the element (of size N_k x (p+1)) of a "matrix" with basis functions in V3 times the filling
 
@@ -5204,14 +5216,14 @@ def mat_vec_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'floa
         bd3 : array
             contains the values of non-vanishing D-splines in direction 3
         
-        indd1 : array
-            indD[0] from TensorSpline class, contains the global indices of non-zero D-splines in direction 1
+        indn1 : array
+            indN[0] from TensorSpline class, contains the global indices of non-zero B-splines in direction 1
 
-        indd2 : array
-            indD[1] from TensorSpline class, contains the global indices of non-zero D-splines in direction 2
+        indn2 : array
+            indN[1] from TensorSpline class, contains the global indices of non-zero B-splines in direction 2
 
-        indd3 : array
-            indD[2] from TensorSpline class, contains the global indices of non-zero D-splines in direction 3
+        indn3 : array
+            indN[2] from TensorSpline class, contains the global indices of non-zero B-splines in direction 3
         
         eta1 : float
             (logical) position of the particle in direction 1
@@ -5253,13 +5265,13 @@ def mat_vec_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'floa
 
     # (DDD DDD)
     for il1 in range(pd1 + 1):
-        i1  = indd1[ie1,il1]
+        i1  = indn1[ie1,il1]
         bi1 = bd1[il1]
         for il2 in range(pd2 + 1):
-            i2  = indd2[ie2,il2]
+            i2  = indn2[ie2,il2]
             bi2 = bi1 * bd2[il2]
             for il3 in range(pd3 + 1):
-                i3  = indd3[ie3,il3]
+                i3  = indn3[ie3,il3]
                 bi3 = bi2 * bd3[il3]
 
                 vec[i1, i2, i3] = bi3 * filling_v
