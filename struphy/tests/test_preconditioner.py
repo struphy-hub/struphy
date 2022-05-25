@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import Derham_build
+from struphy.psydac_api.psydac_derham import DerhamBuild
 from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -37,7 +37,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping, use_fft):
     DOMAIN = Domain(map, params_map)
     F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
-    DR = Derham_build(Nel, p, spl_kind, F=F_psy, comm = MPI_COMM)
+    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm = MPI_COMM)
 
     DR.assemble_M0()
     DR.assemble_M1()

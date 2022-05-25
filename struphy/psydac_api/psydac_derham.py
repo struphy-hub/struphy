@@ -3,6 +3,7 @@
 from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.vector import ProductFemSpace
+import psydac.core.bsplines as bsp
 
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
@@ -16,7 +17,7 @@ from struphy.psydac_api.H1vec_psydac import Projector_H1vec
 import numpy as np
 
 
-class Derham_build:
+class DerhamBuild:
     '''Psydac API for discrete Derham sequence on the logical domain, and mass matrices.'''
 
     def __init__(self, Nel, p, spl_kind, nq_pr=None, der_as_mat=True, F=None, comm=None):
@@ -102,25 +103,65 @@ class Derham_build:
         else:
             self._grad, self._curl, self._div = _derham.derivatives_as_operators
 
-
         # global indices of non-vanishing splines in each element in format (Nel, p + 1)
-        self._NbaseN  = np.array([ _derham.spaces[0].spaces[k].nbasis for k in range(3) ])
-        self._NbaseD  = np.array([0, 0, 0])
+        self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
+
+        self._indN_psy = []
+        #self._indN3 = []
+        for space in _derham.spaces[0].spaces:
+
+            #breaks = space.breaks
+            p = space.degree
+            knots = space.knots
+
+            tmp = bsp.elements_spans(knots, p)
+            tmp_arr = np.empty((tmp.size, p + 1), dtype=int)
+            for i in range(p + 1):
+                tmp_arr[:, -(i + 1)] = tmp[:] - i
+            self._indN_psy += [tmp_arr]
+
+            # tmp3 = []
+            # for pt in breaks[:-1]:
+            #     tmp3 += [bsp.find_span(knots, p, pt + 1e-8)]
+
+            # assert len(tmp3) == tmp.size
+
+            # for i in range(p + 1):
+            #     tmp_arr[:, -(i + 1)] = np.array(tmp3) - i
+            # self._indN3 += [tmp_arr]
+
+        self._indD_psy = []
+        for space in _derham.spaces[3].spaces:
+
+            p = space.degree
+            tmp = bsp.elements_spans(space.knots, p)
+            tmp_arr = np.empty((tmp.size, p + 1), dtype=int)
+
+            for i in range(p + 1):
+                tmp_arr[:, -(i + 1)] = tmp[:] - i
+
+            self._indD_psy += [tmp_arr]
+        
+        self._NbaseN = np.array(
+            [_derham.spaces[0].spaces[k].nbasis for k in range(3)])
+        self._NbaseD = np.array([0, 0, 0])
         for k in range(3):
             if spl_kind[k]:
-                self._NbaseD[k] = self._NbaseN[k] - 1
+                self._NbaseD[k] = self._NbaseN[k] 
             else:
-                self._NbaseD[k] = self._NbaseN[k]
+                self._NbaseD[k] = self._NbaseN[k] - 1
 
-        self._indN = np.array([ (np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 0))[1] + np.arange(_derham.spaces[0].ncells[k])[:, None])%self._NbaseN[k] for k in range(3) ])      # global indices of non-vanishing B-splines on each cell
-        self._indD = np.array([ (np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 1))[1] + np.arange(_derham.spaces[0].ncells[k])[:, None])%self._NbaseD[k] for k in range(3) ])      # global indices of non-vanishing D-splines on each cell
+        self._indN = np.array([(np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 0))[1] + np.arange(_derham.spaces[0].ncells[k])[
+                              :, None]) % self._NbaseN[k] for k in range(3)], dtype=object)      # global indices of non-vanishing B-splines on each cell
+        self._indD = np.array([(np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 1))[1] + np.arange(_derham.spaces[0].ncells[k])[
+                              :, None]) % self._NbaseD[k] for k in range(3)], dtype=object)      # global indices of non-vanishing D-splines on each cell
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
-
     # Psydac mass matrices
     # --------------------
+
     def assemble_M0(self):
         '''Assemble mass matrix for L2-scalar product in V0.'''
 
@@ -266,23 +307,38 @@ class Derham_build:
             return self._M3
         else:
             raise AttributeError('M3 not assembled.')
-        
+
     @property
     def NbaseN(self):
         """np.array of B-splines in each direction"""
         return self._NbaseN
-        
+
     @property
     def NbaseD(self):
         """np.array of D-splines in each direction"""
         return self._NbaseD
-    
+
     @property
     def indN(self):
         """global indices of non-vanishing B-splines in each direction in each cell"""
         return self._indN
-    
+
     @property
     def indD(self):
         """global indices of non-vanishing B-splines in each direction in each cell"""
         return self._indD
+
+    @property
+    def indN_psy(self):
+        """Psydac global indices of non-vanishing B-splines in each direction in each cell"""
+        return self._indN_psy
+
+    @property
+    def indD_psy(self):
+        """Psydac global indices of non-vanishing B-splines in each direction in each cell"""
+        return self._indD_psy
+
+    @property
+    def breaks(self):
+        """List of break points (=cell interfaces) in the three directions."""
+        return self._breaks

@@ -84,7 +84,8 @@ which yields something like::
 
 The ``<path>`` under ``Location:`` is what we are looking for. Compile psydac kernels via::
 
-    pyccel <path>/psydac/core/kernels.py --language fortran
+    pyccel <path>/psydac/core/kernels.py
+    pyccel <path>/psydac/core/bsplines_pyccel.py
 
 
 .. _user_install:
