@@ -25,6 +25,7 @@ DOMAIN_PSY  = discretize(DOMAIN_symb, ncells=Nel)
 DERHAM_PSY  = discretize(DERHAM_symb, DOMAIN_PSY, degree=p, periodic=spl_kind)
 
 # Psydac spline spaces
+print(f'derham spaces: {DERHAM_PSY.spaces}')
 V0 = DERHAM_PSY.V0
 V1 = DERHAM_PSY.V1
 V2 = DERHAM_PSY.V2
@@ -37,14 +38,17 @@ P0, P1, P2, P3  = DERHAM_PSY.projectors(nquads=n_quad)
 pts_0 = P0._grid_x[0]
 pts_3 = P3._grid_x[0]
 
-# 1d spaces
-#for n, space, pts in zip(range(3), V0.spaces, pts_0):
-for n, space, pts in zip(range(3), V3.spaces, pts_3):
+# 1d space info
 
-    print(f'\nDirection {n + 1}, Nel={Nel[n]}, p={p}, periodic={spl_kind[n]}, space attributes:')
+
+#for n, space, pts in zip(range(3), V0.spaces, pts_0):
+for n, (space, pts) in enumerate(zip(V3.spaces, pts_3)):
+
+    print(f'\nDirection {n + 1}, Nel={Nel[n]}, p={p[n]}, periodic={spl_kind[n]}, space attributes:')
     print('---------------------------------------------------------')
     print(f'breaks       : {space.breaks}')
     print(f'degree       : {space.degree}')
+    print(f'knots        : {space.knots}')
     print(f'kind         : {space.basis}')
     print(f'greville     : {space.greville}')
     print(f'ext_greville : {space.ext_greville}')
@@ -55,7 +59,7 @@ for n, space, pts in zip(range(3), V3.spaces, pts_3):
     print(pts)
 
     T = space.knots
-    p = space.degree
+    pi = space.degree
 
     #pts = pts_li[0]
     # FIX:
@@ -67,31 +71,30 @@ for n, space, pts in zip(range(3), V3.spaces, pts_3):
 
     # Knot span indices from "find_span", and basis values 
     span_1  = np.zeros(pts.shape)
-    basis_1 = np.zeros((*pts.shape, p + 1))
+    basis_1 = np.zeros((*pts.shape, pi + 1))
     for i in range(pts.shape[0]):
         for iq in range(pts.shape[1]):
             x   = pts[i, iq]
-            span = bsp.find_span(T, p, x)
+            span = bsp.find_span(T, pi, x)
             span_1[i, iq] = span
-            basis_1[i, iq, :] = bsp.basis_funs(T, p, x, span)
+            basis_1[i, iq, :] = bsp.basis_funs(T, pi, x, span)
 
     # Knot span indices as in basis_ders_on_quad_grid, and basis values 
     span_2  = np.zeros(pts.shape)
-    basis_2 = np.zeros((*pts.shape, p + 1))
+    basis_2 = np.zeros((*pts.shape, pi + 1))
 
     temp_spans = np.zeros(len(T), dtype=int)
-    actual_index = bsp_p.elements_spans_p(T, p, temp_spans)
-    span_all_i = temp_spans[:actual_index]
+    span_all_i = bsp.elements_spans(T, pi, temp_spans)
 
     for i in range(pts.shape[0]):
         span = span_all_i[i]
         for iq in range(pts.shape[1]):
             x = pts[i, iq]
             span_2[i, iq] = span
-            basis_2[i, iq, :] = bsp.basis_funs(T, p, x, span)
+            basis_2[i, iq, :] = bsp.basis_funs(T, pi, x, span)
 
     # Basis values from basis_ders_on_quad_grid
-    basis_temp = bsp.basis_ders_on_quad_grid(T, p, pts, 0, normalization=False)
+    basis_temp = bsp.basis_ders_on_quad_grid(T, pi, pts, 0, normalization=False)
     basis_3 = basis_temp[:, :, 0, :]
 
     print('span 1 (from find_span):')

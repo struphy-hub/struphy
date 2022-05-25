@@ -1,10 +1,13 @@
 from struphy.geometry.domain_3d import Domain
+from struphy.pic.domain_decomp import index_to_domain
+from struphy.psydac_api.psydac_derham import DerhamBuild
 
 from sympde.topology import Cube, Derham
 
 from psydac.api.discretization import discretize
 from psydac.fem.tensor import TensorFemSpace 
 from psydac.fem.vector import ProductFemSpace
+from psydac.fem.basic import FemField
 from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 
@@ -16,51 +19,70 @@ MPI_COMM = MPI.COMM_WORLD
 mpi_rank = MPI_COMM.Get_rank()
 MPI_COMM.Barrier()
 
-# Psydac symbolic logical domain
-DOMAIN_symb = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
-
-# Psydac symbolic Derham
-DERHAM_symb = Derham(DOMAIN_symb)
-
 # grid parameters
 Nel      = [16, 16, 2]
-p        = [3, 3, 2]
+p        = [2, 3, 2]
 spl_kind = [True, True, True] 
 n_quad   = [4, 4, 4]
 bc       = [['f', 'f'], None, None]
 
-if mpi_rank == 0:
-    print(f'\nRank: {mpi_rank}, Nel={Nel}, p={p}, spl_kind={spl_kind}')
+if mpi_rank == 0: print(f'\nRank: {mpi_rank}, Nel={Nel}, p={p}, spl_kind={spl_kind}\n')
 
-# Psydac discrete domain
-DOMAIN  = discretize(DOMAIN_symb, ncells=Nel, comm=MPI.COMM_WORLD) # The parallelism is initiated here.
+# Psydac discrete Derham sequence
+map = 'cuboid'
+params_map = {'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}
 
-# Psydac discrete Derham
-DERHAM  = discretize(DERHAM_symb, DOMAIN, degree=p, periodic=spl_kind)
+DOMAIN = Domain(map, params_map)
+# create psydac mapping for mass matrices only
+F_psy = DOMAIN.Psydac_mapping('F', **params_map)
+
+DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
 
 # Discrete paces
-V0 = DERHAM.V0
-V1 = DERHAM.V1
-V2 = DERHAM.V2
-V3 = DERHAM.V3
+V0 = DR.V0
+V1 = DR.V1
+V2 = DR.V2
+V3 = DR.V3
 
 assert isinstance(V0, TensorFemSpace)
 assert isinstance(V1, ProductFemSpace)
 assert isinstance(V2, ProductFemSpace)
 assert isinstance(V3, TensorFemSpace)
+if mpi_rank == 0: print('Assertion passed: Derham spaces Vn are FemSpaces.')
 
 # Associated vector spaces
 assert isinstance(V0.vector_space, StencilVectorSpace)
 assert isinstance(V1.vector_space, BlockVectorSpace)
 assert isinstance(V2.vector_space, BlockVectorSpace)
 assert isinstance(V3.vector_space, StencilVectorSpace)
+if mpi_rank == 0:print('Assertion passed: Vn.vector_space are VectorSpaces.')
+
+# FemFields (distributed)
+f0 = FemField(V0)
+f1 = FemField(V1)
+f2 = FemField(V2)
+f3 = FemField(V3)
+
+assert isinstance(f0.coeffs, StencilVector)
+assert isinstance(f1.coeffs, BlockVector)
+assert isinstance(f2.coeffs, BlockVector)
+assert isinstance(f3.coeffs, StencilVector)
+if mpi_rank == 0:print('Assertion passed: FemField.coeffs are Stencil/Blockmatrices.\n')
 
 # Stencil objects (distributed)
 x0 = StencilVector(V0.vector_space)
 A0 = StencilMatrix(V0.vector_space, V0.vector_space)
 
-print(f'Rank: {mpi_rank} | A domain  : {A0.domain}, dimension: {A0.domain.dimension}')
-print(f'Rank: {mpi_rank} | A codomain: {A0.codomain}, dimension: {A0.codomain.dimension}')
+x1 = BlockVector(V1.vector_space)
+A1 = BlockMatrix(V1.vector_space, V0.vector_space)
+
+x2 = BlockVector(V2.vector_space)
+A2 = BlockMatrix(V2.vector_space, V0.vector_space)
+
+x3 = StencilVector(V0.vector_space)
+A3 = StencilMatrix(V0.vector_space, V0.vector_space)
+
+MPI_COMM.Barrier()
 
 # Global indices of each process, and paddings
 gl_s = x0.starts 
@@ -71,20 +93,17 @@ gl_s_dom = A0.domain.starts
 gl_e_dom = A0.domain.ends
 pads_dom = A0.domain.pads
 
-gl_s_codom = A0.codomain.starts 
-gl_e_codom = A0.codomain.ends
-pads_codom = A0.codomain.pads
+assert gl_s == gl_s_dom
+assert gl_e == gl_e_dom
+assert pads == pads_dom
+print(f'Rank: {mpi_rank}, gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
 
-print(f'Rank: {mpi_rank}, global start indices={gl_s}, global end indices={gl_e}, paddings={pads}')
+for n, (s, e, pad, ind_mat, br) in enumerate(zip(gl_s, gl_e, pads, DR.indN_psy, DR.breaks)):
+    le, ri = index_to_domain(s, e, pad, ind_mat, br)
+    #print(f'breaks: {br}')
+    print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
+
 MPI_COMM.Barrier()
-
-assert gl_s==gl_s_dom
-assert gl_e==gl_e_dom
-assert pads==pads_dom
-
-assert gl_s==gl_s_codom
-assert gl_e==gl_e_codom
-assert pads==pads_codom
 
 # Data of Stencil objects
 if mpi_rank==0:

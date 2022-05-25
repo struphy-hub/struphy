@@ -143,7 +143,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.psydac_api.psydac_derham import Derham_build
+    from struphy.psydac_api.psydac_derham import DerhamBuild
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.fem.tensor import TensorFemSpace
@@ -171,7 +171,51 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = Derham_build(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
+    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
+
+    print(f'Nel={Nel}, p={p}, spl_kind={spl_kind}')
+
+    print('Old N 0:')
+    print(DR._indN[0])
+    print('New N 0:')
+    print(DR._indN_psy[0])
+    # print('New3 N 0:')
+    # print(DR._indN3[0])
+    print('')
+    print('Old N 1:')
+    print(DR._indN[1])
+    print('New N 1:')
+    print(DR._indN_psy[1])
+    # print('New3 N 1:')
+    # print(DR._indN3[1])
+    print('')
+    print('Old N 2:')
+    print(DR._indN[2])
+    print('New N 2:')
+    print(DR._indN_psy[2])
+    # print('New3 N 2:')
+    # print(DR._indN3[2])
+
+    print('Old D 0:')
+    print(DR._indD[0])
+    print('New D 0:')
+    print(DR._indD_psy[0])
+    # print('New3 D 0:')
+    # print(DR._indD3[0])
+    print('')
+    print('Old D 1:')
+    print(DR._indD[1])
+    print('New D 1:')
+    print(DR._indD_psy[1])
+    # print('New3 D 1:')
+    # print(DR._indD3[1])
+    print('')
+    print('Old D 2:')
+    print(DR._indD[2])
+    print('New D 2:')
+    print(DR._indD_psy[2])
+    # print('New3 D 2:')
+    # print(DR._indD3[2])
 
     print('Discrete Derham set set.')
     print()
@@ -578,7 +622,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
 
 
 if __name__ == '__main__':
-    test_psydac_mapping(['shafranov_dshaped', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
+    # test_psydac_mapping(['shafranov_dshaped', {
+    #     'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
     test_psydac_derham([8, 8, 4], [2, 3, 2], [False, True, True], ['cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
