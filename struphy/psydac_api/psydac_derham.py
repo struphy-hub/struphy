@@ -94,7 +94,7 @@ class DerhamBuild:
         # Discrete logical domain
         # logical domain, the parallelism is initiated here.
         self._domain_log_h = discretize(
-            self._domain_log, ncells=Nel, comm=comm)
+            self._domain_log, ncells=Nel, comm=self._comm)
 
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,

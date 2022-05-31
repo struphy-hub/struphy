@@ -10,7 +10,7 @@ from struphy.analytic_funcs.fourier import Modes_sin, Modes_cos
 import numpy as np
 
 
-class Field_init:
+class Field:
     '''Initializes a field variable (i.e. its FE coefficients) in memory and creates a method for assigning initial condition.'''
 
     def __init__(self, name, space_id, DR):
@@ -38,11 +38,11 @@ class Field_init:
         elif space_id == 'Hcurl':
             self._space = DR.V1
             # self._vector = BlockVector(self._space.vector_space, [
-                # StencilVector(comp) for comp in self._space.vector_space])
+            # StencilVector(comp) for comp in self._space.vector_space])
         elif space_id == 'Hdiv':
             self._space = DR.V2
             # self._vector = BlockVector(self._space.vector_space, [
-                # StencilVector(comp) for comp in self._space.vector_space])
+            # StencilVector(comp) for comp in self._space.vector_space])
         elif space_id == 'L2':
             self._space = DR.V3
             # self._vector = StencilVector(self._space.vector_space)
@@ -146,7 +146,6 @@ class Field_init:
                 if comps[0]:
                     self._add_noise()
 
-
             elif self.space_id in {'Hcurl', 'Hdiv'}:
                 for n, comp in enumerate(comps):
                     if comp:
@@ -167,13 +166,17 @@ class Field_init:
             # Pullback callable and project
             self._fun = []
             if self.space == 'H1':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '0_form')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '0_form')]
                 self._vector[:] = self.DR.P0(self._fun[0]).coeffs[:]
 
             elif self.space == 'Hcurl':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_1')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_2')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '1_form_3')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '1_form_1')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '1_form_2')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '1_form_3')]
                 #self._fun = Pulled_1form(init_coords, _fun_tmp, DOMAIN)
                 _coeffs = self.DR.P1(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
@@ -181,16 +184,20 @@ class Field_init:
                 self._vector[2][:] = _coeffs[2][:]
 
             elif self.space == 'Hdiv':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_1')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_2')]
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '2_form_3')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '2_form_1')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '2_form_2')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '2_form_3')]
                 _coeffs = self.DR.P2(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
 
             elif self.space == 'L2':
-                self._fun += [Pulled_pform(init_coords, _fun_tmp, DOMAIN, '3_form')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, DOMAIN, '3_form')]
                 self._vector[:] = self.DR.P3(self._fun[0]).coeffs[:]
 
             self._vector.update_ghost_regions()
@@ -345,7 +352,7 @@ class Pulled_pform:
                 Which form to pull: '0_form', '1_form_1', '1_form_2', '1_form_3', '2_form_1', '2_form_2', '2_form_3', '3_form'.
         '''
 
-        assert len(fun)==1 or len(fun)==3
+        assert len(fun) == 1 or len(fun) == 3
 
         self._fun = []
         for f in fun:
@@ -374,7 +381,7 @@ class Pulled_pform:
         elif self._coords == 'physical':
             # remove list for scalar fields
             if len(self._fun) == 1:
-                self._fun = self._fun[0] 
+                self._fun = self._fun[0]
             f = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, self._form)
 
         else:
