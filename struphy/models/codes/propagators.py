@@ -150,3 +150,4 @@ class StepMaxwell( Propagator ):
             print('Maxdiff e1 for Push_maxwell_psydac:', max(_de))
             print('Maxdiff b2 for Push_maxwell_psydac:', max(_db))
             print()
+

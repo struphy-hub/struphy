@@ -2,16 +2,17 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 import scipy.special as sp
 
-from struphy.psydac_api.fields import Field_init
-from struphy.diagnostics.data_module import Data_container_psydac as Data_container   
+from struphy.psydac_api.fields import Field
+from struphy.pic.particles import Particles6D, Particles5D
+from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
 __all__ = ['StruphyModels',
-            'Maxwell',]
+           'Maxwell', ]
 
 
-class StruphyModel( metaclass=ABCMeta ):
+class StruphyModel(metaclass=ABCMeta):
     '''The base class for Struphy models.
-    
+
     Parameters
     ..........
         DR: Derham obj
@@ -24,73 +25,107 @@ class StruphyModel( metaclass=ABCMeta ):
             Each entry corresponds to one linear solver used in the model. 
             An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
 
-        fields_def : dict
-            Keys are the field names (str), values are the space_ids ("H1", "Hcurl", "Hdiv" or "L2"). 
+        kwargs : dict
+            Keys are either the field names (str), values are the space_ids ("H1", "Hcurl", "Hdiv" or "L2"), or
+            keys are the names of the kinetic species (str), values are the parameters (dict).
     '''
 
-    def __init__(self, DR, DOMAIN, *solver_params, **fields_def):
+    def __init__(self, DR, DOMAIN, *solver_params, **kwargs):
 
-        self._names = []
+        self._field_names = []
         self._space_ids = []
-        for key, val in fields_def.items():
-            self._names += [key]
-            self._space_ids += [val]
+        self._kinetic_names = []
+        self._marker_params = []
+        self._KIN = []
+
+        for key, val in kwargs.items():
+
+            # Kinetic species
+            if isinstance(val, dict):
+                self._kinetic_names += [key]
+                self._marker_params += [val]
+
+            # Field variables
+            else:
+                self._field_names += [key]
+                self._space_ids += [val]
 
         self._DR = DR
         self._DOMAIN = DOMAIN
         self._solver_params = solver_params
 
         self._fields = []
-        for name, space_id in zip(self._names, self._space_ids):
-            self._fields += [Field_init(name, space_id, self.DR)]
+        for name, space_id in zip(self._field_names, self._space_ids):
+            self._fields += [Field(name, space_id, self.DR)]
+
+        self._kinetic_species = []
+        for name, params in zip(self._kinetic_names, self._marker_params):
+            if params['type'] == 'fullorbit':
+                self._kinetic_species += [Particles6D(name,
+                                                      self._DOMAIN, params, self._DR.comm)]
+            elif params['type'] == 'driftkinetic':
+                self._kinetic_species += [Particles5D(name,
+                                                      self._DOMAIN, params, self._DR.comm)]
+            else:
+                raise NotImplementedError('Marker type not implemented!')
 
     @property
-    def names( self ):
+    def names(self):
         '''List of FE variable names (str).'''
-        return self._names
+        return self._field_names
 
     @property
-    def space_ids( self ):
+    def space_ids(self):
         '''List of 3d Derham space identifiers (str) corresponding to names.'''
         return self._space_ids
 
     @property
-    def fields( self ):
-        '''List of Struphy fields, see struphy/psydac_api/fields.'''
+    def fields(self):
+        '''List of Struphy fields, see struphy/psydac_linear_operators/fields.'''
         return self._fields
 
     @property
-    def DR( self ):
-        '''3d Derham sequence, see struphy/psydac_api/psydac_derham.'''
+    def DR(self):
+        '''3d Derham sequence, see struphy/feec/psydac_derham.'''
         return self._DR
 
     @property
-    def DOMAIN( self ):
+    def DOMAIN(self):
         '''Domain object, see struphy/geometry/domain_3d.'''
         return self._DOMAIN
 
     @property
-    def solver_params( self ):
+    def solver_params(self):
         '''List of dicts holding the solver parameters.'''
         return self._solver_params
 
     @property
+    def kinetic_species(self):
+        '''List of kinetic species names'''
+        return self._kinetic_species
+
+    @property
+    def kinetic_params(self):
+        '''List of kinetic parameters for all species'''
+        return self._marker_params
+
+    @property
     @abstractmethod
-    def propagators( self ):
+    def propagators(self):
         '''List of callable struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
         pass
 
     @property
     @abstractmethod
-    def scalar_quantities( self ):
+    def scalar_quantities(self):
         '''Dictionary of scalar quantities to be saved during simulation. 
         Must be initialized as empty np.array of size 1, e.g.
-        
+
         self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
         pass
 
     @abstractmethod
-    def update_scalar_quantities( self, time ):
+    def update_scalar_quantities(self, time):
         '''
         Specify an update rule for each item in scalar_quantities.
 
@@ -101,7 +136,7 @@ class StruphyModel( metaclass=ABCMeta ):
         '''
         pass
 
-    def print_scalar_quantities( self ):
+    def print_scalar_quantities(self):
         '''
         Print quantities saved in scalar_quantities to screen.
         '''
@@ -110,31 +145,39 @@ class StruphyModel( metaclass=ABCMeta ):
             sq_str += key + ': {:16.12f}'.format(val[0]) + '     '
         print(sq_str)
 
-    def set_initial_conditions(self, comps_li, init_type, init_coords, init_params):
+    def set_initial_conditions(self, fields_init, fields_params, particles_init, particles_params):
         '''For FE coefficients.
-        
+
         Parameters
         ----------
-            comps_li : list
-                From parameters.yml ['fields']['init']['comps']. Specifies which components(s) of each field should be initialized.
+            # TODO
         '''
+        if fields_init is not None:
+            init_type = fields_init['type']
+            init_coords = fields_init['coords']
+            comps_li = fields_init['comps']
 
-        # initialize all field components
-        if comps_li == 'all':
-            comps_li = []
-            for space_id in self.space_ids:
-                if space_id in {'H1', 'L2'}:
-                    comps_li += [[True]]
-                elif space_id in {'Hcurl', 'Hdiv'}:
-                    comps_li += [[True] * 3]
+            # initialize all field components
+            if comps_li == 'all':
+                comps_li = []
+                for space_id in self.space_ids:
+                    if space_id in {'H1', 'L2'}:
+                        comps_li += [[True]]
+                    elif space_id in {'Hcurl', 'Hdiv'}:
+                        comps_li += [[True] * 3]
 
-        for field, comps in zip(self.fields, comps_li):
-            field.set_initial_conditions(self.DOMAIN, comps=comps, init_type=init_type, init_coords=init_coords, init_params=init_params)
+            for field, comps in zip(self.fields, comps_li):
+                field.set_initial_conditions(
+                    self.DOMAIN, comps=comps, init_type=init_type, init_coords=init_coords, init_params=fields_params)
 
-    
-class Maxwell( StruphyModel ):
+        if particles_init is not None:
+            for species, init, param in zip(self.kinetic_species, particles_init, particles_params):
+                species.set_initial_conditions(init, param)
+
+
+class Maxwell(StruphyModel):
     '''Maxwell's equations in vacuum, in Struphy normalization (c=1).
-    
+
     Parameters
     ..........
         DR: Derham obj
@@ -154,7 +197,9 @@ class Maxwell( StruphyModel ):
 
         super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv')
 
-        # Assemble necessary mass matrices 
+        super().set_initial_conditions()
+
+        # Assemble necessary mass matrices
         self.DR.assemble_M1()
         self.DR.assemble_M2()
 
@@ -164,12 +209,13 @@ class Maxwell( StruphyModel ):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [StepMaxwell(self._e, self._b, DR, self.solver_params[0])]  
+        self._propagators += [StepMaxwell(self._e,
+                                          self._b, DR, self.solver_params[0])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_E'] = np.empty(1, dtype=float) 
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
 
@@ -180,11 +226,80 @@ class Maxwell( StruphyModel ):
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
-    
+
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
-        self._scalar_quantities['en_E'][0] = 1/2*self._e.dot(self.DR.M1.dot(self._e))
-        self._scalar_quantities['en_B'][0] = 1/2*self._b.dot(self.DR.M2.dot(self._b))
-        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + self._scalar_quantities['en_B'][0]
+        self._scalar_quantities['en_E'][0] = 1 / \
+            2*self._e.dot(self.DR.M1.dot(self._e))
+        self._scalar_quantities['en_B'][0] = 1 / \
+            2*self._b.dot(self.DR.M2.dot(self._b))
+        self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + \
+            self._scalar_quantities['en_B'][0]
 
-    
+
+class LinearVlasovMaxwell(StruphyModel):
+    """
+    Linearized Vlasov Maxwell model, has electric and magnetic fields, and electrons as particles
+
+    Parameters:
+    -----------
+        DR: Derham obj
+            From struphy/feec/psydac_derham.Derham_build.
+
+        DOMAIN: Domain obj
+            From struphy/geometry/domain_3d.Domain.
+
+        solver_params : list
+            Each entry corresponds to one linear solver used in the model. 
+            An entry is a dict with the solver parameters corresponding to one solver, obtained from parameters.yml.
+    """
+
+    def __init__(self, DR, DOMAIN, *solver_params, electron_markers, f_0_params):
+        from struphy.kinetic_equil.kinetic_equil_6d import MaxwellHomogenSlab
+        from struphy.models.codes.propagators import StepMaxwell
+        from struphy.models.codes.lin_Vlasov_Maxwell import StepEWLinVlasovMaxwell
+
+        super().__init__(DR, DOMAIN, *solver_params, efield='Hcurl',
+                         bfield='Hdiv', electrons=electron_markers)
+
+        # set kinetic equilibrium/background distribution function and set it for the electrons
+        if f_0_params['type'] == 'Maxwell_homogen_slab':
+            EQ_KINETIC = MaxwellHomogenSlab(f_0_params, DOMAIN)
+            self.EQ_Kinetic = EQ_KINETIC
+            self._kinetic_species[0].set_kinetic_equil(self.EQ_Kinetic)
+        else:
+            raise ValueError('Equilibrium not implemented!')
+
+        # Assemble necessary mass matrices
+        self.DR.assemble_M1()
+        self.DR.assemble_M2()
+
+        # Pointers to Stencil-/Blockvectors
+        self._e = self.fields[0].vector
+        self._b = self.fields[1].vector
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [StepMaxwell(self._e,
+                                          self._b, DR, self.solver_params[0])]
+        self._propagators += [StepEWLinVlasovMaxwell(self.KIN.particles_loc, self._e, self.KIN.Np_loc, self.DR, f_0_params, self.solver_params[0])]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
+
+    @property
+    def KIN(self):
+        """Dictionary with all the kinetic objects in them, keys are the names"""
+        return self._KIN
