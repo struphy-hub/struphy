@@ -128,7 +128,7 @@ def test_psydac_mapping(mapping):
     print(map + ' done.\n')
 
 
-@pytest.mark.parametrize('Nel', [[6, 6, 4]])
+@pytest.mark.parametrize('Nel', [[8, 8, 4]])
 @pytest.mark.parametrize('p', [[3, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
 @pytest.mark.parametrize('mapping', [
@@ -138,9 +138,7 @@ def test_psydac_mapping(mapping):
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_psydac_derham(Nel, p, spl_kind, mapping):
-    '''Requires pyccel==1.4.0, install manually (pyccel=0.10.1 installed by struphy).
-
-    Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
+    '''Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
     from struphy.geometry.domain_3d import Domain
     from struphy.psydac_api.psydac_derham import DerhamBuild
@@ -498,10 +496,10 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     prod0_STR = DR_STR.M0_mat.dot(x0)
     prod0_PSY = DR.M0.dot(x0_PSY)
 
-    # print('rel 0 error STR-STR:', np.max(np.abs(prod0_STR - prod0)) /
-    #       np.max(np.abs(prod0_STR)))
-    # print('rel 0 error STR-PSY:', np.max(np.abs(prod0_STR -
-    #       prod0_PSY.toarray())) / np.max(np.abs(prod0_STR)))
+    print('rel 0 error STR-STR:', np.max(np.abs(prod0_STR - prod0)) /
+          np.max(np.abs(prod0_STR)))
+    print('rel 0 error STR-PSY:', np.max(np.abs(prod0_STR -
+          prod0_PSY.toarray())) / np.max(np.abs(prod0_STR)))
 
     assert np.allclose(prod0_STR, prod0)
     assert np.allclose(prod0_STR, prod0_PSY.toarray())
@@ -511,10 +509,10 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     prod1_STR = DR_STR.M1_mat.dot(x1)
     prod1_PSY = DR.M1.dot(x1_PSY)
 
-    # print('rel 1 error STR-STR:', np.max(np.abs(prod1_STR - prod1)) /
-    #       np.max(np.abs(prod1_STR)))
-    # print('rel 1 error STR-PSY:', np.max(np.abs(prod1_STR -
-    #       prod1_PSY.toarray())) / np.max(np.abs(prod1_STR)))
+    print('rel 1 error STR-STR:', np.max(np.abs(prod1_STR - prod1)) /
+          np.max(np.abs(prod1_STR)))
+    print('rel 1 error STR-PSY:', np.max(np.abs(prod1_STR -
+          prod1_PSY.toarray())) / np.max(np.abs(prod1_STR)))
 
     assert np.allclose(prod1_STR, prod1)
     assert np.allclose(prod1_STR, prod1_PSY.toarray())
@@ -624,5 +622,5 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
 if __name__ == '__main__':
     # test_psydac_mapping(['shafranov_dshaped', {
     #     'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
-    test_psydac_derham([8, 8, 4], [2, 3, 2], [False, True, True], ['cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+    test_psydac_derham([8, 8, 4], [3, 3, 2], [False, True, True], ['shafranov_dshaped', {
+        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])

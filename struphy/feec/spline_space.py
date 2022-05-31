@@ -354,7 +354,7 @@ class Spline_space_1d:
             for i in range(self.NbaseN):
                 coeff[:] = 0.
                 coeff[i] = 1.
-                plt.plot(etaplot, self.evaluate_N(etaplot, coeff))
+                plt.plot(etaplot, self.evaluate_N(etaplot, coeff), label=str(i))
 
         elif which == 'M-splines':
 
@@ -363,7 +363,7 @@ class Spline_space_1d:
             for i in range(self.NbaseD):
                 coeff[:] = 0.
                 coeff[i] = 1.
-                plt.plot(etaplot, self.evaluate_D(etaplot, coeff))
+                plt.plot(etaplot, self.evaluate_D(etaplot, coeff), label=str(i))
 
         else:
             print('Only B-splines and M-splines available')

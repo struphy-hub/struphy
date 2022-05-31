@@ -1,10 +1,6 @@
 from struphy.geometry.domain_3d import Domain
-from struphy.pic.domain_decomp import index_to_domain
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import DerhamBuild, index_to_domain
 
-from sympde.topology import Cube, Derham
-
-from psydac.api.discretization import discretize
 from psydac.fem.tensor import TensorFemSpace 
 from psydac.fem.vector import ProductFemSpace
 from psydac.fem.basic import FemField
@@ -20,9 +16,9 @@ mpi_rank = MPI_COMM.Get_rank()
 MPI_COMM.Barrier()
 
 # grid parameters
-Nel      = [16, 16, 2]
-p        = [2, 3, 2]
-spl_kind = [True, True, True] 
+Nel      = [14, 2, 2]
+p        = [2, 2, 2]
+spl_kind = [False, True, True] 
 n_quad   = [4, 4, 4]
 bc       = [['f', 'f'], None, None]
 
@@ -79,12 +75,12 @@ A1 = BlockMatrix(V1.vector_space, V0.vector_space)
 x2 = BlockVector(V2.vector_space)
 A2 = BlockMatrix(V2.vector_space, V0.vector_space)
 
-x3 = StencilVector(V0.vector_space)
-A3 = StencilMatrix(V0.vector_space, V0.vector_space)
+x3 = StencilVector(V3.vector_space)
+A3 = StencilMatrix(V3.vector_space, V3.vector_space)
 
 MPI_COMM.Barrier()
 
-# Global indices of each process, and paddings
+# Global indices of each process for V0
 gl_s = x0.starts 
 gl_e = x0.ends
 pads = x0.pads
@@ -96,14 +92,59 @@ pads_dom = A0.domain.pads
 assert gl_s == gl_s_dom
 assert gl_e == gl_e_dom
 assert pads == pads_dom
-print(f'Rank: {mpi_rank}, gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
+print(f'Rank: {mpi_rank}, V0: gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
+print(f'Rank: {mpi_rank} | local domain: {V0.local_domain}\n') 
 
-for n, (s, e, pad, ind_mat, br) in enumerate(zip(gl_s, gl_e, pads, DR.indN_psy, DR.breaks)):
-    le, ri = index_to_domain(s, e, pad, ind_mat, br)
+le_0 = []
+ri_0 = []
+for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s, gl_e, pads, DR.indN_psy, DR.breaks, DR.spl_kind)):
+
+    if mpi_rank == 0: print(f'breaks: {br}')
+    le, ri, loc_cells = index_to_domain(s, e, pad, ind_mat, br, knd)
     #print(f'breaks: {br}')
-    print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
+    #print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
+    le_0 += [le]
+    ri_0 += [ri]
 
 MPI_COMM.Barrier()
+if mpi_rank == 0: print('')
+
+# Global indices of each process for V3
+gl_s = x3.starts 
+gl_e = x3.ends
+pads = x3.pads
+
+gl_s_dom = A3.domain.starts 
+gl_e_dom = A3.domain.ends
+pads_dom = A3.domain.pads
+
+assert gl_s == gl_s_dom
+assert gl_e == gl_e_dom
+assert pads == pads_dom
+print(f'Rank: {mpi_rank}, V3: gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
+print(f'Rank: {mpi_rank} | local domain: {V3.local_domain}\n') 
+
+le_3 = []
+ri_3 = []
+for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s, gl_e, pads, DR.indD_psy, DR.breaks, DR.spl_kind)):
+
+    if mpi_rank == 0: print(f'breaks: {br}')
+    le, ri, loc_cells = index_to_domain(s, e, pad, ind_mat, br, knd)
+    #print(f'breaks: {br}')
+    #print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
+    le_3 += [le]
+    ri_3 += [ri]
+
+MPI_COMM.Barrier()
+
+assert le_0 == le_3
+print(f'Rank: {mpi_rank} | Assertion passed: LEFT domain boundareis are the same for N- and D-splines.\n')
+assert ri_0 == ri_3
+print(f'Rank: {mpi_rank} | Assertion passed: RIGHT domain boundareis are the same for N- and D-splines.\n')
+
+print(f'Rank: {mpi_rank} | \n domain_array:\n {DR.domain_array} \n index_array:\n {DR.index_array}')
+
+exit()
 
 # Data of Stencil objects
 if mpi_rank==0:
@@ -146,14 +187,20 @@ x0.update_ghost_regions()
 
 # try writing without end index:
 z0 = x0.copy()
-try:
-    print(f'\nz0[:].shape[0]: {z0[:].shape[0]}') 
-    for i in range(z0[:].shape[0]):
-        z0[i] = i
-except:
-    print('\nWrong acces of Stencilvector (!): for i in range(x0[:].shape[0]) gets out of bounds.\n')
+#try:
+    #print(f'\nz0[:].shape[0]: {z0[:].shape[0]}') 
+#for i in range(z0[:].shape[0] - p[0]*2):
+    #print(i)
+if mpi_rank == 1:
+    z0[:, :, :] = 100*mpi_rank
+#except:
+#    print('\nWrong access of Stencilvector (!): for i in range(x0[:].shape[0]) gets out of bounds.\n')
+z0.update_ghost_regions()
 
 print(f'Rank: {mpi_rank}, x0[:, :, gl_s]={x0[:, :, gl_s[2]]}')
+MPI_COMM.Barrier()
+
+print(f'Rank: {mpi_rank}, z0[:, :, gl_s]={z0[:, :, gl_s[2]]}')
 MPI_COMM.Barrier()
 
 # Assign values to _data attribute (=numpy array) (padding + local indices !!)
