@@ -270,8 +270,8 @@ class Domain():
     kind_map : str
         Type of domain.
     
-    params_map: dict
-        The parameters needed to define the mappings (see Notes).
+    params_map: dict, optional
+        The parameters that define the mapping (see Notes). If not given, default values shall be used
 
     Attributes
     ----------
@@ -371,27 +371,40 @@ class Domain():
             * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
     '''
 
-    def __init__(self, kind_map='cuboid', params_map={'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}):
+    def __init__(self, kind_map='cuboid', params_map=None):
         
         # ==============================================================
         #                      analytical mappings 
         # ==============================================================
+        
+        # Note : in future versions you only need to specify the Psydac_mapping expressions.
 
         # ================== cuboid ====================
         if kind_map == 'cuboid':
             self.kind_map = 10
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+            else:
+                params = params_map
+                
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
                                                 'y': 'l2 + (r2 - l2)*x2',
                                                 'z': 'l3 + (r3 - l3)*x3'}
-            # In future versions you only need to specify the Psydac_mapping expressions.
             
             self.pole = False
             
         # ============== hollow cylinder ===============
         elif kind_map == 'hollow_cyl':
             self.kind_map = 11
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'a1': 0.2, 'a2': 1., 'R0': 3.}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
                                                 'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
                                                 'z': '2*pi*R0*x3'}
@@ -404,7 +417,13 @@ class Domain():
         # ================== colella ===================
         elif kind_map == 'colella':
             self.kind_map = 12
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz' : 1.}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
                                                 'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
                                                 'z': 'Lz*x3'}
@@ -414,7 +433,13 @@ class Domain():
         # ================= orthogonal =================
         elif kind_map == 'orthogonal':
             self.kind_map = 13
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz' : 1.}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
                                                 'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
                                                 'z': 'Lz*x3'}
@@ -424,7 +449,13 @@ class Domain():
         # ============== hollow torus ==================
         elif kind_map == 'hollow_torus':
             self.kind_map = 14
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'a1': 0.2, 'a2': 1., 'R0' : 3.}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
                                                 'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
                                                 'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
@@ -437,7 +468,13 @@ class Domain():
         # ============== ellipse =======================
         elif kind_map == 'ellipse':
             self.kind_map = 15
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 2., 'Lz' : 1.}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
@@ -447,7 +484,13 @@ class Domain():
         # =========== rotated ellipse ==================
         elif kind_map == 'rotated_ellipse':
             self.kind_map = 16
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'r1' : 1., 'r2' : 2., 'Lz' : 1., 'th' : 0.2}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
                                                 'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
@@ -456,7 +499,13 @@ class Domain():
         # ============ shafranov shift =================
         elif kind_map == 'shafranov_shift':
             self.kind_map = 17
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 1., 'Lz' : 1., 'delta' : 0.2}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
@@ -466,7 +515,13 @@ class Domain():
         # ============ shafranov sqrt ==================
         elif kind_map == 'shafranov_sqrt':
             self.kind_map = 18
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 1., 'Lz' : 1., 'delta' : 0.2}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
@@ -476,7 +531,13 @@ class Domain():
         # ========= shafranov D-shaped =================
         elif kind_map == 'shafranov_dshaped':
             self.kind_map = 19
-            self.params_map = list(params_map.values())
+            
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'R0' : 3., 'Lz' : 1., 'delta_x' : 0.1, 'delta_y' : 0., 'delta_gs' : 0.2, 'epsilon_gs' : 1/3, 'kappa_gs' : 1.5}
+            else:
+                params = params_map
+            
+            self.params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
                                                 'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
                                                 'z': 'z0 + (x3*Lz)'}
@@ -510,17 +571,23 @@ class Domain():
 
         # ============== 2d IGA cylinder ===============
         elif kind_map == 'spline cylinder':
-            self.kind_map   = 1
-            self.params_map = [params_map['a'], params_map['R0']]
-
-            X = lambda eta1, eta2 : params_map['a']*eta1*np.cos(2*np.pi*eta2) + params_map['R0']
-            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(2*np.pi*eta2)
+            self.kind_map = 1
+            
+            if params_map is None:
+                params = {'a': 1., 'R0': 3., 'Nel' : [8, 24], 'p' : [2, 2], 'spl_kind' : [False, True]}
+            else:
+                params = params_map
+            
+            X = lambda s, chi : params['a']*s*np.cos(2*np.pi*chi) + params['R0']
+            Y = lambda s, chi : params['a']*s*np.sin(2*np.pi*chi)
         
-            self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], X, Y)
+            self.cx, self.cy = interp_mapping(params['Nel'], params['p'], params['spl_kind'], X, Y)
             
             # make sure that control points at pole are all the same
-            self.cx[0] = params_map['R0']
+            self.cx[0] = params['R0']
             self.cy[0] = 0.
+            
+            self.params_map = [params['a'], params['R0']]
             
             self.pole = True
             
@@ -530,17 +597,23 @@ class Domain():
                 
         # ============= 2d IGA torus ==================
         elif kind_map == 'spline torus':
-            self.kind_map   = 2
-            self.params_map = [params_map['a'], params_map['R0']]
-
-            R = lambda eta1, eta2 : params_map['a']*eta1*np.cos(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['coordinates'])) + params_map['R0']
-            Y = lambda eta1, eta2 : params_map['a']*eta1*np.sin(angular.theta(eta1, eta2, params_map['a'], params_map['R0'], params_map['coordinates']))
+            self.kind_map = 2
+            
+            if params_map is None:
+                params = {'a': 1., 'R0': 3., 'Nel' : [8, 24], 'p' : [2, 2], 'spl_kind' : [False, True], 'coordinates' : 'straight'}
+            else:
+                params = params_map
+            
+            R = lambda s, chi : params['a']*s*np.cos(angular.theta(s, chi, params['a'], params['R0'], params['coordinates'])) + params['R0']
+            Y = lambda s, chi : params['a']*s*np.sin(angular.theta(s, chi, params['a'], params['R0'], params['coordinates']))
         
-            self.cx, self.cy = interp_mapping(params_map['Nel'], params_map['p'], params_map['spl_kind'], R, Y)
+            self.cx, self.cy = interp_mapping(params['Nel'], params['p'], params['spl_kind'], R, Y)
             
             # make sure that control points at pole are all the same
-            self.cx[0] = params_map['R0']
+            self.cx[0] = params['R0']
             self.cy[0] = 0.
+            
+            self.params_map = [params['a'], params['R0']]
             
             self.pole = True
             
@@ -602,18 +675,18 @@ class Domain():
         # create IGA attributes for IGA mappings
         if self.kind_map < 10:
 
-            self.Nel      = params_map['Nel']
-            self.p        = params_map['p']
-            self.spl_kind = params_map['spl_kind']
+            self.Nel      = params['Nel']
+            self.p        = params['p']
+            self.spl_kind = params['spl_kind']
             
-            self.NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(params_map['Nel'], 
-                                                                    params_map['p'], 
-                                                                    params_map['spl_kind'])]
+            self.NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(params['Nel'], 
+                                                                    params['p'], 
+                                                                    params['spl_kind'])]
             
-            el_b        = [np.linspace(0., 1., Nel + 1) for Nel in params_map['Nel']]
+            el_b        = [np.linspace(0., 1., Nel + 1) for Nel in params['Nel']]
             self.T      = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, 
-                                                                                  params_map['p'],
-                                                                                  params_map['spl_kind'])]
+                                                                                  params['p'],
+                                                                                  params['spl_kind'])]
             
             # extend to 3d for 2d IGA mappings
             if self.kind_map != 0:
@@ -970,7 +1043,7 @@ class Domain():
         return values
 
 
-    def show_domain(self):
+    def show(self):
         '''Plots isolines of the 2D domain at eta3 = 0.''' 
         
         import matplotlib.pyplot as plt
@@ -991,5 +1064,7 @@ class Domain():
             
         plt.xlabel('x')
         plt.ylabel('y')
+        
+        plt.axis('square')
             
         plt.show()

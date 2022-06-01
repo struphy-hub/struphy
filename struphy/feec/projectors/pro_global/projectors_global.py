@@ -1383,7 +1383,16 @@ class Projectors_tensor_3d:
 
 
 # ===============================================================
-class Projectors_global_3d:
+class ProjectorsGlobal3D:
+    """
+    Global commuting projectors in 3 dimensions.
+    
+    Parameters
+    ----------
+        tensor_space : Tensor_spline_space
+            the 3d or (2d x Fourier) B-spline finite element space
+    
+    """
     
     def __init__(self, tensor_space):
         
@@ -1498,6 +1507,10 @@ class Projectors_global_3d:
         self.I2_pol_0_T_LU = spa.linalg.splu(self.I2_pol_0.T.tocsc())
         self.I3_pol_0_T_LU = spa.linalg.splu(self.I3_pol_0.T.tocsc())
         
+        # whether approximate inverse interpolation matrices were computed already
+        self.approx_Ik_0_inv = False
+        self.approx_Ik_0_tol = -1.
+        
         # get 1D interpolation points
         x_i1 = tensor_space.spaces[0].projectors.x_int.copy()
         x_i2 = tensor_space.spaces[1].projectors.x_int.copy()
@@ -1529,23 +1542,30 @@ class Projectors_global_3d:
             
         else:
             
-            if tensor_space.basis_tor == 'r':
+            if tensor_space.n_tor == 0:
                 
-                if   tensor_space.n_tor == 0:
-                    x_i3 = np.array([0., 0.])
-                    x_q3 = np.array([0., 0.])
-                    
-                elif tensor_space.n_tor > 0:
-                    x_i3 = np.array([0.25/tensor_space.n_tor, 1.])
-                    x_q3 = np.array([0.25/tensor_space.n_tor, 1.])
-                    
-                else:
-                    x_i3 = np.array([0.75/(-tensor_space.n_tor), 1.])
-                    x_q3 = np.array([0.75/(-tensor_space.n_tor), 1.])
-                    
-            else:
                 x_i3 = np.array([0.])
                 x_q3 = np.array([0.])
+                
+            else:
+                
+                if tensor_space.basis_tor == 'r':
+                    
+                    if tensor_space.n_tor > 0:
+                        
+                        x_i3 = np.array([1., 0.25/tensor_space.n_tor])
+                        x_q3 = np.array([1., 0.25/tensor_space.n_tor])
+                        
+                    else:
+                        
+                        x_i3 = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        x_q3 = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        
+                else:
+                    
+                    x_i3 = np.array([0.])
+                    x_q3 = np.array([0.])
+            
             
             self.Q3 = spa.identity(tensor_space.NbaseN[2], format='csr')
             
@@ -1827,158 +1847,157 @@ class Projectors_global_3d:
         return rhs.flatten()
     
     
-    
     # ======================================        
-    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+    def dofs_0(self, fun, include_bc=True, eval_kind='meshgrid'):
         
         # get function values at point sets
-        dofs_0 = self.eval_for_PI(0, fun, eval_kind)
+        dofs = self.eval_for_PI(0, fun, eval_kind)
         
-        # get dofs_0 on tensor-product grid
-        dofs_0 = kron_matvec_3d([spa.identity(dofs_0.shape[0]), spa.identity(dofs_0.shape[1]), spa.identity(dofs_0.shape[2])], dofs_0)
+        # get dofs on tensor-product grid
+        dofs = kron_matvec_3d([spa.identity(dofs.shape[0]), spa.identity(dofs.shape[1]), spa.identity(dofs.shape[2])], dofs)
         
         # apply extraction operator for dofs
         if include_bc:
-            dofs_0 = self.P0.dot(dofs_0.flatten())
+            dofs = self.P0.dot(dofs.flatten())
         else:
-            dofs_0 = self.P0_0.dot(dofs_0.flatten())
-        
-        # solve for FE coefficients
-        if interp:
-            coeffs = self.solve_V0(dofs_0, include_bc)
-        else:
-            coeffs = dofs_0
+            dofs = self.P0_0.dot(dofs.flatten())
             
-        return coeffs
+        return dofs
     
     # ======================================        
-    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+    def dofs_1(self, fun, include_bc=True, eval_kind='meshgrid'):
         
         # get function values at point sets
-        dofs_11 = self.eval_for_PI(11, fun[0], eval_kind)
-        dofs_12 = self.eval_for_PI(12, fun[1], eval_kind)
-        dofs_13 = self.eval_for_PI(13, fun[2], eval_kind)
+        dofs_1 = self.eval_for_PI(11, fun[0], eval_kind)
+        dofs_2 = self.eval_for_PI(12, fun[1], eval_kind)
+        dofs_3 = self.eval_for_PI(13, fun[2], eval_kind)
         
-        # get dofs_11 on tensor-product grid: integrate along 1-direction
-        dofs_11 = kron_matvec_3d([self.Q1, spa.identity(dofs_11.shape[1]), spa.identity(dofs_11.shape[2])], dofs_11)
+        # get dofs_1 on tensor-product grid: integrate along 1-direction
+        dofs_1 = kron_matvec_3d([self.Q1, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
 
-        # get dofs_12 on tensor-product grid: integrate along 2-direction
-        dofs_12 = kron_matvec_3d([spa.identity(dofs_12.shape[0]), self.Q2, spa.identity(dofs_12.shape[2])], dofs_12)
+        # get dofs_2 on tensor-product grid: integrate along 2-direction
+        dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2, spa.identity(dofs_2.shape[2])], dofs_2)
         
-        # get dofs_13 on tensor-product grid: integrate along 3-direction
-        dofs_13 = kron_matvec_3d([spa.identity(dofs_13.shape[0]), spa.identity(dofs_13.shape[1]), self.Q3], dofs_13)
+        # get dofs_3 on tensor-product grid: integrate along 3-direction
+        dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3], dofs_3)
         
         # apply extraction operator for dofs
         if include_bc:
-            dofs_1 = self.P1.dot(np.concatenate((dofs_11.flatten(), dofs_12.flatten(), dofs_13.flatten())))
+            dofs = self.P1.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs_1 = self.P1_0.dot(np.concatenate((dofs_11.flatten(), dofs_12.flatten(), dofs_13.flatten())))
+            dofs = self.P1_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
             
-        # solve for FE coefficients
-        if interp:
-            coeffs = self.solve_V1(dofs_1, include_bc)
-        else:
-            coeffs = dofs_1
-            
-        return coeffs
-            
+        return dofs
+    
     # ======================================        
-    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+    def dofs_2(self, fun, include_bc=True, eval_kind='meshgrid'):
         
         # get function values at point sets
-        dofs_21 = self.eval_for_PI(21, fun[0], eval_kind)
-        dofs_22 = self.eval_for_PI(22, fun[1], eval_kind)
-        dofs_23 = self.eval_for_PI(23, fun[2], eval_kind)
+        dofs_1 = self.eval_for_PI(21, fun[0], eval_kind)
+        dofs_2 = self.eval_for_PI(22, fun[1], eval_kind)
+        dofs_3 = self.eval_for_PI(23, fun[2], eval_kind)
         
-        # get dofs_21 on tensor-product grid: integrate in 2-3-plane
-        dofs_21 = kron_matvec_3d([spa.identity(dofs_21.shape[0]), self.Q2, self.Q3], dofs_21)
+        # get dofs_1 on tensor-product grid: integrate in 2-3-plane
+        dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2, self.Q3], dofs_1)
 
-        # get dofs_22 on tensor-product grid: integrate in 1-3-plane
-        dofs_22 = kron_matvec_3d([self.Q1, spa.identity(dofs_22.shape[1]), self.Q3], dofs_22)
+        # get dofs_2 on tensor-product grid: integrate in 1-3-plane
+        dofs_2 = kron_matvec_3d([self.Q1, spa.identity(dofs_2.shape[1]), self.Q3], dofs_2)
             
-        # get dofs_23 on tensor-product grid: integrate in 1-2-plane
-        dofs_23 = kron_matvec_3d([self.Q1, self.Q2, spa.identity(dofs_23.shape[2])], dofs_23)
+        # get dofs_3 on tensor-product grid: integrate in 1-2-plane
+        dofs_3 = kron_matvec_3d([self.Q1, self.Q2, spa.identity(dofs_3.shape[2])], dofs_3)
         
         # apply extraction operator for dofs
         if include_bc:
-            dofs_2 = self.P2.dot(np.concatenate((dofs_21.flatten(), dofs_22.flatten(), dofs_23.flatten())))
+            dofs = self.P2.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs_2 = self.P2_0.dot(np.concatenate((dofs_21.flatten(), dofs_22.flatten(), dofs_23.flatten())))
-        
-        # solve for FE coefficients
-        if interp:
-            coeffs = self.solve_V2(dofs_2, include_bc)
-        else:
-            coeffs = dofs_2
+            dofs = self.P2_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
             
-        return coeffs
+        return dofs
     
     # ======================================        
-    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', interp=True):
+    def dofs_3(self, fun, include_bc=True, eval_kind='meshgrid'):
         
         # get function values at point sets
-        dofs_3 = self.eval_for_PI(3, fun, eval_kind)
+        dofs = self.eval_for_PI(3, fun, eval_kind)
         
-        # get dofs_3 on tensor-product grid: integrate in 1-2-3-cell
-        dofs_3 = kron_matvec_3d([self.Q1, self.Q2, self.Q3], dofs_3)
+        # get dofs on tensor-product grid: integrate in 1-2-3-cell
+        dofs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], dofs)
             
         # apply extraction operator for dofs
         if include_bc:
-            dofs_3 = self.P3.dot(dofs_3.flatten())
+            dofs = self.P3.dot(dofs.flatten())
         else:
-            dofs_3 = self.P3_0.dot(dofs_3.flatten())
-        
-        # solve for FE coefficients
-        if interp:
-            coeffs = self.solve_V3(dofs_3, include_bc)
-        else:
-            coeffs = dofs_3
+            dofs = self.P3_0.dot(dofs.flatten())
             
-        return coeffs
+        return dofs
     
+    
+    # ======================================        
+    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid'):
+        return self.solve_V0(self.dofs_0(fun, include_bc, eval_kind), include_bc)
+    
+    # ======================================        
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid'):
+        return self.solve_V1(self.dofs_1(fun, include_bc, eval_kind), include_bc)
+            
+    # ======================================        
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid'):
+        return self.solve_V2(self.dofs_2(fun, include_bc, eval_kind), include_bc)
+    
+    # ======================================        
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid'):
+        return self.solve_V3(self.dofs_3(fun, include_bc, eval_kind), include_bc)
     
     
     # ========================================
     def assemble_approx_inv(self, tol):
         
-        # poloidal plane
-        I0_pol_0_inv_approx = np.linalg.inv(self.I0_pol_0.toarray())
-        I1_pol_0_inv_approx = np.linalg.inv(self.I1_pol_0.toarray())
-        I2_pol_0_inv_approx = np.linalg.inv(self.I2_pol_0.toarray())
-        I3_pol_0_inv_approx = np.linalg.inv(self.I3_pol_0.toarray())
-        I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
+        if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv == True and self.approx_Ik_0_tol != tol):
         
-        if tol > 1e-14:
-            I0_pol_0_inv_approx[np.abs(I0_pol_0_inv_approx) < tol] = 0.
-            I1_pol_0_inv_approx[np.abs(I1_pol_0_inv_approx) < tol] = 0.
-            I2_pol_0_inv_approx[np.abs(I2_pol_0_inv_approx) < tol] = 0.
-            I3_pol_0_inv_approx[np.abs(I3_pol_0_inv_approx) < tol] = 0.
-            I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.
-        
-        I0_pol_0_inv_approx = spa.csr_matrix(I0_pol_0_inv_approx)
-        I1_pol_0_inv_approx = spa.csr_matrix(I1_pol_0_inv_approx)
-        I2_pol_0_inv_approx = spa.csr_matrix(I2_pol_0_inv_approx)
-        I3_pol_0_inv_approx = spa.csr_matrix(I3_pol_0_inv_approx)
-        I0_pol_inv_approx = spa.csr_matrix(I0_pol_inv_approx)
-        
-        # toroidal direction
-        I_inv_tor_approx = np.linalg.inv(self.I_tor.toarray())
-        H_inv_tor_approx = np.linalg.inv(self.H_tor.toarray())
-        
-        if tol > 1e-14:
-            I_inv_tor_approx[np.abs(I_inv_tor_approx) < tol] = 0.
-            H_inv_tor_approx[np.abs(H_inv_tor_approx) < tol] = 0.
-        
-        I_inv_tor_approx = spa.csr_matrix(I_inv_tor_approx)
-        H_inv_tor_approx = spa.csr_matrix(H_inv_tor_approx)
+            # poloidal plane
+            I0_pol_0_inv_approx = np.linalg.inv(self.I0_pol_0.toarray())
+            I1_pol_0_inv_approx = np.linalg.inv(self.I1_pol_0.toarray())
+            I2_pol_0_inv_approx = np.linalg.inv(self.I2_pol_0.toarray())
+            I3_pol_0_inv_approx = np.linalg.inv(self.I3_pol_0.toarray())
+            I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
 
-        # tensor-product poloidal x toroidal
-        self.I0_0_inv_approx = spa.kron(I0_pol_0_inv_approx, I_inv_tor_approx, format='csr')
+            if tol > 1e-14:
+                I0_pol_0_inv_approx[np.abs(I0_pol_0_inv_approx) < tol] = 0.
+                I1_pol_0_inv_approx[np.abs(I1_pol_0_inv_approx) < tol] = 0.
+                I2_pol_0_inv_approx[np.abs(I2_pol_0_inv_approx) < tol] = 0.
+                I3_pol_0_inv_approx[np.abs(I3_pol_0_inv_approx) < tol] = 0.
+                I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.
 
-        self.I1_0_inv_approx = spa.bmat([[spa.kron(I1_pol_0_inv_approx, I_inv_tor_approx), None], [None, spa.kron(I0_pol_0_inv_approx, H_inv_tor_approx)]], format='csr')
-        
-        self.I2_0_inv_approx = spa.bmat([[spa.kron(I2_pol_0_inv_approx, H_inv_tor_approx), None], [None, spa.kron(I3_pol_0_inv_approx, I_inv_tor_approx)]], format='csr')
-        
-        self.I3_0_inv_approx = spa.kron(I3_pol_0_inv_approx, H_inv_tor_approx, format='csr')
-        
-        self.I0_inv_approx = spa.kron(I0_pol_inv_approx, I_inv_tor_approx, format='csr')
+            I0_pol_0_inv_approx = spa.csr_matrix(I0_pol_0_inv_approx)
+            I1_pol_0_inv_approx = spa.csr_matrix(I1_pol_0_inv_approx)
+            I2_pol_0_inv_approx = spa.csr_matrix(I2_pol_0_inv_approx)
+            I3_pol_0_inv_approx = spa.csr_matrix(I3_pol_0_inv_approx)
+            I0_pol_inv_approx = spa.csr_matrix(I0_pol_inv_approx)
+
+            # toroidal direction
+            I_inv_tor_approx = np.linalg.inv(self.I_tor.toarray())
+            H_inv_tor_approx = np.linalg.inv(self.H_tor.toarray())
+
+            if tol > 1e-14:
+                I_inv_tor_approx[np.abs(I_inv_tor_approx) < tol] = 0.
+                H_inv_tor_approx[np.abs(H_inv_tor_approx) < tol] = 0.
+
+            I_inv_tor_approx = spa.csr_matrix(I_inv_tor_approx)
+            H_inv_tor_approx = spa.csr_matrix(H_inv_tor_approx)
+
+            # tensor-product poloidal x toroidal
+            self.I0_0_inv_approx = spa.kron(I0_pol_0_inv_approx, I_inv_tor_approx, format='csr')
+
+            self.I1_0_inv_approx = spa.bmat([[spa.kron(I1_pol_0_inv_approx, I_inv_tor_approx), None], [None, spa.kron(I0_pol_0_inv_approx, H_inv_tor_approx)]], format='csr')
+
+            self.I2_0_inv_approx = spa.bmat([[spa.kron(I2_pol_0_inv_approx, H_inv_tor_approx), None], [None, spa.kron(I3_pol_0_inv_approx, I_inv_tor_approx)]], format='csr')
+
+            self.I3_0_inv_approx = spa.kron(I3_pol_0_inv_approx, H_inv_tor_approx, format='csr')
+
+            self.I0_inv_approx = spa.kron(I0_pol_inv_approx, I_inv_tor_approx, format='csr')
+            
+            self.approx_Ik_0_inv = True
+            self.approx_Ik_0_tol = tol
+            
+        else:
+            print('Approximations for inverse interpolation matrices already exist!')

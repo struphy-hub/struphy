@@ -774,7 +774,7 @@ class Tensor_spline_space:
                 
         # general projectors (polar splines possible)
         elif which == 'general':
-            self.projectors = pro.Projectors_global_3d(self)
+            self.projectors = pro.ProjectorsGlobal3D(self)
 
         #print('Set projectors ({}d) done.'.format(self.dim))
 
