@@ -56,31 +56,26 @@ class DerhamBuild:
         assert len(spl_kind) == 3
         self._spl_kind = spl_kind
 
-        if nq_pr is not None: assert len(nq_pr) == 3
-        self._nq_pr = nq_pr
-
         assert isinstance(der_as_mat, bool)
         self._der_as_mat= der_as_mat
 
-        assert isinstance(F, Mapping)
-        self._F = F
-
         self._comm = comm
 
-        # Set defaults
         if nq_pr == None:
             # exact histopolation of products of B-splines
-            _nq_pr = [pi + 1 for pi in p]
+            self._nq_pr = [pi + 1 for pi in p]
         else:
-            _nq_pr = nq_pr
+            assert len(nq_pr) == 3
+            self._nq_pr = nq_pr
 
         if F == None:
-            _F = Cube('C', bounds1=(0, 1), bounds2=(
+            self._F = Cube('C', bounds1=(0, 1), bounds2=(
                 0, 1), bounds3=(0, 1))  # no mapping
         else:
-            _F = F
+            assert isinstance(F, Mapping)
+            self._F = F
 
-        self._DF = _F.jacobian
+        self._DF = self._F.jacobian
         self._sqrt_g = sqrt((self._DF.T*self._DF).det())
         self._DFinv = self._DF.inv()
 
@@ -98,10 +93,9 @@ class DerhamBuild:
 
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=p, periodic=self._spl_kind)
+                             degree=self.p, periodic=self.spl_kind)
 
         # Psydac spline spaces
-        # --------------------
         self._V0 = _derham.V0
         self._V1 = _derham.V1
         self._V2 = _derham.V2
@@ -110,78 +104,27 @@ class DerhamBuild:
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
 
         # Psydac projectors
-        # -----------------
         self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
-            nquads=_nq_pr)
+            nquads=self.nq_pr)
         # interpolation in all components
         self._P0vec = Projector_H1vec(self._V0vec)
 
         # Psydac derivative operators
-        # ---------------------------
         if der_as_mat:
             self._grad, self._curl, self._div = _derham.derivatives_as_matrices
         else:
             self._grad, self._curl, self._div = _derham.derivatives_as_operators
 
-        # global indices of non-vanishing splines in each element in format (Nel, p + 1)
+        # Break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
-
-        self._indN_psy = []
-        #self._indN3 = []
-        for space in _derham.spaces[0].spaces:
-
-            #breaks = space.breaks
-            p = space.degree
-            knots = space.knots
-
-            tmp = bsp.elements_spans(knots, p)
-            tmp_arr = np.empty((tmp.size, p + 1), dtype=int)
-            for i in range(p + 1):
-                tmp_arr[:, -(i + 1)] = tmp[:] - i
-            self._indN_psy += [tmp_arr]
-
-            # tmp3 = []
-            # for pt in breaks[:-1]:
-            #     tmp3 += [bsp.find_span(knots, p, pt + 1e-8)]
-
-            # assert len(tmp3) == tmp.size
-
-            # for i in range(p + 1):
-            #     tmp_arr[:, -(i + 1)] = np.array(tmp3) - i
-            # self._indN3 += [tmp_arr]
-
-        self._indD_psy = []
-        for space in _derham.spaces[3].spaces:
-
-            p = space.degree
-            tmp = bsp.elements_spans(space.knots, p)
-            tmp_arr = np.empty((tmp.size, p + 1), dtype=int)
-
-            for i in range(p + 1):
-                tmp_arr[:, -(i + 1)] = tmp[:] - i
-
-            self._indD_psy += [tmp_arr]
-        
-        self._NbaseN = np.array(
-            [_derham.spaces[0].spaces[k].nbasis for k in range(3)])
-        self._NbaseD = np.array([0, 0, 0])
-        for k in range(3):
-            if spl_kind[k]:
-                self._NbaseD[k] = self._NbaseN[k] 
-            else:
-                self._NbaseD[k] = self._NbaseN[k] - 1
-
-        self._indN = np.array([(np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 0))[1] + np.arange(_derham.spaces[0].ncells[k])[
-                              :, None]) % self._NbaseN[k] for k in range(3)], dtype=object)      # global indices of non-vanishing B-splines on each cell
-        self._indD = np.array([(np.indices((_derham.spaces[0].ncells[k], _derham.spaces[0].degree[k] + 1 - 1))[1] + np.arange(_derham.spaces[0].ncells[k])[
-                              :, None]) % self._NbaseD[k] for k in range(3)], dtype=object)      # global indices of non-vanishing D-splines on each cell
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
         # Distribute info on domain decomposition
         if comm is not None:
-            self._domain_array, self._index_array = self._get_decomp_arrays()
+            self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
+            self._neighbours = self._get_neighbours()
 
     @property
     def Nel(self):
@@ -219,6 +162,11 @@ class DerhamBuild:
         return self._comm
 
     @property
+    def breaks(self):
+        """List of break points (=cell interfaces) in the three directions."""
+        return self._breaks
+
+    @property
     def domain_array(self):
         '''A 2d np.array of shape (comm.Get_size, 6). 
             - The row index denotes the process number. 
@@ -228,14 +176,28 @@ class DerhamBuild:
         return self._domain_array
 
     @property
-    def index_array(self):
-        '''A 2d np.array of shape (comm.Get_size, 9). 
+    def index_array_N(self):
+        '''A 2d np.array of shape (comm.Get_size, 6). 
             - The row index denotes the process number. 
-            - Let n=0,1,2: 
-                arr[i, 3*n] holds the global start index of process i in direction eta_(n+1).
-                arr[i, 3*n + 1] holds the global end index of process i in direction eta_(n+1).
-                arr[i, 3*n + 2] holds the number of cells in the domain of process i in direction eta_(n+1).'''
-        return self._index_array
+            - arr[i, 2*n] holds the global start index of N-splines of process i in direction eta_(n+1).
+            - arr[i, 2*n + 1] holds the global end index of N-splines of process i in direction eta_(n+1).'''
+        return self._index_array_N
+
+    @property
+    def index_array_D(self):
+        '''A 2d np.array of shape (comm.Get_size, 6). 
+            - The row index denotes the process number. 
+            - arr[i, 2*n] holds the global start index of D-splines of process i in direction eta_(n+1).
+            - arr[i, 2*n + 1] holds the global end index of D-splines of process i in direction eta_(n+1).'''
+        return self._index_array_D
+
+    @property
+    def neighbours(self):
+        '''A 1d np.array of shape (6). 
+                - arr[2*n] holds the left neighbouring process of process i in direction eta_(n+1).
+                - arr[2*n + 1] holds the right neighbouring of process i in direction eta_(n+1).
+                Values are -1 if process is at a boundary.'''
+        return self._neighbours
 
     def assemble_M0(self):
         '''Assemble mass matrix for L2-scalar product in V0.'''
@@ -291,20 +253,21 @@ class DerhamBuild:
 
         Returns
         -------
-            dom_arr_0 : np.array
+            dom_arr : np.array
                 A 2d np.array of shape (comm.Get_size, 6). 
                 - The row index denotes the process number. 
-                - Let n=0,1,2: 
-                    arr[i, 2*n] holds the LEFT domain boundary of process i in direction eta_(n+1).
-                    arr[i, 2*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 2*n] holds the LEFT domain boundary of process i in direction eta_(n+1).
+                - arr[i, 2*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
                     
             ind_arr_0 : np.array
-                A 2d np.array of shape (comm.Get_size, 9). 
+                A 2d np.array of shape (comm.Get_size, 6). 
                 - The row index denotes the process number. 
-                - Let n=0,1,2: 
-                    arr[i, 3*n] holds the global start index of process i in direction eta_(n+1).
-                    arr[i, 3*n + 1] holds the global end index of process i in direction eta_(n+1).
-                    arr[i, 3*n + 2] holds the number of cells in the domain of process i in direction eta_(n+1).'''
+                - arr[i, 2*n] holds the global start index of N-splines of process i in direction eta_(n+1).
+                - arr[i, 2*n + 1] holds the global end index of N-splines of process i in direction eta_(n+1).
+
+            ind_arr_3 : np.array
+                Same as ind_arr_0 but for D-splines.
+        '''
 
         # mpi info
         nproc = self.comm.Get_size()
@@ -312,67 +275,107 @@ class DerhamBuild:
 
         # Send buffer
         dom_arr_loc = np.zeros(6, dtype=float)
-        # loc_arr_0new = np.zeros(6, dtype=float)
-        # loc_arr_3 = np.zeros(6, dtype=float)
-        # loc_arr_3new = np.zeros(6, dtype=float)
-
-        ind_arr_loc = np.zeros(9, dtype=int)
+        ind_arr_0_loc = np.zeros(6, dtype=int)
+        ind_arr_3_loc = np.zeros(6, dtype=int)
 
         # Main arrays (receive buffers)
-        dom_arr_0 = np.zeros(nproc * 6, dtype=float)
-        # dom_arr_0new = np.zeros(nproc * 6, dtype=float)
-        # dom_arr_3 = np.zeros(nproc * 6, dtype=float)
-        # dom_arr_3new = np.zeros(nproc * 6, dtype=float)
+        dom_arr = np.zeros(nproc * 6, dtype=float)
+        ind_arr_0 = np.zeros(nproc * 6, dtype=int)
+        ind_arr_3 = np.zeros(nproc * 6, dtype=int)
 
-        ind_arr_0 = np.zeros(nproc * 9, dtype=int)
+        # Get process info
+        starts_0 = self.V0.vector_space.starts
+        ends_0 = self.V0.vector_space.ends
 
-        # Get global indices on process (only for B-splines in each direction, D-splines yield same domain, see example_psydac_parallel)
-        gl_stas = self.V0.vector_space.starts
-        gl_ends = self.V0.vector_space.ends
-        gl_pads = self.V0.vector_space.pads
+        starts_3 = self.V3.vector_space.starts
+        ends_3 = self.V3.vector_space.ends
 
-        # Fill local arrays with local domain
-        for n, (gl_sta, gl_end, pad, ind_mat, brks, splk) in enumerate(zip(gl_stas, gl_ends, gl_pads, self.indN_psy, self.breaks, self.spl_kind)):
+        # Fill local domain array
+        for n, (el_sta, el_end, brks) in enumerate(zip(self.V0.local_domain[0], self.V0.local_domain[1], self.breaks)):
 
-            le, ri, n_cells_loc = index_to_domain(gl_sta, gl_end, pad, ind_mat, brks, splk)
-            dom_arr_loc[2*n] = le
-            dom_arr_loc[2*n + 1] = ri
+            dom_arr_loc[2*n] = brks[el_sta]
+            dom_arr_loc[2*n + 1] = brks[el_end + 1]
 
-            ind_arr_loc[3*n] = gl_sta
-            ind_arr_loc[3*n + 1] = gl_end
-            ind_arr_loc[3*n + 2] = n_cells_loc
+        # Fill local index arrays 
+        for n, (gl_sta, gl_end, brks) in enumerate(zip(starts_0, ends_0, self.breaks)):
 
-        # for n, (el_sta, el_end, brks) in enumerate(zip(self.V0.local_domain[0], self.V0.local_domain[1], self.breaks)):
-        #     loc_arr_0new[2*n] = brks[el_sta]
-        #     loc_arr_0new[2*n + 1] = brks[el_end + 1]
+            ind_arr_0_loc[2*n] = gl_sta
+            ind_arr_0_loc[2*n + 1] = gl_end
 
-        # gl_stas = self.V3.vector_space.starts
-        # gl_ends = self.V3.vector_space.ends
-        # gl_pads = self.V3.vector_space.pads
+        for n, (gl_sta, gl_end, brks) in enumerate(zip(starts_3, ends_3, self.breaks)):
 
-        # for n, (gl_sta, gl_end, pad, ind_mat, brks, splk) in enumerate(zip(gl_stas, gl_ends, gl_pads, self.indD_psy, self.breaks, self.spl_kind)):
+            ind_arr_3_loc[2*n] = gl_sta
+            ind_arr_3_loc[2*n + 1] = gl_end
 
-        #     le, ri = index_to_domain(gl_sta, gl_end, pad, ind_mat, brks, splk)
-        #     loc_arr_3[2*n] = le
-        #     loc_arr_3[2*n + 1] = ri
+        # Distribute
+        self.comm.Allgather(dom_arr_loc, dom_arr)
+        self.comm.Allgather(ind_arr_0_loc, ind_arr_0)
+        self.comm.Allgather(ind_arr_3_loc, ind_arr_3)
 
-        # for n, (el_sta, el_end, brks) in enumerate(zip(self.V3.local_domain[0], self.V3.local_domain[1], self.breaks)):
-        #     loc_arr_3new[2*n] = brks[el_sta]
-        #     loc_arr_3new[2*n + 1] = brks[el_end + 1]
+        return dom_arr.reshape(nproc, 6), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
 
-        # For testing (to be commented out):
+    def _get_neighbours(self):
+        '''For each mpi process, compute the 6 neighbouring processes (two in each direction eta_n).
+        This is done in terms of N-spline start/end indices.
 
-        self.comm.Allgather(dom_arr_loc, dom_arr_0)
-        # self.comm.Allgather(loc_arr_0new, dom_arr_0new)
-        # self.comm.Allgather(loc_arr_3, dom_arr_3)
-        # self.comm.Allgather(loc_arr_3new, dom_arr_3new)
+        Returns
+        -------
+            neighbours : np.array
+                A 1d np.array of shape (6). 
+                - arr[2*n] holds the left neighbouring process of current process in direction eta_(n+1).
+                - arr[2*n + 1] holds the right neighbouring of current process in direction eta_(n+1).
+                Value is -1 if no neighbour in that direction.
+        '''
 
-        self.comm.Allgather(ind_arr_loc, ind_arr_0)
+        # Get space info
+        dims = [space.nbasis for space in self.V0.spaces]
 
-        # if rank == 0:
-        #     print(f'rank {rank} |\n dom_arr_0:\n {dom_arr_0.reshape((nproc, 6))}')#,\n dom_arr_0new:\n {dom_arr_0new.reshape((nproc, 6))},\n dom_arr_3:\n {dom_arr_3.reshape((nproc, 6))},\n dom_arr_3new:\n {dom_arr_3new.reshape((nproc, 6))}')
+        # Get process info
+        starts = self.V0.vector_space.starts
+        ends = self.V0.vector_space.ends
 
-        return dom_arr_0.reshape(nproc, 6), ind_arr_0.reshape(nproc, 9)
+        neighbours = -1 * np.ones(6, dtype=int)
+
+        for n, (start, end, dim, kind) in enumerate(zip(starts, ends, dims, self.spl_kind)):
+
+            # start/end indices of the right/left neighbours
+            neigh_start = end + 1
+            neigh_end = start - 1
+            if kind: 
+                neigh_start %= dim
+                neigh_end %= dim
+
+            # get process starts/ends in the other two directions
+            n_p = (n + 1)%3
+            n_m = (n - 1)%3 
+            start_p = starts[n_p]
+            start_m = starts[n_m]
+            end_p = ends[n_p]
+            end_m = ends[n_m]
+
+            #if self.comm.Get_rank() == 0: print(f'n={n}, n_p={n_p}, n_m={n_m}, dim={dim}, neigh_start={neigh_start}, neigh_end={neigh_end}')
+
+            for i, inds in enumerate(self.index_array_N):
+
+                #if self.comm.Get_rank() == 0: print(f'process={i}, inds2n={inds[2*n]}, inds2n1={inds[2*n + 1]}')
+
+                # right neighbour
+                if inds[2*n] == neigh_start and inds[2*n_p] == start_p and inds[2*n_m] == start_m:
+
+                    neighbours[2*n + 1] = i
+                    # process cannot be a neighbour to itself
+                    if i == self.comm.Get_rank():
+                        neighbours[2*n + 1] = -1
+                    
+                # left neighbour
+                if inds[2*n + 1] == neigh_end and inds[2*n_p + 1] == end_p and inds[2*n_m + 1] == end_m:
+
+                    neighbours[2*n] = i
+                    # process cannot be a neighbour to itself
+                    if i == self.comm.Get_rank():
+                        neighbours[2*n] = -1
+
+        return neighbours
 
     @property
     def V0(self):
@@ -470,41 +473,6 @@ class DerhamBuild:
             return self._M3
         else:
             raise AttributeError('M3 not assembled.')
-
-    @property
-    def NbaseN(self):
-        """np.array of B-splines in each direction"""
-        return self._NbaseN
-
-    @property
-    def NbaseD(self):
-        """np.array of D-splines in each direction"""
-        return self._NbaseD
-
-    @property
-    def indN(self):
-        """global indices of non-vanishing B-splines in each direction in each cell"""
-        return self._indN
-
-    @property
-    def indD(self):
-        """global indices of non-vanishing B-splines in each direction in each cell"""
-        return self._indD
-
-    @property
-    def indN_psy(self):
-        """List of psydac global indices in each direction of non-vanishing B-splines in each cell, as 2d np.array of shape (Nel, p + 1)."""
-        return self._indN_psy
-
-    @property
-    def indD_psy(self):
-        """List of psydac global indices in each direction of non-vanishing B-splines in each cell, as 2d np.array of shape (Nel, p + 1)"""
-        return self._indD_psy
-
-    @property
-    def breaks(self):
-        """List of break points (=cell interfaces) in the three directions."""
-        return self._breaks
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):

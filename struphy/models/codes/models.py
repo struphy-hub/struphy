@@ -16,18 +16,18 @@ class StruphyModel(metaclass=ABCMeta):
     Parameters
     ..........
         DR: Derham obj
-            From struphy/psydac_api/psydac_derham.Derham_build.
+            From struphy.psydac_api.psydac_derham.DerhamBuild.
 
         DOMAIN: Domain obj
-            From struphy/geometry/domain_3d.Domain.
+            From struphy.geometry.domain_3d.Domain.
 
         solver_params : list
             Each entry corresponds to one linear solver used in the model. 
             An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
 
         kwargs : dict
-            Keys are either the field names (str), values are the space_ids ("H1", "Hcurl", "Hdiv" or "L2"), or
-            keys are the names of the kinetic species (str), values are the parameters (dict).
+            Keys are either a) the field names (str), then values are the space_ids ("H1", "Hcurl", "Hdiv" or "L2"), or
+            b) the names of the kinetic species (str), then values are the marker parameters (dict).
     '''
 
     def __init__(self, DR, DOMAIN, *solver_params, **kwargs):
@@ -81,7 +81,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @property
     def fields(self):
-        '''List of Struphy fields, see struphy/psydac_linear_operators/fields.'''
+        '''List of Struphy fields, see struphy/psydac_api/fields.'''
         return self._fields
 
     @property
@@ -101,18 +101,18 @@ class StruphyModel(metaclass=ABCMeta):
 
     @property
     def kinetic_species(self):
-        '''List of kinetic species names'''
+        '''List of Struphy kinetic species, see struphy/pic/particles.'''
         return self._kinetic_species
 
     @property
     def kinetic_params(self):
-        '''List of kinetic parameters for all species'''
+        '''List of kinetic parameters for the kinetic species.'''
         return self._marker_params
 
     @property
     @abstractmethod
     def propagators(self):
-        '''List of callable struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
+        '''List of struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
         pass
 
     @property
