@@ -554,7 +554,7 @@ def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):
 
         if ind_ri == ind_mat[n, -1]:
             ri = breaks[n + 1]
-            n_cells_loc = n - n1
+            n_cells_loc = n - n1 + 1
 
     return le, ri, n_cells_loc
 
