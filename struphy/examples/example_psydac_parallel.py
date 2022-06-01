@@ -110,23 +110,23 @@ MPI_COMM.Barrier()
 if mpi_rank == 0: print('')
 
 # Global indices of each process for V3
-gl_s = x3.starts 
-gl_e = x3.ends
-pads = x3.pads
+gl_s3 = x3.starts 
+gl_e3 = x3.ends
+pads3 = x3.pads
 
-gl_s_dom = A3.domain.starts 
-gl_e_dom = A3.domain.ends
-pads_dom = A3.domain.pads
+gl_s3_dom = A3.domain.starts 
+gl_e3_dom = A3.domain.ends
+pads3_dom = A3.domain.pads
 
-assert gl_s == gl_s_dom
-assert gl_e == gl_e_dom
-assert pads == pads_dom
-print(f'Rank: {mpi_rank}, V3: gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
+assert gl_s3 == gl_s3_dom
+assert gl_e3 == gl_e3_dom
+assert pads3 == pads3_dom
+print(f'Rank: {mpi_rank}, V3: gl_starts={gl_s3}, gl_ends={gl_e3}, paddings={pads3}')
 print(f'Rank: {mpi_rank} | local domain: {V3.local_domain}\n') 
 
 le_3 = []
 ri_3 = []
-for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s, gl_e, pads, DR.indD_psy, DR.breaks, DR.spl_kind)):
+for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s3, gl_e3, pads3, DR.indD_psy, DR.breaks, DR.spl_kind)):
 
     if mpi_rank == 0: print(f'breaks: {br}')
     le, ri, loc_cells = index_to_domain(s, e, pad, ind_mat, br, knd)
@@ -144,7 +144,6 @@ print(f'Rank: {mpi_rank} | Assertion passed: RIGHT domain boundareis are the sam
 
 print(f'Rank: {mpi_rank} | \n domain_array:\n {DR.domain_array} \n index_array:\n {DR.index_array}')
 
-exit()
 
 # Data of Stencil objects
 if mpi_rank==0:
@@ -216,10 +215,14 @@ try:
 except:
     print('\nWrong acces of ._data (!): for i in range(x0._data.shape[0]).\n')
 
-#print(f'Rank: {mpi_rank}, y0[:, :, gl_s]={y0[:, :, gl_s[2]]}')
-#MPI_COMM.Barrier()
+print(f'Rank: {mpi_rank}, y0[:, :, gl_s]={y0[:, :, gl_s[2]]}')
+MPI_COMM.Barrier()
 
-assert np.allclose(x0.toarray_local(), y0.toarray_local())
+print(f'Rank: {mpi_rank}, x0[:, :, gl_s]={x0[:, :, gl_s[2]]}')
+MPI_COMM.Barrier()
+
+assert np.allclose(x0.toarray_local(), y0.toarray_local()), 'This happened on rank '+str(mpi_rank)
+MPI_COMM.Barrier()
 
 
 
