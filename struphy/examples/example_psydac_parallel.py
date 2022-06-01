@@ -16,13 +16,11 @@ mpi_rank = MPI_COMM.Get_rank()
 MPI_COMM.Barrier()
 
 # grid parameters
-Nel      = [14, 2, 2]
+Nel      = [14, 14, 2]
 p        = [2, 2, 2]
-spl_kind = [False, True, True] 
+spl_kind = [False, False, True] 
 n_quad   = [4, 4, 4]
 bc       = [['f', 'f'], None, None]
-
-if mpi_rank == 0: print(f'\nRank: {mpi_rank}, Nel={Nel}, p={p}, spl_kind={spl_kind}\n')
 
 # Psydac discrete Derham sequence
 map = 'cuboid'
@@ -33,6 +31,16 @@ DOMAIN = Domain(map, params_map)
 F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
 DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
+
+if mpi_rank == 0: 
+    print(f'\nNel={DR.Nel}, p={DR.p}, spl_kind={DR.spl_kind}, nq_pr={DR.nq_pr}\n')
+    print(f'Domain array:\n {DR.domain_array}, \nIndex array-N:\n {DR.index_array_N}, \nIndex array-D:\n {DR.index_array_D}')
+
+MPI_COMM.Barrier()
+
+print(f'Rank: {mpi_rank} | Neighbours: {DR.neighbours}')
+
+MPI_COMM.Barrier()
 
 # Discrete paces
 V0 = DR.V0
@@ -95,17 +103,6 @@ assert pads == pads_dom
 print(f'Rank: {mpi_rank}, V0: gl_starts={gl_s}, gl_ends={gl_e}, paddings={pads}')
 print(f'Rank: {mpi_rank} | local domain: {V0.local_domain}\n') 
 
-le_0 = []
-ri_0 = []
-for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s, gl_e, pads, DR.indN_psy, DR.breaks, DR.spl_kind)):
-
-    if mpi_rank == 0: print(f'breaks: {br}')
-    le, ri, loc_cells = index_to_domain(s, e, pad, ind_mat, br, knd)
-    #print(f'breaks: {br}')
-    #print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
-    le_0 += [le]
-    ri_0 += [ri]
-
 MPI_COMM.Barrier()
 if mpi_rank == 0: print('')
 
@@ -124,26 +121,7 @@ assert pads3 == pads3_dom
 print(f'Rank: {mpi_rank}, V3: gl_starts={gl_s3}, gl_ends={gl_e3}, paddings={pads3}')
 print(f'Rank: {mpi_rank} | local domain: {V3.local_domain}\n') 
 
-le_3 = []
-ri_3 = []
-for n, (s, e, pad, ind_mat, br, knd) in enumerate(zip(gl_s3, gl_e3, pads3, DR.indD_psy, DR.breaks, DR.spl_kind)):
-
-    if mpi_rank == 0: print(f'breaks: {br}')
-    le, ri, loc_cells = index_to_domain(s, e, pad, ind_mat, br, knd)
-    #print(f'breaks: {br}')
-    #print(f'Rank: {mpi_rank}, direction {n}: [le={le}, ri={ri}]')
-    le_3 += [le]
-    ri_3 += [ri]
-
 MPI_COMM.Barrier()
-
-assert le_0 == le_3
-print(f'Rank: {mpi_rank} | Assertion passed: LEFT domain boundareis are the same for N- and D-splines.\n')
-assert ri_0 == ri_3
-print(f'Rank: {mpi_rank} | Assertion passed: RIGHT domain boundareis are the same for N- and D-splines.\n')
-
-print(f'Rank: {mpi_rank} | \n domain_array:\n {DR.domain_array} \n index_array:\n {DR.index_array}')
-
 
 # Data of Stencil objects
 if mpi_rank==0:
@@ -175,8 +153,6 @@ if mpi_rank==0:
     print(f'Rank: {mpi_rank}, A0.toarray().shape={A0.toarray().shape}')
     print(f'Rank: {mpi_rank}, A0.toarray_local().shape does not exist.')
 MPI_COMM.Barrier()
-
-
 
 y0 = x0.copy()
 # Assign values directly to Stencil Vector (no padding + global indices !!)
