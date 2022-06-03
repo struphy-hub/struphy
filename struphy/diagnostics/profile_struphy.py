@@ -10,7 +10,7 @@ print(sys.argv[1] == True)
 if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
-    list_of_funcs = ['assemble_', 'update_ghost_regions', 'push']
+    list_of_funcs = ['assemble_', 'push', 'sendrecv_', 'update_ghost_regions']
 
 print(list_of_funcs)
 
