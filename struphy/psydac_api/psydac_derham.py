@@ -22,21 +22,24 @@ from mpi4py import MPI
 class DerhamBuild:
     '''Psydac API for discrete Derham sequence on the logical domain, and mass matrices.'''
 
-    def __init__(self, Nel, p, spl_kind, nq_pr=None, der_as_mat=True, F=None, comm=None):
+    def __init__(self, Nel, p, spl_kind, nq_pr=None, quad_order=None, der_as_mat=True, F=None, comm=None):
         '''
         Parameters
         ----------
-            Nel: 3-list
+            Nel: list[int]
                 Number of elements in each direction.
 
-            p: 3-list
+            p: list[int]
                 Spline degree in each direction.
 
-            spl_kind: 3-list
+            spl_kind: list[boolean]
                 Kind of spline in each direction (True=periodic, False=clamped).
 
-            nq_pr: 3-list
-                Number of Gauss-Legendre quadrature points in hitopolation (default = p + 1).
+            nq_pr: list[int]
+                Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
+                
+            quad_order: list[int]
+                Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
 
             der_as_mat: boolean
                 Whether derivatives are returned as matrices (True) or operators (False).
@@ -67,6 +70,13 @@ class DerhamBuild:
         else:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
+            
+        if quad_order == None:
+            # exact integration of products of B-splines
+            self._quad_order = [pi for pi in p]
+        else:
+            assert len(quad_order) == 3
+            self._quad_order = quad_order
 
         if F == None:
             self._F = Cube('C', bounds1=(0, 1), bounds2=(
@@ -93,7 +103,7 @@ class DerhamBuild:
 
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,
-                             degree=self.p, periodic=self.spl_kind)
+                             degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
 
         # Psydac spline spaces
         self._V0 = _derham.V0
@@ -143,8 +153,13 @@ class DerhamBuild:
 
     @property
     def nq_pr(self):
-        '''List of number of Gauss-Legendre quadrature points in hitopolation (default = p + 1) in each direction.'''
+        '''List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.'''
         return self._nq_pr
+    
+    @property
+    def quad_order(self):
+        '''List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to p + 1 points per cell).'''
+        return self._quad_order
 
     @property
     def der_as_mat(self):
@@ -274,12 +289,12 @@ class DerhamBuild:
         #rank = self.comm.Get_rank()
 
         # Send buffer
-        dom_arr_loc = np.zeros(6, dtype=float)
+        dom_arr_loc = np.zeros(9, dtype=float)
         ind_arr_0_loc = np.zeros(6, dtype=int)
         ind_arr_3_loc = np.zeros(6, dtype=int)
 
         # Main arrays (receive buffers)
-        dom_arr = np.zeros(nproc * 6, dtype=float)
+        dom_arr = np.zeros(nproc * 9, dtype=float)
         ind_arr_0 = np.zeros(nproc * 6, dtype=int)
         ind_arr_3 = np.zeros(nproc * 6, dtype=int)
 
@@ -293,8 +308,9 @@ class DerhamBuild:
         # Fill local domain array
         for n, (el_sta, el_end, brks) in enumerate(zip(self.V0.local_domain[0], self.V0.local_domain[1], self.breaks)):
 
-            dom_arr_loc[2*n] = brks[el_sta]
-            dom_arr_loc[2*n + 1] = brks[el_end + 1]
+            dom_arr_loc[3*n] = brks[el_sta]
+            dom_arr_loc[3*n + 1] = brks[el_end + 1]
+            dom_arr_loc[3*n + 2] = el_end - el_sta + 1
 
         # Fill local index arrays 
         for n, (gl_sta, gl_end, brks) in enumerate(zip(starts_0, ends_0, self.breaks)):
@@ -312,7 +328,7 @@ class DerhamBuild:
         self.comm.Allgather(ind_arr_0_loc, ind_arr_0)
         self.comm.Allgather(ind_arr_3_loc, ind_arr_3)
 
-        return dom_arr.reshape(nproc, 6), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
+        return dom_arr.reshape(nproc, 9), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
 
     def _get_neighbours(self):
         '''For each mpi process, compute the 6 neighbouring processes (two in each direction eta_n).

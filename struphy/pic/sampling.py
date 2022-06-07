@@ -13,19 +13,19 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 
 
 # ==============================================================================
-def set_particles_symmetric(numbers : 'double[:,:]', particles : 'double[:,:]', np : 'int'):
+def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]', np : 'int'):
     
     from numpy import zeros
     
-    eta  = zeros(3, dtype=float)
-    v    = zeros(3, dtype=float)
+    e = zeros(3, dtype=float)
+    v = zeros(3, dtype=float)
     
     for i_part in range(np):
         ip = i_part%64
         
         if ip == 0:
-            eta[:] = numbers[int(i_part/64), 0:3]
-            v[:]   = numbers[int(i_part/64), 3:6]
+            e[:] = numbers[int(i_part/64), 0:3]
+            v[:] = numbers[int(i_part/64), 3:6]
             
         elif ip%32 == 0:
             v[2] = 1 - v[2]
@@ -37,22 +37,54 @@ def set_particles_symmetric(numbers : 'double[:,:]', particles : 'double[:,:]', 
             v[0] = 1 - v[0]
             
         elif ip%4 == 0:
-            eta[2] = 1 - eta[2] 
+            e[2] = 1 - e[2] 
              
         elif ip%2 == 0:
-            eta[1] = 1 - eta[1]
+            e[1] = 1 - e[1]
             
         else:
-            eta[0] = 1 - eta[0]
+            e[0] = 1 - e[0]
         
-        particles[0:3, i_part] = eta
+        particles[0:3, i_part] = e
         particles[3:6, i_part] = v  
         
         
-        
-
 # ==============================================================================
-def convert(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'double[:,:,:]', b_eq_2 : 'double[:,:,:]', b_eq_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]', np : 'int'):
+    
+    from numpy import zeros
+    
+    e = zeros(2, dtype=float)
+    v = zeros(3, dtype=float)
+    
+    for i_part in range(np):
+        ip = i_part%32
+        
+        if ip == 0:
+            e[:] = numbers[int(i_part/32), 0:2]
+            v[:] = numbers[int(i_part/32), 2:5]
+            
+        elif ip%16 == 0:
+            v[2] = 1 - v[2]
+            
+        elif ip%8 == 0:
+            v[1] = 1 - v[1]
+            
+        elif ip%4 == 0:
+            v[0] = 1 - v[0]
+            
+        elif ip%2 == 0:
+            e[1] = 1 - e[1] 
+            
+        else:
+            e[0] = 1 - e[0]
+        
+        particles[1:3, i_part] = e
+        particles[3:6, i_part] = v               
+
+        
+# ==============================================================================
+def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'float[:,:,:]', b_eq_2 : 'float[:,:,:]', b_eq_3 : 'float[:,:,:]', kind_map : 'int', params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
     from numpy import empty, sqrt, cos, sin
     

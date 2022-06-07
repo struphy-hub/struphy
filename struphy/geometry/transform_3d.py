@@ -312,7 +312,7 @@ def transform_3_form_to_0_form(a3 : 'double', eta1 : 'double', eta2 : 'double', 
 
     a0 = a3 / abs(detdf)
     
-    return a3
+    return a0
 
 
 # ==============================================================================

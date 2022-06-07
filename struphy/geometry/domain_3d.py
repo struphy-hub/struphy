@@ -1043,8 +1043,16 @@ class Domain():
         return values
 
 
-    def show(self):
-        '''Plots isolines of the 2D domain at eta3 = 0.''' 
+    def show(self, save_dir=None):
+        '''
+        Plots isolines of the 2D domain at eta3 = 0.
+        
+        Parameters
+        ----------
+        
+        save_dir : string (optional)
+                if given, the figure is saved according the given directory.
+        ''' 
         
         import matplotlib.pyplot as plt
         
@@ -1067,4 +1075,7 @@ class Domain():
         
         plt.axis('square')
             
-        plt.show()
+        if save_dir is not None:
+            plt.savefig(save_dir)
+        else:
+            plt.show()
