@@ -73,7 +73,7 @@ kinetic :
       species_1 :
             markers :
                   type : fullorbit # fullorbit or driftkinetic
-                  Np : 32000 # total number of particles
+                  ppc : 1000  # particles per 3d grid cell
                   loading :
                         type              : pseudo_random # particle loading
                         seed              : 1234 # seed for random number generator
@@ -121,7 +121,8 @@ kinetic :
                         delta  : 1.
       species_2 :
             markers :
-                  Np : 4000 # total number of particles
+                  type : fullorbit # fullorbit or driftkinetic
+                  ppc : 1000 # particle per 3d grid cell
                   loading :
                         type              : pseudo_random # particle loading
                         seed              : 1234 # seed for random number generator

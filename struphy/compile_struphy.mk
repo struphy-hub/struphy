@@ -122,8 +122,8 @@ $(FK)$(SO_EXT) : $(FK).py
 $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(AK3)$(SO_EXT) : $(AK3).py $(BK)$(SO_EXT) $(BS)$(SO_EXT) $(MVF)$(SO_EXT)
-	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+#$(AK3)$(SO_EXT) : $(AK3).py $(BK)$(SO_EXT) $(BS)$(SO_EXT) $(MVF)$(SO_EXT)
+#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
     
 $(PW)$(SO_EXT) : $(PW).py $(BK)$(SO_EXT) $(BS)$(SO_EXT)
 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
