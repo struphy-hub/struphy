@@ -1045,7 +1045,7 @@ class Domain():
 
     def show(self, save_dir=None):
         '''
-        Plots isolines of the 2D domain at eta3 = 0.
+        Plots isolines (and control point in case on spline mappings) of the 2D domain at eta3 = 0.
         
         Parameters
         ----------
@@ -1069,6 +1069,9 @@ class Domain():
         # eta2-isolines
         for j in range(e2.size//5 + 1):
             plt.plot(X[:, j*5], Y[:, j*5], 'r')
+            
+        if self.kind_map < 10:
+            plt.scatter(self.cx[:, :, 0].flatten(), self.cy[:, :, 0].flatten(), s=3, color='b')
             
         plt.xlabel('x')
         plt.ylabel('y')
