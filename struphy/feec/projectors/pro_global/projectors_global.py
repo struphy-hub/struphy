@@ -1806,6 +1806,10 @@ class ProjectorsGlobal3D:
         
         # with boundary splines
         if include_bc:
+            
+            if not hasattr(self, 'I0_pol_T_LU'):
+                self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+            
             rhs = rhs.reshape(self.P0_pol.shape[0], self.I_tor.shape[0])
             rhs = self.I0_pol_T_LU.solve(self.I_tor_T_LU.solve(rhs.T).T)
         
@@ -1819,30 +1823,78 @@ class ProjectorsGlobal3D:
     # ======================================
     def apply_IinvT_V1(self, rhs, include_bc=False):
         
-        rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I_tor.shape[0])
-        rhs2 = rhs[ self.P1_pol_0.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H_tor.shape[0])
+        # with boundary splines
+        if include_bc:
+            
+            if not hasattr(self, 'I0_pol_T_LU'):
+                self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
+                
+            if not hasattr(self, 'I1_pol_T_LU'):
+                self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
+                
+            rhs1 = rhs[:self.P1_pol.shape[0]*self.I_tor.shape[0] ].reshape(self.P1_pol.shape[0], self.I_tor.shape[0])
+            rhs2 = rhs[ self.P1_pol.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
+
+            rhs1 = self.I1_pol_T_LU.solve(self.I_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I0_pol_T_LU.solve(self.H_tor_T_LU.solve(rhs2.T).T)
+                
+        # without boundary splines
+        else:
         
-        rhs1 = self.I1_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs1.T).T)
-        rhs2 = self.I0_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs2.T).T)
+            rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I_tor.shape[0])
+            rhs2 = rhs[ self.P1_pol_0.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H_tor.shape[0])
+
+            rhs1 = self.I1_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I0_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs2.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs2.flatten()))
     
     # ======================================
     def apply_IinvT_V2(self, rhs, include_bc=False):
-                
-        rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H_tor.shape[0])
-        rhs2 = rhs[ self.P2_pol_0.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I_tor.shape[0])
         
-        rhs1 = self.I2_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs1.T).T)
-        rhs2 = self.I3_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs2.T).T)
+        # with boundary splines
+        if include_bc:
+            
+            if not hasattr(self, 'I2_pol_T_LU'):
+                self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
+                
+            if not hasattr(self, 'I3_pol_T_LU'):
+                self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
+                
+            rhs1 = rhs[:self.P2_pol.shape[0]*self.H_tor.shape[0] ].reshape(self.P2_pol.shape[0], self.H_tor.shape[0])
+            rhs2 = rhs[ self.P2_pol.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
+
+            rhs1 = self.I2_pol_T_LU.solve(self.H_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I3_pol_T_LU.solve(self.I_tor_T_LU.solve(rhs2.T).T)
+                
+        # without boundary splines
+        else:
+                
+            rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H_tor.shape[0])
+            rhs2 = rhs[ self.P2_pol_0.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I_tor.shape[0])
+
+            rhs1 = self.I2_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I3_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs2.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs2.flatten()))
     
     # ======================================
     def apply_IinvT_V3(self, rhs, include_bc=False):
         
-        rhs = rhs.reshape(self.P3_pol_0.shape[0], self.H_tor.shape[0])
-        rhs = self.I3_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs.T).T)
+        # with boundary splines
+        if include_bc:
+            
+            if not hasattr(self, 'I3_pol_T_LU'):
+                self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
+                
+            rhs = rhs.reshape(self.P3_pol.shape[0], self.H_tor.shape[0])
+            rhs = self.I3_pol_T_LU.solve(self.H_tor_T_LU.solve(rhs.T).T)
+                
+        # without boundary splines
+        else:
+        
+            rhs = rhs.reshape(self.P3_pol_0.shape[0], self.H_tor.shape[0])
+            rhs = self.I3_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs.T).T)
         
         return rhs.flatten()
     

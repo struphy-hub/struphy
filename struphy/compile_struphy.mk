@@ -41,7 +41,7 @@ LAT  := ${path_lib}linear_algebra/kernels_tensor_product
 FK	 := ${path_lib}pic/filler_kernel
 MVF	 := ${path_lib}pic/mat_vec_filler
 
-AK3	 := ${path_lib}pic/lin_Vlasov_Maxwell/accum_kernels_3d
+#AK3	 := ${path_lib}pic/lin_Vlasov_Maxwell/accum_kernels_3d
 PW	 := ${path_lib}pic/lin_Vlasov_Maxwell/pusher_weights
 PPV	 := ${path_lib}pic/pusher_pos_vel_3d
 
@@ -58,8 +58,9 @@ PA5  := ${path_lib}pic/cc_cold_plasma_6d/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
 PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
+PLM  := ${path_lib}psydac_api/mass_kernels_psydac
 
-SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(BS).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(FK).py $(MVF).py $(AK3).py $(PW).py $(PPV).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PA5).py $(PS).py $(PLP).py
+SOURCES := $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(BS).py $(M3).py $(MF3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(LAC).py $(LAT).py $(FK).py $(MVF).py $(PW).py $(PPV).py $(KPG).py $(KPGM).py $(PPP).py $(PV2).py $(PV3).py $(PA2).py $(PA3).py $(PA4).py $(PA5).py $(PS).py $(PLP).py $(PLM).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -162,6 +163,9 @@ $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)
 	pyccel $< $(FLAGS)
 
 $(PLP)$(SO_EXT) : $(PLP).py
+	pyccel $< $(FLAGS)
+    
+$(PLM)$(SO_EXT) : $(PLM).py
 	pyccel $< $(FLAGS)
 
 #--------------------------------------

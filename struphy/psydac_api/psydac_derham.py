@@ -3,7 +3,6 @@
 from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.vector import ProductFemSpace
-import psydac.core.bsplines as bsp
 
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
@@ -14,41 +13,45 @@ from sympde.topology.mapping import Mapping
 from sympy import sqrt
 
 from struphy.psydac_api.H1vec_psydac import Projector_H1vec
+from struphy.psydac_api.mass_psydac import get_mass
 
 import numpy as np
 from mpi4py import MPI
 
 
 class DerhamBuild:
-    '''Psydac API for discrete Derham sequence on the logical domain, and mass matrices.'''
+    """
+    Psydac API for discrete Derham sequence on the logical domain, and mass matrices.
+    
+    Parameters
+    ----------
+        Nel: list[int]
+            Number of elements in each direction.
+
+        p: list[int]
+            Spline degree in each direction.
+
+        spl_kind: list[boolean]
+            Kind of spline in each direction (True=periodic, False=clamped).
+
+        nq_pr: list[int]
+            Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
+
+        quad_order: list[int]
+            Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
+
+        der_as_mat: boolean
+            Whether derivatives are returned as matrices (True) or operators (False).
+
+        F: Psydac symbolic mapping
+            The mapping from logical to physical space.
+
+        comm : Intracomm
+            MPI communicator from mpi4py.MPI.Intracomm.
+    """
 
     def __init__(self, Nel, p, spl_kind, nq_pr=None, quad_order=None, der_as_mat=True, F=None, comm=None):
-        '''
-        Parameters
-        ----------
-            Nel: list[int]
-                Number of elements in each direction.
-
-            p: list[int]
-                Spline degree in each direction.
-
-            spl_kind: list[boolean]
-                Kind of spline in each direction (True=periodic, False=clamped).
-
-            nq_pr: list[int]
-                Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
-                
-            quad_order: list[int]
-                Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
-
-            der_as_mat: boolean
-                Whether derivatives are returned as matrices (True) or operators (False).
-
-            F: Psydac symbolic mapping
-                The mapping from logical to physical space.
-
-            comm: mpi_comm'''
-
+ 
         # Input parameters:
         assert len(Nel) == 3
         self._Nel = Nel
@@ -138,84 +141,106 @@ class DerhamBuild:
 
     @property
     def Nel(self):
-        '''List of number of elements (=cells) in each direction.'''
+        """ List of number of elements (=cells) in each direction.
+        """
         return self._Nel
 
     @property
     def p(self):
-        '''List of spline degrees in each direction.'''
+        """ List of spline degrees in each direction.
+        """
         return self._p
 
     @property
     def spl_kind(self):
-        '''List of spline type (periodic=True or clamped=False) in each direction.'''
+        """ List of spline type (periodic=True or clamped=False) in each direction.
+        """
         return self._spl_kind
 
     @property
     def nq_pr(self):
-        '''List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.'''
+        """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
+        """
         return self._nq_pr
     
     @property
     def quad_order(self):
-        '''List of number of Gauss-Legendre quadrature points in each direction (default = p, leads to p + 1 points per cell).'''
+        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
+        """
         return self._quad_order
 
     @property
     def der_as_mat(self):
-        '''Whether derivatives are returned as matrices (True) or operators (False).'''
+        """ Whether derivatives are returned as matrices (True) or operators (False).
+        """
         return self._der_as_mat
 
     @property
     def F(self):
-        '''Psydac mapping used in mass matrices.'''
+        """ Psydac mapping used in mass matrices.
+        """
         return self._F
 
     @property
     def comm(self):
-        '''MPI communicator.'''
+        """ MPI communicator.
+        """
         return self._comm
 
     @property
     def breaks(self):
-        """List of break points (=cell interfaces) in the three directions."""
+        """ List of break points (=cell interfaces) in the three directions.
+        """
         return self._breaks
 
     @property
     def domain_array(self):
-        '''A 2d np.array of shape (comm.Get_size, 6). 
+        """
+        A 2d array[float] of shape (comm.Get_size(), 9). 
             - The row index denotes the process number. 
-            - Let n=0,1,2: 
-                arr[i, 2*n] holds the LEFT domain boundary of process i in direction eta_(n+1).
-                arr[i, 2*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).'''
+            - Let n=0,1,2 : 
+                arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+                arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+                arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+        """
         return self._domain_array
 
     @property
     def index_array_N(self):
-        '''A 2d np.array of shape (comm.Get_size, 6). 
-            - The row index denotes the process number. 
-            - arr[i, 2*n] holds the global start index of N-splines of process i in direction eta_(n+1).
-            - arr[i, 2*n + 1] holds the global end index of N-splines of process i in direction eta_(n+1).'''
+        """
+        A 2d array[int] of shape (comm.Get_size(), 6). 
+            - The row index denotes the process number.
+            - Let n=0,1,2 :
+                arr[i, 2*n + 0] holds the global start index of B-splines (N) of process i in direction eta_(n+1).
+                arr[i, 2*n + 1] holds the global end index of B-splines (N) of process i in direction eta_(n+1).
+        """
         return self._index_array_N
 
     @property
     def index_array_D(self):
-        '''A 2d np.array of shape (comm.Get_size, 6). 
-            - The row index denotes the process number. 
-            - arr[i, 2*n] holds the global start index of D-splines of process i in direction eta_(n+1).
-            - arr[i, 2*n + 1] holds the global end index of D-splines of process i in direction eta_(n+1).'''
+        """
+        A 2d array[int] of shape (comm.Get_size(), 6). 
+            - The row index denotes the process number.
+            - Let n=0,1,2 :
+                arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
+                arr[i, 2*n + 1] holds the global end index of M-splines (D) of process i in direction eta_(n+1).
+        """
         return self._index_array_D
 
     @property
     def neighbours(self):
-        '''A 1d np.array of shape (6). 
-                - arr[2*n] holds the left neighbouring process of process i in direction eta_(n+1).
-                - arr[2*n + 1] holds the right neighbouring of process i in direction eta_(n+1).
-                Values are -1 if process is at a boundary.'''
+        """
+        A 1d array[int] of shape (6,).
+        Let n=0,1,2 :
+            arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
+            arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
+        Values are -1 if process is at a boundary.
+        """
         return self._neighbours
 
     def assemble_M0(self):
-        '''Assemble mass matrix for L2-scalar product in V0.'''
+        """ Assemble mass matrix for L2-scalar product in V0.
+        """
 
         _u0, _v0 = elements_of(self._derham_symb.V0, names='u0, v0')
 
@@ -228,6 +253,8 @@ class DerhamBuild:
         self._M0 = self._a0_h.assemble()
 
     def assemble_M1(self):
+        """ Assemble mass matrix for L2-scalar product in V1.
+        """
 
         _u1, _v1 = elements_of(self._derham_symb.V1, names='u1, v1')
 
@@ -240,6 +267,8 @@ class DerhamBuild:
         self._M1 = self._a1_h.assemble()
 
     def assemble_M2(self):
+        """ Assemble mass matrix for L2-scalar product in V2.
+        """
 
         _u2, _v2 = elements_of(self._derham_symb.V2, names='u2, v2')
 
@@ -252,6 +281,8 @@ class DerhamBuild:
         self._M2 = self._a2_h.assemble()
 
     def assemble_M3(self):
+        """ Assemble mass matrix for L2-scalar product in V3.
+        """
 
         _u3, _v3 = elements_of(self._derham_symb.V3, names='u3, v3')
 
@@ -262,27 +293,159 @@ class DerhamBuild:
             _a3, self._domain_log_h, (self._V3, self._V3), backend=PSYDAC_BACKEND_GPYCCEL)
 
         self._M3 = self._a3_h.assemble()
+            
+    def assemble_M0_nonsymb(self, domain):
+        """ 
+        Assemble mass matrix for L2-scalar product in V0 without psydac's symbolic mapping.
+        
+        Parameters
+        ----------
+            domain : Domain
+                Mapped domain object from struphy.geometry.domain_3d
+        """
 
+        metric = [[lambda e1, e2, e3 : abs(domain.evaluate(e1, e2, e3, 'det_df'))]]
+        
+        self._M0 = get_mass(self.V0, self.V0, metric)
+        
+    def assemble_M1_nonsymb(self, domain):
+        """ 
+        Assemble mass matrix for L2-scalar product in V1 without psydac's symbolic mapping.
+        
+        Parameters
+        ----------
+            domain : Domain
+                Mapped domain object from struphy.geometry.domain_3d
+        """
+        
+        metric = []
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_11')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_12')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_13')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_21')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_22')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_23')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_31')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_32')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_33')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        self._M1 = get_mass(self.V1, self.V1, metric)
+        
+    def assemble_M2_nonsymb(self, domain):
+        """ 
+        Assemble mass matrix for L2-scalar product in V2 without psydac's symbolic mapping.
+        
+        Parameters
+        ----------
+            domain : Domain
+                Mapped domain object from struphy.geometry.domain_3d
+        """
+        
+        metric = []
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_11')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_12')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_13')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_21')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_22')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_23')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_31')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_32')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_33')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        self._M2 = get_mass(self.V2, self.V2, metric)
+        
+    def assemble_M3_nonsymb(self, domain):
+        """ 
+        Assemble mass matrix for L2-scalar product in V3 without psydac's symbolic mapping.
+        
+        Parameters
+        ----------
+            domain : Domain
+                Mapped domain object from struphy.geometry.domain_3d
+        """
+
+        metric = [[lambda e1, e2, e3 : 1/abs(domain.evaluate(e1, e2, e3, 'det_df'))]]
+        
+        self._M3 = get_mass(self.V3, self.V3, metric)
+        
+    def assemble_Mv_nonsymb(self, domain):
+        """ 
+        Assemble mass matrix for L2-scalar product in V0vec without psydac's symbolic mapping.
+        
+        Parameters
+        ----------
+            domain : Domain
+                Mapped domain object from struphy.geometry.domain_3d
+        """
+        
+        metric = []
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_11')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_12')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_13')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_21')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_22')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_23')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        metric += [[]]
+
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_31')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_32')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_33')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
+        
+        self._Mv = get_mass(self.V0vec, self.V0vec, metric)
+        
     def _get_decomp_arrays(self):
-        '''Uses mpi.Allgather to distribute information on domain decomposition to all processes.
+        """
+        Uses mpi.Allgather to distribute information on domain decomposition to all processes.
 
         Returns
         -------
-            dom_arr : np.array
-                A 2d np.array of shape (comm.Get_size, 6). 
-                - The row index denotes the process number. 
-                - arr[i, 2*n] holds the LEFT domain boundary of process i in direction eta_(n+1).
-                - arr[i, 2*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+            dom_arr : array[float]
+                A 2d array[float] of shape (comm.Get_size(), 9). 
+                    - The row index denotes the process number. 
+                    - Let n=0,1,2 : 
+                        arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+                        arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+                        arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
                     
-            ind_arr_0 : np.array
-                A 2d np.array of shape (comm.Get_size, 6). 
-                - The row index denotes the process number. 
-                - arr[i, 2*n] holds the global start index of N-splines of process i in direction eta_(n+1).
-                - arr[i, 2*n + 1] holds the global end index of N-splines of process i in direction eta_(n+1).
+            ind_arr_0 : array[int]
+                A 2d array[int] of shape (comm.Get_size(), 6). 
+                    - The row index denotes the process number.
+                    - Let n=0,1,2 :
+                        arr[i, 2*n + 0] holds the global start index of B-splines (N) of process i in direction eta_(n+1).
+                        arr[i, 2*n + 1] holds the global end index of B-splines (N) of process i in direction eta_(n+1).
 
-            ind_arr_3 : np.array
-                Same as ind_arr_0 but for D-splines.
-        '''
+            ind_arr_3 : array[int]
+                A 2d array[int] of shape (comm.Get_size(), 6). 
+                    - The row index denotes the process number.
+                    - Let n=0,1,2 :
+                        arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
+                        arr[i, 2*n + 1] holds the global end index of M-splines (D) of process i in direction eta_(n+1).
+        """
 
         # mpi info
         nproc = self.comm.Get_size()
@@ -331,17 +494,19 @@ class DerhamBuild:
         return dom_arr.reshape(nproc, 9), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
 
     def _get_neighbours(self):
-        '''For each mpi process, compute the 6 neighbouring processes (two in each direction eta_n).
+        """
+        For each mpi process, compute the 6 neighbouring processes (two in each direction eta_n).
         This is done in terms of N-spline start/end indices.
 
         Returns
         -------
-            neighbours : np.array
-                A 1d np.array of shape (6). 
-                - arr[2*n] holds the left neighbouring process of current process in direction eta_(n+1).
-                - arr[2*n + 1] holds the right neighbouring of current process in direction eta_(n+1).
-                Value is -1 if no neighbour in that direction.
-        '''
+            neighbours : array[int]
+                A 1d array[int] of shape (6,).
+                Let n=0,1,2 :
+                    arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
+                    arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
+                Values are -1 if process is at a boundary.
+        """
 
         # Get space info
         dims = [space.nbasis for space in self.V0.spaces]
@@ -395,72 +560,86 @@ class DerhamBuild:
 
     @property
     def V0(self):
-        '''Discrete H1 space.'''
+        """ Discrete H1 space.
+        """
         return self._V0
 
     @property
     def V1(self):
-        '''Discrete H(curl) space.'''
+        """ Discrete H(curl) space.
+        """
         return self._V1
 
     @property
     def V2(self):
-        '''Discrete H(div) space.'''
+        """ Discrete H(div) space.
+        """
         return self._V2
 
     @property
     def V3(self):
-        '''Discrete L2 space.'''
+        """ Discrete L2 space.
+        """
         return self._V3
 
     @property
     def V0vec(self):
-        '''Discrete H1xH1xH1 space.'''
+        """ Discrete H1 x H1 x H1 space.
+        """
         return self._V0vec
 
     @property
     def P0(self):
-        '''Interpolation into discrete H1 space.'''
+        """ Interpolation into discrete H1 space.
+        """
         return self._P0
 
     @property
     def P1(self):
-        '''Inter-/histopolation into discrete H(curl) space.'''
+        """ Inter-/histopolation into discrete H(curl) space.
+        """
         return self._P1
 
     @property
     def P2(self):
-        '''Inter-/histopolation into discrete H(div) space.'''
+        """ Inter-/histopolation into discrete H(div) space.
+        """
         return self._P2
 
     @property
     def P3(self):
-        '''Histopolation into discrete L2 space.'''
+        """ Histopolation into discrete L2 space.
+        """
         return self._P3
 
     @property
     def P0vec(self):
-        '''Interpolation into discrete H1xH1xH1 space.'''
+        """ Interpolation into discrete H1 x H1 x H1 space.
+        """
         return self._P0vec
 
     @property
     def grad(self):
-        '''Gradient H1 -> H(curl).'''
+        """ Discrete gradient H1 -> H(curl).
+        """
         return self._grad
 
     @property
     def curl(self):
-        '''Curl H(curl) -> H(div).'''
+        """ Discrete curl H(curl) -> H(div).
+        """
         return self._curl
 
     @property
     def div(self):
-        '''Divergence H(div) -> L2.'''
+        """ Discrete divergence H(div) -> L2.
+        """
         return self._div
 
     @property
     def M0(self):
-        '''Mass matrix for L2-scalar product in V0.'''
+        """ Mass matrix for L2-scalar product in V0.
+        """
         if hasattr(self, '_M0'):
             return self._M0
         else:
@@ -468,7 +647,8 @@ class DerhamBuild:
 
     @property
     def M1(self):
-        '''Mass matrix for L2-scalar product in V1.'''
+        """ Mass matrix for L2-scalar product in V1.
+        """
         if hasattr(self, '_M1'):
             return self._M1
         else:
@@ -476,7 +656,8 @@ class DerhamBuild:
 
     @property
     def M2(self):
-        '''Mass matrix for L2-scalar product in V2.'''
+        """ Mass matrix for L2-scalar product in V2.
+        """
         if hasattr(self, '_M2'):
             return self._M2
         else:
@@ -484,15 +665,26 @@ class DerhamBuild:
 
     @property
     def M3(self):
-        '''Mass matrix for L2-scalar product in V3.'''
+        """ Mass matrix for L2-scalar product in V3.
+        """
         if hasattr(self, '_M3'):
             return self._M3
         else:
             raise AttributeError('M3 not assembled.')
+            
+    @property
+    def Mv(self):
+        """ Mass matrix for L2-scalar product in V0vec.
+        """
+        if hasattr(self, '_Mv'):
+            return self._Mv
+        else:
+            raise AttributeError('Mv not assembled.')
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):
-    '''Transform the psydac decomposition of spline indices into a domain decomposition (1d).
+    """
+    Transform the psydac decomposition of spline indices into a domain decomposition (1d).
 
     Parameters
     ----------
@@ -505,7 +697,7 @@ def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):
         pad : int
             Padding on mpi process (size of ghost region in spline coeffs).
 
-        ind_mat : np.array
+        ind_mat : array[int]
             2d array of shape (Nel, p + 1) of indices of non-vanishing splines in each element (or cell).
             From DerhamBuild.indN_psy or DerhamBuild.indD_psy.
 
@@ -514,7 +706,8 @@ def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):
 
     Returns
     -------
-        Left and right boundary [le, ri] of local 1d domain.'''
+        Left and right boundary [le, ri] of local 1d domain.
+    """
 
     # Is it a B- or a D-spline?
     is_D_spline = False
