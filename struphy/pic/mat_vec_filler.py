@@ -1,18 +1,76 @@
 """
-pyccel function to accumulate a matix and matrix vector product in accumulation step.
-Computed are only the independent mu-nu-components of the matrix (e.g. m12,m13,m23 for antisymmetric).
-Symmetric/antisymmetric/diagonal refer to the mu-nu property of the block matrix to be computed.
+Pyccel functions to add one particle to a FE matrix and vector in accumulation step.
 
-matrix fillings carry 2 indices (mu-nu) while vector fillings only carry one index (mu)
+Computed are only the independent components of the matrix (e.g. m12,m13,m23 for antisymmetric).
+Matrix fillings carry 2 indices (mu-nu) while vector fillings only carry one index (mu).
 
-the functions with _b compute the non-vanishing basis functions at the point eta themselves (if this knowledge is not needed for the filling)
+Naming conventions:
+
+1) mat_ adds only to a matrix of the respective space, m_v_ adds to a matrix and a vector.
+
+2) The functions with _b compute the p+1 non-vanishing basis functions Lambda^p_ijk(eta) at the point eta.
+In case Lambda^p_ijk(eta) has already been computed for the filling, it can be passed (functions without _b).
+
+3) vn with n=0,1,2,3 denotes the discrete space from the 3d Derham sequence the matrix/vector belongs to.
+
+4) diag/asym/symm/full refer to the property of the block matrix (for v1 or v2) and define which independent components are computed.
+
+__all__ = ['mat_fill_b_v1_diag',
+            'm_v_fill_b_v1_diag',
+            'mat_fill_b_v2_diag',
+            'm_v_fill_b_v2_diag',
+            'mat_fill_b_v1_asym',
+            'm_v_fill_b_v1_asym',
+            'mat_fill_b_v2_asym',
+            'm_v_fill_b_v2_asym',
+            'mat_fill_b_v1_symm',
+            'm_v_fill_b_v1_symm',
+            'mat_fill_b_v2_symm',
+            'm_v_fill_b_v2_symm',
+            'mat_fill_b_v1_full',
+            'm_v_fill_b_v1_full',
+            'mat_fill_b_v2_full',
+            'm_v_fill_b_v2_full',
+            'mat_fill_v1_diag',
+            'm_v_fill_v1_diag',
+            'mat_fill_v2_diag',
+            'm_v_fill_v2_diag',
+            'mat_fill_v1_asym',
+            'm_v_fill_v1_asym',
+            'mat_fill_v2_asym',
+            'm_v_fill_v2_asym',
+            'mat_fill_v1_symm',
+            'm_v_fill_v1_symm',
+            'mat_fill_v2_symm',
+            'm_v_fill_v2_symm',
+            'mat_fill_v1_full',
+            'm_v_fill_v1_full',
+            'mat_fill_v2_full',
+            'm_v_fill_v2_full',
+            'mat_fill_b_v1_full',
+            'm_v_fill_b_v1_full',
+            'mat_fill_b_v2_full',
+            'm_v_fill_b_v2_full',
+            'mat_fill_b_v0',
+            'm_v_fill_b_v0',
+            'mat_fill_b_v3',
+            'm_v_fill_b_v3',
+            'mat_fill_v0',
+            'm_v_fill_v0',
+            'mat_fill_v3',
+            'm_v_fill_v3',
+            ]
 """
 
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
 
 # import Filler kernel
-import struphy.pic.filler_kernel as fk
+import struphy.pic.filler_kernels as fk
+
+
+def testamal(a: 'float'):
+    a = a + 1.
 
 
 # =====================================================================================================
@@ -4055,7 +4113,7 @@ def mat_fill_b_v0(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_b_v0(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def m_v_fill_b_v0(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V0 -> V0. The result is returned in mat.
 
@@ -4259,7 +4317,7 @@ def mat_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def m_v_fill_b_v3(p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', eta1 : 'float', eta2 : 'float', eta3 : 'float', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V3 -> V3. The result is returned in mat.
 
@@ -4440,7 +4498,7 @@ def mat_fill_v0(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_v0(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def m_v_fill_v0(p : 'int[:]', span : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V0 -> V0. The result is returned in mat.
 
@@ -4601,7 +4659,7 @@ def mat_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]
 
 
 # =====================================================================================================
-def mat_vec_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+def m_v_fill_v3(p : 'int[:]', span : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V3 -> V3. The result is returned in mat.
 

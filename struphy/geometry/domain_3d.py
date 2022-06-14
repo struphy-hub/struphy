@@ -6,21 +6,20 @@ import h5py
 import numpy as np
 
 import scipy.sparse as spa
-from   scipy.sparse.linalg import splu
+from scipy.sparse.linalg import splu
 
 import struphy.geometry.angular_coordinates_torus as angular
 
-import struphy.geometry.mappings_3d    as mapping
-import struphy.geometry.pullback_3d    as pb
+import struphy.geometry.mappings_3d as mapping
+import struphy.geometry.pullback_3d as pb
 import struphy.geometry.pushforward_3d as pf
-import struphy.geometry.transform_3d   as tr
+import struphy.geometry.transform_3d as tr
 
 import struphy.linear_algebra.linalg_kron as linalg
 
 import struphy.feec.bsplines as bsp
 
 from sympde.topology import Mapping
-
 
 
 # ==================================================
@@ -52,7 +51,7 @@ def spline_interpolation_nd(p, grids_1d, values):
 
     # dimension check
     for sh, x_grid in zip(values.shape, grids_1d):
-        assert  sh == x_grid.size
+        assert sh == x_grid.size
 
     # list of break point arrays
     breaks = []
@@ -62,20 +61,22 @@ def spline_interpolation_nd(p, grids_1d, values):
         # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
         if p_i == 1:
             breaks.append(x_grid)
-        elif p_i%2 == 0:
-            breaks.append( x_grid[p_i//2 - 1:-p_i//2].copy() )
+        elif p_i % 2 == 0:
+            breaks.append(x_grid[p_i//2 - 1:-p_i//2].copy())
         else:
-            breaks.append( x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy() )
+            breaks.append(x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy())
 
-        # cells must be in interval [0, 1] 
-        breaks[-1][0]  = 0.
+        # cells must be in interval [0, 1]
+        breaks[-1][0] = 0.
         breaks[-1][-1] = 1.
 
     # interpolation with clamped splines (periodic=False)
-    T     = [bsp.make_knots(breaks_i, p_i, periodic=False) for breaks_i, p_i in zip(breaks, p)]
-    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False) for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+    T = [bsp.make_knots(breaks_i, p_i, periodic=False)
+         for breaks_i, p_i in zip(breaks, p)]
+    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
+             for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
 
-    I_LU  = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat] 
+    I_LU = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat]
 
     # dimension check
     for I, x_grid in zip(I_mat, grids_1d):
@@ -91,7 +92,6 @@ def spline_interpolation_nd(p, grids_1d, values):
         return linalg.kron_lusolve_3d(I_LU, values), T
     else:
         raise AssertionError("Only dimensions < 4 are supported.")
-
 
 
 # ==================================================
@@ -114,54 +114,61 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         cx, cy (, cz): np.array
             spline coefficients
     '''
-    
+
     # number of basis functions
     NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl_kind)]
-    
+
     # element boundaries
-    el_b   = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
-    
+    el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
+
     # spline knot vectors
-    T      = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
-    
+    T = [bsp.make_knots(el_b, p, kind)
+         for el_b, p, kind in zip(el_b, p, spl_kind)]
+
     # greville points
-    I_pts  = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
-    
+    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
+
     # 1D interpolation matrices
-    I_mat  = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
-    
+    I_mat = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
+             for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+
     # 2D interpolation
     if len(Nel) == 2:
         I = spa.kron(I_mat[0], I_mat[1], format='csc')
-        
+
         I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
-        
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(NbaseN[0], NbaseN[1])
-        
+
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0], NbaseN[1])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0], NbaseN[1])
+
         return cx, cy
-    
+
     # 3D interpolation
     elif len(Nel) == 3:
         I = spa.kron(I_mat[0], spa.kron(I_mat[1], I_mat[2]), format='csc')
-        
+
         I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
-        
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
-        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(NbaseN[0], NbaseN[1], NbaseN[2])
-        
+
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+
         return cx, cy, cz
-    
+
     else:
         print('wrong number of elements')
-        
+
         return 0.
 
 
 def prepare_args(x, y, z, flat_eval=False):
     '''Broadcast point sets to correct size for evaluation.
-    
+
     Parameters
     ----------
         x, y, z : float or list or np.array
@@ -182,16 +189,16 @@ def prepare_args(x, y, z, flat_eval=False):
     if isinstance(x, float):
         arg_x = np.array([x])
     elif isinstance(x, list):
-        arg_x = np.array(x) 
+        arg_x = np.array(x)
     elif isinstance(x, np.ndarray):
-        arg_x = x 
+        arg_x = x
     else:
         print('data type not supported')
 
     if isinstance(y, float):
         arg_y = np.array([y])
     elif isinstance(y, list):
-        arg_y = np.array(y) 
+        arg_y = np.array(y)
     elif isinstance(y, np.ndarray):
         arg_y = y
     else:
@@ -200,7 +207,7 @@ def prepare_args(x, y, z, flat_eval=False):
     if isinstance(z, float):
         arg_z = np.array([z])
     elif isinstance(z, list):
-        arg_z = np.array(z) 
+        arg_z = np.array(z)
     elif isinstance(z, np.ndarray):
         arg_z = z
     else:
@@ -221,7 +228,7 @@ def prepare_args(x, y, z, flat_eval=False):
 
     # broadcast to 3d arrays
     else:
-        # tensor-product for given three 1D arrays 
+        # tensor-product for given three 1D arrays
         if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
             #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
             E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
@@ -240,7 +247,7 @@ def prepare_args(x, y, z, flat_eval=False):
             E2 = arg_y[None, :, :]
             E3 = arg_z[None, :, :]
             E1 = arg_x*np.ones(E2.shape)
-        # given three 3D arrays 
+        # given three 3D arrays
         elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
             # Distinguish if input coordinates are from sparse or dense meshgrid.
             # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
@@ -269,7 +276,7 @@ class Domain():
     ----------
     kind_map : str
         Type of domain.
-    
+
     params_map: dict, optional
         The parameters that define the mapping (see Notes). If not given, default values shall be used
 
@@ -283,22 +290,22 @@ class Domain():
 
     Nel: list
         1d number of elements of discrete spline mapping
-    
+
     p: list
         1d degrees of discrete spline mapping
-    
+
     NbaseN: list
         1d dimensions of discrete spline mapping
-    
+
     T: list
         1d knot vectors of discrete spline mapping
 
     cx: np.array
         spline coefficients of X(eta1, eta2, eta3)
-    
+
     cy: np.array
         spline coefficients of Y(eta1, eta2, eta3)
-    
+
     cz: np.array
         spline coefficients of Z(eta1, eta2, eta3)
 
@@ -372,398 +379,474 @@ class Domain():
     '''
 
     def __init__(self, kind_map='cuboid', params_map=None):
-        
+
         # ==============================================================
-        #                      analytical mappings 
+        #                      analytical mappings
         # ==============================================================
-        
+
         # Note : in future versions you only need to specify the Psydac_mapping expressions.
 
         # ================== cuboid ====================
         if kind_map == 'cuboid':
-            self.kind_map = 10
-            
+            self._kind_map = 10
+
             if params_map is None:
-                params = {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}
+                params = {'l1': 0., 'r1': 1., 'l2': 0.,
+                          'r2': 1., 'l3': 0., 'r3': 1.}
             else:
                 params = params_map
-                
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
                                                 'y': 'l2 + (r2 - l2)*x2',
                                                 'z': 'l3 + (r3 - l3)*x3'}
-            
-            self.pole = False
-            
+
+            self._pole = False
+
         # ============== hollow cylinder ===============
         elif kind_map == 'hollow_cyl':
-            self.kind_map = 11
-            
+            self._kind_map = 11
+
             if params_map is None:
                 params = {'a1': 0.2, 'a2': 1., 'R0': 3.}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
                                                 'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
                                                 'z': '2*pi*R0*x3'}
-            
+
             if self.params_map[0] == 0.:
-                self.pole = True
+                self._pole = True
             else:
-                self.pole = False
-                
+                self._pole = False
+
         # ================== colella ===================
         elif kind_map == 'colella':
-            self.kind_map = 12
-            
+            self._kind_map = 12
+
             if params_map is None:
-                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz' : 1.}
+                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz': 1.}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
                                                 'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
                                                 'z': 'Lz*x3'}
-            
-            self.pole = False
-            
+
+            self._pole = False
+
         # ================= orthogonal =================
         elif kind_map == 'orthogonal':
-            self.kind_map = 13
-            
+            self._kind_map = 13
+
             if params_map is None:
-                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz' : 1.}
+                params = {'Lx': 1., 'Ly': 1., 'alpha': 0.1, 'Lz': 1.}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
                                                 'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
                                                 'z': 'Lz*x3'}
-            
-            self.pole = False
-            
+
+            self._pole = False
+
         # ============== hollow torus ==================
         elif kind_map == 'hollow_torus':
-            self.kind_map = 14
-            
+            self._kind_map = 14
+
             if params_map is None:
-                params = {'a1': 0.2, 'a2': 1., 'R0' : 3.}
+                params = {'a1': 0.2, 'a2': 1., 'R0': 3.}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
                                                 'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
                                                 'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
-            
+
             if self.params_map[0] == 0.:
-                self.pole = True
+                self._pole = True
             else:
-                self.pole = False
+                self._pole = False
 
         # ============== ellipse =======================
         elif kind_map == 'ellipse':
-            self.kind_map = 15
-            
+            self._kind_map = 15
+
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 2., 'Lz' : 1.}
+                params = {'x0': 0., 'y0': 0., 'z0': 0.,
+                          'rx': 1., 'ry': 2., 'Lz': 1.}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
-            
-            self.pole = True
+
+            self._pole = True
 
         # =========== rotated ellipse ==================
         elif kind_map == 'rotated_ellipse':
-            self.kind_map = 16
-            
+            self._kind_map = 16
+
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'r1' : 1., 'r2' : 2., 'Lz' : 1., 'th' : 0.2}
+                params = {'x0': 0., 'y0': 0., 'z0': 0.,
+                          'r1': 1., 'r2': 2., 'Lz': 1., 'th': 0.2}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
                                                 'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
-            self.pole = True
+            self._pole = True
 
         # ============ shafranov shift =================
         elif kind_map == 'shafranov_shift':
-            self.kind_map = 17
-            
+            self._kind_map = 17
+
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 1., 'Lz' : 1., 'delta' : 0.2}
+                params = {'x0': 0., 'y0': 0., 'z0': 0.,
+                          'rx': 1., 'ry': 1., 'Lz': 1., 'delta': 0.2}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
-            
-            self.pole = True
+
+            self._pole = True
 
         # ============ shafranov sqrt ==================
         elif kind_map == 'shafranov_sqrt':
-            self.kind_map = 18
-            
+            self._kind_map = 18
+
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 1., 'Lz' : 1., 'delta' : 0.2}
+                params = {'x0': 0., 'y0': 0., 'z0': 0.,
+                          'rx': 1., 'ry': 1., 'Lz': 1., 'delta': 0.2}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
                                                 'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                 'z': 'z0 + (x3*Lz)'}
-            
-            self.pole = True
+
+            self._pole = True
 
         # ========= shafranov D-shaped =================
         elif kind_map == 'shafranov_dshaped':
-            self.kind_map = 19
-            
+            self._kind_map = 19
+
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'R0' : 3., 'Lz' : 1., 'delta_x' : 0.1, 'delta_y' : 0., 'delta_gs' : 0.2, 'epsilon_gs' : 1/3, 'kappa_gs' : 1.5}
+                params = {'x0': 0., 'y0': 0., 'z0': 0., 'R0': 3., 'Lz': 1., 'delta_x': 0.1,
+                          'delta_y': 0., 'delta_gs': 0.2, 'epsilon_gs': 1/3, 'kappa_gs': 1.5}
             else:
                 params = params_map
-            
-            self.params_map = list(params.values())
+
+            self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
                                                 'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
                                                 'z': 'z0 + (x3*Lz)'}
-            
-            self.pole = True
 
-        
+            self._pole = True
+
         # ==============================================================
-        #               IGA mappings (with control points) 
+        #               IGA mappings (with control points)
         # ==============================================================
-        
+
         # ================= 3d IGA =====================
         elif kind_map == 'spline':
             # TODO: choose correct params_map
-            self.kind_map   = 0
-            self.params_map = []
+            self._kind_map = 0
+            self._params_map = []
 
             # print(f'Before popping: list(params_map.values()): {list(params_map.values())}')
 
             with h5py.File(params_map['file'], 'r') as handle:
 
                 # print(f'Available keys: {tuple(handle.keys())}')
-                self.cx = handle['cx'][:]
-                self.cy = handle['cy'][:]
-                self.cz = handle['cz'][:]
-                
+                self._cx = handle['cx'][:]
+                self._cy = handle['cy'][:]
+                self._cz = handle['cz'][:]
+
             if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
-                self.pole = True
+                self._pole = True
             else:
-                self.pole = False
+                self._pole = False
 
         # ============== 2d IGA cylinder ===============
         elif kind_map == 'spline cylinder':
-            self.kind_map = 1
-            
+            self._kind_map = 1
+
             if params_map is None:
-                params = {'a': 1., 'R0': 3., 'Nel' : [8, 24], 'p' : [2, 2], 'spl_kind' : [False, True]}
+                params = {'a': 1., 'R0': 3., 'Nel': [
+                    8, 24], 'p': [2, 2], 'spl_kind': [False, True]}
             else:
                 params = params_map
-            
-            X = lambda s, chi : params['a']*s*np.cos(2*np.pi*chi) + params['R0']
-            Y = lambda s, chi : params['a']*s*np.sin(2*np.pi*chi)
-        
-            self.cx, self.cy = interp_mapping(params['Nel'], params['p'], params['spl_kind'], X, Y)
-            
+
+            def X(s, chi): return params['a']*s*np.cos(2*np.pi*chi) + params['R0']
+
+            def Y(s, chi): return params['a']*s*np.sin(2*np.pi*chi)
+
+            self._cx, self._cy = interp_mapping(
+                params['Nel'], params['p'], params['spl_kind'], X, Y)
+
             # make sure that control points at pole are all the same
-            self.cx[0] = params['R0']
-            self.cy[0] = 0.
-            
-            self.params_map = [params['a'], params['R0']]
-            
-            self.pole = True
-            
-            self.cx = self.cx[:, :, None]
-            self.cy = self.cy[:, :, None]
-            self.cz = np.zeros((1, 1, 1), dtype=float)
-                
+            self._cx[0] = params['R0']
+            self._cy[0] = 0.
+
+            self._params_map = [params['a'], params['R0']]
+
+            self._pole = True
+
+            self._cx = self.cx[:, :, None]
+            self._cy = self.cy[:, :, None]
+            self._cz = np.zeros((1, 1, 1), dtype=float)
+
         # ============= 2d IGA torus ==================
         elif kind_map == 'spline torus':
-            self.kind_map = 2
-            
+            self._kind_map = 2
+
             if params_map is None:
-                params = {'a': 1., 'R0': 3., 'Nel' : [8, 24], 'p' : [2, 2], 'spl_kind' : [False, True], 'coordinates' : 'straight'}
+                params = {'a': 1., 'R0': 3., 'Nel': [8, 24], 'p': [
+                    2, 2], 'spl_kind': [False, True], 'coordinates': 'straight'}
             else:
                 params = params_map
-            
-            R = lambda s, chi : params['a']*s*np.cos(angular.theta(s, chi, params['a'], params['R0'], params['coordinates'])) + params['R0']
-            Y = lambda s, chi : params['a']*s*np.sin(angular.theta(s, chi, params['a'], params['R0'], params['coordinates']))
-        
-            self.cx, self.cy = interp_mapping(params['Nel'], params['p'], params['spl_kind'], R, Y)
-            
+
+            def R(s, chi): return params['a']*s*np.cos(angular.theta(
+                s, chi, params['a'], params['R0'], params['coordinates'])) + params['R0']
+            def Y(s, chi): return params['a']*s*np.sin(angular.theta(
+                s, chi, params['a'], params['R0'], params['coordinates']))
+
+            self._cx, self._cy = interp_mapping(
+                params['Nel'], params['p'], params['spl_kind'], R, Y)
+
             # make sure that control points at pole are all the same
-            self.cx[0] = params['R0']
-            self.cy[0] = 0.
-            
-            self.params_map = [params['a'], params['R0']]
-            
-            self.pole = True
-            
-            self.cx = self.cx[:, :, None]
-            self.cy = self.cy[:, :, None]
-            self.cz = np.zeros((1, 1, 1), dtype=float)
-            
+            self._cx[0] = params['R0']
+            self._cy[0] = 0.
+
+            self._params_map = [params['a'], params['R0']]
+
+            self._pole = True
+
+            self._cx = self._cx[:, :, None]
+            self._cy = self._cy[:, :, None]
+            self._cz = np.zeros((1, 1, 1), dtype=float)
+
         # =========== 2d IGA straight general =========
         elif kind_map == 'spline straight':
-            self.kind_map   = 1
-            self.params_map = []
-            
-            with h5py.File(params_map['file'], 'r') as handle:
+            self._kind_map = 1
+            self._params_map = []
 
-                self.cx = handle['cx'][:]
-                self.cy = handle['cy'][:]
-            
-            assert cx.ndim == 2 and cy.ndim == 2
-            
-            self.cx = cx
-            self.cy = cy
-            
-            if np.all(self.cx[0, :] == self.cx[0, 0]):
-                self.pole = True
+            with h5py.File(params_map['file'], 'r') as handle:
+                self._cx = handle['cx'][:]
+                self._cy = handle['cy'][:]
+
+            assert self._cx.ndim == 2 and self._cy.ndim == 2
+
+            if np.all(self._cx[0, :] == self._cx[0, 0]):
+                self._pole = True
             else:
-                self.pole = False
-            
-            self.cx = self.cx[:, :, None]
-            self.cy = self.cy[:, :, None]
-            self.cz = np.zeros((1, 1, 1), dtype=float)
-            
+                self._pole = False
+
+            self._cx = self._cx[:, :, None]
+            self._cy = self._cy[:, :, None]
+            self._cz = np.zeros((1, 1, 1), dtype=float)
+
         # ========= 2d IGA toroidal general ===========
         elif kind_map == 'spline toroidal':
-            self.kind_map   = 2
-            self.params_map = []
-            
+            self._kind_map = 2
+            self._params_map = []
+
             with h5py.File(params_map['file'], 'r') as handle:
 
-                self.cx = handle['cx'][:]
-                self.cy = handle['cy'][:]
-            
-            assert cx.ndim == 2 and cy.ndim == 2
-            
-            self.cx = cx
-            self.cy = cy
-            
-            if np.all(self.cx[0, :] == self.cx[0, 0]):
-                self.pole = True
+                self._cx = handle['cx'][:]
+                self._cy = handle['cy'][:]
+
+            assert self._cx.ndim == 2 and self._cy.ndim == 2
+
+            if np.all(self._cx[0, :] == self._cx[0, 0]):
+                self._pole = True
             else:
-                self.pole = False
-            
-            self.cx = self.cx[:, :, None]
-            self.cy = self.cy[:, :, None]
-            self.cz = np.zeros((1, 1, 1), dtype=float)
+                self._pole = False
+
+            self._cx = self._cx[:, :, None]
+            self._cy = self._cy[:, :, None]
+            self._cz = np.zeros((1, 1, 1), dtype=float)
 
         else:
             raise ValueError('Specified domain is not implemeted!')
 
         # create IGA attributes for IGA mappings
-        if self.kind_map < 10:
+        if self._kind_map < 10:
 
-            self.Nel      = params['Nel']
-            self.p        = params['p']
-            self.spl_kind = params['spl_kind']
-            
-            self.NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(params['Nel'], 
-                                                                    params['p'], 
-                                                                    params['spl_kind'])]
-            
-            el_b        = [np.linspace(0., 1., Nel + 1) for Nel in params['Nel']]
-            self.T      = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, 
-                                                                                  params['p'],
-                                                                                  params['spl_kind'])]
-            
+            self._Nel = params['Nel']
+            self._p = params['p']
+            self._spl_kind = params['spl_kind']
+
+            self._NbaseN = [Nel + p - kind*p for Nel, p,
+                            kind in zip(params['Nel'], params['p'], params['spl_kind'])]
+
+            el_b = [np.linspace(0., 1., Nel + 1) for Nel in params['Nel']]
+            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(
+                el_b, params['p'], params['spl_kind'])]
+
             # extend to 3d for 2d IGA mappings
-            if self.kind_map != 0:
-                
-                self.Nel    = self.Nel    + [0]
-                self.p      = self.p      + [0]
-                self.NbaseN = self.NbaseN + [0]
-                
-                self.T      = self.T      + [np.zeros((1,), dtype=float)]
-                   
+            if self._kind_map != 0:
+
+                self._Nel = self._Nel + [0]
+                self._p = self._p + [0]
+                self._NbaseN = self._NbaseN + [0]
+
+                self._T = self._T + [np.zeros((1,), dtype=float)]
+
         # create dummy attributes for analytical mappings
         else:
-            
-            self.Nel    = [0, 0, 0]
-            self.p      = [0, 0, 0]
-            self.NbaseN = [0, 0, 0]
-            
-            self.T      = [np.zeros((1,), dtype=float),
-                           np.zeros((1,), dtype=float), 
-                           np.zeros((1,), dtype=float)]
 
-            self.cx     =  np.zeros((1, 1, 1), dtype=float)
-            self.cy     =  np.zeros((1, 1, 1), dtype=float)
-            self.cz     =  np.zeros((1, 1, 1), dtype=float)
-            
+            self._Nel = [0, 0, 0]
+            self._p = [0, 0, 0]
+            self._spl_kind = [True, True, True]
+            self._NbaseN = [0, 0, 0]
+
+            self._T = [np.zeros((1,), dtype=float),
+                       np.zeros((1,), dtype=float),
+                       np.zeros((1,), dtype=float)]
+
+            self._cx = np.zeros((1, 1, 1), dtype=float)
+            self._cy = np.zeros((1, 1, 1), dtype=float)
+            self._cz = np.zeros((1, 1, 1), dtype=float)
+
         # trasform parameter list to numpy array
-        self.params_map = np.array(self.params_map)
+        self._params_map = np.array(self.params_map)
 
-   
         # keys for evaluating mapping related quantities
-        self.keys_map  = {
-            'x' : 1, 'y' : 2, 'z' : 3, 'det_df' : 4, 
-            'df_11' : 11, 'df_12' : 12, 'df_13' : 13, 
-            'df_21' : 14, 'df_22' : 15, 'df_23' : 16, 
-            'df_31' : 17, 'df_32' : 18, 'df_33' : 19, 
-            'df_inv_11' : 21, 'df_inv_12' : 22, 'df_inv_13' : 23,
-            'df_inv_21' : 24, 'df_inv_22' : 25, 'df_inv_23' : 26, 
-            'df_inv_31' : 27, 'df_inv_32' : 28, 'df_inv_33' : 29, 
-            'g_11' : 31, 'g_12' : 32, 'g_13' : 33, 'g_21' : 34,
-            'g_22' : 35, 'g_23' : 36, 'g_31' : 37, 'g_32' : 38, 'g_33' : 39, 
-            'g_inv_11' : 41, 'g_inv_12' : 42, 'g_inv_13' : 43, 'g_inv_21' : 44,
-            'g_inv_22' : 45, 'g_inv_23' : 46, 'g_inv_31' : 47, 'g_inv_32' : 48,
-            'g_inv_33' : 49
-            }
-        
+        self._keys_map = {
+            'x': 1, 'y': 2, 'z': 3, 'det_df': 4,
+            'df_11': 11, 'df_12': 12, 'df_13': 13,
+            'df_21': 14, 'df_22': 15, 'df_23': 16,
+            'df_31': 17, 'df_32': 18, 'df_33': 19,
+            'df_inv_11': 21, 'df_inv_12': 22, 'df_inv_13': 23,
+            'df_inv_21': 24, 'df_inv_22': 25, 'df_inv_23': 26,
+            'df_inv_31': 27, 'df_inv_32': 28, 'df_inv_33': 29,
+            'g_11': 31, 'g_12': 32, 'g_13': 33, 'g_21': 34,
+            'g_22': 35, 'g_23': 36, 'g_31': 37, 'g_32': 38, 'g_33': 39,
+            'g_inv_11': 41, 'g_inv_12': 42, 'g_inv_13': 43, 'g_inv_21': 44,
+            'g_inv_22': 45, 'g_inv_23': 46, 'g_inv_31': 47, 'g_inv_32': 48,
+            'g_inv_33': 49
+        }
+
         # keys for performing pull-backs
-        self.keys_pull = {
-            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, 
-            '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23,
-            'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33
-            }
-        
+        self._keys_pull = {
+            '0_form': 0, '3_form': 3, '1_form_1': 11, '1_form_2': 12,
+            '1_form_3': 13, '2_form_1': 21, '2_form_2': 22, '2_form_3': 23,
+            'vector_1': 31, 'vector_2': 32, 'vector_3': 33
+        }
+
         # keys for performing push-forwards
-        self.keys_push = {
-            '0_form' : 0, '3_form' : 3, '1_form_1' : 11, '1_form_2' : 12, 
-            '1_form_3' : 13, '2_form_1' : 21, '2_form_2' : 22, '2_form_3' : 23, 
-            'vector_1' : 31, 'vector_2' : 32, 'vector_3' : 33
-            }
+        self._keys_push = {
+            '0_form': 0, '3_form': 3, '1_form_1': 11, '1_form_2': 12,
+            '1_form_3': 13, '2_form_1': 21, '2_form_2': 22, '2_form_3': 23,
+            'vector_1': 31, 'vector_2': 32, 'vector_3': 33
+        }
 
         # keys for performing transformation
-        self.keys_transform = {
-            'norm_to_0' : 0, 'norm_to_3' : 3,
-            'norm_to_1_1' : 11, 'norm_to_1_2' : 12, 'norm_to_1_3' : 13,
-            'norm_to_2_1' : 21, 'norm_to_2_2' : 22, 'norm_to_2_3' : 23,
-            'norm_to_vector_1' : 31, 'norm_to_vector_2' : 32, 'norm_to_vector_3' : 33,
-            '1_to_1_1' : 41, '1_to_1_1' : 42, '1_to_1_1' : 43,
-            '1_to_1_1' : 51, '1_to_1_1' : 52, '1_to_1_1' : 53,
-            '0_to_3' : 4, '3_to_0' : 5}
-       
+        self._keys_transform = {
+            'norm_to_0': 0, 'norm_to_3': 3,
+            'norm_to_1_1': 11, 'norm_to_1_2': 12, 'norm_to_1_3': 13,
+            'norm_to_2_1': 21, 'norm_to_2_2': 22, 'norm_to_2_3': 23,
+            'norm_to_vector_1': 31, 'norm_to_vector_2': 32, 'norm_to_vector_3': 33,
+            '1_to_1_1': 41, '1_to_1_1': 42, '1_to_1_1': 43,
+            '1_to_1_1': 51, '1_to_1_1': 52, '1_to_1_1': 53,
+            '0_to_3': 4, '3_to_0': 5}
 
     class Psydac_mapping(Mapping):
         '''To create a psydac domain.'''
 
         _expressions = None
-        _ldim        = 3
-        _pdim        = 3   
+        _ldim = 3
+        _pdim = 3
 
+    @property
+    def kind_map(self):
+        '''String that defines the mapping.'''
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        '''List of mapping parameters.'''
+        return self._params_map
+
+    @property
+    def pole(self):
+        '''Bool; True if mapping has one polar point.'''
+        return self._pole
+
+    @property
+    def cx(self):
+        '''3d array of control points for first mapping component Fx.'''
+        return self._cx
+
+    @property
+    def cy(self):
+        '''3d array of control points for second mapping component Fy.'''
+        return self._cy
+
+    @property
+    def cz(self):
+        '''3d array of control points for third mapping component Fz.'''
+        return self._cz
+
+    @property
+    def Nel(self):
+        '''List of number of elements in each direction.'''
+        return self._Nel
+
+    @property
+    def p(self):
+        '''List of spline degrees in each direction.'''
+        return self._p
+
+    @property
+    def spl_kind(self):
+        '''List of spline type (True=periodic, False=clamped) in each direction.'''
+        return self._spl_kind
+
+    @property
+    def NbaseN(self):
+        '''List of number of basis functions for N-splines in each direction.'''
+        return self._NbaseN
+
+    @property
+    def T(self):
+        '''List of knot vectors for N-splines in each direction.'''
+        return self._T
+
+    @property
+    def keys_map(self):
+        '''Dictionary of str->int for kind_map.'''
+        return self._keys_map
+
+    @property
+    def keys_pull(self):
+        '''Dictionary of str->int for pull function.'''
+        return self._keys_pull
+
+    @property
+    def keys_push(self):
+        '''Dictionary of str->int for push function.'''
+        return self._keys_push
+
+    @property
+    def keys_transform(self):
+        '''Dictionary of str->int for transform function.'''
+        return self._keys_transform
 
     def evaluate(self, eta1, eta2, eta3, kind_fun, flat_eval=False, squeeze_output=True):
         '''Evaluate mapping/metric coefficients. 
@@ -798,30 +881,35 @@ class Domain():
                 * 'g_inv_11', 'g_inv_12', 'g_inv_13', 'g_inv_21', 'g_inv_22', 'g_inv_23', 'g_inv_31', 'g_inv_32', 'g_inv_33': inverse metric tensor
         '''
 
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+            eta1, eta2, eta3, flat_eval)
 
         if flat_eval:
             values = np.empty(E1.size, dtype=float)
         else:
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            values = np.empty(
+                (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if is_sparse_meshgrid:
-            mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
-            
+
         if values.ndim == 0:
             values = values.item()
 
         return values
 
-
     # ================================
+
     def pull(self, a, eta1, eta2, eta3, kind_fun='0_form', flat_eval=False, squeeze_output=True):
         '''Pullback of p-forms. 
 
@@ -848,61 +936,73 @@ class Domain():
         Notes
         -----
             Possible choices for kind_fun:
-                
+
                 * '0_form'  , '3_form'
                 * '1_form_1', '1_form_2', '1_form_3'
                 * '2_form_1', '2_form_2', '2_form_3',
                 * 'vector_1', 'vector_2', 'vector_3'
         '''
 
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+            eta1, eta2, eta3, flat_eval)
 
         if flat_eval:
             values = np.empty(E1.size, dtype=float)
         else:
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            values = np.empty(
+                (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
-            
+
             if callable(a[0]):
-                
-                X = self.evaluate(E1, E2, E3, 'x', flat_eval, squeeze_output=False)
-                Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
-                Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
-                
-                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z), a[2](X, Y, Z)], dtype=float)
+
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval,
+                                  squeeze_output=False)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval,
+                                  squeeze_output=False)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval,
+                                  squeeze_output=False)
+
+                a_in = np.array([a[0](X, Y, Z), a[1](X, Y, Z),
+                                a[2](X, Y, Z)], dtype=float)
             else:
                 a_in = np.array(a)
-                
+
         else:
-            
+
             if callable(a):
-                
-                X = self.evaluate(E1, E2, E3, 'x', flat_eval, squeeze_output=False)
-                Y = self.evaluate(E1, E2, E3, 'y', flat_eval, squeeze_output=False)
-                Z = self.evaluate(E1, E2, E3, 'z', flat_eval, squeeze_output=False)
-                
+
+                X = self.evaluate(E1, E2, E3, 'x', flat_eval,
+                                  squeeze_output=False)
+                Y = self.evaluate(E1, E2, E3, 'y', flat_eval,
+                                  squeeze_output=False)
+                Z = self.evaluate(E1, E2, E3, 'z', flat_eval,
+                                  squeeze_output=False)
+
                 a_in = np.array([a(X, Y, Z)])
             else:
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
-            
+
         if values.ndim == 0:
             values = values.item()
 
         return values
 
-
     # ================================
+
     def push(self, a, eta1, eta2, eta3, kind_fun='0_form', flat_eval=False, squeeze_output=True):
         '''Push-forward of p-forms. 
 
@@ -935,20 +1035,23 @@ class Domain():
                 * '2_form_1', '2_form_2', '2_form_3',
                 * 'vector_1', 'vector_2', 'vector_3'
         '''
-        
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
+
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+            eta1, eta2, eta3, flat_eval)
 
         if flat_eval:
             values = np.empty(E1.size, dtype=float)
         else:
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            values = np.empty(
+                (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
+                a_in = np.array([a[0](E1, E2, E3), a[1](
+                    E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
-                
+
         else:
             if callable(a):
                 a_in = np.array([a(E1, E2, E3)])
@@ -956,23 +1059,26 @@ class Domain():
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
-    
+            pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+
         if squeeze_output:
             values = values.squeeze()
-            
+
         if values.ndim == 0:
             values = values.item()
 
         return values
 
-
     # ================================
-    def transformation(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False, squeeze_output=True):
+
+    def transform(self, a, eta1, eta2, eta3, kind_fun='norm_to_0', flat_eval=False, squeeze_output=True):
         '''Transformation between different p-forms on logical domain. 
 
         Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see prepare_args).
@@ -1007,20 +1113,23 @@ class Domain():
                 * '1_to_1_1', '1_to_1_1', '1_to_1_1',
                 * '0_to_3', '3_to_0'
         '''
-        
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(eta1, eta2, eta3, flat_eval)
+
+        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+            eta1, eta2, eta3, flat_eval)
 
         if flat_eval:
             values = np.empty(E1.size, dtype=float)
         else:
-            values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+            values = np.empty(
+                (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
         if isinstance(a, list):
             if callable(a[0]):
-                a_in = np.array([a[0](E1, E2, E3), a[1](E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
+                a_in = np.array([a[0](E1, E2, E3), a[1](
+                    E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
             else:
                 a_in = np.array(a)
-                
+
         else:
             if callable(a):
                 a_in = np.array([a(E1, E2, E3)])
@@ -1028,56 +1137,59 @@ class Domain():
                 a_in = np.array([a])
 
         if is_sparse_meshgrid:
-            tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         elif flat_eval:
-            tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
         else:
-            tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+            tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
+                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
-            
+
         if values.ndim == 0:
             values = values.item()
 
         return values
 
-
     def show(self, save_dir=None):
         '''
         Plots isolines (and control point in case on spline mappings) of the 2D domain at eta3 = 0.
-        
+
         Parameters
         ----------
-        
+
         save_dir : string (optional)
                 if given, the figure is saved according the given directory.
-        ''' 
-        
+        '''
+
         import matplotlib.pyplot as plt
-        
+
         e1 = np.linspace(0., 1., 101)
         e2 = np.linspace(0., 1., 101)
-        
+
         X = self.evaluate(e1, e2, 0., 'x')
         Y = self.evaluate(e1, e2, 0., 'y')
-        
+
         # eta1-isolines
         for i in range(e1.size//5 + 1):
             plt.plot(X[i*5, :], Y[i*5, :], 'k')
-            
+
         # eta2-isolines
         for j in range(e2.size//5 + 1):
             plt.plot(X[:, j*5], Y[:, j*5], 'r')
-            
+
         if self.kind_map < 10:
-            plt.scatter(self.cx[:, :, 0].flatten(), self.cy[:, :, 0].flatten(), s=3, color='b')
-            
+            plt.scatter(self.cx[:, :, 0].flatten(),
+                        self.cy[:, :, 0].flatten(), s=3, color='b')
+
         plt.xlabel('x')
         plt.ylabel('y')
-        
+
         plt.axis('square')
-            
+
         if save_dir is not None:
             plt.savefig(save_dir)
         else:

@@ -20,7 +20,7 @@ This class has four important methods (described below):
    - ``evaluate`` for evaluation of metric coefficients
    - ``pull`` for the pullback of p-forms 
    - ``push`` for the pushforward of p-forms
-   - ``transformation`` for the transformation between p-forms
+   - ``transform`` for the transformation between p-forms
 
 Summary of pull-back and push-forward transformations between generic scalar and vector-valued functions
 :math:`f=f(\mathbf{x})` and :math:`\mathbf{V}=[V_x(\mathbf{x}),V_y(\mathbf{x}),V_z(\mathbf{x})]`, respectively, 

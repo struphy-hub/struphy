@@ -38,7 +38,7 @@ DER  := ${path_lib}feec/derivatives/kernels_derivatives
 LAC  := ${path_lib}linear_algebra/core
 LAT  := ${path_lib}linear_algebra/kernels_tensor_product
 
-FK	 := ${path_lib}pic/filler_kernel
+FK	 := ${path_lib}pic/filler_kernels
 MVF	 := ${path_lib}pic/mat_vec_filler
 
 #AK3	 := ${path_lib}pic/lin_Vlasov_Maxwell/accum_kernels_3d

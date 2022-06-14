@@ -500,39 +500,39 @@ def test_transformation():
                 fun_form = [fun, fun, fun]
 
             # point-wise transformation:
-            assert DOMAIN.transformation(fun_form, .5, .5, .5, p_str).size == 1
-            #print('pointwise transformation, size:', DOMAIN.transformation(fun_form, .5, .5, .5, p_str).size)
+            assert DOMAIN.transform(fun_form, .5, .5, .5, p_str).size == 1
+            #print('pointwise transformation, size:', DOMAIN.transform(fun_form, .5, .5, .5, p_str).size)
 
             # flat transformation:
-            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.transformation(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 
             # eta1-array transformation:
-            #print('eta1 array transformation, shape:', DOMAIN.transformation(fun_form, arr1, .5, .5, p_str).shape)
-            assert DOMAIN.transformation(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
+            #print('eta1 array transformation, shape:', DOMAIN.transform(fun_form, arr1, .5, .5, p_str).shape)
+            assert DOMAIN.transform(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
             # eta2-array transformation:
-            #print('eta2 array transformation, shape:', DOMAIN.transformation(fun_form, .5, arr2, .5, p_str).shape)
-            assert DOMAIN.transformation(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
+            #print('eta2 array transformation, shape:', DOMAIN.transform(fun_form, .5, arr2, .5, p_str).shape)
+            assert DOMAIN.transform(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
             # eta3-array transformation:
-            #print('eta3 array transformation, shape:', DOMAIN.transformation(fun_form, .5, .5, arr3, p_str).shape)
-            assert DOMAIN.transformation(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
+            #print('eta3 array transformation, shape:', DOMAIN.transform(fun_form, .5, .5, arr3, p_str).shape)
+            assert DOMAIN.transform(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 
             # eta1-eta2-array transformation:
-            a = DOMAIN.transformation(fun_form, arr1, arr2, .5, p_str)
+            a = DOMAIN.transform(fun_form, arr1, arr2, .5, p_str)
             #print('eta1-eta2 array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
             # eta1-eta3-array transformation:
-            a = DOMAIN.transformation(fun_form, arr1, .5, arr3, p_str)
+            a = DOMAIN.transform(fun_form, arr1, .5, arr3, p_str)
             #print('eta1-eta3 array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
             # eta2-eta3-array transformation:
-            a = DOMAIN.transformation(fun_form, .5, arr2, arr3, p_str)
+            a = DOMAIN.transform(fun_form, .5, arr2, arr3, p_str)
             #print('eta2-eta3 array transformation, shape:', a.shape)
             assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 
             # eta1-eta2-eta3 array transformation:
-            a = DOMAIN.transformation(fun_form, arr1, arr2, arr3, p_str)
+            a = DOMAIN.transform(fun_form, arr1, arr2, arr3, p_str)
             #print('eta1-eta2-eta3-array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
 
@@ -542,27 +542,27 @@ def test_transformation():
             mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
             # eta1-eta2 matrix transformation:
-            a = DOMAIN.transformation(fun_form, mat12_x, mat12_y, .5, p_str)
+            a = DOMAIN.transform(fun_form, mat12_x, mat12_y, .5, p_str)
             #print('eta1-eta2 matrix transformation, shape:', a.shape)
             assert a.shape == mat12_x.shape
             # eta1-eta3 matrix transformation:
-            a = DOMAIN.transformation(fun_form, mat13_x, .5, mat13_z, p_str)
+            a = DOMAIN.transform(fun_form, mat13_x, .5, mat13_z, p_str)
             #print('eta1-eta3 matrix transformation, shape:', a.shape)
             assert a.shape == mat13_x.shape
             # eta2-eta3 matrix transformation:
-            a = DOMAIN.transformation(fun_form, .5, mat23_y, mat23_z, p_str)
+            a = DOMAIN.transform(fun_form, .5, mat23_y, mat23_z, p_str)
             #print('eta2-eta3 matrix transformation, shape:', a.shape)
             assert a.shape == mat23_y.shape
 
             # matrix transformation for sparse meshgrid
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
-            a = DOMAIN.transformation(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = DOMAIN.transform(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('sparse meshgrid matrix transformation, shape:', a.shape)
             assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 
             # matrix transformation 
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-            a = DOMAIN.transformation(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = DOMAIN.transform(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('matrix transformation, shape:', a.shape)
             assert a.shape == mat_x.shape 
     

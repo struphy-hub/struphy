@@ -39,3 +39,13 @@ MHD operators
 
 .. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 
+
+.. _accumulators:
+
+Accumulation functions 
+----------------------
+
+See :ref:`add_accum` for how to use these acumulation functions.
+
+.. automodule:: struphy.pic.accumulators
+    :members: 

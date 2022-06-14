@@ -364,7 +364,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_p, eta1, eta2, eta3, 'norm_to_0')
 
 
     def r0_ini(self, eta1, eta2, eta3=None):
@@ -374,7 +374,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_r, eta1, eta2, eta3, 'norm_to_0')
 
 
     def p3_ini(self, eta1, eta2, eta3=None):
@@ -384,7 +384,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '3_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_3')
+            return self.DOMAIN.transform(self.fun_p, eta1, eta2, eta3, 'norm_to_3')
 
 
     def r3_ini(self, eta1, eta2, eta3=None):
@@ -394,7 +394,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '3_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_3')
+            return self.DOMAIN.transform(self.fun_r, eta1, eta2, eta3, 'norm_to_3')
 
 
     def u1_ini_1(self, eta1, eta2, eta3=None):
@@ -403,7 +403,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_1')
 
  
     def u1_ini_2(self, eta1, eta2, eta3=None):
@@ -412,7 +412,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_2')
  
 
     def u1_ini_3(self, eta1, eta2, eta3=None):
@@ -421,7 +421,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_3')
 
 
     def u2_ini_1(self, eta1, eta2, eta3=None):
@@ -430,7 +430,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_1')
  
 
     def u2_ini_2(self, eta1, eta2, eta3=None):
@@ -439,7 +439,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_2')
   
  
     def u2_ini_3(self, eta1, eta2, eta3=None):
@@ -448,7 +448,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_3')
     
  
     def b2_ini_1(self, eta1, eta2, eta3=None):
@@ -457,7 +457,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
 
  
     def b2_ini_2(self, eta1, eta2, eta3=None):
@@ -466,7 +466,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
 
  
     def b2_ini_3(self, eta1, eta2, eta3=None):
@@ -475,7 +475,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
             
 
     def uv_ini_1(self, eta1, eta2, eta3=None):
@@ -484,7 +484,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_1')
         
 
     def uv_ini_2(self, eta1, eta2, eta3=None):
@@ -493,7 +493,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_2')
  
  
     def uv_ini_3(self, eta1, eta2, eta3=None):
@@ -502,7 +502,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_3')
 
 
 
@@ -867,7 +867,7 @@ class Initialize_mhd_psydac:
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_p, eta1, eta2, eta3, 'norm_to_0')
 
 
     def r0_ini(self, eta1, eta2, eta3=None):
@@ -877,7 +877,7 @@ class Initialize_mhd_psydac:
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_r, eta1, eta2, eta3, 'norm_to_0')
 
 
     def p3_ini(self, eta1, eta2, eta3=None):
@@ -887,7 +887,7 @@ class Initialize_mhd_psydac:
             return self.DOMAIN.pull(self.fun_p, eta1, eta2, eta3, '3_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_p, eta1, eta2, eta3, 'norm_to_3')
+            return self.DOMAIN.transform(self.fun_p, eta1, eta2, eta3, 'norm_to_3')
 
 
     def r3_ini(self, eta1, eta2, eta3=None):
@@ -897,7 +897,7 @@ class Initialize_mhd_psydac:
             return self.DOMAIN.pull(self.fun_r, eta1, eta2, eta3, '3_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_r, eta1, eta2, eta3, 'norm_to_3')
+            return self.DOMAIN.transform(self.fun_r, eta1, eta2, eta3, 'norm_to_3')
 
 
     def u1_ini_1(self, eta1, eta2, eta3=None):
@@ -906,7 +906,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_1')
 
  
     def u1_ini_2(self, eta1, eta2, eta3=None):
@@ -915,7 +915,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_2')
  
 
     def u1_ini_3(self, eta1, eta2, eta3=None):
@@ -924,7 +924,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '1_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_1_3')
 
 
     def u2_ini_1(self, eta1, eta2, eta3=None):
@@ -933,7 +933,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_1')
  
 
     def u2_ini_2(self, eta1, eta2, eta3=None):
@@ -942,7 +942,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_2')
   
  
     def u2_ini_3(self, eta1, eta2, eta3=None):
@@ -951,7 +951,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_2_3')
     
  
     def b2_ini_1(self, eta1, eta2, eta3=None):
@@ -960,7 +960,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
 
  
     def b2_ini_2(self, eta1, eta2, eta3=None):
@@ -969,7 +969,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
 
  
     def b2_ini_3(self, eta1, eta2, eta3=None):
@@ -978,7 +978,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
             
 
     def uv_ini_1(self, eta1, eta2, eta3=None):
@@ -987,7 +987,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_1')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_1')
         
 
     def uv_ini_2(self, eta1, eta2, eta3=None):
@@ -996,7 +996,7 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_2')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_2')
  
  
     def uv_ini_3(self, eta1, eta2, eta3=None):
@@ -1005,4 +1005,4 @@ class Initialize_mhd_psydac:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'vector_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_3')
+            return self.DOMAIN.transform([self.fun_u_x, self.fun_u_y, self.fun_u_z], eta1, eta2, eta3, 'norm_to_vector_3')
