@@ -380,7 +380,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_1')
+            return self.DOMAIN.transform([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_1')
   
     # initial electric field (1-form on logical domain, 2-component)
     def e1_ini_2(self, eta1, eta2, eta3=None):
@@ -388,7 +388,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_2')
+            return self.DOMAIN.transform([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_2')
 
     # initial electric field (1-form on logical domain, 3-component)
     def e1_ini_3(self, eta1, eta2, eta3=None):
@@ -396,7 +396,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, '1_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_3')
+            return self.DOMAIN.transform([self.fun_e_x, self.fun_e_y, self.fun_e_z], eta1, eta2, eta3, 'norm_to_1_3')
             
     # initial magnetic field (2-form on logical domain, 1-component)
     def b2_ini_1(self, eta1, eta2, eta3=None):
@@ -404,7 +404,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_1')
  
     # initial magnetic field (2-form on logical domain, 2-component)
     def b2_ini_2(self, eta1, eta2, eta3=None):
@@ -412,7 +412,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_2')
 
     # initial magnetic field (2-form on logical domain, 3-component)
     def b2_ini_3(self, eta1, eta2, eta3=None):
@@ -420,7 +420,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '2_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_2_3')
 
     # initial current field (1-form on logical domain, 1-component)
     def j1_ini_1(self, eta1, eta2, eta3=None):
@@ -428,7 +428,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_1')
+            return self.DOMAIN.transform([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_1')
   
     # initial current field (1-form on logical domain, 2-component)
     def j1_ini_2(self, eta1, eta2, eta3=None):
@@ -436,7 +436,7 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_2')
+            return self.DOMAIN.transform([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_2')
 
     # initial current field (1-form on logical domain, 3-component)
     def j1_ini_3(self, eta1, eta2, eta3=None):
@@ -444,6 +444,6 @@ class Initialize_emw:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, '1_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_3')
+            return self.DOMAIN.transform([self.fun_j_x, self.fun_j_y, self.fun_j_z], eta1, eta2, eta3, 'norm_to_1_3')
 
  

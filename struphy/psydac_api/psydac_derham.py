@@ -682,7 +682,7 @@ class DerhamBuild:
             raise AttributeError('Mv not assembled.')
 
 
-def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks, spl_kind):
+def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):
     """
     Transform the psydac decomposition of spline indices into a domain decomposition (1d).
 

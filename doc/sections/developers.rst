@@ -434,7 +434,7 @@ The following steps must be taken to add a new model to Struphy:
 
 .. _add_dispersion:
 
-Adding new dispersion relations 
+Dispersion relations 
 -------------------------------
 
 .. _base_classes:
@@ -485,7 +485,7 @@ Here, there is just one branch, namely the light wave in vacuum which propagates
 
 .. _add_mapping:
 
-Adding new mappings 
+Mappings 
 --------------------------------
 
 .. include:: mappings.rst
@@ -493,14 +493,23 @@ Adding new mappings
 
 .. _add_equil:
 
-Adding new equilibria 
+Static backgrounds
 ---------------------
 
 
 .. _add_accum:
 
-Adding new PIC accumulation routines 
-------------------------------------
+PIC accumulation routines 
+--------------------------------
+
+Implemented accumulation functions are documented :ref:`here <accumulators>`. These are called by creating an **Accumulator**-object
+from the following class:
+
+.. autoclass:: struphy.pic.particles_to_grid.Accumulator
+
+.. automodule:: struphy.pic.accumulators
+    :private-members: _docstring
+
 
 
 .. _ci:

@@ -23,8 +23,8 @@ class Field:
             space_id: str
                 Space identifier for the field (H1, Hcurl, Hdiv or L2), specified in the parameters.yml file by the user.
 
-            DR: obj
-                From struphy/psydac_api/fields.Field_init.
+            DR : struphy.psydac_api.psydac_derham.DerhamBuild
+                Discrete Derham complex. 
         '''
 
         self._name = name
@@ -433,7 +433,7 @@ class Pulled_0form:
             f = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, '0_form')
 
         elif self._coords == 'norm_logical':
-            f = self._DOMAIN.transformation(
+            f = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_0')
 
         else:
@@ -489,11 +489,11 @@ class Pulled_1form:
             f3 = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, '1_form_3')
 
         elif self._coords == 'norm_logical':
-            f1 = self._DOMAIN.transformation(
+            f1 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_1_1')
-            f2 = self._DOMAIN.transformation(
+            f2 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_1_2')
-            f3 = self._DOMAIN.transformation(
+            f3 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_1_3')
 
         else:
@@ -549,11 +549,11 @@ class Pulled_2form:
             f3 = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, '2_form_3')
 
         elif self._coords == 'norm_logical':
-            f1 = self._DOMAIN.transformation(
+            f1 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_2_1')
-            f2 = self._DOMAIN.transformation(
+            f2 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_2_2')
-            f3 = self._DOMAIN.transformation(
+            f3 = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_2_3')
 
         else:
@@ -605,7 +605,7 @@ class Pulled_3form:
             f = self._DOMAIN.pull(self._fun, eta1, eta2, eta3, '3_form')
 
         elif self._coords == 'norm_logical':
-            f = self._DOMAIN.transformation(
+            f = self._DOMAIN.transform(
                 self._fun, eta1, eta2, eta3, 'norm_to_3')
 
         else:

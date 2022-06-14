@@ -199,7 +199,7 @@ class Initialize_markers:
     def sh0_ini(self, eta1, eta2, eta3, vx, vy, vz):
         '''Sampling distribution as 0-form.'''
         fun = self.sh3_ini(eta1, eta2, eta3, vx, vy, vz) 
-        return self.DOMAIN.transformation(fun, eta1, eta2, eta3, '3_to_0', flat_eval=True)
+        return self.DOMAIN.transform(fun, eta1, eta2, eta3, '3_to_0', flat_eval=True)
 
     # when using control variate
     def update_weights(self):

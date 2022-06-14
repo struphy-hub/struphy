@@ -238,7 +238,7 @@ class Particles6D:
         """Sampling distribution trasformed to 0-form."""
         s3_markers = self.s3(eta1, eta2, eta3, vx, vy, vz)
         
-        return self.domain.transformation(s3_markers, eta1, eta2, eta3, '3_to_0', flat_eval=True)
+        return self.domain.transform(s3_markers, eta1, eta2, eta3, '3_to_0', flat_eval=True)
     
     
     def send_recv_markers(self):

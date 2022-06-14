@@ -208,7 +208,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_n, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_n, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_n, eta1, eta2, eta3, 'norm_to_0')
 
 
     def u0_ini(self, eta1, eta2, eta3=None):
@@ -218,7 +218,7 @@ class Initialize_mhd:
             return self.DOMAIN.pull(self.fun_u, eta1, eta2, eta3, '0_form')
         
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation(self.fun_u, eta1, eta2, eta3, 'norm_to_0')
+            return self.DOMAIN.transform(self.fun_u, eta1, eta2, eta3, 'norm_to_0')
 
 
     
@@ -228,7 +228,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '1_form_1')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_1')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_1')
 
  
     def b1_ini_2(self, eta1, eta2, eta3=None):
@@ -237,7 +237,7 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '1_form_2')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_2')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_2')
  
 
     def b1_ini_3(self, eta1, eta2, eta3=None):
@@ -246,4 +246,4 @@ class Initialize_mhd:
         if self.init_coords == 'physical':
             return self.DOMAIN.pull([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, '1_form_3')
         elif self.init_coords == 'norm_logical':
-            return self.DOMAIN.transformation([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_3')
+            return self.DOMAIN.transform([self.fun_b_x, self.fun_b_y, self.fun_b_z], eta1, eta2, eta3, 'norm_to_1_3')
