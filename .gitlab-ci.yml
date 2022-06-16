@@ -17,7 +17,7 @@ default:
 
   before_script:
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     - module list
     - echo "Hello ${GITLAB_USER_NAME} !"
     - echo "This is job ${CI_JOB_ID}"
@@ -74,7 +74,7 @@ create_venv:
   before_script:
     - echo "Creating virtual environment..."
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     - module list
 
   script:
@@ -93,7 +93,7 @@ ci_variables:
   before_script:
     - echo "All CI predefined variables:"
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     - module list
 
   script:
