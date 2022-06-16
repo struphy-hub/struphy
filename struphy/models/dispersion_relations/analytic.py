@@ -7,9 +7,9 @@ class DispersionRelations1D( metaclass=ABCMeta ):
     '''The base class for analytic 1d dispersion relations.
     
     Parameters
-    ..........
-        branch_names : list
-            Strings denoting the branches of the spectrum.
+    ----------
+        branch_names : list[str]
+            Branche names of the spectrum.
         
         params : dict
             Physical parameters necessary to compute the dispersion relatio, e.g. c=299792458.

@@ -7,14 +7,14 @@ class Gaussian_3d:
     
     Parameters
     ----------
-    MOMENTS : obj
-        Object holding the velocity moments obtained from "kinetic_equil/analytical/moments_".
+        MOMENTS : obj
+            Object holding the velocity moments obtained from "kinetic_equil/analytical/moments".
 
     Notes
     -----
-    * | G(x, y, z, vx, vy, vz) = exp( -(vx - v0_x(x, y, z))^2/vth_x(x, y, z)^2 ) / sqrt(pi) / vth_x(x, y, z)
-      |                        * exp( -(vy - v0_y(x, y, z))^2/vth_y(x, y, z)^2 ) / sqrt(pi) / vth_y(x, y, z)
-      |                        * exp( -(vz - v0_z(x, y, z))^2/vth_z(x, y, z)^2 ) / sqrt(pi) / vth_z(x, y, z)                    
+        * | G(x, y, z, vx, vy, vz) = exp( -(vx - v0_x(x, y, z))^2/vth_x(x, y, z)^2 ) / sqrt(pi) / vth_x(x, y, z)
+          |                        * exp( -(vy - v0_y(x, y, z))^2/vth_y(x, y, z)^2 ) / sqrt(pi) / vth_y(x, y, z)
+          |                        * exp( -(vz - v0_z(x, y, z))^2/vth_z(x, y, z)^2 ) / sqrt(pi) / vth_z(x, y, z)                    
     '''
 
     def __init__(self, MOMENTS):

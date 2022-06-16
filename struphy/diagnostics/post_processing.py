@@ -10,7 +10,7 @@ import h5py
 from tqdm import tqdm
 
 from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import Derham
 from psydac.fem.basic import FemField
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
@@ -195,7 +195,7 @@ def create_femfields(path, snapshots=None):
     p = params['grid']['p']               # spline degree
     spl_kind = params['grid']['spl_kind']        # Spline type
 
-    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy)
+    DR = Derham(Nel, p, spl_kind, F=F_psy)
 
     # =========================================================================================
     # FemFields

@@ -141,7 +141,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     '''Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.psydac_api.psydac_derham import DerhamBuild
+    from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.fem.tensor import TensorFemSpace
@@ -169,7 +169,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
+    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
 
     print(f'Nel={DR.Nel}, p={DR.p}, spl_kind={DR.spl_kind}')
 

@@ -7,7 +7,8 @@ from psydac.fem.vector import ProductFemSpace
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
 from sympde.calculus import dot
-from sympde.topology import Cube, Derham
+from sympde.topology import Cube
+from sympde.topology import Derham as Derham_psy
 from sympde.topology.mapping import Mapping
 
 from sympy import sqrt
@@ -19,9 +20,12 @@ import numpy as np
 from mpi4py import MPI
 
 
-class DerhamBuild:
+class Derham:
     """
-    Psydac API for discrete Derham sequence on the logical domain, and mass matrices.
+    Psydac API for 
+    
+    1. the discrete Derham sequence on the logical unit cube (3d)
+    2. corresponding mass matrices from mapping F
     
     Parameters
     ----------
@@ -97,7 +101,7 @@ class DerhamBuild:
             0, 1), bounds2=(0, 1), bounds3=(0, 1))
 
         # Psydac symbolic Derham
-        self._derham_symb = Derham(self._domain_log)
+        self._derham_symb = Derham_psy(self._domain_log)
         
         # Discrete logical domain
         # logical domain, the parallelism is initiated here.
@@ -189,52 +193,53 @@ class DerhamBuild:
 
     @property
     def breaks(self):
-        """ List of break points (=cell interfaces) in the three directions.
+        """ List of break points (=cell interfaces) in each direction.
         """
         return self._breaks
 
     @property
     def domain_array(self):
         """
-        A 2d array[float] of shape (comm.Get_size(), 9). 
-            - The row index denotes the process number. 
-            - Let n=0,1,2 : 
-                arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
-                arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
-                arr[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
+        A 2d array[float] of shape (comm.Get_size(), 9). The row index denotes the process number and
+        for n=0,1,2: 
+
+            * domain_array[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
+            * domain_array[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
+            * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
         return self._domain_array
 
     @property
     def index_array_N(self):
         """
-        A 2d array[int] of shape (comm.Get_size(), 6). 
-            - The row index denotes the process number.
-            - Let n=0,1,2 :
-                arr[i, 2*n + 0] holds the global start index of B-splines (N) of process i in direction eta_(n+1).
-                arr[i, 2*n + 1] holds the global end index of B-splines (N) of process i in direction eta_(n+1).
+        A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number and
+        for n=0,1,2:
+
+            * arr[i, 2*n + 0] holds the global start index of B-splines (N) of process i in direction eta_(n+1).
+            * arr[i, 2*n + 1] holds the global end index of B-splines (N) of process i in direction eta_(n+1).
         """
         return self._index_array_N
 
     @property
     def index_array_D(self):
         """
-        A 2d array[int] of shape (comm.Get_size(), 6). 
-            - The row index denotes the process number.
-            - Let n=0,1,2 :
-                arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
-                arr[i, 2*n + 1] holds the global end index of M-splines (D) of process i in direction eta_(n+1).
+        A 2d array[int] of shape (comm.Get_size(), 6). The row index denotes the process number 
+        and for n=0,1,2:
+        
+            * arr[i, 2*n + 0] holds the global start index of M-splines (D) of process i in direction eta_(n+1).
+            * arr[i, 2*n + 1] holds the global end index of M-splines (D) of process i in direction eta_(n+1).
         """
         return self._index_array_D
 
     @property
     def neighbours(self):
         """
-        A 1d array[int] of shape (6,).
-        Let n=0,1,2 :
-            arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
-            arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
-        Values are -1 if process is at a boundary.
+        A 1d array[int] of shape (6,). For n=0,1,2:
+        
+            * arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
+            * arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
+
+        Values are -1 if process is at a domain boundary (non-periodic case).
         """
         return self._neighbours
 
@@ -386,7 +391,7 @@ class DerhamBuild:
         
         self._M3 = get_mass(self.V3, self.V3, metric)
         
-    def assemble_Mv_nonsymb(self, domain):
+    def assemble_M0vec_nonsymb(self, domain):
         """ 
         Assemble mass matrix for L2-scalar product in V0vec without psydac's symbolic mapping.
         
@@ -416,7 +421,7 @@ class DerhamBuild:
         metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_32')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
         metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_33')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
         
-        self._Mv = get_mass(self.V0vec, self.V0vec, metric)
+        self._M0vec = get_mass(self.V0vec, self.V0vec, metric)
         
     def _get_decomp_arrays(self):
         """
@@ -673,13 +678,13 @@ class DerhamBuild:
             raise AttributeError('M3 not assembled.')
             
     @property
-    def Mv(self):
+    def M0vec(self):
         """ Mass matrix for L2-scalar product in V0vec.
         """
-        if hasattr(self, '_Mv'):
-            return self._Mv
+        if hasattr(self, '_M0vec'):
+            return self._M0vec
         else:
-            raise AttributeError('Mv not assembled.')
+            raise AttributeError('M0vec not assembled.')
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):

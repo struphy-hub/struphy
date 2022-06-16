@@ -18,7 +18,7 @@ import time
 import numpy as np
 
 from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import Derham
 from struphy.models.codes import models
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
@@ -71,7 +71,7 @@ Nel = params['grid']['Nel']             # Number of grid cells
 p = params['grid']['p']               # spline degree
 spl_kind = params['grid']['spl_kind']        # Spline type
 
-DR=DerhamBuild(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
+DR=Derham(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
 
 if mpi_rank == 0:
     print('GRID parameters:')
@@ -113,9 +113,9 @@ else:
 if 'kinetic' in params:
     particles_init = []
     particles_params = []
-    for key, val in params['kinetic']:
+    for key, val in params['kinetic'].items():
         particles_init += [val['init']]
-        particles_params += [val['init_' + particles_init['type']]]
+        particles_params += [val['init_' + particles_init[-1]['type']]]
 else:
     particles_init = None
     particles_params = None

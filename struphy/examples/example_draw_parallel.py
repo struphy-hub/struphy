@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from struphy.geometry.domain_3d import Domain
 
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import Derham
 
 from struphy.pic.particles import Particles6D
 
@@ -30,7 +30,7 @@ dummy_params = {'x0' : 0.5, 'y0' : 0.5, 'z0' : 0.5}
 F_psy = domain.Psydac_mapping('F', **dummy_params)
 
 # create de rham object
-derham = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=mpi_comm)
+derham = Derham(Nel, p, spl_kind, F=F_psy, comm=mpi_comm)
 
 if mpi_rank == 0:
     print()

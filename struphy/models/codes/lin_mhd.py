@@ -112,7 +112,7 @@ def execute(file_in, path_out, restart):
     # MHD PROJECTION OPERATORS object
     # =========================================================================================
     # TODO: add matrix-free version 
-    MHD_OPS = mhd_ops.MHD_operators(SPACES, EQ_MHD_L, DOMAIN, params['mhd_init']['general']['basis_u']) 
+    MHD_OPS = mhd_ops.MHDOperators(SPACES, EQ_MHD_L, DOMAIN, params['mhd_init']['general']['basis_u']) 
         
     # assemble mass matrix weighted with 0-form density
     MHD_OPS.assemble_MR()

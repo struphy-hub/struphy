@@ -20,11 +20,13 @@ Indices and tables
    sections/quickstart
    sections/userguide
    sections/developers
-   sections/models
-   sections/domains
    sections/toolkit
-   sections/theory
+   sections/models
+   sections/propagators
+   sections/domains
+   sections/backgrounds
    sections/examples
+   sections/appendix
    
 
 

@@ -16,44 +16,49 @@ __all__ = ['Propagator',
 
 
 class Propagator( metaclass=ABCMeta ):
-    '''Base class for Struphy propagators used in Struphy models.'''
+    '''Base class for Struphy propagators used in Struphy models.
+    
+    Note
+    ---- 
+        All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/codes/propagators.py``'''
 
     @property
     @abstractmethod
     def variables(self):
-        '''List of variabels to be updated by the propagator. Can be FE coefficients or particle arrays.'''
+        '''List of variabels to be updated by the propagator. Can contain
+        
+            * FE coefficients from the ``Field.vector`` property of :ref:`fields`.
+            * Marker arrays from the ``Particles6D.markers`` (or ``Particles5D.markers``) property of :ref:`particles`.    
+        '''
         pass
 
     @abstractmethod
     def push(self, dt):
-        '''Push variables from t -> t + dt.
+        '''Push entries in ``Propagator.variables`` from t -> t + dt.
+        Use ``Propagators.in_place_update`` to write to ``Propagator.variables``.
         
         Parameters
         ----------
             dt : float
                 Time step size.
-
-        Returns
-        -------
-            A list of updated variables.
         '''
         pass
 
-    def in_place_update(self, *args):
-        '''Updates variables in place (no new copy created).
+    def in_place_update(self, *variables_new):
+        '''Writes new entries into ``Propagator.variables``.
         
         Parameters
         ----------
-            args : list
-                Updated variables. The sequence must be the same as in variables, 
-                ie. for variables = [e, b] we must have args = [e_updated, b_updated].
+            variables_new : list
+                Same sequence as in ``Propagator.variables`` but with the updated variables, 
+                ie. for variables = [e, b] we must have variables_new = [e_updated, b_updated].
                 
         Returns
         -------
             A list of max(abs(e - e_updated)) for all variables.'''
 
-        _diffs = []
-        for i, arg in enumerate(args):
+        diffs = []
+        for i, arg in enumerate(variables_new):
 
             assert type(arg) is type(self.variables[i])
 
@@ -61,43 +66,47 @@ class Propagator( metaclass=ABCMeta ):
 
                 new = arg
                 old = self.variables[i]
-                _diff = [np.max(np.abs(new._data - old._data))]
+                diff = [np.max(np.abs(new._data - old._data))]
                 old[:] = new[:]
                 old.update_ghost_regions() # important: sync processes!
 
             elif isinstance(arg, BlockVector):
 
-                _diff = []
+                diff = []
                 for new, old in zip(arg, self.variables[i]):
-                    _diff += [np.max(np.abs(new._data - old._data))]
+                    diff += [np.max(np.abs(new._data - old._data))]
                     old[:] = new[:]
                     old.update_ghost_regions() # important: sync processes!
 
             else:
                 raise NotImplementedError(f'Update of variable type {type(arg)} not implemented.')
 
-            _diffs += [_diff]
+            diffs += [diff]
 
-        return _diffs
+        return diffs
 
 
 class StepMaxwell( Propagator ):
     '''Crank-Nicolson step
 
-    [e - en, b - bn] = dt/2* [[0 M1^{-1}*C^T], [-C*M1^{-1} 0]] [M1*(e + en), M2(b + bn)] ,
+    .. math::
 
-    based on the Schur complement.
+        \\begin{bmatrix} e^{n+1} - e^n \\\ b^{n+1} - b^n \end{bmatrix} 
+        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & \mathbb M_1^{-1} \mathbb C^\\top \\\ - \mathbb C \mathbb M_1^{-1} & 0 \end{bmatrix} 
+        \\begin{bmatrix} \mathbb M_1(e^{n+1} + e^n) \\\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+
+    based on the :ref:`Schur complement <schur_solver>`.
 
     Parameters
     ---------- 
         e : BlockVector
-            FE coefficients of the electric field.
+            FE coefficients of a 1-form.
 
         b : BlockVector
-            FE coefficients of the magnetic field.
+            FE coefficients of a 2-form.
 
-        DR: obj
-            From struphy/psydac_api/fields.Field_init.
+        DR: struphy.psydac_api.psydac_derham.DerhamBuild
+            Discrete Derham complex.
 
         params: dict
             Solver parameters for this splitting step. 
@@ -136,18 +145,21 @@ class StepMaxwell( Propagator ):
 
     def push(self, dt):
 
+        # current variables
         en = self.variables[0]
         bn = self.variables[1]
 
+        # allocate temporary FemFields _e, _b during solution
         _e, info = self._schur_solver(en, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_e + en)
 
-        _de, _db = self.in_place_update(_e, _b)
+        # write new coeffs into Propagator.variables
+        de, db = self.in_place_update(_e, _b)
 
         if self._info:
             print('Status     for Push_maxwell_psydac:', info['success'])
             print('Iterations for Push_maxwell_psydac:', info['niter'])
-            print('Maxdiff e1 for Push_maxwell_psydac:', max(_de))
-            print('Maxdiff b2 for Push_maxwell_psydac:', max(_db))
+            print('Maxdiff e1 for Push_maxwell_psydac:', max(de))
+            print('Maxdiff b2 for Push_maxwell_psydac:', max(db))
             print()
 

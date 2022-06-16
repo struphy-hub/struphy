@@ -26,7 +26,7 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     import numpy as np
 
     from struphy.geometry.domain_3d import Domain
-    from struphy.psydac_api.psydac_derham import DerhamBuild
+    from struphy.psydac_api.psydac_derham import Derham
     from struphy.models.substeps.push_inverse_mass import InvertMassMatrices
 
     from psydac.linalg.stencil import StencilVector
@@ -72,7 +72,7 @@ def execute(file_in, path_out, comm, restart=False, verbose=False):
     p               = params['grid']['p']               # spline degree
     spl_kind        = params['grid']['spl_kind']        # Spline type
 
-    DR=DerhamBuild(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
+    DR=Derham(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
 
     if mpi_rank == 0:
         print('GRID parameters:')

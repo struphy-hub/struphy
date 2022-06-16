@@ -1,7 +1,7 @@
-.. _theory:
+.. _appendix:
 
-Theory
-======
+Appendix
+========
 
 .. _uni_variate_spaces:
 
