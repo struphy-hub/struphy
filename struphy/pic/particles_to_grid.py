@@ -3,7 +3,7 @@ import numpy as np
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix
 
-import struphy.pic.accumulators as accums
+import struphy.pic.accum_kernels as accums
 
 
 class Accumulator():
@@ -15,10 +15,10 @@ class Accumulator():
 
         V^\mu_{ijk} &= \sum_p P^\mu_{ijk}(\eta_p) * B^\mu_p
 
-    where :math:`p` runs over the particles, :math:`P^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function 
+    where :math:`p` runs over the particles, :math:`P^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
-    
-    :math:`A^{\mu,\\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions", 
+
+    :math:`A^{\mu,\\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
     to be defined in the module **struphy.pic.accumulators**.
 
     Parameters
@@ -27,21 +27,21 @@ class Accumulator():
             Domain object for mapping evaluations.
 
         DR : struphy.psydac_api.psydac_derham.DerhamBuild
-            Discrete Derham complex. 
+            Discrete Derham complex.
 
         space_id : str
             Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1^3) to be accumulated into.
 
-        accumulator_name : str 
+        accumulator_name : str
             Name of accumulator function to be loaded from struphy/pic/accumulators.py.
 
         args_add : list
             Additional arguments to be passed to the accumulator function, besides the mandatory arguments
-            which are prepared automatically (spline bases info, mapping info, data arrays). 
-            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field. 
+            which are prepared automatically (spline bases info, mapping info, data arrays).
+            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
             Entries must be pyccel-conform types.
 
-        do_vector : bool 
+        do_vector : bool
             True if, additionally to a matrix, a vector in the same space is to be accumulated. Default=False.
 
         symmetry : str
@@ -143,7 +143,8 @@ class Accumulator():
                             DR.V0.spaces[0].knots,
                             DR.V0.spaces[1].knots,
                             DR.V0.spaces[2].knots,
-                            DOMAIN.keys_map[DOMAIN.kind_map],
+                            # DOMAIN.keys_map[DOMAIN.kind_map],
+                            DOMAIN.kind_map,
                             np.array(DOMAIN.params_map),
                             np.array(DOMAIN.p),
                             DOMAIN.T[0],
@@ -154,10 +155,230 @@ class Accumulator():
                             DOMAIN.cz, ]
 
         # combine all arguments
-        self._args = self.args_fixed + self.args_space + self.args_data + self.args_add
+        self._args = self.args_fixed + self.args_space + \
+            self.args_data + list(self.args_add)
 
         # load the appropriate accumulation routine (pyccelized)
-        self._accumulator = getattr(accums, self._accumulator_name)
+        # self._accumulator = getattr(accums, self._accumulator_name)
+
+        self._send_types, self._recv_types = self._create_buffer_types()
+
+    def _create_buffer_types(self):
+        """TODO
+        """
+        from mpi4py import MPI
+
+        send_types = []
+        recv_buf = []
+
+        if isinstance(self.matrix, StencilMatrix):
+            starts = self.space.vector_space.starts
+            ends = self.space.vector_space.ends
+            pads = self.space.vector_space.pads
+
+        elif isinstance(self.matrix, BlockMatrix):
+            """ This is stupid : in case of blockMatrices the starts and ends have 3 times the same triple entry
+            (namely exactly the same as for the StencilMatrix) """
+            starts = self.space.vector_space.starts[0]
+            ends = self.space.vector_space.ends[0]
+            pads = self.space.vector_space.pads[0]
+
+
+        if isinstance(self.vector, StencilVector):
+            pads_v = self.vector.pads
+            starts_v = self.vector.starts
+            ends_v = self.vector.ends
+        elif isinstance(self.vector, StencilVector):
+            pads_v = self.vector.pads[0]
+            starts_v = self.vector.starts[0]
+            ends_v = self.vector.ends[0]
+
+        for k, arg in enumerate(self.args_data):
+
+            send_types.append([])
+            recv_buf.append([])
+
+            # =================
+            # StencilMatrices
+            # =================
+
+            if len(arg.shape) == 6:
+
+                # =================
+                # eta1-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[0, pads[1], pads[2], 0, 0, 0]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[arg.shape[0] - pads[0], pads[1], pads[2],
+                                0, 0, 0]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
+                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(pads[0], 2*pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)},
+                    'r': {
+                    'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
+                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(-2*pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)}
+                }]
+
+                # =================
+                # eta2-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[pads[0], 0, pads[2], 0, 0, 0]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[pads[0], arg.shape[1] - pads[1], pads[2],
+                                0, 0, 0]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], 2*pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)},
+                    'r': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(-2*pads[1], -pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)}
+                }]
+
+                # =================
+                # eta3-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[pads[0], pads[1], 0, 0, 0, 0]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                        starts=[pads[0], pads[1], arg.shape[2] - pads[2],
+                                0, 0, 0]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
+                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], 2*pads[2])] + [slice(None)]*3)},
+                    'r': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
+                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(-2*pads[2], -pads[2])] + [slice(None)]*3)}
+                }]
+
+
+            # =================
+            # StencilVectors
+            # =================
+
+            elif len(arg.shape) == 3:
+
+                # =================
+                # eta1-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1],
+                        starts=[0, pads_v[1], pads_v[2]]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1],
+                        starts=[arg.shape[0] - pads_v[0], pads_v[1], pads_v[2]]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1)),
+                    'inds': tuple([slice(pads_v[0], 2*pads_v[0])] + [slice(pads_v[1], -pads_v[1])] + [slice(pads_v[2], -pads_v[2])])},
+                    'r': {
+                    'buf': np.zeros((pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1)),
+                    'inds': tuple([slice(-2*pads_v[0], -pads_v[0])] + [slice(pads_v[1], -pads_v[1])] + [slice(pads_v[2], -pads_v[2])])}
+                }]
+
+                # =================
+                # eta2-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1],
+                        starts=[pads[0], 0, pads[2]]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1],
+                        starts=[pads[0], arg.shape[1] - pads[1], pads[2]]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], 2*pads[1])] + [slice(pads[2], -pads[2])])},
+                    'r': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1)),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(-2*pads[1], -pads[1])] + [slice(pads[2], -pads[2])])}
+                }]
+
+                # =================
+                # eta3-direction
+                # =================
+
+                send_types[k] += [{
+                    'l': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2]],
+                        starts=[pads[0], pads[1], 0]
+                    ).Commit(),
+                    'r': MPI.DOUBLE.Create_subarray(
+                        sizes=list(arg.shape),
+                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2]],
+                        starts=[pads[0], pads[1], arg.shape[2] - pads[2]]
+                    ).Commit()
+                }]
+
+                recv_buf[k] += [{'l': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2])),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], 2*pads[2])])},
+                    'r': {
+                    'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2])),
+                    'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(-2*pads[2], -pads[2])])}
+                }]
+
+        
+
+        return send_types, recv_buf
 
     def accumulate(self, markers):
         '''Perform accumulation.
@@ -180,9 +401,242 @@ class Accumulator():
         # use mpi
         self._send_ghost_regions()
 
-    def _send_ghost_regions():
-        '''TODO'''
-        pass
+    def _send_ghost_regions(self):
+        '''Communicates the entries of the ghost regions between all the processes.'''
+
+        from mpi4py import MPI
+
+        mpi_comm = self._derham.comm
+        rank = mpi_comm.Get_rank()
+
+        for (dat, send_type, recv_type) in zip(self.args_data, self._send_types, self._recv_types):
+
+            send_type_1 = send_type[0]
+            send_type_2 = send_type[1]
+            send_type_3 = send_type[2]
+
+            recv_type_1 = recv_type[0]
+            recv_type_2 = recv_type[1]
+            recv_type_3 = recv_type[2]
+
+            # =================
+            # StencilMatrices
+            # =================
+
+            if len(dat.shape) == 6:
+
+                # ================
+                # eta1-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[0]
+                right_neighbour = self._derham.neighbours[1]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_1['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_1['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_1['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_1['l']['inds']] += recv_type_1['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_1['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_1['r']['inds']] += recv_type_1['r']['buf']
+                
+                mpi_comm.Barrier()
+
+
+                # ================
+                # eta2-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[2]
+                right_neighbour = self._derham.neighbours[3]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_2['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_2['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_2['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_2['l']['inds']] += recv_type_2['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_2['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_2['r']['inds']] += recv_type_2['r']['buf']
+
+                mpi_comm.Barrier()
+
+
+                # ================
+                # eta3-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[4]
+                right_neighbour = self._derham.neighbours[5]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_3['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_3['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_3['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_3['l']['inds']] += recv_type_3['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_3['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_3['r']['inds']] += recv_type_3['r']['buf']
+
+                mpi_comm.Barrier()
+            
+            # =================
+            # StencilVectors
+            # =================
+            
+            elif len(dat.shape) == 3:
+                
+                # ================
+                # eta1-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[0]
+                right_neighbour = self._derham.neighbours[1]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_1['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_1['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_1['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_1['l']['inds']] += recv_type_1['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_1['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_1['r']['inds']] += recv_type_1['r']['buf']
+                
+                mpi_comm.Barrier()
+                
+                # ================
+                # eta2-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[2]
+                right_neighbour = self._derham.neighbours[3]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_2['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_2['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_2['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_2['l']['inds']] += recv_type_2['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_2['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_2['r']['inds']] += recv_type_2['r']['buf']
+                
+                mpi_comm.Barrier()
+                
+                # ================
+                # eta3-direction
+                # ================
+
+                left_neighbour = self._derham.neighbours[4]
+                right_neighbour = self._derham.neighbours[5]
+
+                if left_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_3['l']), dest=left_neighbour, tag=rank + 100)
+
+                if right_neighbour != -1:
+                    mpi_comm.Isend(
+                        (dat, 1, send_type_3['r']), dest=right_neighbour, tag=rank + 300)
+
+                if left_neighbour != -1:
+                    req_l = mpi_comm.Irecv(
+                        recv_type_3['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
+                    re_l = False
+                    while not re_l:
+                        re_l = MPI.Request.Test(req_l)
+                    dat[recv_type_3['l']['inds']] += recv_type_3['l']['buf']
+
+                if right_neighbour != -1:
+                    req_r = mpi_comm.Irecv(
+                        recv_type_3['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
+                    re_r = False
+                    while not re_r:
+                        re_r = MPI.Request.Test(req_r)
+                    dat[recv_type_3['r']['inds']] += recv_type_3['r']['buf']
+                
+                mpi_comm.Barrier()
+
+
+    def update_ghost_regions(self):
+        "updates ghost regions of all attributes"
+        self.matrix.update_ghost_regions()
+        if self._do_vector:
+            self.vector.update_ghost_regions()
 
     @property
     def space(self):
