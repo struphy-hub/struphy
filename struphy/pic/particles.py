@@ -12,8 +12,8 @@ class Particles6D:
     """
     A class for initializing particles in models that use the full 6D phase space.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
         name : str
             Name of the particle species.
 
@@ -415,8 +415,8 @@ class Particles5D:
     """
     A class for initializing particles in drift-kinetic or gyro-kinetic models that use the 5D phase space.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
         name : str
             name of the particle species
 

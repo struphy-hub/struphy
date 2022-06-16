@@ -36,7 +36,7 @@ If you plan to add a small feature (finished in a couple of days):
 5. [Optional: select a due date.]
 6. Click ``Create Issue``.
 
-If you have a bigger code change in mind that might take several days or weeks::
+If you have a bigger code change in mind that might take several days or weeks:
 
 1. Click ``New milestone`` in ``Issues/Milestone`` from the left panel.
 2. Insert informative title and description (point by point).
@@ -231,38 +231,84 @@ Struphy can handle models where :math:`\Phi_{\Delta t}` is decomposed (or split)
     \Phi_{\Delta t}[vars(t^n)] = \Phi^1_{\Delta t}[\textnormal{subset1}(vars(t^n))] \circ \Phi^2_{\Delta t}[\textnormal{subset2}(vars(t^n))] \circ ...
 
 with sub steps :math:`\Phi^1_{\Delta t}`, :math:`\Phi^2_{\Delta t}`, etc. that update a subset of (or all) :math:`vars(t^n)`. 
-More refined splitting schemes than Lie-Trotter are available in Struphy (see ``struphy/models/codes/exec.py`` lines 162-182):
+More refined splitting schemes than Lie-Trotter are available in Struphy.
 
-.. literalinclude:: ../../struphy/models/codes/exec.py
-    :language: python
-    :linenos: 
-    :lineno-start: 162
-    :lines: 162-184
+.. (see ``struphy/models/codes/exec.py`` lines 186-209):
 
-.. _base_classes:
+.. .. literalinclude:: ../../struphy/models/codes/exec.py
+..     :language: python
+..     :linenos: 
+..     :lineno-start: 186
+..     :lines: 186-209
 
-Base classes
-^^^^^^^^^^^^
 
-Struphy models are built upon two base classes:
+.. _to_do_list_model:
+
+Quickguide for adding a Struphy model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+1. Add a new class inheriting :ref:`model_base_class` to the module ``struphy/models/codes/models.py``. Use existing classes as templates.
+2. Check the list of already existing :ref:`propagators`, :ref:`accumulators` and :ref:`weighted_mass`, maybe you can use those directly in  your model. 
+3. If not exisitng, add your model's propagators based on :ref:`prop_base_class` to the module ``struphy/models/codes/propagators.py``. The name must start with ``Step``. Use existing classes as templates.  
+4. If needed, add new parameters to the default input file ``struphy/io/inp/parameters.yml``.
+5. Add a new if-clause for your model in ``exec.py`` after line 81. The string given in ``code==<your_model_name>`` should match exactly the name of the new model class from 1.::
+
+    if code=='Maxwell':
+        MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['pcg_1'])
+    else:
+        raise NotImplementedError(f'Model {code} not implemented.')
+        exit()
+
+6. Re-install Struphy, compile, and run your model via the command line: ``struphy run <your_model_name>``.
+7. Optional: add a description of your model in
+
+    a. the help function of ``scripts/struphy``
+    b. the doc under ``doc/section/models.rst``
+
+
+.. _model_base_class:
+
+StruphyModel base class
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Implemented models that inherit the base class are listed in :ref:`models`. 
 
 .. autoclass:: struphy.models.codes.models.StruphyModel
 
-.. autoclass:: struphy.models.codes.propagators.Propagator
+**Properties:**
 
-.. note::
-    All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/codes/models.py``.  
-    All Struphy propagators are subclasses of ``Propagator`` and should be added to ``struphy/models/codes/propagators.py`` 
+.. autoproperty:: struphy.models.codes.models.StruphyModel.names
+.. autoproperty:: struphy.models.codes.models.StruphyModel.space_ids
+.. autoproperty:: struphy.models.codes.models.StruphyModel.fields
+.. autoproperty:: struphy.models.codes.models.StruphyModel.kinetic_species
+.. autoproperty:: struphy.models.codes.models.StruphyModel.kinetic_params
+.. autoproperty:: struphy.models.codes.models.StruphyModel.solver_params
+.. autoproperty:: struphy.models.codes.models.StruphyModel.DR
+.. autoproperty:: struphy.models.codes.models.StruphyModel.DOMAIN
+
+**Methods:**
+
+.. automethod:: struphy.models.codes.models.StruphyModel.print_scalar_quantities
+.. automethod:: struphy.models.codes.models.StruphyModel.set_initial_conditions
+
+**Abstract properties (must be implemented in the subclass):**
+
+.. autoproperty:: struphy.models.codes.models.StruphyModel.propagators
+.. autoproperty:: struphy.models.codes.models.StruphyModel.scalar_quantities
+
+**Abstract methods (must be implemented in the subclass):**
+
+.. automethod:: struphy.models.codes.models.StruphyModel.update_scalar_quantities
 
 
 .. _model_example:
 
-Model example: ``maxwell``
+Model example: ``Maxwell``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Let us look at the example of the model ``maxwell`` (:ref:`maxwell`). 
+Let us look at the example of the model ``Maxwell`` (:ref:`maxwell`). 
 The model has two field variables (FE coefficients) :math:`\mathbf e \in \mathbb R^{N_1}` and :math:`\mathbf b \in \mathbb R^{N_2}` that 
-are updated with a single propagator derived from a Crank-Nicolson discretization:
+are updated with a single propagator (see :ref:`propagator_example`) derived from a Crank-Nicolson discretization:
 
     .. math::
         \begin{bmatrix}
@@ -278,158 +324,87 @@ are updated with a single propagator derived from a Crank-Nicolson discretizatio
         \mathbb{M}_1 (\mathbf e^{n+1} + \mathbf e^n) \\[2mm] \mathbb M^2 (\mathbf b^{n+1} + \mathbf b^n)
        \end{bmatrix} \,.
 
-The corresponding ``StruphyModel`` is
+.. literalinclude:: ../../struphy/models/codes/models.py
+    :language: python
+    :linenos: 
+    :lineno-start: 192
+    :lines: 192-265
 
-.. autoclass:: struphy.models.codes.models.Maxwell
-    :members: 
+Let us go through the code one-by-one. First, we note that the docstring contains the model equations 
+and their normalization (in latex format). This is necessary for the correct documantation of the model.
+
+The class ``Maxwell`` inherits all members of the base class via
 
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 135
-    :lines: 135-189
+    :lineno-start: 192
+    :lines: 192
 
-Let us go through the source code one-by-one.
-The ``__init__`` function is called from the base class via ``super()``:
+As we can see, the abstract properties ``propagators``, ``scalar_quantities`` as well as the abstract method  
+``update_scalar_quantities`` from the base class ``StruphyModel`` have been implemented in the subclass ``Maxwell``.
+Otherwise, an error message would occur.
 
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 155
-    :lines: 155
-
+The ``__init__`` function is called from the base class via ``super()``.
 The field variables of the model are specified as in ``e_field='Hcurl'``, where the keyword ``e_field`` 
 is the name of the variable used for saving and the value ``'Hcurl'`` is the space of the variable 
-(can also be ``'H1'``, ``'Hdiv'`` or ``'L2'``).
+(can also be ``'H1'``, ``'Hdiv'``, ``'L2'`` or ``'H1^3'``).
 
 Mass matrices have to be assembled model-specific. In this case we only need :math:`\mathbb M_1` and :math:`\mathbb M_2`:
-
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 158
-    :lines: 158-159
-
 The actual ``Stencil-/BlockVectors`` holding the FE coefficients have been created by ``super().__init__``
-and can be retrieved from the ``fields`` property defined in the base class ``StruphyModel``:
+and can be retrieved from the ``fields`` property defined in the base class ``StruphyModel``.
 
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 162
-    :lines: 162-163
+The lists ``self._propagators`` and ``self._scalar_quantities`` returned by the abstract properties
+have to be filled with model specific propagator objects 
+(just one in the case of ``Maxwell``) and scalar quantities of interest.
 
-The abstract properties ``propagators`` and ``scalar_quantities`` are defined as
+.. _prop_base_class:
 
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 176
-    :lines: 176-183
+Propagator base class
+^^^^^^^^^^^^^^^^^^^^^^
 
-The returned lists ``self._propagators`` and ``self._scalar_quantities`` have to be filled with model specific propagator objects 
-(just one in the case of ``maxwell``) and scalar quantities of interest:
+Implemented propagators that inherit the base class are listed in :ref:`propagators`. 
 
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 165
-    :lines: 165-174
+.. autoclass:: struphy.models.codes.propagators.Propagator
 
-The only abstract method to be implemented is ``update_scalar_quantities``:
+**Methods:**
 
-.. literalinclude:: ../../struphy/models/codes/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 185
-    :lines: 185-189
+.. automethod:: struphy.models.codes.propagators.Propagator.in_place_update
 
-.. _model_example:
+**Abstract properties (must be implemented in the subclass):**
+
+.. autoproperty:: struphy.models.codes.propagators.Propagator.variables
+
+**Abstract methods (must be implemented in the subclass):**
+
+.. automethod:: struphy.models.codes.propagators.Propagator.push
+
+.. _propagator_example:
 
 Propagator example: ``StepMaxwell``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The one propagator used in the model ``maxwell`` is
-
-.. autoclass:: struphy.models.codes.propagators.StepMaxwell
+The one propagator used in the model ``Maxwell`` is listed in :ref:`propagators` and called ``StepMaxwell``:
 
 .. literalinclude:: ../../struphy/models/codes/propagators.py
     :language: python
     :linenos: 
-    :lineno-start: 84
-    :lines: 84-152
+    :lineno-start: 89
+    :lines: 89-164
 
-Let us go through the propagator's source one-by-one. The ``__init__`` call is model-specific (not done by the base class).
-The present propagator needs a :ref:`preconditioner`
+Let us go through the propagator's source one-by-one. First, we note that the docstring contains the 
+propagator equations (in latex format). This is necessary for the correct documantation of the propagator.
 
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 116
-    :lines: 116-122
+The ``__init__`` call is model-specific (not done by the base class).
+The present propagator needs a :ref:`preconditioner`, one 2x2 block matrix and a :ref:`schur_solver`
 
-one 2x2 block matrix 
-
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 124
-    :lines: 124-128
-
-and a :ref:`schur_solver`
-
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 130
-    :lines: 130-131
-
-The definition of the abstract property ``variables`` is a must in each propagator:
-
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 133
-    :lines: 133-135
-
+The definition of the abstract property ``variables`` is a must in each propagator.
 It returns a list of the variables updated by the propagator.
-Finally, also the abstract method ``push`` must be defined in each propagator:
 
-.. literalinclude:: ../../struphy/models/codes/propagators.py
-    :language: python
-    :linenos: 
-    :lineno-start: 137
-    :lines: 137-152
-
+Finally, also the abstract method ``push`` must be defined in each propagator.
 It only takes the time step ``dt`` as argument and updates the variables specified in ``self.variables``.
 Note that the function ``self.in_place_update``  from the base class ``Propagators`` can be used 
 to perform the in-place update of the variables.
-
-
-.. _to_do_list_model:
-
-TODO for adding a model
-^^^^^^^^^^^^^^^^^^^^^^^
-
-The following steps must be taken to add a new model to Struphy:
-
-1. Write a new model class in ``struphy/models/codes/models.py`` based on ``StruphyModel`` (add the name to ``__all__``)
-2. Possibly add new propagators in ``struphy/models/codes/propagators.py`` based on ``Propagator`` (add the name to ``__all__``). The name must start with ``Step``.
-3. Change the default input file ``struphy/io/inp/parameters.yml`` if needed.
-4. Add a new if-clause for your model in ``exec.py`` after line 81::
-
-    if code=='maxwell':
-        MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['pcg_1'])
-    else:
-        raise NotImplementedError(f'Model {code} not implemented.')
-        exit()
-
-5. Test your model and optionally add an ``example_`` bash script in ``scripts/`` and/or ``struphy/examples``.
-6. Add a description of your model in
-
-    a. the help function of ``scripts/struphy``
-    b. the doc under ``doc/section/userguide.rst`` in the table of section :ref:`running_codes`
-    c. the doc under ``doc/section/models.rst``
 
 
 .. _add_dispersion:
@@ -437,10 +412,6 @@ The following steps must be taken to add a new model to Struphy:
 Dispersion relations 
 -------------------------------
 
-.. _base_classes:
-
-Base classes
-^^^^^^^^^^^^
 
 Struphy dispersion relations are derived from the base class
 
@@ -452,7 +423,7 @@ Struphy dispersion relations are derived from the base class
 
 As an example, consider
 
-.. autoclass:: struphy.models.disperion_relations.analytic.Maxwell1D
+.. autoclass:: struphy.models.dispersion_relations.analytic.Maxwell1D
     :members:
 
 .. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py

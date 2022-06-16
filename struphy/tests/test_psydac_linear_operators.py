@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
@@ -34,7 +34,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     DOMAIN = Domain(map, params_map)
     F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
-    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy)
+    DR = Derham(Nel, p, spl_kind, F=F_psy)
 
     DR.assemble_M0()
     DR.assemble_M1()

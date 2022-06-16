@@ -14,49 +14,26 @@ class Equilibrium_kinetic_physical:
 
     Parameters
     ----------
-    general_kin : dict
-        Keys are "type", "nuh", "particle_mass", "particle_charge" and "alpha" (see parameters.yml)
+        general_kin : dict
+            Keys are "type", "nuh", "particle_mass", "particle_charge" and "alpha" (see parameters.yml)
 
-    params_kin : dict
-        The parameters needed to define the kinetic equilibrium (see Notes).
+        params_kin : dict
+            The parameters needed to define the kinetic equilibrium (see Notes).
 
-    Attributes
-    ----------
-    kin_type : str
-        Equilibrium type: "Maxwell_xyz", "Maxwell_pitchangle"
-
-    nuh : float
-        Ratio of EP to bulk number density, nuh = nh/N
-
-    p_mass : float
-        Particle mass in units of Proton mass
-
-    p_charge : float
-        Particle charge in units of elementary charge
-
-    alpha : float
-        Coupling parameter alpha = omega_ci/omega_A
-
-    EQ : obj
-        Analytic equilibirum from kinetic_eqil/analytical/
-
-    MOMENTS : obj
-        Velocity moments obtained from kinetic_equil/analytical/moments_.
-        
 
     Notes
     -----
-    Normalized velocity moments of Maxwellian:
-        * massdens = nuh*mh*nh
-        * jh_x     = nuh*qh*nh*uh_x
-        * jh_y     = nuh*qh*nh*uh_y
-        * jh_z     = nuh*qh*nh*uh_z
-        * Ph_xx    = nuh*mh*nh*vth_x**2/2
-        * Ph_yy    = nuh*mh*nh*vth_y**2/2
-        * Ph_zz    = nuh*mh*nh*vth_z**2/2
-        * Ph_xy    = ? add later
-        * Ph_xz    = ? add later
-        * Ph_yz    = ? add later
+        Normalized velocity moments of Maxwellian:
+            * massdens = nuh*mh*nh
+            * jh_x     = nuh*qh*nh*uh_x
+            * jh_y     = nuh*qh*nh*uh_y
+            * jh_z     = nuh*qh*nh*uh_z
+            * Ph_xx    = nuh*mh*nh*vth_x**2/2
+            * Ph_yy    = nuh*mh*nh*vth_y**2/2
+            * Ph_zz    = nuh*mh*nh*vth_z**2/2
+            * Ph_xy    = ? add later
+            * Ph_xz    = ? add later
+            * Ph_yz    = ? add later
 
     """
     

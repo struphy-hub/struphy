@@ -10,24 +10,28 @@ __all__ = ['StruphyModels',
            'Maxwell', ]
 
 
-class StruphyModel(metaclass=ABCMeta):
-    '''The base class for Struphy models.
+class StruphyModel( metaclass=ABCMeta ):
+    '''Base class for all Struphy models.
 
     Parameters
-    ..........
-        DR: Derham obj
-            From struphy.psydac_api.psydac_derham.DerhamBuild.
+    ----------
+        DR : struphy.psydac_api.psydac_derham.DerhamBuild
+            Discrete Derham complex.
 
-        DOMAIN: Domain obj
-            From struphy.geometry.domain_3d.Domain.
+        DOMAIN : struphy.geometry.domain_3d.Domain
+            All things mapping.
 
-        solver_params : list
+        solver_params : list[dict]
             Each entry corresponds to one linear solver used in the model. 
             An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
 
         kwargs : dict
-            Keys are either a) the field names (str), then values are the space_ids ("H1", "Hcurl", "Hdiv" or "L2"), or
-            b) the names of the kinetic species (str), then values are the marker parameters (dict).
+            Keys are either a) the field names, then values are the space_ids ("H1", "Hcurl", "Hdiv", "L2" or "H1^3"), or
+            b) the names of the kinetic species, then values are the marker parameters (dict).
+
+    Note
+    ----
+        All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/codes/models.py``.  
     '''
 
     def __init__(self, DR, DOMAIN, *solver_params, **kwargs):
@@ -81,17 +85,17 @@ class StruphyModel(metaclass=ABCMeta):
 
     @property
     def fields(self):
-        '''List of Struphy fields, see struphy/psydac_api/fields.'''
+        '''List of Struphy fields, see :ref:`fields`.'''
         return self._fields
 
     @property
     def DR(self):
-        '''3d Derham sequence, see struphy/feec/psydac_derham.'''
+        '''3d Derham sequence, see :ref:`derham`.'''
         return self._DR
 
     @property
     def DOMAIN(self):
-        '''Domain object, see struphy/geometry/domain_3d.'''
+        '''Domain object, see :ref:`domains`.'''
         return self._DOMAIN
 
     @property
@@ -101,7 +105,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @property
     def kinetic_species(self):
-        '''List of Struphy kinetic species, see struphy/pic/particles.'''
+        '''List of Struphy kinetic species, see :ref:`particles`.'''
         return self._kinetic_species
 
     @property
@@ -112,7 +116,7 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     @abstractmethod
     def propagators(self):
-        '''List of struphy.models.codes.propagators.Propagator used in the time stepping of the model.'''
+        '''List of :ref:`propagators` used in the time stepping of the model.'''
         pass
 
     @property
@@ -146,11 +150,21 @@ class StruphyModel(metaclass=ABCMeta):
         print(sq_str)
 
     def set_initial_conditions(self, fields_init, fields_params, particles_init, particles_params):
-        '''For FE coefficients.
+        '''For FE coefficients and marker weights.
 
         Parameters
         ----------
-            # TODO
+            fields_init : dict
+                Basic info on field initial conditions, from parameters['fields']['init].
+
+            fields_params : dict
+                Parameters of field initial condition specified in field_init.
+
+            kinetic_init : dict
+                Basic info on kinetic initial conditions, from parameters['kinetic']['species_name']['init].
+
+            kinetic_params : dict
+                Parameters of kinetic initial conditions specified in kinetic_init.
         '''
         if fields_init is not None:
             init_type = fields_init['type']
@@ -175,11 +189,25 @@ class StruphyModel(metaclass=ABCMeta):
                 species.set_initial_conditions(init, param)
 
 
-class Maxwell(StruphyModel):
-    '''Maxwell's equations in vacuum, in Struphy normalization (c=1).
+class Maxwell( StruphyModel ):
+    '''Maxwell's equations in vacuum. 
+    
+    Normalization:
+
+    .. math::
+
+        c = \\frac{\hat \omega}{\hat k} = \\frac{\hat E}{\hat B}\,,
+
+    where :math:`c` is the vacuum speed of light. Implemented equations:
+
+    .. math::
+    
+        &\\frac{\partial \mathbf E}{\partial t} - \\nabla\\times\mathbf B = 0\,, 
+        
+        &\\frac{\partial \mathbf B}{\partial t} + \\nabla\\times\mathbf E = 0\,.
 
     Parameters
-    ..........
+    ----------
         DR: Derham obj
             From struphy/psydac_api/psydac_derham.Derham_build.
 
@@ -196,8 +224,6 @@ class Maxwell(StruphyModel):
         from struphy.models.codes.propagators import StepMaxwell
 
         super().__init__(DR, DOMAIN, *solver_params, e_field='Hcurl', b_field='Hdiv')
-
-        super().set_initial_conditions()
 
         # Assemble necessary mass matrices
         self.DR.assemble_M1()
@@ -229,24 +255,65 @@ class Maxwell(StruphyModel):
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
-        self._scalar_quantities['en_E'][0] = 1 / \
-            2*self._e.dot(self.DR.M1.dot(self._e))
-        self._scalar_quantities['en_B'][0] = 1 / \
-            2*self._b.dot(self.DR.M2.dot(self._b))
+        self._scalar_quantities['en_E'][0] = .5*self._e.dot(self.DR.M1.dot(self._e))
+        self._scalar_quantities['en_B'][0] = .5*self._b.dot(self.DR.M2.dot(self._b))
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + \
-            self._scalar_quantities['en_B'][0]
+                                               self._scalar_quantities['en_B'][0]
 
 
-class LinearVlasovMaxwell(StruphyModel):
+class LinearMHD( StruphyModel ):
+    '''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). 
+    
+    Normalization:
+
+    .. math::
+
+        TODO.
+
+    Implemented equations:
+
+    .. math::
+
+        &\\frac{\partial \\tilde \\rho}{\partial t}+\\nabla\cdot(\\rho_0 \\tilde{\mathbf{U}})=0\,, 
+
+        \\rho_0&\\frac{\partial \\tilde{\mathbf{U}}}{\partial t} + \\nabla \\tilde p
+        =(\\nabla\\times \\tilde{\mathbf{B}})\\times\mathbf{B}_0 + \mathbf{J}_0\\times \\tilde{\mathbf{B}}
+        \,, \qquad
+        \mathbf{J}_0 = \\nabla\\times\mathbf{B}_0\,,
+
+        &\\frac{\partial \\tilde p}{\partial t} + \\nabla\cdot(p_0 \\tilde{\mathbf{U}}) 
+        + (\gamma-1)p_0\\nabla\cdot \\tilde{\mathbf{U}}=0\,,
+        
+        &\\frac{\partial \\tilde{\mathbf{B}}}{\partial t} - \\nabla\\times(\\tilde{\mathbf{U}} \\times \mathbf{B}_0)
+        = 0\,.
+
+    Parameters
+    ----------
+        DR: Derham obj
+            From struphy/psydac_api/psydac_derham.Derham_build.
+
+        DOMAIN: Domain obj
+            From struphy/geometry/domain_3d.Domain.
+
+        solver_params : list
+            Each entry corresponds to one linear solver used in the model. 
+            An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
+    '''
+
+    def __init__(self, DR, DOMAIN, *solver_params):
+        pass
+
+
+class LinearVlasovMaxwell( StruphyModel ):
     """
     Linearized Vlasov Maxwell model, has electric and magnetic fields, and electrons as particles
 
-    Parameters:
-    -----------
-        DR: Derham obj
+    Parameters
+    ----------
+        DR : Derham obj
             From struphy/feec/psydac_derham.Derham_build.
 
-        DOMAIN: Domain obj
+        DOMAIN : Domain obj
             From struphy/geometry/domain_3d.Domain.
 
         solver_params : list

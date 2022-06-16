@@ -1,5 +1,5 @@
 from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import DerhamBuild, index_to_domain
+from struphy.psydac_api.psydac_derham import Derham, index_to_domain
 
 from psydac.fem.tensor import TensorFemSpace 
 from psydac.fem.vector import ProductFemSpace
@@ -30,7 +30,7 @@ DOMAIN = Domain(map, params_map)
 # create psydac mapping for mass matrices only
 F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
-DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
+DR = Derham(Nel, p, spl_kind, F=F_psy, comm=MPI_COMM)
 
 if mpi_rank == 0: 
     print(f'\nNel={DR.Nel}, p={DR.p}, spl_kind={DR.spl_kind}, nq_pr={DR.nq_pr}\n')

@@ -29,15 +29,16 @@ and differential *k*-forms (:math:`0\leq k\leq 3`) under the map :math:`F:\hat{\
 .. image:: ../pics/pforms_table.png
 
 The list of availabe mapppings in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` can be read from the Notes below.
-The entry in ``parameters.yml`` to initialize the Domain class can be found in :ref:`params_geometry`.
 
-.. autoclass:: struphy.geometry.domain_3d.Domain
-   :members: 
-   :undoc-members:
+.. The entry in ``parameters.yml`` to initialize the Domain class can be found in :ref:`params_geometry`.
 
-Input arguments of these routines are handled via
+.. .. autoclass:: struphy.geometry.domain_3d.Domain
+..    :members: 
+..    :undoc-members:
 
-.. automodule:: struphy.geometry.domain_3d
-   :members: prepare_args
+.. Input arguments of these routines are handled via
+
+.. .. automodule:: struphy.geometry.domain_3d
+..    :members: prepare_args
 
 

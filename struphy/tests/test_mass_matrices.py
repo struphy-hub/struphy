@@ -24,7 +24,7 @@ def test_mass(Nel, p, spl_kind, mapping):
     from struphy.feec.spline_space import Spline_space_1d
     from struphy.feec.spline_space import Tensor_spline_space
     from struphy.geometry.domain_3d import Domain
-    from struphy.psydac_api.psydac_derham import DerhamBuild
+    from struphy.psydac_api.psydac_derham import Derham
     
     from mpi4py import MPI
 
@@ -39,14 +39,14 @@ def test_mass(Nel, p, spl_kind, mapping):
     F = domain.Psydac_mapping('F', **mapping[1])
 
     # derham object
-    derham = DerhamBuild(Nel, p, spl_kind, der_as_mat=True, F=F, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, der_as_mat=True, F=F, comm=mpi_comm)
     
     # assemble mass matrices
     derham.assemble_M0_nonsymb(domain)
     derham.assemble_M1_nonsymb(domain)
     derham.assemble_M2_nonsymb(domain)
     derham.assemble_M3_nonsymb(domain)
-    derham.assemble_Mv_nonsymb(domain)
+    derham.assemble_M0vec_nonsymb(domain)
     
     # compare to old STRUPHY
     spaces = [Spline_space_1d(Nel, p, spl, nq_el) for Nel, p, spl, nq_el in zip(Nel, p, spl_kind, [p[0] + 1, p[1] + 1, p[2] + 1])]
@@ -104,7 +104,7 @@ def test_mass(Nel, p, spl_kind, mapping):
     r1_psy = derham.M1.dot(x1_psy)
     r2_psy = derham.M2.dot(x2_psy)
     r3_psy = derham.M3.dot(x3_psy)
-    rv_psy = derham.Mv.dot(xv_psy)
+    rv_psy = derham.M0vec.dot(xv_psy)
     
     assert np.allclose(space.extract_0(r0_str)[x0_psy.starts[0]:x0_psy.ends[0] + 1, x0_psy.starts[1]:x0_psy.ends[1] + 1, x0_psy.starts[2]:x0_psy.ends[2] + 1], r0_psy[x0_psy.starts[0]:x0_psy.ends[0] + 1, x0_psy.starts[1]:x0_psy.ends[1] + 1, x0_psy.starts[2]:x0_psy.ends[2] + 1])
     

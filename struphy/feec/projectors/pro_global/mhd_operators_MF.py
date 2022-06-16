@@ -30,35 +30,35 @@ class projectors_dot_x:
         Implemented operators (transpose also implemented) with
 
         * MHD with velocity (up) as 1-form:
-        ===================================================== =========================== =====================
-        operator                                              dim of matrix               verification method
-        ===================================================== =========================== =====================
-        Q1  = pi_2[rho_eq * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
-        W1  = pi_1[rho_eq / g_sqrt * lambda^1]                 R^{N^1 x N^1}               identity test
-        U1  = pi_2[g_sqrt * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
-        P1  = pi_1[j_eq / g_sqrt * lambda^2]                   R^{N^1 x N^2}               comparison test with basic projector
-        S1  = pi_2[p_eq * G_inv * lambda^1]                    R^{N^2 x N^1}               comparison test with basic projector
-        S10 = pi_1[p_eq * lambda^1]                            R^{N^1 x N^1}               identity test            
-        K1  = pi_3[p_eq / g_sqrt * lambda^3]                   R^{N^3 x N^3}               identity test
-        K10 = pi_0[p_eq * lambda^0]                            R^{N^0 x N^0}               identity test
-        T1  = pi_1[B_eq * G_inv * lambda^1]                    R^{N^1 x N^1}               comparison test with basic projector
-        X1  = pi_0[DF^-T * lambda^1]                           R^{N^0 x 3 x N^1}           comparison test with basic projector
-        ===================================================== =========================== =====================
+            ===================================================== =========================== =====================
+            operator                                              dim of matrix               verification method
+            ===================================================== =========================== =====================
+            Q1  = pi_2[rho_eq * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
+            W1  = pi_1[rho_eq / g_sqrt * lambda^1]                 R^{N^1 x N^1}               identity test
+            U1  = pi_2[g_sqrt * G_inv * lambda^1]                  R^{N^2 x N^1}               comparison test with basic projector
+            P1  = pi_1[j_eq / g_sqrt * lambda^2]                   R^{N^1 x N^2}               comparison test with basic projector
+            S1  = pi_2[p_eq * G_inv * lambda^1]                    R^{N^2 x N^1}               comparison test with basic projector
+            S10 = pi_1[p_eq * lambda^1]                            R^{N^1 x N^1}               identity test            
+            K1  = pi_3[p_eq / g_sqrt * lambda^3]                   R^{N^3 x N^3}               identity test
+            K10 = pi_0[p_eq * lambda^0]                            R^{N^0 x N^0}               identity test
+            T1  = pi_1[B_eq * G_inv * lambda^1]                    R^{N^1 x N^1}               comparison test with basic projector
+            X1  = pi_0[DF^-T * lambda^1]                           R^{N^0 x 3 x N^1}           comparison test with basic projector
+            ===================================================== =========================== =====================
 
         * MHD with velocity (up) as 2-form:
-        ===================================================== ================= =====================
-        operator                                              dim of matrx      verification method
-        ===================================================== ================= =====================
-        Q2  = pi_2[rho_eq / g_sqrt * lambda^2]                R^{N^2 x N^2}      identity test
-        T2  = pi_1[B_eq / g_sqrt * lambda^2]                  R^{N^1 x N^2}      comparison test with basic projector
-        P2  = pi_2[G_inv * j_eq * lambda^2]                   R^{N^2 x N^2}      comparison test with basic projector
-        S2  = pi_2[p_eq / g_sqrt * lambda^2]                  R^{N^2 x N^2}      identity test
-        K2  = pi_3[p_eq / g_sqrt * lambda^3]                  R^{N^3 x N^3}      identity test
-        X2  = pi_0[DF / g_sqrt * lambda^2]                    R^{N^0 x 3 x N^2}  comparison test with basic projector
-        Z20 = pi_1[G / g_sqrt * lambda^2]                     R^{N^1 x N^2}      comparison test with basic projector
-        Y20 = pi_3[g_sqrt * lambda^0]                         R^{N^3 x N^0}      comparison test with basic projector
-        S20 = pi_1[p_eq * G / g_sqrt * lambda^2]              R^{N^1 x N^2}      comparison test with basic projector
-        ===================================================== ================= =====================
+            ===================================================== ================= =====================
+            operator                                              dim of matrx      verification method
+            ===================================================== ================= =====================
+            Q2  = pi_2[rho_eq / g_sqrt * lambda^2]                R^{N^2 x N^2}      identity test
+            T2  = pi_1[B_eq / g_sqrt * lambda^2]                  R^{N^1 x N^2}      comparison test with basic projector
+            P2  = pi_2[G_inv * j_eq * lambda^2]                   R^{N^2 x N^2}      comparison test with basic projector
+            S2  = pi_2[p_eq / g_sqrt * lambda^2]                  R^{N^2 x N^2}      identity test
+            K2  = pi_3[p_eq / g_sqrt * lambda^3]                  R^{N^3 x N^3}      identity test
+            X2  = pi_0[DF / g_sqrt * lambda^2]                    R^{N^0 x 3 x N^2}  comparison test with basic projector
+            Z20 = pi_1[G / g_sqrt * lambda^2]                     R^{N^1 x N^2}      comparison test with basic projector
+            Y20 = pi_3[g_sqrt * lambda^0]                         R^{N^3 x N^0}      comparison test with basic projector
+            S20 = pi_1[p_eq * G / g_sqrt * lambda^2]              R^{N^1 x N^2}      comparison test with basic projector
+            ===================================================== ================= =====================
     """
 
     def __init__(self, space, eq_MHD, basis_u, basis_p):

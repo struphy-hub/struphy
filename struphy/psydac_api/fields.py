@@ -211,7 +211,7 @@ class Field:
 
     @property
     def init_params(self):
-        '''Parameters of initial condition-'''
+        '''Parameters of initial condition.'''
         return self._init_params
 
     def _add_noise(self, n=None):

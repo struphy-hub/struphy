@@ -16,7 +16,7 @@ class Linear_mhd:
             FEEC spaces.
             
         MHD_OPS : obj
-            MHD operators from mhd_ops.MHD_operators.
+            MHD operators from mhd_ops.MHDOperators.
             
         params_solver : dict
             Parameters for the linear "solvers" from parameters.yml.
