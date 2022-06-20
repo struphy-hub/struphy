@@ -47,13 +47,14 @@ MVF	 := ${path_lib}pic/mat_vec_filler
 KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
 KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
 
-#PPP  := ${path_lib}pic/pusher_pos
-#PV2  := ${path_lib}pic/pusher_vel_2d
-#PV3  := ${path_lib}pic/pusher_vel_3d
-#PA2  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_2d
-#PA3  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_3d
-#PA4  := ${path_lib}pic/pc_lin_mhd_6d/accumulation_kernels_3d
-#PA5  := ${path_lib}pic/cc_cold_plasma_6d/accumulation_kernels_3d
+# PUSH := ${path_lib}pic/pusher_kernels
+# PPP  := ${path_lib}pic/pusher_pos
+# PV2  := ${path_lib}pic/pusher_vel_2d
+# PV3  := ${path_lib}pic/pusher_vel_3d
+# PA2  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_2d
+# PA3  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_3d
+# PA4  := ${path_lib}pic/pc_lin_mhd_6d/accumulation_kernels_3d
+# PA5  := ${path_lib}pic/cc_cold_plasma_6d/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
 PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
@@ -134,8 +135,11 @@ $(KPG)$(SO_EXT) : $(KPG).py
 $(KPGM)$(SO_EXT) : $(KPGM).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
 
-#$(PPP)$(SO_EXT) : $(PPP).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT) $(M3)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+# $(PUSH)$(SO_EXT) : $(PUSH).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+# 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+# $(PPP)$(SO_EXT) : $(PPP).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+# 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
     
 #$(PV2)$(SO_EXT) : $(PV2).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
 #	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)

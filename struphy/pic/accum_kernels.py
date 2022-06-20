@@ -6,11 +6,11 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 import struphy.linear_algebra.core as linalg
 
 
-def _docstring():
+def __docstring__():
     '''
-    MODULE DOCSTRING for **struphy.pic.accumulators**.
+    MODULE DOCSTRING for **struphy.pic.accum_kernels**.
 
-    The module contains model-specific accumulation routines, to be defined by the user.
+    The module contains model-specific accumulation routines (pyccelized), to be defined by the user.
 
     Naming conventions:
         - use the model name, all lower-case letters (e.g. lin_vlasov_maxwell)

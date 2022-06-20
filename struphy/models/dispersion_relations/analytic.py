@@ -13,6 +13,12 @@ class DispersionRelations1D( metaclass=ABCMeta ):
         
         params : dict
             Physical parameters necessary to compute the dispersion relatio, e.g. c=299792458.
+
+    Note
+    ----
+
+        Analytic Struphy dispersion relations are subclasses of ``DispersionRelations1D`` and should be added to 
+        ``struphy/models/dispersion_relations/analytic.py``. 
     '''
 
     def __init__(self, *branch_names, **params):
@@ -57,7 +63,12 @@ class DispersionRelations1D( metaclass=ABCMeta ):
 
 
 class Maxwell1D( DispersionRelations1D ):
-    '''Dispersion relation for Maxwell's equation in vacuum, in Struphy normalization (c=1).'''
+    '''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
+    
+    .. math::
+    
+        \omega^2 = k^2 \,.
+    '''
 
     def __init__(self):
         super().__init__('light wave', c=1.) 

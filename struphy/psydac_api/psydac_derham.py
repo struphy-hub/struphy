@@ -720,7 +720,7 @@ def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):
 
         ind_mat : array[int]
             2d array of shape (Nel, p + 1) of indices of non-vanishing splines in each element (or cell).
-            From DerhamBuild.indN_psy or DerhamBuild.indD_psy.
+            From Derham.indN_psy or Derham.indD_psy.
 
         breaks : list
             Break points (=cell interfaces) in [0, 1].

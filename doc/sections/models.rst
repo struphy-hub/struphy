@@ -3,16 +3,18 @@
 Struphy models
 ==============
 
-Currently available models are
+.. Currently available models are
 
-* :ref:`maxwell`
-* :ref:`lin_mhd`
+.. .. autoclass:: struphy.models.codes.models.__all__
+
+.. * :ref:`maxwell`
+.. * :ref:`lin_mhd`
 .. * :ref:`Current coupling with linear MHD <cc_lin_mhd_6d>`
 .. * :ref:`Pressure coupling with linear MHD <pc_lin_mhd_6d>`
 .. * :ref:`Vlasov with massless fluid electrons, extended Ohm's law <kinetic_extended>`
 .. * :ref:`Cold plasma hybrid with Vlasov <cold_plasma>`
 
-All models are implemented with a special Struphy normalization stated below. The notation is
+All models are implemented with a special Struphy normalization stated with the model equations. The notation is
 
 .. math::
 
@@ -23,19 +25,25 @@ where primed quantities like :math:`t'` are dimension-less and hat quantities li
 stands for the unit of the magnetic field.
 
 
-.. _maxwell:
+.. automodule:: struphy.models.codes.models
+    :members:
+    :undoc-members:
+    :exclude-members: StruphyModel, propagators, scalar_quantities, update_scalar_quantities
 
-Maxwell equations in vacuum
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: struphy.models.codes.models.Maxwell
+.. .. _maxwell:
 
-.. _lin_mhd:
+.. Maxwell equations in vacuum
+.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Linear ideal MHD
-^^^^^^^^^^^^^^^^
+.. .. autoclass:: struphy.models.codes.models.Maxwell
+
+.. .. _lin_mhd:
+
+.. Linear ideal MHD
+.. ^^^^^^^^^^^^^^^^
     
-.. autoclass:: struphy.models.codes.models.LinearMHD
+.. .. autoclass:: struphy.models.codes.models.LinearMHD
 
 
 

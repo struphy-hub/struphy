@@ -16,8 +16,8 @@ You need a developer to grant access.
 
 .. _adding_code:
 
-Adding code
------------
+Shared development
+------------------
 
 .. _workflow:
 
@@ -185,6 +185,37 @@ Merging is easy::
 Merging will create a meaningless merge commit in your ``git log``. 
 
 
+.. _ci:
+
+Continuous integration 
+^^^^^^^^^^^^^^^^^^^^^^
+
+`Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
+On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
+
+In Struphy, there are two ways of testing code:
+
+1. **Unit tests**: test small units of ``Python`` code (functions, modules).
+2. **Code tests**: runs a complete code via ``struphy run`` on only a few points in space-time.
+
+The **unit tests** have to be added in the folder ``struphy/tests``. The files therein have to start with ``test_`` 
+and contain ONLY functions that also start with ``test_``. In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 258
+    :lines: 258-258
+
+The **code tests** must be added directly in ``.gitlab-ci.yml``:
+
+.. literalinclude:: ../../.gitlab-ci.yml
+    :language: yaml
+    :lineno-start: 273
+    :lines: 273-277
+
+There are pre-defined parameter files starting with ``params_ci_`` available for code tests (you can add to these if necessary). 
+
+
 .. _change_doc:
 
 Changing the documentation 
@@ -200,13 +231,25 @@ If you make changes to these files, you can review them in your browser (e.g. fi
 When making further changes, just do ``make html`` and refresh the window in your browser.
 
 .. note::
-    Please keep the documentation up-to-date with your added features.
+
+    In Struphy, it is mandatory to include **latex math formulas** using the ``.. math::`` environment in docstrings of
+
+        - :ref:`models`
+        - :ref:`propagators`
+        - :ref:`domains`
+        - :ref:`backgrounds`
+        - :ref:`dispersions`
+        - :ref:`pushers`
+        - :ref:`accumulators`
+        - :ref:`mhd_ops`
+
+    This will automatically keep the documentation up-to-date.
 
 
 .. _add_model:
 
-Adding new models 
------------------
+Adding models 
+-------------
 
 .. _model_requirements:
 
@@ -247,9 +290,16 @@ More refined splitting schemes than Lie-Trotter are available in Struphy.
 Quickguide for adding a Struphy model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Add a new class inheriting :ref:`model_base_class` to the module ``struphy/models/codes/models.py``. Use existing classes as templates.
-2. Check the list of already existing :ref:`propagators`, :ref:`accumulators` and :ref:`weighted_mass`, maybe you can use those directly in  your model. 
-3. If not exisitng, add your model's propagators based on :ref:`prop_base_class` to the module ``struphy/models/codes/propagators.py``. The name must start with ``Step``. Use existing classes as templates.  
+1. Add a new class inheriting the :ref:`model_base_class` to the module ``struphy/models/codes/models.py``. Use existing classes as templates.
+2. Check the list of already existing
+
+    a. :ref:`propagators`
+    b. :ref:`accumulators`
+    c. :ref:`pushers`
+    
+Use those directly in case they fit your model. 
+
+3. If non-exisitng, add your model's propagators based on the :ref:`prop_base_class` to the module ``struphy/models/codes/propagators.py``. The name must start with ``Step``. Use existing classes as templates.  
 4. If needed, add new parameters to the default input file ``struphy/io/inp/parameters.yml``.
 5. Add a new if-clause for your model in ``exec.py`` after line 81. The string given in ``code==<your_model_name>`` should match exactly the name of the new model class from 1.::
 
@@ -259,7 +309,7 @@ Quickguide for adding a Struphy model
         raise NotImplementedError(f'Model {code} not implemented.')
         exit()
 
-6. Re-install Struphy, compile, and run your model via the command line: ``struphy run <your_model_name>``.
+6. Re-install Struphy, compile and run your model via the command line: ``struphy run <your_model_name>``.
 7. Optional: add a description of your model in
 
     a. the help function of ``scripts/struphy``
@@ -306,7 +356,7 @@ Implemented models that inherit the base class are listed in :ref:`models`.
 Model example: ``Maxwell``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Let us look at the example of the model ``Maxwell`` (:ref:`maxwell`). 
+Let us look at the example of the model ``Maxwell`` (:ref:`models`). 
 The model has two field variables (FE coefficients) :math:`\mathbf e \in \mathbb R^{N_1}` and :math:`\mathbf b \in \mathbb R^{N_2}` that 
 are updated with a single propagator (see :ref:`propagator_example`) derived from a Crank-Nicolson discretization:
 
@@ -327,19 +377,19 @@ are updated with a single propagator (see :ref:`propagator_example`) derived fro
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 192
-    :lines: 192-265
+    :lineno-start: 189
+    :lines: 189-258
 
 Let us go through the code one-by-one. First, we note that the docstring contains the model equations 
-and their normalization (in latex format). This is necessary for the correct documantation of the model.
+and their normalization (in latex format). This is necessary for the correct documentation of the model.
 
 The class ``Maxwell`` inherits all members of the base class via
 
 .. literalinclude:: ../../struphy/models/codes/models.py
     :language: python
     :linenos: 
-    :lineno-start: 192
-    :lines: 192
+    :lineno-start: 189
+    :lines: 189
 
 As we can see, the abstract properties ``propagators``, ``scalar_quantities`` as well as the abstract method  
 ``update_scalar_quantities`` from the base class ``StruphyModel`` have been implemented in the subclass ``Maxwell``.
@@ -393,7 +443,7 @@ The one propagator used in the model ``Maxwell`` is listed in :ref:`propagators`
     :lines: 89-164
 
 Let us go through the propagator's source one-by-one. First, we note that the docstring contains the 
-propagator equations (in latex format). This is necessary for the correct documantation of the propagator.
+propagator equations (in latex format). This is necessary for the correct documentation of the propagator.
 
 The ``__init__`` call is model-specific (not done by the base class).
 The present propagator needs a :ref:`preconditioner`, one 2x2 block matrix and a :ref:`schur_solver`
@@ -407,111 +457,123 @@ Note that the function ``self.in_place_update``  from the base class ``Propagato
 to perform the in-place update of the variables.
 
 
-.. _add_dispersion:
-
-Dispersion relations 
--------------------------------
-
-
-Struphy dispersion relations are derived from the base class
-
-.. autoclass:: struphy.models.dispersion_relations.analytic.DispersionRelations1D
-
-.. note::
-    All Struphy dispersion relations are subclasses of ``DispersionRelations1D`` and should be added to 
-    ``struphy/models/dispersion_relations/analytic.py``.  
-
-As an example, consider
-
-.. autoclass:: struphy.models.dispersion_relations.analytic.Maxwell1D
-    :members:
-
-.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
-    :language: python
-    :linenos: 
-    :lineno-start: 59
-    :lines: 59-82  
-
-The initialization is done via the base class:
-
-.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
-    :language: python
-    :linenos: 
-    :lineno-start: 63
-    :lines: 63
-
-One has to provide a name for each branch of the spectrum (here just the ``light wave``) and all parameters necessary for
-computing the dispersion relation (here just the speed of light ``c``, which is 1 in Struphy normalization, see :ref:`maxwell`).
-
-The abstract method ``spectrum`` must be defined; the only really model-specific part is the definition 
-of the computation of each branch:
-
-.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
-    :language: python
-    :linenos: 
-    :lineno-start: 72
-    :lines: 72-75  
-
-Here, there is just one branch, namely the light wave in vacuum which propagates at the speed ``c``.
-
 .. _add_mapping:
 
-Mappings 
---------------------------------
+Adding mapped domains 
+---------------------
 
-.. include:: mappings.rst
+Implemented mappings are listed in :ref:`domains`. 
+
+In :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` equations are discretized on the unit cube (*logical domain*)
+:math:`\hat \Omega = [0,1]^3` with logical coordinates :math:`\boldsymbol \eta = (\eta_1, \eta_2,\eta_3) \in \hat \Omega`. 
+The *physical domain* :math:`\Omega \subset \mathbb R^3` is the image of :math:`\hat\Omega` under the mapping
+
+   .. math::
+      F:\hat{\Omega}\rightarrow\Omega,\,\,(\eta_1, \eta_2,\eta_3) = \boldsymbol \eta \mapsto \mathbf x =  (x, y, z) = F(\eta_1, \eta_2,\eta_3).
+
+Hence, :math:`\mathbf{x} := (x, y, z)` are global or "Cartesian" coordinates of :math:`\Omega` and
+:math:`\mathbf \eta` are local, curvilinear coordinates of :math:`\Omega`.
+The map *F* is assumed to be :math:`\mathcal{C}^1` everywhere except at one polar point (which can be treated with :ref:`polar_splines`).
+The Jacobian matrix, its determinant and the metric tensor are denoted by
+
+   .. math::
+      DF_{i,j} = \frac{\partial F_i}{\partial \eta_j}\,,\qquad \sqrt g := |\det(DF)|\,,\qquad G := DF^\top DF\,.
+
+
+The mapping *F* and corresponding metric coefficients are handled via the *Domain class* in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)`.
+This class has four important methods (described below):
+
+   - ``evaluate`` for evaluation of metric coefficients
+   - ``pull`` for the pullback of p-forms 
+   - ``push`` for the pushforward of p-forms
+   - ``transform`` for the transformation between p-forms
+
+Summary of pull-back and push-forward transformations between generic scalar and vector-valued functions
+:math:`f=f(\mathbf{x})` and :math:`\mathbf{V}=[V_x(\mathbf{x}),V_y(\mathbf{x}),V_z(\mathbf{x})]`, respectively, 
+and differential *k*-forms (:math:`0\leq k\leq 3`) under the map :math:`F:\hat{\Omega}\rightarrow\Omega,\,\,\boldsymbol{\eta}\mapsto\mathbf{x}=F(\boldsymbol{\eta})`.
+
+.. image:: ../pics/pforms_table.png
+
+The list of availabe mapppings in :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` can be read from the Notes below.
 
 
 .. _add_equil:
 
-Static backgrounds
----------------------
+Adding static backgrounds
+-------------------------
+
+Implemented backgrounds listed in :ref:`backgrounds`. 
+
+
+.. _add_dispersion:
+
+Adding dispersion relations 
+---------------------------
+
+Implemented dispersion relations that inherit the base class are listed in :ref:`dispersions`. 
+
+.. autoclass:: struphy.models.dispersion_relations.analytic.DispersionRelations1D
+
+As an example, consider the dispersion relation for light waves in vacuum:
+
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 65
+    :lines: 65-88  
+
+The new class inherits the base class in
+
+.. literalinclude:: ../../struphy/models/dispersion_relations/analytic.py
+    :language: python
+    :linenos: 
+    :lineno-start: 65
+    :lines: 65
+
+The ``__init__`` is done via the base class by calling ``super()``. One has to provide a name for each branch of the spectrum (here just the ``light wave``) and all parameters necessary for
+computing the dispersion relation (here just the speed of light ``c``, which is 1 in Struphy normalization, see :ref:`models`).
+
+The abstract method ``spectrum`` must be defined; the only really model-specific part is the definition 
+of the computation of each branch. Here, there is just one branch, namely the light wave in vacuum which propagates at the speed ``c``.
+
+
+.. _add_pusher:
+
+Adding particle pushers 
+-----------------------
 
 
 .. _add_accum:
 
-PIC accumulation routines 
+Adding PIC accumulation routines 
 --------------------------------
 
-Implemented accumulation functions are documented :ref:`here <accumulators>`. These are called by creating an **Accumulator**-object
-from the following class:
+Implemented accumulation functions are listed in :ref:`accumulators`. 
 
 .. autoclass:: struphy.pic.particles_to_grid.Accumulator
 
-.. automodule:: struphy.pic.accumulators
-    :private-members: _docstring
+.. autofunction:: struphy.pic.accum_kernels.__docstring__
+
+
+.. _add_weighted_mass:
+
+Adding weighted mass matrices 
+-----------------------------
+
+.. automodule:: struphy.psydac_api.mass_psydac
+    :members:
+
+
+.. _add_mhd_ops:
+
+Adding MHD operators 
+--------------------
+
+Implemented MHD operators are listed in :ref:`mhd_ops`.
 
 
 
-.. _ci:
 
-Continuous integration 
-----------------------
-
-`Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
-On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
-
-In Struphy, there are two ways of testing code:
-
-1. **Unit tests**: test small units of ``Python`` code (functions, modules).
-2. **Code tests**: runs a complete code via ``struphy run`` on only a few points in space-time.
-
-The **unit tests** have to be added in the folder ``struphy/tests``. The files therein have to start with ``test_`` 
-and contain ONLY functions that also start with ``test_``. In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
-
-.. literalinclude:: ../../.gitlab-ci.yml
-    :language: yaml
-    :lineno-start: 258
-    :lines: 258-258
-
-The **code tests** must be added directly in ``.gitlab-ci.yml``:
-
-.. literalinclude:: ../../.gitlab-ci.yml
-    :language: yaml
-    :lineno-start: 273
-    :lines: 273-277
-
-There are pre-defined parameter files starting with ``params_ci_`` available for code tests (you can add to these if necessary). 
 
 
 

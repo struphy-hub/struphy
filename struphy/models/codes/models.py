@@ -6,16 +6,13 @@ from struphy.psydac_api.fields import Field
 from struphy.pic.particles import Particles6D, Particles5D
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
-__all__ = ['StruphyModels',
-           'Maxwell', ]
-
 
 class StruphyModel( metaclass=ABCMeta ):
     '''Base class for all Struphy models.
 
     Parameters
     ----------
-        DR : struphy.psydac_api.psydac_derham.DerhamBuild
+        DR : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
         DOMAIN : struphy.geometry.domain_3d.Domain

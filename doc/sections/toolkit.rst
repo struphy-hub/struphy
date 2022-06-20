@@ -89,13 +89,25 @@ Drift kinetic
     :members: 
 
 
-.. _domains:
+.. _accumulators:
 
-Mapped domains
---------------
+Particle accumulation functions 
+-------------------------------
 
-.. autoclass:: struphy.geometry.domain_3d.Domain
+See :ref:`add_accum` for how to use these acumulation functions.
+
+.. automodule:: struphy.pic.accum_kernels
     :members: 
+
+
+.. _pushers:
+
+Particle pushers 
+----------------
+
+.. automodule:: struphy.pic.pusher_kernels
+    :members: 
+    :undoc-members:
 
 
 .. _linear_operators:
@@ -118,13 +130,13 @@ Schur solver
 
 .. _preconditioner:
 
-Preconditioner
---------------
+Preconditioners
+---------------
 
 .. automodule:: struphy.psydac_api.preconditioner
     :members: 
 
-.. _mhd_operators:
+.. _mhd_ops:
 
 MHD operators
 -------------
@@ -132,19 +144,8 @@ MHD operators
 .. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 
 
-.. _accumulators:
 
-Particle accumulation functions 
--------------------------------
 
-See :ref:`add_accum` for how to use these acumulation functions.
 
-.. automodule:: struphy.pic.accumulators
-    :members: 
 
-.. _weighted_mass:
 
-Weigthed mass matrices
-----------------------
-
-nothing yet. 

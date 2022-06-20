@@ -105,7 +105,7 @@ class StepMaxwell( Propagator ):
         b : BlockVector
             FE coefficients of a 2-form.
 
-        DR: struphy.psydac_api.psydac_derham.DerhamBuild
+        DR: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
         params: dict

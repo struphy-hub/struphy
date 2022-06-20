@@ -27,13 +27,7 @@ Run a Struphy code::
 
         struphy run <model> [<run options>]
 
-Currently available models (``<model>``) in Struphy:
-
-========================== =============================================================== ================================
-Model                      Description                                                     
-========================== =============================================================== ================================
-``maxwell``                Maxwell equations in vacuum.                                    :ref:`equations <maxwell>`
-========================== =============================================================== ================================
+To see currently available models (``<model>``) go to :ref:`models`.  
 
 To add a new ``<model>``  please go to :ref:`developers` and follow section :ref:`add_model`. 
 If no ``[<run options>]`` are specified, the input is taken from ``parameters.yml`` in the path listed when typing::
