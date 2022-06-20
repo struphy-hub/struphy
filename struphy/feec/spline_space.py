@@ -282,7 +282,7 @@ class Spline_space_1d:
             pts = eta.flatten()
             
         values = np.empty(pts.size, dtype=float)
-        eva_1d.evaluate_vector(self.T, self.p, self.NbaseN, coeff, pts, values, kind)
+        eva_1d.evaluate_vector(self.T, self.p, self.indN, coeff, pts, values, kind)
         
         if isinstance(eta, float):
             values = values[0]
@@ -320,7 +320,7 @@ class Spline_space_1d:
             pts = eta.flatten()
             
         values = np.empty(pts.size, dtype=float)
-        eva_1d.evaluate_vector(self.t, self.p - 1, self.NbaseD, coeff, pts, values, 1)
+        eva_1d.evaluate_vector(self.t, self.p - 1, self.indD, coeff, pts, values, 1)
         
         if isinstance(eta, float):
             values = values[0]
@@ -1346,16 +1346,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 0)
-                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 0)
+                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 0)
+                eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 0)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                     
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
-                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 0)
-                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 0)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 0)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 0)
                     
             
             # matrix evaluation
@@ -1364,16 +1364,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 0)
-                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 0)
+                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 0)
+                eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 0)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                     
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
-                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 0)
-                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 0)
+                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 0)
+                    eva_2d.evaluate_matrix(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 0)
                     
                 
             # multiply with Fourier basis in third direction
@@ -1396,13 +1396,13 @@ class Tensor_spline_space:
         # --------- evaluate FEM field at given point -------
         else:
             
-            real_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2)
-            imag_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2)
+            real_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2)
             
             if self.n_tor != 0 and self.basis_tor == 'r':
                     
-                real_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2)
-                imag_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.NbaseN[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2)
+                real_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_n_n(self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2)
             
             # multiply with Fourier basis in third direction if |n_tor| > 0
             if self.n_tor == 0:
@@ -1486,16 +1486,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 11)
-                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 11)
+                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 11)
+                eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 11)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
-                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 11)
-                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 11)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 11)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 11)
             
             # matrix evaluation
             else:
@@ -1503,16 +1503,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 11)
-                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 11)
+                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 11)
+                eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 11)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
-                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 11)
-                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 11)
+                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 11)
+                    eva_2d.evaluate_matrix(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 11)
                 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
@@ -1534,13 +1534,13 @@ class Tensor_spline_space:
         # --------- evaluate FEM field at given point -------
         else:
             
-            real_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 0], eta1, eta2)
-            imag_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 0], eta1, eta2)
+            real_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 0], eta1, eta2)
             
             if self.n_tor != 0 and self.basis_tor == 'r':
                     
-                real_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_r[:, :, 1], eta1, eta2)
-                imag_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.NbaseD[0], self.NbaseN[1], coeff_i[:, :, 1], eta1, eta2)
+                real_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_d_n(self.t[0], self.T[1], self.p[0] - 1, self.p[1], self.indD[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2)
             
             # multiply with Fourier basis in third direction if |n_tor| > 0
             if self.n_tor == 0:
@@ -1624,16 +1624,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 12)
-                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 12)
+                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 12)
+                eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 12)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
-                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 12)
-                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 12)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 12)
+                    eva_2d.evaluate_tensor_product(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 12)
                     
             
             # matrix evaluation
@@ -1642,16 +1642,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 12)
-                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 12)
+                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 12)
+                eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 12)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
-                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 12)
-                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 12)
+                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 12)
+                    eva_2d.evaluate_matrix(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 12)
                 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
@@ -1673,13 +1673,13 @@ class Tensor_spline_space:
         # --------- evaluate FEM field at given point -------
         else:
             
-            real_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2)
-            imag_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2)
+            real_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2)
             
             if self.n_tor != 0 and self.basis_tor == 'r':
                     
-                real_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2)
-                imag_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.NbaseN[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2)
+                real_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_n_d(self.T[0], self.t[1], self.p[0], self.p[1] - 1, self.indN[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2)
             
             # multiply with Fourier basis in third direction if |n_tor| > 0
             if self.n_tor == 0:
@@ -1766,16 +1766,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                 
-                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 2)
-                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 2)
+                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 2)
+                eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 2)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
-                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 2)
-                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 2)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 2)
+                    eva_2d.evaluate_tensor_product(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 2)
             
             # matrix evaluation
             else:
@@ -1783,16 +1783,16 @@ class Tensor_spline_space:
                 values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                 
-                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_1, 2)
-                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_1, 2)
+                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2, values_r_1, 2)
+                eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2, values_i_1, 2)
                 
                 if self.n_tor != 0 and self.basis_tor == 'r':
                         
                     values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
                     values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
-                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_r_2, 2)
-                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2, eta1.shape[0], eta2.shape[1], values_i_2, 2)
+                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2, values_r_2, 2)
+                    eva_2d.evaluate_matrix(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2, values_i_2, 2)
                 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
@@ -1814,13 +1814,13 @@ class Tensor_spline_space:
         # --------- evaluate FEM field at given point -------
         else:
             
-            real_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 0], eta1, eta2)
-            imag_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 0], eta1, eta2)
+            real_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 0], eta1, eta2)
+            imag_1 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 0], eta1, eta2)
             
             if self.n_tor != 0 and self.basis_tor == 'r':
                     
-                real_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_r[:, :, 1], eta1, eta2)
-                imag_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.NbaseD[0], self.NbaseD[1], coeff_i[:, :, 1], eta1, eta2)
+                real_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_r[:, :, 1], eta1, eta2)
+                imag_2 = eva_2d.evaluate_d_d(self.t[0], self.t[1], self.p[0] - 1, self.p[1] - 1, self.indD[0], self.indD[1], coeff_i[:, :, 1], eta1, eta2)
             
             # multiply with Fourier basis in third direction if |n_tor| > 0
             if self.n_tor == 0:
@@ -1881,23 +1881,23 @@ class Tensor_spline_space:
             # tensor-product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 0)
+                eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.indN[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, values, 0)
 
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
+                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.indN[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
 
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 0)
+                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.indN[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, values, 0)
             
             return values
         
         else:
-            return eva_3d.evaluate_n_n_n(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.NbaseN[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_n_n_n(self.T[0], self.T[1], self.T[2], self.p[0], self.p[1], self.p[2], self.indN[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -1933,22 +1933,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 11)
+                eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.indD[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, values, 11)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
+                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.indD[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 11)
+                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.indD[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3, values, 11)
             
             return values
         
         else:
-            return eva_3d.evaluate_d_n_n(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.NbaseD[0], self.NbaseN[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_d_n_n(self.t[0], self.T[1], self.T[2], self.p[0] - 1, self.p[1], self.p[2], self.indD[0], self.indN[1], self.indN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -1984,22 +1984,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 12)
+                eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.indN[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, values, 12)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
+                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.indN[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 12)
+                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.indN[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, values, 12)
             
             return values
         
         else:
-            return eva_3d.evaluate_n_d_n(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.NbaseN[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_n_d_n(self.T[0], self.t[1], self.T[2], self.p[0], self.p[1] - 1, self.p[2], self.indN[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -2035,22 +2035,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 13)
+                eva_3d.evaluate_tensor_product(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.indN[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, values, 13)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
+                    eva_3d.evaluate_sparse(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.indN[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 13)
+                    eva_3d.evaluate_matrix(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.indN[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, values, 13)
             
             return values
         
         else:
-            return eva_3d.evaluate_n_n_d(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.NbaseN[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_n_n_d(self.T[0], self.T[1], self.t[2], self.p[0], self.p[1], self.p[2] - 1, self.indN[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -2086,22 +2086,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 21)
+                eva_3d.evaluate_tensor_product(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.indN[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, values, 21)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
+                    eva_3d.evaluate_sparse(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.indN[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 21)
+                    eva_3d.evaluate_matrix(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.indN[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, values, 21)
             
             return values
         
         else:
-            return eva_3d.evaluate_n_d_d(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.NbaseN[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_n_d_d(self.T[0], self.t[1], self.t[2], self.p[0], self.p[1] - 1, self.p[2] - 1, self.indN[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -2137,22 +2137,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 22)
+                eva_3d.evaluate_tensor_product(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.indD[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, values, 22)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
+                    eva_3d.evaluate_sparse(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.indD[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 22)
+                    eva_3d.evaluate_matrix(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.indD[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3, values, 22)
             
             return values
         
         else:
-            return eva_3d.evaluate_d_n_d(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.NbaseD[0], self.NbaseN[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_d_n_d(self.t[0], self.T[1], self.t[2], self.p[0] - 1, self.p[1], self.p[2] - 1, self.indD[0], self.indN[1], self.indD[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -2188,22 +2188,22 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, values, 23)
+                eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.indD[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, values, 23)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
+                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.indD[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 23)
+                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.indD[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3, values, 23)
             
             return values
         
         else:
-            return eva_3d.evaluate_d_d_n(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.NbaseD[0], self.NbaseD[1], self.NbaseN[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_d_d_n(self.t[0], self.t[1], self.T[2], self.p[0] - 1, self.p[1] - 1, self.p[2], self.indD[0], self.indD[1], self.indN[2], coeff, eta1, eta2, eta3)
     
     
     # =================================================
@@ -2239,19 +2239,19 @@ class Tensor_spline_space:
             # tensor product evaluation
             if eta1.ndim == 1:
                 values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
-                eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, values, 3)
+                eva_3d.evaluate_tensor_product(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.indD[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, values, 3)
             
             # matrix evaluation
             else:
                 values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
-                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
+                    eva_3d.evaluate_sparse(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.indD[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
                 # `eta1` is a dense meshgrid. Process each point as default.
                 else:
-                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3, eta1.shape[0], eta2.shape[1], eta3.shape[2], values, 3)
+                    eva_3d.evaluate_matrix(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.indD[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3, values, 3)
             
             return values
         
         else:
-            return eva_3d.evaluate_d_d_d(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.NbaseD[0], self.NbaseD[1], self.NbaseD[2], coeff, eta1, eta2, eta3)
+            return eva_3d.evaluate_d_d_d(self.t[0], self.t[1], self.t[2], self.p[0] - 1, self.p[1] - 1, self.p[2] - 1, self.indD[0], self.indD[1], self.indD[2], coeff, eta1, eta2, eta3)

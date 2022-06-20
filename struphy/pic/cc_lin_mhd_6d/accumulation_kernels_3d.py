@@ -1,17 +1,17 @@
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
-import struphy.feec.basics.spline_evaluation_3d as eva3
-
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
 
+# import modules for B-spline evaluation
+from struphy.feec.bsplines_kernels import basis_funs_all
+from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d
+
 # import module for mapping evaluation
-import struphy.geometry.mappings_3d_fast as mapping_fast
+from struphy.geometry.mappings_3d import f_df_pic
 
 
 
 # ==============================================================================
-def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b2_1 : 'double[:,:,:]', b2_2 : 'double[:,:,:]', b2_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mat12 : 'double[:,:,:,:,:,:]', mat13 : 'double[:,:,:,:,:,:]', mat23 : 'double[:,:,:,:,:,:]', basis_u : 'int'):
+def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b2_1 : 'double[:,:,:]', b2_2 : 'double[:,:,:]', b2_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mat12 : 'double[:,:,:,:,:,:]', mat13 : 'double[:,:,:,:,:,:]', mat23 : 'double[:,:,:,:,:,:]', basis_u : 'int'):
     
     from numpy import empty, zeros
     
@@ -98,6 +98,7 @@ def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
     # needed mapping quantities
     df        = empty((3, 3), dtype=float) 
     dfinv     = empty((3, 3), dtype=float) 
+    dfinvt    = empty((3, 3), dtype=float) 
     ginv      = empty((3, 3), dtype=float) 
     fx        = empty( 3    , dtype=float)
     
@@ -106,7 +107,7 @@ def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
     # ==========================================================
     
     
-    #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinvt, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     #$ omp for reduction ( + : mat12, mat13, mat23) 
     for ip in range(np):
         
@@ -125,16 +126,19 @@ def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 0)
         
-        # evaluate Jacobian determinant
+        # Jacobian determinant
         det_df = abs(linalg.det(df))
         
-        # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        # Inverse Jacobian matrix
+        linalg.matrix_inv_with_det(df, det_df, dfinv)
+        
+        # Transposed of inverse Jacobian matrix
+        linalg.transpose(dfinv, dfinvt)
         
         # evaluate inverse metric tensor
-        mapping_fast.g_inv_all(dfinv, ginv)
+        linalg.matrix_matrix(dfinv, dfinvt, ginv)
         # ==========================================
         
         
@@ -143,9 +147,9 @@ def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
         span2 = int(eta2*nel[1]) + pn2
         span3 = int(eta3*nel[2]) + pn3
         
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -156,9 +160,9 @@ def kernel_step1(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
         bd2[:] = b2[pd2, :pn2] * d2[:]
         bd3[:] = b3[pd3, :pn3] * d3[:]
         
-        b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
+        b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
+        b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
         
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] =  b[1]
@@ -485,9 +489,9 @@ def kernel_step3(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
         span2 = int(eta2*nel[1]) + pn2
         span3 = int(eta3*nel[2]) + pn3
         
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -498,9 +502,9 @@ def kernel_step3(particles : 'double[:,:]', t1 : 'double[:]', t2 : 'double[:]', 
         bd2[:] = b2[pd2, :pn2] * d2[:]
         bd3[:] = b3[pd3, :pn3] * d3[:]
         
-        b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
+        b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
+        b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
         
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] =  b[1]

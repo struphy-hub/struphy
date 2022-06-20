@@ -135,6 +135,10 @@ class Derham:
         # Break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
 
+        # index arrays
+        self._indN = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V0.spaces]
+        self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V3.spaces]
+
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
@@ -196,6 +200,18 @@ class Derham:
         """ List of break points (=cell interfaces) in each direction.
         """
         return self._breaks
+
+    @property
+    def indN(self):
+        """ List of 2d arrays holding global spline indices (N) in each element in the three directions.
+        """
+        return self._indN
+
+    @property
+    def indD(self):
+        """ List of 2d arrays holding global spline indices (D) in each element in the three directions.
+        """
+        return self._indD
 
     @property
     def domain_array(self):

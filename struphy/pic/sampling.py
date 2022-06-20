@@ -1,24 +1,26 @@
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
-
-import struphy.feec.basics.spline_evaluation_2d as eva2
-import struphy.feec.basics.spline_evaluation_3d as eva3
-
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
 
+# import modules for B-spline evaluation
+from struphy.feec.bsplines_kernels import basis_funs_all
+
+from struphy.feec.basics.spline_evaluation_2d import evaluation_kernel_2d
+from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d
+
 # import module for mapping evaluation
-import struphy.geometry.mappings_3d_fast as mapping_fast
+from struphy.geometry.mappings_3d import f_df_pic
 
 
 
 # ==============================================================================
-def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]', np : 'int'):
+def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]'):
     
-    from numpy import zeros
+    from numpy import shape, zeros
     
     e = zeros(3, dtype=float)
     v = zeros(3, dtype=float)
+    
+    np = shape(particles)[1]
     
     for i_part in range(np):
         ip = i_part%64
@@ -50,12 +52,14 @@ def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]',
         
         
 # ==============================================================================
-def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]', np : 'int'):
+def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]'):
     
-    from numpy import zeros
+    from numpy import shape, zeros
     
     e = zeros(2, dtype=float)
     v = zeros(3, dtype=float)
+    
+    np = shape(particles)[1]
     
     for i_part in range(np):
         ip = i_part%32
@@ -84,11 +88,18 @@ def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]',
 
         
 # ==============================================================================
-def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b_eq_1 : 'float[:,:,:]', b_eq_2 : 'float[:,:,:]', b_eq_3 : 'float[:,:,:]', kind_map : 'int', params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
+def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', b_eq_1 : 'float[:,:,:]', b_eq_2 : 'float[:,:,:]', b_eq_3 : 'float[:,:,:]', kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, sqrt, cos, sin
+    from numpy import shape, empty
+    from numpy import sqrt, cos, sin
+    
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -99,33 +110,33 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
     pd3 = pn3 - 1
     
     # p + 1 non-vanishing basis functions up tp degree p
-    b1  = empty((pn1 + 1, pn1 + 1), dtype=float)
-    b2  = empty((pn2 + 1, pn2 + 1), dtype=float)
-    b3  = empty((pn3 + 1, pn3 + 1), dtype=float)
+    b1 = empty((pn1 + 1, pn1 + 1), dtype=float)
+    b2 = empty((pn2 + 1, pn2 + 1), dtype=float)
+    b3 = empty((pn3 + 1, pn3 + 1), dtype=float)
     
     # left and right values for spline evaluation
-    l1  = empty( pn1, dtype=float)
-    l2  = empty( pn2, dtype=float)
-    l3  = empty( pn3, dtype=float)
+    l1 = empty(pn1, dtype=float)
+    l2 = empty(pn2, dtype=float)
+    l3 = empty(pn3, dtype=float)
     
-    r1  = empty( pn1, dtype=float)
-    r2  = empty( pn2, dtype=float)
-    r3  = empty( pn3, dtype=float)
+    r1 = empty(pn1, dtype=float)
+    r2 = empty(pn2, dtype=float)
+    r3 = empty(pn3, dtype=float)
     
     # scaling arrays for M-splines
-    d1  = empty( pn1, dtype=float)
-    d2  = empty( pn2, dtype=float)
-    d3  = empty( pn3, dtype=float)
+    d1 = empty(pn1, dtype=float)
+    d2 = empty(pn2, dtype=float)
+    d3 = empty(pn3, dtype=float)
     
     # non-vanishing N-splines at particle position
-    bn1 = empty( pn1 + 1, dtype=float)
-    bn2 = empty( pn2 + 1, dtype=float)
-    bn3 = empty( pn3 + 1, dtype=float)
+    bn1 = empty(pn1 + 1, dtype=float)
+    bn2 = empty(pn2 + 1, dtype=float)
+    bn3 = empty(pn3 + 1, dtype=float)
     
     # non-vanishing D-splines at particle position
-    bd1 = empty( pd1 + 1, dtype=float)
-    bd2 = empty( pd2 + 1, dtype=float)
-    bd3 = empty( pd3 + 1, dtype=float)
+    bd1 = empty(pd1 + 1, dtype=float)
+    bd2 = empty(pd2 + 1, dtype=float)
+    bd3 = empty(pd3 + 1, dtype=float)
     
     # magnetic field at particle position (2-form, cartesian, normalized cartesian)
     b      = empty(3, dtype=float)
@@ -141,29 +152,34 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
-    pf1   = pf[0]
-    pf2   = pf[1]
-    pf3   = pf[2]
+    pf1 = pf[0]
+    pf2 = pf[1]
+    pf3 = pf[2]
     
     # pf + 1 non-vanishing basis functions up tp degree pf
-    b1f   = empty((pf1 + 1, pf1 + 1), dtype=float)
-    b2f   = empty((pf2 + 1, pf2 + 1), dtype=float)
-    b3f   = empty((pf3 + 1, pf3 + 1), dtype=float)
+    b1f = empty((pf1 + 1, pf1 + 1), dtype=float)
+    b2f = empty((pf2 + 1, pf2 + 1), dtype=float)
+    b3f = empty((pf3 + 1, pf3 + 1), dtype=float)
     
     # left and right values for spline evaluation
-    l1f   = empty( pf1, dtype=float)
-    l2f   = empty( pf2, dtype=float)
-    l3f   = empty( pf3, dtype=float)
+    l1f = empty( pf1, dtype=float)
+    l2f = empty( pf2, dtype=float)
+    l3f = empty( pf3, dtype=float)
     
-    r1f   = empty( pf1, dtype=float)
-    r2f   = empty( pf2, dtype=float)
-    r3f   = empty( pf3, dtype=float)
+    r1f = empty( pf1, dtype=float)
+    r2f = empty( pf2, dtype=float)
+    r3f = empty( pf3, dtype=float)
     
     # scaling arrays for M-splines
-    d1f   = empty( pf1, dtype=float)
-    d2f   = empty( pf2, dtype=float)
-    d3f   = empty( pf3, dtype=float)
+    d1f = empty( pf1, dtype=float)
+    d2f = empty( pf2, dtype=float)
+    d3f = empty( pf3, dtype=float)
     
     # pf + 1 derivatives
     der1f = empty( pf1 + 1, dtype=float)
@@ -179,6 +195,8 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
     # local basis vectors perpendicular to magnetic field
     e1 = empty(3, dtype=float)
     e2 = empty(3, dtype=float)
+    
+    np = shape(particles)[1]
 
     for ip in range(np):
 
@@ -187,12 +205,15 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
         eta3 = particles[2, ip]
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
+        span_n1 = int(eta1*nel1) + pn1
+        span_n2 = int(eta2*nel2) + pn2
+
+        span_d1 = span_n1 - 1
+        span_d2 = span_n2 - 1
         
         # evaluation of basis functions
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        basis_funs_all(t1, pn1, eta1, span_n1, l1, r1, b1, d1)
+        basis_funs_all(t2, pn2, eta2, span_n2, l2, r2, b2, d2)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -201,43 +222,44 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
         bd1[:] = b1[pd1, :pn1] * d1[:]
         bd2[:] = b2[pd2, :pn2] * d2[:]
         
-        if nel[2] > 0:
+        if nel3 > 0:
             
-            span3 = int(eta3*nel[2]) + pn3
+            span_n3 = int(eta3*nel3) + pn3
+            span_d3 = span_n3 - 1
             
-            bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+            basis_funs_all(t3, pn3, eta3, span_n3, l3, r3, b3, d3)
             
             bn3[:] = b3[pn3, :]
             bd3[:] = b3[pd3, :pn3] * d3[:]
         
         # magnetic field (2-form)
-        if nel[2] > 0:
+        if nel3 > 0:
         
-            b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b_eq_1)
-            b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b_eq_2)
-            b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b_eq_3)
+            b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, ind_n1[span_n1 - pn1, :], ind_d2[span_d2 - pd2, :], ind_d3[span_d3 - pd3, :], b_eq_1)
+            b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, ind_d1[span_d1 - pd1, :], ind_n2[span_n2 - pn2, :], ind_d3[span_d3 - pd3, :], b_eq_2)
+            b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, ind_d1[span_d1 - pd1, :], ind_d2[span_d2 - pd2, :], ind_n3[span_n3 - pn3, :], b_eq_3)
             
         else:
             
-            b[0] = eva2.evaluation_kernel_2d(pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0])
-            b[1] = eva2.evaluation_kernel_2d(pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0])
-            b[2] = eva2.evaluation_kernel_2d(pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0])
+            b[0] = evaluation_kernel_2d(pn1, pd2, bn1, bd2, ind_n1[span_n1 - pn1, :], ind_d2[span_d2 - pd2, :], b_eq_1[:, :, 0])
+            b[1] = evaluation_kernel_2d(pd1, pn2, bd1, bn2, ind_d1[span_d1 - pd1, :], ind_n2[span_n2 - pn2, :], b_eq_2[:, :, 0])
+            b[2] = evaluation_kernel_2d(pd1, pd2, bd1, bd2, ind_d1[span_d1 - pd1, :], ind_d2[span_d2 - pd2, :], b_eq_3[:, :, 0])
         # ==========================================
         
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 2)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv_with_det(df, det_df, dfinv)
         
         # extract basis vector perpendicular to b
         e1[0] = dfinv[0, 0]

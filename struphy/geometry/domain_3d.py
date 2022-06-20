@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as spa
 from scipy.sparse.linalg import splu
 
-import struphy.geometry.angular_coordinates_torus as angular
+from struphy.geometry.angular_coordinates_torus import theta
 
 import struphy.geometry.mappings_3d as mapping
 import struphy.geometry.pullback_3d as pb
@@ -73,6 +73,9 @@ def spline_interpolation_nd(p, grids_1d, values):
     # interpolation with clamped splines (periodic=False)
     T = [bsp.make_knots(breaks_i, p_i, periodic=False)
          for breaks_i, p_i in zip(breaks, p)]
+    
+    indN = [(np.indices((breaks_i.size - 1, p_i + 1))[1] + np.arange(breaks_i.size - 1)[:, None])%grids_1d_i.size for breaks_i, p_i, grids_1d_i in zip(breaks, p, grids_1d)]
+
     I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
              for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
 
@@ -85,11 +88,11 @@ def spline_interpolation_nd(p, grids_1d, values):
 
     # solve system
     if len(p) == 1:
-        return I_LU[0].solve(values), T
+        return I_LU[0].solve(values), T, indN
     if len(p) == 2:
-        return linalg.kron_lusolve_2d(I_LU, values), T
+        return linalg.kron_lusolve_2d(I_LU, values), T, indN
     elif len(p) == 3:
-        return linalg.kron_lusolve_3d(I_LU, values), T
+        return linalg.kron_lusolve_3d(I_LU, values), T, indN
     else:
         raise AssertionError("Only dimensions < 4 are supported.")
 
@@ -620,9 +623,9 @@ class Domain():
             else:
                 params = params_map
 
-            def R(s, chi): return params['a']*s*np.cos(angular.theta(
+            def R(s, chi): return params['a']*s*np.cos(theta(
                 s, chi, params['a'], params['R0'], params['coordinates'])) + params['R0']
-            def Y(s, chi): return params['a']*s*np.sin(angular.theta(
+            def Y(s, chi): return params['a']*s*np.sin(theta(
                 s, chi, params['a'], params['R0'], params['coordinates']))
 
             self._cx, self._cy = interp_mapping(
@@ -697,6 +700,8 @@ class Domain():
             el_b = [np.linspace(0., 1., Nel + 1) for Nel in params['Nel']]
             self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(
                 el_b, params['p'], params['spl_kind'])]
+            
+            self._indN = [(np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None])%NbaseN for Nel, p, NbaseN in zip(params['Nel'], params['p'], self._NbaseN)] 
 
             # extend to 3d for 2d IGA mappings
             if self._kind_map != 0:
@@ -706,6 +711,8 @@ class Domain():
                 self._NbaseN = self._NbaseN + [0]
 
                 self._T = self._T + [np.zeros((1,), dtype=float)]
+                
+                self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
 
         # create dummy attributes for analytical mappings
         else:
@@ -718,6 +725,10 @@ class Domain():
             self._T = [np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float),
                        np.zeros((1,), dtype=float)]
+            
+            self._indN = [np.zeros((1, 1), dtype=int),
+                          np.zeros((1, 1), dtype=int),
+                          np.zeros((1, 1), dtype=int)]
 
             self._cx = np.zeros((1, 1, 1), dtype=float)
             self._cy = np.zeros((1, 1, 1), dtype=float)
@@ -827,6 +838,11 @@ class Domain():
     def T(self):
         '''List of knot vectors for N-splines in each direction.'''
         return self._T
+    
+    @property
+    def indN(self):
+        '''Global indices of non-vanishing splines in each element. Can be accessed via (element index, local spline index).'''
+        return self._indN
 
     @property
     def keys_map(self):
@@ -856,18 +872,21 @@ class Domain():
         Parameters
         -----------
             eta1, eta2, eta3 : point like or array-like or list like 
-                logical coordinates at which to evaluate
+                Logical coordinates at which to evaluate.
+                
             kind_fun : string
-                what metric coefficient to evaluate, see Notes
+                What metric coefficient to evaluate, see Notes.
+                
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+                
             squeeze_output : boolean
                 Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
-            values: np.array
-                mapping/metric coefficients evaluated at (eta1, eta2, eta3) 
+            values : np.array
+                Mapping/metric coefficients evaluated at (eta1, eta2, eta3). 
 
         Notes
         -----
@@ -892,13 +911,13 @@ class Domain():
 
         if is_sparse_meshgrid:
             mapping.kernel_evaluate_sparse(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         elif flat_eval:
             mapping.kernel_evaluate_flat(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         else:
             mapping.kernel_evaluate(E1, E2, E3, self.keys_map[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -917,21 +936,25 @@ class Domain():
 
         Parameters
         ----------
-            a:  callable or array-like
+            a : callable or array-like
                 The function a(x, y, z) to be pulled back (as list for components of 1- and 2-forms). 
-            eta1, eta2, eta3:   array-like
-                Logical coordinates to which to pull back
-            kind_fun:   str
-                Which p-form pull back to apply, see keys_pull
+                
+            eta1, eta2, eta3 : array-like
+                Logical coordinates to which to pull back.
+                
+            kind_fun : str
+                Which p-form pull back to apply, see keys_pull.
+                
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+                
             squeeze_output : boolean
                 Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
             values: np.array
-                Pullback of p-form (component) evaluated at (eta1, eta2, eta3)
+                Pullback of p-form (component) evaluated at (eta1, eta2, eta3).
 
         Notes
         -----
@@ -985,13 +1008,13 @@ class Domain():
 
         if is_sparse_meshgrid:
             pb.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         elif flat_eval:
             pb.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         else:
             pb.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -1010,21 +1033,25 @@ class Domain():
 
         Parameters
         -----------
-            a:  callable or array-like
+            a : callable or array-like
                 The function a(eta1, eta2, eta3) to be pushed forward (as list for components of 1- and 2-forms).
-            eta1, eta2, eta3:   array-like
-                Logical coordinates at which to push forward
-            kind_fun:   str
-                Which p-form push forward to apply, see keys_push
+                
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to push forward.
+                
+            kind_fun : str
+                Which p-form push forward to apply, see keys_push.
+                
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+                
             squeeze_output : boolean
                 Whether to remove singleton dimensions in output "values".
 
         Returns
         --------
             values: ndarray
-                Push forward of p-form (component) evaluated at (eta1, eta2, eta3)
+                Push forward of p-form (component) evaluated at (eta1, eta2, eta3).
 
         Notes
         -----
@@ -1060,13 +1087,13 @@ class Domain():
 
         if is_sparse_meshgrid:
             pf.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         elif flat_eval:
             pf.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         else:
             pf.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -1085,21 +1112,25 @@ class Domain():
 
         Parameters
         ----------
-            a:  callable or array-like
-                the function a(eta1, eta2, eta3) to be transformed
-            eta1, eta2, eta3:   array-like
-                logical coordinates to which to transform
-            kind_fun:   str
-                which transform to apply, see keys_transform
+            a : callable or array-like
+                The function a(eta1, eta2, eta3) to be transformed.
+                
+            eta1, eta2, eta3 : array-like
+                Logical coordinates to which to transform.
+                
+            kind_fun : str
+                Which transform to apply, see keys_transform.
+                
             flat_eval : boolean
                 Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)].
+                
             squeeze_output : boolean
                 Whether to remove singleton dimensions in output "values".
 
         Returns
         -------
             values: ndarray
-                transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3)
+                Transformed p-form from norm_vector or scalar (component) evaluated at (eta1, eta2, eta3).
 
         Notes
         -----
@@ -1138,13 +1169,13 @@ class Domain():
 
         if is_sparse_meshgrid:
             tr.kernel_evaluate_sparse(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         elif flat_eval:
             tr.kernel_evaluate_flat(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
         else:
             tr.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_fun], self.kind_map, self.params_map, self.T[0], self.T[1], self.T[2], np.array(
-                self.p), np.array(self.NbaseN), self.cx, self.cy, self.cz, values)
+                self.p), self.indN[0], self.indN[1], self.indN[2], self.cx, self.cy, self.cz, values)
 
         if squeeze_output:
             values = values.squeeze()
@@ -1153,7 +1184,9 @@ class Domain():
             values = values.item()
 
         return values
-
+    
+    # ================================
+    
     def show(self, save_dir=None):
         '''
         Plots isolines (and control point in case on spline mappings) of the 2D domain at eta3 = 0.
@@ -1162,7 +1195,7 @@ class Domain():
         ----------
 
         save_dir : string (optional)
-                if given, the figure is saved according the given directory.
+                If given, the figure is saved according the given directory.
         '''
 
         import matplotlib.pyplot as plt

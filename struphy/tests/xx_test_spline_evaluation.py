@@ -29,6 +29,10 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
     ind_n1 = SPACES.indN[0]
     ind_n2 = SPACES.indN[1]
     ind_n3 = SPACES.indN[2]
+    
+    ind_d1 = SPACES.indD[0]
+    ind_d2 = SPACES.indD[1]
+    ind_d3 = SPACES.indD[2]
 
     # B-spline knot vectors
     t1  = SPACES.T[0]
@@ -90,12 +94,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
         # 2d case
         coeff2d = np.random.rand( nbase_n1+1, nbase_n2+1 )
 
-        kern_leg = eva_2d.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2, nbase_n1, nbase_n2, coeff2d)
+        kern_leg = eva_2d.evaluation_kernel_2d(pn1, pn2, bn1, bn2, span1, span2, ind_n1, ind_n2, coeff2d)
 
         assert np.isnan(kern_leg) == False
         assert np.isinf(kern_leg) == False
 
-        kern = eva_2d.eval_kernel_2d(pn1, pn2, bn1, bn2, ind_n1[ie1,:], ind_n2[ie2,:], coeff2d)
+        kern = eva_2d.evaluation_kernel_2d_slim(pn1, pn2, bn1, bn2, ind_n1[ie1,:], ind_n2[ie2,:], coeff2d)
 
         assert np.isnan(kern) == False
         assert np.isinf(kern) == False
@@ -105,12 +109,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
         # 3d case
         coeff3d = np.random.rand( nbase_n1+1, nbase_n2+1, nbase_n3+1 )
 
-        kern_leg = eva_3d.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n1, nbase_n2, nbase_n3, coeff3d)
+        kern_leg = eva_3d.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, coeff3d)
 
         assert np.isnan(kern_leg) == False
         assert np.isinf(kern_leg) == False
 
-        kern = eva_3d.eval_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
+        kern = eva_3d.evaluation_kernel_3d_slim(pn1, pn2, pn3, bn1, bn2, bn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:],coeff3d)
 
         assert np.isnan(kern) == False
         assert np.isinf(kern) == False
@@ -151,12 +155,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
         coeff2d = np.random.rand( nbase_n1+1, nbase_n2+1 )
 
         # n_n
-        value_leg = eva_2d.evaluate_n_n(t1, t2, pn1, pn2, nbase_n1, nbase_n2, coeff2d, eta1, eta2)
+        value_leg = eva_2d.evaluate(1, 1, t1, t2, pn1, pn2, ind_n1, ind_n2, coeff2d, eta1, eta2)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_n_n(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,:], coeff2d, eta1, eta2)
+        value = eva_2d.evaluate_slim(1, 1, t1, t2, pn1, pn2, ind_n1[ie1, :], ind_n2[ie2, :], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -165,12 +169,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # diffn_n
-        value_leg = eva_2d.evaluate_diffn_n(t1, t2, pn1, pn2, nbase_n1, nbase_n2, coeff2d, eta1, eta2)
+        value_leg = eva_2d.evaluate(3, 1, t1, t2, pn1, pn2, ind_n1, ind_n2, coeff2d, eta1, eta2)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_diffn_n(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,:], coeff2d, eta1, eta2)
+        value = eva_2d.evaluate_slim(3, 1, t1, t2, pn1, pn2, ind_n1[ie1, :], ind_n2[ie2, :], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -179,12 +183,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_diffn
-        value_leg = eva_2d.evaluate_n_diffn(t1, t2, pn1, pn2, nbase_n1, nbase_n2, coeff2d, eta1, eta2)
+        value_leg = eva_2d.evaluate(1, 3, t1, t2, pn1, pn2, ind_n1, ind_n2, coeff2d, eta1, eta2)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_2d.eval_n_diffn(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,:], coeff2d, eta1, eta2)
+        value = eva_2d.evaluate_slim(1, 3, t1, t2, pn1, pn2, ind_n1[ie1, :], ind_n2[ie2, :], coeff2d, eta1, eta2)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -192,46 +196,46 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
         assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
 
 
-        # d_n
-        value_leg = eva_2d.evaluate_d_n(T1, t2, pd1, pn2, nbase_d1, nbase_n2, coeff2d, eta1, eta2)
-
-        assert np.isnan(value_leg) == False
-        assert np.isinf(value_leg) == False
-
-        value = eva_2d.eval_d_n(t1, t2, pn1, pn2, ind_n1[ie1,:pn1], ind_n2[ie2,:], coeff2d, eta1, eta2)
-
-        assert np.isnan(value) == False
-        assert np.isinf(value) == False
-
-        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
-
-
-        # n_d
-        value_leg = eva_2d.evaluate_n_d(t1, T2, pn1, pd2, nbase_n1, nbase_d2, coeff2d, eta1, eta2)
-
-        assert np.isnan(value_leg) == False
-        assert np.isinf(value_leg) == False
-
-        value = eva_2d.eval_n_d(t1, t2, pn1, pn2, ind_n1[ie1,:], ind_n2[ie2,:pn2], coeff2d, eta1, eta2)
-
-        assert np.isnan(value) == False
-        assert np.isinf(value) == False
-
-        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
-
-
-        # d_d
-        value_leg = eva_2d.evaluate_d_d(T1, T2, pd1, pd2, nbase_d1, nbase_d2, coeff2d, eta1, eta2)
-
-        assert np.isnan(value_leg) == False
-        assert np.isinf(value_leg) == False
-
-        value = eva_2d.eval_d_d(t1, t2, pn1, pn2, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], coeff2d, eta1, eta2)
-
-        assert np.isnan(value) == False
-        assert np.isinf(value) == False
-
-        assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
+        ## d_n
+        #value_leg = eva_2d.evaluate(2, 1, T1, t2, pd1, pn2, ind_d1, ind_n2, coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value_leg) == False
+        #assert np.isinf(value_leg) == False
+#
+        #value = eva_2d.evaluate_slim(2, 1, T1, t2, pd1, pn2, ind_d1[ie1, :], ind_n2[ie2, :], coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value) == False
+        #assert np.isinf(value) == False
+#
+        #assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
+#
+#
+        ## n_d
+        #value_leg = eva_2d.evaluate(1, 2, t1, T2, pn1, pd2, ind_n1, ind_d2, coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value_leg) == False
+        #assert np.isinf(value_leg) == False
+#
+        #value = eva_2d.evaluate_slim(1, 2, t1, T2, pn1, pd2, ind_n1[ie1, :], ind_d2[ie2, :], coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value) == False
+        #assert np.isinf(value) == False
+#
+        #assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
+#
+#
+        ## d_d
+        #value_leg = eva_2d.evaluate(2, 2, T1, T2, pd1, pd2, ind_d1, ind_d2, coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value_leg) == False
+        #assert np.isinf(value_leg) == False
+#
+        #value = eva_2d.evaluate_slim(2, 2, T1, T2, pd1, pd2, ind_d1[ie1, :], ind_d2[ie2, :], coeff2d, eta1, eta2)
+#
+        #assert np.isnan(value) == False
+        #assert np.isinf(value) == False
+#
+        #assert np.round(value - value_leg, decimals) == 0. , 'value: '+str(value)+'  legacy: '+str(value_leg)
     
 
     for j in range(N):
@@ -274,12 +278,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_n_n
-        value_leg = eva_3d.evaluate_n_n_n(t1, t2, t3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 1, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1, ind_n2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_n_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 1, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -288,12 +292,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # diffn_n_n
-        value_leg = eva_3d.evaluate_diffn_n_n(t1, t2, t3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(3, 1, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1, ind_n2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_diffn_n_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(3, 1, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -302,12 +306,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_diffn_n
-        value_leg = eva_3d.evaluate_n_diffn_n(t1, t2, t3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 3, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1, ind_n2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_diffn_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 3, 1, t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -316,12 +320,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_n_diffn
-        value_leg = eva_3d.evaluate_n_n_diffn(t1, t2, t3, pn1, pn2, pn3, nbase_n1, nbase_n2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 1, 3, t1, t2, t3, pn1, pn2, pn3, ind_n1, ind_n2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_n_diffn(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 1, 3, t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -330,12 +334,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # d_n_n
-        value_leg = eva_3d.evaluate_d_n_n(T1, t2, t3, pd1, pn2, pn3, nbase_d1, nbase_n2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(2, 1, 1, T1, t2, t3, pd1, pn2, pn3, ind_d1, ind_n2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_n_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(2, 1, 1, T1, t2, t3, pd1, pn2, pn3, ind_d1[ie1, :], ind_n2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -344,12 +348,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_d_n
-        value_leg = eva_3d.evaluate_n_d_n(t1, T2, t3, pn1, pd2, pn3, nbase_n1, nbase_d2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 2, 1, t1, T2, t3, pn1, pd2, pn3, ind_n1, ind_d2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:pn2], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 2, 1, t1, T2, t3, pn1, pd2, pn3, ind_n1[ie1, :], ind_d2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -358,12 +362,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_n_d
-        value_leg = eva_3d.evaluate_n_n_d(t1, t2, T3, pn1, pn2, pd3, nbase_n1, nbase_n2, nbase_d3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 1, 2, t1, t2, T3, pn1, pn2, pd3, ind_n1, ind_n2, ind_d3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 1, 2, t1, t2, T3, pn1, pn2, pd3, ind_n1[ie1, :], ind_n2[ie2, :], ind_d3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -372,12 +376,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # d_d_n
-        value_leg = eva_3d.evaluate_d_d_n(T1, T2, t3, pd1, pd2, pn3, nbase_d1, nbase_d2, nbase_n3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(2, 2, 1, T1, T2, t3, pd1, pd2, pn3, ind_d1, ind_d2, ind_n3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_d_n(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], ind_n3[ie3,:], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(2, 2, 1, T1, T2, t3, pd1, pd2, pn3, ind_d1[ie1, :], ind_d2[ie2, :], ind_n3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -386,12 +390,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # d_n_d
-        value_leg = eva_3d.evaluate_d_n_d(T1, t2, T3, pd1, pn2, pd3, nbase_d1, nbase_n2, nbase_d3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(2, 1, 2, T1, t2, T3, pd1, pn2, pd3, ind_d1, ind_n2, ind_d3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_n_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(2, 1, 2, T1, t2, T3, pd1, pn2, pd3, ind_d1[ie1, :], ind_n2[ie2, :], ind_d3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -400,12 +404,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # n_d_d
-        value_leg = eva_3d.evaluate_n_d_d(t1, T2, T3, pn1, pd2, pd3, nbase_n1, nbase_d2, nbase_d3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(1, 2, 2, t1, T2, T3, pn1, pd2, pd3, ind_n1, ind_d2, ind_d3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_n_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:], ind_n2[ie2,:pn2], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(1, 2, 2, t1, T2, T3, pn1, pd2, pd3, ind_n1[ie1, :], ind_d2[ie2, :], ind_d3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
@@ -414,12 +418,12 @@ def test_Spline_Evaluation(Nel, p, spl_kind, N):
 
 
         # d_d_d
-        value_leg = eva_3d.evaluate_d_d_d(T1, T2, T3, pd1, pd2, pd3, nbase_d1, nbase_d2, nbase_d3, coeff3d, eta1, eta2, eta3)
+        value_leg = eva_3d.evaluate(2, 2, 2, T1, T2, T3, pd1, pd2, pd3, ind_d1, ind_d2, ind_d3, coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value_leg) == False
         assert np.isinf(value_leg) == False
 
-        value = eva_3d.eval_d_d_d(t1, t2, t3, pn1, pn2, pn3, ind_n1[ie1,:pn1], ind_n2[ie2,:pn2], ind_n3[ie3,:pn3], coeff3d, eta1, eta2, eta3)
+        value = eva_3d.evaluate_slim(2, 2, 2, T1, T2, T3, pd1, pd2, pd3, ind_d1[ie1, :], ind_d2[ie2, :], ind_d3[ie3, :], coeff3d, eta1, eta2, eta3)
 
         assert np.isnan(value) == False
         assert np.isinf(value) == False
