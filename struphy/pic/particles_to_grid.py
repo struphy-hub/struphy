@@ -19,21 +19,21 @@ class Accumulator():
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
 
     :math:`A^{\mu,\\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
-    to be defined in the module **struphy.pic.accumulators**.
+    to be defined in the module **struphy.pic.accum_kernels**.
 
     Parameters
     ----------
         DOMAIN : struphy.geometry.domain_3d.Domain
             Domain object for mapping evaluations.
 
-        DR : struphy.psydac_api.psydac_derham.DerhamBuild
+        DR : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
         space_id : str
             Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1^3) to be accumulated into.
 
         accumulator_name : str
-            Name of accumulator function to be loaded from struphy/pic/accumulators.py.
+            Name of accumulator function to be loaded from struphy/pic/accum_kernels.py.
 
         args_add : list
             Additional arguments to be passed to the accumulator function, besides the mandatory arguments
@@ -46,6 +46,11 @@ class Accumulator():
 
         symmetry : str
             In case of space_id=Hcurl/Hdiv, the symmetry property of the block matrix: diag, asym, symm or None (=full matrix, default)
+
+    Note
+    ----
+        Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accum_kernels.py``. 
+        Please follow the docstring in `struphy.pic.accum_kernels.__docstring__`.
     '''
 
     def __init__(self, DOMAIN, DR, space_id, accumulator_name, *args_add, do_vector=False, symmetry=None):
@@ -660,12 +665,12 @@ class Accumulator():
 
     @property
     def accumulator_name(self):
-        '''String that identifies which function to load from the module struphy.pic.accumulators.'''
+        '''String that identifies which function to load from the module struphy.pic.accum_kernels.'''
         return self._accumulator_name
 
     @property
     def accumulator(self):
-        '''The function loaded from the module struphy.pic.accumulators.'''
+        '''The function loaded from the module struphy.pic.accum_kernels.'''
         return self._accumulator
 
     @property

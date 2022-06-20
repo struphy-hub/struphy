@@ -23,7 +23,7 @@ class Field:
             space_id: str
                 Space identifier for the field (H1, Hcurl, Hdiv or L2), specified in the parameters.yml file by the user.
 
-            DR : struphy.psydac_api.psydac_derham.DerhamBuild
+            DR : struphy.psydac_api.psydac_derham.Derham
                 Discrete Derham complex. 
         '''
 

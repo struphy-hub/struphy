@@ -1,5 +1,5 @@
 from time import time
-from struphy.psydac_api.psydac_derham import DerhamBuild
+from struphy.psydac_api.psydac_derham import Derham
 from struphy.geometry.domain_3d import Domain
 
 from mpi4py import MPI
@@ -40,7 +40,7 @@ def main():
 
     Np_per_cell = 8
 
-    DR = DerhamBuild(Nel, p, spl_kind, F=F_psy, comm=mpi_comm)
+    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=mpi_comm)
 
     # particle loading
     np.random.seed(1607)

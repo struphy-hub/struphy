@@ -25,6 +25,7 @@ Indices and tables
    sections/propagators
    sections/domains
    sections/backgrounds
+   sections/dispersions
    sections/examples
    sections/appendix
    

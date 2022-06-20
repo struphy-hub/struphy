@@ -47,7 +47,7 @@ Pullback to logical space
 
 .. _mhd_equil:
 
-MHD equlibiria
+MHD equilibria
 --------------
 
 .. _mhd_equil_p:

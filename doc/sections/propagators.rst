@@ -3,6 +3,7 @@
 Struphy propagators
 ===================
 
-Currently available propagators are
-
-.. autoclass:: struphy.models.codes.propagators.StepMaxwell
+.. automodule:: struphy.models.codes.propagators
+    :members:
+    :undoc-members:
+    :exclude-members: Propagator, push, variables
