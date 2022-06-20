@@ -1,22 +1,28 @@
-# import modules for B-spline evaluation
-import struphy.feec.bsplines_kernels as bsp
-
-import struphy.feec.basics.spline_evaluation_3d as eva3
-
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.core as linalg
 
+# import modules for B-spline evaluation
+from struphy.feec.bsplines_kernels import basis_funs_all, basis_funs_and_der
+from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d
+
 # import modules for mapping evaluation
-import struphy.geometry.mappings_3d_fast as mapping_fast
+from struphy.geometry.mappings_3d import f_df_pic
 
 
 
 # ==========================================================================================================
-def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b2_1 : 'double[:,:,:]', b2_2 : 'double[:,:,:]', b2_3 : 'double[:,:,:]', b0 : 'double[:,:,:]', u1 : 'double[:,:,:]', u2 : 'double[:,:,:]', u3 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]', mu : 'double[:]'):
+def pusher_v_mhd_electric(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', b2_1 : 'float[:,:,:]', b2_2 : 'float[:,:,:]', b2_3 : 'float[:,:,:]', b0 : 'float[:,:,:]', u1 : 'float[:,:,:]', u2 : 'float[:,:,:]', u3 : 'float[:,:,:]', basis_u : int, kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mu : 'float[:]'):
     
-    from numpy import empty, zeros, sin, cos, pi
+    from numpy import shape, empty, zeros
+    from numpy import sin, cos, pi
+    
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -74,6 +80,11 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1   = pf[0]
     pf2   = pf[1]
@@ -110,6 +121,7 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
     dfinv_t = empty((3, 3), dtype=float)
     # ==========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
     #$ omp for 
@@ -125,18 +137,18 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
         
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv_with_det(df, det_df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -144,14 +156,14 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
         
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions and derivatives
-        bsp.basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
-        bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
-        bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
+        basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
+        basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
+        basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -165,27 +177,27 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
         # velocity field (0-form, push-forward with df)
         if basis_u == 0:
             
-            u[0] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2)
-            u[2] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3)
+            u[0] = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, u1)
+            u[1] = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, u2)
+            u[2] = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, u3)
             
             linalg.matrix_vector(df, u, u_cart)
         
         # velocity field (1-form, push forward with df^(-T))
         elif basis_u == 1:
             
-            u[0] = eva3.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1)
-            u[1] = eva3.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2)
-            u[2] = eva3.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3)
+            u[0] = evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, ind_d1, ind_n2, ind_n3, u1)
+            u[1] = evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, ind_n1, ind_d2, ind_n3, u2)
+            u[2] = evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, ind_n1, ind_n2, ind_d3, u3)
             
             linalg.matrix_vector(dfinv_t, u, u_cart)
         
         # velocity field (2-form, push forward with df/|det df|)
         elif basis_u == 2:
             
-            u[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1)
-            u[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2)
-            u[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3)
+            u[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, ind_n1, ind_d2, ind_d3, u1)
+            u[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, ind_d1, ind_n2, ind_d3, u2)
+            u[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, ind_d1, ind_d2, ind_n3, u3)
             
             linalg.matrix_vector(df, u, u_cart)
             
@@ -195,9 +207,9 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
             
         
         # magnetic field (2-form)
-        b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, ind_n1, ind_d2, ind_d3, b2_1)
+        b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, ind_d1, ind_n2, ind_d3, b2_2)
+        b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, ind_d1, ind_d2, ind_n3, b2_3)
         
         # push-forward to physical domain 
         linalg.matrix_vector(df, b, b_cart)
@@ -208,9 +220,9 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
         
         
         # gradient of absolute value of magnetic field (1-form)
-        b_grad[0] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, der1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0)
-        b_grad[1] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, bn1, der2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0)
-        b_grad[2] = eva3.evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, der3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0)
+        b_grad[0] = evaluation_kernel_3d(pn1, pn2, pn3, der1, bn2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, b0)
+        b_grad[1] = evaluation_kernel_3d(pn1, pn2, pn3, bn1, der2, bn3, span1, span2, span3, ind_n1, ind_n2, ind_n3, b0)
+        b_grad[2] = evaluation_kernel_3d(pn1, pn2, pn3, bn1, bn2, der3, span1, span2, span3, ind_n1, ind_n2, ind_n3, b0)
             
         # push-forward to physical domain 
         linalg.matrix_vector(dfinv_t, b_grad, b_grad_cart)
@@ -237,11 +249,17 @@ def pusher_v_mhd_electric(particles : 'double[:,:]', dt : 'double', t1 : 'double
     
     
 # ==========================================================================================================
-def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b2_1 : 'double[:,:,:]', b2_2 : 'double[:,:,:]', b2_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def pusher_vxb_implicit(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', b2_1 : 'float[:,:,:]', b2_2 : 'float[:,:,:]', b2_3 : 'float[:,:,:]', kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, zeros, sin, cos, pi
+    from numpy import shape, empty, zeros
+    from numpy import sin, cos, pi
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -288,6 +306,11 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1   = pf[0]
     pf2   = pf[1]
@@ -342,6 +365,7 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
     identity[2, 2] = 1.
     # ===========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, v, temp_mat1, temp_mat2, rhs, lhs, det_lhs, lhs1, lhs2, lhs3, det_lhs1, det_lhs2, det_lhs3) firstprivate(b_prod)
     #$ omp for 
@@ -357,18 +381,17 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
         
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv_with_det(df, det_df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -376,14 +399,14 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
         
          
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -396,9 +419,9 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
         
         
         # magnetic field (2-form)
-        b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, ind_n1, ind_d2, ind_d3, b2_1)
+        b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, ind_d1, ind_n2, ind_d3, b2_2)
+        b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, ind_d1, ind_d2, ind_n3, b2_3)
             
         
         b_prod[0, 1] = -b[2]
@@ -457,11 +480,17 @@ def pusher_vxb_implicit(particles : 'double[:,:]', dt : 'double', t1 : 'double[:
     
     
 # ==========================================================================================================
-def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', b2_1 : 'double[:,:,:]', b2_2 : 'double[:,:,:]', b2_3 : 'double[:,:,:]', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def pusher_vxb(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', b2_1 : 'float[:,:,:]', b2_2 : 'float[:,:,:]', b2_3 : 'float[:,:,:]', kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, zeros, sqrt, cos, sin, pi
+    from numpy import shape, empty, zeros
+    from numpy import sqrt, cos, sin, pi
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -514,6 +543,11 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1   = pf[0]
     pf2   = pf[1]
@@ -548,6 +582,7 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
     fx = empty( 3    , dtype=float)
     # ==========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
     #$ omp for 
@@ -563,12 +598,11 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
         
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -576,14 +610,14 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
         
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
+        basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
+        basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
+        basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -595,9 +629,9 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
         bd3[:] = b3[pd3, :pn3] * d3[:]
         
         # magnetic field (2-form)
-        b[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, ind_n1, ind_d2, ind_d3, b2_1)
+        b[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, ind_d1, ind_n2, ind_d3, b2_2)
+        b[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, ind_d1, ind_d2, ind_n3, b2_3)
         
         # push-forward to physical domain
         linalg.matrix_vector(df, b, b_cart)
@@ -640,11 +674,16 @@ def pusher_vxb(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 
 
 
 # ==========================================================================================================
-def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', u11 : 'double[:,:,:]', u12 : 'double[:,:,:]', u13 : 'double[:,:,:]', u21 : 'double[:,:,:]', u22 : 'double[:,:,:]', u23 : 'double[:,:,:]', u31 : 'double[:,:,:]', u32 : 'double[:,:,:]', u33 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def pusher_v_pressure_full(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', u11 : 'float[:,:,:]', u12 : 'float[:,:,:]', u13 : 'float[:,:,:]', u21 : 'float[:,:,:]', u22 : 'float[:,:,:]', u23 : 'float[:,:,:]', u31 : 'float[:,:,:]', u32 : 'float[:,:,:]', u33 : 'float[:,:,:]', basis_u : int, kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, zeros
+    from numpy import shape, empty, zeros
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -698,6 +737,11 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1  = pf[0]
     pf2  = pf[1]
@@ -734,6 +778,7 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
     dfinv_t = empty((3, 3), dtype=float)
     # ==========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private(ip, eta1, eta2, eta3, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, u_cart)
     #$ omp for 
@@ -746,15 +791,14 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         v[:] = particles[3:6, ip]
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -762,14 +806,14 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions and derivatives
-        bsp.basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
-        bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
-        bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
+        basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
+        basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
+        basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -787,15 +831,15 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         # Evaluate G.dot(X_dot(u) at the particle positions
         if basis_u == 1:
 
-            u[0] = eva3.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u11 * v[0] + u21 * v[1] + u31 * v[2])
-            u[1] = eva3.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u12 * v[0] + u22 * v[1] + u32 * v[2])
-            u[2] = eva3.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u13 * v[0] + u23 * v[1] + u33 * v[2])
+            u[0] = evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, ind_d1, ind_n2, ind_n3, u11 * v[0] + u21 * v[1] + u31 * v[2])
+            u[1] = evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, ind_n1, ind_d2, ind_n3, u12 * v[0] + u22 * v[1] + u32 * v[2])
+            u[2] = evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, ind_n1, ind_n2, ind_d3, u13 * v[0] + u23 * v[1] + u33 * v[2])
 
         elif basis_u == 2:
 
-            u[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2- 1, span3- 1, nbase_n[0], nbase_d[1], nbase_d[2], u11 * v[0] + u21 * v[1] + u31 * v[2])
-            u[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1- 1, span2, span3- 1, nbase_d[0], nbase_n[1], nbase_d[2], u12 * v[0] + u22 * v[1] + u32 * v[2])
-            u[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1- 1, span2- 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u13 * v[0] + u23 * v[1] + u33 * v[2])
+            u[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2- 1, span3- 1, ind_n1, ind_d2, ind_d3, u11 * v[0] + u21 * v[1] + u31 * v[2])
+            u[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1- 1, span2, span3- 1, ind_d1, ind_n2, ind_d3, u12 * v[0] + u22 * v[1] + u32 * v[2])
+            u[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1- 1, span2- 1, span3, ind_d1, ind_d2, ind_n3, u13 * v[0] + u23 * v[1] + u33 * v[2])
         
         linalg.matrix_vector(dfinv_t, u, u_cart)
         # ==========================================
@@ -816,11 +860,16 @@ def pusher_v_pressure_full(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
     
     
 # ==========================================================================================================
-def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', u11 : 'double[:,:,:]', u12 : 'double[:,:,:]', u13 : 'double[:,:,:]', u21 : 'double[:,:,:]', u22 : 'double[:,:,:]', u23 : 'double[:,:,:]', u31 : 'double[:,:,:]', u32 : 'double[:,:,:]', u33 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def pusher_v_pressure_perp(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', u11 : 'float[:,:,:]', u12 : 'float[:,:,:]', u13 : 'float[:,:,:]', u21 : 'float[:,:,:]', u22 : 'float[:,:,:]', u23 : 'float[:,:,:]', u31 : 'float[:,:,:]', u32 : 'float[:,:,:]', u33 : 'float[:,:,:]', basis_u : int, kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, zeros
+    from numpy import shape, empty, zeros
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -874,6 +923,11 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1  = pf[0]
     pf2  = pf[1]
@@ -910,6 +964,7 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
     dfinv_t = empty((3, 3), dtype=float)
     # ==========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private(ip, eta1, eta2, eta3, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, u, u_cart)
     #$ omp for 
@@ -922,15 +977,14 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         v[:] = particles[3:6, ip]
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -938,14 +992,14 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions and derivatives
-        bsp.basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
-        bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
-        bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
+        basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
+        basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
+        basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -959,15 +1013,15 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
         # Evaluate G.dot(X_dot(u) at the particle positions
         if basis_u == 1:
 
-            u[0] = eva3.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u21 * v[1] + u31 * v[2])
-            u[1] = eva3.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u22 * v[1] + u32 * v[2])
-            u[2] = eva3.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u23 * v[1] + u33 * v[2])
+            u[0] = evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, ind_d1, ind_n2, ind_n3, u21 * v[1] + u31 * v[2])
+            u[1] = evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, ind_n1, ind_d2, ind_n3, u22 * v[1] + u32 * v[2])
+            u[2] = evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, ind_n1, ind_n2, ind_d3, u23 * v[1] + u33 * v[2])
 
         elif basis_u == 2:
 
-            u[0] = eva3.evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2- 1, span3- 1, nbase_n[0], nbase_d[1], nbase_d[2], + u21 * v[1] + u31 * v[2])
-            u[1] = eva3.evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1- 1, span2, span3- 1, nbase_d[0], nbase_n[1], nbase_d[2], + u22 * v[1] + u32 * v[2])
-            u[2] = eva3.evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1- 1, span2- 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], + u23 * v[1] + u33 * v[2])
+            u[0] = evaluation_kernel_3d(pn1, pd2, pd3, bn1, bd2, bd3, span1, span2- 1, span3- 1, ind_n1, ind_d2, ind_d3, + u21 * v[1] + u31 * v[2])
+            u[1] = evaluation_kernel_3d(pd1, pn2, pd3, bd1, bn2, bd3, span1- 1, span2, span3- 1, ind_d1, ind_n2, ind_d3, + u22 * v[1] + u32 * v[2])
+            u[2] = evaluation_kernel_3d(pd1, pd2, pn3, bd1, bd2, bn3, span1- 1, span2- 1, span3, ind_d1, ind_d2, ind_n3, + u23 * v[1] + u33 * v[2])
         
         linalg.matrix_vector(dfinv_t, u, u_cart)
         # ==========================================
@@ -985,11 +1039,17 @@ def pusher_v_pressure_perp(particles : 'double[:,:]', dt : 'double', t1 : 'doubl
 
 
 # ==========================================================================================================
-def pusher_v_cold_plasma(particles : 'double[:,:]', dt : 'double', t1 : 'double[:]', t2 : 'double[:]', t3 : 'double[:]', p : 'int[:]', nel : 'int[:]', nbase_n : 'int[:]', nbase_d : 'int[:]', np : 'int', e1 : 'double[:,:,:]', e2 : 'double[:,:,:]', e3 : 'double[:,:,:]', basis_u : 'int', kind_map : 'int', params_map : 'double[:]', tf1 : 'double[:]', tf2 : 'double[:]', tf3 : 'double[:]', pf : 'int[:]', nelf : 'int[:]', nbasef : 'int[:]', cx : 'double[:,:,:]', cy : 'double[:,:,:]', cz : 'double[:,:,:]'):
+def pusher_v_cold_plasma(particles : 'float[:,:]', dt : float, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', e1 : 'float[:,:,:]', e2 : 'float[:,:,:]', e3 : 'float[:,:,:]', basis_u : int, kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
-    from numpy import empty, zeros, sin, cos, pi
+    from numpy import shape, empty, zeros
+    from numpy import sin, cos, pi
     
     # ============== for magnetic field evaluation ============
+    # number of elements
+    nel1 = shape(ind_n1)[0]
+    nel2 = shape(ind_n2)[0]
+    nel3 = shape(ind_n3)[0]
+    
     # spline degrees
     pn1 = p[0]
     pn2 = p[1]
@@ -1040,6 +1100,11 @@ def pusher_v_cold_plasma(particles : 'double[:,:]', dt : 'double', t1 : 'double[
     
     
     # ================ for mapping evaluation ==================
+    # number of elements
+    nel1f = shape(ind1f)[0]
+    nel2f = shape(ind2f)[0]
+    nel3f = shape(ind3f)[0]
+    
     # spline degrees
     pf1   = pf[0]
     pf2   = pf[1]
@@ -1076,6 +1141,7 @@ def pusher_v_cold_plasma(particles : 'double[:,:]', dt : 'double', t1 : 'double[
     dfinv_t = empty((3, 3), dtype=float)
     # ==========================================================
     
+    np = shape(particles)[1]
     
     #$ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, bn1, bn2, bn3, bd1, bd2, bd3, e, e_cart)
     #$ omp for 
@@ -1091,29 +1157,27 @@ def pusher_v_cold_plasma(particles : 'double[:,:]', dt : 'double', t1 : 'double[
         
         
         # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + pf1
-        span2f = int(eta2*nelf[1]) + pf2
-        span3f = int(eta3*nelf[2]) + pf3
+        span1f = int(eta1*nel1f) + pf1
+        span2f = int(eta2*nel2f) + pf2
+        span3f = int(eta3*nel3f) + pf3
         
-        # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
         
-  
         # evaluate inverse transosed Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        linalg.matrix_inv(df, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         # ==========================================
         
         
         # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
+        span1 = int(eta1*nel1) + pn1
+        span2 = int(eta2*nel2) + pn2
+        span3 = int(eta3*nel3) + pn3
         
         # evaluation of basis functions and derivatives
-        bsp.basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
-        bsp.basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
-        bsp.basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
+        basis_funs_and_der(t1, pn1, eta1, span1, l1, r1, b1, d1, der1)
+        basis_funs_and_der(t2, pn2, eta2, span2, l2, r2, b2, d2, der2)
+        basis_funs_and_der(t3, pn3, eta3, span3, l3, r3, b3, d3, der3)
         
         # N-splines and D-splines at particle positions
         bn1[:] = b1[pn1, :]
@@ -1127,9 +1191,9 @@ def pusher_v_cold_plasma(particles : 'double[:,:]', dt : 'double', t1 : 'double[
         # velocity field (1-form, push forward with df^(-T))
         if basis_u == 1:
             
-            e[0] = eva3.evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], e1)
-            e[1] = eva3.evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], e2)
-            e[2] = eva3.evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], e3)
+            e[0] = evaluation_kernel_3d(pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, ind_d1, ind_n2, ind_n3, e1)
+            e[1] = evaluation_kernel_3d(pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, ind_n1, ind_d2, ind_n3, e2)
+            e[2] = evaluation_kernel_3d(pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, ind_n1, ind_n2, ind_d3, e3)
             
             linalg.matrix_vector(dfinv_t, e, e_cart)
 
