@@ -41,6 +41,7 @@ setup(
         'sympy<1.7,>=1.2',
         'sympde',
         'pytest',
+        'pytest-mpi',
         'mistune<2',
         'sphinx==4.2.0',
         'sphinxcontrib-napoleon',
