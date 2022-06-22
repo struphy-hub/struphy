@@ -110,6 +110,30 @@ def cross(a : 'float[:]', b : 'float[:]', c : 'float[:]'):
     c[0] = a[1]*b[2] - a[2]*b[1]
     c[1] = a[2]*b[0] - a[0]*b[2]
     c[2] = a[0]*b[1] - a[1]*b[0]
+
+
+# =======================================================
+def outer(a : 'float[:]', b : 'float[:]', c : 'float[:,:]'):
+    """
+    Computes the outer product of two vectors of length 3. 
+    
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (vector) of shape (3,).
+        
+        b : array[float]
+            The second input array (vector) of shape (3,).
+            
+        c : array[float]
+            The output array (matrix) of shape (3, 3) which is the outer product c_ij = a_i*b_j.
+    """
+    
+    c[:, :] = 0.
+    
+    for i in range(3):
+        for j in range(3):
+                c[i, j] = a[i] * b[j] 
     
     
 # =========================================

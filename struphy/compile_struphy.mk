@@ -59,8 +59,9 @@ PS   := ${path_lib}pic/sampling
 
 PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
 PLM  := ${path_lib}psydac_api/mass_kernels_psydac
+BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
 
-SOURCES := $(LAC).py $(LAT).py $(BS).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(KPG).py $(KPGM).py $(PS).py $(PLP).py $(PLM).py
+SOURCES := $(LAC).py $(LAT).py $(BS).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(PB3).py $(PF3).py $(TR3).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(KPG).py $(KPGM).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -166,6 +167,9 @@ $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)
     
 $(PLM)$(SO_EXT) : $(PLM).py
+	pyccel $< $(FLAGS)
+
+$(BTS)$(SO_EXT) : $(BTS).py
 	pyccel $< $(FLAGS)
 
 #--------------------------------------

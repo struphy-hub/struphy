@@ -275,6 +275,8 @@ unit_tests:
   stage: test
 
   script:
+    - cd ${ENV_PATH}/struphy/tests_mpi/
+    - mpirun -n 2 pytest --with-mpi 
     - cd ${ENV_PATH}/struphy/tests/
     - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
     - cd $CI_PROJECT_DIR
