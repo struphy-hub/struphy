@@ -89,7 +89,7 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
         for k in dir(DR.V1):
             if k[0] != '_' and k != 'comm' and 'eval_' not in k:
                 print(k, getattr(DR.V1, k))
-        print('\nThe .space attribute of V0 contains three 1d SplineSpace objects, whereas for V1 it contains TensorFemSpace objects (V0 is a TensorFemSpace).')
+        print('\nThe .spaces attribute of V0 contains three 1d SplineSpace objects, whereas for V1 it contains TensorFemSpace objects (V0 is a TensorFemSpace).')
         print('\n###### DR.V0.vector_space (StencilVectorSpace) attributes (rank 0) ######')
         for k in dir(DR.V0.vector_space):
             if k[0] != '_' and 'reduce_' not in k:

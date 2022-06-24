@@ -45,14 +45,14 @@ __all__ = ['fill_mat11_v1',
             ]
 """
 
-# =====================================================================================================
-def fill_mat11_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
+
+def fill_mat11_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -67,11 +67,11 @@ def fill_mat11_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat11 : array
             matrix in which the filling11 times the basis functions of V1 is to be written
@@ -81,10 +81,10 @@ def fill_mat11_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
 
     # (DNN DNN)
     for il1 in range(pd1 + 1):
@@ -104,16 +104,16 @@ def fill_mat11_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat11[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat12_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
+
+def fill_mat12_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -134,11 +134,11 @@ def fill_mat12_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat12 : array
             matrix in which the filling12 times the basis functions of V1 is to be written
@@ -148,11 +148,11 @@ def fill_mat12_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (DNN NDN)
     for il1 in range(pd1 + 1):
@@ -172,16 +172,16 @@ def fill_mat12_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat12[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat13_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
+
+def fill_mat13_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling13 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -202,11 +202,11 @@ def fill_mat13_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat13 : array
             matrix in which the filling13 times the basis functions of V1 is to be written
@@ -216,16 +216,16 @@ def fill_mat13_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DNN NND)
     for il1 in range(pd1 + 1):
         i1  = ie1 + il1
-        bi1 = bd1[il1] * filling12
+        bi1 = bd1[il1] * filling13
         for il2 in range(pn2 + 1):
             i2  = ie2 + il2
             bi2 = bi1 * bn2[il2]
@@ -240,16 +240,16 @@ def fill_mat13_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat12[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat21_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
+
+def fill_mat21_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -270,11 +270,11 @@ def fill_mat21_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat21 : array
             matrix in which the filling21 times the basis functions of V1 is to be written
@@ -284,11 +284,11 @@ def fill_mat21_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (NDN DNN)
     for il1 in range(pn1 + 1):
@@ -308,16 +308,16 @@ def fill_mat21_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat21[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat22_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
+
+def fill_mat22_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -332,11 +332,11 @@ def fill_mat22_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat22 : array
             matrix in which the filling22 times the basis functions of V1 is to be written
@@ -346,10 +346,10 @@ def fill_mat22_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (NDN NDN)
     for il1 in range(pn1 + 1):
@@ -369,16 +369,16 @@ def fill_mat22_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat22[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat23_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
+
+def fill_mat23_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -399,11 +399,11 @@ def fill_mat23_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat23 : array
             matrix in which the filling32 times the basis functions of V1 is to be written
@@ -413,11 +413,11 @@ def fill_mat23_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDN NND)
     for il1 in range(pn1 + 1):
@@ -437,16 +437,16 @@ def fill_mat23_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat23[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat31_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
+
+def fill_mat31_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -467,11 +467,11 @@ def fill_mat31_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat31 : array
             matrix in which the filling13 times the basis functions of V1 is to be written
@@ -481,11 +481,11 @@ def fill_mat31_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND DNN)
     for il1 in range(pn1 + 1):
@@ -505,16 +505,16 @@ def fill_mat31_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat31[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat32_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
+
+def fill_mat32_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -535,11 +535,11 @@ def fill_mat32_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat32 : array
             matrix in which the filling32 times the basis functions of V1 is to be written
@@ -549,11 +549,11 @@ def fill_mat32_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND NDN)
     for il1 in range(pn1 + 1):
@@ -573,16 +573,16 @@ def fill_mat32_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat32[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat33_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
+
+def fill_mat33_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -597,11 +597,11 @@ def fill_mat33_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat33 : array
             matrix in which the filling33 times the basis functions of V1 is to be written
@@ -611,10 +611,10 @@ def fill_mat33_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND NND)
     for il1 in range(pn1 + 1):
@@ -634,16 +634,16 @@ def fill_mat33_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat33[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat11_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
+
+def fill_mat11_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -658,11 +658,11 @@ def fill_mat11_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat11 : array
             matrix in which the filling11 times the basis functions of V2 is to be written
@@ -672,11 +672,11 @@ def fill_mat11_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD NDD)
     for il1 in range(pn1 + 1):
@@ -696,16 +696,16 @@ def fill_mat11_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat11[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat12_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
+
+def fill_mat12_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -726,11 +726,11 @@ def fill_mat12_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat12 : array
             matrix in which the filling12 times the basis functions of V2 is to be written
@@ -740,12 +740,12 @@ def fill_mat12_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD DND)
     for il1 in range(pn1 + 1):
@@ -765,16 +765,16 @@ def fill_mat12_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat12[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat13_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float'):
+
+def fill_mat13_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -795,11 +795,11 @@ def fill_mat13_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat13 : array
             matrix in which the filling13 times the basis functions of V2 is to be written
@@ -809,12 +809,12 @@ def fill_mat13_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd1 = p[0] - 1
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd1 = pn[0] - 1
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD DDN)
     for il1 in range(pn1 + 1):
@@ -834,16 +834,16 @@ def fill_mat13_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat13[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat21_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
+
+def fill_mat21_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -864,11 +864,11 @@ def fill_mat21_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat21 : array
             matrix in which the filling21 times the basis functions of V2 is to be written
@@ -878,12 +878,12 @@ def fill_mat21_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND NDD)
     for il1 in range(pd1 + 1):
@@ -903,16 +903,16 @@ def fill_mat21_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat21[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat22_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
+
+def fill_mat22_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -927,11 +927,11 @@ def fill_mat22_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat22 : array
             matrix in which the filling22 times the basis functions of V2 is to be written
@@ -941,11 +941,11 @@ def fill_mat22_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND DND)
     for il1 in range(pd1 + 1):
@@ -965,16 +965,16 @@ def fill_mat22_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat22[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat23_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
+
+def fill_mat23_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -995,11 +995,11 @@ def fill_mat23_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat23 : array
             matrix in which the filling23 times the basis functions of V2 is to be written
@@ -1009,12 +1009,12 @@ def fill_mat23_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND DDN)
     for il1 in range(pd1 + 1):
@@ -1034,16 +1034,16 @@ def fill_mat23_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat23[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat31_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
+
+def fill_mat31_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1064,11 +1064,11 @@ def fill_mat31_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat31 : array
             matrix in which the filling31 times the basis functions of V2 is to be written
@@ -1078,12 +1078,12 @@ def fill_mat31_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd1 = p[0] - 1
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd1 = pn[0] - 1
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DDN NDD)
     for il1 in range(pd1 + 1):
@@ -1103,16 +1103,16 @@ def fill_mat31_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat31[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat32_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
+
+def fill_mat32_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -1133,11 +1133,11 @@ def fill_mat32_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat32 : array
             matrix in which the filling32 times the basis functions of V2 is to be written
@@ -1147,12 +1147,12 @@ def fill_mat32_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DDN DND)
     for il1 in range(pd1 + 1):
@@ -1172,16 +1172,16 @@ def fill_mat32_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat32[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat33_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
+
+def fill_mat33_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -1196,11 +1196,11 @@ def fill_mat33_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat33 : array
             matrix in which the filling33 times the basis functions of V2 is to be written
@@ -1210,11 +1210,11 @@ def fill_mat33_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (DDN DDN)
     for il1 in range(pd1 + 1):
@@ -1234,16 +1234,16 @@ def fill_mat33_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat33[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat11_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -1258,11 +1258,11 @@ def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat11 : array
             matrix in which the filling11 times the basis functions of V1 is to be written
@@ -1278,10 +1278,10 @@ def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
 
     # (DNN DNN)
     for il1 in range(pd1 + 1):
@@ -1294,7 +1294,7 @@ def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling11
@@ -1303,16 +1303,16 @@ def fill_mat11_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat11[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat12_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1333,11 +1333,11 @@ def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat12 : array
             matrix in which the filling12 times the basis functions of V1 is to be written
@@ -1353,11 +1353,11 @@ def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (DNN NDN)
     for il1 in range(pd1 + 1):
@@ -1370,7 +1370,7 @@ def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling12
@@ -1379,16 +1379,16 @@ def fill_mat12_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat12[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat13_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1409,11 +1409,11 @@ def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat13 : array
             matrix in which the filling13 times the basis functions of V1 is to be written
@@ -1429,11 +1429,11 @@ def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DNN NND)
     for il1 in range(pd1 + 1):
@@ -1446,7 +1446,7 @@ def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling13
@@ -1455,16 +1455,16 @@ def fill_mat13_vec1_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat13[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat21_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1485,11 +1485,11 @@ def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat21 : array
             matrix in which the filling21 times the basis functions of V1 is to be written
@@ -1505,11 +1505,11 @@ def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (NDN DNN)
     for il1 in range(pn1 + 1):
@@ -1522,7 +1522,7 @@ def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling21
@@ -1531,16 +1531,16 @@ def fill_mat21_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat21[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat22_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1555,11 +1555,11 @@ def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat22 : array
             matrix in which the filling22 times the basis functions of V1 is to be written
@@ -1575,10 +1575,10 @@ def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (NDN NDN)
     for il1 in range(pn1 + 1):
@@ -1591,7 +1591,7 @@ def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling22
@@ -1600,16 +1600,16 @@ def fill_mat22_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat22[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat23_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1630,11 +1630,11 @@ def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat23 : array
             matrix in which the filling23 times the basis functions of V1 is to be written
@@ -1650,11 +1650,11 @@ def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDN NND)
     for il1 in range(pn1 + 1):
@@ -1667,7 +1667,7 @@ def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling23
@@ -1676,16 +1676,16 @@ def fill_mat23_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat23[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat31_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1706,11 +1706,11 @@ def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat31 : array
             matrix in which the filling31 times the basis functions of V1 is to be written
@@ -1726,11 +1726,11 @@ def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND DNN)
     for il1 in range(pn1 + 1):
@@ -1743,7 +1743,7 @@ def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling31
@@ -1752,16 +1752,16 @@ def fill_mat31_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat31[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat32_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1782,11 +1782,11 @@ def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat32 : array
             matrix in which the filling32 times the basis functions of V1 is to be written
@@ -1802,11 +1802,11 @@ def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND NDN)
     for il1 in range(pn1 + 1):
@@ -1819,7 +1819,7 @@ def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling32
@@ -1828,16 +1828,16 @@ def fill_mat32_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat32[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat33_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1852,11 +1852,11 @@ def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat33 : array
             matrix in which the filling33 times the basis functions of V1 is to be written
@@ -1872,10 +1872,10 @@ def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NND NND)
     for il1 in range(pn1 + 1):
@@ -1888,7 +1888,7 @@ def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling33
@@ -1897,16 +1897,16 @@ def fill_mat33_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat33[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat11_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1921,11 +1921,11 @@ def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat11 : array
             matrix in which the filling11 times the basis functions of V2 is to be written
@@ -1941,11 +1941,11 @@ def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD NDD)
     for il1 in range(pn1 + 1):
@@ -1958,7 +1958,7 @@ def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling11
@@ -1967,16 +1967,16 @@ def fill_mat11_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat11[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat12_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -1997,11 +1997,11 @@ def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat12 : array
             matrix in which the filling12 times the basis functions of V2 is to be written
@@ -2017,12 +2017,12 @@ def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD DND)
     for il1 in range(pn1 + 1):
@@ -2035,7 +2035,7 @@ def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling12
@@ -2044,16 +2044,16 @@ def fill_mat12_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat12[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_mat13_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2074,11 +2074,11 @@ def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat13 : array
             matrix in which the filling13 times the basis functions of V2 is to be written
@@ -2094,12 +2094,12 @@ def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (NDD DDN)
     for il1 in range(pn1 + 1):
@@ -2112,7 +2112,7 @@ def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling1
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling13
@@ -2121,16 +2121,16 @@ def fill_mat13_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat13[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat21_vec2_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2151,11 +2151,11 @@ def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat21 : array
             matrix in which the filling21 times the basis functions of V2 is to be written
@@ -2171,12 +2171,12 @@ def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND NDD)
     for il1 in range(pd1 + 1):
@@ -2189,7 +2189,7 @@ def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling21
@@ -2198,16 +2198,16 @@ def fill_mat21_vec2_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat21[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat22_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2222,11 +2222,11 @@ def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat22 : array
             matrix in which the filling22 times the basis functions of V2 is to be written
@@ -2242,11 +2242,11 @@ def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND DND)
     for il1 in range(pd1 + 1):
@@ -2259,7 +2259,7 @@ def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling22
@@ -2268,16 +2268,16 @@ def fill_mat22_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat22[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_mat23_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2298,11 +2298,11 @@ def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat23 : array
             matrix in which the filling23 times the basis functions of V2 is to be written
@@ -2318,12 +2318,12 @@ def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DND DDN)
     for il1 in range(pd1 + 1):
@@ -2336,7 +2336,7 @@ def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling2
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling23
@@ -2345,16 +2345,16 @@ def fill_mat23_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat23[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat31_vec3_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2375,11 +2375,11 @@ def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat31 : array
             matrix in which the filling31 times the basis functions of V2 is to be written
@@ -2395,12 +2395,12 @@ def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DDN NDD)
     for il1 in range(pd1 + 1):
@@ -2413,7 +2413,7 @@ def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pn1 + 1):
                     bj1 = bi3 * bn1[jl1] * filling31
@@ -2422,16 +2422,16 @@ def fill_mat31_vec3_v2(p : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat31[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat32_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2452,11 +2452,11 @@ def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat32 : array
             matrix in which the filling32 times the basis functions of V2 is to be written
@@ -2472,12 +2472,12 @@ def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
+    pd3 = pn[2] - 1
 
     # (DDN DND)
     for il1 in range(pd1 + 1):
@@ -2490,7 +2490,7 @@ def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling32
@@ -2499,16 +2499,16 @@ def fill_mat32_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : '
                         for jl3 in range(pd3 + 1):
                             bj3 = bj2 * bd3[jl3]
 
-                            mat32[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_mat33_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
 
     Parameters :
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2523,11 +2523,11 @@ def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : '
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices of the codomain (row indices).
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings of the codomain (row indices).
         
         mat33 : array
             matrix in which the filling33 times the basis functions of V2 is to be written
@@ -2543,11 +2543,11 @@ def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : '
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (DDN DDN)
     for il1 in range(pd1 + 1):
@@ -2560,7 +2560,7 @@ def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : '
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling3
 
                 for jl1 in range(pd1 + 1):
                     bj1 = bi3 * bd1[jl1] * filling33
@@ -2569,16 +2569,16 @@ def fill_mat33_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : '
                         for jl3 in range(pn3 + 1):
                             bj3 = bj2 * bn3[jl3]
 
-                            mat33[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+                            mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
-# =====================================================================================================
-def fill_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the mu=1 element of a vector in V1 and fills it with basis functions times filling1
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2593,11 +2593,11 @@ def fill_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec1 : array
             component 1 of the vector in which the filling1 times the basis functions of V1 is to be written
@@ -2607,9 +2607,9 @@ def fill_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pn3 = p[2]
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pn3 = pn[2]
 
     # (DNN)
     for il1 in range(pd1 + 1):
@@ -2622,16 +2622,16 @@ def fill_vec1_v1(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling1
 
-# =====================================================================================================
-def fill_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the mu=2 element of a vector in V1 and fills it with basis functions times filling2
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2646,11 +2646,11 @@ def fill_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec2 : array
             component 2 of the vector in which the filling2 times the basis functions of V1 is to be written
@@ -2660,9 +2660,9 @@ def fill_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pn1 = pn[0]
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (NDN)
     for il1 in range(pn1 + 1):
@@ -2675,16 +2675,16 @@ def fill_vec2_v1(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling2
 
-# =====================================================================================================
-def fill_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the mu=3 element of a vector in V1 and fills it with basis functions times filling3
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2699,11 +2699,11 @@ def fill_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec3 : array
             component 3 of the vector in which the filling3 times the basis functions of V1 is to be written
@@ -2713,9 +2713,9 @@ def fill_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pn2 = p[1]
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pd3 = pn[2] - 1
 
     # (NND)
     for il1 in range(pn1 + 1):
@@ -2728,16 +2728,16 @@ def fill_vec3_v1(p : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling3
 
-# =====================================================================================================
-def fill_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec1 : 'float[:,:,:]', filling1 : 'float'):
+
+def fill_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the mu=1 element of a vector in V2 and fills it with basis functions times filling1
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bn1 : array
@@ -2752,11 +2752,11 @@ def fill_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec1 : array
             component 1 of the vector in which the filling1 times the basis functions of V2 is to be written
@@ -2766,9 +2766,9 @@ def fill_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pn1 = p[0]
-    pd2 = p[1] - 1
-    pd3 = p[2] - 1
+    pn1 = pn[0]
+    pd2 = pn[1] - 1
+    pd3 = pn[2] - 1
 
     # (NDD)
     for il1 in range(pn1 + 1):
@@ -2781,16 +2781,16 @@ def fill_vec1_v2(p : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec1[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling1
+                vec1[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling1
 
-# =====================================================================================================
-def fill_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec2 : 'float[:,:,:]', filling2 : 'float'):
+
+def fill_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the mu=2 element of a vector in V2 and fills it with basis functions times filling2
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2805,11 +2805,11 @@ def fill_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec2 : array
             component 2 of the vector in which the filling2 times the basis functions of V2 is to be written
@@ -2819,9 +2819,9 @@ def fill_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pd1 = p[0] - 1
-    pn2 = p[1]
-    pd3 = p[2] - 1
+    pd1 = pn[0] - 1
+    pn2 = pn[1]
+    pd3 = pn[2] - 1
 
     # (DND)
     for il1 in range(pd1 + 1):
@@ -2834,16 +2834,16 @@ def fill_vec2_v2(p : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bd3[il3]
 
-                vec2[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling2
+                vec2[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling2
 
-# =====================================================================================================
-def fill_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', start1 : 'int', start2 : 'int', start3 : 'int', pad1 : 'int', pad2 : 'int', pad3 : 'int', vec3 : 'float[:,:,:]', filling3 : 'float'):
+
+def fill_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the mu=3 element of a vector in V2 and fills it with basis functions times filling3
 
     Parameters : 
     ------------
-        p : array of integers
+        pn : array of integers
             contains 3 values of the degrees of the B-splines in each direction
 
         bd1 : array
@@ -2858,11 +2858,11 @@ def fill_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
         ie1, ie2, ie3 : int
             particle's element index in each direction
         
-        start1, start2, start3 : int
-            start index of the current process in each direction
+        starts : array[int]
+            Start indices.
         
-        pad1, pad2, pad3 : int
-            paddings of the current process in each direction
+        pads : array[int]
+            Paddings.
         
         vec3 : array
             component 3 of the vector in which the filling3 times the basis functions of V2 is to be written
@@ -2872,9 +2872,9 @@ def fill_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
     """
 
     # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
-    pd1 = p[0] - 1
-    pd2 = p[1] - 1
-    pn3 = p[2]
+    pd1 = pn[0] - 1
+    pd2 = pn[1] - 1
+    pn3 = pn[2]
 
     # (DDN)
     for il1 in range(pd1 + 1):
@@ -2887,5 +2887,5 @@ def fill_vec3_v2(p : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[
                 i3  = ie3 + il3
                 bi3 = bi2 * bn3[il3]
 
-                vec3[i1 - start1 + pad1, i2 - start2 + pad2, i3 - start3 + pad3] += bi3 * filling3
+                vec3[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling3
 
