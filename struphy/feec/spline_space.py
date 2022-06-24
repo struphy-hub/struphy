@@ -364,9 +364,18 @@ class Spline_space_1d:
                 coeff[:] = 0.
                 coeff[i] = 1.
                 plt.plot(etaplot, self.evaluate_D(etaplot, coeff), label=str(i))
+                
+        elif which == 'B-splines-derivatives':
+
+            coeff = np.zeros(self.NbaseN, dtype=float)
+
+            for i in range(self.NbaseN):
+                coeff[:] = 0.
+                coeff[i] = 1.
+                plt.plot(etaplot, self.evaluate_N(etaplot, coeff, 2), label=str(i))
 
         else:
-            print('Only B-splines and M-splines available')
+            print('Only B-splines, M-splines and derivatives of B-splines available')
 
         plt.plot(self.greville, np.zeros(self.greville.shape), 'ro', label='greville')
         plt.plot(self.el_b, np.zeros(self.el_b.shape), 'k+', label='breaks')

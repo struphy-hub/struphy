@@ -20,7 +20,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
 
     from struphy.geometry.domain_3d import Domain
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.compare_arrays import compare_arrays
+    from struphy.psydac_api.utilities import compare_arrays
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
     from psydac.fem.tensor import TensorFemSpace
