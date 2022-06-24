@@ -4,6 +4,9 @@ from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.core.bsplines import elevate_knots
+from psydac.utilities.utils import unroll_edges
+
 from sympde.topology import elements_of
 from sympde.expr import BilinearForm, integral
 from sympde.calculus import dot
@@ -13,8 +16,12 @@ from sympde.topology.mapping import Mapping
 
 from sympy import sqrt
 
+#from struphy.psydac_api.global_projectors import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2, Projector_H1vec
 from struphy.psydac_api.H1vec_psydac import Projector_H1vec
+
 from struphy.psydac_api.mass_psydac import get_mass
+
+import struphy.feec.bsplines as bsp
 
 import numpy as np
 from mpi4py import MPI
@@ -117,12 +124,13 @@ class Derham:
         self._V1 = _derham.V1
         self._V2 = _derham.V2
         self._V3 = _derham.V3
+        
         # H1xH1xH1 (needed in pressure coupling for instance)
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
-
-        # Psydac projectors
+        
         self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
             nquads=self.nq_pr)
+        
         # interpolation in all components
         self._P0vec = Projector_H1vec(self._V0vec)
 
