@@ -11,7 +11,7 @@ from numpy import empty, zeros
 # ==============================================================================
 def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
     """
-    Scales local B-spline values to M-spline values
+    Scaling coefficients for M-splines.
     
     Parameters
     ----------
@@ -24,10 +24,8 @@ def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
     span : int
         Knot span index.
         
-    Returns
-    -------
-    x : array_like
-        Scaling vector with elements (p + 1)/(t[i + p + 1] - t[i])
+    values : array[float]
+        Output: scaling vector with elements (p + 1)/(t[i + p + 1] - t[i])
     """
     
     for il in range(p_d + 1):
@@ -38,7 +36,7 @@ def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
 # ==============================================================================
 def find_span(t : 'float[:]', p : 'int', eta : 'float') -> 'int':
     """
-    Computes the span, i.e. the index i for which the B-splines i-p until i are non-vanishing at this point
+    Computes the knot span index i for which the B-splines i-p until i are non-vanishing at point eta.
 
     Parameters:
     -----------
@@ -89,7 +87,7 @@ def basis_funs(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'f
     """
     Parameters
     ----------
-    t : array_like
+    t : array[float]
         Knots sequence.
 
     p : int
@@ -101,10 +99,14 @@ def basis_funs(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'f
     span : int
         Knot span index.
 
-    Returns
-    -------
-    values : numpy.ndarray
-        Values of p + 1 non-vanishing B-Splines at location eta.
+    left : array[float]
+        Internal array of size p.
+
+    right : array[float]
+        Internal array of size p.
+
+    values : array[float]
+        Output: values of p + 1 non-vanishing B-Splines at location eta.
     """
     
     left[:]   = 0.
@@ -128,7 +130,7 @@ def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left 
     """
     Parameters
     ----------
-    t : array_like
+    t : array[float]
         Knots sequence.
 
     p : int
@@ -140,13 +142,17 @@ def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left 
     span : int
         Knot span index.
 
-    Returns
-    -------
-    values : numpy.ndarray
-        Values of (p + 1, p + 1) non-vanishing B-Splines at location eta.
+    left : array[float]
+        Internal array of size p.
+
+    right : array[float]
+        Internal array of size p.
+
+    values : array[float]
+        Outout: values of (p + 1, p + 1) non-vanishing B-Splines at location eta.
         
-    diff : np.ndarray
-        Scaling array (p) for M-splines.
+    diff : array[float]
+        Output: scaling array (p) for M-splines.
     """
     
     left[:]      = 0.
@@ -172,7 +178,7 @@ def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left 
 # =============================================================================
 def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
-    Computes the values of pn+1 non-vanishing B-splines at position eta
+    Computes the values of pn + 1 non-vanishing B-splines at position eta.
 
     Parameters
     ----------
@@ -188,10 +194,8 @@ def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
     span : int
         Knot span index.
 
-    Returns
-    -------
-    values : array
-        Values of p + 1 non-vanishing B-Splines at location eta.
+    values : array[float]
+        Outout: values of pn + 1 non-vanishing B-Splines at location eta.
     """
     
     # Initialize variables left and right used for computing the values
@@ -217,14 +221,14 @@ def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
 
 
 # =============================================================================
-def d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
+def d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
-    Computes the values of pn non-vanishing D-splines at position eta
+    Computes the values of pn non-vanishing D-splines at position eta.
 
     Parameters
     ----------
-    t : array
-        Knot sequence
+    tn : array
+        Knot sequence of B-splines.
 
     pn : int
         Polynomial degree of B-splines.
@@ -260,8 +264,8 @@ def d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
     b_values[0] = 1.
 
     for j in range(pd):
-        left[j]  = eta - t[span - j]
-        right[j] = t[span + 1 + j] - eta
+        left[j]  = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
         saved    = 0.
         for r in range(j + 1):
             temp        = b_values[r] / (right[r] + left[j - r])
@@ -271,7 +275,7 @@ def d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
 
     # compute D-splines values by scaling
     for il in range(pd + 1):
-        values[pd - il] = pn/(t[span - il + pn] - t[span - il]) * b_values[pd - il]
+        values[pd - il] = pn/(tn[span - il + pn] - tn[span - il]) * b_values[pd - il]
 
     del(left)
     del(right)
@@ -279,28 +283,29 @@ def d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
 
 
 # =============================================================================
-def b_d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn : 'float[:]', bd : 'float[:]'):
+def b_d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn : 'float[:]', bd : 'float[:]'):
     """
-    One function to compute the values of non-vanishing B-splines and D-splines
+    One function to compute the values of non-vanishing B-splines and D-splines.
 
-    Arguments : 
-        t : array
-            len 2*p+1, contains the knot vectors
+    Parameters
+    ---------- 
+        tn : array
+            Knot sequence of B-splines.
         
         pn : int
-            Polynomial degree of the B-spline in this direction
+            Polynomial degree of B-splines.
 
         span : integer
-            index for non-vanishing basis functions; index i -> [i-p,i] basis functions are non-vanishing
+            Knot span index i -> [i-p,i] basis functions are non-vanishing.
 
-        eta : array
-            contains the position
+        eta : float
+            Evaluation point.
         
-        bn : array
-            len np+1, here the values for the non-vanishing B-splines will be written
+        bn : array[float]
+            Output: pn + 1 non-vanishing B-splines at eta
 
         bd : array
-            len np, here the values for the non-vanishing D-splines will be written
+            Output: pn non-vanishing D-splines at eta
     """
 
     # compute D-spline degree
@@ -311,24 +316,20 @@ def b_d_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn
     bd[:] = 0.
 
     # Initialize variables left and right used for computing the value
-    left     = empty( pn, dtype=float )
-    right    = empty( pn, dtype=float )
-    left[:]  = 0.
-    right[:] = 0.
-
-    bn[:] = 0.
+    left     = zeros( pn, dtype=float )
+    right    = zeros( pn, dtype=float )
 
     bn[0] = 1.
 
     for j in range(pn):
-        left[j]  = eta - t[span - j]
-        right[j] = t[span + 1 + j] - eta
+        left[j]  = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
         saved    = 0.
 
         if j == pn-1:
             # compute D-splines values by scaling B-splines of degree pn-1
             for il in range(pd + 1):
-                bd[pd - il] = pn/(t[span - il + pn] - t[span - il]) * bn[pd - il]
+                bd[pd - il] = pn/(tn[span - il + pn] - tn[span - il]) * bn[pd - il]
         
         for r in range(j + 1):
             temp    = bn[r]/(right[r] + left[j - r])

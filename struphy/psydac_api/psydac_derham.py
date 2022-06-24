@@ -155,7 +155,7 @@ class Derham:
 
     @property
     def p(self):
-        """ List of spline degrees in each direction.
+        """ List of B-spline degrees in each direction.
         """
         return self._p
 
