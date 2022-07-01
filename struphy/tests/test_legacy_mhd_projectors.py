@@ -11,7 +11,7 @@ def test_1form_projectors_dot():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
+        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -38,21 +38,21 @@ def test_1form_projectors_dot():
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = Domain(kind_map)
-        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain = Domain(kind_map)
+        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
+        tensor_space_FEM.assemble_Mk(domain, 'V0')
+        tensor_space_FEM.assemble_Mk(domain, 'V1') 
+        tensor_space_FEM.assemble_Mk(domain, 'V2')
+        tensor_space_FEM.assemble_Mk(domain, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
-        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
         # random x which is going to product with projectors
         x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
@@ -78,7 +78,7 @@ def test_1form_projectors_dot():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(DOMAIN.params_map))
+        print('params_map = ' + str(domain.params_map))
 
         print()
 
@@ -163,82 +163,82 @@ def test_1form_projectors_dot():
  
         # Beq_Ginv_lambda1 for T1
         def Beq_Ginv_lambda1_1(eta1, eta2, eta3) : 
-                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
-                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
-                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3))
+                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3))
 
         def Beq_Ginv_lambda1_2(eta1, eta2, eta3) : 
-                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
-                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
-                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3))
+                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3))
         def Beq_Ginv_lambda1_3(eta1, eta2, eta3) : 
-                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
-                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
-                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3))
+                return phi_11(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
+                       phi_12(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)) +\
+                       phi_13(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3))
 
         # rhoeq_Ginv_lambda1 for Q1
         def rhoeq_Ginv_lambda1_1(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
         def rhoeq_Ginv_lambda1_2(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
         def rhoeq_Ginv_lambda1_3(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.n3_eq_fun(eta1, eta2, eta3) +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.n3_eq_fun(eta1, eta2, eta3)
 
         # gsqrt_Ginv_lambda1 for U1
         def gsqrt_Ginv_lambda1_1(eta1, eta2, eta3) :  
-                return dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') + \
-                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') + \
-                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') )
+                return dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') )
         def gsqrt_Ginv_lambda1_2(eta1, eta2, eta3) :  
-                return dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') + \
-                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') + \
-                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') )
+                return dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') )
         def gsqrt_Ginv_lambda1_3(eta1, eta2, eta3) :  
-                return dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') + \
-                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') + \
-                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') )
+                return dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * ( phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') + \
+                                                                               phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') + \
+                                                                               phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') )
         
         # jeq_gsqrt_lambda2 for P1
         def jeq_gsqrt_lambda2_1(eta1, eta2, eta3) :  
-                return phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)
+                return phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)
         def jeq_gsqrt_lambda2_2(eta1, eta2, eta3) :  
-                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
+                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
         def jeq_gsqrt_lambda2_3(eta1, eta2, eta3) :  
-                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
+                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.j2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3)
 
         # peq_Ginv_lambda1 for S1
         def peq_Ginv_lambda1_1(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
         def peq_Ginv_lambda1_2(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
         def peq_Ginv_lambda1_3(eta1, eta2, eta3) :  
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
-                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.p3_eq_fun(eta1, eta2, eta3) +\
+                                  phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.p3_eq_fun(eta1, eta2, eta3)
         
         # DFinv_T_lambda1 for X1
         def DFinv_T_lambda1_1(eta1, eta2, eta3) : 
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_11') +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_21') +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_31')
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_11') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_21') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_31')
         def DFinv_T_lambda1_2(eta1, eta2, eta3) :
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_12') +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_22') +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_32')
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_12') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_22') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_32')
         def DFinv_T_lambda1_3(eta1, eta2, eta3) :
-                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_13') +\
-                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_23') +\
-                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_inv_33')
+                return phi_11(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_13') +\
+                       phi_12(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_23') +\
+                       phi_13(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_inv_33')
 
         # ========== apply basic projection operator ========== #
         # project Beq_Ginv_lambda1 on V1_h space [ T1 ]:
@@ -302,7 +302,7 @@ def test_2form_projectors_dot():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
+        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
         
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -329,21 +329,21 @@ def test_2form_projectors_dot():
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = Domain(kind_map)
-        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain = Domain(kind_map)
+        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
+        tensor_space_FEM.assemble_Mk(domain, 'V0')
+        tensor_space_FEM.assemble_Mk(domain, 'V1') 
+        tensor_space_FEM.assemble_Mk(domain, 'V2')
+        tensor_space_FEM.assemble_Mk(domain, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
-        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
         # random x which is going to product with projectors
         x_0 = np.random.rand(tensor_space_FEM.Ntot_0form)
@@ -368,7 +368,7 @@ def test_2form_projectors_dot():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(DOMAIN.params_map))
+        print('params_map = ' + str(domain.params_map))
         print()
 
         # ========== Identity test ========== #
@@ -448,70 +448,70 @@ def test_2form_projectors_dot():
 
         # Beq_gsqrt_lambda2 for T2
         def Beq_gsqrt_lambda2_1(eta1, eta2, eta3) : 
-                return phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)
+                return phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_3_fun(eta1, eta2, eta3) + phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_2_fun(eta1, eta2, eta3)
         def Beq_gsqrt_lambda2_2(eta1, eta2, eta3) : 
-                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
+                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') *  dot_ops.b2_eq_3_fun(eta1, eta2, eta3) - phi_23(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
         def Beq_gsqrt_lambda2_3(eta1, eta2, eta3) : 
-                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
+                return phi_21(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * -dot_ops.b2_eq_2_fun(eta1, eta2, eta3) + phi_22(eta1, eta2, eta3) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df') * dot_ops.b2_eq_1_fun(eta1, eta2, eta3)
 
         # Ginv_jeq_lambda2 for P2
         def Ginv_jeq_lambda2_1(eta1, eta2, eta3) :  
-                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_13') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_11') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_12') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
         def Ginv_jeq_lambda2_2(eta1, eta2, eta3) :  
-                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_23') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_21') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_22') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
         def Ginv_jeq_lambda2_3(eta1, eta2, eta3) :  
-                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
-                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
-                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
+                return phi_21(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3)) +\
+                                  phi_22(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_33') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_3_fun(eta1, eta2, eta3)) +\
+                                  phi_23(eta1, eta2, eta3) * (dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_31') * dot_ops.j2_eq_2_fun(eta1, eta2, eta3) - dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_inv_32') * dot_ops.j2_eq_1_fun(eta1, eta2, eta3))
         
         # DF_gsqrt_lambda2 for X2
         def DF_gsqrt_lambda2_1(eta1, eta2, eta3) : 
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_11') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_12') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_13')    ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_11') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_12') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_13')    ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def DF_gsqrt_lambda2_2(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_21') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_22') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_23')     ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_21') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_22') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_23')     ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def DF_gsqrt_lambda2_3(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_31') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_32') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'df_33')     ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_31') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_32') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'df_33')     ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
         # peq_G_gsqrt_lambda2 for S20
         def peq_G_lambda2_1(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_11') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_12') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_13') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_11') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_12') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_13') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def peq_G_lambda2_2(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_21') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_22') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_23') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_21') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_22') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_23') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def peq_G_lambda2_3(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_31') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_32') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_33') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_31') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_32') * dot_ops.p0_eq_fun(eta1, eta2, eta3) +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_33') * dot_ops.p0_eq_fun(eta1, eta2, eta3)  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         # G_gsqrt_lambda2 for Z20
         def G_lambda2_1(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_11') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_12') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_13')  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_11') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_12') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_13')  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def G_lambda2_2(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_21') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_22') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_23')  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_21') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_22') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_23')  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
         def G_lambda2_3(eta1, eta2, eta3) :
-                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_31') +\
-                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_32') +\
-                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'g_33')  ) / dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return (phi_21(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_31') +\
+                        phi_22(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_32') +\
+                        phi_23(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'g_33')  ) / dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
         # g_sqrt * lambda0 for Y20
         def gsqrt_lambda0(eta1, eta2, eta3) :
-                return phi_0(eta1, eta2, eta3) * dot_ops.eq_MHD.DOMAIN.evaluate(eta1, eta2, eta3, 'det_df')
+                return phi_0(eta1, eta2, eta3) * dot_ops.eq_MHD.domain.evaluate(eta1, eta2, eta3, 'det_df')
 
         # ========== apply basic projection operator ========== #
         # project Beq_gsqrt_lambda2 on V1_h space [ T2 ]:
@@ -571,7 +571,7 @@ def test_1form_symmetric():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
+        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -598,21 +598,21 @@ def test_1form_symmetric():
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = Domain(kind_map)
-        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain = Domain(kind_map)
+        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
+        tensor_space_FEM.assemble_Mk(domain, 'V0')
+        tensor_space_FEM.assemble_Mk(domain, 'V1') 
+        tensor_space_FEM.assemble_Mk(domain, 'V2')
+        tensor_space_FEM.assemble_Mk(domain, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
-        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
 
         # test conditions
@@ -630,7 +630,7 @@ def test_1form_symmetric():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(DOMAIN.params_map))
+        print('params_map = ' + str(domain.params_map))
 
         print()
 
@@ -736,7 +736,7 @@ def test_2form_symmetric():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
+        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -763,21 +763,21 @@ def test_2form_symmetric():
         tensor_space_FEM.set_projectors()
         
         # domain
-        DOMAIN = Domain(kind_map)
-        #DOMAIN = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain = Domain(kind_map)
+        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
 
         # assemble mass matrices
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V0')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V1') 
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V2')
-        tensor_space_FEM.assemble_Mk(DOMAIN, 'V3')
+        tensor_space_FEM.assemble_Mk(domain, 'V0')
+        tensor_space_FEM.assemble_Mk(domain, 'V1') 
+        tensor_space_FEM.assemble_Mk(domain, 'V2')
+        tensor_space_FEM.assemble_Mk(domain, 'V3')
         print('Assembly of mass matrices done.')
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, DOMAIN)
+        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
-        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD, 2, 3)
+        dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
 
         # test conditions
@@ -796,15 +796,15 @@ def test_2form_symmetric():
         print()
         print('maping  :')
         print('kind_map = ' + str(kind_map))
-        print('params_map = ' + str(DOMAIN.params_map))
+        print('params_map = ' + str(domain.params_map))
 
         # print('G = ')
-        # print(DOMAIN.evaluate(0., 0., 0., 'g_11'), DOMAIN.evaluate(0., 0., 0., 'g_12'), DOMAIN.evaluate(0., 0., 0., 'g_13'))
-        # print(DOMAIN.evaluate(0., 0., 0., 'g_21'), DOMAIN.evaluate(0., 0., 0., 'g_22'), DOMAIN.evaluate(0., 0., 0., 'g_23'))
-        # print(DOMAIN.evaluate(0., 0., 0., 'g_31'), DOMAIN.evaluate(0., 0., 0., 'g_32'), DOMAIN.evaluate(0., 0., 0., 'g_33'))
+        # print(domain.evaluate(0., 0., 0., 'g_11'), domain.evaluate(0., 0., 0., 'g_12'), domain.evaluate(0., 0., 0., 'g_13'))
+        # print(domain.evaluate(0., 0., 0., 'g_21'), domain.evaluate(0., 0., 0., 'g_22'), domain.evaluate(0., 0., 0., 'g_23'))
+        # print(domain.evaluate(0., 0., 0., 'g_31'), domain.evaluate(0., 0., 0., 'g_32'), domain.evaluate(0., 0., 0., 'g_33'))
 
         # print('g_sqrt = ')
-        # print(DOMAIN.evaluate(0., 0., 0., 'det_df'))
+        # print(domain.evaluate(0., 0., 0., 'det_df'))
         # print()
 
         # ========== Symmetric test ========== #

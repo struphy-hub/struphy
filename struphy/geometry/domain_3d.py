@@ -369,12 +369,12 @@ class Domain():
             * Z = z0 + (eta3*Lz)
         * 'spline': 
             * 3d IGA spline mapping. All information is stored in control points cx, cy, cz.
-        * 'spline cylinder': 
+        * 'spline_cyl': 
             * 2d IGA spline mapping in (eta1, eta2) --> (X, Y) w/ control points cx, cy, cz=None and
             * X = a*eta1*np.cos(2*np.pi*eta2) + R0
             * Y = a*eta1*np.sin(2*np.pi*eta2)
             * Z = 2*pi*R0*eta3
-        * 'spline torus' : 
+        * 'spline_torus' : 
             * 2d IGA spline mapping in (eta1, eta2) --> (R, Y) w/ control points cx, cy, cz=None and
             * X = R*cos(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*cos(2*pi*eta3) 
             * Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
@@ -585,7 +585,7 @@ class Domain():
                 self._pole = False
 
         # ============== 2d IGA cylinder ===============
-        elif kind_map == 'spline cylinder':
+        elif kind_map == 'spline_cyl':
             self._kind_map = 1
 
             if params_map is None:
@@ -614,7 +614,7 @@ class Domain():
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # ============= 2d IGA torus ==================
-        elif kind_map == 'spline torus':
+        elif kind_map == 'spline_torus':
             self._kind_map = 2
 
             if params_map is None:
@@ -644,7 +644,7 @@ class Domain():
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # =========== 2d IGA straight general =========
-        elif kind_map == 'spline straight':
+        elif kind_map == 'spline_straight':
             self._kind_map = 1
             self._params_map = []
 
@@ -664,7 +664,7 @@ class Domain():
             self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # ========= 2d IGA toroidal general ===========
-        elif kind_map == 'spline toroidal':
+        elif kind_map == 'spline_toroidal':
             self._kind_map = 2
             self._params_map = []
 
@@ -975,7 +975,7 @@ class Domain():
             values = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-        if isinstance(a, list):
+        if isinstance(a, (list, tuple)):
 
             if callable(a[0]):
 
@@ -1072,7 +1072,7 @@ class Domain():
             values = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-        if isinstance(a, list):
+        if isinstance(a, (list, tuple)):
             if callable(a[0]):
                 a_in = np.array([a[0](E1, E2, E3), a[1](
                     E1, E2, E3), a[2](E1, E2, E3)], dtype=float)
@@ -1154,7 +1154,7 @@ class Domain():
             values = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
 
-        if isinstance(a, list):
+        if isinstance(a, (list, tuple)):
             if callable(a[0]):
                 a_in = np.array([a[0](E1, E2, E3), a[1](
                     E1, E2, E3), a[2](E1, E2, E3)], dtype=float)

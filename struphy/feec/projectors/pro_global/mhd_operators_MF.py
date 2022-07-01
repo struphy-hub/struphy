@@ -1,4 +1,4 @@
-import numpy        as np
+import numpy as np
 import scipy.sparse as spa
 
 from struphy.feec.spline_space import Tensor_spline_space
@@ -18,12 +18,6 @@ class projectors_dot_x:
 
         eq_MHD : obj
             Equilibrium_mhd object (pullbacks must be enabled).
-
-        basis_u : int
-            Choice of p-form representation for up {1, 2}.
-
-        basis_p : int
-            Choice of p-form representation for pp {0, 3}
 
     Notes
     -----
@@ -61,7 +55,7 @@ class projectors_dot_x:
             ===================================================== ================= =====================
     """
 
-    def __init__(self, space, eq_MHD, basis_u, basis_p):
+    def __init__(self, space, eq_MHD):
         
         self.space  = space
         self.eq_MHD = eq_MHD
@@ -75,8 +69,8 @@ class projectors_dot_x:
         self.NbaseN = self.space.NbaseN
         self.NbaseD = self.space.NbaseD
 
-        self.basis_u = basis_u
-        self.basis_p = basis_p
+        #self.basis_u = basis_u
+        #self.basis_p = basis_p
 
         # Interpolation matrices
         #self.N_1 = self.proj_eta1.N
@@ -119,15 +113,15 @@ class projectors_dot_x:
 
         # ===== call equilibrium_mhd values at the projection points ===== 
         # define function for the evaluation
-        self.p0_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.p0_eq(  xi1, xi2, xi3)
-        self.p3_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.p3_eq(  xi1, xi2, xi3)
-        self.n3_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.n3_eq(  xi1, xi2, xi3)
-        self.b2_eq_1_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_eq_1(xi1, xi2, xi3)
-        self.b2_eq_2_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_eq_2(xi1, xi2, xi3)
-        self.b2_eq_3_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_eq_3(xi1, xi2, xi3)
-        self.j2_eq_1_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_eq_1(xi1, xi2, xi3)
-        self.j2_eq_2_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_eq_2(xi1, xi2, xi3)
-        self.j2_eq_3_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_eq_3(xi1, xi2, xi3)
+        self.p0_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.p0(  xi1, xi2, xi3)
+        self.p3_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.p3(  xi1, xi2, xi3)
+        self.n3_eq_fun   = lambda xi1, xi2, xi3 : self.eq_MHD.n3(  xi1, xi2, xi3)
+        self.b2_eq_1_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_1(xi1, xi2, xi3)
+        self.b2_eq_2_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_2(xi1, xi2, xi3)
+        self.b2_eq_3_fun = lambda xi1, xi2, xi3 : self.eq_MHD.b2_3(xi1, xi2, xi3)
+        self.j2_eq_1_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_1(xi1, xi2, xi3)
+        self.j2_eq_2_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_2(xi1, xi2, xi3)
+        self.j2_eq_3_fun = lambda xi1, xi2, xi3 : self.eq_MHD.j2_3(xi1, xi2, xi3)
 
         # projection points
         self.pts_PI_0  = self.space.projectors.pts_PI['0']
@@ -191,98 +185,98 @@ class projectors_dot_x:
         self.j2_eq_23_3 = self.space.projectors.eval_for_PI('23', self.j2_eq_3_fun)
 
         # g_sqrt
-        self.det_df_0  = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0] ,  self.pts_PI_0[1], self.pts_PI_0[2] , 'det_df')
-        self.det_df_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'det_df')
-        self.det_df_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'det_df')
-        self.det_df_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'det_df')
-        self.det_df_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'det_df')
-        self.det_df_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'det_df')
-        self.det_df_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'det_df')
-        self.det_df_3  = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_3[0] ,  self.pts_PI_3[1], self.pts_PI_3[2] , 'det_df')
+        self.det_df_0  = self.eq_MHD.domain.evaluate(self.pts_PI_0[0] ,  self.pts_PI_0[1], self.pts_PI_0[2] , 'det_df')
+        self.det_df_11 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'det_df')
+        self.det_df_12 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'det_df')
+        self.det_df_13 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'det_df')
+        self.det_df_21 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'det_df')
+        self.det_df_22 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'det_df')
+        self.det_df_23 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'det_df')
+        self.det_df_3  = self.eq_MHD.domain.evaluate(self.pts_PI_3[0] ,  self.pts_PI_3[1], self.pts_PI_3[2] , 'det_df')
 
         # G
-        self.g_11_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_11')
-        self.g_11_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_12')
-        self.g_11_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_13')
-        self.g_12_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_21')
-        self.g_12_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_22')
-        self.g_12_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_23')
-        self.g_13_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_31')
-        self.g_13_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_32')
-        self.g_13_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_33')
+        self.g_11_11 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_11')
+        self.g_11_12 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_12')
+        self.g_11_13 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_13')
+        self.g_12_21 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_21')
+        self.g_12_22 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_22')
+        self.g_12_23 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_23')
+        self.g_13_31 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_31')
+        self.g_13_32 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_32')
+        self.g_13_33 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_33')
 
-        self.g_21_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_11')
-        self.g_21_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_12')
-        self.g_21_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_13')
-        self.g_22_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_21')
-        self.g_22_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_22')
-        self.g_22_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_23')
-        self.g_23_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_31')
-        self.g_23_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_32')
-        self.g_23_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_33')
+        self.g_21_11 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_11')
+        self.g_21_12 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_12')
+        self.g_21_13 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_13')
+        self.g_22_21 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_21')
+        self.g_22_22 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_22')
+        self.g_22_23 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_23')
+        self.g_23_31 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_31')
+        self.g_23_32 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_32')
+        self.g_23_33 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_33')
 
         # G_inv
-        self.g_inv_11_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_11')
-        self.g_inv_11_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_12')
-        self.g_inv_11_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_13')
-        self.g_inv_12_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_11')
-        self.g_inv_12_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_12')
-        self.g_inv_12_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_13')
-        self.g_inv_13_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_11')
-        self.g_inv_13_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_12')
-        self.g_inv_13_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_13')
+        self.g_inv_11_11 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_11')
+        self.g_inv_11_12 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_12')
+        self.g_inv_11_13 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_13')
+        self.g_inv_12_11 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_11')
+        self.g_inv_12_12 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_12')
+        self.g_inv_12_13 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_13')
+        self.g_inv_13_11 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_11')
+        self.g_inv_13_12 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_12')
+        self.g_inv_13_13 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_13')
 
-        self.g_inv_11_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_21')
-        self.g_inv_11_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_22')
-        self.g_inv_11_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_23')
-        self.g_inv_12_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_21')
-        self.g_inv_12_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_22')
-        self.g_inv_12_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_23')
-        self.g_inv_13_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_21')
-        self.g_inv_13_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_22')
-        self.g_inv_13_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_23')
+        self.g_inv_11_21 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_21')
+        self.g_inv_11_22 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_22')
+        self.g_inv_11_23 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_23')
+        self.g_inv_12_21 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_21')
+        self.g_inv_12_22 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_22')
+        self.g_inv_12_23 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_23')
+        self.g_inv_13_21 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_21')
+        self.g_inv_13_22 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_22')
+        self.g_inv_13_23 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_23')
 
-        self.g_inv_11_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_31')
-        self.g_inv_11_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_32')
-        self.g_inv_11_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_33')
-        self.g_inv_12_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_31')
-        self.g_inv_12_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_32')
-        self.g_inv_12_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_33')
-        self.g_inv_13_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_31')
-        self.g_inv_13_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_32')
-        self.g_inv_13_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_33')
+        self.g_inv_11_31 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_31')
+        self.g_inv_11_32 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_32')
+        self.g_inv_11_33 = self.eq_MHD.domain.evaluate(self.pts_PI_11[0], self.pts_PI_11[1], self.pts_PI_11[2], 'g_inv_33')
+        self.g_inv_12_31 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_31')
+        self.g_inv_12_32 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_32')
+        self.g_inv_12_33 = self.eq_MHD.domain.evaluate(self.pts_PI_12[0], self.pts_PI_12[1], self.pts_PI_12[2], 'g_inv_33')
+        self.g_inv_13_31 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_31')
+        self.g_inv_13_32 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_32')
+        self.g_inv_13_33 = self.eq_MHD.domain.evaluate(self.pts_PI_13[0], self.pts_PI_13[1], self.pts_PI_13[2], 'g_inv_33')
 
-        self.g_inv_21_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_11')
-        self.g_inv_21_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_12')
-        self.g_inv_21_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_13')
-        self.g_inv_22_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_21')
-        self.g_inv_22_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_22')
-        self.g_inv_22_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_23')
-        self.g_inv_23_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_31')
-        self.g_inv_23_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_32')
-        self.g_inv_23_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_33')
+        self.g_inv_21_11 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_11')
+        self.g_inv_21_12 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_12')
+        self.g_inv_21_13 = self.eq_MHD.domain.evaluate(self.pts_PI_21[0], self.pts_PI_21[1], self.pts_PI_21[2], 'g_inv_13')
+        self.g_inv_22_21 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_21')
+        self.g_inv_22_22 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_22')
+        self.g_inv_22_23 = self.eq_MHD.domain.evaluate(self.pts_PI_22[0], self.pts_PI_22[1], self.pts_PI_22[2], 'g_inv_23')
+        self.g_inv_23_31 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_31')
+        self.g_inv_23_32 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_32')
+        self.g_inv_23_33 = self.eq_MHD.domain.evaluate(self.pts_PI_23[0], self.pts_PI_23[1], self.pts_PI_23[2], 'g_inv_33')
 
         # DF^-1
-        self.df_inv_0_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_11')
-        self.df_inv_0_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_12')
-        self.df_inv_0_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_13')
-        self.df_inv_0_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_21')
-        self.df_inv_0_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_22')
-        self.df_inv_0_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_23')
-        self.df_inv_0_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_31')
-        self.df_inv_0_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_32')
-        self.df_inv_0_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_33')
+        self.df_inv_0_11 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_11')
+        self.df_inv_0_12 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_12')
+        self.df_inv_0_13 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_13')
+        self.df_inv_0_21 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_21')
+        self.df_inv_0_22 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_22')
+        self.df_inv_0_23 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_23')
+        self.df_inv_0_31 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_31')
+        self.df_inv_0_32 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_32')
+        self.df_inv_0_33 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_inv_33')
 
         # DF
-        self.df_0_11 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_11')
-        self.df_0_12 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_12')
-        self.df_0_13 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_13')
-        self.df_0_21 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_21')
-        self.df_0_22 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_22')
-        self.df_0_23 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_23')
-        self.df_0_31 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_31')
-        self.df_0_32 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_32')
-        self.df_0_33 = self.eq_MHD.DOMAIN.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_33')
+        self.df_0_11 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_11')
+        self.df_0_12 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_12')
+        self.df_0_13 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_13')
+        self.df_0_21 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_21')
+        self.df_0_22 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_22')
+        self.df_0_23 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_23')
+        self.df_0_31 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_31')
+        self.df_0_32 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_32')
+        self.df_0_33 = self.eq_MHD.domain.evaluate(self.pts_PI_0[0], self.pts_PI_0[1], self.pts_PI_0[2], 'df_33')
 
         # # Operator A
         # if self.basis_u == 1:

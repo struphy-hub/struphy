@@ -18,7 +18,7 @@ def test_polar_splines_2D(plot=False):
     spl_kind  = [False, True]     # kind of splines (for polar domains always [False, True] which means [clamped, periodic])
     nq_el     = [6, 6]            # number of quadrature points per element for integrations
     bc        = ['f', 'd']        # boundary conditions in radial direction (for polar domain always 'f' at eta1 = 0 (pole))
-    mapping   = 'spline cylinder' # spline cylinder or spline torus
+    mapping   = 'spline_cyl'      # spline cylinder or spline torus
     a         = 1.0               # minor radius
     R0        = 3.0               # major radius (length or cylinder = 2*pi*R0 in case of spline_cyl)
     chi       = 'equal arc'       # meaning of angular coordinate in case of spline_tours ('straight' or 'equal arc')

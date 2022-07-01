@@ -124,15 +124,15 @@ class projectors_dot_x:
 
         # ===== call equilibrium_mhd values at the projection points ===== 
         # define function for the evaluation
-        self.p0_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p0_eq(xi1, xi2, xi3)
-        self.p3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p3_eq(xi1, xi2, xi3)
-        self.r3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.r3_eq(xi1, xi2, xi3)
-        self.b2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_1(xi1, xi2, xi3)
-        self.b2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_2(xi1, xi2, xi3)
-        self.b2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_eq_3(xi1, xi2, xi3)
-        self.j2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_1(xi1, xi2, xi3)
-        self.j2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_2(xi1, xi2, xi3)
-        self.j2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_eq_3(xi1, xi2, xi3)
+        self.p0_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p0(xi1, xi2, xi3)
+        self.p3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.p3(xi1, xi2, xi3)
+        self.r3_eq_fun   = lambda xi1, xi2, xi3 : eq_MHD.r3(xi1, xi2, xi3)
+        self.b2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_1(xi1, xi2, xi3)
+        self.b2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_2(xi1, xi2, xi3)
+        self.b2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.b2_3(xi1, xi2, xi3)
+        self.j2_eq_1_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_1(xi1, xi2, xi3)
+        self.j2_eq_2_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_2(xi1, xi2, xi3)
+        self.j2_eq_3_fun = lambda xi1, xi2, xi3 : eq_MHD.j2_3(xi1, xi2, xi3)
 
         # projection points
         self.pts_PI_0  = self.space.projectors.pts_PI['0']

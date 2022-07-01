@@ -8,6 +8,8 @@ from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockMatrix
 from psydac.feec.global_projectors import GlobalProjector
 
+from struphy.psydac_api.linear_operators import LinOpWithTransp
+
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_1d as assemble_1d
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_2d as assemble_2d
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_3d as assemble_3d
@@ -17,23 +19,23 @@ from struphy.psydac_api.prepare_projection import evaluate_fun_weights_1d, evalu
 
 class MHDOperators:
     """
-    Assembles some or all MHD operators needed for various discretizations of linear MHD equations.
+    Assembles some or all MHD operators needed for various discretizations of linear MHD equations in 3d.
 
     See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF.projectors_dot_x`.
 
     Parameters
     ----------
-    derham : Derham
-        The Derham sequence object, obained from Psydac's discretize.
+        derham : Derham
+            Discrete de rham sequence from struphy.psydac_api.psydac_derham.
+            
+        F : CallableMapping
+            Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
 
-    eq_mhd : Struphy object
-        MHD equilibrium from struphy.fields_equil.mhd_equil (pullbacks must be enabled).
+        eq_mhd : EquilibriumMHD
+            MHD equilibrium from struphy.fields_equil.mhd_equil (pullbacks must be enabled).
 
-    F : Psydac mapping
-        Obtained via .get_callable_mapping().
-
-    assemble_all : bool
-        Assemble all `MHDOperator`s in constructor. Only for testing. Please assemble individually by calling `assemble_XX()` for each operator.
+        assemble_all : bool
+            Assemble all `MHDOperator`s in constructor. Only for testing. Please assemble individually by calling `assemble_XX()` for each operator.
 
     Notes
     -----
@@ -41,10 +43,7 @@ class MHDOperators:
     In order not to modify the `MHDOperator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
     """
 
-    def __init__(self, derham, eq_mhd, F, assemble_all=False):
-
-        # Missing in Psydac: inverse metric tensor
-        def _Ginv(e1, e2, e3): return np.matmul(F.jacobian_inv(e1, e2, e3), F.jacobian_inv(e1, e2, e3).T)
+    def __init__(self, derham, F, eq_mhd, assemble_all=False):
 
         # Psydac spline spaces
         self._V0 = derham.V0
@@ -59,132 +58,181 @@ class MHDOperators:
         self._P2 = derham.P2
         self._P3 = derham.P3
         self._P0vec = derham.P0vec
+        
+        # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
+        def DF(e1, e2, e3):
+            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 0, 1))
 
-        # Cross product matrices:
-        _cross_mask = [
-            [1, -1,  1],
-            [1,  1, -1],
-            [-1,  1,  1],
-        ]
-        _j2_cross = [
-            [lambda e1, e2, e3: 0,   eq_mhd.j2_eq_3,   eq_mhd.j2_eq_2],
-            [eq_mhd.j2_eq_3, lambda e1, e2, e3: 0,   eq_mhd.j2_eq_1],
-            [eq_mhd.j2_eq_2,   eq_mhd.j2_eq_1, lambda e1, e2, e3: 0],
-        ]
-        _b2_cross = [
-            [lambda e1, e2, e3: 0,   eq_mhd.b2_eq_3,   eq_mhd.b2_eq_2],
-            [eq_mhd.b2_eq_3, lambda e1, e2, e3: 0,   eq_mhd.b2_eq_1],
-            [eq_mhd.b2_eq_2,   eq_mhd.b2_eq_1, lambda e1, e2, e3: 0],
-        ]
+        def DFT(e1, e2, e3):
+            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 1, 0))
 
-        def _eval_cross(e1, e2, e3, fun_list): return np.array(
-            [[_cross_mask[m][n] * ele(e1, e2, e3) for n, ele in enumerate(row)] for m, row in enumerate(fun_list)])
+        def G(e1, e2, e3):
+            return DFT(e1, e2, e3) @ DF(e1, e2, e3) 
 
+        def DFinv(e1, e2, e3):
+            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+
+        def DFinvT(e1, e2, e3):
+            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+
+        def Ginv(e1, e2, e3):
+            return DFinv(e1, e2, e3) @ DFinvT(e1, e2, e3)
+
+        # Cross product matrices and evaluation of cross products
+        cross_mask = [[ 1, -1,  1], 
+                      [ 1,  1, -1], 
+                      [-1,  1,  1]]
+        
+        def eval_cross(e1, e2, e3, fun_list): 
+            
+            cross = np.array([[cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)] for m, row in enumerate(fun_list)])
+            
+            return np.transpose(cross, axes=(2, 3, 4, 0, 1))
+        
+        j2_cross = [[lambda e1, e2, e3 : 0*e1, eq_mhd.j2_3, eq_mhd.j2_2],
+                    [eq_mhd.j2_3, lambda e1, e2, e3 : 0*e2, eq_mhd.j2_1],
+                    [eq_mhd.j2_2, eq_mhd.j2_1, lambda e1, e2, e3 : 0*e3]]
+        
+        b2_cross = [[lambda e1, e2, e3: 0*e1, eq_mhd.b2_3, eq_mhd.b2_2],
+                    [eq_mhd.b2_3, lambda e1, e2, e3: 0*e2, eq_mhd.b2_1],
+                    [eq_mhd.b2_2, eq_mhd.b2_1, lambda e1, e2, e3: 0*e3]]
         
         # Scalar functions
-        _fun_K1 = [[lambda e1, e2, e3 : eq_mhd.p3_eq(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
-        _fun_K10 = [[lambda e1, e2, e3 : eq_mhd.p0_eq(e1, e2, e3)]]
+        fun_K0  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
         
-        _fun_K2 = [[lambda e1, e2, e3 : eq_mhd.p3_eq(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
-        _fun_Y20 = [[lambda e1, e2, e3 : np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K1  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K10 = [[lambda e1, e2, e3 : eq_mhd.p0(e1, e2, e3)]]
+        
+        fun_K2  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_Y20 = [[lambda e1, e2, e3 : np.sqrt(F.metric_det(e1, e2, e3))]]
         
         # 'Matrix' functions
-        _fun_Q1 = []
-        _fun_W1 = []
-        _fun_U1 = []
-        _fun_P1 = []
-        _fun_S1 = []
-        _fun_T1 = []
-        _fun_X1 = []
-        _fun_S10 = []
+        fun_Q0 = []
+        fun_T0 = []
+        fun_S0 = []
+        fun_J0 = []
         
-        _fun_Q2 = []
-        _fun_T2 = []
-        _fun_P2 = []
-        _fun_S2 = []
-        _fun_X2 = []
-        _fun_Z20 = []
-        _fun_S20 = []
+        fun_Q1 = []
+        fun_W1 = []
+        fun_U1 = []
+        fun_P1 = []
+        fun_S1 = []
+        fun_T1 = []
+        fun_X1 = []
+        fun_S10 = []
+        
+        fun_Q2 = []
+        fun_T2 = []
+        fun_P2 = []
+        fun_S2 = []
+        fun_X2 = []
+        fun_Z20 = []
+        fun_S20 = []
 
         for m in range(3):
-            _fun_Q1 += [[]]
-            _fun_W1 += [[]]
-            _fun_U1 += [[]]
-            _fun_P1 += [[]]
-            _fun_S1 += [[]]
-            _fun_T1 += [[]]
-            _fun_X1 += [[]]
-            _fun_S10 += [[]]
+            fun_Q0 += [[]]
+            fun_T0 += [[]]
+            fun_S0 += [[]]
+            fun_J0 += [[]]
+            
+            fun_Q1 += [[]]
+            fun_W1 += [[]]
+            fun_U1 += [[]]
+            fun_P1 += [[]]
+            fun_S1 += [[]]
+            fun_T1 += [[]]
+            fun_X1 += [[]]
+            fun_S10 += [[]]
 
-            _fun_Q2 += [[]]
-            _fun_T2 += [[]]
-            _fun_P2 += [[]]
-            _fun_S2 += [[]]
-            _fun_X2 += [[]]
-            _fun_Z20 += [[]]
-            _fun_S20 += [[]]
+            fun_Q2 += [[]]
+            fun_T2 += [[]]
+            fun_P2 += [[]]
+            fun_S2 += [[]]
+            fun_X2 += [[]]
+            fun_Z20 += [[]]
+            fun_S20 += [[]]
+            
             for n in range(3):
                 # See documentation in `struphy.feec.projectors.pro_global.mhd_operators_MF_for_tests.projectors_dot_x`.
-                _fun_Q1[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: eq_mhd.n3_eq(e1, e2, e3) * _Ginv(e1, e2, e3)[m, n]]
-                _fun_W1[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3_eq( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0.]
-                _fun_U1[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: np.sqrt(F.metric_det(e1, e2, e3)) * _Ginv(e1, e2, e3)[m, n]]
-                _fun_P1[-1] += [lambda e1, e2, e3, m=m, n=n: _cross_mask[m][n] *
-                                _j2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
-                _fun_S1[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: eq_mhd.p3_eq(e1, e2, e3) * _Ginv(e1, e2, e3)[m, n]]
-                _fun_T1[-1] += [lambda e1, e2, e3, m=m, n=n: (_eval_cross(
-                    e1, e2, e3, _b2_cross) @ _Ginv(e1, e2, e3))[m, n]]  # Matrix product!
-                _fun_X1[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: (F.jacobian_inv(e1, e2, e3).T)[m, n]]
-                _fun_S10[-1] += [lambda e1, e2, e3, m=m,
-                                 n=n: eq_mhd.p0_eq(e1, e2, e3) if m == n else 0.]
+                fun_Q0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3(e1, e2, e3) if m == n else 0*e1]
+                fun_T0[-1] += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] * b2_cross[m][n](e1, e2, e3)]
+                fun_S0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(e1, e2, e3) if m == n else 0*e1]
+                fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                
+                fun_Q1[-1]  += [lambda e1, e2, e3, m=m,
+                                n=n: eq_mhd.n3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
+                fun_W1[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
+                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                fun_U1[-1]  += [lambda e1, e2, e3, m=m,
+                                n=n: np.sqrt(F.metric_det(e1, e2, e3)) * Ginv(e1, e2, e3)[:, :, :, m, n]]
+                fun_P1[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
+                                j2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_S1[-1]  += [lambda e1, e2, e3, m=m,
+                                n=n: eq_mhd.p3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
+                fun_T1[-1]  += [lambda e1, e2, e3, m=m, n=n: (eval_cross(
+                    e1, e2, e3, b2_cross) @ Ginv(e1, e2, e3))[:, :, :, m, n]]  # Matrix product!
+                fun_X1[-1]  += [lambda e1, e2, e3, m=m,
+                                n=n: DFinvT(e1, e2, e3)[:, :, :, m, n]]
+                fun_S10[-1] += [lambda e1, e2, e3, m=m,
+                                 n=n: eq_mhd.p0(e1, e2, e3) if m == n else 0*e1]
 
-                _fun_Q2[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3_eq( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0.]
-                _fun_T2[-1] += [lambda e1, e2, e3, m=m, n=n: _cross_mask[m][n] *
-                                _b2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
-                _fun_P2[-1] += [lambda e1, e2, e3, m=m, n=n: (_Ginv(e1, e2, e3) @ _eval_cross(
-                    e1, e2, e3, _j2_cross))[m, n]]  # Matrix product!
-                _fun_S2[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3_eq(
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0.]
-                _fun_X2[-1] += [lambda e1, e2, e3, m=m,
-                                n=n: F.jacobian(e1, e2, e3)[m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
-                _fun_Z20[-1] += [lambda e1, e2, e3, m=m,
-                                 n=n: F.metric(e1, e2, e3)[m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
-                _fun_S20[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p0_eq(
-                    e1, e2, e3) * F.metric(e1, e2, e3)[m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_Q2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
+                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                fun_T2[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
+                                b2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_P2[-1]  += [lambda e1, e2, e3, m=m, n=n: (Ginv(e1, e2, e3) @ eval_cross(
+                    e1, e2, e3, j2_cross))[:, :, :, m, n]]  # Matrix product!
+                fun_S2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(
+                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                fun_X2[-1]  += [lambda e1, e2, e3, m=m,
+                                n=n: DF(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_Z20[-1] += [lambda e1, e2, e3, m=m,
+                                 n=n: G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_S20[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p0(
+                    e1, e2, e3) * G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
 
         # Scalar functions
-        self._fun_K1 = _fun_K1
-        self._fun_K10 = _fun_K10
+        self._fun_K0  = fun_K0
+        
+        self._fun_K1  = fun_K1
+        self._fun_K10 = fun_K10
 
-        self._fun_K2 = _fun_K2
-        self._fun_Y20 = _fun_Y20
+        self._fun_K2  = fun_K2
+        self._fun_Y20 = fun_Y20
 
         # 'Matrix' functions
-        self._fun_Q1 = _fun_Q1
-        self._fun_W1 = _fun_W1
-        self._fun_U1 = _fun_U1
-        self._fun_P1 = _fun_P1
-        self._fun_S1 = _fun_S1
-        self._fun_T1 = _fun_T1
-        self._fun_X1 = _fun_X1
-        self._fun_S10 = _fun_S10
+        self._fun_Q0  = fun_Q0
+        self._fun_T0  = fun_T0
+        self._fun_S0  = fun_S0
+        self._fun_J0  = fun_J0
+        
+        self._fun_Q1  = fun_Q1
+        self._fun_W1  = fun_W1
+        self._fun_U1  = fun_U1
+        self._fun_P1  = fun_P1
+        self._fun_S1  = fun_S1
+        self._fun_T1  = fun_T1
+        self._fun_X1  = fun_X1
+        self._fun_S10 = fun_S10
 
-        self._fun_Q2 = _fun_Q2
-        self._fun_T2 = _fun_T2
-        self._fun_P2 = _fun_P2
-        self._fun_S2 = _fun_S2
-        self._fun_X2 = _fun_X2
-        self._fun_Z20 = _fun_Z20
-        self._fun_S20 = _fun_S20
+        self._fun_Q2  = fun_Q2
+        self._fun_T2  = fun_T2
+        self._fun_P2  = fun_P2
+        self._fun_S2  = fun_S2
+        self._fun_X2  = fun_X2
+        self._fun_Z20 = fun_Z20
+        self._fun_S20 = fun_S20
 
         # Assemble operators only when needed. Otherwise it takes a full minute to initialize the following classes.
         if assemble_all:
 
+            # MHD operators with velocity (up) as 0-form^3:
+            self.assemble_K0()
+            self.assemble_Q0()
+            self.assemble_T0()
+            self.assemble_S0()
+            self.assemble_J0()
+            
             # MHD operators with velocity (up) as 1-form:
             self.assemble_K1()
             self.assemble_Q1()
@@ -208,67 +256,107 @@ class MHDOperators:
             self.assemble_Z20()
             self.assemble_S20()
             
-    # MHD operators with velocity (up) as 1-form:
-    def assemble_K1(self, with_transposed=True):
-        self.K1 = MHDOperator(self._P3, self._V3, self._fun_K1, with_transposed)
+    # MHD operators with velocity (up) as 0-form^3:
+    def assemble_K0(self):
+        self.K0 = MHDOperator(self._P3, self._V3, self._fun_K0)
+        self.K0T = self.K0.transpose()
+        
+    def assemble_Q0(self):
+        self.Q0 = MHDOperator(self._P2, self._V0vec, self._fun_Q0)
+        self.Q0T = self.Q0.transpose()
     
-    def assemble_Q1(self, with_transposed=True):
-        self.Q1 = MHDOperator(self._P2, self._V1, self._fun_Q1, with_transposed)
+    def assemble_T0(self):
+        self.T0 = MHDOperator(self._P1, self._V0vec, self._fun_T0)
+        self.T0T = self.T0.transpose()
+        
+    def assemble_S0(self):
+        self.S0 = MHDOperator(self._P2, self._V0vec, self._fun_S0)
+        self.S0T = self.S0.transpose()
+        
+    def assemble_J0(self):
+        self.J0 = MHDOperator(self._P2, self._V0vec, self._fun_J0)
+        self.J0T = self.J0.transpose()
+    
+    # MHD operators with velocity (up) as 1-form:
+    def assemble_K1(self):
+        self.K1 = MHDOperator(self._P3, self._V3, self._fun_K1)
+        self.K1T = self.K1.transpose()
+    
+    def assemble_Q1(self):
+        self.Q1 = MHDOperator(self._P2, self._V1, self._fun_Q1)
+        self.Q1T = self.Q1.transpose()
 
-    def assemble_W1(self, with_transposed=True):
-        self.W1 = MHDOperator(self._P1, self._V1, self._fun_W1, with_transposed)
+    def assemble_W1(self):
+        self.W1 = MHDOperator(self._P1, self._V1, self._fun_W1)
+        self.W1T = self.W1.transpose()
 
-    def assemble_U1(self, with_transposed=True):
-        self.U1 = MHDOperator(self._P2, self._V1, self._fun_U1, with_transposed)
+    def assemble_U1(self):
+        self.U1 = MHDOperator(self._P2, self._V1, self._fun_U1)
+        self.U1T = self.U1.transpose()
 
-    def assemble_P1(self, with_transposed=True):
-        self.P1 = MHDOperator(self._P1, self._V2, self._fun_P1, with_transposed)
+    def assemble_P1(self):
+        self.P1 = MHDOperator(self._P1, self._V2, self._fun_P1)
+        self.P1T = self.P1.transpose()
 
-    def assemble_S1(self, with_transposed=True):
-        self.S1 = MHDOperator(self._P2, self._V1, self._fun_S1, with_transposed)
+    def assemble_S1(self):
+        self.S1 = MHDOperator(self._P2, self._V1, self._fun_S1)
+        self.S1T = self.S1.transpose()
 
-    def assemble_T1(self, with_transposed=True):
-        self.T1 = MHDOperator(self._P1, self._V1, self._fun_T1, with_transposed)
+    def assemble_T1(self):
+        self.T1 = MHDOperator(self._P1, self._V1, self._fun_T1)
+        self.T1T = self.T1.transpose()
 
-    def assemble_X1(self, with_transposed=True):
-        self.X1 = MHDOperator(self._P0vec, self._V1, self._fun_X1, with_transposed) 
+    def assemble_X1(self):
+        self.X1 = MHDOperator(self._P0vec, self._V1, self._fun_X1)
+        self.X1T = self.X1.transpose()
 
-    def assemble_K10(self, with_transposed=True):
-        self.K10 = MHDOperator(self._P0, self._V0, self._fun_K10, with_transposed)
+    def assemble_K10(self):
+        self.K10 = MHDOperator(self._P0, self._V0, self._fun_K10)
+        self.K10T = self.K10.transpose()
 
-    def assemble_S10(self, with_transposed=True):
-        self.S10 = MHDOperator(self._P1, self._V1, self._fun_S10, with_transposed)
+    def assemble_S10(self):
+        self.S10 = MHDOperator(self._P1, self._V1, self._fun_S10)
+        self.S10T = self.S10.transpose()
 
     # MHD operators with velocity (up) as 2-form:
-    def assemble_K2(self, with_transposed=True):
-        self.K2 = MHDOperator(self._P3, self._V3, self._fun_K2, with_transposed)
+    def assemble_K2(self):
+        self.K2 = MHDOperator(self._P3, self._V3, self._fun_K2)
+        self.K2T = self.K2.transpose()
     
-    def assemble_Q2(self, with_transposed=True):
-        self.Q2 = MHDOperator(self._P2, self._V2, self._fun_Q2, with_transposed)
+    def assemble_Q2(self):
+        self.Q2 = MHDOperator(self._P2, self._V2, self._fun_Q2)
+        self.Q2T = self.Q2.transpose()
 
-    def assemble_T2(self, with_transposed=True):
-        self.T2 = MHDOperator(self._P1, self._V2, self._fun_T2, with_transposed)
+    def assemble_T2(self):
+        self.T2 = MHDOperator(self._P1, self._V2, self._fun_T2)
+        self.T2T = self.T2.transpose()
 
-    def assemble_P2(self, with_transposed=True):
-        self.P2 = MHDOperator(self._P2, self._V2, self._fun_P2, with_transposed)
+    def assemble_P2(self):
+        self.P2 = MHDOperator(self._P2, self._V2, self._fun_P2)
+        self.P2T = self.P2.transpose()
 
-    def assemble_S2(self, with_transposed=True):
-        self.S2 = MHDOperator(self._P2, self._V2, self._fun_S2, with_transposed)
+    def assemble_S2(self):
+        self.S2 = MHDOperator(self._P2, self._V2, self._fun_S2)
+        self.S2T = self.S2.transpose()
 
-    def assemble_X2(self, with_transposed=True):
-        self.X2 = MHDOperator(self._P0vec, self._V2, self._fun_X2, with_transposed) 
+    def assemble_X2(self):
+        self.X2 = MHDOperator(self._P0vec, self._V2, self._fun_X2)
+        self.X2T = self.X2.transpose()
      
-    def assemble_Y20(self, with_transposed=True):
-        self.Y20 = MHDOperator(self._P3, self._V0, self._fun_Y20, with_transposed)
+    def assemble_Y20(self):
+        self.Y20 = MHDOperator(self._P3, self._V0, self._fun_Y20)
+        self.Y20T = self.Y20.transpose()
     
-    def assemble_Z20(self, with_transposed=True):
-        self.Z20 = MHDOperator(self._P1, self._V2, self._fun_Z20, with_transposed)
+    def assemble_Z20(self):
+        self.Z20 = MHDOperator(self._P1, self._V2, self._fun_Z20)
+        self.Z20T = self.Z20.transpose()
 
-    def assemble_S20(self, with_transposed=True):
-        self.S20 = MHDOperator(self._P1, self._V2, self._fun_S20, with_transposed)
+    def assemble_S20(self):
+        self.S20 = MHDOperator(self._P1, self._V2, self._fun_S20)
+        self.S20T = self.S20.transpose()
 
 
-class MHDOperator(LinearOperator):
+class MHDOperator(LinOpWithTransp):
     '''
     Class for MHD specific projection operators PI_ijk(fun Lambda_mno).
 
@@ -289,7 +377,7 @@ class MHDOperator(LinearOperator):
             False: map V -> W or True: map W -> V.
     '''
 
-    def __init__(self, P, V, fun, with_transposed=True):
+    def __init__(self, P, V, fun, transposed=False):
 
         assert isinstance(P, GlobalProjector) 
         assert isinstance(V, FemSpace) 
@@ -297,10 +385,14 @@ class MHDOperator(LinearOperator):
         self._P = P
         self._V = V
         self._fun = fun
-        self._with_transposed = with_transposed
+        self._transposed = transposed
         
-        self._domain = V.vector_space
-        self._codomain = P.space.vector_space
+        if transposed:
+            self._domain = P.space.vector_space
+            self._codomain = V.vector_space
+        else:
+            self._domain = V.vector_space
+            self._codomain = P.space.vector_space
 
         # Retrieve solver
         self._solver = P.solver
@@ -372,35 +464,43 @@ class MHDOperator(LinearOperator):
             for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
 
                 # Initiate cell of block matrix
-                _dofs = StencilMatrix(Vspace, Wspace)
+                _dofs_mat = StencilMatrix(Vspace, Wspace)
 
-                _starts_in = _dofs.domain.starts
-                _ends_in = _dofs.domain.ends
-                _pads_in = _dofs.domain.pads
-                _starts_out = _dofs.codomain.starts
-                _ends_out = _dofs.codomain.ends
-                _pads_out = _dofs.codomain.pads
+                _starts_in = _dofs_mat.domain.starts
+                _ends_in = _dofs_mat.domain.ends
+                _pads_in = _dofs_mat.domain.pads
+                _starts_out = _dofs_mat.codomain.starts
+                _ends_out = _dofs_mat.codomain.ends
+                _pads_out = _dofs_mat.codomain.pads
 
                 _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
                     V1d, W1d, _starts_out, _ends_out, _nqs)
                 
                 # Evaluate weight function times quadrature weights
                 if   V.ldim == 1:
-                    _fun_w = evaluate_fun_weights_1d(_ptsG, _wtsG, f)
+                    #_fun_w = evaluate_fun_weights_1d(_ptsG, _wtsG, f)
+                    pts1, = np.meshgrid(_ptsG[0].flatten(), indexing='ij')
+                    _fun_q = f(pts1).copy().reshape(_ptsG[0].shape[0], _ptsG[0].shape[1])
+                    
                 elif V.ldim == 2:
-                    _fun_w = evaluate_fun_weights_2d(_ptsG, _wtsG, f)
+                    #_fun_w = evaluate_fun_weights_2d(_ptsG, _wtsG, f)
+                    pts1, pts2 = np.meshgrid(_ptsG[0].flatten(), _ptsG[1].flatten(), indexing='ij')
+                    _fun_q = f(pts1, pts2).copy().reshape(_ptsG[0].shape[0], _ptsG[0].shape[1], _ptsG[1].shape[0], _ptsG[1].shape[1])
+                    
                 elif V.ldim == 3:
-                    _fun_w = evaluate_fun_weights_3d(_ptsG, _wtsG, f)
+                    #_fun_w = evaluate_fun_weights_3d(_ptsG, _wtsG, f)
+                    pts1, pts2, pts3 = np.meshgrid(_ptsG[0].flatten(), _ptsG[1].flatten(), _ptsG[2].flatten(), indexing='ij')
+                    _fun_q = f(pts1, pts2, pts3).copy().reshape(_ptsG[0].shape[0], _ptsG[0].shape[1], _ptsG[1].shape[0], _ptsG[1].shape[1], _ptsG[2].shape[0], _ptsG[2].shape[1])
                 
                 
                 # Call the kernel if weight function is not zero
-                if np.any(_fun_w):
+                if np.any(_fun_q):
                     if V.ldim == 1:
                         
-                        assemble_1d(_dofs._data,
+                        assemble_1d(_dofs_mat._data,
                                  np.array(_starts_in), np.array(_ends_in), np.array(_pads_in),
                                  np.array(_starts_out), np.array(_ends_out), np.array(_pads_out),
-                                 _fun_w,
+                                 _fun_q, _wtsG[0],
                                  _spans[0],
                                  _bases[0],
                                  _subs[0],
@@ -409,10 +509,10 @@ class MHDOperator(LinearOperator):
 
                     elif V.ldim == 2:
 
-                        assemble_2d(_dofs._data,
+                        assemble_2d(_dofs_mat._data,
                                  np.array(_starts_in), np.array(_ends_in), np.array(_pads_in),
                                  np.array(_starts_out), np.array(_ends_out), np.array(_pads_out),
-                                 _fun_w,
+                                 _fun_q, _wtsG[0], _wtsG[1],
                                  _spans[0], _spans[1],
                                  _bases[0], _bases[1],
                                  _subs[0], _subs[1],
@@ -420,19 +520,18 @@ class MHDOperator(LinearOperator):
                                  W1d[0].degree, W1d[1].degree)
 
                     elif V.ldim == 3:
-
-                        # Call the kernel
-                        assemble_3d(_dofs._data,
+                        
+                        assemble_3d(_dofs_mat._data,
                                  np.array(_starts_in), np.array(_ends_in), np.array(_pads_in),
                                  np.array(_starts_out), np.array(_ends_out), np.array(_pads_out),
-                                 _fun_w,
+                                 _fun_q, _wtsG[0], _wtsG[1], _wtsG[2],
                                  _spans[0], _spans[1], _spans[2],
                                  _bases[0], _bases[1], _bases[2],
                                  _subs[0], _subs[1], _subs[2],
                                  V1d[0].nbasis, V1d[1].nbasis, V1d[2].nbasis,
                                  W1d[0].degree, W1d[1].degree, W1d[2].degree)
 
-                    _blocks[-1] += [_dofs]
+                    _blocks[-1] += [_dofs_mat]
                     
                 else:
                     _blocks[-1] += [None]
@@ -446,10 +545,10 @@ class MHDOperator(LinearOperator):
             if _blocks[0][0] is not None:
                 self._dofs_mat = _blocks[0][0]
             else:
-                self._dofs_mat = _dofs
+                self._dofs_mat = _dofs_mat
                 
-        if with_transposed:
-            self._dofs_mat_T = self._dofs_mat.transpose()
+        if transposed:
+            self._dofs_mat = self._dofs_mat.transpose()
 
     @property
     def domain(self):
@@ -461,20 +560,14 @@ class MHDOperator(LinearOperator):
 
     @property
     def dtype(self):
-        return self._V.dtype
+        return self._V.vector_space.dtype
 
     @property
-    def with_transposed(self):
-        return self._with_transposed
+    def transposed(self):
+        return self._transposed
     
-    @with_transposed.setter
-    def with_transposed(self, value):
-    
-        if value:
-            self._dofs_mat_T = self._dofs_mat.transpose()
-            
-        self._with_transposed = value
-    
+    def transpose(self):
+        return MHDOperator(self._P, self._V, self._fun, True)
 
     def dot(self, v, out=None):
         '''Applies the MHD operator to the FE coefficients v belonging to V.
@@ -487,52 +580,38 @@ class MHDOperator(LinearOperator):
         Returns
         -------
             A StencilVector or BlockVector from W.vector_space.'''
-
-        assert v.space == self.domain
-
-        rhs = self._dofs_mat.dot(v)
-        rhs.update_ghost_regions()
-
-        assert rhs.space == self.codomain
-
-        tmp = self._solver.solve(rhs)
-        tmp.update_ghost_regions()
         
-        assert tmp.space == self.codomain
+        if self.transposed:
+            
+            assert v.space == self.domain
 
-        return tmp
+            tmp = self._solver.solve(v, transposed=True)
+            #tmp.update_ghost_regions()
 
-    def transpose_dot(self, v):
-        '''Applies the transposed MHD operator to the FE coefficients v belonging to W.
+            assert tmp.space == self.domain
 
-        Parameters
-        ----------
-            v : StencilVector or BlockVector
-                Output FE coefficients from W.vector_space.
+            tmp2 = self._dofs_mat.dot(tmp)
+            #tmp2.update_ghost_regions()
 
-        Returns
-        -------
-            A StencilVector or BlockVector from V.vector_space.'''
+            assert tmp2.space == self.codomain
 
-        assert v.space == self.codomain
+            return tmp2
+            
+        else:
 
-        tmp = self._solver.solve(v, transposed=True)
-        tmp.update_ghost_regions()
+            assert v.space == self.domain
 
-        assert tmp.space == self.codomain
+            dofs = self._dofs_mat.dot(v)
+            #dofs.update_ghost_regions()
 
-        tmp2 = self._dofs_mat_T.dot(tmp)
-        tmp2.update_ghost_regions()
-        
-        assert tmp2.space == self.domain
+            assert dofs.space == self.codomain
 
-        return tmp2
+            coeffs = self._solver.solve(dofs)
+            #coeffs.update_ghost_regions()
 
-    
-    
-    
-    
-    
+            assert coeffs.space == self.codomain
+
+            return coeffs    
     
     
 def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):

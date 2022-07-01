@@ -27,7 +27,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     from struphy.geometry.domain_3d import Domain
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
-    from struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab import EquilibriumMHDSlab
+    from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
     
     from struphy.feec.projectors.pro_global.mhd_operators_MF import projectors_dot_x
     
@@ -50,10 +50,10 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     MPI_COMM.Barrier()
 
     # Domain object
-    DOMAIN = Domain(mapping[0], mapping[1])
+    domain = Domain(mapping[0], mapping[1])
 
     # Psydac mapping
-    F = DOMAIN.Psydac_mapping('F', **mapping[1])
+    F = domain.Psydac_mapping('F', **mapping[1])
     
     # de Rham object
     n_quad_el = [5, 5, 5]
@@ -71,7 +71,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Mhd equilibirum (slab)
     mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200.}
     
-    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params, DOMAIN)
+    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params, domain)
 
     # Psydac spline spaces
     V0 = DERHAM_PSY.V0
@@ -132,7 +132,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     print(f'Rank {mpi_rank} | Init PSYDAC `MHD_operators` ...')
     elapsed = time()
     
-    OPS_PSY = MHDOperators(DERHAM_PSY, EQ_MHD, F.get_callable_mapping())
+    OPS_PSY = MHDOperators(DERHAM_PSY, F.get_callable_mapping(), EQ_MHD)
     
     OPS_PSY.assemble_K1()
     OPS_PSY.assemble_K10()
@@ -146,7 +146,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Struphy matrix-free MHD operators
     print(f'Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...')
     elapsed = time()
-    OPS_STR = projectors_dot_x(SPACES, EQ_MHD, 1, 0)
+    OPS_STR = projectors_dot_x(SPACES, EQ_MHD)
     print(
         f'Rank {mpi_rank} | Init `projectors_dot_x` done ({time()-elapsed:.4f}s).')
 
@@ -264,7 +264,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.K1.transpose_dot(x3_st)
+    res_PSY = OPS_PSY.K1T.dot(x3_st)
     res_STR = OPS_STR.transpose_K1_dot(x3.flatten())
     res_STR = SPACES.extract_3(res_STR)
 
@@ -286,7 +286,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.K10.transpose_dot(x0_st)
+    res_PSY = OPS_PSY.K10T.dot(x0_st)
     res_STR = OPS_STR.transpose_K10_dot(x0.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
@@ -308,7 +308,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Y20.transpose_dot(x3_st)
+    res_PSY = OPS_PSY.Y20T.dot(x3_st)
     res_STR = OPS_STR.transpose_Y20_dot(x3.flatten())
     res_STR = SPACES.extract_0(res_STR)
 
@@ -345,7 +345,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Q1.transpose_dot(x2_st)
+    res_PSY = OPS_PSY.Q1T.dot(x2_st)
     res_STR = OPS_STR.transpose_Q1_dot(
         np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
@@ -398,7 +398,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.W1.transpose_dot(x1_st)
+    res_PSY = OPS_PSY.W1T.dot(x1_st)
     res_STR = OPS_STR.transpose_W1_dot(
         np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
@@ -451,7 +451,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.Q2.transpose_dot(x2_st)
+    res_PSY = OPS_PSY.Q2T.dot(x2_st)
     res_STR = OPS_STR.transpose_Q2_dot(
         np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
@@ -506,7 +506,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     assert_ops(mpi_rank, res_PSY[2], res_STR_2)
     print(f'Rank {mpi_rank} | Assertion passed.')
 
-    res_PSY = OPS_PSY.X1.transpose_dot(x0vec_st)
+    res_PSY = OPS_PSY.X1T.dot(x0vec_st)
     res_STR = OPS_STR.transpose_X1_dot([x0.flatten(), x0.flatten(), x0.flatten()])
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 

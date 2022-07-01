@@ -208,7 +208,10 @@ def create_femfields(path, snapshots=None):
         assert len(snapshots) <= nt + 1
 
     fields = {}
+    spaces = {}
     for name, space in zip(names, space_ids):
+        
+        spaces[name] = space
 
         if space == 'H1':
             _space = DR.V0
@@ -218,6 +221,8 @@ def create_femfields(path, snapshots=None):
             _space = DR.V2
         elif space == 'L2':
             _space = DR.V3
+        elif space == 'H1vec':
+            _space = DR.V0vec
         else:
             raise ValueError('Space for field not properly defined.')
 
@@ -248,7 +253,7 @@ def create_femfields(path, snapshots=None):
             ends = dset.attrs['ends']
             pads = dset.attrs['pads']
 
-            if space_id in ('Hcurl', 'Hdiv'):
+            if space_id in ('Hcurl', 'Hdiv', 'H1vec'):
                 comp = int(key[-1])
                 name = key[:-2]
             else:
@@ -272,7 +277,7 @@ def create_femfields(path, snapshots=None):
             p2 = pads[comp][2]
 
             for t, time in enumerate(fields[name]):
-                if space_id in ('Hcurl', 'Hdiv'):
+                if space_id in ('Hcurl', 'Hdiv', 'H1vec'):
                     fields[name][time][comp].coeffs[s0:e0 + 1, s1:e1 + 1,
                                             s2:e2 + 1] = dset[t, p0:-p0, p1:-p1, p2:-p2]
                 else:
@@ -281,10 +286,10 @@ def create_femfields(path, snapshots=None):
 
     print('Creation of FemFields done.')
 
-    return fields, DOMAIN, code
+    return fields, spaces, DOMAIN, code
 
 
-def eval_femfields(fields, DOMAIN, npts_per_cell=1):
+def eval_femfields(fields, spaces, DOMAIN, npts_per_cell=1):
     '''Evaluate B-spline fields obtained from create_femfields
     at cell boundaries (npts_per_cell=1) or refined grid (npts_per_cell>1).
     
@@ -318,8 +323,10 @@ def eval_femfields(fields, DOMAIN, npts_per_cell=1):
         npts_per_cell = (npts_per_cell,) * 3
 
     values = {}
+    values_phys = {}
     grids = {}
     grids_phys = {}
+    
     for key, field in tqdm(fields.items()):
 
         # create the grid from first snapshot
@@ -330,12 +337,13 @@ def eval_femfields(fields, DOMAIN, npts_per_cell=1):
             assert isinstance(snapshot.space, TensorFemSpace)
             Nel = [space.ncells for space in snapshot.space.spaces]
 
-        _grids = [np.linspace(0, 1, n_i*Nel_i) for Nel_i, n_i in zip(Nel, npts_per_cell)]
+        _grids = [np.linspace(0, 1, n_i*Nel_i + 1)[:-1] for Nel_i, n_i in zip(Nel, npts_per_cell)]
 
         # physical grids
         grids_phys[key] = [DOMAIN.evaluate(*_grids, 'x'), DOMAIN.evaluate(*_grids, 'y'), DOMAIN.evaluate(*_grids, 'z')]
 
         values[key] = {}
+        values_phys[key] = {}
 
         print(f'Starting evaluation of snapshots for {key}:')
         for time, snapshot in tqdm(field.items()):
@@ -343,9 +351,28 @@ def eval_femfields(fields, DOMAIN, npts_per_cell=1):
             temp_val = snapshot.space.eval_fields(_grids, snapshot, npts_per_cell=npts_per_cell)[0]
 
             if isinstance(temp_val, np.ndarray):
-                temp_val = [temp_val]
+                temp_val = (temp_val,)
 
             values[key][time] = temp_val
+            
+            # physical fields via push-forwards
+            if   spaces[key] == 'H1':
+                values_phys[key][time] = (DOMAIN.push(temp_val[0], *_grids, '0_form'),)
+            elif spaces[key] == 'Hcurl':
+                values_phys[key][time] = (DOMAIN.push(temp_val, *_grids, '1_form_1'),
+                                          DOMAIN.push(temp_val, *_grids, '1_form_2'),
+                                          DOMAIN.push(temp_val, *_grids, '1_form_3'))
+            elif spaces[key] == 'Hdiv':
+                values_phys[key][time] = (DOMAIN.push(temp_val, *_grids, '2_form_1'),
+                                          DOMAIN.push(temp_val, *_grids, '2_form_2'),
+                                          DOMAIN.push(temp_val, *_grids, '2_form_3'))
+            elif spaces[key] == 'L2':
+                values_phys[key][time] = (DOMAIN.push(temp_val[0], *_grids, '3_form'),)
+            elif spaces[key] == 'H1vec':
+                values_phys[key][time] = (DOMAIN.push(temp_val, *_grids, 'vector_1'),
+                                          DOMAIN.push(temp_val, *_grids, 'vector_2'),
+                                          DOMAIN.push(temp_val, *_grids, 'vector_3'))
+            
 
         # reshape grid
         for i in range(3):
@@ -353,7 +380,7 @@ def eval_femfields(fields, DOMAIN, npts_per_cell=1):
 
         grids[key] = _grids
 
-    return values, grids, grids_phys
+    return values, values_phys, grids, grids_phys
 
 
 class Post_processing:
