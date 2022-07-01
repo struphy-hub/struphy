@@ -30,7 +30,7 @@ The following mappings are implemented:
 - kind_map = 19 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
 """
 
-from numpy import shape, empty
+from numpy import shape, empty, zeros
 from numpy import sin, cos, pi, sqrt, arctan2, arcsin
 
 import struphy.feec.bsplines_kernels as bsp
@@ -41,7 +41,6 @@ import struphy.feec.basics.spline_evaluation_3d as eva_3d
 from struphy.linear_algebra.core import det
 
 
-# =======================================================================
 def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of Cartesian coordinate x_i = f_i(eta1, eta2, eta3), i=1,2,3. 
@@ -157,6 +156,7 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
+        lz = params_map[3]
 
         da = a2 - a1
 
@@ -165,7 +165,7 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
         elif component == 2:
             value = (a1 + eta1 * da) * sin(2*pi*eta2)
         elif component == 3:
-            value = 2*pi*r0 * eta3
+            value = lz * eta3
 
     # ------------ colella --------------------------
     elif kind_map == 12:
@@ -308,7 +308,6 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
     return value
 
 
-# =======================================================================
 def f(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', f_out : 'float[:]'):
     """
     Point-wise evaluation of all Cartesian coordinates x_i = f_i(eta1, eta2, eta3), i=1,2,3. 
@@ -345,7 +344,6 @@ def f(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'fl
     f_out[2] = f_i(eta1, eta2, eta3, 3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
     
     
-# =======================================================================
 def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, params_map : 'float[:]') -> float:
     """
     Point-wise evaluation of inverse mapping eta_i = f^(-1)_i(x, y, z), i=1,2,3. Only possible for analytical mappings.
@@ -489,7 +487,6 @@ def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, pa
     return value
 
 
-# =======================================================================
 def f_inv(x : float, y : float, z : float, kind_map : int, params_map : 'float[:]', f_inv_out : 'float[:]'):
     """
     Point-wise evaluation of all inverse mapping components eta_i = f^(-1)_i(x, y, z), i=1,2,3. Only possible for analytical mappings.
@@ -514,7 +511,6 @@ def f_inv(x : float, y : float, z : float, kind_map : int, params_map : 'float[:
     f_inv_out[2] = f_inv_i(x, y, z, 3, kind_map, params_map)
     
     
-# =======================================================================
 def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of ij-th component of the Jacobian matrix df_ij = df_i/deta_j (i,j=1,2,3). 
@@ -676,6 +672,7 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
+        lz = params_map[3]
 
         da = a2 - a1
 
@@ -696,7 +693,7 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
         elif component == 32:
             value = 0.
         elif component == 33:
-            value = 2*pi*r0
+            value = lz
 
     # ---------------- colella -----------------------
     elif kind_map == 12:
@@ -935,7 +932,6 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
     return value
 
 
-# =======================================================================
 def df(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', df_out : 'float[:,:]'):
     """
     Point-wise evaluation of all components of the Jacobian matrix df_ij = df_i/deta_j (i,j=1,2,3). 
@@ -980,7 +976,6 @@ def df(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'f
     df_out[2, 2] = df_ij(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
     
     
-# =======================================================================
 def det_df(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of the Jacobian determinant det(df) = df/deta1.dot(df/deta2 x df/deta3). 
@@ -1023,7 +1018,6 @@ def det_df(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map 
     return detdf
 
 
-# =======================================================================
 def df_inv_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of ij-th component of the inverse Jacobian matrix df^(-1)_ij (i,j=1,2,3). 
@@ -1096,7 +1090,6 @@ def df_inv_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_ma
     return value
 
 
-# =======================================================================
 def df_inv(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', df_inv_out : 'float[:,:]'):
     """
     Point-wise evaluation of all components of the inverse Jacobian matrix df^(-1)_ij (i,j=1,2,3). 
@@ -1147,7 +1140,6 @@ def df_inv(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map 
     df_inv_out[2, 2] = df_inv_ij(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
     
     
-# =======================================================================
 def g_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of ij-th component of metric tensor g_ij = sum_k [ (df^T)_ik (df)_kj ] (i,j,k=1,2,3). 
@@ -1234,7 +1226,6 @@ def g_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : i
     return value
 
 
-# =======================================================================
 def g(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', g_out : 'float[:,:]'):
     """
     Point-wise evaluation of all components of the metric tensor g_ij = sum_k [ (df^T)_ik (df)_kj ] (i,j,k=1,2,3). 
@@ -1279,7 +1270,6 @@ def g(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'fl
     g_out[2, 2] = g_ij(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
     
     
-# =======================================================================
 def g_inv_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of ij-th component of the inverse metric tensor g^(-1)_ij = sum_k [ (df^-1)_ik (df^-T)_kj ] (i,j,k=1,2,3). 
@@ -1357,7 +1347,6 @@ def g_inv_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map
     return value
 
 
-# =======================================================================
 def g_inv(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', g_inv_out : 'float[:,:]'):
     """
     Point-wise evaluation of all components of the inverse metric tensor g^(-1)_ij = sum_k [ (df^-1)_ik (df^-T)_kj ] (i,j,k=1,2,3). 
@@ -1402,7 +1391,6 @@ def g_inv(eta1 : float, eta2 : float, eta3 : float, kind_map : int, params_map :
     g_inv_out[2, 2] = g_inv_ij(eta1, eta2, eta3, 33, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
     
     
-# ==========================================================================================
 def mappings_all(eta1 : float, eta2 : float, eta3 : float, kind_fun : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float:
     """
     Point-wise evaluation of
@@ -1541,8 +1529,7 @@ def mappings_all(eta1 : float, eta2 : float, eta3 : float, kind_fun : int, kind_
     
     return value
 
-
-# ==========================================================================================   
+   
 def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:]'):
     """
     Matrix-wise evaluation of
@@ -1592,8 +1579,7 @@ def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[
             for i3 in range(n3):
                 mat_f[i1, i2, i3] = mappings_all(eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-
-# ==========================================================================================     
+     
 def kernel_evaluate_sparse(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:]'):
     """
     Same as kernel_evaluate, but for sparse meshgrids.
@@ -1637,8 +1623,7 @@ def kernel_evaluate_sparse(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 
             for i3 in range(n3):
                 mat_f[i1, i2, i3] = mappings_all(eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-                
-# ==========================================================================================     
+                     
 def kernel_evaluate_flat(eta1 : 'float[:]', eta2 : 'float[:]', eta3 : 'float[:]', kind_fun : int, kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:]'):
     """
     Same as kernel_evaluate, but for flat evaluation.
@@ -1681,9 +1666,184 @@ def kernel_evaluate_flat(eta1 : 'float[:]', eta2 : 'float[:]', eta3 : 'float[:]'
     for i in range(len(eta1)):
         mat_f[i] = mappings_all(eta1[i], eta2[i], eta3[i], kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
+
+def f_df_pic(kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', span_n1 : int, span_n2 : int, span_n3 : int, ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', eta1 : 'float', eta2 : 'float', eta3 : 'float', f_out : 'float[:]', df_out : 'float[:,:]', f_or_df : 'int'):
+    """
+    Fast evaluation of mapping F and/or Jacobian matrix DF because of avoiding memory allocation and multiple computations. Especially well suited for PIC routines.
+    
+    Parameters
+    ----------
+        kind_map : int                 
+            Kind of mapping (see module docstring).
         
-# ==========================================================================
-def f_df_pic(kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', span_n1 : int, span_n2 : int, span_n3 : int, ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', l1 : 'float[:]', l2 : 'float[:]', l3 : 'float[:]', r1 : 'float[:]', r2 : 'float[:]', r3 : 'float[:]', b1 : 'float[:,:]', b2 : 'float[:,:]', b3 : 'float[:,:]', d1 : 'float[:]', d2 : 'float[:]', d3 : 'float[:]', der1 : 'float[:]', der2 : 'float[:]', der3 : 'float[:]', eta1 : float, eta2 : float, eta3 : float, f_out : 'float[:]', df_out : 'float[:,:]', f_or_df : int):
+        params_map : array[float]
+            Parameters for the mapping in a 1d array.
+            
+        tn1, tn2, tn3 : array[float]          
+            Knot vectors of univariate splines.
+        
+        pn : array[int]
+            Degrees of univariate splines [pn1, pn2, pn3].
+            
+        span1, span2, span3 : int
+            Knot span indices at considered point.
+            
+        ind_n1, ind_n2, ind_n3 : array[int]                 
+            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+            
+        cx, cy, cz : array[float]     
+            Control points of (f_1, f_2, f_3) in case of a IGA mapping.
+            
+        eta1, eta2, eta3 : float
+            Logical coordinates (evaluation point).
+            
+        f_out : array[float]
+            Empty buffer for the three evaluated Cartesian components.
+            
+        df_out : array[float]
+            Empty buffer for the nine evaluated Jacobian matrix components.
+            
+        f_or_df : int
+            Wether to evaluate mapping only (0), Jacobian matrix only (1) or both (2).
+    """
+    
+    # ------------------- 3d spline mapping ------------------------------
+    if kind_map == 0:
+
+        bn1 = zeros(pn[0] + 1, dtype=float)
+        bn2 = zeros(pn[1] + 1, dtype=float)
+        bn3 = zeros(pn[2] + 1, dtype=float)
+
+        der1 = zeros(pn[0] + 1, dtype=float)
+        der2 = zeros(pn[1] + 1, dtype=float)
+        der3 = zeros(pn[2] + 1, dtype=float)
+        
+        # evaluate non-vanishing basis functions and its derivatives
+        bsp.b_der_splines_slim(tn1, pn[0], eta1, span_n1, bn1, der1)
+        bsp.b_der_splines_slim(tn2, pn[1], eta2, span_n2, bn2, der2)
+        bsp.b_der_splines_slim(tn3, pn[2], eta3, span_n3, bn3, der3)
+        
+        # evaluate mapping
+        if f_or_df == 0 or f_or_df == 2:
+            
+            f_out[0] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cx)
+            f_out[1] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cy)
+            f_out[2] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cz)
+        
+        # evaluate Jacobian matrix
+        if f_or_df == 1 or f_or_df == 2:
+            
+            # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
+            df_out[0, 0] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cx)
+            df_out[0, 1] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, der2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cx)
+            df_out[0, 2] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, der3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cx)
+
+            # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
+            df_out[1, 0] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cy)
+            df_out[1, 1] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, der2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cy)
+            df_out[1, 2] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, der3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cy)
+
+            # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
+            df_out[2, 0] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], der1, bn2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cz)
+            df_out[2, 1] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, der2, bn3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cz)
+            df_out[2, 2] = eva_3d.evaluation_kernel_3d(pn[0], pn[1], pn[2], bn1, bn2, der3, ind_n1[span_n1 - pn[0], :], ind_n2[span_n2 - pn[1], :], ind_n3[span_n3 - pn[2], :], cz)  
+            
+           
+    # --------------------- 2d spline (straight) --------------------------
+    elif kind_map == 1:
+        
+        lz = 2*pi*cx[0, 0, 0]
+        
+        bn1 = zeros(pn[0] + 1, dtype=float)
+        bn2 = zeros(pn[1] + 1, dtype=float)
+
+        der1 = zeros(pn[0] + 1, dtype=float)
+        der2 = zeros(pn[1] + 1, dtype=float)
+
+        # evaluate non-vanishing basis functions and its derivatives
+        bsp.b_der_splines_slim(tn1, pn[0], eta1, span_n1, bn1, der1)
+        bsp.b_der_splines_slim(tn2, pn[1], eta2, span_n2, bn2, der2)
+        
+        # evaluate mapping
+        if f_or_df == 0 or f_or_df == 2:
+            
+            f_out[0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0])
+            f_out[1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            f_out[2] = lz * eta3
+        
+        # evaluate Jacobian matrix
+        if f_or_df == 1 or f_or_df == 2:
+
+            # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
+            df_out[0, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0])
+            df_out[0, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, der2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0])
+            df_out[0, 2] = 0.
+
+            # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
+            df_out[1, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            df_out[1, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, der2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            df_out[1, 2] = 0.
+
+            # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
+            df_out[2, 0] = 0.
+            df_out[2, 1] = 0.
+            df_out[2, 2] = lz
+        
+        
+    # --------------------- 2d spline (toroidal) ---------------------------
+    elif kind_map == 2:
+
+        bn1 = zeros(pn[0] + 1, dtype=float)
+        bn2 = zeros(pn[1] + 1, dtype=float)
+
+        der1 = zeros(pn[0] + 1, dtype=float)
+        der2 = zeros(pn[1] + 1, dtype=float)
+        
+        # evaluate non-vanishing basis functions and its derivatives
+        bsp.b_der_splines_slim(tn1, pn[0], eta1, span_n1, bn1, der1)
+        bsp.b_der_splines_slim(tn2, pn[1], eta2, span_n2, bn2, der2)
+        
+        # evaluate mapping
+        if f_or_df == 0 or f_or_df == 2:
+            
+            f_out[0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * cos(2*pi*eta3)
+            f_out[1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            f_out[2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * sin(2*pi*eta3)
+        
+        # evaluate Jacobian matrix
+        if f_or_df == 1 or f_or_df == 2:
+
+            # sum-up non-vanishing contributions (line 1: df_11, df_12 and df_13)
+            df_out[0, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * cos(2*pi*eta3)
+            df_out[0, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, der2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * cos(2*pi*eta3)
+            df_out[0, 2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * sin(2*pi*eta3) * (-2*pi)
+
+            # sum-up non-vanishing contributions (line 2: df_21, df_22 and df_23)
+            df_out[1, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            df_out[1, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, der2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cy[:, :, 0])
+            df_out[1, 2] = 0.
+
+            # sum-up non-vanishing contributions (line 3: df_31, df_32 and df_33)
+            df_out[2, 0] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], der1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * sin(2*pi*eta3)
+            df_out[2, 1] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, der2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * sin(2*pi*eta3)
+            df_out[2, 2] = eva_2d.evaluation_kernel_2d(pn[0], pn[1], bn1, bn2, ind_n1[span_n1 - pn[0]], ind_n2[span_n2 - pn[1]], cx[:, :, 0]) * cos(2*pi*eta3) * 2*pi
+        
+        
+    # -------------------------- analytical -------------------------------
+    else:
+        
+        # evaluate mapping
+        if f_or_df == 0 or f_or_df == 2:
+            
+            f(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, f_out)
+        
+        # evaluate Jacobian matrix
+        if f_or_df == 1 or f_or_df == 2:
+        
+            df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, df_out)
+
+
+def f_df_pic_legacy(kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', span_n1 : int, span_n2 : int, span_n3 : int, ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', l1 : 'float[:]', l2 : 'float[:]', l3 : 'float[:]', r1 : 'float[:]', r2 : 'float[:]', r3 : 'float[:]', b1 : 'float[:,:]', b2 : 'float[:,:]', b3 : 'float[:,:]', d1 : 'float[:]', d2 : 'float[:]', d3 : 'float[:]', der1 : 'float[:]', der2 : 'float[:]', der3 : 'float[:]', eta1 : float, eta2 : float, eta3 : float, f_out : 'float[:]', df_out : 'float[:,:]', f_or_df : int):
     """
     Fast evaluation of mapping and/or Jacobian matrix because of avoiding memory allocation and multiple computations. Especially well suited for PIC routines.
     
@@ -1852,4 +2012,165 @@ def f_df_pic(kind_map : int, params_map : 'float[:]', tn1 : 'float[:]', tn2 : 'f
         if f_or_df == 1 or f_or_df == 2:
         
             df(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, df_out)
-        
+
+
+def loop_legacy(kind_map: 'int', params_map: 'float[:]',
+                t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]', 
+                ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
+                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+                f_out: 'float[:,:]', df_out: 'float[:,:,:]'):
+
+    l1 = zeros(p[0], dtype=float)
+    l2 = zeros(p[1], dtype=float)
+    l3 = zeros(p[2], dtype=float)
+
+    r1 = zeros(p[0], dtype=float)
+    r2 = zeros(p[1], dtype=float)
+    r3 = zeros(p[2], dtype=float)
+
+    b1 = zeros((p[0] + 1, p[0] + 1), dtype=float)
+    b2 = zeros((p[1] + 1, p[1] + 1), dtype=float)
+    b3 = zeros((p[2] + 1, p[2] + 1), dtype=float)
+
+    d1 = zeros(p[0], dtype=float)
+    d2 = zeros(p[1], dtype=float)
+    d3 = zeros(p[2], dtype=float)
+
+    der1 = zeros(p[0] + 1, dtype=float)
+    der2 = zeros(p[1] + 1, dtype=float)
+    der3 = zeros(p[2] + 1, dtype=float)
+
+    for n in range(len(eta1s)):
+
+        # spans (i.e. index for non-vanishing basis functions)
+        span1 = bsp.find_span(t1, p[0], eta1s[n])
+        span2 = bsp.find_span(t2, p[1], eta2s[n])
+        span3 = bsp.find_span(t3, p[2], eta3s[n])
+
+        f_df_pic_legacy(kind_map, params_map,
+                 t1, t2, t3, p, span1, span2, span3,
+                 ind1, ind2, ind3, cx, cy, cz,
+                 l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, der1, der2, der3, eta1s[n], eta2s[n], eta3s[n], f_out[n, :], df_out[n, :, :], 2)
+
+
+def loop_slim(kind_map: 'int', params_map: 'float[:]',
+              t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]', 
+              ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
+              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+              eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+              f_out: 'float[:,:]', df_out: 'float[:,:,:]'):
+
+    for n in range(len(eta1s)):
+
+        # spans (i.e. index for non-vanishing basis functions)
+        span1 = bsp.find_span(t1, p[0], eta1s[n])
+        span2 = bsp.find_span(t2, p[1], eta2s[n])
+        span3 = bsp.find_span(t3, p[2], eta3s[n])
+
+        f_df_pic(kind_map, params_map,
+                      t1, t2, t3,
+                      p, span1, span2, span3,
+                      ind1, ind2, ind3, cx, cy, cz,
+                      eta1s[n], eta2s[n], eta3s[n], f_out[n, :], df_out[n, :, :], 2)
+
+
+def loop_f(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            f_out : 'float[:,:]'):
+
+    for n in range(len(eta1s)):
+
+        f(eta1s[n], eta2s[n], eta3s[n],
+            kind_map, params_map,
+            tn1, tn2, tn3, pn, 
+            ind_n1, ind_n2, ind_n3, 
+            cx, cy, cz,
+            f_out[n, :])
+
+
+def loop_df(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            mat_out : 'float[:,:,:]'):
+
+    for n in range(len(eta1s)):
+
+        df(eta1s[n], eta2s[n], eta3s[n],
+            kind_map, params_map,
+            tn1, tn2, tn3, pn, 
+            ind_n1, ind_n2, ind_n3, 
+            cx, cy, cz,
+            mat_out[n, :, :])
+
+
+def loop_detdf(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            f_out : 'float[:]'):
+
+    for n in range(len(eta1s)):
+
+        f_out[n] = det_df(eta1s[n], eta2s[n], eta3s[n],
+                            kind_map, params_map,
+                            tn1, tn2, tn3, pn, 
+                            ind_n1, ind_n2, ind_n3, 
+                            cx, cy, cz)
+
+
+def loop_dfinv(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            mat_out : 'float[:,:,:]'):
+
+    for n in range(len(eta1s)):
+
+        df_inv(eta1s[n], eta2s[n], eta3s[n],
+                kind_map, params_map,
+                tn1, tn2, tn3, pn, 
+                ind_n1, ind_n2, ind_n3, 
+                cx, cy, cz,
+                mat_out[n, :, :])
+
+
+def loop_g(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            mat_out : 'float[:,:,:]'):
+
+    for n in range(len(eta1s)):
+
+        g(eta1s[n], eta2s[n], eta3s[n],
+                kind_map, params_map,
+                tn1, tn2, tn3, pn, 
+                ind_n1, ind_n2, ind_n3, 
+                cx, cy, cz,
+                mat_out[n, :, :])
+
+
+def loop_ginv(kind_map : int, params_map : 'float[:]', 
+            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
+            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
+            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
+            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
+            mat_out : 'float[:,:,:]'):
+
+    for n in range(len(eta1s)):
+
+        g_inv(eta1s[n], eta2s[n], eta3s[n],
+                kind_map, params_map,
+                tn1, tn2, tn3, pn, 
+                ind_n1, ind_n2, ind_n3, 
+                cx, cy, cz,
+                mat_out[n, :, :])

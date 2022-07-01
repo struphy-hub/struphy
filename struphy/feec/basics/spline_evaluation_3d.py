@@ -26,18 +26,17 @@ from numpy import empty
 import struphy.feec.bsplines_kernels as bsp
 
 
-# =============================================================================
 def evaluation_kernel_3d(p1 : int, p2 : int, p3 : int, basis1 : 'float[:]', basis2 : 'float[:]', basis3 : 'float[:]', ind1 : 'int[:]', ind2 : 'int[:]', ind3 : 'int[:]', coeff : 'float[:,:,:]') -> float:
     """
-    Summing non-zero contributions.
+    Summing non-zero contributions of a spline function.
 
     Parameters
     ----------
         p1, p2, p3 : int                 
-            Degrees of the univariate splines.
+            Degrees of the univariate splines in each direction.
             
         basis1, basis2, basis3 : array[float]           
-            The p+1 values of non-zero basis splines at one point (eta1, eta2, eta3) from 'basis_funs' of shape.
+            The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
             
         ind1, ind2, ind3 : array[int]                 
             Global indices of non-vanishing splines in the element of the considered point.
@@ -65,7 +64,6 @@ def evaluation_kernel_3d(p1 : int, p2 : int, p3 : int, basis1 : 'float[:]', basi
     return spline_value
 
 
-# =============================================================================
 def evaluate(kind1 : int, kind2 : int, kind3 : int, t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int, p2 : int, p3 : int, ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', coeff : 'float[:,:,:]', eta1 : float, eta2 : float, eta3 : float) -> float:
     """
     Point-wise evaluation of a tensor-product spline. 
@@ -147,7 +145,6 @@ def evaluate(kind1 : int, kind2 : int, kind3 : int, t1 : 'float[:]', t2 : 'float
     return spline_value
 
 
-# =============================================================================
 def evaluate_tensor_product(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int, p2 : int, p3 : int, ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', coeff : 'float[:,:,:]', eta1 : 'float[:]', eta2 : 'float[:]', eta3 : 'float[:]', spline_values : 'float[:,:,:]', kind : int):
     """
     Tensor-product evaluation of a tensor-product spline. 
@@ -215,7 +212,6 @@ def evaluate_tensor_product(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p
                     spline_values[i1, i2, i3] = evaluate(1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1], eta2[i2], eta3[i3])
                         
                     
-# =============================================================================
 def evaluate_matrix(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int,  p2 : int, p3 : int, ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', coeff : 'float[:,:,:]', eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', spline_values : 'float[:,:,:]', kind : int):
     """
     General evaluation of a tensor-product spline. 
@@ -289,7 +285,6 @@ def evaluate_matrix(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int,
                     spline_values[i1, i2, i3] = evaluate(1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3])
 
 
-# =============================================================================
 def evaluate_sparse(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int, p2 : int, p3 : int, ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', coeff : 'float[:,:,:]', eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', spline_values : 'float[:,:,:]', kind : int):
     """
     Evaluation of a tensor-product spline using sparse meshgrids. 
@@ -361,4 +356,47 @@ def evaluate_sparse(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int,
                     spline_values[i1, i2, i3] = evaluate(1, 3, 1, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
                 elif kind == 43:
                     spline_values[i1, i2, i3] = evaluate(1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
+
+
+def eval_spline_mpi_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'float[:]', basis2 : 'float[:]', basis3 : 'float[:]', span1 : 'int', span2 : 'int', span3 : 'int', coeff : 'float[:,:,:]', starts: 'int[:]', pn: 'int[:]') -> float:
+    """
+    Evaluate a spline function on the current process.
+
+    Parameters
+    ----------
+        p1, p2, p3 : int                 
+            Degrees of the univariate splines in each direction.
+            
+        basis1, basis2, basis3 : array[float]           
+            The p + 1 values of non-zero basis splines at one point (eta1, eta2, eta3) in each direction.
+            
+        span1, span2, span3: int
+            Knot span index in each direction.
+            
+        coeff : array[float]
+            The spline coefficients c_ijk of the current process, ie. the _data attribute of a StencilVector.  
+
+        starts : array[int]
+            Starting indices of current process.
+
+        pn : array[int]
+            B-spline degrees in each direction (=paddings).
+
+    Returns
+    -------
+        spline_value : float
+            Value of tensor-product spline at point (eta1, eta2, eta3).
+    """
+    
+    spline_value = 0.
+    
+    for il1 in range(p1 + 1):
+        i1 = span1 + il1 - starts[0]  # span1 = ie1 + pn[0] 
+        for il2 in range(p2 + 1):
+            i2 = span2 + il2 - starts[1] 
+            for il3 in range(p3 + 1):
+                i3 = span3 + il3 - starts[2]  
                 
+                spline_value += coeff[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
+        
+    return spline_value

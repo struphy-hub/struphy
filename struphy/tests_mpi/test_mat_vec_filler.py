@@ -6,13 +6,13 @@ from time import sleep
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 8, 8]])
-@pytest.mark.parametrize('p', [[2, 2, 2]])
+@pytest.mark.parametrize('Nel', [[8, 9, 10]])
+@pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize('mapping', [
     ['cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
-def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=10):
+def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     '''This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
@@ -115,7 +115,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=10):
     fill_mat = np.reshape(np.arange(9, dtype=float), (3, 3)) + 1.
     fill_vec = np.arange(3, dtype=float) + 1.
 
-    # Random point in domain of process (VERY IMPORTANT to be in the right domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
+    # Random points in domain of process (VERY IMPORTANT to be in the right domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
     dom = DR.domain_array[rank]
     eta1s = np.random.rand(n_markers)*(dom[1] - dom[0]) + dom[0]
     eta2s = np.random.rand(n_markers)*(dom[4] - dom[3]) + dom[3]
@@ -427,5 +427,5 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
 
 if __name__ == '__main__':
-    test_mat_vec_filler([8, 8, 8], [2, 2, 2], [False, False, True], ['cuboid', {
+    test_mat_vec_filler([8, 9, 10], [2, 3, 4], [True, False, False], ['cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], n_markers=1)

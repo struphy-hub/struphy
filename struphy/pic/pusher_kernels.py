@@ -1,4 +1,4 @@
-import struphy.geometry.mappings_3d_fast as mapping_fast
+from  struphy.geometry import mappings_3d
 
 import struphy.feec.bsplines_kernels as bsp
 import struphy.feec.basics.spline_evaluation_2d as eva2
@@ -126,13 +126,13 @@ def pusher_v_mhd_electric(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -358,13 +358,13 @@ def pusher_vxb_implicit(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]',
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -564,7 +564,7 @@ def pusher_vxb(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', t2 : 'fl
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -747,10 +747,10 @@ def pusher_v_pressure_full(particles : 'float[:,:]', dt : 'float', t1 : 'float[:
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -923,10 +923,10 @@ def pusher_v_pressure_perp(particles : 'float[:,:]', dt : 'float', t1 : 'float[:
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -1092,11 +1092,11 @@ def pusher_v_cold_plasma(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]'
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
   
         # evaluate inverse transosed Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
         linalg.transpose(dfinv, dfinv_t)
         # ==========================================
         
@@ -1259,13 +1259,13 @@ def pusher_v_mhd_electric(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate transposed inverse Jacobian matrix
         linalg.transpose(dfinv, dfinv_t)
@@ -1493,7 +1493,7 @@ def pusher_vxb(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', t2 : 'fl
         span3f = int(eta3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -1643,10 +1643,10 @@ def pusher_rk4(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 'i
         span3f = int(pos3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
                 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k1)
@@ -1663,10 +1663,10 @@ def pusher_rk4(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 'i
         span3f = int(pos3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
                 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k2)
@@ -1683,10 +1683,10 @@ def pusher_rk4(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 'i
         span3f = int(pos3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
                 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k3)
@@ -1703,10 +1703,10 @@ def pusher_rk4(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 'i
         span3f = int(pos3*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
                 
         # pull-back of velocity
         linalg.matrix_vector(dfinv, v, k4)
@@ -1853,10 +1853,10 @@ def pusher_rk4_pseudo(particles : 'float[:,:]', dt : 'float', np : 'int', kind_m
         span2f = int(eta[1]*nelf[1]) + pf2
         span3f = int(eta[2]*nelf[2]) + pf3
         
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df_old, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df_old, fx, 0)
 
         # evaluate old inverse Jacobian matrix of mapping F
-        mapping_fast.df_inv_all(df_old, dfinv_old)
+        mappings_3d.df_inv_all(df_old, dfinv_old)
         
         # evaluate old Jacobian matrix of mapping F_pseudo
         df_pseudo_old[0, 0] = mappings_3d.df(eta[0], eta[1], eta[2], 11, 14, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
@@ -1898,10 +1898,10 @@ def pusher_rk4_pseudo(particles : 'float[:,:]', dt : 'float', np : 'int', kind_m
             span2f = int(eta[1]*nelf[1]) + pf2
             span3f = int(eta[2]*nelf[2]) + pf3
             
-            mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
+            mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
             
             # evaluate inverse Jacobian matrix of mapping F
-            mapping_fast.df_inv_all(df, dfinv)
+            mappings_3d.df_inv_all(df, dfinv)
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mappings_3d.df(eta[0], eta[1], eta[2], 11, 14, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
@@ -1940,10 +1940,10 @@ def pusher_rk4_pseudo(particles : 'float[:,:]', dt : 'float', np : 'int', kind_m
             span2f = int(eta[1]*nelf[1]) + pf2
             span3f = int(eta[2]*nelf[2]) + pf3
             
-            mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
+            mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
 
             # evaluate inverse Jacobian matrix of mapping F
-            mapping_fast.df_inv_all(df, dfinv)
+            mappings_3d.df_inv_all(df, dfinv)
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mappings_3d.df(eta[0], eta[1], eta[2], 11, 14, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
@@ -1982,10 +1982,10 @@ def pusher_rk4_pseudo(particles : 'float[:,:]', dt : 'float', np : 'int', kind_m
             span2f = int(eta[1]*nelf[1]) + pf2
             span3f = int(eta[2]*nelf[2]) + pf3
             
-            mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
+            mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta[0], eta[1], eta[2], df, fx, 0)
 
             # evaluate inverse Jacobian matrix of mapping F
-            mapping_fast.df_inv_all(df, dfinv)
+            mappings_3d.df_inv_all(df, dfinv)
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mappings_3d.df(eta[0], eta[1], eta[2], 11, 14, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz)
@@ -2106,7 +2106,7 @@ def pusher_exact(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 
         span3f = int(e[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix and current Cartesian coordinates
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
         
         # update cartesian coordinates exactly
         x_new[0] = x_old[0] + dt*v[0]
@@ -2116,7 +2116,7 @@ def pusher_exact(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 
         # calculate new logical coordinates by solving inverse mapping with Newton-method
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
         
         while True:
 
@@ -2132,14 +2132,14 @@ def pusher_exact(particles : 'float[:,:]', dt : 'float', np : 'int', kind_map : 
             span3f = int(e[2]*nelf[2]) + pf3
             
             # evaluate Jacobian matrix and mapping
-            mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
+            mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, e[0], e[1], e[2], df, x_old, 2)
             
             if abs(x_old[0] - x_new[0]) < tol and abs(x_old[1] - x_new[1]) < tol and abs(x_old[2] - x_new[2]) < tol:
                 particles[0:3, ip] = e
                 break
             
             # evaluate inverse Jacobian matrix
-            mapping_fast.df_inv_all(df, dfinv)
+            mappings_3d.df_inv_all(df, dfinv)
     #$ omp end parallel
     
     ierr = 0
@@ -2279,10 +2279,10 @@ def pusher_rk4_pc_full(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2347,10 +2347,10 @@ def pusher_rk4_pc_full(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2414,10 +2414,10 @@ def pusher_rk4_pc_full(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2481,10 +2481,10 @@ def pusher_rk4_pc_full(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2680,10 +2680,10 @@ def pusher_rk4_pc_perp(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2750,10 +2750,10 @@ def pusher_rk4_pc_perp(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2819,10 +2819,10 @@ def pusher_rk4_pc_perp(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -2888,10 +2888,10 @@ def pusher_rk4_pc_perp(particles : 'float[:,:]', dt : 'float', t1 : 'float[:]', 
         span3f = int(eta[2]*nelf[2]) + pf3
         
         # evaluate Jacobian matrix
-        mapping_fast.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
+        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, pos1, pos2, pos3, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, dfinv)
+        mappings_3d.df_inv_all(df, dfinv)
 
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))
@@ -3185,8 +3185,8 @@ def aux_fun_x_v_stat_e(particle: 'float[:]', kind_map: 'int', params_map: 'float
     v3_curr = v3
 
     # Use Euler method as a predictor for positions
-    mapping_fast.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, eta1, eta2, eta3, df, fx, 0)
-    mapping_fast.df_inv_all(df, df_inv)
+    mappings_3d.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, eta1, eta2, eta3, df, fx, 0)
+    mappings_3d.df_inv_all(df, df_inv)
 
     v1_curv = df_inv[0,0]*(v1_curr + v1) + df_inv[0,1]*(v2_curr + v2) + df_inv[0,2]*(v3_curr + v3)
     v2_curv = df_inv[1,0]*(v1_curr + v1) + df_inv[1,1]*(v2_curr + v2) + df_inv[1,2]*(v3_curr + v3)
@@ -3215,10 +3215,10 @@ def aux_fun_x_v_stat_e(particle: 'float[:]', kind_map: 'int', params_map: 'float
         v3_curr    = v3_next
 
         # find Jacobian matrix
-        mapping_fast.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, (eta1_curr + eta1)/2, (eta2_curr + eta2)/2, (eta3_curr + eta3)/2, df, fx, 0)
+        mappings_3d.dl_all(kind_map, params_map, t1, t2, t3, p, cx, cy, cz, indN1, indN2, indN3, (eta1_curr + eta1)/2, (eta2_curr + eta2)/2, (eta3_curr + eta3)/2, df, fx, 0)
         
         # evaluate inverse Jacobian matrix
-        mapping_fast.df_inv_all(df, df_inv)
+        mappings_3d.df_inv_all(df, df_inv)
 
         # ======================================================================================
         # update the positions and place them back into the computational domain

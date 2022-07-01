@@ -8,7 +8,7 @@ Basic functions for point-wise B-spline evaluation
 
 from numpy import empty, zeros
 
-# ==============================================================================
+
 def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
     """
     Scaling coefficients for M-splines.
@@ -33,7 +33,6 @@ def scaling(t_d : 'float[:]', p_d : 'int', span_d : 'int', values : 'float[:]'):
         values[p_d - il] *= (p_d + 1)/(t_d[i + p_d + 1] - t_d[i])
 
 
-# ==============================================================================
 def find_span(t : 'float[:]', p : 'int', eta : 'float') -> 'int':
     """
     Computes the knot span index i for which the B-splines i-p until i are non-vanishing at point eta.
@@ -82,7 +81,6 @@ def find_span(t : 'float[:]', p : 'int', eta : 'float') -> 'int':
     return returnVal
 
 
-# =============================================================================
 def basis_funs(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:]'):
     """
     Parameters
@@ -125,7 +123,6 @@ def basis_funs(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'f
         values[j + 1] = saved
         
         
-# =============================================================================
 def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:,:]', diff : 'float[:]'):
     """
     Parameters
@@ -175,14 +172,13 @@ def basis_funs_all(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left 
     diff[:] = diff*p
 
 
-# =============================================================================
-def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
+def b_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Computes the values of pn + 1 non-vanishing B-splines at position eta.
 
     Parameters
     ----------
-    t : array
+    tn : array
         Knots sequence.
 
     pn : int
@@ -207,8 +203,8 @@ def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
     values[0] = 1.
     
     for j in range(pn):
-        left[j]  = eta - t[span - j]
-        right[j] = t[span + 1 + j] - eta
+        left[j]  = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
         saved    = 0.
         for r in range(j + 1):
             temp      = values[r]/(right[r] + left[j - r])
@@ -220,7 +216,6 @@ def b_splines_slim(t : 'float[:]', pn : 'int', eta : 'float', span : 'int', valu
     del(right)
 
 
-# =============================================================================
 def d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Computes the values of pn non-vanishing D-splines at position eta.
@@ -282,7 +277,6 @@ def d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', val
     del(b_values)
 
 
-# =============================================================================
 def b_d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn : 'float[:]', bd : 'float[:]'):
     """
     One function to compute the values of non-vanishing B-splines and D-splines.
@@ -304,7 +298,7 @@ def b_d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', b
         bn : array[float]
             Output: pn + 1 non-vanishing B-splines at eta
 
-        bd : array
+        bd : array[float]
             Output: pn non-vanishing D-splines at eta
     """
 
@@ -342,7 +336,65 @@ def b_d_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', b
     del(right)
 
 
-# =============================================================================
+def b_der_splines_slim(tn : 'float[:]', pn : 'int', eta : 'float', span : 'int', bn : 'float[:]', der : 'float[:]'):
+    """
+    Parameters
+    ----------
+    tn : array_like
+        Knots sequence of B-splines.
+
+    pn : int
+        Polynomial degree of B-splines.
+
+    eta : float
+        Evaluation point.
+
+    span : int
+        Knot span index.
+        
+    bn : array[float]
+        Out: pn + 1 values of B-splines at eta.
+
+    der : array[float]
+        Out: pn + 1 values of derivatives of B-splines at eta.
+    """
+    
+    left = zeros(pn, dtype=float)
+    right = zeros(pn, dtype=float)
+    diff = zeros(pn, dtype=float)
+
+    values = zeros((pn + 1, pn + 1), dtype=float)
+    values[0, 0] = 1.
+    
+    for j in range(pn):
+        left[j]  = eta - tn[span - j]
+        right[j] = tn[span + 1 + j] - eta
+        saved    = 0.
+        for r in range(j + 1):
+            diff[r] = 1. / (right[r] + left[j - r])
+            temp = values[j, r] * diff[r]
+            values[j + 1, r] = saved + right[r] * temp
+            saved     = left[j - r] * temp
+        values[j + 1, j + 1] = saved
+        
+    diff[:] = diff*pn
+    
+    # compute derivatives
+    # j = 0
+    saved  = values[pn - 1, 0]*diff[0]
+    der[0] = -saved
+    
+    # j = 1, ... , pn
+    for j in range(1, pn):
+        temp   = saved
+        saved  = values[pn - 1, j]*diff[j]
+        der[j] = temp - saved
+            
+    # j = pn
+    bn[:] = values[pn, :]
+    der[pn] = saved
+
+
 def basis_funs_and_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:,:]', diff : 'float[:]', der : 'float[:]'):
     """
     Parameters
@@ -407,7 +459,6 @@ def basis_funs_and_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', l
     der[p] = saved
             
             
-# ==============================================================================
 def basis_funs_1st_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', left : 'float[:]', right : 'float[:]', values : 'float[:]'):
     """
     Parameters
@@ -450,7 +501,6 @@ def basis_funs_1st_der(t : 'float[:]', p : 'int', eta : 'float', span : 'int', l
     values[p] = saved
 
 
-# ==============================================================================
 def b_spl_1st_der_slim(t : 'float[:]', p : 'int', eta : 'float', span : 'int', values : 'float[:]'):
     """
     Parameters
@@ -493,7 +543,6 @@ def b_spl_1st_der_slim(t : 'float[:]', p : 'int', eta : 'float', span : 'int', v
     values[p] = saved
 
 
-#========================================================================================
 def piecewise(p : 'int', delta : 'float', eta : 'float') -> 'float':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
@@ -521,7 +570,6 @@ def piecewise(p : 'int', delta : 'float', eta : 'float') -> 'float':
     ierr = 0
 
 
-#========================================================================================
 def piecewise_der(p : 'int', delta : 'float', eta : 'float') -> 'float':
     # definition of B-splines defined piecewisely
     # eta is eta_j - eta_k
@@ -552,7 +600,6 @@ def piecewise_der(p : 'int', delta : 'float', eta : 'float') -> 'float':
     ierr = 0
 
 
-#========================================================================================
 def convolution(p : 'int', grids : 'float[:]', eta : 'float')  -> 'float':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function
@@ -584,7 +631,6 @@ def convolution(p : 'int', grids : 'float[:]', eta : 'float')  -> 'float':
     ierr = 0
 
 
-#========================================================================================
 def convolution_der(p : 'int', grids : 'float[:]', eta : 'float')  -> 'float':
     # convolution is the function which could give us the B-spline values at evaluatioin point eta
     # p is the degree of the shape function

@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 
 
 @pytest.mark.mpi(min_size=2)
@@ -11,7 +12,8 @@ import pytest
     ['colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}],
     ['hollow_cyl', {
-        'a1': .1, 'a2': 1., 'R0': 3.}]])
+        'a1': .1, 'a2': 1., 'R0': 3., 'lz': 2*np.pi*3.}]
+        ])
 def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
     import numpy as np
@@ -120,11 +122,11 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
     
     # create random input arrays
-    x0_str, x0_psy = create_equal_random_arrays(derham.V0, 1234)
-    x1_str, x1_psy = create_equal_random_arrays(derham.V1, 1568)
-    x2_str, x2_psy = create_equal_random_arrays(derham.V2, 8945)
-    x3_str, x3_psy = create_equal_random_arrays(derham.V3, 8196)
-    xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, 2038)
+    x0_str, x0_psy = create_equal_random_arrays(derham.V0, 1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(derham.V1, 1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(derham.V2, 8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(derham.V3, 8196, flattened=True)
+    xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, 2038, flattened=True)
     
     
     # compare matrix-vector products of different methods
@@ -424,4 +426,4 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
 if __name__ == '__main__':
     #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    test_mhd_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['hollow_cyl', {'a1': .1, 'a2': 1., 'R0': 3.}], False)
+    test_mhd_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['hollow_cyl', {'a1': .1, 'a2': 1., 'R0': 3., 'lz': 2*np.pi*3.}], False)
