@@ -68,16 +68,20 @@ if mpi_rank == 0:
 
 # DERHAM object
 Nel = params['grid']['Nel']             # Number of grid cells
-p = params['grid']['p']               # spline degree
-spl_kind = params['grid']['spl_kind']        # Spline type
+p = params['grid']['p']                 # spline degrees
+spl_kind = params['grid']['spl_kind']   # Spline types (clamped vs. periodic)
+nq_pr = params['grid']['nq_pr']         # Number of quadrature points per histopolation cell
+nq_el = params['grid']['nq_el']         # Number of quadrature points per grid cell
 
-DR=Derham(Nel, p, spl_kind, F = F_psy, comm = MPI_COMM)   
+DR=Derham(Nel, p, spl_kind, nq_pr, quad_order=[nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], F=F_psy, comm=MPI_COMM)   
 
 if mpi_rank == 0:
     print('GRID parameters:')
     print(f'Nel     : {Nel}')
     print(f'p       : {p}')
-    print(f'spl_kind: {spl_kind}\n')
+    print(f'spl_kind: {spl_kind}')
+    print(f'nq_el   : {nq_el}')
+    print(f'nq_pr   : {nq_pr}\n')
     print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')
     print()
 
@@ -85,7 +89,9 @@ if mpi_rank == 0:
 # MODEL SPECIFIC: instance of model class
 # =======================================
 if code == 'maxwell':
-    MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['pcg_1'])
+    MODEL = models.Maxwell(DR, DOMAIN, params['solvers']['solver_1'])
+elif code == 'linearMHD':
+    MODEL = models.LinearMHD(DR, DOMAIN, params['mhd_equilibrium'], params['mhd_formulation'], params['solvers']['solver_1'], params['solvers']['solver_2'])
 elif code == 'linVlasovMaxwell':
     MODEL = models.LinearVlasovMaxwell(
         DR, DOMAIN, params['solvers'], params['kinetic']['species_1']['markers'])
@@ -123,6 +129,7 @@ else:
 MODEL.set_initial_conditions(
     fields_init, fields_params, particles_init, particles_params)
 
+MODEL.update_scalar_quantities(0.)
 # TODO: Psydac Derham functionaltiy not yet implemented.
 # Output Manager Initialization
 # FIELD_DATA = OutputManager(path_out + 'FIELD_DATA_spaces.yml', path_out + 'FIELD_DATA_fields.h5')
@@ -172,7 +179,7 @@ for field in MODEL.fields:
 
 DATA.add_data(MODEL.scalar_quantities)
 
-MODEL.update_scalar_quantities(0.)
+
 
 if mpi_rank == 0:
     print(f'Rank: {mpi_rank} | Initial time series saved.\n')

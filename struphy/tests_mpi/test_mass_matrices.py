@@ -2,12 +2,12 @@ import pytest
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 12, 4]])
-@pytest.mark.parametrize('p',   [[2, 3, 2]])
+@pytest.mark.parametrize('Nel', [[6, 7, 4], [5, 6, 7]])
+@pytest.mark.parametrize('p',   [[2, 3, 2], [4, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
-        'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}],
+    #['cuboid', {
+    #    'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}],
     ['colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}],
     ['hollow_cyl', {
@@ -23,8 +23,7 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass_psydac import WeightedMass
-    from struphy.fields_equil.mhd_equil.analytical.mhd_equil_shearedslab import EquilibriumMHDShearedSlab
-    from struphy.fields_equil.mhd_equil.analytical.mhd_equil_cylinder import EquilibriumMHDCylinder
+    from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDShearedSlab, EquilibriumMHDCylinder
     
     from mpi4py import MPI
 
@@ -62,7 +61,7 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     derham = Derham(Nel, p, spl_kind, der_as_mat=True, F=F, comm=mpi_comm)
     
     # mass object
-    mass_mats = WeightedMass(derham, domain)
+    mass_mats = WeightedMass(derham, F.get_callable_mapping(), eq_mhd=eq_mhd)
     
     # assemble mass matrices
     mass_mats.assemble_M0()
@@ -71,10 +70,10 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     mass_mats.assemble_M3()
     mass_mats.assemble_Mv()
     
-    mass_mats.assemble_Mn(eq_mhd, 'Hdiv')
-    mass_mats.assemble_MJ(eq_mhd, 'Hdiv')
-    #mass_mats.assemble_Mn(eq_mhd, 'H1vec')
-    #mass_mats.assemble_MJ(eq_mhd, 'H1vec')
+    mass_mats.assemble_M2n()
+    mass_mats.assemble_M2J()
+    #mass_mats.assemble_Mvn()
+    #mass_mats.assemble_MvJ()
     
     # compare to old STRUPHY
     spaces = [Spline_space_1d(Nel, p, spl, nq_el) for Nel, p, spl, nq_el in zip(Nel, p, spl_kind, [p[0] + 1, p[1] + 1, p[2] + 1])]
@@ -120,8 +119,8 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     r3_psy = mass_mats.M3.dot(x3_psy)
     rv_psy = mass_mats.Mv.dot(xv_psy)
     
-    rn_psy = mass_mats.Mn.dot(x2_psy)
-    rJ_psy = mass_mats.MJ.dot(x2_psy)
+    rn_psy = mass_mats.M2n.dot(x2_psy)
+    rJ_psy = mass_mats.M2J.dot(x2_psy)
     
     # compare output arrays
     compare_arrays(r0_psy, r0_str, mpi_rank, atol=1e-14)

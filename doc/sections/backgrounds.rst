@@ -63,19 +63,7 @@ MHD equilibrium class
 Analytical equilibria
 """""""""""""""""""""
 
-.. automodule:: struphy.fields_equil.mhd_equil.analytical.mhd_equil_slab 
-    :members:
-    :undoc-members:
-
-.. automodule:: struphy.fields_equil.mhd_equil.analytical.mhd_equil_shearedslab 
-    :members:
-    :undoc-members:
-
-.. automodule:: struphy.fields_equil.mhd_equil.analytical.mhd_equil_cylinder 
-    :members:
-    :undoc-members:
-
-.. automodule:: struphy.fields_equil.mhd_equil.analytical.mhd_equil_torus 
+.. automodule:: struphy.fields_equil.mhd_equil.analytical
     :members:
     :undoc-members:
 

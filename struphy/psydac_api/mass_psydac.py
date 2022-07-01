@@ -7,245 +7,189 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
-from struphy.psydac_api.mass_kernels_psydac import kernel_1d
-from struphy.psydac_api.mass_kernels_psydac import kernel_2d
-from struphy.psydac_api.mass_kernels_psydac import kernel_3d
+from struphy.psydac_api.mass_kernels_psydac import kernel_1d, kernel_2d, kernel_3d
 
 
 class WeightedMass:
     """
-    Class for assembling weighted mass matrices.
+    Class for assembling weighted mass matrices in 3d.
     
     Parameters
     ----------
         derham : Derham
             Discrete de rham sequence from struphy.psydac_api.psydac_derham.
 
-        domain : Domain
-            Mapped domain object from struphy.geometry.domain_3d.
+        F : CallableMapping
+            Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
+            
+        weights : obj
+            A general object that provides access to callables that serve as weight functions (e.g. an instance of EquilibriumMHD from struphy.fields_equil.mhd_equil).
     """
     
-    def __init__(self, derham, domain):
+    def __init__(self, derham, F, **weights):
         
         self._derham = derham
-        self._domain = domain
-    
+        self._F = F
+        
+        # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
+        def DF(e1, e2, e3):
+            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+
+        def DFT(e1, e2, e3):
+            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+
+        def G(e1, e2, e3):
+            return DFT(e1, e2, e3) @ DF(e1, e2, e3) 
+
+        def DFinv(e1, e2, e3):
+            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+
+        def DFinvT(e1, e2, e3):
+            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+
+        def Ginv(e1, e2, e3):
+            return DFinv(e1, e2, e3) @ DFinvT(e1, e2, e3)
+        
+        # Cross product matrices and evaluation of cross products
+        cross_mask = [[ 1, -1,  1], 
+                      [ 1,  1, -1], 
+                      [-1,  1,  1]]
+        
+        def eval_cross(e1, e2, e3, fun_list): 
+            
+            cross = np.array([[cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)] for m, row in enumerate(fun_list)])
+            
+            return np.transpose(cross, axes=(2, 3, 4, 0, 1))
+        
+        
+        if 'eq_mhd' in weights:
+            j2_cross = [[lambda e1, e2, e3 : 0*e1, weights['eq_mhd'].j2_3, weights['eq_mhd'].j2_2],
+                        [weights['eq_mhd'].j2_3, lambda e1, e2, e3 : 0*e2, weights['eq_mhd'].j2_1],
+                        [weights['eq_mhd'].j2_2, weights['eq_mhd'].j2_1, lambda e1, e2, e3 : 0*e3]]
+       
+        # scalar functions
+        fun_M0 = [[lambda e1, e2, e3 :   np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_M3 = [[lambda e1, e2, e3 : 1/np.sqrt(F.metric_det(e1, e2, e3))]]
+        
+        # matrix functions
+        fun_M1 = []
+        fun_M2 = []
+        fun_Mv = []
+        
+        if 'eq_mhd' in weights:
+            fun_M1n = []
+            fun_M2n = []
+            fun_Mvn = []
+            fun_M1J = []
+            fun_M2J = []
+            fun_MvJ = []
+        
+        for m in range(3):
+            fun_M1 += [[]]
+            fun_M2 += [[]]
+            fun_Mv += [[]]
+            
+            if 'eq_mhd' in weights:
+                fun_M1n += [[]]
+                fun_M2n += [[]]
+                fun_Mvn += [[]]
+                fun_M1J += [[]]
+                fun_M2J += [[]]
+                fun_MvJ += [[]]
+            
+            for n in range(3):
+                fun_M1[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_M2[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_Mv[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))]
+                
+                if 'eq_mhd' in weights:
+                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
+                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
+                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
+                    fun_M1J[-1] += [lambda e1, e2, e3, m=m, n=n : (Ginv(e1, e2, e3) @ eval_cross(e1, e2, e3, j2_cross))[:, :, :, m, n]]
+                    fun_M2J[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)/np.sqrt(F.metric_det(e1, e2, e3))]
+                    fun_MvJ[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)]
+                    
+                
+        self._fun_M0 = fun_M0
+        self._fun_M3 = fun_M3
+        
+        self._fun_M1 = fun_M1
+        self._fun_M2 = fun_M2
+        self._fun_Mv = fun_Mv
+        
+        if 'eq_mhd' in weights:
+            self._fun_M1n = fun_M1n
+            self._fun_M2n = fun_M2n
+            self._fun_Mvn = fun_Mvn
+            self._fun_M1J = fun_M1J
+            self._fun_M2J = fun_M2J
+            self._fun_MvJ = fun_MvJ
+     
     
     @property
     def derham(self):
         return self._derham
     
     @property
-    def domain(self):
-        return self._domain
+    def F(self):
+        return self._F
     
     
     def assemble_M0(self):
-        """  Assemble mass matrix for L2-scalar product in V0 without psydac's symbolic mapping.
+        """  Assemble mass matrix for L2-scalar product in V0.
         """
-
-        metric = [[lambda e1, e2, e3 : abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]]
-        
-        self._M0 = get_mass(self.derham.V0, self.derham.V0, metric)
+        self._M0 = get_mass(self.derham.V0, self.derham.V0, self._fun_M0)
         
     def assemble_M1(self):
-        """  Assemble mass matrix for L2-scalar product in V1 without psydac's symbolic mapping.
+        """  Assemble mass matrix for L2-scalar product in V1.
         """
-        
-        keys_metric = [['g_inv_11', 'g_inv_12', 'g_inv_13'],
-                       ['g_inv_21', 'g_inv_22', 'g_inv_23'],
-                       ['g_inv_31', 'g_inv_32', 'g_inv_33']]
-        
-        metric = []
-        
-        metric += [[]]
-        
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._M1 = get_mass(self.derham.V1, self.derham.V1, metric)
+        self._M1 = get_mass(self.derham.V1, self.derham.V1, self._fun_M1)
         
     def assemble_M2(self):
-        """  Assemble mass matrix for L2-scalar product in V2 without psydac's symbolic mapping.
+        """  Assemble mass matrix for L2-scalar product in V2.
         """
-        
-        keys_metric = [['g_11', 'g_12', 'g_13'],
-                       ['g_21', 'g_22', 'g_23'],
-                       ['g_31', 'g_32', 'g_33']]
-        
-        metric = []
-        
-        metric += [[]]
-        
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][0])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][1])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][2])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][0])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][1])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][2])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][0])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][1])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][2])/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._M2 = get_mass(self.derham.V2, self.derham.V2, metric)
+        self._M2 = get_mass(self.derham.V2, self.derham.V2, self._fun_M2)
         
     def assemble_M3(self):
-        """  Assemble mass matrix for L2-scalar product in V3 without psydac's symbolic mapping.
+        """  Assemble mass matrix for L2-scalar product in V3.
         """
-
-        metric = [[lambda e1, e2, e3 : 1/abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]]
-        
-        self._M3 = get_mass(self.derham.V3, self.derham.V3, metric)
+        self._M3 = get_mass(self.derham.V3, self.derham.V3, self._fun_M3)
         
     def assemble_Mv(self):
-        """  Assemble mass matrix for L2-scalar product in V0vec without psydac's symbolic mapping.
+        """  Assemble mass matrix for L2-scalar product in V0vec.
         """
-        
-        keys_metric = [['g_11', 'g_12', 'g_13'],
-                       ['g_21', 'g_22', 'g_23'],
-                       ['g_31', 'g_32', 'g_33']]
-        
-        metric = []
-        
-        metric += [[]]
-        
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][0])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][1])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][2])*abs(self.domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._Mv = get_mass(self.derham.V0vec, self.derham.V0vec, metric)
+        self._Mv = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mv)
               
-    def assemble_Mn(self, eq_mhd, basis):
-        """  
-        Assembles mass matrix for L2-scalar product weighted with an MHD equilibrium number density profile.
-        
-        Parameters
-        ----------
-            eq_mhd : EquilibriumMHD
-                An MHD equilibrium from struphy.field_equil.mhd_equil.mhd_equils.
-                
-            basis : string
-                The input and output spaces (H1vec, Hcurl or Hdiv).
+    def assemble_M1n(self):
+        """  Assemble mass matrix for L2-scalar product in V1 weighted with MHD number density.
         """
+        self._M1n = get_mass(self.derham.V1, self.derham.V1, self._fun_M1n)
         
-        import operator
-        
-        if basis == 'Hcurl':
-            keys_metric = [['g_inv_11', 'g_inv_12', 'g_inv_13'],
-                           ['g_inv_21', 'g_inv_22', 'g_inv_23'],
-                           ['g_inv_31', 'g_inv_32', 'g_inv_33']] 
-        
-        else:
-            keys_metric = [['g_11', 'g_12', 'g_13'],
-                           ['g_21', 'g_22', 'g_23'],
-                           ['g_31', 'g_32', 'g_33']]
-            
-        if basis == 'Hdiv':
-            op = operator.truediv
-        else:
-            op = operator.mul
-        
-        weight = []
-        
-        weight += [[]]
-        
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][0])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][1])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[0][2])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        
-        weight += [[]]
-
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][0])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][1])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[1][2])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        
-        weight += [[]]
-
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][0])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][1])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        weight[-1] += [lambda e1, e2, e3 : self.domain.evaluate(e1, e2, e3, keys_metric[2][2])*op(eq_mhd.n0_eq(e1, e2, e3), abs(self.domain.evaluate(e1, e2, e3, 'det_df')))]
-        
-        if   basis == 'H1vec':
-            self._Mn = get_mass(self.derham.V0vec, self.derham.V0vec, weight)
-        elif basis == 'Hcurl':
-            self._Mn = get_mass(self.derham.V1, self.derham.V1, weight)
-        elif basis == 'Hdiv':
-            self._Mn = get_mass(self.derham.V2, self.derham.V2, weight)
-            
-            
-    def assemble_MJ(self, eq_mhd, basis):
-        """  
-        Assembles mass matrix for L2-scalar product weighted with the cross product of an MHD equilibrium current density profile.
-        
-        Parameters
-        ----------
-            eq_mhd : EquilibriumMHD
-                An MHD equilibrium from struphy.field_equil.mhd_equil.mhd_equils.
-                
-            basis : string
-                The input and output spaces (H1vec, Hcurl or Hdiv).
+    def assemble_M2n(self):
+        """  Assemble mass matrix for L2-scalar product in V2 weighted with MHD number density.
         """
+        self._M2n = get_mass(self.derham.V2, self.derham.V2, self._fun_M2n)
         
-        if   basis == 'Hdiv':
-            fun = lambda e1, e2, e3 : abs(self.domain.evaluate(e1, e2, e3, 'det_df'))
-        elif basis == 'H1vec':
-            fun = lambda e1, e2, e3 : 1 - 0*e1
+    def assemble_Mvn(self):
+        """  Assemble mass matrix for L2-scalar product in V0vec weighted with MHD number density.
+        """
+        self._Mvn = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mvn)
+            
+    def assemble_M1J(self):
+        """  Assembles mass matrix for L2-scalar product in V1 weighted with cross product of MHD equilibrium current density.
+        """
+        self._M1J = get_mass(self.derham.V1, self.derham.V2, self._fun_M1J)
         
-        weight = []
+    def assemble_M2J(self):
+        """  Assembles mass matrix for L2-scalar product in V2 weighted with cross product of MHD equilibrium current density.
+        """
+        self._M2J = get_mass(self.derham.V2, self.derham.V2, self._fun_M2J)
         
-        weight += [[]]
-        
-        weight[-1] += [lambda e1, e2, e3 : 0*eq_mhd.j2_eq_1(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 :  -eq_mhd.j2_eq_3(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 :   eq_mhd.j2_eq_2(e1, e2, e3)/fun(e1, e2, e3)]
-        
-        weight += [[]]
-
-        weight[-1] += [lambda e1, e2, e3 :   eq_mhd.j2_eq_3(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 : 0*eq_mhd.j2_eq_2(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 :  -eq_mhd.j2_eq_1(e1, e2, e3)/fun(e1, e2, e3)]
-        
-        weight += [[]]
-
-        weight[-1] += [lambda e1, e2, e3 :  -eq_mhd.j2_eq_2(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 :   eq_mhd.j2_eq_1(e1, e2, e3)/fun(e1, e2, e3)]
-        weight[-1] += [lambda e1, e2, e3 : 0*eq_mhd.j2_eq_3(e1, e2, e3)/fun(e1, e2, e3)]
-        
-        if   basis == 'H1vec':
-            self._MJ = get_mass(self.derham.V0vec, self.derham.V2, weight)
-        elif basis == 'Hdiv':
-            self._MJ = get_mass(self.derham.V2, self.derham.V2, weight)
+    def assemble_MvJ(self):
+        """  Assembles mass matrix for L2-scalar product in V0vec weighted with cross product of MHD equilibrium current density.
+        """
+        self._MvJ = get_mass(self.derham.V0vec, self.derham.V2, self._fun_MvJ)
         
         
     @property
@@ -279,22 +223,40 @@ class WeightedMass:
         return self._Mv
     
     @property
-    def Mn(self):
-        """ 
-        1-form : Mass matrix Mn_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^1_(b,lmn) * sqrt(g) * n^0_eq * G_inv_ab ).
-        2-form : Mass matrix Mn_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * n^0_eq * G_ab )
-        vector : Mass matrix Mn_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^v_(b,lmn) * sqrt(g) * n^0_eq * G_ab )
+    def M1n(self):
+        """ Mass matrix Mn1_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^1_(b,lmn) * sqrt(g) * n^0_eq * G_inv_ab ).
         """
-        return self._Mn
+        return self._M1n
     
     @property
-    def MJ(self):
-        """ 
-        1-form : Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c * G_inv_ab ).
-        2-form : Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * epsilon_(acb) * J^2_eq_c)
-        vector : Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c )
+    def M2n(self):
+        """ Mass matrix M2n_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * n^0_eq * G_ab ).
         """
-        return self._MJ
+        return self._M2n
+    
+    @property
+    def Mvn(self):
+        """ Mass matrix Mvn_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^v_(b,lmn) * sqrt(g) * n^0_eq * G_ab ).
+        """
+        return self._Mvn
+    
+    @property
+    def M1J(self):
+        """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c * G_inv_ab ).
+        """
+        return self._M1J
+    
+    @property
+    def M2J(self):
+        """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * epsilon_(acb) * J^2_eq_c).
+        """
+        return self._M2J
+    
+    @property
+    def MvJ(self):
+        """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c ).
+        """
+        return self._MvJ
     
 
 
@@ -377,7 +339,7 @@ def get_mass(V, W, weight=None):
                 if weight is not None:
                     if weight[a][b] is not None:
                         PTS1 = np.meshgrid(pts[0].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1)
+                        mat_w = weight[a][b](PTS1).copy()
                         mat_w = mat_w.reshape(pts[0].shape[0], nq[0])
                     else:
                         mat_w = np.ones((pts[0].shape[0], nq[0]), dtype=float)
@@ -389,7 +351,7 @@ def get_mass(V, W, weight=None):
                 if weight is not None:
                     if weight[a][b] is not None:
                         PTS1, PTS2 = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1, PTS2)
+                        mat_w = weight[a][b](PTS1, PTS2).copy()
                         mat_w = mat_w.reshape(pts[0].shape[0], nq[0], pts[1].shape[0], nq[1])
                     else:
                         mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1]), dtype=float)
@@ -401,7 +363,7 @@ def get_mass(V, W, weight=None):
                 if weight is not None:
                     if weight[a][b] is not None:
                         PTS1, PTS2, PTS3 = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1, PTS2, PTS3)
+                        mat_w = weight[a][b](PTS1, PTS2, PTS3).copy()
                         mat_w = mat_w.reshape(pts[0].shape[0], nq[0], pts[1].shape[0], nq[1], pts[2].shape[0], nq[2])
                     else:
                         mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1], pts[2].shape[0], nq[2]), dtype=float)

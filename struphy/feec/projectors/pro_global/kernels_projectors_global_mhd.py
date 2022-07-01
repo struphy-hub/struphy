@@ -507,6 +507,7 @@ def rhs21(row1 : 'int[:]', row2 : 'int[:]', row3 : 'int[:]', col1 : 'int[:]', co
                 rhs[i]   = value * bsp1[row1[i1], col1[i1]]
                 
                 row[i]   = n2i*n3i*row1[i1] + n3i*row2[i2] + row3[i3]
+                col[i]   = n2j*n3j*col1[i1] + n3j*col2[i2] + col3[i3]
     #$ omp end parallel
     
     ierr = 0

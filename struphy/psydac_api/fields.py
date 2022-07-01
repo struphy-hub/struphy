@@ -46,6 +46,8 @@ class Field:
         elif space_id == 'L2':
             self._space = DR.V3
             # self._vector = StencilVector(self._space.vector_space)
+        elif space_id == 'H1vec':
+            self._space = DR.V0vec
         else:
             raise ValueError('Space for field not properly defined.')
 
@@ -146,7 +148,7 @@ class Field:
                 if comps[0]:
                     self._add_noise()
 
-            elif self.space_id in {'Hcurl', 'Hdiv'}:
+            elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                 for n, comp in enumerate(comps):
                     if comp:
                         self._add_noise(n=n)

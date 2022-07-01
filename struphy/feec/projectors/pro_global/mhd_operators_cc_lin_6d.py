@@ -83,9 +83,15 @@ class MHDOperators:
                 EF_12 = spa.bmat([[EF_13], [EF_23]])
                 EF_21 = spa.bmat([[EF_31 ,  EF_32]])
 
-                self.dofs_EF_pol_11 = self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.Ev_pol_0.T)).tocsr()
-                self.dofs_EF_pol_12 = self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E0_pol.T  )).tocsr()
-                self.dofs_EF_pol_21 = self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.Ev_pol_0.T)).tocsr()
+                self.dofs_EF = []
+                
+                #self.dofs_EF_pol_11 = self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.Ev_pol_0.T)).tocsr()
+                #self.dofs_EF_pol_12 = self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E0_pol.T  )).tocsr()
+                #self.dofs_EF_pol_21 = self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.Ev_pol_0.T)).tocsr()
+                
+                self.dofs_EF += [self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.Ev_pol_0.T)).tocsr()]
+                self.dofs_EF += [self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E0_pol.T  )).tocsr()]
+                self.dofs_EF += [self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.Ev_pol_0.T)).tocsr()]
                 
             else:
                 
@@ -107,9 +113,15 @@ class MHDOperators:
                 EF_12 = spa.bmat([[EF_13], [EF_23]])
                 EF_21 = spa.bmat([[EF_31 ,  EF_32]])
                 
-                self.dofs_EF_pol_11 = self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.E2_pol_0.T)).tocsr()
-                self.dofs_EF_pol_12 = self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E3_pol_0.T)).tocsr()
-                self.dofs_EF_pol_21 = self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.E2_pol_0.T)).tocsr()
+                self.dofs_EF = []
+                
+                #self.dofs_EF_pol_11 = self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.E2_pol_0.T)).tocsr()
+                #self.dofs_EF_pol_12 = self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E3_pol_0.T)).tocsr()
+                #self.dofs_EF_pol_21 = self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.E2_pol_0.T)).tocsr()
+                
+                self.dofs_EF += [self.core.space.projectors.P1_pol_0.dot(EF_11.dot(self.core.space.E2_pol_0.T)).tocsr()]
+                self.dofs_EF += [self.core.space.projectors.P1_pol_0.dot(EF_12.dot(self.core.space.E3_pol_0.T)).tocsr()]
+                self.dofs_EF += [self.core.space.projectors.P0_pol_0.dot(EF_21.dot(self.core.space.E2_pol_0.T)).tocsr()]
                 
             else:
                 
@@ -166,16 +178,31 @@ class MHDOperators:
                 dofs_FL_pol_22 = self.core.space.projectors.P3_pol_0.dot(FL_33.dot(self.core.space.E0_pol.T  )).tocsr()
                 
                 if which == 'm':
-                    self.dofs_MF_pol_11 = dofs_FL_pol_11
-                    self.dofs_MF_pol_22 = dofs_FL_pol_22
+                    self.dofs_MF = []
+                    
+                    #self.dofs_MF_pol_11 = dofs_FL_pol_11
+                    #self.dofs_MF_pol_22 = dofs_FL_pol_22
+                    
+                    self.dofs_MF[0] += [dofs_FL_pol_11]
+                    self.dofs_MF[1] += [dofs_FL_pol_22]
 
                 if which == 'p':
-                    self.dofs_PF_pol_11 = dofs_FL_pol_11
-                    self.dofs_PF_pol_22 = dofs_FL_pol_22
+                    self.dofs_PF = []
+                    
+                    #self.dofs_PF_pol_11 = dofs_FL_pol_11
+                    #self.dofs_PF_pol_22 = dofs_FL_pol_22
+                    
+                    self.dofs_PF[0] += [dofs_FL_pol_11]
+                    self.dofs_PF[1] += [dofs_FL_pol_22]
                     
                 if which == 'j':
-                    self.dofs_JF_pol_11 = dofs_FL_pol_11
-                    self.dofs_JF_pol_22 = dofs_FL_pol_22
+                    self.dofs_JF = []
+                    
+                    #self.dofs_JF_pol_11 = dofs_FL_pol_11
+                    #self.dofs_JF_pol_22 = dofs_FL_pol_22
+                    
+                    self.dofs_JF[0] = [dofs_FL_pol_11]
+                    self.dofs_JF[1] = [dofs_FL_pol_22]
  
             else:
                 
@@ -205,12 +232,22 @@ class MHDOperators:
                 dofs_FL_pol_22 = self.core.space.projectors.P3_pol_0.dot(FL_33.dot(self.core.space.E3_pol_0.T)).tocsr()
                 
                 if which == 'm':
-                    self.dofs_MF_pol_11 = dofs_FL_pol_11
-                    self.dofs_MF_pol_22 = dofs_FL_pol_22
+                    self.dofs_MF = []
+                    
+                    #self.dofs_MF_pol_11 = dofs_FL_pol_11
+                    #self.dofs_MF_pol_22 = dofs_FL_pol_22
+                    
+                    self.dofs_MF[0] += [dofs_FL_pol_11]
+                    self.dofs_MF[1] += [dofs_FL_pol_22]
 
                 if which == 'p':
-                    self.dofs_PF_pol_11 = dofs_FL_pol_11
-                    self.dofs_PF_pol_22 = dofs_FL_pol_22
+                    self.dofs_PF = []
+                    
+                    #self.dofs_PF_pol_11 = dofs_FL_pol_11
+                    #self.dofs_PF_pol_22 = dofs_FL_pol_22
+                    
+                    self.dofs_PF[0] += [dofs_FL_pol_11]
+                    self.dofs_PF[1] += [dofs_FL_pol_22]
                 
             else:
                 
@@ -247,7 +284,7 @@ class MHDOperators:
         PR = self.core.get_blocks_PR(self.PR_as_tensor)
         
         if self.PR_as_tensor:
-            self.dofs_PR_pol = self.core.space.projectors.P3_pol_0.dot(PR.dot(self.core.space.E3_pol_0.T)).tocsr()
+            self.dofs_PR = self.core.space.projectors.P3_pol_0.dot(PR.dot(self.core.space.E3_pol_0.T)).tocsr()
             
         else:
             
@@ -317,7 +354,7 @@ class MHDOperators:
         
         if self.Mn_as_tensor:
             
-            self.Mn_pol_mat = Mn
+            self.Mn_mat = Mn
             
         else:
             if self.core.space.dim == 2:
@@ -360,7 +397,7 @@ class MHDOperators:
             
             if self.MJ_as_tensor:
             
-                self.MJ_pol_mat = MJ
+                self.MJ_mat = MJ
 
             else:
                 if self.core.space.dim == 2:
@@ -388,16 +425,16 @@ class MHDOperators:
             if   self.core.basis_u == 0:
                 u1, u3 = self.core.space.reshape_pol_v(u)
                 
-                out1 = self.int_N3.dot(self.dofs_EF_pol_11.dot(u1).T).T + self.int_N3.dot(self.dofs_EF_pol_12.dot(u3).T).T
-                out3 = self.his_N3.dot(self.dofs_EF_pol_21.dot(u1).T).T
+                out1 = self.int_N3.dot(self.dofs_EF[0].dot(u1).T).T + self.int_N3.dot(self.dofs_EF[1].dot(u3).T).T
+                out3 = self.his_N3.dot(self.dofs_EF[2].dot(u1).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
               
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
                 
-                out1 = self.int_D3.dot(self.dofs_EF_pol_11.dot(u1).T).T + self.int_N3.dot(self.dofs_EF_pol_12.dot(u3).T).T
-                out3 = self.his_D3.dot(self.dofs_EF_pol_21.dot(u1).T).T
+                out1 = self.int_D3.dot(self.dofs_EF[0].dot(u1).T).T + self.int_N3.dot(self.dofs_EF[1].dot(u3).T).T
+                out3 = self.his_D3.dot(self.dofs_EF[2].dot(u1).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
  
@@ -420,14 +457,14 @@ class MHDOperators:
             e1, e3 = self.core.space.reshape_pol_1(e)
             
             if   self.core.basis_u == 0:
-                out1 = self.int_N3.T.dot(self.dofs_EF_pol_11.T.dot(e1).T).T + self.his_N3.T.dot(self.dofs_EF_pol_21.T.dot(e3).T).T
-                out3 = self.int_N3.T.dot(self.dofs_EF_pol_12.T.dot(e1).T).T
+                out1 = self.int_N3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + self.his_N3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
+                out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
             
             elif self.core.basis_u == 2:
-                out1 = self.int_D3.T.dot(self.dofs_EF_pol_11.T.dot(e1).T).T + self.his_D3.T.dot(self.dofs_EF_pol_21.T.dot(e3).T).T
-                out3 = self.int_N3.T.dot(self.dofs_EF_pol_12.T.dot(e1).T).T
+                out1 = self.int_D3.T.dot(self.dofs_EF[0].T.dot(e1).T).T + self.his_D3.T.dot(self.dofs_EF[2].T.dot(e3).T).T
+                out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                            
@@ -448,16 +485,16 @@ class MHDOperators:
             if   self.core.basis_u == 0:
                 u1, u3 = self.core.space.reshape_pol_v(u)
                 
-                out1 = self.his_N3.dot(self.dofs_MF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_MF_pol_22.dot(u3).T).T
+                out1 = self.his_N3.dot(self.dofs_MF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_MF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                 
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
                 
-                out1 = self.his_D3.dot(self.dofs_MF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_MF_pol_22.dot(u3).T).T
+                out1 = self.his_D3.dot(self.dofs_MF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_MF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
     
@@ -480,14 +517,14 @@ class MHDOperators:
             f1, f3 = self.core.space.reshape_pol_2(f)
             
             if   self.core.basis_u == 0:
-                out1 = self.his_N3.T.dot(self.dofs_MF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_MF_pol_22.T.dot(f3).T).T
+                out1 = self.his_N3.T.dot(self.dofs_MF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_MF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
             
             elif self.core.basis_u == 2:
-                out1 = self.his_D3.T.dot(self.dofs_MF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_MF_pol_22.T.dot(f3).T).T
+                out1 = self.his_D3.T.dot(self.dofs_MF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_MF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                       
@@ -508,16 +545,16 @@ class MHDOperators:
             if   self.core.basis_u == 0:
                 u1, u3 = self.core.space.reshape_pol_v(u)
                 
-                out1 = self.his_N3.dot(self.dofs_PF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_PF_pol_22.dot(u3).T).T
+                out1 = self.his_N3.dot(self.dofs_PF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_PF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
             
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
                 
-                out1 = self.his_D3.dot(self.dofs_PF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_PF_pol_22.dot(u3).T).T
+                out1 = self.his_D3.dot(self.dofs_PF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_PF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                 
@@ -540,14 +577,14 @@ class MHDOperators:
             f1, f3 = self.core.space.reshape_pol_2(f)
             
             if   self.core.basis_u == 0:
-                out1 = self.his_N3.T.dot(self.dofs_PF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_PF_pol_22.T.dot(f3).T).T
+                out1 = self.his_N3.T.dot(self.dofs_PF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_PF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                 
             elif self.core.basis_u == 2:
-                out1 = self.his_D3.T.dot(self.dofs_PF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_PF_pol_22.T.dot(f3).T).T
+                out1 = self.his_D3.T.dot(self.dofs_PF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_PF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                        
@@ -568,16 +605,16 @@ class MHDOperators:
             if   self.core.basis_u == 0:
                 u1, u3 = self.core.space.reshape_pol_v(u)
                 
-                out1 = self.his_N3.dot(self.dofs_JF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_JF_pol_22.dot(u3).T).T
+                out1 = self.his_N3.dot(self.dofs_JF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_JF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
             
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
                 
-                out1 = self.his_D3.dot(self.dofs_JF_pol_11.dot(u1).T).T
-                out3 = self.int_N3.dot(self.dofs_JF_pol_22.dot(u3).T).T
+                out1 = self.his_D3.dot(self.dofs_JF[0].dot(u1).T).T
+                out3 = self.int_N3.dot(self.dofs_JF[1].dot(u3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                     
@@ -600,14 +637,14 @@ class MHDOperators:
             f1, f3 = self.core.space.reshape_pol_2(f)
             
             if   self.core.basis_u == 0:
-                out1 = self.his_N3.T.dot(self.dofs_JF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_JF_pol_22.T.dot(f3).T).T
+                out1 = self.his_N3.T.dot(self.dofs_JF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_JF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
             
             elif self.core.basis_u == 2:
-                out1 = self.his_D3.T.dot(self.dofs_JF_pol_11.T.dot(f1).T).T
-                out3 = self.int_N3.T.dot(self.dofs_JF_pol_22.T.dot(f3).T).T
+                out1 = self.his_D3.T.dot(self.dofs_JF[0].T.dot(f1).T).T
+                out3 = self.int_N3.T.dot(self.dofs_JF[1].T.dot(f3).T).T
                 
                 out  = np.concatenate((out1.flatten(), out3.flatten()))
                       
@@ -626,7 +663,7 @@ class MHDOperators:
         if self.PR_as_tensor:
             
             d   = self.core.space.reshape_pol_3(d)
-            out = self.his_D3.dot(self.dofs_PR_pol.dot(d).T).T.flatten()
+            out = self.his_D3.dot(self.dofs_PF.dot(d).T).T.flatten()
             
         else:
             out = self.dofs_PR.dot(d)
@@ -645,7 +682,7 @@ class MHDOperators:
         if self.PR_as_tensor:
             
             d   = self.core.space.reshape_pol_3(d)
-            out = self.his_D3.T.dot(self.dofs_PR_pol.T.dot(d).T).T.flatten()
+            out = self.his_D3.T.dot(self.dofs_PF.T.dot(d).T).T.flatten()
             
         else:
             out = self.dofs_PR.T.dot(d)
@@ -662,9 +699,9 @@ class MHDOperators:
         if self.Mn_as_tensor:
 
             if   self.core.basis_u == 0:
-                out = self.core.space.apply_Mv_ten(u, [[self.Mn_pol_mat[0], self.core.space.M0_tor], [self.Mn_pol_mat[1], self.core.space.M0_tor]])
+                out = self.core.space.apply_Mv_ten(u, [[self.Mn_mat[0], self.core.space.M0_tor], [self.Mn_mat[1], self.core.space.M0_tor]])
             elif self.core.basis_u == 2:
-                out = self.core.space.apply_M2_ten(u, [[self.Mn_pol_mat[0], self.core.space.M1_tor], [self.Mn_pol_mat[1], self.core.space.M0_tor]]) 
+                out = self.core.space.apply_M2_ten(u, [[self.Mn_mat[0], self.core.space.M1_tor], [self.Mn_mat[1], self.core.space.M0_tor]]) 
                      
         else:
             out = self.Mn_mat.dot(u)
@@ -683,7 +720,7 @@ class MHDOperators:
             if   self.core.basis_u == 0:
                 out = np.zeros(self.core.space.Ev_0.shape[0], dtype=float)
             elif self.core.basis_u == 2:
-                out = self.core.space.apply_M2_ten(b, [[self.MJ_pol_mat[0], self.core.space.M1_tor], [self.MJ_pol_mat[1], self.core.space.M0_tor]]) 
+                out = self.core.space.apply_M2_ten(b, [[self.MJ_mat[0], self.core.space.M1_tor], [self.MJ_mat[1], self.core.space.M0_tor]]) 
                    
         else:
             
@@ -740,7 +777,7 @@ class MHDOperators:
     
 
     # ======================================
-    def set_operators(self, dt_2, dt_6):
+    def set_operators(self, dt_2=1., dt_6=1.):
         """
         TODO
         """
@@ -750,46 +787,65 @@ class MHDOperators:
         
         if   self.core.basis_u == 0:
             
-            self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
+            if hasattr(self, 'dofs_MF'):
+                self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
         
-            self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
+            if hasattr(self, 'dofs_PF'):
+                self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
             
-            self.JF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__JF, rmatvec=self.__JF_transposed)
+            if hasattr(self, 'dofs_JF'):
+                self.JF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__JF, rmatvec=self.__JF_transposed)
             
-            self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
+            if hasattr(self, 'dofs_EF'):
+                self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
             
-            self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
+            if hasattr(self, 'dofs_PR'):
+                self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
             
-            self.Mn = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__Mn)
+            if hasattr(self, 'dofs_Mn'):
+                self.Mn = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__Mn)
 
-            self.MJ = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
+            if hasattr(self, 'dofs_MJ'):
+                self.MJ = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
             
-            self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__L)
+            if hasattr(self, 'dofs_PF') and hasattr(self, 'dofs_PR') and hasattr(self, 'dofs_JF'):
+                self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__L)
 
-            self.S2 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S2)
+            if hasattr(self, 'Mn_mat') and hasattr(self, 'dofs_EF'):
+                self.S2 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S2)
 
-            self.S6 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S6)
+            if hasattr(self, 'Mn_mat') and hasattr(self, 'L'):
+                self.S6 = spa.linalg.LinearOperator((self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S6)
             
             
         elif self.core.basis_u == 2:
 
-            self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
+            if hasattr(self, 'dofs_MF'):
+                self.MF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MF, rmatvec=self.__MF_transposed)
 
-            self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
+            if hasattr(self, 'dofs_PF'):
+                self.PF = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__PF, rmatvec=self.__PF_transposed)
 
-            self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
+            if hasattr(self, 'dofs_EF'):
+                self.EF = spa.linalg.LinearOperator((self.core.space.E1_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__EF, rmatvec=self.__EF_transposed)
 
-            self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
+            if hasattr(self, 'dofs_PR'):
+                self.PR = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E3_0.shape[0]), matvec=self.__PR, rmatvec=self.__PR_transposed)
             
-            self.Mn = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__Mn)
+            if hasattr(self, 'Mn_mat'):
+                self.Mn = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__Mn)
 
-            self.MJ = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
+            if hasattr(self, 'MJ_mat'):
+                self.MJ = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ)
 
-            self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__L)
+            if hasattr(self, 'dofs_PF') and hasattr(self, 'dofs_PR'):
+                self.L  = spa.linalg.LinearOperator((self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__L)
 
-            self.S2 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S2)
+            if hasattr(self, 'Mn_mat') and hasattr(self, 'dofs_EF'):
+                self.S2 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S2)
 
-            self.S6 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S6)
+            if hasattr(self, 'Mn_mat') and hasattr(self, 'L'):
+                self.S6 = spa.linalg.LinearOperator((self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S6)
         
     
     # ======================================
@@ -893,10 +949,10 @@ class MHDOperators:
         """
         
         if self.core.basis_u == 0:
-            self.Mn_inv = mass_3d_pre.get_Mv_PRE_3(self.core.space, [self.Mn_pol_mat[0], self.Mn_pol_mat[1]])
+            self.Mn_inv = mass_3d_pre.get_Mv_PRE_3(self.core.space, [self.Mn_mat[0], self.Mn_mat[1]])
             
         if self.core.basis_u == 2:
-            self.Mn_inv = mass_3d_pre.get_M2_PRE_3(self.core.space, [self.Mn_pol_mat[0], self.Mn_pol_mat[1]])
+            self.Mn_inv = mass_3d_pre.get_M2_PRE_3(self.core.space, [self.Mn_mat[0], self.Mn_mat[1]])
          
     
     # ======================================
@@ -911,10 +967,10 @@ class MHDOperators:
             if self.Mn_as_tensor:
             
                 if self.core.basis_u == 0:
-                    Mn = spa.bmat([[spa.kron(self.Mn_pol_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_pol_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
                     
                 if self.core.basis_u == 2:
-                    Mn = spa.bmat([[spa.kron(self.Mn_pol_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_pol_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
                     
             else:
                 
@@ -929,14 +985,14 @@ class MHDOperators:
             if self.EF_as_tensor:
                 
                 if self.core.basis_u == 0:
-                    EF_11 = spa.kron(self.dofs_EF_pol_11, self.int_N3)
-                    EF_12 = spa.kron(self.dofs_EF_pol_12, self.int_N3)
-                    EF_21 = spa.kron(self.dofs_EF_pol_21, self.his_N3)
+                    EF_11 = spa.kron(self.dofs_EF[0], self.int_N3)
+                    EF_12 = spa.kron(self.dofs_EF[1], self.int_N3)
+                    EF_21 = spa.kron(self.dofs_EF[2], self.his_N3)
                     
                 if self.core.basis_u == 2:
-                    EF_11 = spa.kron(self.dofs_EF_pol_11, self.int_D3)
-                    EF_12 = spa.kron(self.dofs_EF_pol_12, self.int_N3)
-                    EF_21 = spa.kron(self.dofs_EF_pol_21, self.his_D3)
+                    EF_11 = spa.kron(self.dofs_EF[0], self.int_D3)
+                    EF_12 = spa.kron(self.dofs_EF[1], self.int_N3)
+                    EF_21 = spa.kron(self.dofs_EF[2], self.his_D3)
                     
                 EF_approx = spa.bmat([[EF_11, EF_12], [EF_21, None]], format='csr')
                 
@@ -1002,10 +1058,10 @@ class MHDOperators:
             if self.Mn_as_tensor:
             
                 if self.core.basis_u == 0:
-                    Mn = spa.bmat([[spa.kron(self.Mn_pol_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_pol_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M0_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
                     
                 if self.core.basis_u == 2:
-                    Mn = spa.bmat([[spa.kron(self.Mn_pol_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_pol_mat[1], self.core.space.M0_tor)]], format='csr')
+                    Mn = spa.bmat([[spa.kron(self.Mn_mat[0], self.core.space.M1_tor), None], [None, spa.kron(self.Mn_mat[1], self.core.space.M0_tor)]], format='csr')
                     
             else:
                 
@@ -1020,11 +1076,11 @@ class MHDOperators:
             if self.PF_as_tensor:
             
                 if self.core.basis_u == 0:
-                    PF_11 = spa.kron(self.dofs_PF_pol_11, self.his_N3)
-                    PF_22 = spa.kron(self.dofs_PF_pol_22, self.int_N3)
+                    PF_11 = spa.kron(self.dofs_PF[0], self.his_N3)
+                    PF_22 = spa.kron(self.dofs_PF[1], self.int_N3)
                 if self.core.basis_u == 2:
-                    PF_11 = spa.kron(self.dofs_PF_pol_11, self.his_D3)
-                    PF_22 = spa.kron(self.dofs_PF_pol_22, self.int_N3)
+                    PF_11 = spa.kron(self.dofs_PF[0], self.his_D3)
+                    PF_22 = spa.kron(self.dofs_PF[1], self.int_N3)
                     
                 PF_approx = spa.bmat([[PF_11, None], [None, PF_22]], format='csr')
                 
@@ -1041,8 +1097,8 @@ class MHDOperators:
                 
                 if self.JF_as_tensor:
 
-                    JF_11 = spa.kron(self.dofs_JF_pol_11, self.his_N3)
-                    JF_22 = spa.kron(self.dofs_JF_pol_22, self.int_N3)
+                    JF_11 = spa.kron(self.dofs_JF[0], self.his_N3)
+                    JF_22 = spa.kron(self.dofs_JF[1], self.int_N3)
                     
                     JF_approx = spa.bmat([[JF_11, None], [None, JF_22]], format='csr')
                     
@@ -1057,7 +1113,7 @@ class MHDOperators:
             # assemble approximate PR matrix
             if self.PR_as_tensor:
                 
-                PR_approx = spa.kron(self.dofs_PR_pol, self.his_D3)
+                PR_approx = spa.kron(self.dofs_PF, self.his_D3)
                 PR_approx = self.core.space.projectors.I3_0_inv_approx.dot(PR_approx)
                 
             else:

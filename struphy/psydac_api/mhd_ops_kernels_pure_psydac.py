@@ -1,4 +1,4 @@
-def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_w : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', sub1 : 'int[:]', dim1_in : int, p1_out : int):
+def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:]', wts1 : 'float[:,:]', span1 : 'int[:,:]', basis1 : 'float[:,:,:]', sub1 : 'int[:]', dim1_in : int, p1_out : int):
     '''Kernel for assembling the matrix
 
     A_(i,j) = DOFS_i(fun*Lambda^in_j) ,
@@ -30,9 +30,11 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
         pads_out : int
             Paddings of the output space (codomain) of a distributed StencilMatrix.
 
-        fun_w : 2d float array
-            The function evaluated at the points (ii, iq), where iq a local quadrature point of interval ii, 
-            and already multiplied by the corresponding quadrature weight.
+        fun_q : 2d float array
+            The function evaluated at the points (ii, iq), where iq a local quadrature point of interval ii.
+            
+        wts1 : 2d float array
+            Quadrature weights in format (ii, iq).
 
         span1 : 2d int array
             Knot span indices in direction eta1 in format (ii, iq).
@@ -81,7 +83,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
         # ----------------------------------
         for iq in range(span1.shape[1]):
 
-            funval = fun_w[ii, iq]
+            funval = fun_q[ii, iq] * wts1[ii, iq]
 
             # Basis function of input space:
             # ------------------------------
@@ -109,7 +111,7 @@ def assemble_dofs_for_weighted_basisfuns_1d(mat : 'float[:,:]', starts_in : 'int
                 mat[po1 + i, col1] += value
 
 
-def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_w : 'float[:,:,:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
+def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:,:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', dim1_in : int, dim2_in : int, p1_out : int, p2_out : int):
     '''Kernel for assembling the matrix
 
     A_(ij,kl) = DOFS_ij(fun*Lambda^in_kl) ,
@@ -141,9 +143,14 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
         pads_out : 1d int array
             Paddings of the output space (codomain) of a distributed StencilMatrix.
 
-        fun_w : 4d float array
-            The function evaluated at the points (ii, jj, iq, jq), where iq a local quadrature point of interval ii, 
-            and already multiplied by the corresponding quadrature weight.
+        fun_q : 4d float array
+            The function evaluated at the points (ii, iq, jj, jq), where iq a local quadrature point of interval ii.
+            
+        wts1 : 2d float array
+            Quadrature weights in direction eta1 in format (ii, iq).
+            
+        wts2 : 2d float array
+            Quadrature weights in direction eta2 in format (jj, jq).
 
         span1 : 2d int array
             Knot span indices in direction eta1 in format (ii, iq).
@@ -222,7 +229,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
             for iq in range(span1.shape[1]):
                 for jq in range(span2.shape[1]):
 
-                    funval = fun_w[ii, jj, iq, jq]
+                    funval = fun_q[ii, iq, jj, jq] * wts1[ii, iq] * wts2[jj, jq]
 
                     # Basis function of input space:
                     # ------------------------------
@@ -271,7 +278,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(mat : 'float[:,:,:,:]', starts_in : 
 
 
 
-def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_w : 'float[:,:,:,:,:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', sub3 : 'int[:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
+def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_in : 'int[:]', ends_in : 'int[:]', pads_in : 'int[:]', starts_out : 'int[:]', ends_out : 'int[:]', pads_out : 'int[:]', fun_q : 'float[:,:,:,:,:,:]', wts1 : 'float[:,:]', wts2 : 'float[:,:]', wts3 : 'float[:,:]', span1 : 'int[:,:]', span2 : 'int[:,:]', span3 : 'int[:,:]', basis1 : 'float[:,:,:]', basis2 : 'float[:,:,:]', basis3 : 'float[:,:,:]', sub1 : 'int[:]', sub2 : 'int[:]', sub3 : 'int[:]', dim1_in : int, dim2_in : int, dim3_in : int, p1_out : int, p2_out : int, p3_out : int):
     '''Kernel for assembling the matrix
 
     A_(ijk,mno) = DOFS_ijk(fun*Lambda^in_mno) ,
@@ -303,9 +310,17 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
         pads_out : 1d int array
             Paddings of the output space (codomain) of a distributed StencilMatrix.
 
-        fun_w : 6d float array
-            The function evaluated at the points (ii, jj, kk, iq, jq, kq), where iq a local quadrature point of interval ii, 
-            and already multiplied by the correspinding quadrature weight.
+        fun_q : 6d float array
+            The function evaluated at the points (ii, iq, jj, jq, kk, kq), where iq a local quadrature point of interval ii.
+            
+        wts1 : 2d float array
+            Quadrature weights in direction eta1 in format (ii, iq).
+            
+        wts2 : 2d float array
+            Quadrature weights in direction eta2 in format (jj, jq).
+            
+        wts3 : 2d float array
+            Quadrature weights in direction eta3 in format (kk, kq).
 
         span1 : 2d int array
             Knot span indices in direction eta1 in format (ii, iq).
@@ -413,7 +428,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(mat : 'float[:,:,:,:,:,:]', starts_i
                     for jq in range(span2.shape[1]):
                         for kq in range(span3.shape[1]):
 
-                            funval = fun_w[ii, jj, kk, iq, jq, kq]
+                            funval = fun_q[ii, iq, jj, jq, kk, kq] * wts1[ii, iq] * wts2[jj, jq] * wts3[kk, kq] 
 
                             # Basis function of input space:
                             # ------------------------------
