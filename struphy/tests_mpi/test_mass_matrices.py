@@ -11,7 +11,7 @@ import pytest
     ['colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}],
     ['hollow_cyl', {
-        'a1': .1, 'a2': 1., 'R0': 3.}]])
+        'a1': .1, 'a2': 1., 'R0': 3., 'lz': 10.}]])
 def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     
     import numpy as np
@@ -104,14 +104,14 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, 2038)
     
     # perfrom matrix-vector products
-    r0_str = space.M0(x0_str)
-    r1_str = space.M1(x1_str)
-    r2_str = space.M2(x2_str)
-    r3_str = space.M3(x3_str)
-    rv_str = space.Mv(xv_str)
+    r0_str = space.M0(x0_str[0].flatten())
+    r1_str = space.M1(np.concatenate((x1_str[0].flatten(), x1_str[1].flatten(), x1_str[2].flatten())))
+    r2_str = space.M2(np.concatenate((x2_str[0].flatten(), x2_str[1].flatten(), x2_str[2].flatten())))
+    r3_str = space.M3(x3_str[0].flatten())
+    rv_str = space.Mv(np.concatenate((xv_str[0].flatten(), xv_str[1].flatten(), xv_str[2].flatten())))
     
-    rn_str = mhd_ops_str.Mn_mat.dot(x2_str)
-    rJ_str = mhd_ops_str.MJ_mat.dot(x2_str)
+    rn_str = mhd_ops_str.Mn_mat.dot(np.concatenate((x2_str[0].flatten(), x2_str[1].flatten(), x2_str[2].flatten())))
+    rJ_str = mhd_ops_str.MJ_mat.dot(np.concatenate((x2_str[0].flatten(), x2_str[1].flatten(), x2_str[2].flatten())))
     
     r0_psy = mass_mats.M0.dot(x0_psy)
     r1_psy = mass_mats.M1.dot(x1_psy)
@@ -136,4 +136,4 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
 if __name__ == '__main__':
     #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], ['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], ['colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    test_mass([8, 6, 4], [2, 2, 2], [False, True, True], ['hollow_cyl', {'a1': .1, 'a2': 1., 'R0': 3.}], False)
+    test_mass([8, 6, 4], [2, 2, 2], [False, True, True], ['hollow_cyl', {'a1': .1, 'a2': 1., 'R0': 3., 'lz': 10.}], False)

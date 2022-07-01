@@ -552,7 +552,7 @@ Implemented accumulation functions are listed in :ref:`accumulators`.
 
 .. autoclass:: struphy.pic.particles_to_grid.Accumulator
 
-.. autofunction:: struphy.pic.accum_kernels.__docstring__
+.. autofunction:: struphy.pic.accum_kernels._docstring
 
 
 .. _add_weighted_mass:

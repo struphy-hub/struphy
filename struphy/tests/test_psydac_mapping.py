@@ -9,7 +9,7 @@ import pytest
     ['colella', {
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
     ['hollow_cyl', {
-        'a1': 1., 'a2': 2., 'R0': 3.}],
+        'a1': 1., 'a2': 2., 'R0': 3., 'lz': 10.}],
     ['hollow_torus', {
         'a1': 1., 'a2': 2., 'R0': 3.}],
     ['ellipse', {
@@ -129,5 +129,5 @@ def test_psydac_mapping(mapping):
 
 
 if __name__ == '__main__':
-    test_psydac_mapping(['shafranov_dshaped', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}])
+    test_psydac_mapping(['hollow_cyl', {
+        'a1': 1., 'a2': 2., 'R0': 3., 'lz': 10.}])

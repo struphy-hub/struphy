@@ -64,7 +64,7 @@ stages:
   - build
   - install
   - test
-  - deploy
+  - deploy 
   - cleanup
 
 # Create virtual environment (cached)
@@ -209,6 +209,8 @@ ci_variables:
 linting:
   stage: build 
 
+  needs: ["create_venv"]
+
   script:
     - FLAGS="--recursive=y --exit-zero --reports=yes"
     - mkdir linting
@@ -234,10 +236,12 @@ linting:
 # Build struphy
 build_struphy:
   stage: build
+
+  needs: ["create_venv"]
   
   script:
     - cd psydac
-    - git pull origin devel
+    - git pull origin devel 
     - export CC="mpicc"
     - export HDF5_MPI="ON"
     - python3 -m pip install -r requirements.txt
@@ -274,6 +278,8 @@ install_and_compile:
 unit_tests:
   stage: test
 
+  needs: ["install_and_compile"]
+
   script:
     - cd ${ENV_PATH}/struphy/tests_mpi/
     - mpirun -n 2 pytest --with-mpi 
@@ -292,6 +298,8 @@ unit_tests:
 code_tests:
   stage: test
 
+  needs: ["install_and_compile"]
+
   script:
     # Test maxwell
     - struphy run maxwell -i params_ci_1.yml -o sim_1
@@ -300,7 +308,7 @@ code_tests:
     - struphy profile ${ENV_PATH}/struphy/io/out/sim_1/ ${ENV_PATH}/struphy/io/out/sim_2/ ${ENV_PATH}/struphy/io/out/sim_3/
     # Add Test for each model
 
-# Deployment
+#Deployment
 pages:
   stage: deploy
 
@@ -310,11 +318,13 @@ pages:
 
   artifacts:
     paths:
-       - public/
+      - public/
 
-
+# Cleanup
 cleanup:
   stage: cleanup
+
+  when: always
 
   script:
     - pwd

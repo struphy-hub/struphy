@@ -162,30 +162,6 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
     pf2 = pf[1]
     pf3 = pf[2]
     
-    # pf + 1 non-vanishing basis functions up tp degree pf
-    b1f = empty((pf1 + 1, pf1 + 1), dtype=float)
-    b2f = empty((pf2 + 1, pf2 + 1), dtype=float)
-    b3f = empty((pf3 + 1, pf3 + 1), dtype=float)
-    
-    # left and right values for spline evaluation
-    l1f = empty( pf1, dtype=float)
-    l2f = empty( pf2, dtype=float)
-    l3f = empty( pf3, dtype=float)
-    
-    r1f = empty( pf1, dtype=float)
-    r2f = empty( pf2, dtype=float)
-    r3f = empty( pf3, dtype=float)
-    
-    # scaling arrays for M-splines
-    d1f = empty( pf1, dtype=float)
-    d2f = empty( pf2, dtype=float)
-    d3f = empty( pf3, dtype=float)
-    
-    # pf + 1 derivatives
-    der1f = empty( pf1 + 1, dtype=float)
-    der2f = empty( pf2 + 1, dtype=float)
-    der3f = empty( pf3 + 1, dtype=float)
-    
     # needed mapping quantities
     fx    = empty( 3    , dtype=float)
     df    = empty((3, 3), dtype=float)
@@ -253,7 +229,7 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
         span3f = int(eta3*nel3f) + pf3
         
         # evaluate Jacobian matrix
-        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, fx, df, 1)
+        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, eta1, eta2, eta3, fx, df, 1)
         
         # evaluate Jacobian determinant
         det_df = abs(linalg.det(df))

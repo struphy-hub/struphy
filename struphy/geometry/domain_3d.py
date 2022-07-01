@@ -22,304 +22,16 @@ import struphy.feec.bsplines as bsp
 from sympde.topology import Mapping
 
 
-# ==================================================
-def spline_interpolation_nd(p, grids_1d, values):
-    '''
-    nd spline interpolation with discrete input (nonuniform).
-
-    The knot vector for the clamped spline interpolant is constructed from grids_1d.
-
-    Parameters
-    -----------
-        p : list 
-            spline degree
-
-        grids_1d : list of np.arrays
-            interpolation points
-
-        values: np.array
-            function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
-
-    Returns
-    --------
-        coeffs : np.array
-            spline coefficients as nd array.
-
-        T : list
-            Knot vector of spline interpolant
-    '''
-
-    # dimension check
-    for sh, x_grid in zip(values.shape, grids_1d):
-        assert sh == x_grid.size
-
-    # list of break point arrays
-    breaks = []
-
-    for x_grid, p_i in zip(grids_1d, p):
-
-        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
-        if p_i == 1:
-            breaks.append(x_grid)
-        elif p_i % 2 == 0:
-            breaks.append(x_grid[p_i//2 - 1:-p_i//2].copy())
-        else:
-            breaks.append(x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy())
-
-        # cells must be in interval [0, 1]
-        breaks[-1][0] = 0.
-        breaks[-1][-1] = 1.
-
-    # interpolation with clamped splines (periodic=False)
-    T = [bsp.make_knots(breaks_i, p_i, periodic=False)
-         for breaks_i, p_i in zip(breaks, p)]
-    
-    indN = [(np.indices((breaks_i.size - 1, p_i + 1))[1] + np.arange(breaks_i.size - 1)[:, None])%grids_1d_i.size for breaks_i, p_i, grids_1d_i in zip(breaks, p, grids_1d)]
-
-    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
-             for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
-
-    I_LU = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat]
-
-    # dimension check
-    for I, x_grid in zip(I_mat, grids_1d):
-        assert I.shape[0] == x_grid.size
-        assert I.shape[0] == I.shape[1]
-
-    # solve system
-    if len(p) == 1:
-        return I_LU[0].solve(values), T, indN
-    if len(p) == 2:
-        return linalg.kron_lusolve_2d(I_LU, values), T, indN
-    elif len(p) == 3:
-        return linalg.kron_lusolve_3d(I_LU, values), T, indN
-    else:
-        raise AssertionError("Only dimensions < 4 are supported.")
-
-
-# ==================================================
-def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
-    '''
-    Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
-
-    Parameters
-    -----------
-        Nel, p, spl_kind: array-like
-            defining the spline space
-
-        X, Y: callable
-            either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D
-
-        Z: callable Z(eta1, eta2, eta3)
-
-    Returns
-    --------
-        cx, cy (, cz): np.array
-            spline coefficients
-    '''
-
-    # number of basis functions
-    NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl_kind)]
-
-    # element boundaries
-    el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
-
-    # spline knot vectors
-    T = [bsp.make_knots(el_b, p, kind)
-         for el_b, p, kind in zip(el_b, p, spl_kind)]
-
-    # greville points
-    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
-
-    # 1D interpolation matrices
-    I_mat = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
-             for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
-
-    # 2D interpolation
-    if len(Nel) == 2:
-        I = spa.kron(I_mat[0], I_mat[1], format='csc')
-
-        I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
-
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0], NbaseN[1])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0], NbaseN[1])
-
-        return cx, cy
-
-    # 3D interpolation
-    elif len(Nel) == 3:
-        I = spa.kron(I_mat[0], spa.kron(I_mat[1], I_mat[2]), format='csc')
-
-        I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
-
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
-        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
-            NbaseN[0], NbaseN[1], NbaseN[2])
-
-        return cx, cy, cz
-
-    else:
-        print('wrong number of elements')
-
-        return 0.
-
-
-def prepare_args(x, y, z, flat_eval=False):
-    '''Broadcast point sets to correct size for evaluation.
-
-    Parameters
-    ----------
-        x, y, z : float or list or np.array
-            Evaluation point sets.
-        flat_eval : boolean
-            Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
-
-    Returns
-    -------
-        E1, E2, E3 : np.arrays
-            3d arrays, except for flat_eval=True (1d arrays).
-
-        is_sparse_meshgrid : boolean
-            Whether arguments fit sparse_meshgrid shape.
-    '''
-
-    # convert float, list type data to numpy array:
-    if isinstance(x, float):
-        arg_x = np.array([x])
-    elif isinstance(x, list):
-        arg_x = np.array(x)
-    elif isinstance(x, np.ndarray):
-        arg_x = x
-    else:
-        print('data type not supported')
-
-    if isinstance(y, float):
-        arg_y = np.array([y])
-    elif isinstance(y, list):
-        arg_y = np.array(y)
-    elif isinstance(y, np.ndarray):
-        arg_y = y
-    else:
-        print('data type not supported')
-
-    if isinstance(z, float):
-        arg_z = np.array([z])
-    elif isinstance(z, list):
-        arg_z = np.array(z)
-    elif isinstance(z, np.ndarray):
-        arg_z = z
-    else:
-        print('data type not supported')
-
-    is_sparse_meshgrid = False
-
-    # flat evaluation
-    if flat_eval:
-        assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-        assert arg_x.size == arg_y.size == arg_z.size
-
-        E1 = arg_x
-        E2 = arg_y
-        E3 = arg_z
-
-        return E1, E2, E3, is_sparse_meshgrid
-
-    # broadcast to 3d arrays
-    else:
-        # tensor-product for given three 1D arrays
-        if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
-            #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-            E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
-        # given xy-plane at point z:
-        elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
-            E1 = arg_x[:, :, None]
-            E2 = arg_y[:, :, None]
-            E3 = arg_z*np.ones(E1.shape)
-        # given xz-plane at point y:
-        elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
-            E1 = arg_x[:, None, :]
-            E2 = arg_y*np.ones(E1.shape)
-            E3 = arg_z[:, None, :]
-        # given yz-plane at point x:
-        elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
-            E2 = arg_y[None, :, :]
-            E3 = arg_z[None, :, :]
-            E1 = arg_x*np.ones(E2.shape)
-        # given three 3D arrays
-        elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
-            # Distinguish if input coordinates are from sparse or dense meshgrid.
-            # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
-            # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
-            E1, E2, E3 = arg_x, arg_y, arg_z
-
-            # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-            if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-                assert max(arg_x.shape) == arg_x.size
-                assert max(arg_y.shape) == arg_y.size
-                assert max(arg_z.shape) == arg_z.size
-                is_sparse_meshgrid = True
-            # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
-
-        else:
-            raise ValueError('Argument dimensions not supported')
-
-        return E1, E2, E3, is_sparse_meshgrid
-
-
-# ==================================================
 class Domain():
     '''Defines the mapped domain.
 
     Parameters
     ----------
-    kind_map : str
-        Type of domain.
+        kind_map : str
+            Type of domain.
 
-    params_map: dict, optional
-        The parameters that define the mapping (see Notes). If not given, default values shall be used
-
-    Attributes
-    ----------
-    kind_map: int
-        values <10 indicate a spline mapping
-
-    params_map: array-like
-        mapping parameters
-
-    Nel: list
-        1d number of elements of discrete spline mapping
-
-    p: list
-        1d degrees of discrete spline mapping
-
-    NbaseN: list
-        1d dimensions of discrete spline mapping
-
-    T: list
-        1d knot vectors of discrete spline mapping
-
-    cx: np.array
-        spline coefficients of X(eta1, eta2, eta3)
-
-    cy: np.array
-        spline coefficients of Y(eta1, eta2, eta3)
-
-    cz: np.array
-        spline coefficients of Z(eta1, eta2, eta3)
-
-    keys_map: dict
-        keys point to values for kind_fun in the 'evaluate' method.
-
-    keys_pull: dict
-        keys point to possible values for kind_fun in 'pull' method.
-
-    keys_push: dict
-        keys point to possible values for kind_fun in 'push' method.
+        params_map: dict, optional
+            The parameters that define the mapping (see Notes). If not given, default values shall be used
 
     Notes
     -----
@@ -340,7 +52,7 @@ class Domain():
         * 'hollow_cyl' :   
             * X = (a1 + (a2 - a1)*eta1)*cos(2*pi*eta2) + R0
             * Y = (a1 + (a2 - a1)*eta1)*sin(2*pi*eta2)
-            * Z = 2*pi*R0*eta3
+            * Z = lz*eta3
         * 'hollow_torus' : 
             * X = X_hollow_cyl * cos(2*pi*eta3)
             * Y = Y_hollow_cyl
@@ -411,14 +123,14 @@ class Domain():
             self._kind_map = 11
 
             if params_map is None:
-                params = {'a1': 0.2, 'a2': 1., 'R0': 3.}
+                params = {'a1': 0.2, 'a2': 1., 'R0': 3., 'lz': 2*np.pi*3.}
             else:
                 params = params_map
 
             self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
                                                 'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
-                                                'z': '2*pi*R0*x3'}
+                                                'z': 'lz*x3'}
 
             if self.params_map[0] == 0.:
                 self._pole = True
@@ -568,16 +280,28 @@ class Domain():
         elif kind_map == 'spline':
             # TODO: choose correct params_map
             self._kind_map = 0
+
+            if params_map is None:
+                params = {'Nel': [5, 6, 7], 'p': [2, 3, 4], 'spl_kind': [False, True, False], 'file': None}
+
+                # simple cylinder for testing
+                def X(eta1, eta2, eta3): return eta1*np.cos(2*np.pi*eta2) 
+                def Y(eta1, eta2, eta3): return eta1*np.sin(2*np.pi*eta2)
+                def Z(eta1, eta2, eta3): return 4*eta3
+
+                # project on arbitrary spline space for testing
+                self._cx, self._cy, self._cz = interp_mapping(params['Nel'], params['p'], params['spl_kind'], X, Y, Z)
+
+            else:
+                params = params_map
+                with h5py.File(params_map['file'], 'r') as handle:
+
+                    # print(f'Available keys: {tuple(handle.keys())}')
+                    self._cx = handle['cx'][:]
+                    self._cy = handle['cy'][:]
+                    self._cz = handle['cz'][:]
+
             self._params_map = []
-
-            # print(f'Before popping: list(params_map.values()): {list(params_map.values())}')
-
-            with h5py.File(params_map['file'], 'r') as handle:
-
-                # print(f'Available keys: {tuple(handle.keys())}')
-                self._cx = handle['cx'][:]
-                self._cy = handle['cy'][:]
-                self._cz = handle['cz'][:]
 
             if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
                 self._pole = True
@@ -595,7 +319,6 @@ class Domain():
                 params = params_map
 
             def X(s, chi): return params['a']*s*np.cos(2*np.pi*chi) + params['R0']
-
             def Y(s, chi): return params['a']*s*np.sin(2*np.pi*chi)
 
             self._cx, self._cy = interp_mapping(
@@ -605,7 +328,7 @@ class Domain():
             self._cx[0] = params['R0']
             self._cy[0] = 0.
 
-            self._params_map = [params['a'], params['R0']]
+            self._params_map = [2*np.pi*params['R0'], params['a']]
 
             self._pole = True
 
@@ -1227,3 +950,250 @@ class Domain():
             plt.savefig(save_dir)
         else:
             plt.show()
+
+
+def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
+    '''
+    Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
+
+    Parameters
+    -----------
+        Nel, p, spl_kind: array-like
+            defining the spline space
+
+        X, Y: callable
+            either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D
+
+        Z: callable Z(eta1, eta2, eta3)
+
+    Returns
+    --------
+        cx, cy (, cz): np.array
+            spline coefficients
+    '''
+
+    # number of basis functions
+    NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl_kind)]
+
+    # element boundaries
+    el_b = [np.linspace(0., 1., Nel + 1) for Nel in Nel]
+
+    # spline knot vectors
+    T = [bsp.make_knots(el_b, p, kind)
+         for el_b, p, kind in zip(el_b, p, spl_kind)]
+
+    # greville points
+    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
+
+    # 1D interpolation matrices
+    I_mat = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
+             for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+
+    # 2D interpolation
+    if len(Nel) == 2:
+        I = spa.kron(I_mat[0], I_mat[1], format='csc')
+
+        I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
+
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0], NbaseN[1])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0], NbaseN[1])
+
+        return cx, cy
+
+    # 3D interpolation
+    elif len(Nel) == 3:
+        I = spa.kron(I_mat[0], spa.kron(I_mat[1], I_mat[2]), format='csc')
+
+        I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
+
+        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+            NbaseN[0], NbaseN[1], NbaseN[2])
+
+        return cx, cy, cz
+
+    else:
+        print('wrong number of elements')
+
+        return 0.
+
+
+def prepare_args(x, y, z, flat_eval=False):
+    '''Broadcast point sets to correct size for evaluation.
+
+    Parameters
+    ----------
+        x, y, z : float or list or np.array
+            Evaluation point sets.
+        flat_eval : boolean
+            Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
+
+    Returns
+    -------
+        E1, E2, E3 : np.arrays
+            3d arrays, except for flat_eval=True (1d arrays).
+
+        is_sparse_meshgrid : boolean
+            Whether arguments fit sparse_meshgrid shape.
+    '''
+
+    # convert float, list type data to numpy array:
+    if isinstance(x, float):
+        arg_x = np.array([x])
+    elif isinstance(x, list):
+        arg_x = np.array(x)
+    elif isinstance(x, np.ndarray):
+        arg_x = x
+    else:
+        print('data type not supported')
+
+    if isinstance(y, float):
+        arg_y = np.array([y])
+    elif isinstance(y, list):
+        arg_y = np.array(y)
+    elif isinstance(y, np.ndarray):
+        arg_y = y
+    else:
+        print('data type not supported')
+
+    if isinstance(z, float):
+        arg_z = np.array([z])
+    elif isinstance(z, list):
+        arg_z = np.array(z)
+    elif isinstance(z, np.ndarray):
+        arg_z = z
+    else:
+        print('data type not supported')
+
+    is_sparse_meshgrid = False
+
+    # flat evaluation
+    if flat_eval:
+        assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+        assert arg_x.size == arg_y.size == arg_z.size
+
+        E1 = arg_x
+        E2 = arg_y
+        E3 = arg_z
+
+        return E1, E2, E3, is_sparse_meshgrid
+
+    # broadcast to 3d arrays
+    else:
+        # tensor-product for given three 1D arrays
+        if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
+            #assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+            E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
+        # given xy-plane at point z:
+        elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
+            E1 = arg_x[:, :, None]
+            E2 = arg_y[:, :, None]
+            E3 = arg_z*np.ones(E1.shape)
+        # given xz-plane at point y:
+        elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
+            E1 = arg_x[:, None, :]
+            E2 = arg_y*np.ones(E1.shape)
+            E3 = arg_z[:, None, :]
+        # given yz-plane at point x:
+        elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
+            E2 = arg_y[None, :, :]
+            E3 = arg_z[None, :, :]
+            E1 = arg_x*np.ones(E2.shape)
+        # given three 3D arrays
+        elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
+            # Distinguish if input coordinates are from sparse or dense meshgrid.
+            # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
+            # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
+            E1, E2, E3 = arg_x, arg_y, arg_z
+
+            # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
+            if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
+                assert max(arg_x.shape) == arg_x.size
+                assert max(arg_y.shape) == arg_y.size
+                assert max(arg_z.shape) == arg_z.size
+                is_sparse_meshgrid = True
+            # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
+
+        else:
+            raise ValueError('Argument dimensions not supported')
+
+        return E1, E2, E3, is_sparse_meshgrid
+
+
+def spline_interpolation_nd(p, grids_1d, values):
+    '''
+    nd spline interpolation with discrete input (nonuniform).
+
+    The knot vector for the clamped spline interpolant is constructed from grids_1d.
+
+    Parameters
+    -----------
+        p : list 
+            spline degree
+
+        grids_1d : list of np.arrays
+            interpolation points
+
+        values: np.array
+            function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
+
+    Returns
+    --------
+        coeffs : np.array
+            spline coefficients as nd array.
+
+        T : list
+            Knot vector of spline interpolant
+    '''
+
+    # dimension check
+    for sh, x_grid in zip(values.shape, grids_1d):
+        assert sh == x_grid.size
+
+    # list of break point arrays
+    breaks = []
+
+    for x_grid, p_i in zip(grids_1d, p):
+
+        # dimension of the 1d spline spaces: dim = breaks.size - 1 + p = x_grid.size
+        if p_i == 1:
+            breaks.append(x_grid)
+        elif p_i % 2 == 0:
+            breaks.append(x_grid[p_i//2 - 1:-p_i//2].copy())
+        else:
+            breaks.append(x_grid[(p_i - 1)//2:-(p_i - 1)//2].copy())
+
+        # cells must be in interval [0, 1]
+        breaks[-1][0] = 0.
+        breaks[-1][-1] = 1.
+
+    # interpolation with clamped splines (periodic=False)
+    T = [bsp.make_knots(breaks_i, p_i, periodic=False)
+         for breaks_i, p_i in zip(breaks, p)]
+    
+    indN = [(np.indices((breaks_i.size - 1, p_i + 1))[1] + np.arange(breaks_i.size - 1)[:, None])%grids_1d_i.size for breaks_i, p_i, grids_1d_i in zip(breaks, p, grids_1d)]
+
+    I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
+             for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
+
+    I_LU = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat]
+
+    # dimension check
+    for I, x_grid in zip(I_mat, grids_1d):
+        assert I.shape[0] == x_grid.size
+        assert I.shape[0] == I.shape[1]
+
+    # solve system
+    if len(p) == 1:
+        return I_LU[0].solve(values), T, indN
+    if len(p) == 2:
+        return linalg.kron_lusolve_2d(I_LU, values), T, indN
+    elif len(p) == 3:
+        return linalg.kron_lusolve_3d(I_LU, values), T, indN
+    else:
+        raise AssertionError("Only dimensions < 4 are supported.")

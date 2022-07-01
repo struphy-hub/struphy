@@ -29,7 +29,7 @@ n_tor = -1
 b_tor = 'i'
 
 # ------ mapping parameters -----
-mapping    = 'spline cylinder'
+mapping    = 'spline_cyl'
 a          = 1.
 R0         = 5.
 params_map = {'a' : a, 'R0' : R0, 'Nel' : Nel, 'p' : p, 'spl_kind' : spl_kind}

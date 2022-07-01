@@ -1,8 +1,9 @@
 from numpy import zeros, empty, sqrt
 
-from struphy.geometry import mappings_3d
-from struphy.feec import bsplines_kernels as bsp
-from struphy.kinetic_equil.analytical import background_sol
+import struphy.geometry.map_eval as map_eval
+import struphy.feec.bsplines_kernels as bsp
+import struphy.feec.basics.spline_evaluation_3d as eval_3d
+import struphy.kinetic_equil.background_eval as background_eval
 
 import struphy.pic.mat_vec_filler as mvf
 import struphy.linear_algebra.core as linalg
@@ -10,7 +11,7 @@ import struphy.linear_algebra.core as linalg
 
 def _docstring():
     '''
-    MODULE DOCSTRING for **struphy.pic.accum_kernels**.
+    MODULE DOCSTRING for :ref:`struphy.pic.accum_kernels`.
 
     The module contains model-specific accumulation routines (pyccelized), to be defined by the user.
 
@@ -18,7 +19,7 @@ def _docstring():
         - use the model name, all lower-case letters (e.g. lin_vlasov_maxwell)
         - in case of multiple accumulations in one model, attach _1, _2, etc. 
 
-    Arguments have to be passed in the following order (copy and paste from existing accum. function):
+    Arguments have to be passed in the following order (copy and paste from existing accum_kernels function):
 
     - First, the marker info:
         - markers: 'float[:,:]',          # positions [0:3,], velocities [3:6,], and weights [6,] of the markers
@@ -28,13 +29,14 @@ def _docstring():
         - pn: 'int[:]',                   # N-spline degree in each direction
         - tn1: 'float[:]',                # N-spline knot vector 
         - tn2: 'float[:]',
-        - tn3: 'float[:]',                
-        - ind_n1: int[:,:],               # Indices of non-vanishing N-splines in format (number of elements, pn + 1)       
-        - ind_n2: int[:,:], 
-        - ind_n3: int[:,:],
-        - ind_d1: int[:,:],               # Indices of non-vanishing D-splines in format (number of elements, pn)
-        - ind_d2: int[:,:],
-        - ind_d3: int[:,:],
+        - tn3: 'float[:]',    
+
+    - then, the mpi.comm info of the accumulation space:
+        - starts1: 'int[:]'              # start indices in the three directions of current process of component 1
+        - in case of vector-valued spaces:
+
+            - starts2: 'int[:]'              
+            - starts3: 'int[:]'             
 
     - then, the mapping info:
         - kind_map: 'int',                # mapping identifier 
@@ -48,26 +50,7 @@ def _docstring():
         - ind3_map: int[:,:],            
         - cx: 'float[:,:,:]',             # control points for Fx
         - cy: 'float[:,:,:]',             # control points for Fy
-        - cz: 'float[:,:,:]',             # control points for Fz
-
-    - then, the mpi.comm info of the space:
-        - starts1: 'int[:]'              # start indices in the three directions of current process of component 1
-        - in case of vector-valued spaces:
-
-            - starts2: 'int[:]'              
-            - starts3: 'int[:]'              
-
-        - ends1: 'int[:]'              # end indices in the three directions of current process of component 1
-        - in case of vector-valued spaces:
-
-            - ends2: 'int[:]'              
-            - ends3: 'int[:]'              
-
-        - pads1: 'int[:]'              # paddings in the three directions of current process of component 1
-        - in case of vector-valued spaces:
-
-            - pads2: 'int[:]'              
-            - pads3: 'int[:]'              
+        - cz: 'float[:,:,:]',             # control points for Fz                         
 
     - then, the data objects (number depends on model, but at least one matrix has to be passed)
         - mat11: 'float[:,:,:,:,:,:]',    # _data attribute of StencilMatrix
@@ -97,15 +80,11 @@ def _docstring():
 
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]',
-                          ind_d1: 'int[:,:]', ind_d2: 'int[:,:]', ind_d3: 'int[:,:]',
+                          starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                          starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
-                          ends1: 'int[:]', ends2: 'int[:]', ends3: 'int[:]',
-                          pads1: 'int[:]', pads2: 'int[:]', pads3: 'int[:]',
                           mat11: 'float[:,:,:,:,:,:]',
                           mat12: 'float[:,:,:,:,:,:]',
                           mat13: 'float[:,:,:,:,:,:]',
@@ -118,7 +97,9 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           vec1: 'float[:,:,:]',
                           vec2: 'float[:,:,:]',
                           vec3: 'float[:,:,:]',
-                          f0_params: 'float[:]'):
+                          f0_spec: 'int',  # model specific arguments
+                          moms_spec: 'int[:]',  # model specific arguments
+                          f0_params: 'float[:]'):  # model specific arguments
     """
     Accumulates into V1 with the filling functions
 
@@ -126,51 +107,40 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
 
         A_p^{\mu, \\nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\\nu    
 
-        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu                  
+        B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu  
+
+    Parameters
+    ----------
+        f0_spec : int
+            Specifier for kinetic background, see :ref:`struphy.kinetic_equil.f0_kernels`  
+
+        moms_spec : array[int]
+            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
+            Is 0 for constant moment, for more see :meth:`struphy.kinetic_equil.moments_kernels.moments`.
+
+        f0_params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_equil.moments_kernels` for the respective functions available.
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
     """
 
-    # ================ for mapping evaluation ==================
-    # spline degrees
-    p1_map = p_map[0]
-    p2_map = p_map[1]
-    p3_map = p_map[2]
-
-    # pf + 1 non-vanishing basis functions up tp degree pf
-    b1_map = empty((p1_map + 1, p1_map + 1), dtype=float)
-    b2_map = empty((p2_map + 1, p2_map + 1), dtype=float)
-    b3_map = empty((p3_map + 1, p3_map + 1), dtype=float)
-
-    # left and right values for spline evaluation
-    l1_map = empty(p1_map, dtype=float)
-    l2_map = empty(p2_map, dtype=float)
-    l3_map = empty(p3_map, dtype=float)
-
-    r1_map = empty(p1_map, dtype=float)
-    r2_map = empty(p2_map, dtype=float)
-    r3_map = empty(p3_map, dtype=float)
-
-    # scaling arrays for M-splines
-    d1_map = empty(p1_map, dtype=float)
-    d2_map = empty(p2_map, dtype=float)
-    d3_map = empty(p3_map, dtype=float)
-
-    # pf + 1 derivatives
-    der1_map = empty(p1_map + 1, dtype=float)
-    der2_map = empty(p2_map + 1, dtype=float)
-    der3_map = empty(p3_map + 1, dtype=float)
-
     # allocate for metric coeffs
-    f = empty(3, dtype=float)
     df = empty((3, 3), dtype=float)
     df_t = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     g = empty((3, 3), dtype=float)
     g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
     g_inv_times_v = empty(3, dtype=float)
     df_inv_times_v = empty(3, dtype=float)
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
 
-    # $ omp parallel private (ip, eta1, eta2, eta3, df, fx, df_inv, g_inv, Gv, Dv, v, v1, v2, v3, weight, f0, filling_m11, filling_m12, filling_m13, filling_m21, filling_m22, filling_m23, filling_m31, filling_m32, filling_m33, filling_v1, filling_v2, filling_v3)
-    # $ omp for reduction ( + :mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
+    #$ omp parallel private (ip, eta1, eta2, eta3, v, weight, f0, df, df_t, df_inv, g, g_inv, g_inv_times_v, df_inv_times_v, filling_m, filling_v)
+    #$ omp for reduction ( + : mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33, vec1, vec2, vec3)
     for ip in range(n_markers):
 
         # marker data
@@ -180,34 +150,20 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
         v = markers[3:6, ip]
         weight = markers[6, ip]
 
-        # background solution
-        # TODO: possibility to choose from user-added background function (pyccelized)
-        f0 = background_sol.maxwellian_point(
-            eta1, eta2, eta3, v[0], v[1], v[2], f0_params)
-
-        # mapping spans
-        span1_map = bsp.find_span(t1_map, p1_map, eta1)
-        span2_map = bsp.find_span(t2_map, p2_map, eta2)
-        span3_map = bsp.find_span(t3_map, p3_map, eta3)
+        # evaluate background
+        f0 = background_eval.f0(
+            markers[:3, ip], v, f0_spec, moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
-        mappings_3d.f_df_pic(kind_map, params_map,
-                             t1_map, t2_map, t3_map, p_map,
-                             span1_map, span2_map, span3_map,
-                             ind1_map, ind2_map, ind3_map,
-                             cx, cy, cz,
-                             l1_map, l2_map, l3_map,
-                             r1_map, r2_map, r3_map,
-                             b1_map, b2_map, b3_map,
-                             d1_map, d2_map, d3_map,
-                             der1_map, der2_map, der3_map,
-                             eta1, eta2, eta3,
-                             f, df, 1)
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
 
-        # evaluate inverse Jacobian matrix
+        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
         linalg.matrix_inv(df, df_inv)
-
-        # evaluate inverse metric tensor, result in g_inv
         linalg.transpose(df, df_t)
         linalg.matrix_matrix(df, df_t, g)
         linalg.matrix_inv(g, g_inv)
@@ -216,51 +172,39 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
         linalg.matrix_vector(g_inv, v, g_inv_times_v)
         linalg.matrix_vector(df_inv, v, df_inv_times_v)
 
-        filling_m11 = f0 * g_inv_times_v[0] * df_inv_times_v[0]
-        filling_m12 = f0 * g_inv_times_v[0] * df_inv_times_v[1]
-        filling_m13 = f0 * g_inv_times_v[0] * df_inv_times_v[2]
-        filling_m21 = f0 * g_inv_times_v[1] * df_inv_times_v[0]
-        filling_m22 = f0 * g_inv_times_v[1] * df_inv_times_v[1]
-        filling_m23 = f0 * g_inv_times_v[1] * df_inv_times_v[2]
-        filling_m31 = f0 * g_inv_times_v[2] * df_inv_times_v[0]
-        filling_m32 = f0 * g_inv_times_v[2] * df_inv_times_v[1]
-        filling_m33 = f0 * g_inv_times_v[2] * df_inv_times_v[2]
-
-        filling_v1 = sqrt(f0) * weight * g_inv_times_v[0]
-        filling_v2 = sqrt(f0) * weight * g_inv_times_v[1]
-        filling_v3 = sqrt(f0) * weight * g_inv_times_v[2]
+        linalg.outer(g_inv_times_v, df_inv_times_v, filling_m)
+        filling_m[:] = f0 * filling_m
+        filling_v[:] = sqrt(f0) * weight * g_inv_times_v
 
         # call the appropriate matvec filler
         mvf.m_v_fill_b_v1_full(pn, tn1, tn2, tn3,
-                               start1, start2, start3,
-                               pad1, pad2, pad3,
+                               starts1, starts2, starts3,
                                eta1, eta2, eta3,
                                mat11, mat12, mat13, mat21, mat22, mat23, mat31, mat32, mat33,
-                               filling_m11, filling_m12, filling_m13,
-                               filling_m21, filling_m22, filling_m23,
-                               filling_m31, filling_m32, filling_m33,
+                               filling_m[0, 0], filling_m[0, 1], filling_m[0, 2],
+                               filling_m[1, 0], filling_m[1, 1], filling_m[1, 2],
+                               filling_m[2, 0], filling_m[2, 1], filling_m[2, 2],
                                vec1, vec2, vec3,
-                               filling_v1, filling_v2, filling_v3)
-    # $ omp end parallel
+                               filling_v[0], filling_v[1], filling_v[2])
+    #$ omp end parallel
 
 
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
-                    p_n: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]',
+                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
-                    ends1: 'int[:]', ends2: 'int[:]', ends3: 'int[:]',
-                    pads1: 'int[:]', pads2: 'int[:]', pads3: 'int[:]',
                     mat12: 'float[:,:,:,:,:,:]',
                     mat13: 'float[:,:,:,:,:,:]',
                     mat23: 'float[:,:,:,:,:,:]',
-                    vec1: 'float[:,:,:]',
-                    vec2: 'float[:,:,:]',
-                    vec3: 'float[:,:,:]',
-                    b2_1: 'float[:,:,:]',
-                    b2_2: 'float[:,:,:]',
-                    b2_3: 'float[:,:,:]'):
+                    b2_1: 'float[:,:,:]',  # model specific parameters
+                    b2_2: 'float[:,:,:]',  # model specific parameters
+                    b2_3: 'float[:,:,:]',  # model specific parameters
+                    starts_21: 'int[:]',  # model specific parameters
+                    starts_22: 'int[:]',  # model specific parameters
+                    starts_23: 'int[:]'):  # model specific parameters
     '''Accumulates into V1 with the filling functions
 
     .. math::
@@ -268,135 +212,105 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         A_p^{\mu, \\nu} = w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \\nu}     
 
     where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`. 
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3 : array[float]
+            FE coefficients c_ijk of the magnetic field as a 2-form.  
+
+        starts_21, starts_22, starts_23 : array[int]
+            Start indices of 2-forms on current process.
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
     '''
 
-    # magnetic field at particle position
+    # allocate for metric coeffs
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    tmp1 = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
+
+    # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
+    b_prod = zeros((3, 3), dtype=float) 
 
-    # ================ for mapping evaluation ==================
-    # spline degrees
-    p1_map = p_map[0]
-    p2_map = p_map[1]
-    p3_map = p_map[2]
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
 
-    # pf + 1 non-vanishing basis functions up tp degree pf
-    b1f = empty((p1_map + 1, p1_map + 1), dtype=float)
-    b2f = empty((p2_map + 1, p2_map + 1), dtype=float)
-    b3f = empty((p3_map + 1, p3_map + 1), dtype=float)
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
 
-    # left and right values for spline evaluation
-    l1f = empty(p1_map, dtype=float)
-    l2f = empty(p2_map, dtype=float)
-    l3f = empty(p3_map, dtype=float)
-
-    r1f = empty(p1_map, dtype=float)
-    r2f = empty(p2_map, dtype=float)
-    r3f = empty(p3_map, dtype=float)
-
-    # scaling arrays for M-splines
-    d1f = empty(p1_map, dtype=float)
-    d2f = empty(p2_map, dtype=float)
-    d3f = empty(p3_map, dtype=float)
-
-    # pf + 1 derivatives
-    der1f = empty(p1_map + 1, dtype=float)
-    der2f = empty(p2_map + 1, dtype=float)
-    der3f = empty(p3_map + 1, dtype=float)
-
-    # needed mapping quantities
-    df = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    ginv = empty((3, 3), dtype=float)
-    fx = empty(3, dtype=float)
-
-    temp_mat1 = empty((3, 3), dtype=float)
-    temp_mat2 = empty((3, 3), dtype=float)
-
-    # $ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
-    # $ omp for reduction ( + : mat12, mat13, mat23)
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, g_inv, tmp1, tmp2, filling_m12, filling_m13, filling_m23) 
+    #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers):
 
-        # TODO: set marker to -1 when lost
-        # only do something if particle is inside the logical domain (s < 1)
-        # if markers[0, ip] > 1.0:
-        #     continue
-
+        # marker data
         eta1 = markers[0, ip]
         eta2 = markers[1, ip]
         eta3 = markers[2, ip]
+        weight = markers[6, ip]
 
-        # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + p1_map
-        span2f = int(eta2*nelf[1]) + p2_map
-        span3f = int(eta3*nelf[2]) + p3_map
+        # b-field evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
 
-        # evaluate Jacobian matrix
-        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f,
-                           l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
-        # evaluate Jacobian determinant
-        det_df = abs(linalg.det(df))
-
-        # evaluate inverse Jacobian matrix
-        mappings_3d.df_inv_all(df, dfinv)
-
-        # evaluate inverse metric tensor
-        mappings_3d.g_inv_all(dfinv, ginv)
-        # ==========================================
-
-        # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
-
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
-
-        # N-splines and D-splines at particle positions
-        bn1[:] = b1[pn1, :]
-        bn2[:] = b2[pn2, :]
-        bn3[:] = b3[pn3, :]
-
-        bd1[:] = b1[pd1, :pn1] * d1[:]
-        bd2[:] = b2[pd2, :pn2] * d2[:]
-        bd3[:] = b3[pd3, :pn3] * d3[:]
-
-        b[0] = eva3.evaluation_kernel_3d(
-            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(
-            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(
-            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = eval_3d.eval_spline_mpi_3d(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21, pn)
+        b[1] = eval_3d.eval_spline_mpi_3d(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22, pn)
+        b[2] = eval_3d.eval_spline_mpi_3d(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
 
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] = b[1]
-
         b_prod[1, 0] = b[2]
         b_prod[1, 2] = -b[0]
-
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = b[0]
-        # ==========================================
 
-        # ========= charge accumulation ============
-        # element indices
-        ie1 = span1 - pn1
-        ie2 = span2 - pn2
-        ie3 = span3 - pn3
+        # evaluate Jacobian, result in df
+        map_eval.g_inv(eta1, eta2, eta3,
+                       kind_map, params_map,
+                       t1_map, t2_map, t3_map, p_map,
+                       ind1_map, ind2_map, ind3_map,
+                       cx, cy, cz,
+                       g_inv)
 
-        mvf.mat_fill_v1_asym(...)
+        # filling functions
+        linalg.matrix_matrix(g_inv, b_prod, tmp1)
+        linalg.matrix_matrix(tmp1, g_inv, tmp2)
+
+        filling_m12 = weight * tmp2[0, 1]
+        filling_m13 = weight * tmp2[0, 2]
+        filling_m23 = weight * tmp2[1, 2]
+
+        # call the appropriate matvec filler
+        mvf.mat_fill_v1_asym(pn, span1, span2, span2,
+                             bn1, bn2, bn3,
+                             bd1, bd2, bd3,
+                             starts1, starts2, starts3,
+                             mat12, mat13, mat23,
+                             filling_m12, filling_m13, filling_m23)
+    #$ omp end parallel
 
 
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
-                    p_n: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]',
+                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
-                    ends1: 'int[:]', ends2: 'int[:]', ends3: 'int[:]',
-                    pads1: 'int[:]', pads2: 'int[:]', pads3: 'int[:]',
                     mat11: 'float[:,:,:,:,:,:]',
                     mat12: 'float[:,:,:,:,:,:]',
                     mat13: 'float[:,:,:,:,:,:]',
@@ -406,146 +320,137 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     vec1: 'float[:,:,:]',
                     vec2: 'float[:,:,:]',
                     vec3: 'float[:,:,:]',
-                    b2_1: 'float[:,:,:]',
-                    b2_2: 'float[:,:,:]',
-                    b2_3: 'float[:,:,:]'):
+                    b2_1: 'float[:,:,:]',  # model specific parameters
+                    b2_2: 'float[:,:,:]',  # model specific parameters
+                    b2_3: 'float[:,:,:]',  # model specific parameters
+                    starts_21: 'int[:]',  # model specific parameters
+                    starts_22: 'int[:]',  # model specific parameters
+                    starts_23: 'int[:]'):  # model specific parameters
     '''Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\\times}(\eta_p)^\\top * G^{-1}(\eta_p) ]_{\mu, \\nu}  
+        A_p^{\mu, \\nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\\times}(\eta_p)^\\top * G^{-1}(\eta_p) ]_{\mu, \\nu}
 
-        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu   
+        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu
 
-    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`.                             
+    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3 : array[float]
+            FE coefficients c_ijk of the magnetic field as a 2-form.  
+
+        starts_21, starts_22, starts_23 : array[int]
+            Start indices of 2-forms on current process.
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
     '''
 
-    # magnetic field at particle position
+    # allocate for metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_t = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    g = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    tmp1 = empty((3, 3), dtype=float)
+    tmp1_t = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
+    tmp3 = empty((3, 3), dtype=float)
+
+    tmp_v = empty(3, dtype=float)
+    df_inv_times_v = empty(3, dtype=float)
+
+    # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    b_prod_t = zeros((3, 3), dtype=float)
 
-    # ================ for mapping evaluation ==================
-    # spline degrees
-    p1_map = pf[0]
-    p2_map = pf[1]
-    p3_map = pf[2]
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
 
-    # pf + 1 non-vanishing basis functions up tp degree pf
-    b1f = empty((p1_map + 1, p1_map + 1), dtype=float)
-    b2f = empty((p2_map + 1, p2_map + 1), dtype=float)
-    b3f = empty((p3_map + 1, p3_map + 1), dtype=float)
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
 
-    # left and right values for spline evaluation
-    l1f = empty(p1_map, dtype=float)
-    l2f = empty(p2_map, dtype=float)
-    l3f = empty(p3_map, dtype=float)
-
-    r1f = empty(p1_map, dtype=float)
-    r2f = empty(p2_map, dtype=float)
-    r3f = empty(p3_map, dtype=float)
-
-    # scaling arrays for M-splines
-    d1f = empty(p1_map, dtype=float)
-    d2f = empty(p2_map, dtype=float)
-    d3f = empty(p3_map, dtype=float)
-
-    # pf + 1 derivatives
-    der1f = empty(p1_map + 1, dtype=float)
-    der2f = empty(p2_map + 1, dtype=float)
-    der3f = empty(p3_map + 1, dtype=float)
-
-    # needed mapping quantities
-    df = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    ginv = empty((3, 3), dtype=float)
-    fx = empty(3, dtype=float)
-
-    temp_mat1 = empty((3, 3), dtype=float)
-    temp_mat2 = empty((3, 3), dtype=float)
-
-    temp_mat_vec = empty((3, 3), dtype=float)
-
-    temp_vec = empty(3, dtype=float)
-
-    # particle velocity
-    v = empty(3, dtype=float)
-
-    # $ omp parallel private(ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_prod_t, ie1, ie2, ie3, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
-    # $ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    #$ omp parallel firstprivate(b_prod) private(ip, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, df, df_inv, df_t, g, g_inv, tmp1, tmp1_t, tmp2, tmp3, tmp_v, df_inv_times_v, filling_m, filling_v) 
+    #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers):
 
-        # only do something if particle is inside the logical domain (s < 1)
-        if markers[0, ip] > 1.0:
-            continue
-
+        # marker data
         eta1 = markers[0, ip]
         eta2 = markers[1, ip]
         eta3 = markers[2, ip]
+        v = markers[3:6, ip]
+        weight = markers[6, ip]
 
-        # ========= mapping evaluation =============
-        span1f = int(eta1*nelf[0]) + p1_map
-        span2f = int(eta2*nelf[1]) + p2_map
-        span3f = int(eta3*nelf[2]) + p3_map
+        # b-field evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
 
-        # evaluate Jacobian matrix
-        mappings_3d.df_all(kind_map, params_map, tf1, tf2, tf3, pf, nbasef, span1f, span2f, span3f, cx, cy, cz, l1f,
-                           l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, eta1, eta2, eta3, df, fx, 0)
+        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
-        # evaluate Jacobian determinant
-        det_df = abs(linalg.det(df))
-
-        # evaluate inverse Jacobian matrix
-        mappings_3d.df_inv_all(df, dfinv)
-
-        # evaluate inverse metric tensor
-        mappings_3d.g_inv_all(dfinv, ginv)
-        # ==========================================
-
-        # ========== field evaluation ==============
-        span1 = int(eta1*nel[0]) + pn1
-        span2 = int(eta2*nel[1]) + pn2
-        span3 = int(eta3*nel[2]) + pn3
-
-        bsp.basis_funs_all(t1, pn1, eta1, span1, l1, r1, b1, d1)
-        bsp.basis_funs_all(t2, pn2, eta2, span2, l2, r2, b2, d2)
-        bsp.basis_funs_all(t3, pn3, eta3, span3, l3, r3, b3, d3)
-
-        # N-splines and D-splines at particle positions
-        bn1[:] = b1[pn1, :]
-        bn2[:] = b2[pn2, :]
-        bn3[:] = b3[pn3, :]
-
-        bd1[:] = b1[pd1, :pn1] * d1[:]
-        bd2[:] = b2[pd2, :pn2] * d2[:]
-        bd3[:] = b3[pd3, :pn3] * d3[:]
-
-        b[0] = eva3.evaluation_kernel_3d(
-            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1)
-        b[1] = eva3.evaluation_kernel_3d(
-            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2)
-        b[2] = eva3.evaluation_kernel_3d(
-            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3)
+        b[0] = eval_3d.eval_spline_mpi_3d(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21, pn)
+        b[1] = eval_3d.eval_spline_mpi_3d(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22, pn)
+        b[2] = eval_3d.eval_spline_mpi_3d(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
 
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] = b[1]
-
         b_prod[1, 0] = b[2]
         b_prod[1, 2] = -b[0]
-
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = b[0]
 
-        linalg.transpose(b_prod, b_prod_t)
-        # ==========================================
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
 
-        # ========= current accumulation ===========
-        # element indices
-        ie1 = span1 - pn1
-        ie2 = span2 - pn2
-        ie3 = span3 - pn3
+        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
+        linalg.matrix_inv(df, df_inv)
+        linalg.transpose(df, df_t)
+        linalg.matrix_matrix(df, df_t, g)
+        linalg.matrix_inv(g, g_inv)
 
-        # particle velocity
-        v[:] = markers[3:6, ip]
+        # filling functions
+        linalg.matrix_matrix(g_inv, b_prod, tmp1)
+        linalg.transpose(tmp1, tmp1_t)
+        linalg.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg.matrix_matrix(tmp2, tmp1_t, tmp3)
 
-        mvf.m_v_fill_v1_symm(...)
+        linalg.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg.matrix_vector(tmp1, df_inv_times_v, tmp_v)
+
+        filling_m[:] = weight * tmp3
+        filling_v[:] = weight * tmp_v
+
+        # call the appropriate matvec filler
+        mvf.m_v_fill_v1_symm(pn, span1, span2, span2,
+                             bn1, bn2, bn3,
+                             bd1, bd2, bd3,
+                             starts1, starts2, starts3,
+                             mat11, mat12, mat13, 
+                             mat22, mat23, 
+                             mat33, 
+                             filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
+                             filling_m[1, 1], filling_m[1, 2], 
+                             filling_m[2, 2],
+                             vec1, vec2, vec3,
+                             filling_v[0], filling_v[1], filling_v[2])
+    #$ omp end parallel

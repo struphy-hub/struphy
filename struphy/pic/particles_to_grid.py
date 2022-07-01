@@ -11,11 +11,11 @@ class Accumulator():
 
     .. math::
 
-        M^{\mu,\\nu}_{ijk,mno} &= \sum_p P^\mu_{ijk}(\eta_p) * A^{\mu,\\nu}_p * (P^\\nu_{mno})^\\top(\eta_p)  \qquad  (\mu,\\nu = 1,2,3)
+        M^{\mu,\\nu}_{ijk,mno} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * A^{\mu,\\nu}_p * (\Lambda^\\nu_{mno})^\\top(\eta_p)  \qquad  (\mu,\\nu = 1,2,3)
 
-        V^\mu_{ijk} &= \sum_p P^\mu_{ijk}(\eta_p) * B^\mu_p
+        V^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
 
-    where :math:`p` runs over the particles, :math:`P^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
+    where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
 
     :math:`A^{\mu,\\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
@@ -50,7 +50,7 @@ class Accumulator():
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects should be added to ``struphy/pic/accum_kernels.py``. 
-        Please follow the docstring in `struphy.pic.accum_kernels.__docstring__`.
+        Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
     '''
 
     def __init__(self, DOMAIN, DR, space_id, accumulator_name, *args_add, do_vector=False, symmetry=None):
@@ -164,7 +164,7 @@ class Accumulator():
             self.args_data + list(self.args_add)
 
         # load the appropriate accumulation routine (pyccelized)
-        # self._accumulator = getattr(accums, self._accumulator_name)
+        self._accumulator = getattr(accums, self._accumulator_name)
 
         self._send_types, self._recv_types = self._create_buffer_types()
 
