@@ -1,7 +1,7 @@
 """
 Pyccel functions to add one particle to a block matrix and a vector in marker accumulation/deposition step.
 
-__all__ = ['fill_mat11_v1',
+__all__ = [ 'fill_mat11_v1',
             'fill_mat12_v1',
             'fill_mat13_v1',
             'fill_mat21_v1',
@@ -42,6 +42,12 @@ __all__ = ['fill_mat11_v1',
             'fill_vec1_v2',
             'fill_vec2_v2',
             'fill_vec3_v2',
+            'fill_mat_u0',
+            'fill_mat_u3',
+            'fill_mat_vec_u0',
+            'fill_mat_vec_u3',
+            'fill_vec_u0',
+            'fill_vec_u3',
             ]
 """
 
@@ -2889,3 +2895,376 @@ def fill_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
 
                 vec3[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling3
 
+
+def fill_mat_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
+    """
+    Computes the entries of the matrix for three-vectors in V0 and fills it with basis functions times filling
+
+    Parameters :
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bn1 : array
+            contains the values of non-vanishing B-splines in direction 1
+
+        bn2 : array
+            contains the values of non-vanishing B-splines in direction 2
+
+        bn3 : array
+            contains the values of non-vanishing B-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices of the codomain (row indices).
+        
+        pads : array[int]
+            Paddings of the codomain (row indices).
+        
+        mat : array
+            matrix in which the filling11 times the basis functions of V0 is to be written
+        
+        filling : float
+            number which will be multiplied by the basis functions of V0 and written into mat
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # (NNN NNN)
+    for il1 in range(pn1 + 1):
+        i1  = ie1 + il1
+        bi1 = bn1[il1] * filling
+        for il2 in range(pn2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bn2[il2]
+            for il3 in range(pn3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bn3[il3]
+
+                for jl1 in range(pn1 + 1):
+                    bj1 = bi3 * bn1[jl1]
+                    for jl2 in range(pn2 + 1):
+                        bj2 =  bj1 * bn2[jl2]
+                        for jl3 in range(pn3 + 1):
+                            bj3 = bj2 * bn3[jl3]
+
+                            mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+
+
+def fill_mat_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
+    """
+    Computes the entries of the matrix for three-vectors in V3 and fills it with basis functions times filling
+
+    Parameters :
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bd1 : array
+            contains the values of non-vanishing D-splines in direction 1
+
+        bd2 : array
+            contains the values of non-vanishing D-splines in direction 2
+
+        bd3 : array
+            contains the values of non-vanishing D-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices of the codomain (row indices).
+        
+        pads : array[int]
+            Paddings of the codomain (row indices).
+        
+        mat : array
+            matrix in which the filling11 times the basis functions of V3 is to be written
+        
+        filling : float
+            number which will be multiplied by the basis functions of V3 and written into mat
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+
+    # (DDD DDD)
+    for il1 in range(pd1 + 1):
+        i1  = ie1 + il1
+        bi1 = bd1[il1] * filling
+        for il2 in range(pd2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bd2[il2]
+            for il3 in range(pd3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bd3[il3]
+
+                for jl1 in range(pd1 + 1):
+                    bj1 = bi3 * bd1[jl1]
+                    for jl2 in range(pd2 + 1):
+                        bj2 =  bj1 * bd2[jl2]
+                        for jl3 in range(pd3 + 1):
+                            bj3 = bj2 * bd3[jl3]
+
+                            mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+
+
+def fill_mat_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+    """
+    Computes the entries of the matrix and of the three-vector in V0 and fills it with basis functions times filling
+
+    Parameters :
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bn1 : array
+            contains the values of non-vanishing B-splines in direction 1
+
+        bn2 : array
+            contains the values of non-vanishing B-splines in direction 2
+
+        bn3 : array
+            contains the values of non-vanishing B-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices of the codomain (row indices).
+        
+        pads : array[int]
+            Paddings of the codomain (row indices).
+        
+        mat : array
+            matrix in which the filling_m times the basis functions of V0 is to be written
+        
+        filling_m : float
+            number which will be multiplied by the basis functions of V0 and written into mat
+        
+        vec : array
+            component of the vector in which the filling_v times the basis functions of V0 is to be written
+        
+        filling_v : float
+            number which will be multiplied times the basis functions in V0 and written into vec
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # (NNN NNN)
+    for il1 in range(pn1 + 1):
+        i1  = ie1 + il1
+        bi1 = bn1[il1]
+        for il2 in range(pn2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bn2[il2]
+            for il3 in range(pn3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bn3[il3]
+
+                vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling_v
+
+                for jl1 in range(pn1 + 1):
+                    bj1 = bi3 * bn1[jl1] * filling_m
+                    for jl2 in range(pn2 + 1):
+                        bj2 =  bj1 * bn2[jl2]
+                        for jl3 in range(pn3 + 1):
+                            bj3 = bj2 * bn3[jl3]
+
+                            mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+
+
+def fill_mat_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
+    """
+    Computes the entries of the matrix and of the three-vector in V3 and fills it with basis functions times filling
+
+    Parameters :
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bd1 : array
+            contains the values of non-vanishing D-splines in direction 1
+
+        bd2 : array
+            contains the values of non-vanishing D-splines in direction 2
+
+        bd3 : array
+            contains the values of non-vanishing D-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices of the codomain (row indices).
+        
+        pads : array[int]
+            Paddings of the codomain (row indices).
+        
+        mat : array
+            matrix in which the filling_m times the basis functions of V3 is to be written
+        
+        filling_m : float
+            number which will be multiplied by the basis functions of V3 and written into mat
+        
+        vec : array
+            component of the vector in which the filling_v times the basis functions of V3 is to be written
+        
+        filling_v : float
+            number which will be multiplied times the basis functions in V3 and written into vec
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+
+    # (DDD DDD)
+    for il1 in range(pd1 + 1):
+        i1  = ie1 + il1
+        bi1 = bd1[il1]
+        for il2 in range(pd2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bd2[il2]
+            for il3 in range(pd3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bd3[il3]
+
+                vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling_v
+
+                for jl1 in range(pd1 + 1):
+                    bj1 = bi3 * bd1[jl1] * filling_m
+                    for jl2 in range(pd2 + 1):
+                        bj2 =  bj1 * bd2[jl2]
+                        for jl3 in range(pd3 + 1):
+                            bj3 = bj2 * bd3[jl3]
+
+                            mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
+
+
+def fill_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec : 'float[:,:,:]', filling : 'float'):
+    """
+    Computes an element of a thre-vector in V0 and fills it with basis functions times filling
+
+    Parameters : 
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bn1 : array
+            contains the values of non-vanishing B-splines in direction 1
+
+        bn2 : array
+            contains the values of non-vanishing B-splines in direction 2
+
+        bn3 : array
+            contains the values of non-vanishing B-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices.
+        
+        pads : array[int]
+            Paddings.
+        
+        vec : array
+            component of the vector in which the filling times the basis functions of V0 is to be written
+        
+        filling : float
+            number which will be multiplied times the basis functions in V0 and written into vec1
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    # (NNN)
+    for il1 in range(pn1 + 1):
+        i1  = ie1 + il1
+        bi1 = bn1[il1]
+        for il2 in range(pn2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bn2[il2]
+            for il3 in range(pn3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bn3[il3]
+
+                vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling
+
+
+def fill_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec : 'float[:,:,:]', filling : 'float'):
+    """
+    Computes an element of a three-vector in V3 and fills it with basis functions times filling1
+
+    Parameters : 
+    ------------
+        pn : array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+
+        bd1 : array
+            contains the values of non-vanishing D-splines in direction 1
+
+        bd2 : array
+            contains the values of non-vanishing D-splines in direction 2
+
+        bd3 : array
+            contains the values of non-vanishing D-splines in direction 3
+        
+        ie1, ie2, ie3 : int
+            particle's element index in each direction
+        
+        starts : array[int]
+            Start indices.
+        
+        pads : array[int]
+            Paddings.
+        
+        vec : array
+            component of the vector in which the filling times the basis functions of V3 is to be written
+        
+        filling : float
+            number which will be multiplied times the basis functions in V3 and written into vec
+    """
+
+    # total number of basis functions : B-splines (pn) and D-splines(pd), only the needed ones are being computed
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+
+    # (DDD)
+    for il1 in range(pd1 + 1):
+        i1  = ie1 + il1
+        bi1 = bd1[il1]
+        for il2 in range(pd2 + 1):
+            i2  = ie2 + il2
+            bi2 = bi1 * bd2[il2]
+            for il3 in range(pd3 + 1):
+                i3  = ie3 + il3
+                bi3 = bi2 * bd3[il3]
+
+                vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling
