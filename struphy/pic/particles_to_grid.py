@@ -95,9 +95,6 @@ class Accumulator():
 
         else:
 
-            self._matrix = BlockMatrix(
-                self._space.vector_space, self._space.vector_space)
-
             self._args_space = [self.space.vector_space.starts[0],
                                 self.space.vector_space.starts[1],
                                 self.space.vector_space.starts[2],
@@ -109,6 +106,31 @@ class Accumulator():
                                 self.space.vector_space.pads[2]]
 
             if symmetry is None:
+
+                A11 = StencilMatrix(
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                A12 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                A13 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                A21 = StencilMatrix(
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[1])
+                A22 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                A23 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                A31 = StencilMatrix(
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[2])
+                A32 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[2])
+                A33 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13, (1, 0): A21,
+                               (1, 1): A22, (1, 2): A23, (2, 0): A31, (2, 1): A32, (2, 2): A33}
+
+                self._matrix = BlockMatrix(self._space.vector_space,
+                                           self._space.vector_space, blocks=dict_blocks)
+
                 self._args_data = [self.matrix[0, 0]._data,
                                    self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
@@ -118,18 +140,64 @@ class Accumulator():
                                    self.matrix[2, 0]._data,
                                    self.matrix[2, 1]._data,
                                    self.matrix[2, 2]._data]
+
             elif symmetry == 'symm':
+
+                A11 = StencilMatrix(
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                A12 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                A13 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                A22 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                A23 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                A33 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13,
+                               (1, 1): A22, (1, 2): A23, (2, 2): A33}
+
+                self._matrix = BlockMatrix(self._space.vector_space,
+                                           self._space.vector_space, blocks=dict_blocks)
+
                 self._args_data = [self.matrix[0, 0]._data,
                                    self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
                                    self.matrix[1, 1]._data,
                                    self.matrix[1, 2]._data,
                                    self.matrix[2, 2]._data]
+
             elif symmetry == 'asym':
+
+                A12 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                A13 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                A23 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                dict_blocks = {(0, 1): A12, (0, 2): A13, (1, 2): A23}
+
+                self._matrix = BlockMatrix(self._space.vector_space,
+                                           self._space.vector_space, blocks=dict_blocks)
+
                 self._args_data = [self.matrix[0, 1]._data,
                                    self.matrix[0, 2]._data,
                                    self.matrix[1, 2]._data]
+
             elif symmetry == 'diag':
+
+                A11 = StencilMatrix(
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                A22 = StencilMatrix(
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                A33 = StencilMatrix(
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                dict_blocks = {(0, 0): A11, (1, 1): A22, (2, 2): A33}
+
+                self._matrix = BlockMatrix(self._space.vector_space,
+                                           self._space.vector_space, blocks=dict_blocks)
+
                 self._args_data = [self.matrix[0, 0]._data,
                                    self.matrix[1, 1]._data,
                                    self.matrix[2, 2]._data]
@@ -138,7 +206,14 @@ class Accumulator():
                     f'Symmetry attribute {symmetry} is not defined.')
 
             if do_vector:
-                self._vector = BlockVector(self._space.vector_space)
+                v1 = StencilVector(self.space.vector_space.spaces[0])
+                v2 = StencilVector(self.space.vector_space.spaces[1])
+                v3 = StencilVector(self.space.vector_space.spaces[2])
+                list_blocks = [v1, v2, v3]
+
+                self._vector = BlockVector(
+                    self._space.vector_space, blocks=list_blocks)
+
                 self._args_data += [self._vector[0]._data,
                                     self._vector[1]._data,
                                     self._vector[2]._data]
@@ -148,16 +223,11 @@ class Accumulator():
                             DR.V0.spaces[0].knots,
                             DR.V0.spaces[1].knots,
                             DR.V0.spaces[2].knots,
-                            # DOMAIN.keys_map[DOMAIN.kind_map],
                             DOMAIN.kind_map,
                             np.array(DOMAIN.params_map),
                             np.array(DOMAIN.p),
-                            DOMAIN.T[0],
-                            DOMAIN.T[1],
-                            DOMAIN.T[2],
-                            DOMAIN.cx,
-                            DOMAIN.cy,
-                            DOMAIN.cz, ]
+                            DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[2],
+                            DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, ]
 
         # combine all arguments
         self._args = self.args_fixed + self.args_space + \
@@ -169,7 +239,9 @@ class Accumulator():
         self._send_types, self._recv_types = self._create_buffer_types()
 
     def _create_buffer_types(self):
-        """TODO
+        """
+        Creates the buffer types for the ghost region sender. Send types are only the slicing information;
+        receving has to be saved in a temporary array and then added to the _data object with the correct indices.
         """
         from mpi4py import MPI
 
@@ -187,16 +259,6 @@ class Accumulator():
             starts = self.space.vector_space.starts[0]
             ends = self.space.vector_space.ends[0]
             pads = self.space.vector_space.pads[0]
-
-
-        if isinstance(self.vector, StencilVector):
-            pads_v = self.vector.pads
-            starts_v = self.vector.starts
-            ends_v = self.vector.ends
-        elif isinstance(self.vector, StencilVector):
-            pads_v = self.vector.pads[0]
-            starts_v = self.vector.starts[0]
-            ends_v = self.vector.ends[0]
 
         for k, arg in enumerate(self.args_data):
 
@@ -217,13 +279,13 @@ class Accumulator():
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[0, pads[1], pads[2], 0, 0, 0]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[arg.shape[0] - pads[0], pads[1], pads[2],
                                 0, 0, 0]
                     ).Commit()
@@ -231,11 +293,11 @@ class Accumulator():
 
                 recv_buf[k] += [{'l': {
                     'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
-                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                                     2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
                     'inds': tuple([slice(pads[0], 2*pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)},
                     'r': {
                     'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1,
-                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                                     2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
                     'inds': tuple([slice(-2*pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] + [slice(None)]*3)}
                 }]
 
@@ -247,13 +309,13 @@ class Accumulator():
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[pads[0], 0, pads[2], 0, 0, 0]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1,
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[pads[0], arg.shape[1] - pads[1], pads[2],
                                 0, 0, 0]
                     ).Commit()
@@ -277,13 +339,13 @@ class Accumulator():
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[pads[0], pads[1], 0, 0, 0, 0]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
                         subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
-                                    2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
+                                  2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1],
                         starts=[pads[0], pads[1], arg.shape[2] - pads[2],
                                 0, 0, 0]
                     ).Commit()
@@ -295,10 +357,9 @@ class Accumulator():
                     'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], 2*pads[2])] + [slice(None)]*3)},
                     'r': {
                     'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2],
-                                        2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
+                                     2*pads[0] + 1, 2*pads[1] + 1, 2*pads[2] + 1)),
                     'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(-2*pads[2], -pads[2])] + [slice(None)]*3)}
                 }]
-
 
             # =================
             # StencilVectors
@@ -313,22 +374,24 @@ class Accumulator():
                 send_types[k] += [{
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1],
-                        starts=[0, pads_v[1], pads_v[2]]
+                        subsizes=[pads[0], ends[1] -
+                                  starts[1] + 1, ends[2] - starts[2] + 1],
+                        starts=[0, pads[1], pads[2]]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1],
-                        starts=[arg.shape[0] - pads_v[0], pads_v[1], pads_v[2]]
+                        subsizes=[pads[0], ends[1] -
+                                  starts[1] + 1, ends[2] - starts[2] + 1],
+                        starts=[arg.shape[0] - pads[0], pads[1], pads[2]]
                     ).Commit()
                 }]
 
                 recv_buf[k] += [{'l': {
-                    'buf': np.zeros((pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1)),
-                    'inds': tuple([slice(pads_v[0], 2*pads_v[0])] + [slice(pads_v[1], -pads_v[1])] + [slice(pads_v[2], -pads_v[2])])},
+                    'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1)),
+                    'inds': tuple([slice(pads[0], 2*pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])])},
                     'r': {
-                    'buf': np.zeros((pads_v[0], ends_v[1] - starts_v[1] + 1, ends_v[2] - starts_v[2] + 1)),
-                    'inds': tuple([slice(-2*pads_v[0], -pads_v[0])] + [slice(pads_v[1], -pads_v[1])] + [slice(pads_v[2], -pads_v[2])])}
+                    'buf': np.zeros((pads[0], ends[1] - starts[1] + 1, ends[2] - starts[2] + 1)),
+                    'inds': tuple([slice(-2*pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])])}
                 }]
 
                 # =================
@@ -338,12 +401,14 @@ class Accumulator():
                 send_types[k] += [{
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1],
+                        subsizes=[ends[0] - starts[0] + 1,
+                                  pads[1], ends[2] - starts[2] + 1],
                         starts=[pads[0], 0, pads[2]]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[ends[0] - starts[0] + 1, pads[1], ends[2] - starts[2] + 1],
+                        subsizes=[ends[0] - starts[0] + 1,
+                                  pads[1], ends[2] - starts[2] + 1],
                         starts=[pads[0], arg.shape[1] - pads[1], pads[2]]
                     ).Commit()
                 }]
@@ -363,12 +428,14 @@ class Accumulator():
                 send_types[k] += [{
                     'l': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2]],
+                        subsizes=[ends[0] - starts[0] + 1,
+                                  ends[1] - starts[1] + 1, pads[2]],
                         starts=[pads[0], pads[1], 0]
                     ).Commit(),
                     'r': MPI.DOUBLE.Create_subarray(
                         sizes=list(arg.shape),
-                        subsizes=[ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2]],
+                        subsizes=[ends[0] - starts[0] + 1,
+                                  ends[1] - starts[1] + 1, pads[2]],
                         starts=[pads[0], pads[1], arg.shape[2] - pads[2]]
                     ).Commit()
                 }]
@@ -380,8 +447,6 @@ class Accumulator():
                     'buf': np.zeros((ends[0] - starts[0] + 1, ends[1] - starts[1] + 1, pads[2])),
                     'inds': tuple([slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(-2*pads[2], -pads[2])])}
                 }]
-
-        
 
         return send_types, recv_buf
 
@@ -460,9 +525,8 @@ class Accumulator():
                     while not re_r:
                         re_r = MPI.Request.Test(req_r)
                     dat[recv_type_1['r']['inds']] += recv_type_1['r']['buf']
-                
-                mpi_comm.Barrier()
 
+                mpi_comm.Barrier()
 
                 # ================
                 # eta2-direction
@@ -497,7 +561,6 @@ class Accumulator():
 
                 mpi_comm.Barrier()
 
-
                 # ================
                 # eta3-direction
                 # ================
@@ -530,13 +593,13 @@ class Accumulator():
                     dat[recv_type_3['r']['inds']] += recv_type_3['r']['buf']
 
                 mpi_comm.Barrier()
-            
+
             # =================
             # StencilVectors
             # =================
-            
+
             elif len(dat.shape) == 3:
-                
+
                 # ================
                 # eta1-direction
                 # ================
@@ -567,9 +630,9 @@ class Accumulator():
                     while not re_r:
                         re_r = MPI.Request.Test(req_r)
                     dat[recv_type_1['r']['inds']] += recv_type_1['r']['buf']
-                
+
                 mpi_comm.Barrier()
-                
+
                 # ================
                 # eta2-direction
                 # ================
@@ -600,9 +663,9 @@ class Accumulator():
                     while not re_r:
                         re_r = MPI.Request.Test(req_r)
                     dat[recv_type_2['r']['inds']] += recv_type_2['r']['buf']
-                
+
                 mpi_comm.Barrier()
-                
+
                 # ================
                 # eta3-direction
                 # ================
@@ -633,9 +696,8 @@ class Accumulator():
                     while not re_r:
                         re_r = MPI.Request.Test(req_r)
                     dat[recv_type_3['r']['inds']] += recv_type_3['r']['buf']
-                
-                mpi_comm.Barrier()
 
+                mpi_comm.Barrier()
 
     def update_ghost_regions(self):
         "updates ghost regions of all attributes"
