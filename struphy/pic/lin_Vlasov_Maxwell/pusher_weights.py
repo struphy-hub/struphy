@@ -2,7 +2,7 @@
 import struphy.feec.bsplines_kernels as bsp
 
 # import pyccel-ised background solutions
-import struphy.kinetic_equil.analytical.background_sol as bs
+import struphy.kinetic_background.analytical.background_sol as bs
 
 # import module for mapping evaluation
 import struphy.geometry.mappings_3d_fast as mapping_fast

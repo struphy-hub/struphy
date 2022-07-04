@@ -5,8 +5,8 @@ import numpy as np
 from mpi4py import MPI 
 
 from struphy.geometry                   import domain_3d
-from struphy.kinetic_equil              import kinetic_equil_physical 
-from struphy.kinetic_equil              import kinetic_equil_logical
+from struphy.kinetic_background         import kinetic_equil_physical 
+from struphy.kinetic_background         import kinetic_equil_logical
 from struphy.kinetic_init               import kinetic_init 
 
 # mpi communicator

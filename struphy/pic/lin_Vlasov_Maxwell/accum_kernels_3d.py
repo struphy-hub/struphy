@@ -1,5 +1,5 @@
 # import modules for matrix-matrix and matrix-vector multiplications
-import struphy.kinetic_equil.analytical.background_sol  as bs
+import struphy.kinetic_background.analytical.background_sol  as bs
 import struphy.pic.mat_vec_filler                       as mvf
 import struphy.geometry.mappings_3d_fast                as mapping_fast
 

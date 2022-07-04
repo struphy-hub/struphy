@@ -3,7 +3,7 @@
 Dispersion relations 
 ====================
 
-.. automodule:: struphy.models.dispersion_relations.analytic
+.. automodule:: struphy.dispersion_relations.analytic
     :members:
     :undoc-members:
     :exclude-members: DispersionRelations1D, spectrum

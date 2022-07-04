@@ -5,7 +5,7 @@ Struphy models
 
 .. Currently available models are
 
-.. .. autoclass:: struphy.models.codes.models.__all__
+.. .. autoclass:: struphy.models.models.__all__
 
 .. * :ref:`maxwell`
 .. * :ref:`lin_mhd`
@@ -25,27 +25,10 @@ where primed quantities like :math:`t'` are dimension-less and hat quantities li
 stands for the unit of the magnetic field.
 
 
-.. automodule:: struphy.models.codes.models
+.. automodule:: struphy.models.models
     :members:
     :undoc-members:
-    :exclude-members: StruphyModel, propagators, scalar_quantities, update_scalar_quantities
-
-
-.. .. _maxwell:
-
-.. Maxwell equations in vacuum
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. .. autoclass:: struphy.models.codes.models.Maxwell
-
-.. .. _lin_mhd:
-
-.. Linear ideal MHD
-.. ^^^^^^^^^^^^^^^^
-    
-.. .. autoclass:: struphy.models.codes.models.LinearMHD
-
-
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
 
 .. .. _cc_lin_mhd_6d:

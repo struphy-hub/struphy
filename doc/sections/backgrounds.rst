@@ -14,7 +14,7 @@ Kinetic backgrounds
 Kinetic equilibirum class
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.kinetic_equil.kinetic_equil_physical 
+.. automodule:: struphy.kinetic_background.kinetic_equil_physical 
     :members:
     :undoc-members:
 
@@ -22,15 +22,15 @@ Kinetic equilibirum class
 Analytical equilibria
 """""""""""""""""""""
 
-.. automodule:: struphy.kinetic_equil.analytical.gaussian
+.. automodule:: struphy.kinetic_background.analytical.gaussian
     :members:
     :undoc-members:
 
-.. automodule:: struphy.kinetic_equil.analytical.maxwell_pitchangle
+.. automodule:: struphy.kinetic_background.analytical.maxwell_pitchangle
     :members:
     :undoc-members:
 
-.. automodule:: struphy.kinetic_equil.analytical.moments
+.. automodule:: struphy.kinetic_background.analytical.moments
     :members:
     :undoc-members:
 
@@ -40,7 +40,7 @@ Analytical equilibria
 Pullback to logical space
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.kinetic_equil.kinetic_equil_logical 
+.. automodule:: struphy.kinetic_background.kinetic_equil_logical 
     :members:
     :undoc-members:
 
