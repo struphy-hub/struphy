@@ -323,32 +323,9 @@ StruphyModel base class
 
 Implemented models that inherit the base class are listed in :ref:`models`. 
 
-.. autoclass:: struphy.models.codes.models.StruphyModel
-
-**Properties:**
-
-.. autoproperty:: struphy.models.codes.models.StruphyModel.names
-.. autoproperty:: struphy.models.codes.models.StruphyModel.space_ids
-.. autoproperty:: struphy.models.codes.models.StruphyModel.fields
-.. autoproperty:: struphy.models.codes.models.StruphyModel.kinetic_species
-.. autoproperty:: struphy.models.codes.models.StruphyModel.kinetic_params
-.. autoproperty:: struphy.models.codes.models.StruphyModel.solver_params
-.. autoproperty:: struphy.models.codes.models.StruphyModel.DR
-.. autoproperty:: struphy.models.codes.models.StruphyModel.DOMAIN
-
-**Methods:**
-
-.. automethod:: struphy.models.codes.models.StruphyModel.print_scalar_quantities
-.. automethod:: struphy.models.codes.models.StruphyModel.set_initial_conditions
-
-**Abstract properties (must be implemented in the subclass):**
-
-.. autoproperty:: struphy.models.codes.models.StruphyModel.propagators
-.. autoproperty:: struphy.models.codes.models.StruphyModel.scalar_quantities
-
-**Abstract methods (must be implemented in the subclass):**
-
-.. automethod:: struphy.models.codes.models.StruphyModel.update_scalar_quantities
+.. autoclass:: struphy.models.base.StruphyModel
+    :members:
+    :undoc-members:
 
 
 .. _model_example:
@@ -415,19 +392,10 @@ Propagator base class
 
 Implemented propagators that inherit the base class are listed in :ref:`propagators`. 
 
-.. autoclass:: struphy.models.codes.propagators.Propagator
+.. autoclass:: struphy.propagators.base.Propagator
+    :members:
+    :undioc-members:
 
-**Methods:**
-
-.. automethod:: struphy.models.codes.propagators.Propagator.in_place_update
-
-**Abstract properties (must be implemented in the subclass):**
-
-.. autoproperty:: struphy.models.codes.propagators.Propagator.variables
-
-**Abstract methods (must be implemented in the subclass):**
-
-.. automethod:: struphy.models.codes.propagators.Propagator.push
 
 .. _propagator_example:
 
@@ -512,7 +480,7 @@ Adding dispersion relations
 
 Implemented dispersion relations that inherit the base class are listed in :ref:`dispersions`. 
 
-.. autoclass:: struphy.models.dispersion_relations.analytic.DispersionRelations1D
+.. autoclass:: struphy.dispersion_relations.base.DispersionRelations1D
 
 As an example, consider the dispersion relation for light waves in vacuum:
 

@@ -37,9 +37,9 @@ PF3  := ${path_lib}geometry/pushforward_3d
 TR3  := ${path_lib}geometry/transform_3d
 
 # Kinetic background
-MOMK := ${path_lib}kinetic_equil/moments_kernels
-F0K := ${path_lib}kinetic_equil/f0_kernels
-BEVA := ${path_lib}kinetic_equil/background_eval
+MOMK := ${path_lib}kinetic_background/moments_kernels
+F0K := ${path_lib}kinetic_background/f0_kernels
+BEVA := ${path_lib}kinetic_background/background_eval
 
 # Rest
 KM2  := ${path_lib}feec/basics/kernels_2d
@@ -217,7 +217,7 @@ clean:
 	rm -rf ${path_lib}linear_algebra/__pyccel__ ${path_lib}linear_algebra/__pycache__
 	rm -rf ${path_lib}feec/__pyccel__ ${path_lib}feec/__pycache__
 	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__
-	rm -rf ${path_lib}kinetic_equil/analytical/__pyccel__ ${path_lib}feec/basics/__pycache__
+	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}feec/basics/__pycache__
 	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__
 	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__
 	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__

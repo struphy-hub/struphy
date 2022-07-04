@@ -24,8 +24,8 @@ Simple example
 
 Struphy comes with some example work flows. Two simple ones are executed via::
 
-    example_pproc_serial
-    example_pproc_mpi_3
+    example_maxwell_serial
+    example_maxwell_mpi_3
 
 This runs a Maxwell solver in serial mode and on 3 mpi processes with random noise as initial condition, 
 then plots the light wave dispersion relation. 

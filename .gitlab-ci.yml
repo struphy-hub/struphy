@@ -221,7 +221,7 @@ linting:
     - pylint struphy/fields_equil/             --output-format=text:linting/fields_equil.txt $FLAGS
     - pylint struphy/fields_init/              --output-format=text:linting/fields_init.txt $FLAGS
     - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
-    - pylint struphy/kinetic_equil/            --output-format=text:linting/kinetic_equil.txt $FLAGS
+    - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
     - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS

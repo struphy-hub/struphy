@@ -7,9 +7,9 @@ from struphy.geometry.domain_3d import Domain
 
 from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-from struphy.fields_equil.mhd_equil.analytical.mhd_equil_cylinder import EquilibriumMHDCylinder
+from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDCylinder
 
-from struphy.models.dispersion_relations.MHD_eigenvalues_2D import solve_mhd_ev_problem_2d
+from struphy.dispersion_relations.MHD_eigenvalues_2D import solve_mhd_ev_problem_2d
 
 from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 

@@ -3,7 +3,7 @@
 Struphy propagators
 ===================
 
-.. automodule:: struphy.models.codes.propagators
+.. automodule:: struphy.propagators.propagators
     :members:
     :undoc-members:
-    :exclude-members: Propagator, push, variables
+    :exclude-members: push, variables

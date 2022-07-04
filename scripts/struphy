@@ -249,7 +249,7 @@ if [ "$RUN" = true ] ; then
   METAFILE=$OUTPUT_ABS/meta.txt 
 
   # Run flags
-  CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/models/codes/exec.py"
+  CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/main.py"
   ARGS="$CODE $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_FOLDER"
 
   # Normal run  
@@ -316,6 +316,12 @@ if [ "$PROFILE" = true ]; then
 fi
 
 
+# # In-/output paths
+#   if [ -z $INPUT_ABS ]; then
+#     INPUT_ABS=$STRUPHY/io/inp/$INPUT
+#   fi
 
-
+#   if [ -z $OUTPUT_ABS ]; then
+#     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
+#   fi
 

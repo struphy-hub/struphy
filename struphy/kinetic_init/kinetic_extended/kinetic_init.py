@@ -2,8 +2,8 @@ import numpy as np
 import h5py
 import scipy.special as sp
 
-from struphy.kinetic_equil.analytical import gaussian
-from struphy.kinetic_equil.analytical import moments
+from struphy.kinetic_background.analytical import gaussian
+from struphy.kinetic_background.analytical import moments
 
 from struphy.pic import sampling
 from struphy.pic import sobol_seq 

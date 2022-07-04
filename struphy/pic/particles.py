@@ -2,8 +2,8 @@ import numpy as np
 import h5py
 import scipy.special as sp
 
-from struphy.kinetic_equil.analytical.moments import Kinetic_homogen_slab
-from struphy.kinetic_equil.analytical.gaussian import Gaussian_3d
+from struphy.kinetic_background.analytical.moments import Kinetic_homogen_slab
+from struphy.kinetic_background.analytical.gaussian import Gaussian_3d
 from struphy.pic import sampling, sobol_seq
 from struphy.kinetic_init.kinetic_init import KineticInit6D
 
