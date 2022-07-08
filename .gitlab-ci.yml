@@ -214,20 +214,22 @@ linting:
   script:
     - FLAGS="--recursive=y --exit-zero --reports=yes"
     - mkdir linting
-    - pylint struphy/analytic_funcs/           --output-format=text:linting/analytic_funcs.txt $FLAGS
     - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
+    - pylint struphy/dispersion_relations/     --output-format=text:linting/dispersion_relations.txt $FLAGS
     - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
     - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
-    - pylint struphy/fields_equil/             --output-format=text:linting/fields_equil.txt $FLAGS
-    - pylint struphy/fields_init/              --output-format=text:linting/fields_init.txt $FLAGS
+    - pylint struphy/fields_background/        --output-format=text:linting/fields_background.txt $FLAGS
     - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
     - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
     - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
+    - pylint struphy/initial/                  --output-format=text:linting/initial.txt $FLAGS
     - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
     - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
+    - pylint struphy/propagators/              --output-format=text:linting/propagators.txt $FLAGS
     - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
+    - pylint struphy/tests_mpi/                --output-format=text:linting/tests_mpi.txt $FLAGS
     
   artifacts:
     paths:
@@ -291,9 +293,9 @@ unit_tests:
     - coverage report --skip-empty
     - coverage erase
 
-  artifacts:
-    reports:
-      cobertura: coverage.xml
+  #artifacts:
+  #  reports:
+  #    cobertura: coverage.xml
 
 code_tests:
   stage: test
@@ -301,11 +303,11 @@ code_tests:
   needs: ["install_and_compile"]
 
   script:
-    # Test maxwell
-    - struphy run maxwell -i params_ci_1.yml -o sim_1
-    - struphy run maxwell -i params_ci_2.yml -o sim_2
-    - struphy run maxwell -i params_ci_2.yml -o sim_3 --mpi 2
-    - struphy profile ${ENV_PATH}/struphy/io/out/sim_1/ ${ENV_PATH}/struphy/io/out/sim_2/ ${ENV_PATH}/struphy/io/out/sim_3/
+    # Test Maxwell
+    - struphy run Maxwell -i params_ci_1.yml -o sim_1
+    - struphy run Maxwell -i params_ci_2.yml -o sim_2
+    - struphy run Maxwell -i params_ci_2.yml -o sim_3 --mpi 2
+    - struphy profile sim_1 sim_2 sim_3
     # Add Test for each model
 
 #Deployment

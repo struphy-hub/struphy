@@ -43,13 +43,13 @@ def test_evaluation_mappings():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry']['params_' + kind_map])
+        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
         print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
-        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('yaml\'s params_map   :', params['geometry'][kind_map])
         print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         # point-wise evaluation:
@@ -213,13 +213,13 @@ def test_pullback():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry']['params_' + kind_map])
+        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
         print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
-        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('yaml\'s params_map   :', params['geometry'][kind_map])
         print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_pull:
@@ -347,13 +347,13 @@ def test_pushforward():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry']['params_' + kind_map])
+        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
         print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
-        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('yaml\'s params_map   :', params['geometry'][kind_map])
         print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_push:
@@ -481,13 +481,13 @@ def test_transformation():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry']['params_' + kind_map])
+        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
         print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
-        print('yaml\'s params_map   :', params['geometry']['params_' + kind_map])
+        print('yaml\'s params_map   :', params['geometry'][kind_map])
         print('DOMAIN\'s params_map :', DOMAIN.params_map)
 
         for p_str in DOMAIN.keys_transform:

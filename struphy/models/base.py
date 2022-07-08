@@ -2,24 +2,23 @@ from abc import ABCMeta, abstractmethod
 import scipy.special as sp
 
 from struphy.psydac_api.fields import Field
-from struphy.pic.particles import Particles6D, Particles5D
+from struphy.pic import particles
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
 
-class StruphyModel( metaclass=ABCMeta ):
+class StruphyModel(metaclass=ABCMeta):
     '''Base class for all Struphy models.
 
     Parameters
     ----------
-        DR : struphy.psydac_api.psydac_derham.Derham
+        derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        DOMAIN : struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domain_3d.Domain
             All things mapping.
 
-        solver_params : list[dict]
-            Each entry corresponds to one linear solver used in the model. 
-            An entry is a dict with the solver parameters correpsonding to one solver, obtained from paramaters.yml.
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
 
         kwargs : dict
             Keys are either a) the field names, then values are the space_ids ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), or
@@ -27,10 +26,10 @@ class StruphyModel( metaclass=ABCMeta ):
 
     Note
     ----
-        All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/codes/models.py``.  
+        All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/models.py``.  
     '''
 
-    def __init__(self, DR, DOMAIN, *solver_params, **kwargs):
+    def __init__(self, derham, domain, params, **kwargs):
 
         self._field_names = []
         self._space_ids = []
@@ -50,24 +49,19 @@ class StruphyModel( metaclass=ABCMeta ):
                 self._field_names += [key]
                 self._space_ids += [val]
 
-        self._DR = DR
-        self._DOMAIN = DOMAIN
-        self._solver_params = solver_params
+        self._DR = derham
+        self._DOMAIN = domain
+        self._params = params
 
         self._fields = []
         for name, space_id in zip(self._field_names, self._space_ids):
-            self._fields += [Field(name, space_id, self.DR)]
+            self._fields += [Field(name, space_id, self.derham)]
 
         self._kinetic_species = []
-        for name, params in zip(self._kinetic_names, self._marker_params):
-            if params['type'] == 'fullorbit':
-                self._kinetic_species += [Particles6D(name,
-                                                      self._DOMAIN, params, self._DR.comm)]
-            elif params['type'] == 'driftkinetic':
-                self._kinetic_species += [Particles5D(name,
-                                                      self._DOMAIN, params, self._DR.comm)]
-            else:
-                raise NotImplementedError('Marker type not implemented!')
+        for name, species in zip(self._kinetic_names, self._marker_params):
+            kinetic_class = getattr(particles, species['type'])
+            self._kinetic_species += [kinetic_class(
+                name, self._DOMAIN, species, self._DR.comm)]
 
     @property
     def names(self):
@@ -85,19 +79,19 @@ class StruphyModel( metaclass=ABCMeta ):
         return self._fields
 
     @property
-    def DR(self):
+    def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
         return self._DR
 
     @property
-    def DOMAIN(self):
-        '''Domain object, see :ref:`domains`.'''
+    def domain(self):
+        '''Domain object, see :ref:`avail_mappings`.'''
         return self._DOMAIN
 
     @property
-    def solver_params(self):
-        '''List of dicts holding the solver parameters.'''
-        return self._solver_params
+    def params(self):
+        '''Simulation parameters, see from :ref:`params_yml`.'''
+        return self._params
 
     @property
     def kinetic_species(self):
@@ -119,9 +113,9 @@ class StruphyModel( metaclass=ABCMeta ):
     @abstractmethod
     def scalar_quantities(self):
         '''Dictionary of scalar quantities to be saved during simulation. 
-        Must be initialized as empty np.array of size 1, e.g.
+        Must be initialized as empty np.array of size 1::
 
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
+            self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
         pass
 
     @abstractmethod
@@ -145,16 +139,14 @@ class StruphyModel( metaclass=ABCMeta ):
             sq_str += key + ': {:16.12f}'.format(val[0]) + '     '
         print(sq_str)
 
-    def set_initial_conditions(self, fields_init, fields_params, particles_init, particles_params):
+    def set_initial_conditions(self, fields_init, particles_init, particles_params):
+        # TODO: eliminate particles_params, indent in parameters.yml and pass it with particles_init (as is done for fields)
         '''For FE coefficients and marker weights.
 
         Parameters
         ----------
             fields_init : dict
-                Basic info on field initial conditions, from parameters['fields']['init].
-
-            fields_params : dict
-                Parameters of field initial condition specified in field_init.
+                Basic info on field initial conditions, from parameters['fields']['init'].
 
             kinetic_init : dict
                 Basic info on kinetic initial conditions, from parameters['kinetic']['species_name']['init].
@@ -177,8 +169,7 @@ class StruphyModel( metaclass=ABCMeta ):
                         comps_li += [[True] * 3]
 
             for field, comps in zip(self.fields, comps_li):
-                field.set_initial_conditions(
-                    self.DOMAIN, comps=comps, init_type=init_type, init_coords=init_coords, init_params=fields_params)
+                field.set_initial_conditions(self.domain, comps, fields_init)
 
         if particles_init is not None:
             for species, init, param in zip(self.kinetic_species, particles_init, particles_params):

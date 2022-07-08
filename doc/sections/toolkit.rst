@@ -6,6 +6,29 @@ Toolkit
 **This is a collection of modules/functions that help with the implementation of new models in Struphy.**
 
 
+.. _model_base_class:
+
+StruphyModel base class
+-----------------------
+
+Implemented models that inherit the base class are listed in :ref:`models`. 
+
+.. autoclass:: struphy.models.base.StruphyModel
+    :members:
+    :undoc-members:
+
+
+.. _propagators:
+
+Propagators
+-----------
+
+.. automodule:: struphy.propagators.propagators
+    :members:
+    :undoc-members:
+    :exclude-members: push, variables
+
+
 .. _derham:
 
 Discrete Derham sequence (3d)
@@ -14,53 +37,7 @@ Discrete Derham sequence (3d)
 Theoretical background can be found in the :ref:`appendix`.
 
 .. autoclass:: struphy.psydac_api.psydac_derham.Derham
-
-**Properties:**
-
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.Nel
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.breaks
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.p
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.spl_kind
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.nq_pr
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.quad_order
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.comm
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.der_as_mat
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.domain_array
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.neighbours
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.index_array_N
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.index_array_D
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.V0
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.V1
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.V2
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.V3
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.V0vec
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.grad
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.curl
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.div
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.P0
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.P1
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.P2
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.P3
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.P0vec
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.M0
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.M1
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.M2
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.M3
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.M0vec
-.. autoproperty:: struphy.psydac_api.psydac_derham.Derham.F
-
-**Methods:**
-
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M0
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M1
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M2
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M3
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M0_nonsymb
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M1_nonsymb
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M2_nonsymb
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M3_nonsymb
-.. automethod:: struphy.psydac_api.psydac_derham.Derham.assemble_M0vec_nonsymb
-
+    :members:
 
 .. _fields:
 
@@ -87,6 +64,13 @@ Drift kinetic
 
 .. autoclass:: struphy.pic.particles.Particles5D
     :members: 
+
+.. _vel_moments:
+
+Velocity moments
+^^^^^^^^^^^^^^^^
+
+.. automethod:: struphy.kinetic_background.moments_kernels.moments
 
 
 .. _accumulators:
@@ -130,11 +114,12 @@ Schur solver
 
 .. _preconditioner:
 
-Preconditioners
----------------
+Preconditioner
+--------------
 
 .. automodule:: struphy.psydac_api.preconditioner
     :members: 
+    :exclude-members: FFTSolver, is_circulant
 
 .. _mhd_ops:
 
@@ -143,6 +128,19 @@ MHD operators
 
 .. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 
+
+.. _avail_solvers:
+
+Iterative linear solvers
+------------------------
+
+.. automethod:: psydac.linalg.iterative_solvers.pcg
+
+.. automodule:: struphy.linear_algebra.iterative_solvers
+    :members: 
+    :undoc-members:
+
+
 
 
 

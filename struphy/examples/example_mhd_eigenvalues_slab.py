@@ -7,7 +7,7 @@ from struphy.geometry.domain_3d import Domain
 
 from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDShearedSlab
+from struphy.fields_background.mhd_equil.analytical import ShearedSlab
 
 from struphy.dispersion_relations.MHD_eigenvalues_2D import solve_mhd_ev_problem_2d
 
@@ -79,7 +79,7 @@ fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], n_tor=n_tor, basis_tor=b_tor)
 fem_2d.set_projectors('general')
 
 # load MHD equilibrium 
-eq_mhd = EquilibriumMHDShearedSlab(params_mhd, domain)
+eq_mhd = ShearedSlab(params_mhd, domain)
 
 # solve eigenvalue problem
 omega2_eig, U_eig, MAT = solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, b_tor)

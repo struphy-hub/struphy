@@ -24,13 +24,13 @@ with open(file_in) as file:
 
 # Domain:
 DOMAIN = domain_3d.Domain(params['geometry']['type'], 
-                          params['geometry']['params_' + params['geometry']['type']])
+                          params['geometry'][params['geometry']['type']])
 print('Domain object set.')
 
 # kinetic equilibirum (physical)
 EQ_KINETIC_P = kinetic_equil_physical.Equilibrium_kinetic_physical(
                     params['kinetic_equilibrium']['general'], 
-                    params['kinetic_equilibrium']['params_' + params['kinetic_equilibrium']['general']['type']]
+                    params['kinetic_equilibrium'][params['kinetic_equilibrium']['general']['type']]
                     )
 print('Kinetic equilibrium (physical) set.')
 print()
@@ -43,7 +43,7 @@ print()
 # initialize markers
 KIN = kinetic_init.Initialize_markers(DOMAIN, EQ_KINETIC_L, 
                                     params['kinetic_init']['general'],
-                                    params['kinetic_init']['params_' + params['kinetic_init']['general']['type']],
+                                    params['kinetic_init'][params['kinetic_init']['general']['type']],
                                     params['markers'], mpi_comm
                                     )
 

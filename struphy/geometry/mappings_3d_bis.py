@@ -229,9 +229,9 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
 
         S_{R(y)}(\eta_1, \eta_2) &= \sum_{ij} c^{R(y)}_{ij} N_i(\eta_1) N_j(\eta_2) \,,
 
-        F_x = S_R(\eta_1, \eta_2) * \cos(2\pi\eta_3)
+        F_x &= S_R(\eta_1, \eta_2) * \cos(2\pi\eta_3)
 
-        F_y = S_y(\eta_1, \eta_2)
+        F_y &= S_y(\eta_1, \eta_2)
 
         F_z &= S_R(\eta_1, \eta_2) * \sin(2\pi\eta_3)\,.
 
@@ -342,8 +342,11 @@ def cuboid(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= l_1 + (r_1 - l_1)\,\eta_1\,, \\
-        F_y &= l_2 + (r_2 - l_2)\,\eta_2\,, \\
+    
+        F_x &= l_1 + (r_1 - l_1)\,\eta_1\,, 
+
+        F_y &= l_2 + (r_2 - l_2)\,\eta_2\,, 
+
         F_z &= l_3 + (r_3 - l_3)\,\eta_3\,.
 
     Note
@@ -399,13 +402,16 @@ def orthogonal(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\,\\right]\,, \\
-        F_y &= L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\,\\right]\,, \\
+
+        F_x &= L_x\,\left[\,\eta_1 + \\alpha\sin(2\pi\,\eta_1)\,\\right]\,, 
+
+        F_y &= L_y\,\left[\,\eta_2 + \\alpha\sin(2\pi\,\eta_2)\,\\right]\,, 
+
         F_z &= L_z\,\eta_3\,.
 
     Note
     ----  
-        Example with paramters :math:`L_x=1\,,L_y=1\,,\alpha=0.1` and :math:`L_z=1`:
+        Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
 
         .. image:: ../pics/mappings/orthogonal.png
 
@@ -460,13 +466,16 @@ def colella(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= L_x\,\left[\,\eta_1 + \alpha\sin(2\pi\,\eta_1)\sin(2\pi\,\eta_2)\,\\right]\,, \\
-        F_y &= L_y\,\left[\,\eta_2 + \alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\\right]\,, \\
+    
+        F_x &= L_x\,\left[\,\eta_1 + \\alpha\sin(2\pi\,\eta_1)\sin(2\pi\,\eta_2)\,\\right]\,, 
+
+        F_y &= L_y\,\left[\,\eta_2 + \\alpha\sin(2\pi\,\eta_2)\sin(2\pi\,\eta_1)\,\\right]\,, 
+
         F_z &= L_z\,\eta_3\,.
 
     Note
     ----
-        Example with paramters :math:`L_x=1\,,L_y=1\,,\alpha=0.1` and :math:`L_z=1`:
+        Example with paramters :math:`L_x=1\,,L_y=1\,,\\alpha=0.1` and :math:`L_z=1`:
 
         .. image:: ../pics/mappings/colella.png
 
@@ -521,8 +530,11 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= \left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2) + R_0\,, \\
-        F_y &= \left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,, \\
+
+        F_x &= \left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2) + R_0\,, 
+
+        F_y &= \left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,, 
+
         F_z &= L_z\,\eta_3\,.
 
     Note
@@ -586,8 +598,11 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\cos(2\pi\,\eta_3)\,, \\
-        F_y &=  \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,, \\
+
+        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
+
+        F_y &=  \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(2\pi\,\eta_2)\,, 
+
         F_z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\sin(2\pi\,\eta_3)\,.
 
     Note
@@ -649,8 +664,10 @@ def ellipse(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)\,, \\
-        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, \\
+        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)\,, 
+
+        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, 
+        
         F_z &= z_0+L_z\,\eta_3\,.
 
     Note
@@ -709,8 +726,11 @@ def rotated_ellipse(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= x_0 + r_1\,\eta_1\cos(2\pi\,th)\cos(2\pi\,\eta_2) - r_2\,\eta_1\sin(2\pi\,th)\sin(2\pi\,\eta_2)\,, \\
-        F_y &= y_0 + r_1\,\eta_1\sin(2\pi\,th)\cos(2\pi\,\eta_2) + r_2\,\eta_1\cos(2\pi\,th)\sin(2\pi\,\eta_2)\,, \\
+
+        F_x &= x_0 + r_1\,\eta_1\cos(2\pi\,th)\cos(2\pi\,\eta_2) - r_2\,\eta_1\sin(2\pi\,th)\sin(2\pi\,\eta_2)\,, 
+
+        F_y &= y_0 + r_1\,\eta_1\sin(2\pi\,th)\cos(2\pi\,\eta_2) + r_2\,\eta_1\cos(2\pi\,th)\sin(2\pi\,\eta_2)\,, 
+
         F_z &= z_0 + L_z\,\eta_3\,.
 
     Note
@@ -773,8 +793,11 @@ def shafranov_shift(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)r_x\Delta\,, \\
-        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, \\
+
+        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\eta_1^2)r_x\Delta\,, 
+
+        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, 
+
         F_z &= z_0+L_z\,\eta_3\,.
 
     Note
@@ -837,8 +860,11 @@ def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,, \\
-        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, \\
+
+        F_x &= x_0+r_x\,\eta_1\cos(2\pi\,\eta_2)+(1-\sqrt \eta_1)r_x\Delta\,, 
+
+        F_y &= y_0+r_y\,\eta_1\sin(2\pi\,\eta_2)\,, 
+
         F_z &= z_0+L_z\,\eta_3\,.
 
     Note
@@ -899,8 +925,11 @@ def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
     Point-wise evaluation of
 
     .. math::
-        x &= x_0+R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \\right]\,, \\
-        y &= y_0+R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\\right]\,, \\
+    
+        x &= x_0+R_0\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \\arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \\right]\,, 
+
+        y &= y_0+R_0\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\\right]\,, 
+
         z &= z_0+L_z\,\eta_3\,.
 
     Note

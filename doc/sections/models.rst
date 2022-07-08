@@ -3,26 +3,12 @@
 Struphy models
 ==============
 
-.. Currently available models are
+.. note::
 
-.. .. autoclass:: struphy.models.models.__all__
-
-.. * :ref:`maxwell`
-.. * :ref:`lin_mhd`
-.. * :ref:`Current coupling with linear MHD <cc_lin_mhd_6d>`
-.. * :ref:`Pressure coupling with linear MHD <pc_lin_mhd_6d>`
-.. * :ref:`Vlasov with massless fluid electrons, extended Ohm's law <kinetic_extended>`
-.. * :ref:`Cold plasma hybrid with Vlasov <cold_plasma>`
-
-All models are implemented with a special Struphy normalization stated with the model equations. The notation is
-
-.. math::
-
-    t = \frac{t'}{\hat \omega}\,,\qquad x = \frac{x'}{\hat k}\,,\qquad \mathbf B = \hat B \ \mathbf B'\,,
-
-where primed quantities like :math:`t'` are dimension-less and hat quantities like :math:`\hat \omega` denote the unit used, i.e.
-:math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
-stands for the unit of the magnetic field.
+    All models are implemented with a special STRUPHY normalization stated with the model equations. 
+    The notation is such that hat quantities like :math:`\hat \omega` denote the unit of a quantity, i.e.
+    :math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
+    stands for the unit of the magnetic field.
 
 
 .. automodule:: struphy.models.models

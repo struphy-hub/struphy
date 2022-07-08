@@ -31,66 +31,7 @@ class Domain():
             Type of domain.
 
         params_map: dict, optional
-            The parameters that define the mapping (see Notes). If not given, default values shall be used
-
-    Notes
-    -----
-    Available mappings (choices for "kind_map") are:
-
-        * 'cuboid' :       
-            * X = l1 + (r1 - l1)*eta1
-            * Y = l2 + (r2 - l2)*eta2
-            * Z = l3 + (r3 - l3)*eta3   
-        * 'orthogonal' :   
-            * X = Lx*(eta1 + alpha*sin(2*pi*eta1))
-            * Y = Ly*(eta2 + alpha*sin(2*pi*eta2))
-            * Z = Lz*eta3
-        * 'colella' :   
-            * X = Lx*(eta1 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
-            * Y = Ly*(eta2 + alpha*sin(2*pi*eta1)*sin(2*pi*eta2))
-            * Z = Lz*eta3
-        * 'hollow_cyl' :   
-            * X = (a1 + (a2 - a1)*eta1)*cos(2*pi*eta2) + R0
-            * Y = (a1 + (a2 - a1)*eta1)*sin(2*pi*eta2)
-            * Z = lz*eta3
-        * 'hollow_torus' : 
-            * X = X_hollow_cyl * cos(2*pi*eta3)
-            * Y = Y_hollow_cyl
-            * Z = X_hollow_cyl * sin(2*pi*eta3)
-        * 'ellipse' :
-            * X = x0 + (eta1*rx) * cos(2*pi*eta2)
-            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
-            * Z = z0 + (eta3*Lz)
-        * 'rotated_ellipse' :
-            * X = x0 + (eta1*r1) * cos(2*pi*th) * cos(2*pi*eta2) - (eta1*r2) * sin(2*pi*th) * sin(2*pi*eta2)
-            * Y = y0 + (eta1*r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1*r2) * cos(2*pi*th) * sin(2*pi*eta2)
-            * Z = z0 + (eta3*Lz)
-        * 'shafranov_shift' :
-            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1 - eta1**2) * rx * delta
-            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
-            * Z = z0 + (eta3*Lz)
-        * 'shafranov_sqrt' :
-            * Crafted s.t. derivative component 11 does not go to zero at the pole of the map.
-            * X = x0 + (eta1*rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * delta
-            * Y = y0 + (eta1*ry) * sin(2*pi*eta2)
-            * Z = z0 + (eta3*Lz)
-        * 'shafranov_dshaped' :
-            * Soloviev equilibrium as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
-            * X = x0 + R0 * [ 1 + (1 - eta1**2) * delta_x + eta1 * epsilon_gs * cos(2*pi*eta2 + arcsin(delta_gs)*eta1*sin(2*pi*eta2)) ]
-            * Y = y0 + R0 * [     (1 - eta1**2) * delta_y + eta1 * epsilon_gs * kappa_gs * sin(2*pi*eta2) ]
-            * Z = z0 + (eta3*Lz)
-        * 'spline': 
-            * 3d IGA spline mapping. All information is stored in control points cx, cy, cz.
-        * 'spline_cyl': 
-            * 2d IGA spline mapping in (eta1, eta2) --> (X, Y) w/ control points cx, cy, cz=None and
-            * X = a*eta1*np.cos(2*np.pi*eta2) + R0
-            * Y = a*eta1*np.sin(2*np.pi*eta2)
-            * Z = 2*pi*R0*eta3
-        * 'spline_torus' : 
-            * 2d IGA spline mapping in (eta1, eta2) --> (R, Y) w/ control points cx, cy, cz=None and
-            * X = R*cos(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*cos(2*pi*eta3) 
-            * Y = Y                =  a*eta1*np.sin(2*np.pi*eta2)
-            * Z = R*sin(2*pi*eta3) = (a*eta1*np.cos(2*np.pi*eta2) + R0)*sin(2*pi*eta3) 
+            The parameters that define the mapping (see Notes). If not given, default values shall be used 
     '''
 
     def __init__(self, kind_map='cuboid', params_map=None):
@@ -123,14 +64,14 @@ class Domain():
             self._kind_map = 11
 
             if params_map is None:
-                params = {'a1': 0.2, 'a2': 1., 'R0': 3., 'lz': 2*np.pi*3.}
+                params = {'a1': 0.2, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}
             else:
                 params = params_map
 
             self._params_map = list(params.values())
             self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
                                                 'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
-                                                'z': 'lz*x3'}
+                                                'z': 'Lz*x3'}
 
             if self.params_map[0] == 0.:
                 self._pole = True

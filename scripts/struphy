@@ -56,15 +56,15 @@ function help {
     echo -e "\e[1mDESCRIPTION\e[0m"
     echo -e "      Compiles Struphy kernels (with pyccel), runs one of several struphy models or profiles finished runs. 
       Can run locally with mpi (for testing) or submit a batch script to SLURM.
-      For more info see \e]8;;https://clapp.pages.mpcdf.de/hylife/index.html\ahttps://clapp.pages.mpcdf.de/hylife/index.html\e]8;;\a."
+      For more info see https://clapp.pages.mpcdf.de/hylife/index.html ."
     echo
-    echo -e "\e[1mMODELS\e[0m"
-    echo "      maxwell (Maxwell equations in vacuum.)"
+    echo -e "\e[1mSTRUPHY MODELS\e[0m"
+    echo "      See https://clapp.pages.mpcdf.de/hylife/sections/models.html for available models. Valid inputs for <model>
+      are the listed class names, as in struphy.models.models.<model>. For example, 'Maxwell'."
     echo
     echo -e "\e[1mOPTIONS\e[0m "
     echo "      -h, --help                 Display struphy help."
     echo "      -p, --path                 Display possible struphy installation paths: platform- and user-specific."
-    echo "      -t, --tree                 Display struphy tree (package directories)."
     echo
     echo -e "\e[1mCOMPILE OPTIONS\e[0m "
     echo "      --no-openmp                Compile without OpenMP."
@@ -83,8 +83,9 @@ function help {
     echo
     echo -e "\e[1mPROFILE OPTIONS\e[0m "
     echo "      -a, --all                  Do not specify specific strings to profile, profile all called functions."
-    echo "                                 If not given, profile functions including ['assemble_', 'update', 'step_'] in their name."
-    echo "      <sim1>                     Absolute path to "profile_tmp" file of finished simulation."
+    echo "                                 If not given, struphy profiles only functions including 
+                                 strings stated in file:///home/spossann/git_repos/struphy/doc/_build/html/sections/userguide.html#code-profiling"
+    echo "      <sim1>, <sim2>             Folder names of finished simulations, relative to <install_path>/struphy/io/out/."
     echo ""
 }
 
@@ -108,13 +109,6 @@ while [[ $# -gt 0 ]]; do
       echo "default input:            " $STRUPHY/io/inp 
       echo "default output:           " $STRUPHY/io/out
       echo "template batch scripts:   " $STRUPHY/io/batch
-      exit 0
-      ;;
-    -t|--tree)
-      echo "Struphy package content"
-      echo ""
-      cd $STRUPHY
-      tree -d -I '__pycache__|__pyccel__|__gpyccel__|__psydac__'
       exit 0
       ;;
     run) 
@@ -312,7 +306,24 @@ if [ "$RUN" = true ] ; then
 fi
 
 if [ "$PROFILE" = true ]; then
-  $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${POSITIONAL_ARGS[@]}
+
+  if (( ${#POSITIONAL_ARGS[@]} == 0 )); then
+
+    echo "  ERROR: no simulation folders to profile specified."
+    exit 1
+
+  else
+
+    folders=()
+    for i in ${POSITIONAL_ARGS[@]}; do
+      echo "$i"
+      folders+=($STRUPHY/io/out/$i/)
+    done
+
+    $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${folders[@]}
+
+  fi
+
 fi
 
 

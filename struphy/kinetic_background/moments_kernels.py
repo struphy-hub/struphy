@@ -2,15 +2,15 @@ from numpy import sin, cos, pi
 
 
 def _docstring():
-    '''MODULE DOCSTRING for :ref:`struphy.kinetic_background.moments_kernels`.
+    '''MODULE DOCSTRING for :ref:`kinetic_moments`.
 
     The module contains pyccelized functions that can be used to specify moments of background distribution functions f0.
     
-    The main method is :meth:`struphy.kinetic_background.moments_kernels.moments` at the end of the file, which calls the functions defined before.
+    The main method is :meth:`kinetic_moments.moments` at the end of the file, which calls the functions defined before.
     
     New functions must be added at the top of the file, right after the docstring. 
     In the "Note" of the new function you must state a **moment specifier**; this is an integer that identifies the function in 
-    the if-clause of :meth:`struphy.kinetic_background.moments_kernels.moments`.'''
+    the if-clause of :meth:`kinetic_moments.moments`.'''
 
     print('This is just the docstring function.')
 
@@ -19,9 +19,9 @@ def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'floa
     '''
     Point-wise evaluation of  
     
-    ..math::
+    .. math::
     
-        u(x, y, z) = \sum_{i=0}^N \left[ A_i*\sin(k_{x,i}*x + k_{y,i}*y + k_{z,i}*z) + B_i*\cos(k_{x,i}*x + k_{y,i}*y + k_{z,i}*z) \\right]\,.
+        u(x, y, z) = \sum_{i=0}^N \left[ A_i\sin(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) + B_i\cos(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) \\right]\,.
 
     Parameters
     ----------
@@ -46,13 +46,9 @@ def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'floa
         amps_cos : array[float]
             Amplitude of cosine function for each mode k = (kx, ky, kz).
 
-    Returns
-    -------
-        The function value at (x, y, z).
-
     Notes
     -----
-        Specifier for use in :meth:`struphy.kinetic_background.f0_kernels`: 1
+        Specifier: 1
     '''
 
     value = 0.
@@ -62,9 +58,9 @@ def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'floa
     return value
 
 
-def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
+def moments(eta : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
     """
-    Point-wise evaluation of the moments density, mean velocity and thermal velocity:
+    Point-wise evaluation at logical (eta1, eta2, eta3) of the moments density, mean velocity and thermal velocity:
 
     .. math::
 
@@ -76,7 +72,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
 
     Parameters
     ----------
-        x : array[float]
+        eta : array[float]
             Position at which to evaluate the moments.
         
         moms_spec : array[int]
@@ -84,16 +80,15 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
             Is 0 for constant moment, for more see Notes.
 
         params : array[float]
-            Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels` in the function's docstrings.
-            In case that moms_spec[i]=0 (constant value of moment i), the value is given in params[i].
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` in the function's docstrings.
 
     Returns
     -------
-        The function value at (x, y, z, vx, vy, vz).
+        The function values at (eta1, eta2, eta3).
 
     Notes
     -----
-        See :ref:`struphy.kinetic_background.moments_kernels` for available moment functions.
+        See :ref:`kinetic_moments` for available moment functions.
     """
 
     ind = 0 # helps you count through params
@@ -115,7 +110,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        n0 = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        n0 = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[0]', moms_spec[0])
 
@@ -136,7 +131,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        u0x = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        u0x = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[1]', moms_spec[1])
 
@@ -157,7 +152,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        u0y = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        u0y = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[2]', moms_spec[2])
 
@@ -178,7 +173,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        u0z = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        u0z = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[3]', moms_spec[3])
 
@@ -199,7 +194,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        vth0x = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        vth0x = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[4]', moms_spec[4])
 
@@ -220,7 +215,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        vth0y = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        vth0y = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[5]', moms_spec[5])
 
@@ -241,7 +236,7 @@ def moments(x : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
         ind += n_modes
         amps_cos = params[ind : ind + n_modes]
         ind += n_modes
-        vth0z = modes_sin_cos(x[0], x[1], x[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
+        vth0z = modes_sin_cos(eta[0], eta[1], eta[2], n_modes, kxs, kys, kzs, amps_sin, amps_cos)
     else:
         print('Invalid moms_spec[6]', moms_spec[6])
 

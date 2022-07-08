@@ -27,7 +27,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     from struphy.geometry.domain_3d import Domain
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
-    from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
+    from struphy.fields_background.mhd_equil.analytical import HomogenSlab
     
     from struphy.feec.projectors.pro_global.mhd_operators_MF import projectors_dot_x
     
@@ -71,7 +71,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     # Mhd equilibirum (slab)
     mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200.}
     
-    EQ_MHD = EquilibriumMHDSlab(mhd_equil_params, domain)
+    EQ_MHD = HomogenSlab(mhd_equil_params, domain)
 
     # Psydac spline spaces
     V0 = DERHAM_PSY.V0

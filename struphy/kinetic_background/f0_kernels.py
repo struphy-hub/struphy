@@ -9,7 +9,7 @@ def maxwellian_6d(x : 'float[:]', v : 'float[:]', moms_spec : 'int[:]', params: 
 
     .. math::
 
-        f_0(\\mathbf x, \\mathbf v) = \\frac{n_0}{(2\pi)^{3/2} \hat v_{0,x}(\mathbf x) \hat v_{0,y}(\mathbf x) \hat v_{0,z}}(\mathbf x)\,\exp{-\left( \\frac{(v_x - u_{0,x}(\mathbf x))^2}{\hat v_{0,x}(\mathbf x)} \\frac{(v_y - u_{0,y}(\mathbf x))^2}{\hat v_{0,y}(\mathbf x)} \\frac{(v_z - u_{0,z}(\mathbf x))^2}{\hat v_{0,z}(\mathbf x)} \\right)}
+        f_0(\\mathbf x, \\mathbf v) = \\frac{n_0(\mathbf x)}{(\pi)^{3/2}\, \hat v_{0,x}(\mathbf x) \hat v_{0,y}(\mathbf x) \hat v_{0,z}(\mathbf x)}\,\exp{-\left[ \\frac{(v_x - u_{0,x}(\mathbf x))^2}{\hat v_{0,x}^2(\mathbf x)} \\frac{(v_y - u_{0,y}(\mathbf x))^2}{\hat v_{0,y}^2(\mathbf x)} \\frac{(v_z - u_{0,z}(\mathbf x))^2}{\hat v_{0,z}^2(\mathbf x)} \\right]}
 
     Parameters
     ----------
@@ -21,20 +21,16 @@ def maxwellian_6d(x : 'float[:]', v : 'float[:]', moms_spec : 'int[:]', params: 
         
         moms_spec : array[int]
             Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
-            Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
+            Is 0 for constant moment, for more see :meth:`kinetic_moments`.
 
         params : array[float]
-            Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels` for the respective functions available.
-
-    Returns
-    -------
-        The function value at (x, y, z, vx, vy, vz).
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
 
     Notes
     -----
-        See :ref:`struphy.kinetic_background.moments_kernels` for available moment functions.
+        See :meth:`kinetic_moments` for available moment functions.
 
-        Specifier for use in :meth:`struphy.kinetic_background.background_eval`: 0
+        parameters.yml specifier: 0
     """
 
     n0, u0x, u0y, u0z, vth0x, vth0y, vth0z = moments_kernels.moments(x, moms_spec, params)
