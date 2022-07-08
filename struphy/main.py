@@ -109,8 +109,8 @@ if 'kinetic' in params:
     particles_init = []
     particles_params = []
     for key, val in params['kinetic'].items():
-        particles_init += [val['init']]
-        particles_params += [val['init_' + particles_init[-1]['type']]]
+        particles_init += [val['perturbations']['type']]
+        particles_params += [val['perturbations'][particles_init[-1]]]
 else:
     particles_init = None
     particles_params = None
