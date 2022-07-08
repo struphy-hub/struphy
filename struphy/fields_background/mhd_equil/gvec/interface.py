@@ -29,10 +29,10 @@ class AttributeDict(dict):
 
 
 
-class Equilibrium_mhd_gvec:
+class GVECtoSTRUPHY:
     """Provide an interface to `gvec_to_python` package, which presents a GVEC MHD equilibrium."""
 
-    def __init__(self, params, DOMAIN, MHD, TENSOR_SPACE, SOURCE_DOMAIN=None):
+    def __init__(self, params, DOMAIN, TENSOR_SPACE, SOURCE_DOMAIN=None):
 
         self.params = params # Only ['mhd_equilibrium']['params_gvec'] key.
 

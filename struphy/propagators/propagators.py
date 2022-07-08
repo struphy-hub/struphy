@@ -10,11 +10,6 @@ from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
 
 
-__all__ = ['StepMaxwell',
-           'StepShearAlfven',
-           'StepMagnetosonic']
-
-
 class StepMaxwell(Propagator):
     '''Crank-Nicolson step
 

@@ -1,29 +1,29 @@
 import numpy as np
 
-from struphy.fields_equil.mhd_equil.mhd_equils import EquilibriumMHD
+from struphy.fields_background.mhd_equil.base import EquilibriumMHD
 
 # =======================================================================================
-class EquilibriumMHDSlab(EquilibriumMHD):
+class HomogenSlab(EquilibriumMHD):
     """
     Homogeneous MHD equilibrium in slab geometry.
     
-    The profiles in cartesian coordinates (x, y, z) are:
-    
-    B = B0x*e_x + B0y*e_y + B0z*e_z,
-    p = beta/2*( B0x^2 + B0y^2 + B0z^2 ),
-    n = 1.
+    .. math::
+
+        \mathbf B_0 = \\begin{pmatrix} B_{0,x} \\ B_{0,y} \\ B_{0,z} \end{pmatrix} = const.\,,
+        \qquad p_0 = \\beta \\frac{|\mathbf B_0|^2}{2}\,,\qquad n_0 = 1\,.
     
     Parameters
     ----------
-        params: dictionary
+        params: dict
             Parameters that characterize the MHD equilibrium.
+
                 * B0x  : magnetic field in x-direction
                 * B0y  : magnetic field in y-direction
                 * B0z  : magnetic field in z-direction
                 * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.              
+        domain: struphy.geometry.domain_3d.Domain
+            All things mapping. Enables pull-backs if set.             
     """
     
     def __init__(self, params=None, domain=None):
@@ -117,20 +117,23 @@ class EquilibriumMHDSlab(EquilibriumMHD):
 
     
 # =======================================================================================    
-class EquilibriumMHDShearedSlab(EquilibriumMHD):
+class ShearedSlab(EquilibriumMHD):
     """
-    Sheared slab MHD equilibrium.
+    Sheared slab MHD equilibrium in Cartesian space (x, y, z). Profiles depend on x solely. 
     
-    The profiles in cartesian coordinates (x, y, z) are:
+    .. math::
     
-    B(x) = B0*( e_z + a/(q(x)*R0)*e_y ), q(x) = q0 + ( q1 - q0 )*x^2/a^2,
-    p(x) = beta*B0^2/2*( 1 + a^2/(q(x)^2*R0^2) ) + B0^2*a^2/R0^2*( 1/q0^2 - 1/q(x)^2 ),
-    n(x) = ( 1 - na )*( 1 - (x/a)^n1 )^n2 + na.
+        \mathbf B_0(x) &= B_{0,z} \\begin{pmatrix} 0 \\ a/(q(x)R_0) )  \\ 1 \end{pmatrix}\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\\frac{x^2}{a^2}\,,
+
+        p_0(x) &= \\beta\\frac{B_{0,z}^2}{2} \left( 1 + \\frac{a^2}{q(x)^2 R_0^2} \\right) + B_{0,z}^2 \\frac{a^2}{R_0^2} \left( \\frac{1}{q_0^2} - \\frac{1}{q(x)^2} \\right)\,,
+
+        n_0(x) &= n_a + ( 1 - n_a ) ( 1 - (x/a)^{n_1} )^{n_2} \,.
     
     Parameters
     ----------
-        params: dictionary
+        params: dict
             Parameters that characterize the MHD equilibrium.
+
                 * a    : minor radius (Lx = a, Ly = 2*pi*a)
                 * R0   : major radius (Lz = 2*pi*R0)
                 * B0   : magnetic field in z-direction
@@ -141,8 +144,8 @@ class EquilibriumMHDShearedSlab(EquilibriumMHD):
                 * na   : number density at x=a
                 * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.           
+        domain: struphy.geometry.domain_3d.Domain
+            All things mapping. Enables pull-backs if set.             
     """
     
     def __init__(self, params=None, domain=None):
@@ -341,20 +344,25 @@ class EquilibriumMHDShearedSlab(EquilibriumMHD):
     
     
 # =======================================================================================        
-class EquilibriumMHDCylinder(EquilibriumMHD):
+class ScrewPinch(EquilibriumMHD):
     """
     Straight tokamak (screw pinch) MHD equilibrium.
     
-    The profiles in cylindrical coordinates (r, theta, z) are:
+    The profiles in cylindrical coordinates :math:`(r, \\theta, z)` are:
     
-    B(r) = B0*( e_z + r/(q(r)*R0)*e_theta ), q(r) = q0 + ( q1 - q0 )*r^2/a^2,
-    p(r) = B0^2*a^2*q0/( 2*R0^2*(q1 - q0) )*( 1/q(r)^2 - 1/q1^2) if q1 not equal q0, p(r) = beta*B0^2/2 else,
-    n(r) = ( 1 - na )*( 1 - (r/a)^n1 )^n2 + na.
+    .. math::
+    
+        \mathbf B_0(r) &= B_{0,z}*\left( \mathbf e_z + \\frac{r}{q(r) R_0} e_\\theta \\right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+
+        p_0(r) &= \\frac{B_{0,z}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{if $q_1$ not equal $q_0$}\,,\quad p_0(r) = \\beta \\frac{B_{0,z}^2}{2} \quad \\textnormal{else}\,,
+
+        n_0(r) &= n_a + ( 1 - n_a )( 1 - (r/a)^{n_1} )^{n_2}\,.
     
     Parameters
     ----------
-        params: dictionary
+        params: dict
             Parameters that characterize the MHD equilibrium.
+
                 * a    : minor radius (radius of cylinder)
                 * R0   : major radius (Lz = 2*pi*R0)
                 * B0   : magnetic field in z-direction
@@ -365,8 +373,8 @@ class EquilibriumMHDCylinder(EquilibriumMHD):
                 * na   : number density at r=a
                 * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set. 
+        domain: struphy.geometry.domain_3d.Domain
+            All things mapping. Enables pull-backs if set.  
     """
     
     def __init__(self, params=None, domain=None):
@@ -580,26 +588,29 @@ class EquilibriumMHDCylinder(EquilibriumMHD):
     
     
 # =======================================================================================
-class EquilibriumMHDTorus(EquilibriumMHD):
+class AdhocTorus(EquilibriumMHD):
     """
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
     
     The profiles in toroidal coordinates (r, theta, phi) are:
     
-    B(r) = B0*R0/R*( e_phi + r/(qbar(r)*R0)*e_theta ), qbar(r) = q(r) * sqrt(1 - r^2/R0^2), q(r) = q0 + ( q1 - q0 )*r^2/a^2,
-       R = R0 + r*cos(theta)
+    .. math::
     
-    p_kind = 0: (pressure profile in cylindrical limit)
-        p(r) = B0^2*a^2*q0/( 2*R0^2*(q1 - q0) )*( 1/q(r)^2 - 1/q1^2) if q1 not equal q0, p(r) = beta*B0^2/2 else,
-    p_kind = 1: (ad hoc profile)
-        p(r) = beta*B0^2/2*( 1 - p1*r^2/a^2 - p2*r^4/a^4),
+        \mathbf B_0(r) &= \\frac{B_{0,\phi}R_0}{R} \left( \mathbf e_{\phi} + \\frac{r}{\\bar q(r) R_0} \mathbf e_{\\theta} \\right)\,,\qquad \\bar q(r) = q(r) \sqrt{1 - r^2/R_0^2}\,, \qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+
+        R &= R_0 + r \cos(\\theta)
+    
+        p(r) &= B_{0,\phi}^2\, a^2 \\frac{q_0}{ 2 R_0^2 (q1 - q0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{ if $q_1$ not equal $q_0$},\quad p(r) = \\beta \\frac{B_{0,\phi}^2}{2} \quad \\textnormal{else} \,,\qquad \\textnormal{(cylindrical limit)}
         
-    n(r) = ( 1 - na )*( 1 - (r/a)^n1 )^n2 + na.
+        p(r) &= \\beta \\frac{B_{0,\phi}^2}{2} \left( 1 - p_1 \\frac{ r^2}{a^2} - p_2 \\frac{r^4}{a^4} \\right)\,,\qquad \\textnormal{(ad hoc profile)}
+            
+        n(r) &= n_a + ( 1 - n_a ) ( 1 - (r/a)^{n_1} )^{n_2}\,.
     
     Parameters
     ----------
-        params: dictionary
+        params: dict
             Parameters that characterize the MHD equilibrium.
+
                 * a      : minor radius of torus
                 * R0     : major radius of torus
                 * B0     : on-axis toroidal magnetic field
@@ -613,8 +624,8 @@ class EquilibriumMHDTorus(EquilibriumMHD):
                 * p2     : shape factor for ad hoc pressure profile
                 * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.    
+        domain: struphy.geometry.domain_3d.Domain
+            All things mapping. Enables pull-backs if set.   
     """
     
     def __init__(self, params=None, domain=None):

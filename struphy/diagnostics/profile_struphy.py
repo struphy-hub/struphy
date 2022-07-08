@@ -3,14 +3,11 @@ import pickle
 import yaml
 from struphy.diagnostics import Cprofile_analyser
 
-print('hi')
-print(sys.argv[1])
-print(sys.argv[1] == True)
 
 if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
-    list_of_funcs = ['assemble_', 'push', 'sendrecv_', 'update_ghost_regions']
+    list_of_funcs = ['assemble_', 'push', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'pcg', 'bicgstab', 'pbicgstab']
 
 print(list_of_funcs)
 

@@ -192,7 +192,7 @@ class MaxwellHomogenSlab(EquilibriumKinetic6D):
         self.p_charge = params['particle_charge']
 
         self._MOMENTS = moments.Kinetic_homogen_slab(
-            params['params_' + params['type']])
+            params[params['type']])
         self.EQ = gaussian.Gaussian_3d(self._MOMENTS)
 
     def fh_eq_phys(self, x, y, z, vx, vy, vz):

@@ -9,40 +9,19 @@ Static backgrounds
 Kinetic backgrounds
 -------------------
 
-.. _kinetic_equil_p:
-
-Kinetic equilibirum class
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.kinetic_background.kinetic_equil_physical 
+.. automodule:: struphy.kinetic_background.f0_kernels
     :members:
     :undoc-members:
 
 
-Analytical equilibria
-"""""""""""""""""""""
+.. _kinetic_moments:
 
-.. automodule:: struphy.kinetic_background.analytical.gaussian
+Kinetic moments
+---------------
+
+.. automodule:: struphy.kinetic_background.moments_kernels
     :members:
-    :undoc-members:
-
-.. automodule:: struphy.kinetic_background.analytical.maxwell_pitchangle
-    :members:
-    :undoc-members:
-
-.. automodule:: struphy.kinetic_background.analytical.moments
-    :members:
-    :undoc-members:
-
-
-.. _kinetic_equil_l:
-
-Pullback to logical space
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.kinetic_background.kinetic_equil_logical 
-    :members:
-    :undoc-members:
+    :exclude-members: moments
 
 
 .. _mhd_equil:
@@ -50,27 +29,16 @@ Pullback to logical space
 MHD equilibria
 --------------
 
-.. _mhd_equil_p:
-
-MHD equilibrium class
-^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: struphy.fields_equil.mhd_equil.mhd_equils
+.. automodule:: struphy.fields_background.mhd_equil.analytical
     :members:
-    :undoc-members:
+    :exclude-members: n, j_x, j_y, j_z, b_x, b_y, b_z, p
 
 
-Analytical equilibria
-"""""""""""""""""""""
+.. _gvec:
 
-.. automodule:: struphy.fields_equil.mhd_equil.analytical
-    :members:
-    :undoc-members:
+GVEC
+----
 
-
-GVEC equilibria
-"""""""""""""""
-
-.. automodule:: struphy.fields_equil.mhd_equil.gvec.mhd_equil_gvec 
+.. automodule:: struphy.fields_background.mhd_equil.gvec.interface
     :members:
     :undoc-members:

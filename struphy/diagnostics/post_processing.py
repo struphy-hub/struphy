@@ -65,7 +65,7 @@ def post_process_fields(path, snapshots=None, npts_per_cell=1):
 
     # domain object
     dom_type = params['geometry']['type']
-    dom_params = params['geometry']['params_' + dom_type]
+    dom_params = params['geometry'][dom_type]
     DOMAIN = Domain(dom_type, dom_params)
     F_psy = DOMAIN.Psydac_mapping('F', **dom_params)
 
@@ -181,7 +181,7 @@ def create_femfields(path, snapshots=None):
     # DOMAIN object
     # =========================================================================================
     dom_type = params['geometry']['type']
-    dom_params = params['geometry']['params_' + dom_type]
+    dom_params = params['geometry'][dom_type]
 
     DOMAIN = Domain(dom_type, dom_params)
     # create psydac mapping for mass matrices only

@@ -11,7 +11,7 @@ def test_1form_projectors_dot():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
+        from struphy.fields_background.mhd_equil.analytical import HomogenSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -50,7 +50,7 @@ def test_1form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -302,7 +302,7 @@ def test_2form_projectors_dot():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
+        from struphy.fields_background.mhd_equil.analytical import HomogenSlab
         
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -341,7 +341,7 @@ def test_2form_projectors_dot():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -571,7 +571,7 @@ def test_1form_symmetric():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
+        from struphy.fields_background.mhd_equil.analytical import HomogenSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -610,7 +610,7 @@ def test_1form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 
@@ -736,7 +736,7 @@ def test_2form_symmetric():
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
         
-        from struphy.fields_equil.mhd_equil.analytical import EquilibriumMHDSlab
+        from struphy.fields_background.mhd_equil.analytical import HomogenSlab
 
         from struphy.feec.projectors.pro_global import mhd_operators_MF as mhd_op_V2
 
@@ -775,7 +775,7 @@ def test_2form_symmetric():
         print()
 
         # mhd projectors dot operator
-        eq_MHD = EquilibriumMHDSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
+        eq_MHD = HomogenSlab({'B0x' : 0., 'B0y' : 0., 'B0z' : 1., 'beta' : 200.}, domain)
         
         dot_ops = mhd_op_V2.projectors_dot_x(tensor_space_FEM, eq_MHD)
 

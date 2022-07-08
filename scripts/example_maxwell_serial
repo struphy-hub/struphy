@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy run maxwell -o sim_1
+struphy run Maxwell -o sim_1
 
 # Struphy path
 STRUPHY=

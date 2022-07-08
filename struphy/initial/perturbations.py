@@ -3,7 +3,12 @@
 import numpy as np
 
 class Modes_sin:
-    '''Defines f(x, y, z) = sum_i A_i*sin(k1i*x + k2i*y + k3i*z)) as a callable.'''
+    '''Defines the callable
+    
+    .. math::
+    
+        u(x, y, z) = \sum_{i=0}^N A_i \sin(k_{x,i} x + k_{y,i} y + k_{z,i} z) \,.
+    '''
 
     def __init__(self, k1s, k2s, k3s, amps):
         '''
@@ -41,7 +46,13 @@ class Modes_sin:
 
 
 class Modes_cos:
-    '''Defines f(x, y, z) = sum_i A_i*cos(k1i*x + k2i*y + k3i*z)) as a callable.'''
+    '''Defines the callable
+    
+    .. math::
+    
+        u(x, y, z) = \sum_{i=0}^N B_i \cos(k_{x,i} x + k_{y,i} y + k_{z,i} z) \,.
+
+    '''
 
     def __init__(self, k1s, k2s, k3s, amps):
         '''

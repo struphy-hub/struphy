@@ -129,7 +129,7 @@ def fourier_1d(values, code, grids, grids_phys=None, component=0, slice_at=[None
         ax.set_ylabel('$\omega$ [a.u.]')
 
         # analytic solution:
-        if code == 'maxwell_psydac' or code == 'maxwell':
+        if code == 'maxwell_psydac' or code == 'Maxwell':
             disp = analytic.Maxwell1D()
             kpara = kvec
             kperp = None

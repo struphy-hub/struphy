@@ -23,7 +23,7 @@ class WeightedMass:
             Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
             
         weights : obj
-            A general object that provides access to callables that serve as weight functions (e.g. an instance of EquilibriumMHD from struphy.fields_equil.mhd_equil).
+            A general object that provides access to callables that serve as weight functions (e.g. an instance of EquilibriumMHD from struphy.fields_background.mhd_equil).
     """
     
     def __init__(self, derham, F, **weights):
@@ -290,10 +290,10 @@ def get_mass(V, W, weight=None):
             Vspaces = (V,)
         else:
             Vspaces = V.spaces
-        print(f'to {V.symbolic_space.name} ...')
+        #print(f'to {V.symbolic_space.name} ...')
     else:
         Vspaces = V.spaces
-        print(f'to H1vec ...')
+        #print(f'to H1vec ...')
 
     # Input space: collect tensor fem spaces in a tuple
     if hasattr(W.symbolic_space, 'name'):
@@ -301,10 +301,10 @@ def get_mass(V, W, weight=None):
             Wspaces = (W,)
         else:
             Wspaces = W.spaces
-        print(f'... from {W.symbolic_space.name}.')
+        #print(f'... from {W.symbolic_space.name}.')
     else:
         Wspaces = W.spaces
-        print(f'... from H1vec.')
+        #print(f'... from H1vec.')
     
     blocks = []
     

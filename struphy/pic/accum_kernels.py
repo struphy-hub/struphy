@@ -11,7 +11,7 @@ import struphy.linear_algebra.core as linalg
 
 def _docstring():
     '''
-    MODULE DOCSTRING for :ref:`struphy.pic.accum_kernels`.
+    MODULE DOCSTRING for :ref:`accumulators`.
 
     The module contains model-specific accumulation routines (pyccelized), to be defined by the user.
 
@@ -112,14 +112,14 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
     Parameters
     ----------
         f0_spec : int
-            Specifier for kinetic background, see :ref:`struphy.kinetic_background.f0_kernels`  
+            Specifier for kinetic background, see :ref:`kinetic_backgrounds`  
 
         moms_spec : array[int]
             Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
             Is 0 for constant moment, for more see :meth:`struphy.kinetic_background.moments_kernels.moments`.
 
         f0_params : array[float]
-            Parameters needed to specify the moments; the order is specified in :ref:`struphy.kinetic_background.moments_kernels` for the respective functions available.
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` for the respective functions available.
 
     Note
     ----

@@ -32,7 +32,7 @@ class MHDOperators:
             Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
 
         eq_mhd : EquilibriumMHD
-            MHD equilibrium from struphy.fields_equil.mhd_equil (pullbacks must be enabled).
+            MHD equilibrium from struphy.fields_background.mhd_equil (pullbacks must be enabled).
 
         assemble_all : bool
             Assemble all `MHDOperator`s in constructor. Only for testing. Please assemble individually by calling `assemble_XX()` for each operator.
@@ -405,11 +405,11 @@ class MHDOperator(LinOpWithTransp):
             else:
                 _Vspaces = V.vector_space
                 _V1ds = [comp.spaces for comp in V.spaces]
-            print(f'From {V.symbolic_space.name} ...')
+            #print(f'From {V.symbolic_space.name} ...')
         else:
             _Vspaces = V.vector_space
             _V1ds = [comp.spaces for comp in V.spaces]
-            print(f'From H1vec ...')
+            #print(f'From H1vec ...')
 
         # Output space: Stencil vector spaces and 1d spaces
         if hasattr(P.space.symbolic_space, 'name'):
@@ -419,11 +419,11 @@ class MHDOperator(LinOpWithTransp):
             else:
                 _Wspaces = P.space.vector_space
                 _W1ds = [comp.spaces for comp in P.space.spaces]
-            print(f'... to {P.space.symbolic_space.name}.')
+            #print(f'... to {P.space.symbolic_space.name}.')
         else:
             _Wspaces = P.space.vector_space
             _W1ds = [comp.spaces for comp in P.space.spaces]
-            print(f'... to H1vec.')
+            #print(f'... to H1vec.')
             
         # Retrieve number of quadrature points
         _nqs = []
