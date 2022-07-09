@@ -1,5 +1,5 @@
 grid :
-      Nel      : [4, 4, 32] # number of grid cells, >p
+      Nel      : [4, 4, 64] # number of grid cells, >p
       p        : [2, 2, 3]  # spline degree, >1
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [f, f] # boundary conditions in eta_1 for N-splines (homogeneous Dirichlet = d, free boundary = f)

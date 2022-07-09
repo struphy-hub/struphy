@@ -67,7 +67,7 @@ class StepMaxwell(Propagator):
     def variables(self):
         return [self._e, self._b]
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         en = self.variables[0]
@@ -150,7 +150,7 @@ class StepShearAlfven1(Propagator):
     def variables(self):
         return self._u, self._b
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         un = self.variables[0]
@@ -233,7 +233,7 @@ class StepShearAlfven2(Propagator):
     def variables(self):
         return self._u, self._b
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         un = self.variables[0]
@@ -316,7 +316,7 @@ class StepShearAlfven3(Propagator):
     def variables(self):
         return self._u, self._b
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         un = self.variables[0]
@@ -414,7 +414,7 @@ class StepMagnetosonic2(Propagator):
     def variables(self):
         return self._n, self._u, self._p, self._b
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         nn = self.variables[0]
@@ -517,7 +517,7 @@ class StepMagnetosonic3(Propagator):
     def variables(self):
         return self._n, self._u, self._p, self._b
 
-    def push(self, dt):
+    def __call__(self, dt):
 
         # current variables
         nn = self.variables[0]

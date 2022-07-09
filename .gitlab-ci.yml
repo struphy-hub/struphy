@@ -272,6 +272,7 @@ install_and_compile:
     - pip show struphy
     - struphy
     - struphy compile
+    - ./struphy/verify_compilation.sh
     - pip list
     - cd ${ENV_PATH}/psydac/core
     - pyccel kernels.py --language fortran
@@ -304,9 +305,9 @@ code_tests:
 
   script:
     # Test Maxwell
-    - struphy run Maxwell -i params_ci_1.yml -o sim_1
-    - struphy run Maxwell -i params_ci_2.yml -o sim_2
-    - struphy run Maxwell -i params_ci_2.yml -o sim_3 --mpi 2
+    - struphy run Maxwell -i tests/params_maxwell_1.yml -o sim_1
+    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_2
+    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_3 --mpi 2
     - struphy profile sim_1 sim_2 sim_3
     # Add Test for each model
 

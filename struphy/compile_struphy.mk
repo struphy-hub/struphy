@@ -87,7 +87,7 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 all: $(OUTPUTS)
 
 $(LAC)$(SO_EXT) : $(LAC).py
-	pyccel $< $(FLAGS)
+	pyccel $< $(FLAGS) 
     
 $(LAT)$(SO_EXT) : $(LAT).py
 	pyccel $< $(FLAGS)

@@ -15,8 +15,9 @@ setup(
         ],
         'struphy.io': ['batch/*.sh'],
         'struphy.io.inp': ['parameters.yml',
-                           'params_ci_1.yml',
-                           'params_ci_2.yml'],
+                           'tests/*.yml',
+                           'examples/*.yml',
+                           ],
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s

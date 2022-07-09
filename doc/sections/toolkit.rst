@@ -18,6 +18,19 @@ Implemented models that inherit the base class are listed in :ref:`models`.
     :undoc-members:
 
 
+.. _prop_base_class:
+
+Propagator base class
+---------------------
+
+Implemented propagators that inherit the base class are listed in :ref:`propagators`. 
+
+.. autoclass:: struphy.propagators.base.Propagator
+    :members:
+    :undoc-members:
+    :special-members:
+
+
 .. _propagators:
 
 Propagators
@@ -38,6 +51,7 @@ Theoretical background can be found in the :ref:`appendix`.
 
 .. autoclass:: struphy.psydac_api.psydac_derham.Derham
     :members:
+    
 
 .. _fields:
 

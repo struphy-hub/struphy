@@ -271,6 +271,7 @@ class Derham:
         """ Assemble mass matrix for L2-scalar product in V0.
         """
 
+        print('Assembling M0 ...')
         _u0, _v0 = elements_of(self._derham_symb.V0, names='u0, v0')
 
         _a0 = BilinearForm((_u0, _v0), integral(
@@ -280,11 +281,13 @@ class Derham:
             _a0, self._domain_log_h, (self._V0, self._V0), backend=PSYDAC_BACKEND_GPYCCEL)
 
         self._M0 = self._a0_h.assemble()
+        print('Done.')
 
     def assemble_M1(self):
         """ Assemble mass matrix for L2-scalar product in V1.
         """
 
+        print('Assembling M1 ...')
         _u1, _v1 = elements_of(self._derham_symb.V1, names='u1, v1')
 
         _a1 = BilinearForm((_u1, _v1), integral(
@@ -294,11 +297,13 @@ class Derham:
             _a1, self._domain_log_h, (self._V1, self._V1), backend=PSYDAC_BACKEND_GPYCCEL)
 
         self._M1 = self._a1_h.assemble()
+        print('Done.')
 
     def assemble_M2(self):
         """ Assemble mass matrix for L2-scalar product in V2.
         """
 
+        print('Assembling M2 ...')
         _u2, _v2 = elements_of(self._derham_symb.V2, names='u2, v2')
 
         _a2 = BilinearForm((_u2, _v2), integral(
@@ -308,11 +313,13 @@ class Derham:
             _a2, self._domain_log_h, (self._V2, self._V2), backend=PSYDAC_BACKEND_GPYCCEL)
 
         self._M2 = self._a2_h.assemble()
+        print('Done.')
 
     def assemble_M3(self):
         """ Assemble mass matrix for L2-scalar product in V3.
         """
 
+        print('Assembling M3 ...')
         _u3, _v3 = elements_of(self._derham_symb.V3, names='u3, v3')
 
         _a3 = BilinearForm((_u3, _v3), integral(
@@ -322,6 +329,7 @@ class Derham:
             _a3, self._domain_log_h, (self._V3, self._V3), backend=PSYDAC_BACKEND_GPYCCEL)
 
         self._M3 = self._a3_h.assemble()
+        print('Done.')
             
     def assemble_M0_nonsymb(self, domain):
         """ 

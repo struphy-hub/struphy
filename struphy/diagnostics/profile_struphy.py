@@ -7,7 +7,7 @@ from struphy.diagnostics import Cprofile_analyser
 if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
-    list_of_funcs = ['assemble_', 'push', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'pcg', 'bicgstab', 'pbicgstab']
+    list_of_funcs = ['assemble_', 'propagator', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'schur', 'pcg', 'bicgstab', 'pbicgstab']
 
 print(list_of_funcs)
 

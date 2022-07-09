@@ -1,8 +1,6 @@
 #!/bin/bash -e
 
-PYTHON=python3
-
-struphy run Maxwell -i examples/params_maxwell_serial -o sim_1
+SO_EXT=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 
 # Struphy path
 STRUPHY=
@@ -23,5 +21,9 @@ for i in $li; do
     fi
 done
 
-path_e=$STRUPHY/examples
-$PYTHON ${path_e}/example_diagnostics_1dfft.py $STRUPHY/io/out/sim_1
+BTS=$STRUPHY/psydac_api/banded_to_stencil_kernels
+
+if [[ ! -f $BTS$SO_EXT ]] ; then
+    echo 'File' $BTS$SO_EXT 'is not there, aborting.'
+    exit 1
+fi
