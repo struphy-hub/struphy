@@ -23,7 +23,7 @@ class Propagator( metaclass=ABCMeta ):
         pass
 
     @abstractmethod
-    def push(self, dt):
+    def __call__(self, dt):
         '''Push entries in ``Propagator.variables`` from t -> t + dt.
         Use ``Propagators.in_place_update`` to write to ``Propagator.variables``.
         

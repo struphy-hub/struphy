@@ -227,7 +227,8 @@ A new model
     3. Implement the **propagators** of your model.
 
         First, check the list of existing :ref:`propagators` (you might be lucky and save some work). 
-        If necessary, add propagators to ``struphy/models/propagators.py``. The name must start with ``Step``. 
+        If necessary, add propagators to ``struphy/models/propagators.py``. The name must start with ``Step`` and 
+        the :ref:`prop_base_class` must be inherited.
         Use existing classes as templates. 
         When adding propagators, you should benefit from STRUPHY's :ref:`toolkit` that provides many useful modules and templates.
 
@@ -303,7 +304,7 @@ The present propagator needs a :ref:`preconditioner`, one 2x2 block matrix and a
 The definition of the abstract property ``variables`` is a must in each propagator.
 It returns a list of the variables updated by the propagator.
 
-Finally, also the abstract method ``push`` must be defined in each propagator.
+Finally, also the abstract method ``__call__`` must be defined in each propagator.
 It only takes the time step ``dt`` as argument and updates the variables specified in ``self.variables``.
 Note that the function ``self.in_place_update``  from the base class ``Propagators`` can be used 
 to perform the in-place update of the variables.

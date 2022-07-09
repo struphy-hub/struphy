@@ -100,10 +100,8 @@ if rank == 0:
 # Set initial conditions for fields and particles (if they exist)
 if 'fields' in params:
     fields_init = params['fields']['init']
-    #fields_params = params['fields']['init_' + fields_init['type']]
 else:
     fields_init = None
-    #fields_params = None
 
 if 'kinetic' in params:
     particles_init = []
@@ -183,7 +181,7 @@ def update():
     if split_algo == 'LieTrotter':
 
         for propagator in model.propagators:
-            propagator.push(dt)
+            propagator(dt)
 
     # Second order in time
     elif split_algo == 'Strang':
@@ -191,12 +189,12 @@ def update():
         assert len(model.propagators) > 1
 
         for propagator in model.propagators[:-1]:
-            propagator.push(dt/2.)
+            propagator(dt/2.)
 
         model.propagators[-1].push(dt)
 
         for propagator in model.propagators[::-1][1:]:
-            propagator.push(dt/2.)
+            propagator(dt/2.)
 
     else:
         raise NotImplementedError(
