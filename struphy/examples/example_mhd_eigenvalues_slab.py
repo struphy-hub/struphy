@@ -94,8 +94,8 @@ fig.set_figheight(12)
 fig.set_figwidth(14)
 
 ax[0, 0].plot(rplot, eq_mhd.q(rplot))
-ax[0, 1].plot(rplot, eq_mhd.p(rplot))
-ax[0, 2].plot(rplot, eq_mhd.n(rplot))
+ax[0, 1].plot(rplot, eq_mhd.px(rplot))
+ax[0, 2].plot(rplot, eq_mhd.nx(rplot))
 
 ax[0, 0].set_xlabel('$x$')
 ax[0, 1].set_xlabel('$x$')

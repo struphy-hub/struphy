@@ -59,7 +59,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     space_1d_2.set_projectors(nq_pr[1])
     
     # set up 2d tensor-product space    
-    space_2d = Tensor_spline_space([space_1d_1, space_1d_2], polar_ck, eq_mhd.DOMAIN.cx[:, :, 0], eq_mhd.DOMAIN.cy[:, :, 0], n_tor, basis_tor)
+    space_2d = Tensor_spline_space([space_1d_1, space_1d_2], polar_ck, eq_mhd.domain.cx[:, :, 0], eq_mhd.domain.cy[:, :, 0], n_tor, basis_tor)
     
     # set up 2d projectors
     space_2d.set_projectors('general')
@@ -67,8 +67,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     print('Initialization of FEM spaces done')
     
     # assemble mass matrix in V2 and V3 and apply boundary operators
-    space_2d.assemble_Mk(eq_mhd.DOMAIN, 'V2')
-    space_2d.assemble_Mk(eq_mhd.DOMAIN, 'V3')
+    space_2d.assemble_Mk(eq_mhd.domain, 'V2')
+    space_2d.assemble_Mk(eq_mhd.domain, 'V3')
     
     M2_0 = space_2d.B2.dot(space_2d.M2_mat.dot(space_2d.B2.T))
     M3_0 = space_2d.B3.dot(space_2d.M3_mat.dot(space_2d.B3.T))

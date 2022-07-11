@@ -1,10 +1,12 @@
 from psydac.linalg.iterative_solvers import pcg
 
+from struphy.linear_algebra.iterative_solvers import pbicgstab
+
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 
 
-class Schur_solver:
+class SchurSolver:
     '''Solves for x in the block system
 
     [[A B], [C Id]] [x, y] = [[A -B], [-C Id]] [xn, yn] ,
@@ -14,17 +16,17 @@ class Schur_solver:
 
     x = S^{-1}[(A + BC)*xn - 2B*yn] .'''
 
-    def __init__(self, A, BC, pc, tol, maxiter, verbose):
+    def __init__(self, A, BC, pc, solver_type, tol, maxiter, verbose):
         '''
         Parameters
         ----------
-            A: LinearOperator
+            A : LinearOperator
                 Upper left block from [[A B], [C Id]].
 
-            BC: LinearOperator
+            BC : LinearOperator
                 Product from [[A B], [C Id]].
 
-            pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
+            pc : NoneType | str | psydac.linalg.basic.LinearSolver | Callable
                 Preconditioner for S=A-BC, it should approximate the inverse of S.
                 Can either be:
                 * None, i.e. not pre-conditioning (this calls the standard `cg` method)
@@ -32,10 +34,16 @@ class Schur_solver:
                 * A LinearSolver object (in which case the out parameter is used)
                 * A callable with two parameters (S, r), where S is the LinearOperator from above, and r is the residual.
 
+            solver_type : str
+                Which iterative solver to use for S^{-1}.
+                Can either be:
+                * 'pcg', if S is symmetric and positive-definite (recommended in this case).
+                * 'pbicgstab' for general S.
+            
             tol : float
                 Absolute tolerance for L2-norm of residual r = A*x - b.
 
-            maxiter: int
+            maxiter : int
                 Maximum number of iterations.
 
             verbose : bool
@@ -71,6 +79,7 @@ class Schur_solver:
         assert A.codomain == BC.codomain
 
         self._pc = pc
+        self._solver_type = solver_type
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
@@ -98,15 +107,22 @@ class Schur_solver:
 
     def __call__(self, xn, Byn, dt):
 
-        self._schur   = Sum(self._A, Multiply(-dt**2, self._BC) )
+        self._schur   = Sum(self._A, Multiply(-dt**2, self._BC))
         self._rhs_mat = Sum(self._A, Multiply(dt**2, self._BC))
 
         assert xn.space == self._rhs_mat.domain
         assert Byn.space == self._rhs_mat.codomain
 
         _rhs = self._rhs_mat.dot(xn) - dt*2.*Byn
-
-        x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol,
-                      maxiter=self._maxiter, verbose=self._verbose)
+        
+        if self._solver_type == 'pcg':
+            
+            x, info = pcg(self._schur, _rhs, self._pc, x0=xn, tol=self._tol, 
+                          maxiter=self._maxiter, verbose=self._verbose)
+            
+        elif self._solver_type == 'pbicgstab':
+            
+            x, info = pbicgstab(self._schur, _rhs, self._pc, x0=xn, tol=self._tol, 
+                                maxiter=self._maxiter, verbose=self._verbose)
 
         return x, info

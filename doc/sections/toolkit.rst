@@ -122,7 +122,7 @@ Linear operators
 Schur solver
 ------------
 
-.. autoclass:: struphy.linear_algebra.schur_solver.Schur_solver
+.. autoclass:: struphy.linear_algebra.schur_solver.SchurSolver
     :members: 
 
 

@@ -188,12 +188,18 @@ def update():
 
         assert len(model.propagators) > 1
 
-        for propagator in model.propagators[:-1]:
+        #for propagator in model.propagators[:-1]:
+        #    propagator(dt/2.)
+#
+        #model.propagators[-1].push(dt)
+#
+        #for propagator in model.propagators[::-1][1:]:
+        #    propagator(dt/2.)
+        
+        for propagator in model.propagators:
             propagator(dt/2.)
-
-        model.propagators[-1].push(dt)
-
-        for propagator in model.propagators[::-1][1:]:
+            
+        for propagator in model.propagators[::-1]:
             propagator(dt/2.)
 
     else:

@@ -211,19 +211,21 @@ $(BTS)$(SO_EXT) : $(BTS).py
 clean:
 	rm -rf $(OUTPUTS)
 	rm -rf ${path_lib}__pyccel__ ${path_lib}__pycache__
-	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__
-	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__
-	rm -rf ${path_lib}geometry/__pyccel__ ${path_lib}geometry/__pycache__
 	rm -rf ${path_lib}linear_algebra/__pyccel__ ${path_lib}linear_algebra/__pycache__
 	rm -rf ${path_lib}feec/__pyccel__ ${path_lib}feec/__pycache__
 	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__
-	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}feec/basics/__pycache__
 	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__
-	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__
 	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__
 	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__
 	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__
-	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__
+	rm -rf ${path_lib}geometry/__pyccel__ ${path_lib}geometry/__pycache__
+	rm -rf ${path_lib}kinetic_background/__pyccel__ ${path_lib}kinetic_background/__pycache__
+	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}kinetic_background/analytical/__pycache__
+	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__
+	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__
+	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__    
+	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__
 	rm -rf ${path_lib}pic/cc_lin_mhd_6d/__pyccel__ ${path_lib}pic/cc_lin_mhd_6d/__pycache__
 	rm -rf ${path_lib}pic/pc_lin_mhd_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
 	rm -rf ${path_lib}pic/cc_cold_plasma_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
+	rm -rf ${path_lib}psydac_api/__pyccel__ ${path_lib}psydac_api/__pycache__

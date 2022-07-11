@@ -33,7 +33,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 * F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
 
-* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [IPP pinboard](https://users.euro-fusion.org/auth)
+* F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [J. Comp. Phys. 464 (2022) 111329](https://www.sciencedirect.com/science/article/pii/S0021999122003916?via%3Dihub)
 
 ## Contributors
 

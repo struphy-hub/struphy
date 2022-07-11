@@ -2,7 +2,7 @@ from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
-from struphy.linear_algebra.schur_solver import Schur_solver
+from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
@@ -61,7 +61,9 @@ class StepMaxwell(Propagator):
         _BC = Compose(self._B, self._C)
 
         # Instantiate Schur solver (constant in this case)
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
 
     @property
     def variables(self):
@@ -144,7 +146,10 @@ class StepShearAlfven1(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
 
     @property
     def variables(self):
@@ -227,7 +232,10 @@ class StepShearAlfven2(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
 
     @property
     def variables(self):
@@ -310,7 +318,10 @@ class StepShearAlfven3(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
 
     @property
     def variables(self):
@@ -408,7 +419,10 @@ class StepMagnetosonic2(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
 
     @property
     def variables(self):
@@ -511,7 +525,10 @@ class StepMagnetosonic3(Propagator):
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
-        self._schur_solver = Schur_solver(_A, _BC, pc=pc, tol=params['tol'], maxiter=params['maxiter'], verbose=params['verbose'])
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
 
     @property
     def variables(self):
