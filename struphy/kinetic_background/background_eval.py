@@ -13,7 +13,7 @@ def f0(x : 'float[:]', v : 'float[:]', f0_spec : 'int', moms_spec : 'int[:]', pa
             Velocity at which to evaluate f0.
         
         f0_spec : int
-            Specifier for kinetic background. See Notes.
+            Specifier for kinetic background, 0 -> maxwellian_6d. See Notes.
 
         moms_spec : array[int]
             Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).

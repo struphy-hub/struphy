@@ -26,4 +26,6 @@ BTS=$STRUPHY/psydac_api/banded_to_stencil_kernels
 if [[ ! -f $BTS$SO_EXT ]] ; then
     echo 'File' $BTS$SO_EXT 'is not there, aborting.'
     exit 1
+elif [[ -f $BTS$SO_EXT ]] ; then
+    echo 'Compilation successful.'
 fi

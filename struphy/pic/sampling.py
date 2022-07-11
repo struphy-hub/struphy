@@ -47,8 +47,8 @@ def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]')
         else:
             e[0] = 1 - e[0]
         
-        particles[0:3, i_part] = e
-        particles[3:6, i_part] = v  
+        particles[i_part, 0:3] = e
+        particles[i_part, 3:6] = v  
         
         
 # ==============================================================================
@@ -83,8 +83,8 @@ def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]')
         else:
             e[0] = 1 - e[0]
         
-        particles[1:3, i_part] = e
-        particles[3:6, i_part] = v               
+        particles[i_part, 1:3] = e
+        particles[i_part, 3:6] = v               
 
         
 # ==============================================================================
@@ -261,4 +261,4 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
         linalg.cross(b0, e1, e2)
         
         # calculate Cartesian velocity components
-        particles[3:6, ip] = particles[3, ip]*cos(particles[4, ip])*b0 + particles[3, ip]*sin(particles[4, ip])*(cos(particles[5, ip])*e1 + sin(particles[5, ip])*e2)
+        particles[ip, 3:6] = particles[3, ip]*cos(particles[4, ip])*b0 + particles[3, ip]*sin(particles[4, ip])*(cos(particles[5, ip])*e1 + sin(particles[5, ip])*e2)
