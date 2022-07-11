@@ -142,6 +142,7 @@ MHD operators
 
 .. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 
+    :undoc-members:
 
 .. _avail_solvers:
 
