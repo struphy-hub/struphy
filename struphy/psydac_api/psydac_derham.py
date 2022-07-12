@@ -532,69 +532,126 @@ class Derham:
 
     def _get_neighbours(self):
         """
-        For each mpi process, compute the 6 neighbouring processes (two in each direction eta_n).
+        For each mpi process, compute the 26 neighbouring processes (3x3x3 cube except the most inner element).
         This is done in terms of N-spline start/end indices.
 
         Returns
         -------
             neighbours : array[int]
-                A 1d array[int] of shape (6,).
-                Let n=0,1,2 :
-                    arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
-                    arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
-                Values are -1 if process is at a boundary.
+                A 3d array[int] of shape (3,3,3).
+                The i-th axis is the direction eta_(i+1). Neighbours along the faces have index with two 1s,
+                neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
+
+                For fixed eta1-index k, eta2 as row index, eta3 as column index, we have:
+
+                        |         |
+                (k,0,0) | (k,0,1) | (k,0,2)
+                        |         |
+                ---------------------------
+                        |         |
+                (k,1,0) | (k,1,1) | (k,1,2)
+                        |         |
+                ---------------------------
+                        |         |
+                (k,2,0) | (k,2,1) | (k,2,2)
+                        |         |
+
+                The element is the rank number (can also be itself) and -1 if there is no neighbour.
         """
+
+        neighs = np.empty( (3,3,3), dtype=int )
+
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    comp = [i,j,k]
+                    ind = tuple(comp)
+                    neighs[ind] = self._get_neigh_1_comp(comp)
+        
+        return neighs
+
+    def _get_neigh_1_comp(self, comp):
+        """
+        Computes the process id of a neighbour in direction of comp (c.f. _neighbours).
+
+        Parameters
+        ----------
+            comp : list
+                list with 3 entries
+
+        Returns
+        -------
+            res : int
+                id of neighbouring process
+        """
+        assert len(comp) == 3
 
         # Get space info
         dims = [space.nbasis for space in self.V0.spaces]
+        index_arr = self.index_array_N
+        kinds = self.spl_kind
 
         # Get process info
         starts = self.V0.vector_space.starts
         ends = self.V0.vector_space.ends
 
-        neighbours = -1 * np.ones(6, dtype=int)
+        # Get communicator info
+        rank = self.comm.Get_rank()
+        size = self.comm.Get_size()
 
-        for n, (start, end, dim, kind) in enumerate(zip(starts, ends, dims, self.spl_kind)):
+        res = -1
 
-            # start/end indices of the right/left neighbours
-            neigh_start = end + 1
-            neigh_end = start - 1
-            if kind: 
-                neigh_start %= dim
-                neigh_end %= dim
+        # central component is always the process itself
+        if comp == [1,1,1]:
+            return rank
 
-            # get process starts/ends in the other two directions
-            n_p = (n + 1)%3
-            n_m = (n - 1)%3 
-            start_p = starts[n_p]
-            start_m = starts[n_m]
-            end_p = ends[n_p]
-            end_m = ends[n_m]
+        comp = np.array(comp)
+        kinds = np.array(kinds)
 
-            #if self.comm.Get_rank() == 0: print(f'n={n}, n_p={n_p}, n_m={n_m}, dim={dim}, neigh_start={neigh_start}, neigh_end={neigh_end}')
+        # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
+        if size == 1:
+            if (comp[kinds == False] == 1).all():
+                return rank
 
-            for i, inds in enumerate(self.index_array_N):
+        # multiple processes
+        else:
+            # initialize array which will be compared to the rows of index_arr; elements with index 2n are the starts and 2n+1 are the ends.
+            neigh_inds = [None]*6
+            
+            # in each direction find start/end index for neighbour
+            for k, co in enumerate(comp):
+                if co == 1:
+                    neigh_inds[2*k] = index_arr[rank, 2*k]
+                    neigh_inds[2*k+1] = index_arr[rank, 2*k+1]
+                
+                elif co == 0:
+                    neigh_inds[2*k+1] = starts[k] - 1
+                    if kinds[k]:
+                        neigh_inds[2*k+1] %= dims[k]
 
-                #if self.comm.Get_rank() == 0: print(f'process={i}, inds2n={inds[2*n]}, inds2n1={inds[2*n + 1]}')
+                elif co == 2:
+                    neigh_inds[2*k] = ends[k] + 1
+                    if kinds[k]:
+                        neigh_inds[2*k] %= dims[k]
 
-                # right neighbour
-                if inds[2*n] == neigh_start and inds[2*n_p] == start_p and inds[2*n_m] == start_m:
+                else:
+                    raise ValueError('Wrong value for component; must be 0 or 1 or 2 !')
+            
+            neigh_inds = np.array(neigh_inds)
 
-                    neighbours[2*n + 1] = i
-                    # process cannot be a neighbour to itself
-                    if i == self.comm.Get_rank():
-                        neighbours[2*n + 1] = -1
-                    
-                # left neighbour
-                if inds[2*n + 1] == neigh_end and inds[2*n_p + 1] == end_p and inds[2*n_m + 1] == end_m:
+            # only use indices where information is present to find the neighbours rank
+            inds = np.where(neigh_inds != None)
 
-                    neighbours[2*n] = i
-                    # process cannot be a neighbour to itself
-                    if i == self.comm.Get_rank():
-                        neighbours[2*n] = -1
+            # find ranks (row index of index_arr) which agree in start/end indices
+            index_temp = np.squeeze(index_arr[:, inds])
+            unique_ranks = np.where( np.equal( index_temp, neigh_inds[inds] ).all(1) )[0]
 
-        return neighbours
-
+            # if any row satisfies condition, return its index (=rank of neighbour)
+            if len(unique_ranks) != 0:
+                res = unique_ranks[0]
+        
+        return res
+    
     @property
     def V0(self):
         """ Discrete H1 space.
