@@ -90,7 +90,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
             Stencil/Block Vector/Matrix.
 
         arr : array
-            Numpy array with arr.size = arr_psy.toarray().size and same tuple/list structure as arr_psy.
+            Numpy array with same tuple/list structure as arr_psy. If arr is a matrix it can be stencil or band format.
 
         rank : int
             Rank of mpi process
@@ -122,7 +122,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
         else:
             arrs = arr
 
-        for vec_psy, vec in zip(arr_psy, arrs):
+        for vec_psy, vec in zip(arr_psy.blocks, arrs):
             s = vec_psy.starts
             e = vec_psy.ends
 
@@ -141,25 +141,38 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
         s = arr_psy.codomain.starts
         e = arr_psy.codomain.ends
         p = arr_psy.pads
-        tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]                       : e[2] + 1, -p[0]: p[0], -p[1]: p[1], -p[2]: p[2]]
-        tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
-                        1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
-        bts.band_to_stencil_3d(
-            arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+        tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+        
+        if arr.shape == tmp1.shape:
+            tmp2 = arr
+        else:
+            tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
+                            1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+            bts.band_to_stencil_3d(
+                arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+
         assert np.allclose(tmp1, tmp2, atol=atol)
 
     elif isinstance(arr_psy, BlockMatrix):
 
-        for row_psy, row in zip(arr_psy, arr):
+        for row_psy, row in zip(arr_psy.blocks, arr):
             for mat_psy, mat in zip(row_psy, row):
+                if mat_psy == None:
+                    continue
+
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
                 p = mat_psy.pads
-                tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]                               : e[2] + 1, -p[0]: p[0], -p[1]: p[1], -p[2]: p[2]]
-                tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
-                                1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
-                bts.band_to_stencil_3d(
-                    mat[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+                tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
+
+                if mat.shape == tmp1.shape:
+                    tmp2 = mat
+                else:
+                    tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
+                                    1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
+                    bts.band_to_stencil_3d(
+                        mat[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+
                 assert np.allclose(tmp1, tmp2, atol=atol)
 
     else:
