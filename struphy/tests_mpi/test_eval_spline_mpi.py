@@ -33,11 +33,9 @@ def test_psydac_eval(Nel, p, spl_kind, mapping, n_markers=10):
     params_map = mapping[1]
 
     DOMAIN = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+    DR = Derham(Nel, p, spl_kind, comm=comm)
 
     # DR attributes
     pn = np.array(DR.p)

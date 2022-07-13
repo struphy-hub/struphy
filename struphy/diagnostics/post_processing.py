@@ -184,18 +184,16 @@ def create_femfields(path, snapshots=None):
     dom_params = params['geometry'][dom_type]
 
     DOMAIN = Domain(dom_type, dom_params)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **dom_params)
 
     # =========================================================================================
     # DERHAM sequence (Psydac)
     # =========================================================================================
     # Grid parameters
-    Nel = params['grid']['Nel']             # Number of grid cells
+    Nel = params['grid']['Nel']           # Number of grid cells
     p = params['grid']['p']               # spline degree
-    spl_kind = params['grid']['spl_kind']        # Spline type
+    spl_kind = params['grid']['spl_kind'] # Spline type
 
-    DR = Derham(Nel, p, spl_kind, F=F_psy)
+    DR = Derham(Nel, p, spl_kind)
 
     # =========================================================================================
     # FemFields

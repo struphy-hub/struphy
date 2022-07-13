@@ -35,11 +35,9 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     params_map = mapping[1]
 
     DOMAIN = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+    DR = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
         print(f'\nNel={Nel}, p={p}, spl_kind={spl_kind}\n')

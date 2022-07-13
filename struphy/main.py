@@ -55,11 +55,7 @@ with open(file_in) as file:
 # domain object
 dom_type = params['geometry']['type']
 dom_params = params['geometry'][dom_type]
-
 domain = Domain(dom_type, dom_params)
-
-# create psydac mapping for mass matrices only
-F_psy = domain.Psydac_mapping('F', **dom_params)
 
 if rank == 0:
     print(f'domain type: {dom_type}')
@@ -75,7 +71,7 @@ nq_pr = params['grid']['nq_pr']
 nq_el = params['grid']['nq_el']
 
 derham = Derham(Nel, p, spl_kind, nq_pr, quad_order=[
-                nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], F=F_psy, comm=comm)
+                nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], comm=comm)
 
 if rank == 0:
     print('GRID parameters:')
@@ -188,14 +184,6 @@ def update():
 
         assert len(model.propagators) > 1
 
-        #for propagator in model.propagators[:-1]:
-        #    propagator(dt/2.)
-#
-        #model.propagators[-1].push(dt)
-#
-        #for propagator in model.propagators[::-1][1:]:
-        #    propagator(dt/2.)
-        
         for propagator in model.propagators:
             propagator(dt/2.)
             

@@ -31,11 +31,9 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     params_map = mapping[1]
 
     DOMAIN = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+    DR = Derham(Nel, p, spl_kind, comm=comm)
 
     # just a placeholder for the Accumulator object to be initialized later
     accum_name = 'cc_lin_mhd_6d_1'

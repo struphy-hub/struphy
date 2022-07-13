@@ -34,16 +34,18 @@ class Maxwell(StruphyModel):
 
     def __init__(self, derham, domain, params):
 
+        from struphy.psydac_api.mass_psydac import WeightedMass
         from struphy.propagators.propagators import StepMaxwell
 
         super().__init__(derham, domain, params, e_field='Hcurl', b_field='Hdiv')
 
-        # extraxt necessary parameters
+        # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
         # Assemble necessary mass matrices
-        derham.assemble_M1()
-        derham.assemble_M2()
+        self._mass_ops = WeightedMass(derham, domain)
+        self._mass_ops.assemble_M1()
+        self._mass_ops.assemble_M2()
 
         # Pointers to Stencil-/Blockvectors
         self._e = self.fields[0].vector
@@ -52,7 +54,7 @@ class Maxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         self._propagators += [StepMaxwell(self._e,
-                                          self._b, derham, solver_params)]
+                                          self._b, derham, self._mass_ops, solver_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -71,8 +73,8 @@ class Maxwell(StruphyModel):
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
-        self._scalar_quantities['en_E'][0] = .5*self._e.dot(self.derham.M1.dot(self._e))
-        self._scalar_quantities['en_B'][0] = .5*self._b.dot(self.derham.M2.dot(self._b))
+        self._scalar_quantities['en_E'][0] = .5*self._e.dot(self._mass_ops.M1.dot(self._e))
+        self._scalar_quantities['en_B'][0] = .5*self._b.dot(self._mass_ops.M2.dot(self._b))
         self._scalar_quantities['en_tot'][0] = self._scalar_quantities['en_E'][0] + \
                                                self._scalar_quantities['en_B'][0]
 
@@ -135,7 +137,7 @@ class LinearMHD(StruphyModel):
         mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
         
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(derham, derham.F.get_callable_mapping(), eq_mhd=mhd_equil)
+        self._mass_ops = WeightedMass(derham, domain, eq_mhd=mhd_equil)
         
         self._mass_ops.assemble_M2()
         self._mass_ops.assemble_M3()
@@ -148,7 +150,7 @@ class LinearMHD(StruphyModel):
             self._mass_ops.assemble_MvJ()
         
         # Assemble necessary linear MHD projection operators
-        self._mhd_ops = MHDOperators(derham, derham.F.get_callable_mapping(), mhd_equil)
+        self._mhd_ops = MHDOperators(derham, domain, mhd_equil)
         
         if self._u_space == 'Hdiv':
             self._mhd_ops.assemble_K2()

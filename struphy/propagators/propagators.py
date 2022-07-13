@@ -23,41 +23,40 @@ class StepMaxwell(Propagator):
 
     Parameters
     ---------- 
-        e : BlockVector
+        e : psydac.linalg.block.BlockVector
             FE coefficients of a 1-form.
 
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a 2-form.
 
-        DR: struphy.psydac_api.psydac_derham.Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
-    def __init__(self, e, b, DR, params):
+    def __init__(self, e, b, derham, mass_ops, params):
 
         assert isinstance(e, BlockVector)
         assert isinstance(b, BlockVector)
 
         self._e = e
         self._b = b
-        self._DR = DR
         self._info = params['info']
 
         # Preconditioner
         if params['pc'] == None:
             pc = None
         elif params['pc'] == 'fft':
-            pc = MassPre(DR.V1)
+            pc = MassPre(derham.V1)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diangonals)
-        _A = DR.M1
-        self._B = Multiply(-1./2., Compose(DR.curl.transpose(), DR.M2)) # no dt
-        self._C = Multiply(1./2., DR.curl) # no dt
+        _A = mass_ops.M1
+        self._B = Multiply(-1./2., Compose(derham.curl.transpose(), mass_ops.M2)) # no dt
+        self._C = Multiply(1./2., derham.curl) # no dt
         _BC = Compose(self._B, self._C)
 
         # Instantiate Schur solver (constant in this case)
@@ -101,19 +100,19 @@ class StepShearAlfven1(Propagator):
 
     Parameters
     ---------- 
-        u : BlockVector
+        u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 1-form.
 
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        derham : Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : WeightedMass
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
             Weighted mass matrices from struphy.psydac_api.mass_psydac.
             
-        mhd_ops : MHDOperators
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
         params: dict
@@ -187,19 +186,19 @@ class StepShearAlfven2(Propagator):
 
     Parameters
     ---------- 
-        u : BlockVector
+        u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        derham : Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : WeightedMass
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
             Weighted mass matrices from struphy.psydac_api.mass_psydac.
             
-        mhd_ops : MHDOperators
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
         params: dict
@@ -273,19 +272,19 @@ class StepShearAlfven3(Propagator):
 
     Parameters
     ---------- 
-        u : BlockVector
+        u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete vector field (0-form discretization in each component).
 
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        derham : Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : WeightedMass
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
             Weighted mass matrices from struphy.psydac_api.mass_psydac.
             
-        mhd_ops : MHDOperators
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
         params: dict
@@ -359,25 +358,25 @@ class StepMagnetosonic2(Propagator):
 
     Parameters
     ---------- 
-        n : StencilVector
+        n : psydac.linalg.block.StencilVector
             FE coefficients of a discrete 3-form.
         
-        u : BlockVector
+        u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        p : StencilVector
+        p : psydac.linalg.block.StencilVector
             FE coefficients of a discrete 3-form.
             
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
             
-        derham : Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : WeightedMass
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
             Weighted mass matrices from struphy.psydac_api.mass_psydac.
             
-        mhd_ops : MHDOperators
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
         params: dict
@@ -465,25 +464,25 @@ class StepMagnetosonic3(Propagator):
 
     Parameters
     ---------- 
-        n : StencilVector
+        n : psydac.linalg.block.StencilVector
             FE coefficients of a discrete 3-form.
         
-        u : BlockVector
+        u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete vector field (0-form discretization in each component).
 
-        p : StencilVector
+        p : psydac.linalg.block.StencilVector
             FE coefficients of a discrete 3-form.
             
-        b : BlockVector
+        b : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 2-form.
 
-        derham : Derham
+        derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : WeightedMass
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
             Weighted mass matrices from struphy.psydac_api.mass_psydac.
             
-        mhd_ops : MHDOperators
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
         params: dict

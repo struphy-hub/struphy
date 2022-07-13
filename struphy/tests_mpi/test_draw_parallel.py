@@ -39,11 +39,9 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
     params_map = mapping[1]
 
     domain = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = domain.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    derham = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
         print()

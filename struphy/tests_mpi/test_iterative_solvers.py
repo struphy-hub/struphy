@@ -37,7 +37,6 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
     # mapping
     domain = Domain(mapping[0], mapping[1])
-    F = domain.Psydac_mapping('F', **mapping[1])
     
     if show_plots:
         import matplotlib.pyplot as plt
@@ -54,10 +53,10 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
             eq_mhd.plot_profiles()
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, F=F, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm)
     
     # mass object
-    mass_mats = WeightedMass(derham, F.get_callable_mapping(), eq_mhd=eq_mhd)
+    mass_mats = WeightedMass(derham, domain, eq_mhd=eq_mhd)
     
     # assemble mass matrices
     mass_mats.assemble_M0()

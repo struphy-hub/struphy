@@ -1,7 +1,5 @@
 import pytest
 
-
-# TODO: why is spl_kind=True not working with Nel=10, 11? SAVE SIDE always take power of 2 for Nel.
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
@@ -51,15 +49,12 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
 
     # Domain object
     domain = Domain(mapping[0], mapping[1])
-
-    # Psydac mapping
-    F = domain.Psydac_mapping('F', **mapping[1])
     
     # de Rham object
     n_quad_el = [5, 5, 5]
     n_quad_pr = [4, 4, 4]
     
-    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr, quad_order=n_quad_el, der_as_mat=True, F=F, comm=MPI_COMM)
+    DERHAM_PSY = Derham(Nel, p, spl_kind, nq_pr=n_quad_pr, quad_order=n_quad_el, der_as_mat=True, comm=MPI_COMM)
     
     # grid parameters
     if mpi_rank == 0:
@@ -132,7 +127,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     print(f'Rank {mpi_rank} | Init PSYDAC `MHD_operators` ...')
     elapsed = time()
     
-    OPS_PSY = MHDOperators(DERHAM_PSY, F.get_callable_mapping(), EQ_MHD)
+    OPS_PSY = MHDOperators(DERHAM_PSY, domain, EQ_MHD)
     
     OPS_PSY.assemble_K1()
     OPS_PSY.assemble_K10()

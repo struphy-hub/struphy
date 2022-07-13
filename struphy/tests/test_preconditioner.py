@@ -8,6 +8,7 @@ import time
 
 from struphy.geometry.domain_3d import Domain
 from struphy.psydac_api.psydac_derham import Derham
+from struphy.psydac_api.mass_psydac import WeightedMass
 from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
@@ -34,40 +35,41 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping, use_fft):
     map = mapping[0]
     params_map = mapping[1]
 
-    DOMAIN = Domain(map, params_map)
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
+    domain = Domain(map, params_map)
 
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm = MPI_COMM)
+    derham = Derham(Nel, p, spl_kind, comm=MPI_COMM)
+    
+    mass = WeightedMass(derham, domain)
 
-    DR.assemble_M0()
-    DR.assemble_M1()
-    DR.assemble_M2()
-    DR.assemble_M3()
+    mass.assemble_M0()
+    mass.assemble_M1()
+    mass.assemble_M2()
+    mass.assemble_M3()
 
-    DR_spaces = [DR.V0, DR.V1, DR.V2, DR.V3]
-    DR_M = [DR.M0, DR.M1, DR.M2, DR.M3]
+    derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3]
+    derham_M = [mass.M0, mass.M1, mass.M2, mass.M3]
 
     v = []
 
-    v += [StencilVector(DR.V0.vector_space)]
+    v += [StencilVector(derham.V0.vector_space)]
     v[-1]._data = np.random.rand(*v[-1]._data.shape)
 
-    v += [BlockVector(DR.V1.vector_space)]
+    v += [BlockVector(derham.V1.vector_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 
-    v += [BlockVector(DR.V2.vector_space)]
+    v += [BlockVector(derham.V2.vector_space)]
     for v1i in v[-1]:
         v1i._data = np.random.rand(*v1i._data.shape)
 
-    v += [StencilVector(DR.V3.vector_space)]
+    v += [StencilVector(derham.V3.vector_space)]
     v[-1]._data = np.random.rand(*v[-1]._data.shape)
 
     M_pre = []
-    for space in DR_spaces:
+    for space in derham_spaces:
         M_pre += [MassPre(space, use_fft=use_fft)]
 
-    for n, (M, M_p, vn) in enumerate(zip(DR_M, M_pre, v)):
+    for n, (M, M_p, vn) in enumerate(zip(derham_M, M_pre, v)):
 
         if map == 'cuboid':
             assert np.allclose(M.toarray(), M_p.matrix.toarray())

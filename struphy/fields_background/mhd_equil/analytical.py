@@ -9,7 +9,7 @@ class HomogenSlab(EquilibriumMHD):
     
     .. math::
 
-        \mathbf B_0 = \\begin{pmatrix} B_{0,x} \\ B_{0,y} \\ B_{0,z} \end{pmatrix} = const.\,,
+        \mathbf B_0 = B_{0,x}\mathbf e_x + B_{0,y}\mathbf e_y + B_{0,z}\mathbf e_z = const.\,,
         \qquad p_0 = \\beta \\frac{|\mathbf B_0|^2}{2}\,,\qquad n_0 = 1\,.
     
     Parameters
@@ -119,15 +119,15 @@ class HomogenSlab(EquilibriumMHD):
 # =======================================================================================    
 class ShearedSlab(EquilibriumMHD):
     """
-    Sheared slab MHD equilibrium in Cartesian space (x, y, z). Profiles depend on x solely. 
+    Sheared slab MHD equilibrium in Cartesian space :math:`(x, y, z)`. Profiles depend on :math:`x` solely. 
     
     .. math::
     
-        \mathbf B_0(x) &= B_{0,z} \\begin{pmatrix} 0 \\ a/(q(x)R_0) )  \\ 1 \end{pmatrix}\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\\frac{x^2}{a^2}\,,
+        \mathbf B_0(x) &= B_{0,z} \left( \mathbf e_z + \\frac{a}{q(x)R_0}\mathbf e_y\\right)\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\\frac{x^2}{a^2}\,,
 
         p_0(x) &= \\beta\\frac{B_{0,z}^2}{2} \left( 1 + \\frac{a^2}{q(x)^2 R_0^2} \\right) + B_{0,z}^2 \\frac{a^2}{R_0^2} \left( \\frac{1}{q_0^2} - \\frac{1}{q(x)^2} \\right)\,,
 
-        n_0(x) &= n_a + ( 1 - n_a ) ( 1 - (x/a)^{n_1} )^{n_2} \,.
+        n_0(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\\frac{x}{a}\\right)^{n_1} \\right)^{n_2} \,.
     
     Parameters
     ----------
@@ -352,11 +352,11 @@ class ScrewPinch(EquilibriumMHD):
     
     .. math::
     
-        \mathbf B_0(r) &= B_{0,z}*\left( \mathbf e_z + \\frac{r}{q(r) R_0} e_\\theta \\right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+        \mathbf B_0(r) &= B_{0,z}\left( \mathbf e_z + \\frac{r}{q(r) R_0}\mathbf e_\\theta \\right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
 
         p_0(r) &= \\frac{B_{0,z}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{if $q_1$ not equal $q_0$}\,,\quad p_0(r) = \\beta \\frac{B_{0,z}^2}{2} \quad \\textnormal{else}\,,
 
-        n_0(r) &= n_a + ( 1 - n_a )( 1 - (r/a)^{n_1} )^{n_2}\,.
+        n_0(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\\frac{r}{a}\\right)^{n_1} \\right)^{n_2}\,.
     
     Parameters
     ----------
@@ -596,15 +596,15 @@ class AdhocTorus(EquilibriumMHD):
     
     .. math::
     
-        \mathbf B_0(r) &= \\frac{B_{0,\phi}R_0}{R} \left( \mathbf e_{\phi} + \\frac{r}{\\bar q(r) R_0} \mathbf e_{\\theta} \\right)\,,\qquad \\bar q(r) = q(r) \sqrt{1 - r^2/R_0^2}\,, \qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+        \mathbf B_0(r) &= \\frac{B_{0,\phi}R_0}{R} \left( \mathbf e_{\phi} + \\frac{r}{\\bar q(r) R_0} \mathbf e_{\\theta} \\right)\,,\qquad \\bar q(r) = q(r) \sqrt{1 - \\frac{r^2}{R_0^2}}\,, \qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
 
         R &= R_0 + r \cos(\\theta)
     
-        p(r) &= B_{0,\phi}^2\, a^2 \\frac{q_0}{ 2 R_0^2 (q1 - q0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{ if $q_1$ not equal $q_0$},\quad p(r) = \\beta \\frac{B_{0,\phi}^2}{2} \quad \\textnormal{else} \,,\qquad \\textnormal{(cylindrical limit)}
+        p(r) &=  \\frac{B_{0,\phi}^2\, a^2 q_0}{ 2 R_0^2 (q_1 - q_0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{ if $q_1$ not equal $q_0$},\quad p(r) = \\beta \\frac{B_{0,\phi}^2}{2} \quad \\textnormal{else} \,,\qquad \\textnormal{(cylindrical limit)}
         
         p(r) &= \\beta \\frac{B_{0,\phi}^2}{2} \left( 1 - p_1 \\frac{ r^2}{a^2} - p_2 \\frac{r^4}{a^4} \\right)\,,\qquad \\textnormal{(ad hoc profile)}
             
-        n(r) &= n_a + ( 1 - n_a ) ( 1 - (r/a)^{n_1} )^{n_2}\,.
+        n(r) &= n_a + ( 1 - n_a ) \left( 1 - \left(\\frac{r}{a}\\right)^{n_1} \\right)^{n_2}\,.
     
     Parameters
     ----------
@@ -766,7 +766,8 @@ class AdhocTorus(EquilibriumMHD):
     
     # equilibrium magnetic field (x-component)
     def b_x(self, x, y, z):
-        """Equilibrium magnetic field (x-component)."""
+        """ Equilibrium magnetic field (x-component).
+        """
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
@@ -790,7 +791,8 @@ class AdhocTorus(EquilibriumMHD):
     
     # equilibrium magnetic field (y-component)
     def b_y(self, x, y, z):
-        """Equilibrium magnetic field (y-component)."""
+        """ Equilibrium magnetic field (y-component).
+        """
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
@@ -811,7 +813,8 @@ class AdhocTorus(EquilibriumMHD):
     
     # equilibrium magnetic field (z-component)
     def b_z(self, x, y, z):
-        """Equilibrium magnetic field (z-component)."""
+        """ Equilibrium magnetic field (z-component).
+        """
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
@@ -835,7 +838,8 @@ class AdhocTorus(EquilibriumMHD):
     
     # equilibrium current (x-component, curl of equilibrium magnetic field)
     def j_x(self, x, y, z):
-        """Equilibrium current (x-component)."""
+        """ Equilibrium current (x-component).
+        """
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
@@ -859,14 +863,16 @@ class AdhocTorus(EquilibriumMHD):
 
     # equilibrium current (y-component, curl of equilibrium magnetic field)
     def j_y(self, x, y, z):
-        """Equilibrium current (y-component)."""
+        """ Equilibrium current (y-component).
+        """
         jy = 0*x
 
         return jy
 
     # equilibrium current (z-component, curl of equilibrium magnetic field)
     def j_z(self, x, y, z):
-        """Equilibrium current (z-component)."""
+        """ Equilibrium current (z-component).
+        """
         r     = self.r(x, y, z)
         theta = self.theta(x, y, z)
         phi   = self.phi(x, y, z)
@@ -890,14 +896,16 @@ class AdhocTorus(EquilibriumMHD):
 
     # equilibrium pressure
     def p(self, x, y, z):
-        """Equilibrium pressure."""
+        """ Equilibrium pressure.
+        """
         pp = self.pr(self.r(x, y, z))
 
         return pp
 
     # equilibrium number density
     def n(self, x, y, z):
-        """Equilibrium number density."""
+        """ Equilibrium number density.
+        """
         nn = self.nr(self.r(x, y, z))
 
         return nn

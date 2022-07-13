@@ -40,7 +40,6 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
     # mapping
     domain = Domain(mapping[0], mapping[1])
-    F = domain.Psydac_mapping('F', **mapping[1])
     
     if show_plots:
         import matplotlib.pyplot as plt
@@ -66,7 +65,7 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
     nq_pr = p.copy()
     
-    derham = Derham(Nel, p, spl_kind, nq_pr, quad_order=p, der_as_mat=True, F=F, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, nq_pr, quad_order=p, der_as_mat=True, comm=mpi_comm)
     
     # Struphy tensor spline space objects (one for tensor product projectors and one for general projectors)
     space1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0])
@@ -84,7 +83,7 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     space_str2.set_projectors('tensor')
     
     # MHD operator objects
-    mhd_psy = mhd_ops_psy.MHDOperators(derham, F.get_callable_mapping(), eq_mhd)
+    mhd_psy = mhd_ops_psy.MHDOperators(derham, domain, eq_mhd)
     
     mhd_str10 = mhd_ops_str1.MHDOperators(space_str1, eq_mhd, basis_u=0) # MHD velocity is 0-form^3
     mhd_str12 = mhd_ops_str1.MHDOperators(space_str1, eq_mhd, basis_u=2) # MHD velocity is 2-form

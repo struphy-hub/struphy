@@ -26,21 +26,8 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
     assert comm.size >= 2
     rank = comm.Get_rank()
 
-    # Domain object
-    map = mapping[0]
-    params_map = mapping[1]
-
-    DOMAIN = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
-
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
-    DR.assemble_M0()
-    DR.assemble_M1()
-    DR.assemble_M2()
-    DR.assemble_M3()
-    DR.assemble_M0vec_nonsymb(DOMAIN)
+    DR = Derham(Nel, p, spl_kind, comm=comm)
 
     if rank == 0:
         print(
