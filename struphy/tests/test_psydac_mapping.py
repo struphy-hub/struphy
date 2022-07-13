@@ -42,12 +42,11 @@ def test_psydac_mapping(mapping):
 
     # Struphy domain object
     DOMAIN = Domain(map, params)
-    Mapping_psydac = DOMAIN.Psydac_mapping('F', **params)
 
-    print(Mapping_psydac._expressions, '\n')
+    print(DOMAIN.F_psy._expressions, '\n')
 
     # Psydac mapping
-    F_PSY = Mapping_psydac.get_callable_mapping()
+    F_PSY = DOMAIN.F_psy.get_callable_mapping()
 
     # Comparisons at random logical point
     eta = np.random.rand(3)

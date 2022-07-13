@@ -40,7 +40,7 @@ class Domain():
         #                      analytical mappings
         # ==============================================================
 
-        # Note : in future versions you only need to specify the Psydac_mapping expressions.
+        # Note : in future versions you only need to specify the PsydacMapping expressions.
 
         # ================== cuboid ====================
         if kind_map == 'cuboid':
@@ -52,10 +52,12 @@ class Domain():
             else:
                 params = params_map
 
+            # create interface to Psydac mappings
+            self.PsydacMapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
+                                               'y': 'l2 + (r2 - l2)*x2',
+                                               'z': 'l3 + (r3 - l3)*x3'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'l1 + (r1 - l1)*x1',
-                                                'y': 'l2 + (r2 - l2)*x2',
-                                                'z': 'l3 + (r3 - l3)*x3'}
 
             self._pole = False
 
@@ -68,10 +70,12 @@ class Domain():
             else:
                 params = params_map
 
+            # create interface to Psydac mappings
+            self.PsydacMapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
+                                               'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                               'z': 'Lz*x3'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': '(a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0',
-                                                'y': '(a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
-                                                'z': 'Lz*x3'}
 
             if self.params_map[0] == 0.:
                 self._pole = True
@@ -87,10 +91,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                               'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                               'z': 'Lz*x3'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
-                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
-                                                'z': 'Lz*x3'}
 
             self._pole = False
 
@@ -103,10 +108,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
+                                               'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
+                                               'z': 'Lz*x3'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
-                                                'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
-                                                'z': 'Lz*x3'}
 
             self._pole = False
 
@@ -119,10 +125,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
+                                               'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                               'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
-                                                'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
-                                                'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
 
             if self.params_map[0] == 0.:
                 self._pole = True
@@ -139,10 +146,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
+                                               'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
-                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                                'z': 'z0 + (x3*Lz)'}
 
             self._pole = True
 
@@ -156,10 +164,12 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
+                                               'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
-                                                'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
-                                                'z': 'z0 + (x3*Lz)'}
+            
             self._pole = True
 
         # ============ shafranov shift =================
@@ -171,11 +181,12 @@ class Domain():
                           'rx': 1., 'ry': 1., 'Lz': 1., 'delta': 0.2}
             else:
                 params = params_map
-
+                
+            self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
+                                               'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
-                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                                'z': 'z0 + (x3*Lz)'}
 
             self._pole = True
 
@@ -189,10 +200,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
+                                               'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
-                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                                'z': 'z0 + (x3*Lz)'}
 
             self._pole = True
 
@@ -206,10 +218,11 @@ class Domain():
             else:
                 params = params_map
 
+            self.PsydacMapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
+                                               'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
-            self.Psydac_mapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
-                                                'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
-                                                'z': 'z0 + (x3*Lz)'}
 
             self._pole = True
 
@@ -397,7 +410,7 @@ class Domain():
             self._cx = np.zeros((1, 1, 1), dtype=float)
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
-
+        
         # trasform parameter list to numpy array
         self._params_map = np.array(self.params_map)
 
@@ -440,8 +453,9 @@ class Domain():
             '1_to_1_1': 41, '1_to_1_1': 42, '1_to_1_1': 43,
             '1_to_1_1': 51, '1_to_1_1': 52, '1_to_1_1': 53,
             '0_to_3': 4, '3_to_0': 5}
-
-    class Psydac_mapping(Mapping):
+        
+        
+    class PsydacMapping(Mapping):
         '''To create a psydac domain.'''
 
         _expressions = None
@@ -457,6 +471,11 @@ class Domain():
     def params_map(self):
         '''List of mapping parameters.'''
         return self._params_map
+    
+    @property
+    def F_psy(self):
+        '''Symbolic psydac mapping.'''
+        return self._F_psy
 
     @property
     def pole(self):

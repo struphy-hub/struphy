@@ -38,11 +38,9 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     params_map = mapping[1]
 
     DOMAIN = Domain(map, params_map)
-    # create psydac mapping for mass matrices only
-    F_psy = DOMAIN.Psydac_mapping('F', **params_map)
 
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+    DR = Derham(Nel, p, spl_kind, comm=comm)
 
     # Struphy Derham (deprecated)
     nq_el = [4, 4, 4]

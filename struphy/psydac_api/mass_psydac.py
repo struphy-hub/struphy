@@ -7,6 +7,8 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+
 from struphy.psydac_api.mass_kernels_psydac import kernel_1d, kernel_2d, kernel_3d
 
 
@@ -16,20 +18,22 @@ class WeightedMass:
     
     Parameters
     ----------
-        derham : Derham
-            Discrete de rham sequence from struphy.psydac_api.psydac_derham.
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
 
-        F : CallableMapping
-            Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
+        domain : struphy.geometry.domain_3d.Domain
+            All things mapping.
             
         weights : obj
-            A general object that provides access to callables that serve as weight functions (e.g. an instance of EquilibriumMHD from struphy.fields_background.mhd_equil).
+            A general object that provides access to callables that serve as weight functions (e.g. instance of a subclass of struphy.fields_background.mhd_equil.base.EquilibriumMHD).
     """
     
-    def __init__(self, derham, F, **weights):
+    def __init__(self, derham, domain, **weights):
         
         self._derham = derham
-        self._F = F
+        self._domain = domain
+        
+        F = domain.F_psy.get_callable_mapping()
         
         # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
         def DF(e1, e2, e3):
@@ -126,70 +130,95 @@ class WeightedMass:
             self._fun_M2J = fun_M2J
             self._fun_MvJ = fun_MvJ
      
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+    
     
     @property
     def derham(self):
         return self._derham
     
     @property
-    def F(self):
-        return self._F
+    def domain(self):
+        return self._domain
     
     
     def assemble_M0(self):
         """  Assemble mass matrix for L2-scalar product in V0.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M0 ...')
         self._M0 = get_mass(self.derham.V0, self.derham.V0, self._fun_M0)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M1(self):
         """  Assemble mass matrix for L2-scalar product in V1.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M1 ...')
         self._M1 = get_mass(self.derham.V1, self.derham.V1, self._fun_M1)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2(self):
         """  Assemble mass matrix for L2-scalar product in V2.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M2 ...')
         self._M2 = get_mass(self.derham.V2, self.derham.V2, self._fun_M2)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M3(self):
         """  Assemble mass matrix for L2-scalar product in V3.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M3 ...')
         self._M3 = get_mass(self.derham.V3, self.derham.V3, self._fun_M3)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Mv(self):
         """  Assemble mass matrix for L2-scalar product in V0vec.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling Mv ...')
         self._Mv = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mv)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
               
     def assemble_M1n(self):
         """  Assemble mass matrix for L2-scalar product in V1 weighted with MHD number density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M1n ...')
         self._M1n = get_mass(self.derham.V1, self.derham.V1, self._fun_M1n)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2n(self):
         """  Assemble mass matrix for L2-scalar product in V2 weighted with MHD number density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M2n ...')
         self._M2n = get_mass(self.derham.V2, self.derham.V2, self._fun_M2n)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Mvn(self):
         """  Assemble mass matrix for L2-scalar product in V0vec weighted with MHD number density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling Mvn ...')
         self._Mvn = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mvn)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
             
     def assemble_M1J(self):
         """  Assembles mass matrix for L2-scalar product in V1 weighted with cross product of MHD equilibrium current density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M1J ...')
         self._M1J = get_mass(self.derham.V1, self.derham.V2, self._fun_M1J)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2J(self):
         """  Assembles mass matrix for L2-scalar product in V2 weighted with cross product of MHD equilibrium current density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling M2J ...')
         self._M2J = get_mass(self.derham.V2, self.derham.V2, self._fun_M2J)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_MvJ(self):
         """  Assembles mass matrix for L2-scalar product in V0vec weighted with cross product of MHD equilibrium current density.
         """
+        if self.derham.comm.Get_rank() == 0: print('Assembling MvJ ...')
         self._MvJ = get_mass(self.derham.V0vec, self.derham.V2, self._fun_MvJ)
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
         
     @property
@@ -374,7 +403,7 @@ def get_mass(V, W, weight=None):
 
             # assemble matrix if weight is not zero
             if np.any(mat_w):
-                M = StencilMatrix(wspace.vector_space, vspace.vector_space)
+                M = StencilMatrix(wspace.vector_space, vspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
                 
                 if V.ldim == 1:
                     
@@ -388,7 +417,6 @@ def get_mass(V, W, weight=None):
 
                     kernel_3d(el_loc_indices[0], el_loc_indices[1], el_loc_indices[2], vspace.degree[0], vspace.degree[1], vspace.degree[2], wspace.degree[0], wspace.degree[1], wspace.degree[2], periodic[0], periodic[1], periodic[2], int(starts_out[0]), int(starts_out[1]), int(starts_out[2]), pads_out[0], pads_out[1], pads_out[2], nq[0], nq[1], nq[2], wts[0], wts[1], wts[2], basis_o[0], basis_o[1], basis_o[2], basis_i[0], basis_i[1], basis_i[2], mat_w, M._data)
 
-                #M.update_ghost_regions()
                 
                 blocks[-1] += [M]
                 
@@ -399,5 +427,8 @@ def get_mass(V, W, weight=None):
         M = blocks[0][0] 
     else:
         M = BlockMatrix(W.vector_space, V.vector_space, blocks)
+        
+    #M.update_ghost_regions()
+    #M.remove_spurious_entries()
                 
     return M

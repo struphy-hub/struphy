@@ -1,67 +1,45 @@
 #!/usr/bin/env python3
 
 from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.vector import ProductFemSpace
 
-from psydac.core.bsplines import elevate_knots
-from psydac.utilities.utils import unroll_edges
-
-from sympde.topology import elements_of
-from sympde.expr import BilinearForm, integral
-from sympde.calculus import dot
 from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
-from sympde.topology.mapping import Mapping
 
-from sympy import sqrt
-
-#from struphy.psydac_api.global_projectors import Projector_H1, Projector_Hcurl, Projector_Hdiv, Projector_L2, Projector_H1vec
 from struphy.psydac_api.H1vec_psydac import Projector_H1vec
 
-from struphy.psydac_api.mass_psydac import get_mass
-
-import struphy.feec.bsplines as bsp
-
 import numpy as np
-from mpi4py import MPI
 
 
 class Derham:
     """
-    Psydac API for 
-    
-    1. the discrete Derham sequence on the logical unit cube (3d)
-    2. corresponding mass matrices from mapping F
+    Psydac API for the discrete Derham sequence on the logical unit cube (3d).
     
     Parameters
     ----------
-        Nel: list[int]
+        Nel : list[int]
             Number of elements in each direction.
 
-        p: list[int]
+        p : list[int]
             Spline degree in each direction.
 
-        spl_kind: list[boolean]
+        spl_kind : list[bool]
             Kind of spline in each direction (True=periodic, False=clamped).
 
-        nq_pr: list[int]
+        nq_pr : list[int]
             Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
 
-        quad_order: list[int]
+        quad_order : list[int]
             Degree of Gauss-Legendre quadrature in each direction (default = p, leads to p + 1 quadrature points per cell).
 
-        der_as_mat: boolean
+        der_as_mat : bool
             Whether derivatives are returned as matrices (True) or operators (False).
 
-        F: Psydac symbolic mapping
-            The mapping from logical to physical space.
-
-        comm : Intracomm
-            MPI communicator from mpi4py.MPI.Intracomm.
+        comm : mpi4py.MPI.Intracomm
+            MPI communicator.
     """
 
-    def __init__(self, Nel, p, spl_kind, nq_pr=None, quad_order=None, der_as_mat=True, F=None, comm=None):
+    def __init__(self, Nel, p, spl_kind, nq_pr=None, quad_order=None, der_as_mat=True, comm=None):
  
         # Input parameters:
         assert len(Nel) == 3
@@ -78,30 +56,19 @@ class Derham:
 
         self._comm = comm
 
-        if nq_pr == None:
+        if nq_pr is None:
             # exact histopolation of products of B-splines
             self._nq_pr = [pi + 1 for pi in p]
         else:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
             
-        if quad_order == None:
+        if quad_order is None:
             # exact integration of products of B-splines
             self._quad_order = [pi for pi in p]
         else:
             assert len(quad_order) == 3
             self._quad_order = quad_order
-
-        if F == None:
-            self._F = Cube('C', bounds1=(0, 1), bounds2=(
-                0, 1), bounds3=(0, 1))  # no mapping
-        else:
-            assert isinstance(F, Mapping)
-            self._F = F
-
-        self._DF = self._F.jacobian
-        self._sqrt_g = sqrt((self._DF.T*self._DF).det())
-        self._DFinv = self._DF.inv()
 
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
@@ -125,7 +92,7 @@ class Derham:
         self._V2 = _derham.V2
         self._V3 = _derham.V3
         
-        # H1xH1xH1 (needed in pressure coupling for instance)
+        # H1xH1xH1=H1vec space (needed in pressure coupling for instance)
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
         
         self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
@@ -147,13 +114,11 @@ class Derham:
         self._indN = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V0.spaces]
         self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V3.spaces]
 
-        # only for M1 Mac users
-        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
-
         # Distribute info on domain decomposition
         if comm is not None:
             self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
             self._neighbours = self._get_neighbours()
+            
 
     @property
     def Nel(self):
@@ -190,12 +155,6 @@ class Derham:
         """ Whether derivatives are returned as matrices (True) or operators (False).
         """
         return self._der_as_mat
-
-    @property
-    def F(self):
-        """ Psydac mapping used in mass matrices.
-        """
-        return self._F
 
     @property
     def comm(self):
@@ -267,193 +226,6 @@ class Derham:
         """
         return self._neighbours
 
-    def assemble_M0(self):
-        """ Assemble mass matrix for L2-scalar product in V0.
-        """
-
-        print('Assembling M0 ...')
-        _u0, _v0 = elements_of(self._derham_symb.V0, names='u0, v0')
-
-        _a0 = BilinearForm((_u0, _v0), integral(
-            self._domain_log, _u0 * _v0 * self._sqrt_g))
-
-        self._a0_h = discretize(
-            _a0, self._domain_log_h, (self._V0, self._V0), backend=PSYDAC_BACKEND_GPYCCEL)
-
-        self._M0 = self._a0_h.assemble()
-        print('Done.')
-
-    def assemble_M1(self):
-        """ Assemble mass matrix for L2-scalar product in V1.
-        """
-
-        print('Assembling M1 ...')
-        _u1, _v1 = elements_of(self._derham_symb.V1, names='u1, v1')
-
-        _a1 = BilinearForm((_u1, _v1), integral(
-            self._domain_log, dot(self._DFinv.T*_u1, self._DFinv.T*_v1) * self._sqrt_g))
-
-        self._a1_h = discretize(
-            _a1, self._domain_log_h, (self._V1, self._V1), backend=PSYDAC_BACKEND_GPYCCEL)
-
-        self._M1 = self._a1_h.assemble()
-        print('Done.')
-
-    def assemble_M2(self):
-        """ Assemble mass matrix for L2-scalar product in V2.
-        """
-
-        print('Assembling M2 ...')
-        _u2, _v2 = elements_of(self._derham_symb.V2, names='u2, v2')
-
-        _a2 = BilinearForm((_u2, _v2), integral(
-            self._domain_log, dot(self._DF*_u2, self._DF*_v2) / self._sqrt_g))
-
-        self._a2_h = discretize(
-            _a2, self._domain_log_h, (self._V2, self._V2), backend=PSYDAC_BACKEND_GPYCCEL)
-
-        self._M2 = self._a2_h.assemble()
-        print('Done.')
-
-    def assemble_M3(self):
-        """ Assemble mass matrix for L2-scalar product in V3.
-        """
-
-        print('Assembling M3 ...')
-        _u3, _v3 = elements_of(self._derham_symb.V3, names='u3, v3')
-
-        _a3 = BilinearForm((_u3, _v3), integral(
-            self._domain_log, _u3 * _v3 / self._sqrt_g))
-
-        self._a3_h = discretize(
-            _a3, self._domain_log_h, (self._V3, self._V3), backend=PSYDAC_BACKEND_GPYCCEL)
-
-        self._M3 = self._a3_h.assemble()
-        print('Done.')
-            
-    def assemble_M0_nonsymb(self, domain):
-        """ 
-        Assemble mass matrix for L2-scalar product in V0 without psydac's symbolic mapping.
-        
-        Parameters
-        ----------
-            domain : Domain
-                Mapped domain object from struphy.geometry.domain_3d
-        """
-
-        metric = [[lambda e1, e2, e3 : abs(domain.evaluate(e1, e2, e3, 'det_df'))]]
-        
-        self._M0 = get_mass(self.V0, self.V0, metric)
-        
-    def assemble_M1_nonsymb(self, domain):
-        """ 
-        Assemble mass matrix for L2-scalar product in V1 without psydac's symbolic mapping.
-        
-        Parameters
-        ----------
-            domain : Domain
-                Mapped domain object from struphy.geometry.domain_3d
-        """
-        
-        metric = []
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_11')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_12')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_13')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_21')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_22')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_23')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_31')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_32')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_inv_33')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._M1 = get_mass(self.V1, self.V1, metric)
-        
-    def assemble_M2_nonsymb(self, domain):
-        """ 
-        Assemble mass matrix for L2-scalar product in V2 without psydac's symbolic mapping.
-        
-        Parameters
-        ----------
-            domain : Domain
-                Mapped domain object from struphy.geometry.domain_3d
-        """
-        
-        metric = []
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_11')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_12')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_13')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_21')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_22')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_23')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_31')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_32')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_33')/abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._M2 = get_mass(self.V2, self.V2, metric)
-        
-    def assemble_M3_nonsymb(self, domain):
-        """ 
-        Assemble mass matrix for L2-scalar product in V3 without psydac's symbolic mapping.
-        
-        Parameters
-        ----------
-            domain : Domain
-                Mapped domain object from struphy.geometry.domain_3d
-        """
-
-        metric = [[lambda e1, e2, e3 : 1/abs(domain.evaluate(e1, e2, e3, 'det_df'))]]
-        
-        self._M3 = get_mass(self.V3, self.V3, metric)
-        
-    def assemble_M0vec_nonsymb(self, domain):
-        """ 
-        Assemble mass matrix for L2-scalar product in V0vec without psydac's symbolic mapping.
-        
-        Parameters
-        ----------
-            domain : Domain
-                Mapped domain object from struphy.geometry.domain_3d
-        """
-        
-        metric = []
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_11')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_12')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_13')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_21')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_22')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_23')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        metric += [[]]
-
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_31')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_32')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        metric[-1] += [lambda e1, e2, e3 : domain.evaluate(e1, e2, e3, 'g_33')*abs(domain.evaluate(e1, e2, e3, 'det_df'))]
-        
-        self._M0vec = get_mass(self.V0vec, self.V0vec, metric)
         
     def _get_decomp_arrays(self):
         """
@@ -729,51 +501,6 @@ class Derham:
         """ Discrete divergence H(div) -> L2.
         """
         return self._div
-
-    @property
-    def M0(self):
-        """ Mass matrix for L2-scalar product in V0.
-        """
-        if hasattr(self, '_M0'):
-            return self._M0
-        else:
-            raise AttributeError('M0 not assembled.')
-
-    @property
-    def M1(self):
-        """ Mass matrix for L2-scalar product in V1.
-        """
-        if hasattr(self, '_M1'):
-            return self._M1
-        else:
-            raise AttributeError('M1 not assembled.')
-
-    @property
-    def M2(self):
-        """ Mass matrix for L2-scalar product in V2.
-        """
-        if hasattr(self, '_M2'):
-            return self._M2
-        else:
-            raise AttributeError('M2 not assembled.')
-
-    @property
-    def M3(self):
-        """ Mass matrix for L2-scalar product in V3.
-        """
-        if hasattr(self, '_M3'):
-            return self._M3
-        else:
-            raise AttributeError('M3 not assembled.')
-            
-    @property
-    def M0vec(self):
-        """ Mass matrix for L2-scalar product in V0vec.
-        """
-        if hasattr(self, '_M0vec'):
-            return self._M0vec
-        else:
-            raise AttributeError('M0vec not assembled.')
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):

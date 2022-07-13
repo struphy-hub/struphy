@@ -8,6 +8,8 @@ from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockMatrix
 from psydac.feec.global_projectors import GlobalProjector
 
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_1d as assemble_1d
@@ -25,11 +27,11 @@ class MHDOperators:
 
     Parameters
     ----------
-        derham : Derham
-            Discrete de rham sequence from struphy.psydac_api.psydac_derham.
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
             
-        F : CallableMapping
-            Evaluation of metric coefficients from sympde.topology.callable_mapping and obtained via F.get_callable_mapping(), where F is a symbolic mapping.
+        domain : struphy.geometry.domain_3d.Domain
+            All things mapping.
 
         eq_mhd : EquilibriumMHD
             MHD equilibrium from struphy.fields_background.mhd_equil (pullbacks must be enabled).
@@ -43,7 +45,12 @@ class MHDOperators:
     In order not to modify the `MHDOperator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
     """
 
-    def __init__(self, derham, F, eq_mhd, assemble_all=False):
+    def __init__(self, derham, domain, eq_mhd, assemble_all=False):
+        
+        self._derham = derham
+        self._domain = domain
+        
+        F = domain.F_psy.get_callable_mapping()
 
         # Psydac spline spaces
         self._V0 = derham.V0
@@ -256,104 +263,162 @@ class MHDOperators:
             self.assemble_Z20()
             self.assemble_S20()
             
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+            
+    @property
+    def derham(self):
+        return self._derham
+    
+    @property
+    def domain(self):
+        return self._domain
+            
     # MHD operators with velocity (up) as 0-form^3:
     def assemble_K0(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling K0 and K0T ...')
         self.K0 = MHDOperator(self._P3, self._V3, self._fun_K0)
         self.K0T = self.K0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Q0(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling Q0 and Q0T ...')
         self.Q0 = MHDOperator(self._P2, self._V0vec, self._fun_Q0)
         self.Q0T = self.Q0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_T0(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling T0 and T0T ...')
         self.T0 = MHDOperator(self._P1, self._V0vec, self._fun_T0)
         self.T0T = self.T0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_S0(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling S0 and S0T ...')
         self.S0 = MHDOperator(self._P2, self._V0vec, self._fun_S0)
         self.S0T = self.S0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_J0(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling J0 and J0T ...')
         self.J0 = MHDOperator(self._P2, self._V0vec, self._fun_J0)
         self.J0T = self.J0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     # MHD operators with velocity (up) as 1-form:
     def assemble_K1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling K1 and K1T ...')
         self.K1 = MHDOperator(self._P3, self._V3, self._fun_K1)
         self.K1T = self.K1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Q1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling Q1 and Q1T ...')
         self.Q1 = MHDOperator(self._P2, self._V1, self._fun_Q1)
         self.Q1T = self.Q1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_W1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling W1 and W1T ...')
         self.W1 = MHDOperator(self._P1, self._V1, self._fun_W1)
         self.W1T = self.W1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_U1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling U1 and U1T ...')
         self.U1 = MHDOperator(self._P2, self._V1, self._fun_U1)
         self.U1T = self.U1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_P1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling P1 and P1T ...')
         self.P1 = MHDOperator(self._P1, self._V2, self._fun_P1)
         self.P1T = self.P1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling S1 and S1T ...')
         self.S1 = MHDOperator(self._P2, self._V1, self._fun_S1)
         self.S1T = self.S1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_T1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling T1 and T1T ...')
         self.T1 = MHDOperator(self._P1, self._V1, self._fun_T1)
         self.T1T = self.T1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_X1(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling X1 and X1T ...')
         self.X1 = MHDOperator(self._P0vec, self._V1, self._fun_X1)
         self.X1T = self.X1.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_K10(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling K10 and K10T ...')
         self.K10 = MHDOperator(self._P0, self._V0, self._fun_K10)
         self.K10T = self.K10.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S10(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling S10 and S10T ...')
         self.S10 = MHDOperator(self._P1, self._V1, self._fun_S10)
         self.S10T = self.S10.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     # MHD operators with velocity (up) as 2-form:
     def assemble_K2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling K2 and K2T ...')
         self.K2 = MHDOperator(self._P3, self._V3, self._fun_K2)
         self.K2T = self.K2.transpose()
     
     def assemble_Q2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling Q2 and Q2T ...')
         self.Q2 = MHDOperator(self._P2, self._V2, self._fun_Q2)
         self.Q2T = self.Q2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_T2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling T2 and T2T ...')
         self.T2 = MHDOperator(self._P1, self._V2, self._fun_T2)
         self.T2T = self.T2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_P2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling P2 and P2T ...')
         self.P2 = MHDOperator(self._P2, self._V2, self._fun_P2)
         self.P2T = self.P2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling S2 and S2T ...')
         self.S2 = MHDOperator(self._P2, self._V2, self._fun_S2)
         self.S2T = self.S2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_X2(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling X2 and X2T ...')
         self.X2 = MHDOperator(self._P0vec, self._V2, self._fun_X2)
         self.X2T = self.X2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
      
     def assemble_Y20(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling Y20 and Y20T ...')
         self.Y20 = MHDOperator(self._P3, self._V0, self._fun_Y20)
         self.Y20T = self.Y20.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Z20(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling Z20 and Z20T ...')
         self.Z20 = MHDOperator(self._P1, self._V2, self._fun_Z20)
         self.Z20T = self.Z20.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S20(self):
+        if self.derham.comm.Get_rank() == 0: print('Assembling S20 and S20T ...')
         self.S20 = MHDOperator(self._P1, self._V2, self._fun_S20)
         self.S20T = self.S20.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
 
 
 class MHDOperator(LinOpWithTransp):
@@ -464,7 +529,7 @@ class MHDOperator(LinOpWithTransp):
             for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
 
                 # Initiate cell of block matrix
-                _dofs_mat = StencilMatrix(Vspace, Wspace)
+                _dofs_mat = StencilMatrix(Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
 
                 _starts_in = _dofs_mat.domain.starts
                 _ends_in = _dofs_mat.domain.ends
