@@ -29,6 +29,7 @@ setup(
              'scripts/example_lin_Vlasov_Maxwell',
              'scripts/example_maxwell_serial',
              'scripts/example_maxwell_mpi_3',
+             'scripts/example_linearmhd_mpi_4'
              ],
     # list of package dependencies (if necessary)
     install_requires=[

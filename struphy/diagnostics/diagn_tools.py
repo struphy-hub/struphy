@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def fourier_1d(values, code, grids, grids_phys=None, component=0, slice_at=[None, 0, 0], plot=False):
+def fourier_1d(values, code, grids, grids_phys=None, component=0, slice_at=[None, 0, 0], plot=False, disp_name=None, disp_params={}):
     """
     Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
@@ -51,6 +51,12 @@ def fourier_1d(values, code, grids, grids_phys=None, component=0, slice_at=[None
 
         plot : boolean
             Plot result if True, otherwise return things.
+            
+        disp_name : str
+            The name of the dispersion relation class in struphy.dispersion_relations.analytic to be used for analytic comparison.
+        
+        disp_params : dict
+            Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
 
     Returns
     -------
@@ -122,21 +128,22 @@ def fourier_1d(values, code, grids, grids_phys=None, component=0, slice_at=[None
         fig, ax     = plt.subplots(1, 1, figsize=(10,10))
         colormap    = 'plasma'
         K, W        = np.meshgrid(kvec, omega)
-        ax.contourf(K, W, dispersion**2/ (dispersion**2).max(), cmap=colormap, norm=colors.LogNorm())
+        lvls        = np.logspace(-15, -1, 27)
+        disp_plot = ax.contourf(K, W, dispersion**2/ (dispersion**2).max(), cmap=colormap, norm=colors.LogNorm(), levels=lvls)
+        plt.colorbar(ticks=[1e-12, 1e-9, 1e-6, 1e-3], mappable=disp_plot, format='%.0e')
         title = 'code: ' + code 
         ax.set_title(title) 
         ax.set_xlabel('$k$ [a.u.]')
         ax.set_ylabel('$\omega$ [a.u.]')
 
         # analytic solution:
-        if code == 'maxwell_psydac' or code == 'Maxwell':
-            disp = analytic.Maxwell1D()
-            kpara = kvec
-            kperp = None
-        else:
-            raise NotImplementedError('Analytic dispersion relation not implemented.')
+        disp_class = getattr(analytic, disp_name)
+        disp = disp_class(**disp_params)
+        
+        kpara = kvec
+        kperp = None
 
-        branches = disp.spectrum(kpara, kperp=kperp)
+        branches = disp(kpara, kperp=kperp)
         set_min = 0.
         set_max = 0.
         for key, branch in branches.items():

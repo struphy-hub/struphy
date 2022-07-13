@@ -12,4 +12,4 @@ values_log, values_phys, grids_log, grids_phys = eval_femfields(
 
 # fft in (t, z) of first component of e_field on physical grid
 fourier_1d(values_log['e_field'], code, grids_log['e_field'],
-           grids_phys=grids_phys['e_field'], component=0, slice_at=[0, 0, None], plot=True)
+           grids_phys=grids_phys['e_field'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Maxwell1D')
