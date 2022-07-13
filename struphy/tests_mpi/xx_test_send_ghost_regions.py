@@ -35,6 +35,14 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     # Psydac discrete Derham sequence
     DR = Derham(Nel, p, spl_kind, comm=comm)
 
+    if rank == 0:
+        print(f'rank {rank} | domain_array:\n {DR.domain_array}\nrank {rank} | spl_kind: {spl_kind}')
+
+    comm.Barrier()
+    print(f'rank {rank} | neighbours: \n {DR.neighbours}')
+
+    return
+
     # just a placeholder for the Accumulator object to be initialized later
     accum_name = 'cc_lin_mhd_6d_1'
 
@@ -211,6 +219,27 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
 
 
 if __name__ == '__main__':
-    for spl_kind in [[False, False, True], [False, True, False], [True, False, False]]:
-        test_send_ghost_regions([12, 9, 10], [2, 3, 4], spl_kind, ['cuboid', {
+
+    # run with 1 and 2 processes:
+    # for spl_kind in [[False, False, True], 
+    #                  [False, True, False], 
+    #                  [True, False, False],
+    #                  [False, True, True],
+    #                  [True, False, True],
+    #                  [True, True, False],
+    #                  [True, True, True]]:
+    #     test_send_ghost_regions([8, 8, 8], [2, 2, 2], spl_kind, ['cuboid', {
+    #         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)
+
+    # run with 4 processes:
+    test_send_ghost_regions([4, 4, 16], [2, 2, 2], [False, False, True], ['cuboid', {
+            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)
+
+    test_send_ghost_regions([4, 16, 4], [2, 2, 2], [False, True, False], ['cuboid', {
+            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)
+
+    test_send_ghost_regions([16, 4, 4], [2, 2, 2], [True, False, False], ['cuboid', {
+            'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)
+
+    test_send_ghost_regions([4, 16, 16], [2, 2, 2], [False, True, True], ['cuboid', {
             'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)

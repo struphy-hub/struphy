@@ -60,7 +60,8 @@ ACC	 := ${path_lib}pic/accum_kernels
 KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
 KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
 
-# PUSH := ${path_lib}pic/pusher_kernels
+PUSH := ${path_lib}pic/pusher_kernels
+PUTL := ${path_lib}pic/pusher_utilities
 # PPP  := ${path_lib}pic/pusher_pos
 # PV2  := ${path_lib}pic/pusher_vel_2d
 # PV3  := ${path_lib}pic/pusher_vel_3d
@@ -74,7 +75,7 @@ PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
 PLM  := ${path_lib}psydac_api/mass_kernels_psydac
 BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
 
-SOURCES := $(LAC).py $(LAT).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(M3N).py $(M3B).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(ACC).py $(KPG).py $(KPGM).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
+SOURCES := $(LAC).py $(LAT).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(M3N).py $(M3B).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(ACC).py $(KPG).py $(KPGM).py $(PUSH).py $(PUTL).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -166,6 +167,12 @@ $(KPG)$(SO_EXT) : $(KPG).py
     
 $(KPGM)$(SO_EXT) : $(KPGM).py
 	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+
+$(PUSH)$(SO_EXT) : $(PUSH).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $(LAC)$(SO_EXT) $(MVF)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
+	pyccel $< $(FLAGS)
 
 # $(PUSH)$(SO_EXT) : $(PUSH).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
 # 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)

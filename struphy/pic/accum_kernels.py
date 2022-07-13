@@ -271,6 +271,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         b[2] = eval_3d.eval_spline_mpi_3d(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
 
+        # operator bx() as matrix
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] = b[1]
         b_prod[1, 0] = b[2]
@@ -278,7 +279,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = b[0]
 
-        # evaluate Jacobian, result in df
+        # evaluate inverse metric tensor, result in g_inv
         map_eval.g_inv(eta1, eta2, eta3,
                        kind_map, params_map,
                        t1_map, t2_map, t3_map, p_map,
@@ -407,6 +408,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
         b[2] = eval_3d.eval_spline_mpi_3d(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
 
+        # operator bx() as matrix
         b_prod[0, 1] = -b[2]
         b_prod[0, 2] = b[1]
         b_prod[1, 0] = b[2]
