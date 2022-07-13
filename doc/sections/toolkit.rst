@@ -103,6 +103,8 @@ See :ref:`add_accum` for how to use these acumulation functions.
 Particle pushers 
 ----------------
 
+Python module of accelerated particle pushers.
+
 .. automodule:: struphy.pic.pusher_kernels
     :members: 
     :undoc-members:
