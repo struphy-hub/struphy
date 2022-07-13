@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy run Maxwell -i examples/params_maxwell_serial.yml -o sim_1
+struphy run LinearMHD --mpi 4 -i examples/params_linearmhd.yml -o sim_3
 
 # Struphy path
 STRUPHY=
@@ -24,4 +24,4 @@ for i in $li; do
 done
 
 path_e=$STRUPHY/examples
-$PYTHON ${path_e}/example_diagnostics_1dfft_maxwell.py $STRUPHY/io/out/sim_1
+$PYTHON ${path_e}/example_diagnostics_1dfft_linearmhd.py $STRUPHY/io/out/sim_3

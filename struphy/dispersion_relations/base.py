@@ -41,7 +41,7 @@ class DispersionRelations1D( metaclass=ABCMeta ):
         return self._params
 
     @abstractmethod
-    def spectrum(self, kvec, kperp=None):
+    def __call__(self, kvec, kperp=None):
         '''The calculation of all branches of a 1d dispersion relation.
         
         Parameters
