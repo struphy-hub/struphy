@@ -242,29 +242,32 @@ class Accumulator():
         """
         Creates the buffer types for the ghost region sender. Send types are only the slicing information;
         receving has to be saved in a temporary array and then added to the _data object with the correct indices.
+        Buffers have the same structure as struphy.psydac_api.psydac_derham.Derham.neighbours, i.e. a 3d array with shape (3,3,3)
+        and are initialized with None. If the process has a neighbour, the send/recv information is filled in.
         """
-        from mpi4py import MPI
 
         send_types = []
         recv_buf = []
 
+        neighbours = self._derham.neighbours
+
         pads = self.space.vector_space.pads
 
         for k, arg in enumerate(self.args_data):
+            for comp, neigh in np.ndenumerate(neighbours):
 
-            send_types.append([])
-            recv_buf.append([])
+                send_types.append(np.array([[[None]*3]*3]*3))
+                recv_buf.append(np.array([[[None]*3]*3]*3))
 
-            for di in range(3):
-                send_types_temp = self._create_send_buffer_1dir(pads, arg.shape, di)
-                recv_buf_temp = self._create_recv_buffer_1dir(pads, arg.shape, di)
-
-                send_types[k] += [send_types_temp]
-                recv_buf[k] += [recv_buf_temp]
+                if neigh != -1:
+                    send_types[k][comp] = self._create_send_buffer_1_comp(
+                        pads, arg.shape, comp)
+                    recv_buf[k][comp] = self._create_recv_buffer_1_comp(
+                        pads, arg.shape, comp)
 
         return send_types, recv_buf
 
-    def _create_send_buffer_1dir(self, pads, arg_shape, di):
+    def _create_send_buffer_1_comp(self, pads, arg_shape, comp):
         """
         creates the send buffer in direction for stencil matrices and vectors. Send buffer is the indexing (MPI.Create_subarray)
 
@@ -282,51 +285,56 @@ class Accumulator():
             arg_shape : tuple
                 called by arg.shape
 
-            di : int
-                direction for which the send buffer is to be created
+            comp : tuple
+                component for which the send buffer is to be created; entries are in {0,1,2}
         """
         from mpi4py import MPI
 
-        assert di in (0, 1, 2)
-
         subsizes_sub = list(arg_shape)
-        
+
         if len(arg_shape) == 6:
-            starts_sub_l = [pads[0], pads[1], pads[2], 0, 0, 0]
-            starts_sub_r = [pads[0], pads[1], pads[2], 0, 0, 0]
+            starts_sub = [pads[0], pads[1], pads[2], 0, 0, 0]
 
         elif len(arg_shape) == 3:
-            starts_sub_l = [pads[0], pads[1], pads[2]]
-            starts_sub_r = [pads[0], pads[1], pads[2]]
+            starts_sub = [pads[0], pads[1], pads[2]]
 
         else:
             raise NotImplementedError('Unknown shape of argument!')
-        
+
         for k in range(3):
             subsizes_sub[k] -= 2*pads[k]
 
-        subsizes_sub[di] = pads[di]
-        starts_sub_l[di] = 0
-        starts_sub_r[di] = arg_shape[di] - pads[di]
+        for k, co in enumerate(comp):
+            # if left neighbour
+            if co == 0:
+                subsizes_sub[k] = pads[k]
+                starts_sub[k] = 0
 
-        temp = {'l': MPI.DOUBLE.Create_subarray(
+            # if middle neighbour
+            elif co == 1:
+                continue
+
+            # if right neighbour
+            elif co == 2:
+                subsizes_sub[k] = pads[k]
+                starts_sub[k] = arg_shape[k] - pads[k]
+
+            else:
+                raise ValueError('Unknown value for component!')
+
+        temp = MPI.DOUBLE.Create_subarray(
             sizes=list(arg_shape),
             subsizes=subsizes_sub,
-            starts=starts_sub_l
-        ).Commit(),
-            'r': MPI.DOUBLE.Create_subarray(
-            sizes=list(arg_shape),
-            subsizes=subsizes_sub,
-            starts=starts_sub_r
+            starts=starts_sub
         ).Commit()
-        }
 
         return temp
 
-    def _create_recv_buffer_1dir(self, pads, arg_shape, di):
+    def _create_recv_buffer_1_comp(self, pads, arg_shape, comp):
         """
         creates the receive buffer in direction for stencil matrices. The receive buffer is an empty numpy array
-        and the indices where the ghost regions will have to be added to.
+        and the indices where the ghost regions will have to be added to. Left and right are swapped compared to
+        send-types since _send_ghost_regions() does the sending component-wise. Sending to the left means 
 
         Parameters
         ----------
@@ -339,41 +347,47 @@ class Accumulator():
             pads : list
                 contains the paddings in each direction
 
-            dir : int
-                direction for which the send buffer is to be created
+            comp : tuple
+                component for which the receive buffer is to be created; entries are in {0,1,2}
         """
-        assert di in (0, 1, 2)
 
         subsizes_sub = [arg_shape[k] for k in range(len(arg_shape))]
 
         if len(arg_shape) == 6:
-            inds_l = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                   ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
-            inds_r = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                   ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
+            inds = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])] \
+                + [slice(None)]*3
 
         elif len(arg_shape) == 3:
-            inds_l = [slice(pads[0], -pads[0])] + \
-                [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])]
-            inds_r = [slice(pads[0], -pads[0])] + \
+            inds = [slice(pads[0], -pads[0])] + \
                 [slice(pads[1], -pads[1])] + [slice(pads[2], -pads[2])]
 
         else:
             raise NotImplementedError('Unknown shape of argument!')
-        
+
         for k in range(3):
             subsizes_sub[k] -= 2*pads[k]
 
-        subsizes_sub[di] = pads[di]
-        inds_l[di] = slice(pads[di], 2*pads[di])
-        inds_r[di] = slice(-2*pads[di], -pads[di])
+        for k, co in enumerate(comp):
+            # if left neighbour
+            if co == 0:
+                subsizes_sub[k] = pads[k]
+                inds[k] = slice(pads[k], 2*pads[k])
 
-        temp = {'l': {
+            # if middle neighbour
+            elif co == 1:
+                continue
+
+            # if right neighbour
+            elif co == 2:
+                subsizes_sub[k] = pads[k]
+                inds[k] = slice(-2*pads[k], -pads[k])
+
+            else:
+                raise ValueError('Unknown value for component!')
+
+        temp = {
             'buf': np.zeros(tuple(subsizes_sub), dtype=float),
-            'inds': tuple(inds_l)},
-            'r': {
-            'buf': np.zeros(tuple(subsizes_sub), dtype=float),
-            'inds': tuple(inds_r)}
+            'inds': tuple(inds)
         }
 
         return temp
@@ -403,154 +417,134 @@ class Accumulator():
         self.update_ghost_regions()
 
     def _send_ghost_regions(self):
-        '''Communicates the entries of the ghost regions between all the processes.'''
+        """
+        Communicates the ghost regions between all processes using non-blocking communication.
+        In order to avoid communication overhead a sending in one direction component is always accompanied
+        by a receiving (if neighbour is not -1) in the inverted direction. This guarantees that every send signal
+        is received in the same comp iteration.
+        """
 
-        mpi_comm = self._derham.comm
+        comm = self._derham.comm
+        neighbours = self._derham.neighbours
 
-        for (dat, send_type, recv_type) in zip(self.args_data, self._send_types, self._recv_types):
+        for dat, send_type, recv_type in zip(self.args_data, self._send_types, self._recv_types):
 
-            for di in range(3):
-                left_neighbour = self._derham.neighbours[2*di]
-                right_neighbour = self._derham.neighbours[2*di + 1]
-                spl_kind = self._derham.spl_kind[di]
-
-                if left_neighbour == -1 and right_neighbour == -1 and spl_kind == True:
-                    self._send_ghost_regions_1dir_to_self(dat, di)
-
-                else:
-                    send_type_t = send_type[di]
-                    recv_type_t = recv_type[di]
+            for comp, send_neigh in np.ndenumerate(neighbours):
+                inv_comp = self._invert_component(comp)
+                recv_neigh = neighbours[inv_comp]
+                
+                if send_neigh != -1:
+                    send_type_comp = send_type[comp]
+                    # sending to component direction.
+                    self._send_ghost_regions_1_comp(dat, send_neigh, send_type_comp, comp)
+                
+                if recv_neigh != -1:
+                    recv_type_comp = recv_type[inv_comp]
+                    # Receiving from the inverted component direction if there is a neighbour
+                    self._recv_ghost_regions_1_comp(dat, recv_neigh, recv_type_comp, comp)
 
                     if len(dat.shape) == 6:
-                        recv_type_t['l']['buf'][:, :, :, :, :, :] == 0.
-                        recv_type_t['r']['buf'][:, :, :, :, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :, :, :, :] == 0.
                     elif len(dat.shape) == 3:
-                        recv_type_t['l']['buf'][:, :, :] == 0.
-                        recv_type_t['r']['buf'][:, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :] == 0.
+                        recv_type_comp['buf'][:, :, :] == 0.
                     else:
-                        raise NotImplementedError(
-                            'Unknown shape of data object!')
+                        raise NotImplementedError('Unknown shape of data object!')
 
-                    self._send_ghost_regions_1dir(
-                        dat, left_neighbour, right_neighbour, send_type_t, recv_type_t)
+                comm.Barrier()
 
-                    mpi_comm.Barrier()
-
-    def _send_ghost_regions_1dir_to_self(self, dat, di):
+    def _send_ghost_regions_1_comp(self, dat, neighbour, send_type, comp):
         """
-        'Sends' the ghost regions from one process to itself in case the domain is periodic in this direction but
-        the domain is not split, i.e. the process is its own neighbour.
-
-        Parameters
-        ----------
-            dat : array
-                Stencil ._data object; numpy array
-            
-            dir : int
-                direction in which the ghost 'sending' has to be done
-        """
-
-        pads = self.space.vector_space.pads
-
-        # Make indices for reading out and writing to the _data object
-        if len(dat.shape) == 6:
-            inds_read_l = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                        ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
-            inds_read_r = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                        ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
-
-            inds_write_l = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                         ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
-            inds_write_r = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                         ] + [slice(pads[2], -pads[2])] + [slice(None)]*3
-
-        elif len(dat.shape) == 3:
-            inds_read_l = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                        ] + [slice(pads[2], -pads[2])]
-            inds_read_r = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                        ] + [slice(pads[2], -pads[2])]
-
-            inds_write_l = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                         ] + [slice(pads[2], -pads[2])]
-            inds_write_r = [slice(pads[0], -pads[0])] + [slice(pads[1], -pads[1])
-                                                         ] + [slice(pads[2], -pads[2])]
-
-        else:
-            raise NotImplementedError('Unknown object of data object!')
-
-        inds_read_l[di] = slice(0, pads[di]+1)
-        inds_read_r[di] = slice(-pads[di], dat.shape[di] - pads[di] + 1)
-
-        inds_write_l[di] = slice(pads[di], 2*pads[di] + 1)
-        inds_write_r[di] = slice(
-            dat.shape[di] - 2*pads[di], dat.shape[di] - pads[di] + 1)
-
-        # have to convert to tuple to use as indices with slicing
-        inds_read_l = tuple(inds_read_l)
-        inds_read_r = tuple(inds_read_r)
-
-        inds_write_l = tuple(inds_write_l)
-        inds_write_r = tuple(inds_write_r)
-
-        dat[inds_write_l] += dat[inds_read_r]
-        dat[inds_write_r] += dat[inds_read_l]
-
-    def _send_ghost_regions_1dir(self, dat, left_neighbour, right_neighbour, send_type, recv_type):
-        """
-        Communicates the entries of the ghost regions between all the processes using non-blocking communication for one direction
+        Does the sending for one direction component using non-blocking communication.
 
         Parameters
         ----------
             dat : array
                 Stencil ._data object; numpy array
 
-            left_neighbour : int
-                tag of the left neighbour
+            neighbour : int
+                tag of the neighbour or -1 if no neighbour
 
-            right_neighbour : int
-                tag of the right neighbour
+            send_type : MPI.Create_subarrays object
+                MPI.Create_subarrays object; created by _create_buffer_types()
 
-            send_type : dict
-                Dictionary with keys 'l' and 'r', values are MPI.Create_subarrays object; created by _create_buffer_types()
+            comp : tuple
+                component direction into which the ghost region is to be sent; entries are in {0,1,2}
+        """
+
+        comm = self._derham.comm
+        rank = comm.Get_rank()
+
+        send_tag = rank + 1000*comp[0] + 100*comp[1] + 10*comp[2]
+
+        comm.Isend(
+            (dat, 1, send_type), dest=neighbour, tag=send_tag)
+
+    def _recv_ghost_regions_1_comp(self, dat, neighbour, recv_type, comp):
+        """
+        Does the receving for one direction component using non-blocking communication.
+
+        Parameters
+        ----------
+            dat : array
+                Stencil ._data object; numpy array
+
+            neighbour : int
+                tag of the neighbour or -1 if no neighbour
 
             recv_type : dict
-                Dictionary with keys 'l' and 'r', values are dictionaries with keys 'buf' and 'ind' and values are numpy arrays; created by _create_buffer_types()
+                dictionary with keys 'buf' and 'inds' and values are numpy arrays; created by _create_buffer_types()
+
+            comp : tuple
+                component direction from which the ghost region was sent (is only used for computing the tag); entries are in {0,1,2}
         """
         from mpi4py import MPI
 
-        mpi_comm = self._derham.comm
-        rank = mpi_comm.Get_rank()
+        comm = self._derham.comm
 
-        if left_neighbour != -1:
-            mpi_comm.Isend(
-                (dat, 1, send_type['l']), dest=left_neighbour, tag=rank + 100)
+        recv_tag = neighbour + 1000*comp[0] + 100*comp[1] + 10*comp[2]
 
-        if right_neighbour != -1:
-            mpi_comm.Isend(
-                (dat, 1, send_type['r']), dest=right_neighbour, tag=rank + 300)
+        req_l = comm.Irecv(
+            recv_type['buf'], source=neighbour, tag=recv_tag)
 
-        if left_neighbour != -1:
-            req_l = mpi_comm.Irecv(
-                recv_type['l']['buf'], source=left_neighbour, tag=left_neighbour + 300)
-            re_l = False
-            while not re_l:
-                re_l = MPI.Request.Test(req_l)
+        re_l = False
+        while not re_l:
+            re_l = MPI.Request.Test(req_l)
 
-            dat[recv_type['l']['inds']] += recv_type['l']['buf']
+        dat[recv_type['inds']] += recv_type['buf']
 
-        if right_neighbour != -1:
-            req_r = mpi_comm.Irecv(
-                recv_type['r']['buf'], source=right_neighbour, tag=right_neighbour + 100)
-            re_r = False
-            while not re_r:
-                re_r = MPI.Request.Test(req_r)
+    def _invert_component(self, comp):
+        """
+        Given a component in the 3x3x3 cube this function 'inverts' it, i.e. reflects
+        it on the central component (1,1,1)
+        
+        Parameters
+        ----------
+            comp : tuple
+                component index in the 3x3x3 cube; entries are in {0,1,2}
+        
+        Returns
+        -------
+            res : tuple
+                inverse component to input
+        """
+        res = [-1,-1,-1]
 
-            dat[recv_type['r']['inds']] += recv_type['r']['buf']
-
-        mpi_comm.Barrier()
+        for k,co in enumerate(comp):
+            if co == 1:
+                res[k] = 1
+            elif co == 0:
+                res[k] = 2
+            elif co == 2:
+                res[k] = 0
+            else:
+                raise ValueError('Unknown component value!')
+        
+        return tuple(res)
 
     def update_ghost_regions(self):
-        "updates ghost regions of all attributes"
+        """updates ghost regions of all attributes"""
         self.matrix.update_ghost_regions()
         if self._do_vector:
             self.vector.update_ghost_regions()
