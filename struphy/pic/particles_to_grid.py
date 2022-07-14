@@ -2,6 +2,7 @@ import numpy as np
 
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 import struphy.pic.accum_kernels as accums
 
@@ -76,12 +77,15 @@ class Accumulator():
         else:
             raise ValueError('Space not properly defined.')
 
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
         # Initialize accumulation matrix/vector in memory and create pointers to _data attribute
         self._vector = None
         if space_id in {'H1', 'L2'}:
 
             self._matrix = StencilMatrix(
-                self._space.vector_space, self._space.vector_space)
+                self._space.vector_space, self._space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
 
             self._args_space = [self.space.vector_space.starts,
                                 self.space.vector_space.ends,
@@ -108,23 +112,23 @@ class Accumulator():
             if symmetry is None:
 
                 A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A21 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A31 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[2])
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 A32 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[2])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13, (1, 0): A21,
                                (1, 1): A22, (1, 2): A23, (2, 0): A31, (2, 1): A32, (2, 2): A33}
 
@@ -144,17 +148,17 @@ class Accumulator():
             elif symmetry == 'symm':
 
                 A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 dict_blocks = {(0, 0): A11, (0, 1): A12, (0, 2): A13,
                                (1, 1): A22, (1, 2): A23, (2, 2): A33}
 
@@ -171,11 +175,11 @@ class Accumulator():
             elif symmetry == 'asym':
 
                 A12 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A13 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A23 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 dict_blocks = {(0, 1): A12, (0, 2): A13, (1, 2): A23}
 
                 self._matrix = BlockMatrix(self._space.vector_space,
@@ -188,11 +192,11 @@ class Accumulator():
             elif symmetry == 'diag':
 
                 A11 = StencilMatrix(
-                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0])
+                    self.space.vector_space.spaces[0], self.space.vector_space.spaces[0], backend=PSYDAC_BACKEND_GPYCCEL)
                 A22 = StencilMatrix(
-                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1])
+                    self.space.vector_space.spaces[1], self.space.vector_space.spaces[1], backend=PSYDAC_BACKEND_GPYCCEL)
                 A33 = StencilMatrix(
-                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2])
+                    self.space.vector_space.spaces[2], self.space.vector_space.spaces[2], backend=PSYDAC_BACKEND_GPYCCEL)
                 dict_blocks = {(0, 0): A11, (1, 1): A22, (2, 2): A33}
 
                 self._matrix = BlockMatrix(self._space.vector_space,

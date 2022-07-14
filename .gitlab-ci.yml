@@ -309,6 +309,10 @@ code_tests:
     - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_2
     - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_3 --mpi 2
     - struphy profile sim_1 sim_2 sim_3
+    # Test LinearMHD
+    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_4
+    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_5 --mpi 2
+    # - struphy profile sim_4 sim_5
     # Add Test for each model
 
 #Deployment

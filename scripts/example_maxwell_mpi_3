@@ -2,7 +2,7 @@
 
 PYTHON=python3
 
-struphy run Maxwell --mpi 3 -i examples/params_maxwell_mpi_3.yml -o sim_2
+struphy run Maxwell --mpi 3 -i examples/params_maxwell.yml -o sim_2
 
 # Struphy path
 STRUPHY=
@@ -24,4 +24,4 @@ for i in $li; do
 done
 
 path_e=$STRUPHY/examples
-$PYTHON ${path_e}/example_diagnostics_1dfft.py $STRUPHY/io/out/sim_2
+$PYTHON ${path_e}/example_diagnostics_1dfft_maxwell.py $STRUPHY/io/out/sim_2

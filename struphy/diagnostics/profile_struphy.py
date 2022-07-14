@@ -8,8 +8,8 @@ if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
     list_of_funcs = ['assemble_', 'propagator', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'schur', 'pcg', 'bicgstab', 'pbicgstab']
-
-print(list_of_funcs)
+    print('\nKeyword search enabled:')
+    print(list_of_funcs)
 
 dicts = []
 nproc = []

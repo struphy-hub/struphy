@@ -1,8 +1,5 @@
 import pytest
-
-from mpi4py import MPI
 import numpy as np
-from time import sleep
 
 
 @pytest.mark.mpi(min_size=2)
@@ -19,12 +16,16 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     for all routines in mat_vec_filler.py
     '''
 
+    from mpi4py import MPI
+    from time import sleep
+
     from struphy.geometry.domain_3d import Domain
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic import mat_vec_filler as mvf
     from struphy.feec import bsplines_kernels as bsp
 
     from psydac.linalg.stencil import StencilVector, StencilMatrix
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -77,14 +78,17 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     basis['v2'] = ['NDD', 'DND', 'DDN']
     basis['v3'] = 'DDD'
 
+    # only for M1 Mac users
+    PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
     # _data of StencilMatrices/Vectors 
     mat = {}
     vec = {}
 
-    mat['v0'] = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space)._data
+    mat['v0'] = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)._data
     vec['v0'] = StencilVector(DR.V0.vector_space)._data
 
-    mat['v3'] = StencilMatrix(DR.V3.vector_space, DR.V3.vector_space)._data
+    mat['v3'] = StencilMatrix(DR.V3.vector_space, DR.V3.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)._data
     vec['v3'] = StencilVector(DR.V3.vector_space)._data
 
     mat['v1'] = []
@@ -92,7 +96,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
         mat['v1'] += [[]]
         for j in range(3):
             mat['v1'][-1] += [StencilMatrix(
-        DR.V1.vector_space.spaces[i], DR.V1.vector_space.spaces[j])._data]
+        DR.V1.vector_space.spaces[i], DR.V1.vector_space.spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
 
     vec['v1'] = []
     for i in range(3):
@@ -103,7 +107,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
         mat['v2'] += [[]]
         for j in range(3):
             mat['v2'][-1] += [StencilMatrix(
-        DR.V2.vector_space.spaces[i], DR.V2.vector_space.spaces[j])._data]
+        DR.V2.vector_space.spaces[i], DR.V2.vector_space.spaces[j], backend=PSYDAC_BACKEND_GPYCCEL)._data]
 
     vec['v2'] = []
     for i in range(3):

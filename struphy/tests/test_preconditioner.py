@@ -1,23 +1,4 @@
-from mpi4py import MPI 
-
-MPI_COMM = MPI.COMM_WORLD
-
 import pytest
-import numpy as np
-import time
-
-from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api.mass_psydac import WeightedMass
-from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
-from struphy.psydac_api.linear_operators import LinOpWithTransp
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
@@ -31,6 +12,20 @@ from psydac.linalg.block import BlockVector
 ])
 @pytest.mark.parametrize('use_fft', [True, False])
 def test_mass_preconditioner(Nel, p, spl_kind, mapping, use_fft):
+
+    import numpy as np
+    from mpi4py import MPI
+
+    from struphy.geometry.domain_3d import Domain
+    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
+    from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
+
+    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block import BlockVector
+
+    MPI_COMM = MPI.COMM_WORLD
 
     map = mapping[0]
     params_map = mapping[1]

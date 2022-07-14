@@ -1,17 +1,4 @@
 import pytest
-import numpy as np
-
-from struphy.geometry.domain_3d import Domain
-from struphy.psydac_api.psydac_derham import Derham
-from struphy.psydac_api.mass_psydac import WeightedMass
-from struphy.psydac_api.linear_operators import LinOpWithTransp
-from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
-from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
-from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
-from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-
-from psydac.linalg.stencil import StencilVector, StencilMatrix
-from psydac.linalg.block import BlockVector
 
 
 @pytest.mark.parametrize('Nel', [[8, 10, 4]])
@@ -30,6 +17,19 @@ from psydac.linalg.block import BlockVector
 def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     
     from mpi4py import MPI
+    import numpy as np
+
+    from struphy.geometry.domain_3d import Domain
+    from struphy.psydac_api.psydac_derham import Derham
+    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.linear_operators import LinOpWithTransp
+    from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
+    from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
+    from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
+    from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
+
+    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block import BlockVector
 
     map = mapping[0]
     params_map = mapping[1]
