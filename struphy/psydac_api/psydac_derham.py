@@ -217,12 +217,10 @@ class Derham:
     @property
     def neighbours(self):
         """
-        A 1d array[int] of shape (6,). For n=0,1,2:
-        
-            * arr[2*n + 0] holds the LEFT neighbouring process of process in direction eta_(n+1).
-            * arr[2*n + 1] holds the RIGHT neighbouring of process in direction eta_(n+1).
-
-        Values are -1 if process is at a domain boundary (non-periodic case).
+        A 3d array[int] with shape (3,3,3). It contains the 26 neighbouring process ids (rank).
+        This is done in terms of N-spline start/end indices. The i-th index indicates direction eta_(i+1).
+        0 is a left neighbour, 1 is the same plane as the current process, 2 is a right neighbour.
+        For more detail see _get_neighbours().
         """
         return self._neighbours
 
@@ -329,6 +327,7 @@ class Derham:
                         |         |
 
                 The element is the rank number (can also be itself) and -1 if there is no neighbour.
+                The element with index (1,1,1) (center of the cube) is always -1.
         """
 
         neighs = np.empty( (3,3,3), dtype=int )
@@ -375,7 +374,7 @@ class Derham:
 
         # central component is always the process itself
         if comp == [1,1,1]:
-            return rank
+            return res
 
         comp = np.array(comp)
         kinds = np.array(kinds)
