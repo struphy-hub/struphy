@@ -1,46 +1,29 @@
 import pytest
 
-from mpi4py import MPI
-import numpy as np
-from time import sleep
-
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 8, 12]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True]])
-@pytest.mark.parametrize('mapping', [
-    ['cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-    ['shafranov_dshaped', {
-        'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
-])
-def test_psydac_derham(Nel, p, spl_kind, mapping):
+def test_psydac_derham(Nel, p, spl_kind):
     '''Remark: p=even projectors yield slightly different results, pass with atol=1e-3.'''
 
-    from struphy.geometry.domain_3d import Domain
+    from mpi4py import MPI
+    import numpy as np
+
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import compare_arrays
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-    from psydac.fem.tensor import TensorFemSpace
-    from psydac.fem.vector import ProductFemSpace
-    from psydac.fem.basic import FemField
-    from psydac.linalg.stencil import StencilVectorSpace, StencilVector, StencilMatrix
-    from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
+    from psydac.linalg.stencil import StencilVector
+    from psydac.linalg.block import BlockVector
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
     rank = comm.Get_rank()
 
-    # Domain object
-    map = mapping[0]
-    params_map = mapping[1]
-
-    DOMAIN = Domain(map, params_map)
-
     # Psydac discrete Derham sequence
-    DR = Derham(Nel, p, spl_kind, comm=comm)
+    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # Struphy Derham (deprecated)
     nq_el = [4, 4, 4]
@@ -71,7 +54,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     ### TEST STENCIL VECTORS ###
     ############################
     # Stencil vectors for Psydac:
-    x0_PSY = StencilVector(DR.V0.vector_space)
+    x0_PSY = StencilVector(derham.V0.vector_space)
     print(f'rank {rank} | 0-form StencilVector:')
     print(f'rank {rank} | starts:', x0_PSY.starts)
     print(f'rank {rank} | ends  :', x0_PSY.ends)
@@ -87,7 +70,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
            1] = DR_STR.extract_0(x0)[s0[0]: e0[0] + 1, s0[1]: e0[1] + 1, s0[2]: e0[2] + 1]
 
     # Block of StencilVecttors
-    x1_PSY = BlockVector(DR.V1.vector_space)
+    x1_PSY = BlockVector(derham.V1.vector_space)
     print(f'rank {rank} | \n1-form StencilVector:')
     print(f'rank {rank} | starts:', [component.starts for component in x1_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x1_PSY])
@@ -108,7 +91,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     x1_PSY[2][s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] +
               1] = x13[s13[0]: e13[0] + 1, s13[1]: e13[1] + 1, s13[2]: e13[2] + 1]
 
-    x2_PSY = BlockVector(DR.V2.vector_space)
+    x2_PSY = BlockVector(derham.V2.vector_space)
     print(f'rank {rank} | \n2-form StencilVector:')
     print(f'rank {rank} | starts:', [component.starts for component in x2_PSY])
     print(f'rank {rank} | ends  :', [component.ends for component in x2_PSY])
@@ -129,7 +112,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     x2_PSY[2][s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] +
               1] = x23[s23[0]: e23[0] + 1, s23[1]: e23[1] + 1, s23[2]: e23[2] + 1]
 
-    x3_PSY = StencilVector(DR.V3.vector_space)
+    x3_PSY = StencilVector(derham.V3.vector_space)
     print(f'rank {rank} | \n3-form StencilVector:')
     print(f'rank {rank} | starts:', x3_PSY.starts)
     print(f'rank {rank} | ends  :', x3_PSY.ends)
@@ -156,17 +139,17 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
         print(type(grad_STR), type(curl_STR), type(div_STR))
 
         print('\nPsydac derivatives operators type:')
-        print(type(DR.grad), type(DR.curl), type(DR.div))
+        print(type(derham.grad), type(derham.curl), type(derham.div))
 
     # compare derivatives
     d1_STR = grad_STR.dot(x0)
-    d1_PSY = DR.grad.dot(x0_PSY)
+    d1_PSY = derham.grad.dot(x0_PSY)
 
     d2_STR = curl_STR.dot(x1)
-    d2_PSY = DR.curl.dot(x1_PSY)
+    d2_PSY = derham.curl.dot(x1_PSY)
 
     d3_STR = div_STR.dot(x2)
-    d3_PSY = DR.div.dot(x2_PSY)
+    d3_PSY = derham.div.dot(x2_PSY)
 
     if rank == 0:
         print('\nCompare grad:')
@@ -182,7 +165,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     comm.Barrier()
 
     zero2_STR = curl_STR.dot(d1_STR)
-    zero2_PSY = DR.curl.dot(d1_PSY)
+    zero2_PSY = derham.curl.dot(d1_PSY)
 
     assert np.allclose(zero2_STR, np.zeros_like(zero2_STR))
     if rank == 0:
@@ -191,7 +174,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     comm.Barrier()
 
     zero3_STR = div_STR.dot(d2_STR)
-    zero3_PSY = DR.div.dot(d2_PSY)
+    zero3_PSY = derham.div.dot(d2_PSY)
 
     assert np.allclose(zero3_STR, np.zeros_like(zero3_STR))
     if rank == 0:
@@ -214,7 +197,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
         np.cos(2*np.pi*eta2) + np.exp(np.cos(2*np.pi*eta3))
 
     fh0_STR = PI('0', f)
-    fh0_PSY = DR.P0(f)
+    fh0_PSY = derham.P0(f)
 
     if rank == 0:
         print('\nCompare P0:')
@@ -225,7 +208,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     fh12_STR = PI('12', f)
     fh13_STR = PI('13', f)
     fh1_STR = (fh11_STR, fh12_STR, fh13_STR)
-    fh1_PSY = DR.P1((f, f, f))
+    fh1_PSY = derham.P1((f, f, f))
 
     if rank == 0:
         print('\nCompare P1:')
@@ -236,7 +219,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     fh22_STR = PI('22', f)
     fh23_STR = PI('23', f)
     fh2_STR = (fh21_STR, fh22_STR, fh23_STR)
-    fh2_PSY = DR.P2((f, f, f))
+    fh2_PSY = derham.P2((f, f, f))
 
     if rank == 0:
         print('\nCompare P2:')
@@ -244,7 +227,7 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
     comm.Barrier()
 
     fh3_STR = PI('3', f)
-    fh3_PSY = DR.P3(f)
+    fh3_PSY = derham.P3(f)
     
     if rank == 0:
         print('\nCompare P3:')
@@ -253,5 +236,4 @@ def test_psydac_derham(Nel, p, spl_kind, mapping):
 
 
 if __name__ == '__main__':
-    test_psydac_derham([8, 8, 12], [2, 3, 4], [False, False, True], ['cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+    test_psydac_derham([8, 8, 12], [2, 3, 4], [False, False, True])

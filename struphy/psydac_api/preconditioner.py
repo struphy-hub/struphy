@@ -45,7 +45,8 @@ class MassMatrixPreConditioner(LinearSolver):
 
         self._femspace = femspace
 
-        # Deter
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
 
         # Psydac symbolic logical domain
         _domain_log = Line('L', bounds=(0, 1))

@@ -113,11 +113,13 @@ model.set_initial_conditions(
     fields_init, particles_init, particles_params)
 
 model.update_scalar_quantities(0.)
-# TODO: Psydac Derham functionaltiy not yet implemented.
+
 # Output Manager Initialization
-# FIELD_DATA = OutputManager(path_out + 'FIELD_DATA_spaces.yml', path_out + 'FIELD_DATA_fields.h5')
-# FIELD_DATA.add_spaces(V0=derham.V0, V1=derham.V1, V2=derham.V2, V3=derham.V3)
-# for patch in FIELD_DATA.space_info['patches']:
+# om = OutputManager(path_out + 'FIELD_DATA_spaces.yml', path_out + 'FIELD_DATA_fields.h5')
+# om.add_spaces(V0=derham.V0, V1=derham.V1, V2=derham.V2, V3=derham.V3)
+# om.export_space_info()
+
+# for patch in om.space_info['patches']:
 #     for space in patch['vector_spaces']:
 #         for key, val in space.items():
 #             print(key)
@@ -134,8 +136,8 @@ model.update_scalar_quantities(0.)
 # for field in model.fields:
 #     field_dict[field.name] = field.field
 
-# FIELD_DATA.add_snapshot(t=0., ts=0)
-# FIELD_DATA.export_fields(**field_dict)
+# om.add_snapshot(t=0., ts=0)
+# om.export_fields(**field_dict)
 
 # data object for saving
 data = Data_container(path_out, comm=comm)
@@ -163,7 +165,7 @@ for field in model.fields:
 data.add_data(model.scalar_quantities)
 
 if rank == 0:
-    print(f'Rank: {rank} | Initial time series saved.\n')
+    print(f'\nRank: {rank} | Initial time series saved.\n')
     model.print_scalar_quantities()
 
 # Define stepping scheme
@@ -218,7 +220,7 @@ while True:
     if break_cond_1 or break_cond_2:
         # close output file and time loop
         data.f.close()
-        # FIELD_DATA.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
+        # om.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
         end_simulation = time.time()
         if rank == 0:
             print()
@@ -235,8 +237,8 @@ while True:
     model.update_scalar_quantities(dt*time_steps_done)
 
     # save data:
-    # FIELD_DATA.add_snapshot(t=dt*time_steps_done, ts=time_steps_done) TODO: Psydac Derham functionaltiy not yet implemented.
-    # FIELD_DATA.export_fields(**field_dict)
+    # om.add_snapshot(t=dt*time_steps_done, ts=time_steps_done) 
+    # om.export_fields(**field_dict)
     data.save_data()
 
     # print number of finished time steps and current energies

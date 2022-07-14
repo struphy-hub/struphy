@@ -113,7 +113,7 @@ class Field:
         '''Paddings for ghost regions.'''
         return self._pads
 
-    def set_initial_conditions(self, domain, comps, init_params):
+    def set_initial_conditions(self, domain, comps, init_params, rank):
         '''
         Sets the initial conditions for self.vector.
 
@@ -127,7 +127,12 @@ class Field:
 
             init_params: dict
                 Parameters of initial condition, see from :ref:`params_yml`.
+
+            rank : int
+                mpi rank.
         '''
+
+        if rank == 0: print(f'Setting initial conditions for {self.name} in {self.space_id} ...')
 
         # Set initial conditions for each component
         assert isinstance(comps, list)
@@ -198,7 +203,7 @@ class Field:
 
             self._vector.update_ghost_regions()
 
-        # print(f'Field "{self._name}" initialized in space {self._space_id}.')
+        if rank == 0: print('Done.')
 
     @property
     def init_type(self):

@@ -447,6 +447,9 @@ class MHDOperator(LinOpWithTransp):
         assert isinstance(P, GlobalProjector) 
         assert isinstance(V, FemSpace) 
 
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
         self._P = P
         self._V = V
         self._fun = fun

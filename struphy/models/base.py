@@ -49,8 +49,8 @@ class StruphyModel(metaclass=ABCMeta):
                 self._field_names += [key]
                 self._space_ids += [val]
 
-        self._DR = derham
-        self._DOMAIN = domain
+        self._derham = derham
+        self._domain = domain
         self._params = params
 
         self._fields = []
@@ -61,7 +61,7 @@ class StruphyModel(metaclass=ABCMeta):
         for name, species in zip(self._kinetic_names, self._marker_params):
             kinetic_class = getattr(particles, species['type'])
             self._kinetic_species += [kinetic_class(
-                name, self._DOMAIN, species, self._DR.comm)]
+                name, self._domain, species, self._derham.comm)]
 
     @property
     def names(self):
@@ -81,12 +81,12 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
-        return self._DR
+        return self._derham
 
     @property
     def domain(self):
         '''Domain object, see :ref:`avail_mappings`.'''
-        return self._DOMAIN
+        return self._domain
 
     @property
     def params(self):
@@ -169,7 +169,7 @@ class StruphyModel(metaclass=ABCMeta):
                         comps_li += [[True] * 3]
 
             for field, comps in zip(self.fields, comps_li):
-                field.set_initial_conditions(self.domain, comps, fields_init)
+                field.set_initial_conditions(self.domain, comps, fields_init, self.derham.comm.Get_rank())
 
         if particles_init is not None:
             for species, init, param in zip(self.kinetic_species, particles_init, particles_params):

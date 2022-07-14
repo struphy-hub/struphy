@@ -21,6 +21,7 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
     from psydac.fem.basic import FemField
     from psydac.linalg.stencil import StencilVector, StencilMatrix
     from psydac.linalg.block import BlockVector, BlockMatrix
+    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
@@ -137,9 +138,12 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
     f0 = FemField(DR.V0)
     f1 = FemField(DR.V1)
 
+    # only for M1 Mac users
+    PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+
     # Stencil objects (distributed)
     x0 = StencilVector(DR.V0.vector_space)
-    A0 = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space)
+    A0 = StencilMatrix(DR.V0.vector_space, DR.V0.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
 
     x1 = BlockVector(DR.V1.vector_space)
     A1 = BlockMatrix(DR.V1.vector_space, DR.V1.vector_space)
