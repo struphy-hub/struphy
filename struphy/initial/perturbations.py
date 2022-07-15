@@ -2,7 +2,7 @@
 
 import numpy as np
 
-class Modes_sin:
+class ModesSin:
     '''Defines the callable
     
     .. math::
@@ -45,7 +45,7 @@ class Modes_sin:
         return val
 
 
-class Modes_cos:
+class ModesCos:
     '''Defines the callable
     
     .. math::

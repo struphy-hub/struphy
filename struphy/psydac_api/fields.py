@@ -6,6 +6,7 @@ from psydac.fem.tensor import FemField
 
 from struphy.geometry.domain_3d import prepare_args
 from struphy.initial import perturbations
+from struphy.initial import analytic
 
 import numpy as np
 
@@ -152,10 +153,8 @@ class Field:
                 for n, comp in enumerate(comps):
                     if comp:
                         self._add_noise(n=n)
-
-            self._vector.update_ghost_regions()
-
-        else:
+        
+        elif self.init_type == 'ModesSin' or self.init_type == 'ModesCos':
 
             # Get callable(s) for specified init type
             _fun_tmp = [None] * len(comps)
@@ -200,8 +199,37 @@ class Field:
                 self._fun += [Pulled_pform(init_coords,
                                            _fun_tmp, domain, '3_form')]
                 self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
+                
+        else:
+            
+            fun_class = getattr(analytic, self.init_type)
+            funs = fun_class(self.init_params, domain)
+            
+            if self.space_id == 'H1':
+                self._vector[:] = self.derham.P0(getattr(funs, self.name)).coeffs[:]
+                
+            elif self.space_id == 'Hcurl':
+                _coeffs = self.derham.P1(getattr(funs, self.name)).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
+                
+            elif self.space_id == 'Hdiv':
+                _coeffs = self.derham.P2(getattr(funs, self.name)).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
+                
+            elif self.space_id == 'L2':
+                self._vector[:] = self.derham.P3(getattr(funs, self.name)).coeffs[:]
+                
+            elif self.space_id == 'H1vec':
+                _coeffs = self.derham.P0vec(getattr(funs, self.name)).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
 
-            self._vector.update_ghost_regions()
+        self._vector.update_ghost_regions()
 
         if rank == 0: print('Done.')
 

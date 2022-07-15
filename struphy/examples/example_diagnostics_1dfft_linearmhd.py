@@ -27,9 +27,9 @@ gamma = 5/3
 disp_params = {'B0x': B0x, 'B0y': B0y,'B0z': B0z, 'p0': p0, 'n0': n0, 'gamma': 5/3}
 
 # fft in (t, z) of first component of u_field on physical grid
-fourier_1d(values_log['momentum'], code, grids_log['momentum'],
-           grids_phys=grids_phys['momentum'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
+fourier_1d(values_log['uv'], code, grids_log['uv'],
+           grids_phys=grids_phys['uv'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
 
 # fft in (t, z) of pressure on physical grid
-fourier_1d(values_log['pressure'], code, grids_log['pressure'],
-           grids_phys=grids_phys['pressure'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
+fourier_1d(values_log['p3'], code, grids_log['p3'],
+           grids_phys=grids_phys['p3'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)

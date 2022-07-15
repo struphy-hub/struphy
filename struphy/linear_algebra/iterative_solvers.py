@@ -44,7 +44,7 @@ def bicgstab(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
-    Results
+    Returns
     -------
     xj : psydac.linalg.basic.Vector
         Numerical solution of linear system.
@@ -180,7 +180,7 @@ def pbicgstab(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
     verbose : bool
         If True, 2-norm of residual r is printed at each iteration.
 
-    Results
+    Returns
     -------
     xj : psydac.linalg.basic.Vector
         Numerical solution of linear system.

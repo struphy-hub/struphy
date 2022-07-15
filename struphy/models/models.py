@@ -125,7 +125,11 @@ class LinearMHD(StruphyModel):
         from struphy.propagators import propagators
         
         self._u_space = params['fields']['mhd_u_space']
-        super().__init__(derham, domain, params, density='L2', momentum=self._u_space, pressure='L2', b_field='Hdiv')
+        
+        if self._u_space == 'Hdiv':
+            super().__init__(derham, domain, params, n3='L2', u2=self._u_space, p3='L2', b2='Hdiv')
+        else:
+            super().__init__(derham, domain, params, n3='L2', uv=self._u_space, p3='L2', b2='Hdiv')
 
         # extract necessary parameters
         equil_params = params['fields']['mhd_equilibrium']

@@ -116,16 +116,23 @@ fields :
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
-            Modes_sin : 
+            ModesSin : 
                   k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
                   k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes
-            Modes_cos : 
+            ModesCos : 
                   k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
                   k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
                   amp : [0.001] # amplitudes
+            InitialMHDSlab :
+                  a  : 1.
+                  R0 : 3.
+                  m  : 0
+                  n  : 1
+                  U  : 0.1
+                  A  : 0.
             init_eigfun : 
                   n_tor    : -1 # toroidal mode number
                   profiles : False # project equilibrium profiles
