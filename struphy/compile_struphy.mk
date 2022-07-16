@@ -53,22 +53,11 @@ MVF	 := ${path_lib}pic/mat_vec_filler
 
 ACC	 := ${path_lib}pic/accum_kernels
 
-#AK3	 := ${path_lib}pic/lin_Vlasov_Maxwell/accum_kernels_3d
-#PW	 := ${path_lib}pic/lin_Vlasov_Maxwell/pusher_weights
-#PPV	 := ${path_lib}pic/pusher_pos_vel_3d
-
 KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
 KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
 
 PUSH := ${path_lib}pic/pusher_kernels
 PUTL := ${path_lib}pic/pusher_utilities
-# PPP  := ${path_lib}pic/pusher_pos
-# PV2  := ${path_lib}pic/pusher_vel_2d
-# PV3  := ${path_lib}pic/pusher_vel_3d
-# PA2  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_2d
-# PA3  := ${path_lib}pic/cc_lin_mhd_6d/accumulation_kernels_3d
-# PA4  := ${path_lib}pic/pc_lin_mhd_6d/accumulation_kernels_3d
-# PA5  := ${path_lib}pic/cc_cold_plasma_6d/accumulation_kernels_3d
 PS   := ${path_lib}pic/sampling
 
 PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
@@ -151,16 +140,7 @@ $(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(ACC)$(SO_EXT) : $(ACC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $(LAC)$(SO_EXT) $(MVF)$(SO_EXT) $(BEV3)$(SO_EXT)
-	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(AK3)$(SO_EXT) : $(AK3).py $(BK)$(SO_EXT) $(BS)$(SO_EXT) $(MVF)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-    
-#$(PW)$(SO_EXT) : $(PW).py $(BK)$(SO_EXT) $(BS)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PPV)$(SO_EXT) : $(PPV).py $(BK)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+	pyccel $< $(FLAGS)
 
 $(KPG)$(SO_EXT) : $(KPG).py
 	pyccel $< $(FLAGS)
@@ -173,30 +153,6 @@ $(PUSH)$(SO_EXT) : $(PUSH).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $
 
 $(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
-
-# $(PUSH)$(SO_EXT) : $(PUSH).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-# 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-# $(PPP)$(SO_EXT) : $(PPP).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT) $(MF3)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-# 	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-    
-#$(PV2)$(SO_EXT) : $(PV2).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PV3)$(SO_EXT) : $(PV3).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PA2)$(SO_EXT) : $(PA2).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PA3)$(SO_EXT) : $(PA3).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PA4)$(SO_EXT) : $(PA4).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-#$(PA5)$(SO_EXT) : $(PA5).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
-#	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
 
 $(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
@@ -218,21 +174,18 @@ $(BTS)$(SO_EXT) : $(BTS).py
 clean:
 	rm -rf $(OUTPUTS)
 	rm -rf ${path_lib}__pyccel__ ${path_lib}__pycache__
-	rm -rf ${path_lib}linear_algebra/__pyccel__ ${path_lib}linear_algebra/__pycache__
-	rm -rf ${path_lib}feec/__pyccel__ ${path_lib}feec/__pycache__
-	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__
-	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__
-	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__
-	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__
-	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__
-	rm -rf ${path_lib}geometry/__pyccel__ ${path_lib}geometry/__pycache__
-	rm -rf ${path_lib}kinetic_background/__pyccel__ ${path_lib}kinetic_background/__pycache__
-	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}kinetic_background/analytical/__pycache__
-	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__
-	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__
-	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__    
-	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__
-	rm -rf ${path_lib}pic/cc_lin_mhd_6d/__pyccel__ ${path_lib}pic/cc_lin_mhd_6d/__pycache__
-	rm -rf ${path_lib}pic/pc_lin_mhd_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
-	rm -rf ${path_lib}pic/cc_cold_plasma_6d/__pyccel__ ${path_lib}pic/pc_lin_mhd_6d/__pycache__
-	rm -rf ${path_lib}psydac_api/__pyccel__ ${path_lib}psydac_api/__pycache__
+	rm -rf ${path_lib}linear_algebra/__pyccel__ ${path_lib}linear_algebra/__pycache__ ${path_lib}linear_algebra/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/__pyccel__ ${path_lib}feec/__pycache__ ${path_lib}feec/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__ ${path_lib}feec/basics/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__ ${path_lib}feec/derivatives/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__ ${path_lib}feec/projectors/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__ ${path_lib}feec/projectors/pro_global/.lock_acquisition.lock
+	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__ ${path_lib}feec/projectors/pro_local/.lock_acquisition.lock
+	rm -rf ${path_lib}geometry/__pyccel__ ${path_lib}geometry/__pycache__ ${path_lib}geometry/.lock_acquisition.lock
+	rm -rf ${path_lib}kinetic_background/__pyccel__ ${path_lib}kinetic_background/__pycache__ ${path_lib}kinetic_background/.lock_acquisition.lock
+	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}kinetic_background/analytical/__pycache__ ${path_lib}kinetic_background/analytical/.lock_acquisition.lock
+	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__ ${path_lib}diagnostics/.lock_acquisition.lock
+	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__ ${path_lib}dispersion_relations/.lock_acquisition.lock
+	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__     ${path_lib}pic/.lock_acquisition.lock
+	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__ ${path_lib}pic/lin_Vlasov_Maxwell/.lock_acquisition.lock
+	rm -rf ${path_lib}psydac_api/__pyccel__ ${path_lib}psydac_api/__pycache__ ${path_lib}psydac_api/.lock_acquisition.lock

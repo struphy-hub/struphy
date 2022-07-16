@@ -87,9 +87,7 @@ class Accumulator():
             self._matrix = StencilMatrix(
                 self._space.vector_space, self._space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
 
-            self._args_space = [self.space.vector_space.starts,
-                                self.space.vector_space.ends,
-                                self.space.vector_space.pads]
+            self._args_space = [np.array(self.space.vector_space.starts)]
 
             self._args_data = [self.matrix._data]
 
@@ -99,15 +97,9 @@ class Accumulator():
 
         else:
 
-            self._args_space = [self.space.vector_space.starts[0],
-                                self.space.vector_space.starts[1],
-                                self.space.vector_space.starts[2],
-                                self.space.vector_space.ends[0],
-                                self.space.vector_space.ends[1],
-                                self.space.vector_space.ends[2],
-                                self.space.vector_space.pads[0],
-                                self.space.vector_space.pads[1],
-                                self.space.vector_space.pads[2]]
+            self._args_space = [np.array(self.space.vector_space.starts[0]),
+                                np.array(self.space.vector_space.starts[1]),
+                                np.array(self.space.vector_space.starts[2])]
 
             if symmetry is None:
 
@@ -205,6 +197,7 @@ class Accumulator():
                 self._args_data = [self.matrix[0, 0]._data,
                                    self.matrix[1, 1]._data,
                                    self.matrix[2, 2]._data]
+            
             else:
                 raise ValueError(
                     f'Symmetry attribute {symmetry} is not defined.')
@@ -231,6 +224,7 @@ class Accumulator():
                             np.array(DOMAIN.params_map),
                             np.array(DOMAIN.p),
                             DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[2],
+                            DR.indN[0], DR.indN[1], DR.indN[2],
                             DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, ]
 
         # combine all arguments
@@ -405,14 +399,14 @@ class Accumulator():
                 Particle information in format (7, n_markers), including holes.'''
 
         # remove holes
-        markers_wo_holes = markers[:, np.nonzero(markers[0] != -1.)[0]]
+        markers_wo_holes = markers[np.nonzero(markers[:, 0] != -1.)[0], :]
 
         # reset arrays
         for dat in self._args_data:
             dat[:] = 0.
 
         # accumulate
-        self.accumulator(markers_wo_holes, *self.args)
+        self.accumulator(markers_wo_holes, np.shape(markers_wo_holes)[0], *self.args)
 
         # use mpi
         self._send_ghost_regions()

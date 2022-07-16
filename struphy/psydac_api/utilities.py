@@ -80,7 +80,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
     return arr, arr_psy
 
 
-def compare_arrays(arr_psy, arr, rank, atol=1e-14):
+def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     '''Assert equality of distributed psydac array and corresponding fraction of cloned numpy array.
     Arrays can be block-structured as nested lists/tuples.
 
@@ -141,15 +141,15 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
         s = arr_psy.codomain.starts
         e = arr_psy.codomain.ends
         p = arr_psy.pads
+        tmp_arr = arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :]
         tmp1 = arr_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
-        
-        if arr.shape == tmp1.shape:
-            tmp2 = arr
+
+        if tmp_arr.shape == tmp1.shape:
+            tmp2 = tmp_arr
         else:
             tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
                             1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
-            bts.band_to_stencil_3d(
-                arr[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+            bts.band_to_stencil_3d(tmp_arr, tmp2)
 
         assert np.allclose(tmp1, tmp2, atol=atol)
 
@@ -163,19 +163,20 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14):
                 s = mat_psy.codomain.starts
                 e = mat_psy.codomain.ends
                 p = mat_psy.pads
+                tmp_mat = mat[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :]
                 tmp1 = mat_psy[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, -p[0]: p[0] + 1, -p[1]: p[1] + 1, -p[2]: p[2] + 1]
 
-                if mat.shape == tmp1.shape:
-                    tmp2 = mat
+                if tmp_mat.shape == tmp1.shape:
+                    tmp2 = tmp_mat
                 else:
                     tmp2 = np.zeros((e[0] + 1 - s[0], e[1] + 1 - s[1], e[2] +
                                     1 - s[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
-                    bts.band_to_stencil_3d(
-                        mat[s[0]: e[0] + 1, s[1]: e[1] + 1, s[2]: e[2] + 1, :, :, :], tmp2)
+                    bts.band_to_stencil_3d(tmp_mat, tmp2)
 
                 assert np.allclose(tmp1, tmp2, atol=atol)
 
     else:
         raise AssertionError('Wrong input type.')
 
-    print(f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
+    if verbose:
+        print(f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
