@@ -191,11 +191,11 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
 
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     mat12: 'float[:,:,:,:,:,:]',
                     mat13: 'float[:,:,:,:,:,:]',
                     mat23: 'float[:,:,:,:,:,:]',
@@ -250,10 +250,10 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
     for ip in range(n_markers):
 
         # marker data
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
-        weight = markers[6, ip]
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        weight = markers[ip, 6]
 
         # b-field evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -291,12 +291,12 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         linalg.matrix_matrix(g_inv, b_prod, tmp1)
         linalg.matrix_matrix(tmp1, g_inv, tmp2)
 
-        filling_m12 = weight * tmp2[0, 1]
-        filling_m13 = weight * tmp2[0, 2]
-        filling_m23 = weight * tmp2[1, 2]
+        filling_m12 = - weight * tmp2[0, 1]
+        filling_m13 = - weight * tmp2[0, 2]
+        filling_m23 = - weight * tmp2[1, 2]
 
         # call the appropriate matvec filler
-        mvf.mat_fill_v1_asym(pn, span1, span2, span2,
+        mvf.mat_fill_v1_asym(pn, span1, span2, span3,
                              bn1, bn2, bn3,
                              bd1, bd2, bd3,
                              starts1, starts2, starts3,
@@ -307,11 +307,11 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
 
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     kind_map: 'int', params_map: 'float[:]',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                    starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                     mat11: 'float[:,:,:,:,:,:]',
                     mat12: 'float[:,:,:,:,:,:]',
                     mat13: 'float[:,:,:,:,:,:]',
@@ -386,11 +386,11 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
     for ip in range(n_markers):
 
         # marker data
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
-        v = markers[3:6, ip]
-        weight = markers[6, ip]
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        v = markers[ip, 3:6]
+        weight = markers[ip, 6]
 
         # b-field evaluation
         span1 = bsp.find_span(tn1, pn[0], eta1)
@@ -443,7 +443,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
         filling_v[:] = weight * tmp_v
 
         # call the appropriate matvec filler
-        mvf.m_v_fill_v1_symm(pn, span1, span2, span2,
+        mvf.m_v_fill_v1_symm(pn, span1, span2, span3,
                              bn1, bn2, bn3,
                              bd1, bd2, bd3,
                              starts1, starts2, starts3,
