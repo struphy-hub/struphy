@@ -16,6 +16,9 @@ def test_accumulation(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
     The two accumulation matrices are computed with the same random magnetic field produced by
     psydac_api.utilities.create_equal_random_arrays and compared against each other at the bottom using
     psydac_api.utilities.compare_arrays().
+
+    The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
+    ..test_accum_legacy_files/ are also all compiled.
     """
     from mpi4py import MPI
     rank = MPI.COMM_WORLD.Get_rank()
@@ -31,6 +34,7 @@ def test_accumulation(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
 def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
     import numpy as np
     from mpi4py import MPI
+    from time import time
 
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
 
@@ -98,6 +102,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     basis_u = 1
 
+    start_time = time()
     kernel_step1(particles_leg,
                  SPACES.T[0], SPACES.T[1], SPACES.T[2],
                  np.array(SPACES.p), np.array(Nel),
@@ -111,6 +116,11 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
                  DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
                  mat[0][1], mat[0][2], mat[1][2],
                  basis_u)
+    end_time = time()
+    tot_time = np.round(end_time - start_time, 3)
+
+    if rank == 0 and verbose:
+        print(f'Step 1 Legacy took {tot_time} seconds.')
 
     # =========================
     # ======== New Part =======
@@ -127,7 +137,13 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     ACC = Accumulator(DOMAIN, DR, 'Hcurl', 'cc_lin_mhd_6d_1',
                       *args, do_vector=False, symmetry='asym')
 
+    start_time = time()
     ACC.accumulate(particles)
+    end_time = time()
+    tot_time = np.round(end_time - start_time, 3)
+
+    if rank == 0 and verbose:
+        print(f'Step 1 New took {tot_time} seconds.')
 
     atol = 1e-10
 
@@ -147,6 +163,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
     import numpy as np
     from mpi4py import MPI
+    from time import time
 
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
 
@@ -216,6 +233,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     basis_u = 1
 
+    start_time = time()
     kernel_step3(particles_leg,
                  SPACES.T[0], SPACES.T[1], SPACES.T[2],
                  np.array(SPACES.p), np.array(Nel),
@@ -231,6 +249,11 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
                  mat[1][1], mat[1][2], mat[2][2],
                  vec[0], vec[1], vec[2],
                  basis_u)
+    end_time = time()
+    tot_time = np.round(end_time - start_time, 3)
+
+    if rank == 0 and verbose:
+        print(f'Step 3 Legacy took {tot_time} seconds.')
 
     # =========================
     # ======== New Part =======
@@ -247,7 +270,13 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     ACC = Accumulator(DOMAIN, DR, 'Hcurl', 'cc_lin_mhd_6d_2',
                       *args, do_vector=True, symmetry='symm')
 
+    start_time = time()
     ACC.accumulate(particles)
+    end_time = time()
+    tot_time = np.round(end_time - start_time, 3)
+
+    if rank == 0 and verbose:
+        print(f'Step 3 New took {tot_time} seconds.')
 
     atol = 1e-10
 
