@@ -294,8 +294,8 @@ class MHDOperators:
 
         .. math::
 
-            \mathcal{Q}^0 = \\hat{\Pi}_2 \\left[ \\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}} \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{Q}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}_{\\nu,(mno)} \\right] \,.
+            \mathcal{Q}^0 = \\hat{\Pi}_2 \\left[ \\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
+            \qquad \mathcal{Q}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Q0 and Q0T ...')
@@ -308,8 +308,8 @@ class MHDOperators:
 
         .. math::
 
-            \mathcal{T}^0 = \\hat{\Pi}_1 \\left[ \\hat{B}^2_{\\text{eq}} \\times \mathbf{\\vec{\Lambda}} \\right] \in \mathbb{R}^{N^1 \\times 3 \\times N^0}, 
-            \qquad \mathcal{T}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\nu} \\hat{B}^2_{\\text{eq},\\alpha} \mathbf{\\vec{\Lambda}}_{\\nu,(mno)} \\right] \,.
+            \mathcal{T}^0 = \\hat{\Pi}_1 \\left[ \\hat{B}^2_{\\text{eq}} \\times \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^1 \\times 3 \\times N^0}, 
+            \qquad \mathcal{T}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\nu} \\hat{B}^2_{\\text{eq},\\alpha} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling T0 and T0T ...')
@@ -322,8 +322,8 @@ class MHDOperators:
 
         .. math::
 
-            \mathcal{S}^0 = \\hat{\Pi}_2 \\left[ \\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}} \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{S}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^0 = \\hat{\Pi}_2 \\left[ \\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
+            \qquad \mathcal{S}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S0 and S0T ...')
@@ -336,8 +336,8 @@ class MHDOperators:
 
         .. math::
 
-            \mathcal{J}^0 = \\hat{\Pi}_2 \\left[ \sqrt{g} \, \mathbf{\\vec{\Lambda}} \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{J}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\sqrt{g} \, \mathbf{\\vec{\Lambda}}_{\\nu,(mno)} \\right] \,.
+            \mathcal{J}^0 = \\hat{\Pi}_2 \\left[ \sqrt{g} \, \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
+            \qquad \mathcal{J}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\sqrt{g} \, \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling J0 and J0T ...')
