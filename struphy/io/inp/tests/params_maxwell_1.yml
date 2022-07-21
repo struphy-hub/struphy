@@ -2,7 +2,7 @@ grid :
       Nel      : [4, 4, 32] # number of grid cells, >p
       p        : [2, 2, 3]  # spline degree, >1
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
-      bc       : [f, f] # boundary conditions in eta_1 for N-splines (homogeneous Dirichlet = d, free boundary = f)
+      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [2, 2, 2] # quadrature points per grid cell
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
       polar    : False # use polar splines
@@ -116,16 +116,16 @@ fields :
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
-            Modes_sin : 
+            ModesSin : 
                   k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
                   k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
-                  amp : [0.001] # amplitudes
-            Modes_cos : 
+                  amp : [[[0.001]]] # amplitudes
+            ModesCos : 
                   k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
                   k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
-                  amp : [0.001] # amplitudes
+                  amp : [[[0.001]]] # amplitudes
             init_eigfun : 
                   n_tor    : -1 # toroidal mode number
                   profiles : False # project equilibrium profiles

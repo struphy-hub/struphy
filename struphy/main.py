@@ -65,19 +65,22 @@ if rank == 0:
 Nel = params['grid']['Nel']             # Number of grid cells
 p = params['grid']['p']                 # spline degrees
 spl_kind = params['grid']['spl_kind']   # Spline types (clamped vs. periodic)
-# Number of quadrature points per histopolation cell
-nq_pr = params['grid']['nq_pr']
+bc = params['grid']['bc']               # Boundary conditions (Homogeneous Dirichlet or None)
+
 # Number of quadrature points per grid cell
 nq_el = params['grid']['nq_el']
+# Number of quadrature points per histopolation cell
+nq_pr = params['grid']['nq_pr']
 
-derham = Derham(Nel, p, spl_kind, nq_pr, quad_order=[
-                nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], comm=comm)
+derham = Derham(Nel, p, spl_kind, bc, quad_order=[
+                nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], nq_pr=nq_pr, comm=comm)
 
 if rank == 0:
     print('GRID parameters:')
     print(f'Nel     : {Nel}')
     print(f'p       : {p}')
     print(f'spl_kind: {spl_kind}')
+    print(f'bc      : {bc}')
     print(f'nq_el   : {nq_el}')
     print(f'nq_pr   : {nq_pr}\n')
     print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')

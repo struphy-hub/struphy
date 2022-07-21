@@ -4,6 +4,8 @@ from psydac.linalg.block import BlockVectorSpace, BlockVector, BlockMatrix
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
+from psydac.api.essential_bc import apply_essential_bc_stencil
+
 from struphy.psydac_api import banded_to_stencil_kernels as bts
 
 import numpy as np
@@ -180,3 +182,101 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
 
     if verbose:
         print(f'Rank {rank}: Assertion for array comparison passed with atol={atol}.')
+        
+        
+        
+def apply_essential_bc_to_array(space_id, vector, bc):
+    
+    if space_id == 'H1':
+        
+        assert isinstance(vector, StencilVector)
+        
+        # eta1-direction
+        if bc[0][0] == 'd': 
+            apply_essential_bc_stencil(vector, axis=0, ext=-1, order=0)
+        if bc[0][1] == 'd': 
+            apply_essential_bc_stencil(vector, axis=0, ext=+1, order=0)
+            
+        # eta2-direction
+        if bc[1][0] == 'd': 
+            apply_essential_bc_stencil(vector, axis=1, ext=-1, order=0)
+        if bc[1][1] == 'd': 
+            apply_essential_bc_stencil(vector, axis=1, ext=+1, order=0)
+            
+        # eta3-direction
+        if bc[2][0] == 'd': 
+            apply_essential_bc_stencil(vector, axis=2, ext=-1, order=0)
+        if bc[2][1] == 'd': 
+            apply_essential_bc_stencil(vector, axis=2, ext=+1, order=0)
+
+    elif space_id == 'Hcurl':
+        
+        assert isinstance(vector, BlockVector)
+        
+        # eta1-direction
+        if bc[0][0] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=0, ext=-1, order=0)
+            apply_essential_bc_stencil(vector[2], axis=0, ext=-1, order=0)
+        if bc[0][1] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=0, ext=+1, order=0)
+            apply_essential_bc_stencil(vector[2], axis=0, ext=+1, order=0)
+            
+        # eta2-direction
+        if bc[1][0] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=1, ext=-1, order=0)
+            apply_essential_bc_stencil(vector[2], axis=1, ext=-1, order=0)
+        if bc[1][1] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=1, ext=+1, order=0)
+            apply_essential_bc_stencil(vector[2], axis=1, ext=+1, order=0)
+            
+        # eta3-direction
+        if bc[2][0] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=2, ext=-1, order=0)
+            apply_essential_bc_stencil(vector[1], axis=2, ext=-1, order=0)
+        if bc[2][1] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=2, ext=+1, order=0)
+            apply_essential_bc_stencil(vector[1], axis=2, ext=+1, order=0)
+
+    elif space_id == 'Hdiv':
+        
+        assert isinstance(vector, BlockVector)
+        
+        # eta1-direction
+        if bc[0][0] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=0, ext=-1, order=0)
+        if bc[0][1] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=0, ext=+1, order=0)
+            
+        # eta2-direction
+        if bc[1][0] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=1, ext=-1, order=0)
+        if bc[1][1] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=1, ext=+1, order=0)
+            
+        # eta3-direction
+        if bc[2][0] == 'd': 
+            apply_essential_bc_stencil(vector[2], axis=2, ext=-1, order=0)
+        if bc[2][1] == 'd': 
+            apply_essential_bc_stencil(vector[2], axis=2, ext=+1, order=0)
+
+    elif space_id == 'H1vec':
+        
+        assert isinstance(vector, BlockVector)
+        
+        # eta1-direction
+        if bc[0][0] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=0, ext=-1, order=0)
+        if bc[0][1] == 'd': 
+            apply_essential_bc_stencil(vector[0], axis=0, ext=+1, order=0)
+            
+        # eta2-direction
+        if bc[1][0] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=1, ext=-1, order=0)
+        if bc[1][1] == 'd': 
+            apply_essential_bc_stencil(vector[1], axis=1, ext=+1, order=0)
+            
+        # eta3-direction
+        if bc[2][0] == 'd': 
+            apply_essential_bc_stencil(vector[2], axis=2, ext=-1, order=0)
+        if bc[2][1] == 'd': 
+            apply_essential_bc_stencil(vector[2], axis=2, ext=+1, order=0)
