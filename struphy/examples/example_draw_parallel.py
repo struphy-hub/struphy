@@ -28,11 +28,8 @@ marker_params = {'type': 'fullorbit', 'ppc': 10,
 # create domain
 domain = Domain('shafranov_shift')
 
-dummy_params = {'x0': 0.5, 'y0': 0.5, 'z0': 0.5}
-F_psy = domain.Psydac_mapping('F', **dummy_params)
-
 # create de rham object
-derham = Derham(Nel, p, spl_kind, F=F_psy, comm=comm)
+derham = Derham(Nel, p, spl_kind, comm=comm)
 
 if rank == 0:
     print()

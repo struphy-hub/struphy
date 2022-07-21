@@ -7,7 +7,10 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
+from struphy.psydac_api.linear_operators import ApplyEssentialBcToOperator as ApplyBc
 from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
+
+from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 
 class StepMaxwell(Propagator):
@@ -139,9 +142,11 @@ class StepShearAlfven1(Propagator):
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = mass_ops.M1n
+        _A = ApplyBc('Hcurl', derham.bc, mass_ops.M1n)
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T1T, derham.curl.transpose(), mass_ops.M2))
+        self._B = ApplyBc('Hcurl', derham.bc, self._B)
+        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T1))
         
         # Instantiate Schur solver (constant in this case)
@@ -165,6 +170,10 @@ class StepShearAlfven1(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
+        
+        # apply once more boundary conditions to eliminate round-off errors etc.
+        apply_essential_bc_to_array('Hcurl', _u, self._bc)
+        apply_essential_bc_to_array('Hdiv' , _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -227,9 +236,11 @@ class StepShearAlfven2(Propagator):
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = mass_ops.M2n
+        _A = ApplyBc('Hdiv', derham.bc, mass_ops.M2n)
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T2T, derham.curl.transpose(), mass_ops.M2))
+        self._B = ApplyBc('Hdiv', derham.bc, self._B)
+        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T2))
         
         # Instantiate Schur solver (constant in this case)
@@ -253,6 +264,10 @@ class StepShearAlfven2(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
+        
+        # apply once more boundary conditions to eliminate round-off errors etc.
+        apply_essential_bc_to_array('Hdiv', _u, self._bc)
+        apply_essential_bc_to_array('Hdiv', _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -304,6 +319,7 @@ class StepShearAlfven3(Propagator):
 
         self._u = u
         self._b = b
+        self._bc = derham.bc
         self._info = params['info']
 
         # Preconditioner
@@ -315,9 +331,11 @@ class StepShearAlfven3(Propagator):
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = mass_ops.Mvn
+        _A = ApplyBc('H1vec', derham.bc, mass_ops.Mvn)
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T0T, derham.curl.transpose(), mass_ops.M2))
+        self._B = ApplyBc('H1vec', derham.bc, self._B)
+        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T0))
         
         # Instantiate Schur solver (constant in this case)
@@ -341,6 +359,10 @@ class StepShearAlfven3(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
+        
+        # apply once more boundary conditions to eliminate round-off errors etc.
+        apply_essential_bc_to_array('H1vec', _u, self._bc)
+        apply_essential_bc_to_array('Hdiv' , _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -408,6 +430,7 @@ class StepMagnetosonic2(Propagator):
         self._u = u
         self._p = p
         self._b = b
+        self._bc = derham.bc
         self._info = params['info']
 
         # Preconditioner
@@ -419,12 +442,14 @@ class StepMagnetosonic2(Propagator):
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = mass_ops.M2n
+        _A = ApplyBc('Hdiv', derham.bc, mass_ops.M2n)
 
         self._B = Multiply(-1/2., Compose(derham.div.transpose(), mass_ops.M3))
+        self._B = ApplyBc('Hdiv', derham.bc, self._B)
+        
         self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S2), Multiply(5/3 - 1, Compose(mhd_ops.K2, derham.div))))
 
-        self._MJ = mass_ops.M2J
+        self._MJ = ApplyBc('Hdiv', derham.bc, mass_ops.M2J)
         self._Q  = mhd_ops.Q2
             
         self._DIV = derham.div
@@ -454,6 +479,9 @@ class StepMagnetosonic2(Propagator):
         _p = pn - dt*self._C.dot(_u + un)
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
+        
+        # apply once more boundary conditions to eliminate round-off errors etc.
+        apply_essential_bc_to_array('Hdiv', _u, self._bc)
 
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
@@ -522,6 +550,7 @@ class StepMagnetosonic3(Propagator):
         self._u = u
         self._p = p
         self._b = b
+        self._bc = derham.bc
         self._info = params['info']
 
         # Preconditioner
@@ -533,12 +562,14 @@ class StepMagnetosonic3(Propagator):
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = mass_ops.Mvn
+        _A = ApplyBc('H1vec', derham.bc, mass_ops.Mvn)
 
         self._B = Multiply(-1/2., Compose(mhd_ops.J0T, derham.div.transpose(), mass_ops.M3))
+        self._B = ApplyBc('H1vec', derham.bc, self._B)
+        
         self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S0), Multiply(5/3 - 1, Compose(mhd_ops.K0, derham.div, mhd_ops.J0))))
 
-        self._MJ = mass_ops.MvJ
+        self._MJ = ApplyBc('H1vec', derham.bc, mass_ops.MvJ)
         self._Q  = mhd_ops.Q0
             
         self._DIV = derham.div
@@ -568,6 +599,9 @@ class StepMagnetosonic3(Propagator):
         _p = pn - dt*self._C.dot(_u + un)
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
+        
+        # apply once more boundary conditions to eliminate round-off errors etc.
+        apply_essential_bc_to_array('H1vec', _u, self._bc)
 
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)

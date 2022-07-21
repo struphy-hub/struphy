@@ -25,6 +25,9 @@ class Derham:
 
         spl_kind : list[bool]
             Kind of spline in each direction (True=periodic, False=clamped).
+            
+        bc : list[str]
+            Homogeneous Dirichlet boundary condition in each direction.
 
         nq_pr : list[int]
             Number of Gauss-Legendre quadrature points in histopolation in each direction (default = p + 1).
@@ -39,7 +42,7 @@ class Derham:
             MPI communicator.
     """
 
-    def __init__(self, Nel, p, spl_kind, nq_pr=None, quad_order=None, der_as_mat=True, comm=None):
+    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, der_as_mat=True, comm=None):
  
         # Input parameters:
         assert len(Nel) == 3
@@ -55,20 +58,30 @@ class Derham:
         self._der_as_mat= der_as_mat
 
         self._comm = comm
-
-        if nq_pr is None:
-            # exact histopolation of products of B-splines
-            self._nq_pr = [pi + 1 for pi in p]
+        
+        if bc is None:
+            self._bc = [[None, None], [None, None], [None, None]]
         else:
-            assert len(nq_pr) == 3
-            self._nq_pr = nq_pr
+            assert len(bc) == 3
+            if spl_kind[0]: assert bc[0][0] is None and bc[0][1] is None
+            if spl_kind[1]: assert bc[1][0] is None and bc[1][1] is None
+            if spl_kind[2]: assert bc[2][0] is None and bc[2][1] is None
             
+            self._bc = bc
+
         if quad_order is None:
             # exact integration of products of B-splines
             self._quad_order = [pi for pi in p]
         else:
             assert len(quad_order) == 3
             self._quad_order = quad_order
+        
+        if nq_pr is None:
+            # exact histopolation of products of B-splines
+            self._nq_pr = [pi + 1 for pi in p]
+        else:
+            assert len(nq_pr) == 3
+            self._nq_pr = nq_pr
 
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
@@ -137,19 +150,25 @@ class Derham:
         """ List of spline type (periodic=True or clamped=False) in each direction.
         """
         return self._spl_kind
+    
+    @property
+    def bc(self):
+        """ List of boundary conditions in each direction.
+        """
+        return self._bc
 
+    @property
+    def quad_order(self):
+        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
+        """
+        return self._quad_order
+    
     @property
     def nq_pr(self):
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
         return self._nq_pr
     
-    @property
-    def quad_order(self):
-        """ List of number of Gauss-Legendre quadrature points in each direction (default = p, = p + 1 points per cell).
-        """
-        return self._quad_order
-
     @property
     def der_as_mat(self):
         """ Whether derivatives are returned as matrices (True) or operators (False).

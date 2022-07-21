@@ -1,9 +1,11 @@
-from abc   import abstractmethod
+from abc import abstractmethod
 
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import pcg
+
+from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 
 class LinOpWithTransp(LinearOperator):
@@ -232,3 +234,47 @@ class InverseLinearOperator(LinOpWithTransp):
     def transpose(self):
         # NOTE: we re-allocate all temporary vectors here... Maybe re-use instead?
         return InverseLinearOperator(self._operator.transpose(), pc=self._pc, tol=self._tol, maxiter=self._maxiter, verbose=self._verbose)
+    
+    
+class ApplyEssentialBcToOperator(LinOpWithTransp):
+    
+    def __init__(self, space_id, bc, operator):
+        
+        assert isinstance(bc, list)
+        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
+
+        self._space_id = space_id
+        self._bc = bc
+        self._operator = operator
+
+        self._domain = operator.domain
+        self._codomain = operator.codomain
+        self._dtype = operator.dtype
+        
+        
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def dot(self, v, out=None):
+        assert isinstance(v, (StencilVector, BlockVector))
+        assert v.space == self.domain
+
+        tmp = self._operator.dot(v)
+        
+        # apply boundary conditions
+        apply_essential_bc_to_array(self._space_id, tmp, self._bc)
+        
+        return tmp
+
+    def transpose(self):
+        # NOTE: we re-allocate all temporary vectors here... Maybe re-use instead?
+        return ApplyEssentialBcToOperator(self._space_id, self._bc, self._operator.transpose())
