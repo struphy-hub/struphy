@@ -1,6 +1,6 @@
 grid :
-      Nel      : [4, 4, 64] # number of grid cells, >p
-      p        : [2, 2, 3]  # spline degree, >1
+      Nel      : [16, 16, 8] # number of grid cells, >p
+      p        : [2, 2, 2]  # spline degree, >1
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [2, 2, 2] # quadrature points per grid cell
@@ -10,13 +10,13 @@ grid :
 
 time : 
       dt         : 0.05 # time step
-      Tend       : 10 # simulation time interval is [0, Tend]
+      Tend       : .5 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
 
 geometry : 
-      type           : cuboid # mapping F (possible types seen below)  
+      type           : hollow_torus # mapping F (possible types seen below)  
       cuboid : 
             l1       : 0. # start of interval in eta1
             r1       : 1. # end of interval in eta1, r1>l1
@@ -25,9 +25,9 @@ geometry :
             l3       : 0. # start of interval in eta3
             r3       : 20. # end of interval in eta3, r3>l3
       hollow_cyl :
-            a1       : .1 # inner radius
+            a1       : .2 # inner radius
             a2       : 1. # outer radius
-            R0       : 1. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
+            R0       : 2. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
             Lz       : 10. # length in third direction   
       colella :
             Lx       : 1. # length in x-direction
@@ -42,7 +42,7 @@ geometry :
       hollow_torus :
             a1       : .1 # inner radius
             a2       : 1. # minor radius
-            R0       : 1. # major radius
+            R0       : 4. # major radius
       ellipse :
             x0       : .1 # center of ellipse
             y0       : 1. # center of ellipse
@@ -110,9 +110,9 @@ geometry :
       
 fields : 
       init :
-            type   : noise # initial conditions (possible types seen below)
-            coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[True, True, True], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            type   : TorusModesSin # initial conditions (possible types seen below)
+            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+            comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
@@ -126,6 +126,12 @@ fields :
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
                   k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
                   amp : [[[0.001]]] # amplitudes
+            TorusModesSin : 
+                  ms : [3] # poloidal mode numbers
+                  ns : [1] # toroidal mode numbers
+                  amp : [0.001] # amplitudes
+                  pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                  pfun_params : [None] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and None for "sin"
             init_eigfun : 
                   n_tor    : -1 # toroidal mode number
                   profiles : False # project equilibrium profiles

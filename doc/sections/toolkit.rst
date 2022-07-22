@@ -53,7 +53,7 @@ Theoretical background can be found in the :ref:`appendix`.
     :members:
     
 
-.. _fields:
+.. _struphy_field:
 
 Finite element fields
 ---------------------

@@ -1,0 +1,43 @@
+import sys, os, shutil
+import pickle
+from struphy.diagnostics.post_processing import create_femfields, eval_femfields
+
+ppcell = int(sys.argv[1])
+
+if ppcell == 1:
+    ppcell = None
+
+for path in sys.argv[2:]:
+
+    print('')
+    fields, space_ids, code = create_femfields(path)
+    point_data_logic, point_data_phys, grids, grids_mapped = eval_femfields(path, fields, space_ids, npts_per_cell=1)
+    
+    # directory for evaluated data 
+    try:
+        os.mkdir(path + '/eval_fields/')
+    except:
+        shutil.rmtree(path + '/eval_fields/')
+        os.mkdir(path + '/eval_fields/')
+
+    # save data dicts for each field
+    for name, val in point_data_logic.items():
+
+        with open(path + '/eval_fields/' + name + '_logical.bin', 'wb') as handle:
+            pickle.dump(val, handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(path + '/eval_fields/' + name + '_physical.bin', 'wb') as handle:
+            pickle.dump(point_data_phys[name], handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+    # save grids
+    with open(path + '/eval_fields/grids.bin', 'wb') as handle:
+            pickle.dump(grids, handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path + '/eval_fields/grids_mapped.bin', 'wb') as handle:
+            pickle.dump(grids_mapped, handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+

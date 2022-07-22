@@ -23,7 +23,7 @@ geometry :
             l2       : 0. # start of interval in eta2
             r2       : 1. # end of interval in eta2, r2>l2
             l3       : 0. # start of interval in eta3
-            r3       : 20. # end of interval in eta3, r3>l3
+            r3       : 10. # end of interval in eta3, r3>l3
       hollow_cyl :
             a1       : .1 # inner radius
             a2       : 1. # outer radius
@@ -110,22 +110,28 @@ geometry :
       
 fields : 
       init :
-            type   : noise # initial conditions (possible types seen below)
-            coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : all # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            type   : ModesCos # initial conditions (possible types seen below)
+            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+            comps  : [[True, False, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
             ModesSin : 
-                  k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
+                  k1 : [0.] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
-                  k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
+                  k3 : [6.283186] # wave vectors in z or eta_3 (depending on coords)
                   amp : [[[0.001]]] # amplitudes
             ModesCos : 
-                  k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
+                  k1 : [0.] # wave vectors in x or eta_1 (depending on coords)
                   k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
-                  k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
-                  amp : [[[0.001]]]] # amplitudes
+                  k3 : [6.283186] # wave vectors in z or eta_3 (depending on coords)
+                  amp : [[[0.001]]] # amplitudes
+            TorusModesSin : 
+                  ms : [1] # poloidal mode numbers
+                  ns : [0] # toroidal mode numbers
+                  amp : [0.001] # amplitudes
+                  pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                  pfun_params : [None] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and None for "sin"
             InitialMHDSlab :
                   a  : 1.
                   R0 : 3.

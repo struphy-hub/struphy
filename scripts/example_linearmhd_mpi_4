@@ -2,7 +2,11 @@
 
 PYTHON=python3
 
+# run
 struphy run LinearMHD --mpi 4 -i examples/params_linearmhd.yml -o sim_3
+
+# post process
+struphy pproc sim_3
 
 # Struphy path
 STRUPHY=

@@ -1,5 +1,0 @@
-#!/bin/bash
-
-PYTHON=python3
-
-struphy run lin_Vlasov_Maxwell -i 'parameters_example.yml' -o 'sim2'

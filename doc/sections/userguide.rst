@@ -159,8 +159,8 @@ defined by the given parameters.
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 177
-    :lines: 177-217
+    :lineno-start: 184
+    :lines: 184-219
 
 
 .. _solvers:
@@ -174,8 +174,8 @@ Available preconditioners are listed in :ref:`preconditioner`.
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 220
-    :lines: 220-234
+    :lineno-start: 222
+    :lines: 222-236
 
 
 .. _pproc:
@@ -183,9 +183,16 @@ Available preconditioners are listed in :ref:`preconditioner`.
 Post processing
 ---------------
 
-Post processing means to prepare raw simulation data for diagnostics. This could mean to evaluate spline functions 
-on sample grids or to make histograms from particle data. The post processing is usually done by the user in 
-self-generated Python scripts or Jupyter Notebooks; STRUPHY provides some helper routines for this:
+Post processing means to prepare raw simulation data for diagnostics. The basic command for this is::
+
+    struphy pproc sim_1 [<options> sim_2 ...]
+
+Here, ``sim_1`` (and ``sim_2`` etc.) is relative to ``<install_path>/io/out/``. The command generates two kinds of data:
+
+    1. ``vtk`` files for each time step in ``<install_path>/io/out/sim_1/vtk/`` 
+    2. numpy arrays of evaluated fields and grids in ``<install_path>/io/out/sim_1/eval_fields/`` 
+
+The called STRUPHY routine is
 
 .. automodule:: struphy.diagnostics.post_processing
     :members:

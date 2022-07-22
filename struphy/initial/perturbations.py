@@ -84,3 +84,68 @@ class ModesCos:
                     val += self._amps[o][m][n]*np.cos(k1*x + k2*y + k3*z)
 
         return val
+
+
+class TorusModesSin:
+    '''Defines the callable
+    
+    .. math::
+    
+        u(\eta_1, \eta_2, \eta_3) = \sum_{i=0}^N \chi_i(\eta_1) \sin(m_i\,2\pi \eta_2 + n_i\,2\pi \eta_3) 
+
+    where :math:`\chi_i(\eta_1)` is one of
+
+    .. math::
+
+        \chi_i(\eta_1) = A_i\sin(\pi\eta_1)\,,\qquad\quad \chi_i(\eta_1) = A_i\exp^{-(\eta_1 - r_0)^2/\sigma}
+    '''
+
+    def __init__(self, ms, ns, amps, pfuns='sin', pfun_params=None):
+        '''
+        Parameters
+        ----------
+            ms : list[int]
+                Poloidal mode numbers.
+
+            ns : list[int]
+                Toroidal mode numbers.
+
+            pfuns : list[str]
+                "sin" or "exp" to define the profile functions.
+
+            amps : list[float]
+                Amplitudes of each mode (m_i, n_i).
+
+            pfun_params : list
+                Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and None for "sin".
+        '''
+
+        assert len(ms) == len(ns)
+        assert len(ms) == len(pfuns)
+        assert len(ms) == len(amps)
+
+        if pfun_params is None:
+            pfun_params = [None]*len(ms)
+
+        assert len(ms) == len(pfun_params)
+
+        self._ms = ms
+        self._ns = ns
+        self._amps = amps
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfun_params):
+            if pfun == 'sin':
+                self._pfuns += [lambda eta1 : np.sin(np.pi*eta1)]
+            elif pfun == 'exp':
+                self._pfuns += [lambda eta1 : np.exp(-(eta1 - params[0])**2/params[1])]
+            else:
+                raise ValueError('Profile function must be "sin" or "exp".')
+
+    def __call__(self, eta1, eta2, eta3):
+
+        val = 0.
+        for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
+            val += amp * pfun(eta1) * np.sin(mi*2.*np.pi*eta2 + ni*2.*np.pi*eta3)
+
+        return val

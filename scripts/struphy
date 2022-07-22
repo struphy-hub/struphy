@@ -26,10 +26,10 @@ done
 RUN=false
 COMPILE=false 
 PROFILE=false
+PPROC=false
 PROFILE_ALL=false    
 CFLAGS=--openmp    
-CODE=lin_mhd                          
-OPENMP=true           
+CODE=                                 
 INPUT=parameters.yml            
 INPUT_ABS=        
 OUTPUT=sim_1           
@@ -39,8 +39,8 @@ BATCH_SCRIPT=
 BATCH_SCRIPT_ABS=         
 RESTART_FOLDER=          
 MPI_SIZE=
+PPCELL=1
 RUN_CMD=$PYTHON
-OUT_CMD=
 
 function help {
     echo
@@ -52,9 +52,10 @@ function help {
     echo -e "       \e[4mstruphy\e[0m \e[4mcompile\e[0m [<compile options>]"
     echo -e "       \e[4mstruphy\e[0m \e[4mrun\e[0m <model> [<run options>]"
     echo -e "       \e[4mstruphy\e[0m \e[4mprofile\e[0m [<profile options>] <sim1> [<sim2> ...] "
+    echo -e "       \e[4mstruphy\e[0m \e[4mpproc\e[0m [<post processing options>] <sim1> [<sim2> ...] "
     echo 
     echo -e "\e[1mDESCRIPTION\e[0m"
-    echo -e "      Compiles Struphy kernels (with pyccel), runs one of several struphy models or profiles finished runs. 
+    echo -e "      Compiles struphy kernels, runs a struphy model, profiles finished runs or post processs struphy data. 
       Can run locally with mpi (for testing) or submit a batch script to SLURM.
       For more info see https://clapp.pages.mpcdf.de/hylife/index.html ."
     echo
@@ -86,6 +87,9 @@ function help {
     echo "                                 If not given, struphy profiles only functions including 
                                  strings stated in file:///home/spossann/git_repos/struphy/doc/_build/html/sections/userguide.html#code-profiling"
     echo "      <sim1>, <sim2>             Folder names of finished simulations, relative to <install_path>/struphy/io/out/."
+    echo
+    echo -e "\e[1mPOST PROCESSING OPTIONS\e[0m "
+    echo "      --ppcell <int>             Points per cell for field evaluation, default=1."
     echo ""
 }
 
@@ -123,6 +127,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     profile)
       PROFILE=true
+      shift
+      ;;
+    pproc)
+      PPROC=true
       shift
       ;;
     -a|--all)
@@ -179,6 +187,11 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --ppcell)
+      PPCELL="$2"
+      shift
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -192,18 +205,17 @@ done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-# Print parameters
-echo "STRUPHY          = ${STRUPHY}"
-echo "COMPILE          = ${COMPILE}"
-echo "CFLAGS           = ${CFLAGS}"
-echo "CLEAN            = ${CLEAN}"
-echo "RUN              = ${RUN}"
-echo "CODE             = ${CODE}"
-echo "RESTART_FOLDER   = ${RESTART_FOLDER}"
-echo "MPI_SIZE         = ${MPI_SIZE}"
+# Struphy path
+echo "STRUPHY = ${STRUPHY}"
 
 # Code compilation
 if [ "$COMPILE" = true ]; then
+
+  # Print parameters
+  echo "Makefile: $STRUPHY/compile_struphy.mk"
+  echo "COMPILE = ${COMPILE}"
+  echo "CFLAGS  = ${CFLAGS}"
+  echo "CLEAN   = ${CLEAN}"
 
   if [ "$CLEAN" = true ]; then
     echo "Start cleaning up struphy..."
@@ -237,8 +249,11 @@ if [ "$RUN" = true ] ; then
     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
   fi
 
+  # delete output folder if it exists
+  rm -rf $OUTPUT_ABS
+
   # Create ouput folder and copy parameters there
-  mkdir -p $OUTPUT_ABS
+  mkdir $OUTPUT_ABS
   cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
   METAFILE=$OUTPUT_ABS/meta.txt 
 
@@ -281,13 +296,17 @@ if [ "$RUN" = true ] ; then
 
   fi
 
+  # Print parameters
+  echo "RUN              = ${RUN}"
+  echo "CODE             = ${CODE}"
+  echo "RESTART_FOLDER   = ${RESTART_FOLDER}"
+  echo "MPI_SIZE         = ${MPI_SIZE}"
   echo "INPUT_ABS        = ${INPUT_ABS}"
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}"
   echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}"
   echo "RUN_CMD          = ${RUN_CMD}"
-  echo "OUT_CMD          = ${OUT_CMD}"
   echo "METAFILE         = ${METAFILE}"
- 
+
   # Write to meta.txt
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
   echo "CODE             = ${CODE}" >> $METAFILE
@@ -297,7 +316,6 @@ if [ "$RUN" = true ] ; then
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE
   echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}" >> $METAFILE
   echo "RUN_CMD          = ${RUN_CMD}" >> $METAFILE
-  echo "OUT_CMD          = ${OUT_CMD}" >> $METAFILE
   echo "METAFILE         = ${METAFILE}" >> $METAFILE
 
   # Start code
@@ -305,6 +323,7 @@ if [ "$RUN" = true ] ; then
 
 fi
 
+# Profile runs
 if [ "$PROFILE" = true ]; then
 
   if (( ${#POSITIONAL_ARGS[@]} == 0 )); then
@@ -316,9 +335,13 @@ if [ "$PROFILE" = true ]; then
 
     folders=()
     for i in ${POSITIONAL_ARGS[@]}; do
-      echo "$i"
       folders+=($STRUPHY/io/out/$i/)
     done
+
+    # Print parameters
+    echo "Executing $STRUPHY/diagnostics/profile_struphy.py"
+    echo "PROFILE_ALL = $PROFILE_ALL"
+    echo "folders  = ${folders[*]}"
 
     $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${folders[@]}
 
@@ -326,13 +349,30 @@ if [ "$PROFILE" = true ]; then
 
 fi
 
+# Post processing
+if [ "$PPROC" = true ]; then
 
-# # In-/output paths
-#   if [ -z $INPUT_ABS ]; then
-#     INPUT_ABS=$STRUPHY/io/inp/$INPUT
-#   fi
+  if (( ${#POSITIONAL_ARGS[@]} == 0 )); then
 
-#   if [ -z $OUTPUT_ABS ]; then
-#     OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
-#   fi
+    echo "  ERROR: no simulation folders to post process specified."
+    exit 1
+
+  else
+
+    folders=()
+    for i in ${POSITIONAL_ARGS[@]}; do
+      folders+=($STRUPHY/io/out/$i/)
+    done
+
+    # Print parameters
+    echo "Executing $STRUPHY/diagnostics/pproc_struphy.py"
+    echo "PPCELL = $PPCELL"
+    echo "folders  = ${folders[*]}"
+
+    $PYTHON $STRUPHY/diagnostics/pproc_struphy.py $PPCELL ${folders[@]}
+
+  fi
+
+fi
+
 

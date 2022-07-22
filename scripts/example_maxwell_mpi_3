@@ -2,7 +2,11 @@
 
 PYTHON=python3
 
+# run
 struphy run Maxwell --mpi 3 -i examples/params_maxwell.yml -o sim_2
+
+# post process
+struphy pproc sim_2
 
 # Struphy path
 STRUPHY=
