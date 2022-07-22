@@ -160,14 +160,14 @@ class Field:
                     if comp:
                         self._add_noise(n=n)
         
-        elif self.init_type == 'ModesSin' or self.init_type == 'ModesCos':
+        elif 'ModesSin' in self.init_type or 'ModesCos' in self.init_type:
 
             # Get callable(s) for specified init type
             _fun_tmp = [None] * len(comps)
             for n, comp in enumerate(comps):
                 if comp:
                     fun_class = getattr(perturbations, self.init_type)
-                    _fun_tmp[n] = fun_class(**self._init_params)
+                    _fun_tmp[n] = fun_class(*list(self._init_params.values()))
 
             # Pullback callable and project
             self._fun = []
@@ -204,6 +204,18 @@ class Field:
                 self._fun += [PulledPform(init_coords,
                                            _fun_tmp, domain, '3_form')]
                 self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
+
+            elif self.space_id == 'H1vec':
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, domain, '0_form')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, domain, '0_form')]
+                self._fun += [Pulled_pform(init_coords,
+                                           _fun_tmp, domain, '0_form')]
+                _coeffs = self.derham.P0vec(self._fun).coeffs
+                self._vector[0][:] = _coeffs[0][:]
+                self._vector[1][:] = _coeffs[1][:]
+                self._vector[2][:] = _coeffs[2][:]
                 
             elif self.space_id == 'H1vec':
                 self._fun += [PulledPform(init_coords,

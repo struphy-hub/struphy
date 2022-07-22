@@ -85,20 +85,7 @@ In order to suppress fork warnings in the slurm output::
 Psydac installation instructions
 --------------------------------
 
-Set variables for hdf5::
-
-    export CC="mpicc"
-    export HDF5_MPI="ON"
-
-Determine the ``HDF5_DIR`` via::
-
-    dpkg -L libhdf5-openmpi-dev
-
-The correct path is the one that ends with ``hdf5/openmpi``, for example ``/usr/lib/x86_64-linux-gnu/hdf5/openmpi`` on a standard Ubuntu system. Set the correct path as in::
-
-    export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-
-Install psydac::
+In the psydac repository type::
 
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation

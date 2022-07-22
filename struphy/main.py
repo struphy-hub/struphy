@@ -117,31 +117,6 @@ model.set_initial_conditions(
 
 model.update_scalar_quantities(0.)
 
-# Output Manager Initialization
-# om = OutputManager(path_out + 'FIELD_DATA_spaces.yml', path_out + 'FIELD_DATA_fields.h5')
-# om.add_spaces(V0=derham.V0, V1=derham.V1, V2=derham.V2, V3=derham.V3)
-# om.export_space_info()
-
-# for patch in om.space_info['patches']:
-#     for space in patch['vector_spaces']:
-#         for key, val in space.items():
-#             print(key)
-#             print(val)
-#             print('')
-#             if isinstance(val, list):
-#                 for va in val:
-#                     for k, v in va.items():
-#                         print(k)
-#                         print(v)
-#                 print('')
-
-# field_dict = {}
-# for field in model.fields:
-#     field_dict[field.name] = field.field
-
-# om.add_snapshot(t=0., ts=0)
-# om.export_fields(**field_dict)
-
 # data object for saving
 data = Data_container(path_out, comm=comm)
 
@@ -239,9 +214,7 @@ while True:
     # update time series
     model.update_scalar_quantities(dt*time_steps_done)
 
-    # save data:
-    # om.add_snapshot(t=dt*time_steps_done, ts=time_steps_done) 
-    # om.export_fields(**field_dict)
+    # save data
     data.save_data()
 
     # print number of finished time steps and current energies

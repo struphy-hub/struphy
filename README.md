@@ -13,7 +13,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 * Solve [PDEs for plasma physics](https://clapp.pages.mpcdf.de/hylife/sections/models.html) with fluid and/or kinetic components 
 * Use mapped domains in curved geometries
 * Run on HPC clusters (CPUs)
-* Post process data and generate `.vtk` files
+* Post process data and generate `vtk` files
 * Use Python interfaces to quickly add your own model/mapping/physics feature
 
 ## Algorithmic features

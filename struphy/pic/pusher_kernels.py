@@ -30,7 +30,7 @@ def push_v_with_efield(markers: 'float[:,:]', n_markers: 'int',
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\\top} \hat{\mathbf E}^1(\eta^n_p)
+        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \hat{\mathbf E}^1(\eta^n_p)
 
     for each marker :math:`p` in markers array, where :math:`\hat{\mathbf E}^1 in H(\\textnormal{curl})`.
 
@@ -732,9 +732,9 @@ def push_pc_Xu_full(markers: 'float[:,:]', n_markers: 'int',
                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                        dt: 'float',
-                        grad_Xu_11: 'float[:,:,:]', grad_Xu_12: 'float[:,:,:]', grad_Xu_13: 'float[:,:,:]',
-                        grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
+                    dt: 'float',
+                    grad_Xu_11: 'float[:,:,:]', grad_Xu_12: 'float[:,:,:]', grad_Xu_13: 'float[:,:,:]',
+                    grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
                     grad_Xu_31: 'float[:,:,:]', grad_Xu_32: 'float[:,:,:]', grad_Xu_33: 'float[:,:,:]'):
     '''Updates
 

@@ -1,15 +1,10 @@
-from struphy.diagnostics.post_processing import create_femfields, eval_femfields
 from struphy.diagnostics.diagn_tools import fourier_1d
 
+import pickle
 import sys
 import yaml
 
 path = sys.argv[1] 
-
-fields, spaces, domain, code = create_femfields(path)
-
-values_log, values_phys, grids_log, grids_phys = eval_femfields(
-    fields, spaces, domain, npts_per_cell=1)  # evaluation at cell boundaries for fft
 
 # read in parameters for analytical dispersion relation
 with open(path + '/parameters.yml') as file:
@@ -26,10 +21,48 @@ gamma = 5/3
 
 disp_params = {'B0x': B0x, 'B0y': B0y,'B0z': B0z, 'p0': p0, 'n0': n0, 'gamma': 5/3}
 
+with open(path + '/meta.txt', 'r') as f:
+        lines = f.readlines()
+
+# code name
+code = lines[-2].split()[-1]
+# number of processes
+mpi_size = int(lines[-1].split()[-1])
+
+with open(path + '/MODEL_names.bin', 'rb') as handle:
+    li = pickle.load(handle)
+    names = li[0]
+    space_ids = li[1]
+
+# load grids
+with open(path + '/eval_fields/grids.bin', 'rb') as handle:
+    grids = pickle.load(handle)
+
+with open(path + '/eval_fields/grids_mapped.bin', 'rb') as handle:
+    grids_mapped = pickle.load(handle)
+
+# load data dicts for u_field
+name = names[1]
+
+with open(path + '/eval_fields/' + name + '_logical.bin', 'rb') as handle:
+    point_data_log = pickle.load(handle)
+
+with open(path + '/eval_fields/' + name + '_phys.bin', 'rb') as handle:
+    point_data_phys = pickle.load(handle)
+
 # fft in (t, z) of first component of u_field on physical grid
-fourier_1d(values_log['uv'], code, grids_log['uv'],
-           grids_phys=grids_phys['uv'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
+fourier_1d(point_data_log, code, grids,
+           grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
+
+# load data dicts for pressure
+name = names[2]
+
+with open(path + '/eval_fields/' + name + '_logical.bin', 'rb') as handle:
+    point_data_log = pickle.load(handle)
+
+with open(path + '/eval_fields/' + name + '_phys.bin', 'rb') as handle:
+    point_data_phys = pickle.load(handle)
 
 # fft in (t, z) of pressure on physical grid
-fourier_1d(values_log['p3'], code, grids_log['p3'],
-           grids_phys=grids_phys['p3'], component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
+fourier_1d(point_data_log, code, grids,
+           grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)

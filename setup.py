@@ -22,11 +22,7 @@ setup(
     },
     # list of executable(s) that come with the package (if applicable)s
     scripts=['scripts/struphy',
-             'scripts/example_lin_mhd_1d_fft',
-             'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
-             'scripts/example_cold_plasma_1d_fft',
-             'scripts/example_lin_Vlasov_Maxwell',
              'scripts/example_maxwell_serial',
              'scripts/example_maxwell_mpi_3',
              'scripts/example_linearmhd_mpi_4'

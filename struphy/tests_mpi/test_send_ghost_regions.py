@@ -201,5 +201,5 @@ if __name__ == '__main__':
         if (np.array(spl_kind) == False).all():
             continue
         else:
-            test_send_ghost_regions([12, 14, 16], [2, 3, 4], spl_kind, ['cuboid', {
+            test_send_ghost_regions([9, 12, 15], [2, 3, 4], spl_kind, ['cuboid', {
                 'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)
