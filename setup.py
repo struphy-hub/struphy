@@ -57,6 +57,6 @@ setup(
     author_email="stefan.possanner@ipp.mpg.de, florian.holderied@ipp.mpg.de, xin.wang@ipp.mpg.de",
     description="Multi-model plasma physics package",
     license="not yet licensed.",
-    keywords="plasma, partial differential equations, energetic particles",
+    keywords="plasma physics, nuclear fusion, partial differential equations, energetic particles",
     url="https://clapp.pages.mpcdf.de/hylife/",   # project home page, if any
 )
