@@ -2,7 +2,7 @@ import pytest
 
 import struphy.feec.bsplines_kernels as bsp
 from   struphy.feec                  import spline_space 
-from   struphy.pic                   import filler_kernel
+from   struphy.pic                   import filler_kernels
 
 import numpy as np
 
@@ -71,7 +71,7 @@ def test_Filler_Kernel(Nel, p, spl_kind):
 
 
     # ========================================================================================= 
-    # Test filler_kernel
+    # Test filler_kernels
     # =========================================================================================
 
     # test v1 functions
@@ -115,7 +115,7 @@ def test_Filler_Kernel(Nel, p, spl_kind):
         filling_v = 10. - 20.*np.random.rand()
 
         # test vector functions
-        function_v  = getattr(filler_kernel, 'fill_vec'+str(a+1)+'_v1')
+        function_v  = getattr(filler_kernels, 'fill_vec'+str(a+1)+'_v1')
         function_v(np.array(p), b1, b2, b3 , ind1, ind2, ind3, vector, filling_v)
         
         assert np.isnan(vector).any() == False
@@ -126,8 +126,8 @@ def test_Filler_Kernel(Nel, p, spl_kind):
             matrix = np.empty( (Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
             matrix[:,:,:,:,:,:] = 0.
 
-            function_m  = getattr(filler_kernel, 'fill_mat'+str(a+1)+str(b+1)+'_v1')
-            function_mv = getattr(filler_kernel, 'fill_mat'+str(a+1)+str(b+1)+'_vec'+str(a+1)+'_v1')
+            function_m  = getattr(filler_kernels, 'fill_mat'+str(a+1)+str(b+1)+'_v1')
+            function_mv = getattr(filler_kernels, 'fill_mat'+str(a+1)+str(b+1)+'_vec'+str(a+1)+'_v1')
 
             if a == b:
 
@@ -241,7 +241,7 @@ def test_Filler_Kernel(Nel, p, spl_kind):
         filling_v = 10. - 20.*np.random.rand()
 
         # test vector functions
-        function_v  = getattr(filler_kernel, 'fill_vec'+str(a+1)+'_v2')
+        function_v  = getattr(filler_kernels, 'fill_vec'+str(a+1)+'_v2')
         function_v(np.array(p), b1, b2, b3 , ind1, ind2, ind3, vector, filling_v)
 
         assert np.isnan(vector).any() == False
@@ -252,8 +252,8 @@ def test_Filler_Kernel(Nel, p, spl_kind):
             matrix = np.empty( (Ni[0], Ni[1], Ni[2], 2*p[0] + 1, 2*p[1] + 1, 2*p[2] + 1), dtype=float)
             matrix[:,:,:,:,:,:] = 0.
 
-            function_m  = getattr(filler_kernel, 'fill_mat'+str(a+1)+str(b+1)+'_v2')
-            function_mv = getattr(filler_kernel, 'fill_mat'+str(a+1)+str(b+1)+'_vec'+str(a+1)+'_v2')
+            function_m  = getattr(filler_kernels, 'fill_mat'+str(a+1)+str(b+1)+'_v2')
+            function_mv = getattr(filler_kernels, 'fill_mat'+str(a+1)+str(b+1)+'_vec'+str(a+1)+'_v2')
 
             if a == b:
 

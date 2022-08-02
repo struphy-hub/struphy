@@ -1,7 +1,19 @@
-# ============================================ 3D ======================================
-
 # =========================================
-def matrix_vector(a : 'double[:,:]', b : 'double[:]', c : 'double[:]'):
+def matrix_vector(a : 'float[:,:]', b : 'float[:]', c : 'float[:]'):
+    """
+    Performs the matrix-vector product of a 3x3 matrix with a vector.
+    
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+        
+        b : array[float]
+            The input array (vector) of shape (3,).
+            
+        c : array[float]
+            The output array (vector) of shape (3,) which is the result of the matrix-vector product a.dot(b).
+    """
     
     c[:] = 0.
     
@@ -11,7 +23,21 @@ def matrix_vector(a : 'double[:,:]', b : 'double[:]', c : 'double[:]'):
 
 
 # =========================================
-def matrix_matrix(a : 'double[:,:]', b : 'double[:,:]', c : 'double[:,:]'):
+def matrix_matrix(a : 'float[:,:]', b : 'float[:,:]', c : 'float[:,:]'):
+    """
+    Performs the matrix-matrix product of a 3x3 matrix with another 3x3 matrix.
+    
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (matrix) of shape (3,3).
+        
+        b : array[float]
+            The second input array (matrix) of shape (3,3).
+            
+        c : array[float]
+            The output array (matrix) of shape (3,3) which is the result of the matrix-matrix product a.dot(b).
+    """
     
     c[:, :] = 0.
     
@@ -22,9 +48,18 @@ def matrix_matrix(a : 'double[:,:]', b : 'double[:,:]', c : 'double[:,:]'):
 
 
 # =========================================
-def transpose(a : 'double[:,:]', b : 'double[:,:]'):
+def transpose(a : 'float[:,:]', b : 'float[:,:]'):
+    """
+    Assembles the transposed of a 3x3 matrix.
     
-    b[:, :] = 0.
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+        
+        b : array[float]
+            The output array (matrix) of shape (3,3).
+    """
     
     for i in range(3):
         for j in range(3):
@@ -32,39 +67,129 @@ def transpose(a : 'double[:,:]', b : 'double[:,:]'):
 
             
 # =========================================
-def det(a : 'double[:,:]') -> 'double':
+def det(a : 'float[:,:]') -> float:
+    """
+    Computes the determinant of a 3x3 matrix.
+    
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3) of which the determinant shall be computed.
+        
+    Returns
+    -------
+        det_a : float
+            The determinant of the 3x3 matrix a.
+    """
     
     plus  = a[0, 0]*a[1, 1]*a[2, 2] + a[0, 1]*a[1, 2]*a[2, 0] + a[0, 2]*a[1, 0]*a[2, 1]
     minus = a[2, 0]*a[1, 1]*a[0, 2] + a[2, 1]*a[1, 2]*a[0, 0] + a[2, 2]*a[1, 0]*a[0, 1]
     
-    return plus - minus
+    det_a = plus - minus
+    
+    return det_a
 
 
 # =======================================================
-def cross(a : 'double[:]', b : 'double[:]', c : 'double[:]'):
+def cross(a : 'float[:]', b : 'float[:]', c : 'float[:]'):
+    """
+    Computes the vector (cross) product of two vectors of length 3. 
     
-    c[:] = 0.
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (vector) of shape (3,).
+        
+        b : array[float]
+            The second input array (vector) of shape (3,).
+            
+        c : array[float]
+            The output array (vector) of shape (3,) which is the vector product a x b.
+    """
     
     c[0] = a[1]*b[2] - a[2]*b[1]
     c[1] = a[2]*b[0] - a[0]*b[2]
     c[2] = a[0]*b[1] - a[1]*b[0]
+
+
+# =======================================================
+def outer(a : 'float[:]', b : 'float[:]', c : 'float[:,:]'):
+    """
+    Computes the outer product of two vectors of length 3. 
+    
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (vector) of shape (3,).
+        
+        b : array[float]
+            The second input array (vector) of shape (3,).
+            
+        c : array[float]
+            The output array (matrix) of shape (3, 3) which is the outer product c_ij = a_i*b_j.
+    """
+    
+    c[:, :] = 0.
+    
+    for i in range(3):
+        for j in range(3):
+                c[i, j] = a[i] * b[j] 
     
     
 # =========================================
-def matrix_inv(a : 'double[:,:]', b : 'double[:,:]'):
+def matrix_inv(a : 'float[:,:]', b : 'float[:,:]'):
+    """
+    Computes the inverse of a 3x3 matrix.
     
-    # inverse determinant
-    over_det_a = 1.0 / det(a)
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+        
+        b : array[float]
+            The output array (matrix) of shape (3,3).
+    """
+    
+    det_a = det(a)
 
-    # inverse matrix
-    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) * over_det_a
-    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) * over_det_a
-    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) * over_det_a
+    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
+    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) / det_a
+    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) / det_a
 
-    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) * over_det_a
-    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) * over_det_a
-    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) * over_det_a
+    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) / det_a
+    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) / det_a
+    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) / det_a
 
-    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) * over_det_a
-    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) * over_det_a
-    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) * over_det_a
+    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
+    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
+    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a
+    
+
+# =========================================
+def matrix_inv_with_det(a : 'float[:,:]', det_a : float, b : 'float[:,:]'):
+    """
+    Computes the inverse of a 3x3 matrix for the case that the determinant is already known such that its extra compuation can be avoided.
+    
+    Parameters
+    ----------
+        a : array[float]
+            The input array (matrix) of shape (3,3).
+            
+        det_a : float
+            The determinant of the input array (matrix) a.
+        
+        b : array[float]
+            The output array (matrix) of shape (3,3).
+    """
+
+    b[0, 0] = (a[1, 1]*a[2, 2] - a[2, 1]*a[1, 2]) / det_a
+    b[0, 1] = (a[2, 1]*a[0, 2] - a[0, 1]*a[2, 2]) / det_a
+    b[0, 2] = (a[0, 1]*a[1, 2] - a[1, 1]*a[0, 2]) / det_a
+
+    b[1, 0] = (a[1, 2]*a[2, 0] - a[2, 2]*a[1, 0]) / det_a
+    b[1, 1] = (a[2, 2]*a[0, 0] - a[0, 2]*a[2, 0]) / det_a
+    b[1, 2] = (a[0, 2]*a[1, 0] - a[1, 2]*a[0, 0]) / det_a
+
+    b[2, 0] = (a[1, 0]*a[2, 1] - a[2, 0]*a[1, 1]) / det_a
+    b[2, 1] = (a[2, 0]*a[0, 1] - a[0, 0]*a[2, 1]) / det_a
+    b[2, 2] = (a[0, 0]*a[1, 1] - a[1, 0]*a[0, 1]) / det_a

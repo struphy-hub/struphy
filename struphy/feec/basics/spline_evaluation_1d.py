@@ -1,13 +1,16 @@
 # coding: utf-8
 #
-# Copyright 2020 Florian Holderied
+# Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
-Acccelerated functions for point-wise evaluation of univariate B-splines.
+Acccelerated functions for point-wise evaluation of tensor product B-splines.
 
-S(eta) = sum_i c_i * B_i(eta)      with c_i in R.
+S(eta1) = sum_i [ c_i * B_i(eta1) ] with c_i in R.
 
-where B can be N, D or dN/deta. 
+Possible combinations for tensor product (B):
+* (N)
+* (D)
+* (dN/deta)
 """
 
 from numpy import empty
@@ -15,187 +18,134 @@ from numpy import empty
 import struphy.feec.bsplines_kernels as bsp
 
 
-# ========================================================
-def evaluation_kernel_1d(p : 'int', basis : 'double[:]', span : 'int', nbase : 'int', coeff : 'double[:]') -> 'double':
-    '''Summing non-zero contributions.
+# =============================================================================
+def evaluation_kernel_1d(p1 : int, basis1 : 'float[:]', ind1 : 'int[:]', coeff : 'float[:]') -> float:
+    """
+    Summing non-zero contributions.
 
-    Parameters:
-    -----------
-        p:      int         spline degree
-        basis:  double[:]   p+1 values of non-zero basis splines at one point eta from 'basis_funs'
-        span:   int         knot span index from 'find_span'
-        nbase:  int         dimension of spline space 
-        coeff:  double[:]   spline coefficients c_i
+    Parameters
+    ----------
+        p1 : int                 
+            Degree of the univariate spline.
+            
+        basis1 : array[float]           
+            The p+1 values of non-zero basis splines at one point (eta1,) from 'basis_funs' of shape.
+            
+        ind1 : array[int]                 
+            Global indices of non-vanishing splines in the element of the considered point.
+            
+        coeff : array[float]
+            The spline coefficients c_i. 
 
-    Returns:
-    --------
-        value: float
-            Value of B-spline at point eta.
-    '''
+    Returns
+    -------
+        spline_value : float
+            Value of spline at point (eta1,).
+    """
     
-    value = 0.
+    spline_value = 0.
     
-    for il in range(p + 1):
-        i = (span - il)%nbase
-        value += coeff[i] * basis[p - il]
+    for il1 in range(p1 + 1):
+        i1 = ind1[il1]
+                
+        spline_value += coeff[i1] * basis1[il1]
         
-    return value
+    return spline_value
 
 
-# ========================================================
-def eval_kernel_1d(p : 'int', basis : 'double[:]', span : 'int', ind : 'int[:]', coeff : 'double[:]') -> 'double':
-    '''Summing non-zero contributions.
+# =============================================================================
+def evaluate(kind1 : int, t1 : 'float[:]', p1 : int, ind1 : 'int[:,:]', coeff : 'float[:]', eta1 : float) -> float:
+    """
+    Point-wise evaluation of a spline. 
 
-    Parameters:
-    -----------
-        p:      int         spline degree
-        basis:  double[:]   p+1 values of non-zero basis splines at one point eta from 'basis_funs'
-        span:   int         knot span index from 'find_span'
-        ind:    int[:]      contains the global indices of non-vanishing basis functions
-        coeff:  double[:]   spline coefficients c_i
-
-    Returns:
-    --------
-        value: float
-            Value of B-spline at point eta.
-    '''
+    Parameters
+    ----------
+        kind1 : int
+            Kind of univariate spline. 1 for B-spline, 2 for M-spline and 3 for derivative of B-spline.
     
-    value = 0.
-    
-    for il in range(p + 1):
-        i = ind[il]
-        value += coeff[i] * basis[il]
-        
-    return value
+        t1 : array[float]
+            Knot vector of univariate spline.
+            
+        p1 : int                 
+            Degree of univariate spline.
+            
+        ind1 : array[int]                 
+            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+            
+        coeff : array[float]
+            The spline coefficients c_i. 
+            
+        eta1 : float              
+            Point of evaluation.
 
+    Returns
+    -------
+        spline_value: float
+            Value of spline at point (eta1,).
+    """
 
-# ========================================================
-def evaluate_n(tn : 'double[:]', pn : 'int', nbase_n : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
-    '''Point-wise evaluation of N-spline. 
-
-    Parameters:
-    -----------
-        tn:         double[:]   knot vector
-        pn:         int         spline degree
-        nbase_n:    int         dimension of spline space 
-        coeff:      double[:]   spline coefficients
-        eta:        double      point of evaluation
-
-    Returns:
-    --------
-        value: float
-            Value of N-spline at point eta.
-    '''
-
-    # find knot span index
-    span_n = bsp.find_span(tn, pn, eta)
+    # find knot span indices
+    span1 = bsp.find_span(t1, p1, eta1)
 
     # evaluate non-vanishing basis functions
-    bn     = empty(pn + 1, dtype=float)
-    bl     = empty(pn    , dtype=float)
-    br     = empty(pn    , dtype=float)
+    b1 = empty(p1 + 1, dtype=float)
     
-    bsp.basis_funs(tn, pn, eta, span_n, bl, br, bn) # Why do you give back bl, br?
-
-    # sum up non-vanishing contributions
-    value  = evaluation_kernel_1d(pn, bn, span_n, nbase_n, coeff)
-
-    return value
-
-
-# ========================================================
-def evaluate_d(td : 'double[:]', pd : 'int', nbase_d : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
-    '''Point-wise evaluation of D-spline.
-
-    Parameters:
-    -----------
-        td:         double[:]   knot vector
-        pd:         int         spline degree
-        nbase_d:    int         dimension of spline space 
-        coeff:      double[:]   spline coefficients
-        eta:        double      point of evaluation
-
-    Returns:
-    --------
-        value: float
-            Value of D-spline at point eta.
-    '''
-
-    # find knot span index
-    span_d = bsp.find_span(td, pd, eta)
-
-    # evaluate non-vanishing basis functions
-    bd     = empty(pd + 1, dtype=float)
-    bl     = empty(pd    , dtype=float)
-    br     = empty(pd    , dtype=float)
+    bl1 = empty(p1, dtype=float)
     
-    bsp.basis_funs(td, pd, eta, span_d, bl, br, bd)
-    bsp.scaling(td, pd, span_d, bd)
+    br1 = empty(p1, dtype=float)
 
-    # sum up non-vanishing contributions
-    value  = evaluation_kernel_1d(pd, bd, span_d, nbase_d, coeff)
-
-    return value
-
-
-# ========================================================
-def evaluate_diffn(tn : 'double[:]', pn : 'int', nbase_n : 'int', coeff : 'double[:]', eta : 'double') -> 'double':
-    '''Point-wise evaluation of derivative of N-spline. 
-
-    Parameters:
-    -----------
-        tn:         double[:]   knot vector
-        pn:         int         spline degree
-        nbase_n:    int         dimension of spline space 
-        coeff:      double[:]   spline coefficients
-        eta:        double      point of evaluation
-
-    Returns:
-    --------
-        value: float
-            Value of dS/deta at point eta.
-    '''
-
-    # find knot span index
-    span_n = bsp.find_span(tn, pn, eta)
-
-    # evaluate non-vanishing basis functions
-    bn     = empty(pn + 1, dtype=float)
-    bl     = empty(pn    , dtype=float)
-    br     = empty(pn    , dtype=float)
-    bsp.basis_funs_1st_der(tn, pn, eta, span_n, bl, br, bn)
-
-    # sum up non-vanishing contributions
-    value  = evaluation_kernel_1d(pn, bn, span_n, nbase_n, coeff)
-
-    return value
-
-
-# ========================================================
-def evaluate_vector(t : 'double[:]', p : 'int', nbase : 'int', coeff : 'double[:]', eta : 'double[:]', values : 'double[:]', kind : 'int'):
-    '''Vector evaluation of N-spline or D-spline. 
-
-    Parameters:
-    -----------
-        tn:         double[:]   knot vector
-        pn:         int         spline degree
-        nbase:      int         dimension of spline space 
-        coeff:      double[:]   spline coefficients
-        eta:        double[:]   1d array of points of evaluation
-        kind:       int         which spline: 0: (N), 1: (D) 
-
-    Returns:
-    --------
-        values:     double[:]   value of spline at points eta
-    '''
+    if   kind1 == 1:
+        bsp.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+    elif kind1 == 2:
+        bsp.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        bsp.scaling(t1, p1, span1, b1)
+    elif kind1 == 3:
+        bsp.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
     
-    for i in range(len(eta)):
-        # V0 - space
+    # sum up non-vanishing contributions
+    spline_value = evaluation_kernel_1d(p1, b1, ind1[span1 - p1, :], coeff)
+
+    return spline_value
+
+
+# =============================================================================
+def evaluate_vector(t1 : 'float[:]', p1 : int, ind1 : 'int[:,:]', coeff : 'float[:]', eta1 : 'float[:]', spline_values : 'float[:]', kind : int):
+    """
+    Vector evaluation of a tensor-product spline. 
+
+    Parameters
+    ----------
+        t1 : array[float]
+            Knot vector of univariate spline.
+            
+        p1 : int                 
+            Degree of univariate spline.
+            
+        ind1 : array[int]                 
+            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
+            
+        coeff : array[float]
+            The spline coefficients c_i. 
+            
+        eta1 : array[float]              
+            Points of evaluation in a 1d array.
+            
+        spline_values : array[float]
+            Splines evaluated at points S_ij = S(eta1_i, eta2_j).
+            
+        kind : int
+            Kind of spline to evaluate.
+                * 0  : N
+                * 1  : D
+                * 2 : dN/deta
+    """
+    
+    for i1 in range(len(eta1)):
+                
         if   kind == 0:
-            values[i] = evaluate_n(t, p, nbase, coeff, eta[i])
-        # V1 - space
+            spline_values[i1] = evaluate(1, t1, p1, ind1, coeff, eta1[i1])
         elif kind == 1:
-            values[i] = evaluate_d(t, p, nbase, coeff, eta[i])
-        # derivative of V0 - space
+            spline_values[i1] = evaluate(2, t1, p1, ind1, coeff, eta1[i1])     
         elif kind == 2:
-            values[i] = evaluate_diffn(t, p, nbase, coeff, eta[i])
+            spline_values[i1] = evaluate(3, t1, p1, ind1, coeff, eta1[i1])
+                        

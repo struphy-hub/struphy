@@ -1945,8 +1945,7 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
     print(f'Folders in GVEC eq : {gvec_folders}')
     print(' ')
 
-    from struphy.mhd_equil.gvec.mhd_equil_gvec import Equilibrium_mhd_gvec
-    from struphy.mhd_equil.mhd_equil_physical  import Equilibrium_mhd_physical
+    from struphy.fields_background.mhd_equil.gvec.interface import GVECtoSTRUPHY
 
 
 
@@ -2107,27 +2106,10 @@ def get_gvec_domain(Nel, p, spl_kind, nq_el, nq_pr, bc):
     DOMAIN = dom.Domain('spline', params_map=params_map)
     print('Computed spline coefficients.')
 
-
-
-    # ============================================================
-    # Initialize the `Equilibrium_mhd_gvec` class.
-    # ============================================================
-
-    # Dummy. Physical equilibrium is not used.
-    mhd_equil_type = 'slab'
-    params_slab = {
-        'B0x'         : 1.,   # magnetic field in Tesla (x)
-        'B0y'         : 0.,   # magnetic field in Tesla (y)
-        'B0z'         : 0.,   # magnetic field in Tesla (z)
-        'rho0'        : 1.,   # equilibirum mass density
-        'beta'        : 0.,   # plasma beta in %
-    }
-    EQ_MHD_P = Equilibrium_mhd_physical(mhd_equil_type, params_slab)
-
     # Actual initialization.
     # Wouldn't work in this test file, because the axes are swapped.
-    EQ_MHD = Equilibrium_mhd_gvec(params, DOMAIN, EQ_MHD_P, TENSOR_SPACE, SOURCE_DOMAIN)
-    print('Initialized the `Equilibrium_mhd_gvec` class.')
+    EQ_MHD = GVECtoSTRUPHY(params, DOMAIN, TENSOR_SPACE, SOURCE_DOMAIN)
+    print('Initialized the `GVECtoSTRUPHY` class.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')

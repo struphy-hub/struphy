@@ -15,19 +15,17 @@ setup(
         ],
         'struphy.io': ['batch/*.sh'],
         'struphy.io.inp': ['parameters.yml',
-                           'params_ci_1.yml',
-                           'params_ci_2.yml'],
+                           'tests/*.yml',
+                           'examples/*.yml',
+                           ],
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
     scripts=['scripts/struphy',
-             'scripts/example_lin_mhd_1d_fft',
-             'scripts/example_maxwell_1d_fft',
              'scripts/example_psydac_parallel',
-             'scripts/example_cold_plasma_1d_fft',
-             'scripts/example_lin_Vlasov_Maxwell',
-             'scripts/example_pproc_serial',
-             'scripts/example_pproc_mpi_3',
+             'scripts/example_maxwell_serial',
+             'scripts/example_maxwell_mpi_3',
+             'scripts/example_linearmhd_mpi_4'
              ],
     # list of package dependencies (if necessary)
     install_requires=[
@@ -41,6 +39,7 @@ setup(
         'sympy<1.7,>=1.2',
         'sympde',
         'pytest',
+        'pytest-mpi',
         'mistune<2',
         'sphinx==4.2.0',
         'sphinxcontrib-napoleon',
@@ -58,6 +57,6 @@ setup(
     author_email="stefan.possanner@ipp.mpg.de, florian.holderied@ipp.mpg.de, xin.wang@ipp.mpg.de",
     description="Multi-model plasma physics package",
     license="not yet licensed.",
-    keywords="plasma, partial differential equations, energetic particles",
+    keywords="plasma physics, nuclear fusion, partial differential equations, energetic particles",
     url="https://clapp.pages.mpcdf.de/hylife/",   # project home page, if any
 )

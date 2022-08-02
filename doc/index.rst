@@ -16,14 +16,20 @@ Indices and tables
    :maxdepth: 3
    :caption: Contents
 
+   sections/require
    sections/install
    sections/quickstart
+   sections/intro
    sections/userguide
    sections/developers
    sections/models
+   sections/domains
+   sections/backgrounds
+   sections/inits
+   sections/dispersions
    sections/toolkit
-   sections/theory
    sections/examples
+   sections/appendix
    
 
 

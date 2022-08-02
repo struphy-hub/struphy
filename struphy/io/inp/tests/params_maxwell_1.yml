@@ -1,0 +1,241 @@
+grid :
+      Nel      : [16, 16, 8] # number of grid cells, >p
+      p        : [2, 2, 2]  # spline degree, >1
+      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+      nq_el    : [2, 2, 2] # quadrature points per grid cell
+      nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
+      polar    : False # use polar splines
+
+
+time : 
+      dt         : 0.05 # time step
+      Tend       : 0.5 # simulation time interval is [0, Tend]
+      max_time   : 300. # maximum runtime of program in minutes
+      split_algo : LieTrotter # LieTrotter | Strang
+      
+
+geometry : 
+      type           : hollow_cyl # mapping F (possible types seen below)  
+      cuboid : 
+            l1       : 0. # start of interval in eta1
+            r1       : 1. # end of interval in eta1, r1>l1
+            l2       : 0. # start of interval in eta2
+            r2       : 2. # end of interval in eta2, r2>l2
+            l3       : 0. # start of interval in eta3
+            r3       : 3. # end of interval in eta3, r3>l3
+      hollow_cyl :
+            a1       : .1 # inner radius
+            a2       : 1. # outer radius
+            R0       : 1. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
+            Lz       : 6. # length in third direction   
+      colella :
+            Lx       : 1. # length in x-direction
+            Ly       : 1. # length in y-direction
+            alpha    : .1 # distortion factor
+            Lz       : 1. # length in third direction
+      orthogonal :
+            Lx       : 1. # length in x-direction
+            Ly       : 1. # length in y-direction
+            alpha    : .1 # x-distortion and y-distortion
+            Lz       : 1. # length in third direction
+      hollow_torus :
+            a1       : .1 # inner radius
+            a2       : 1. # minor radius
+            R0       : 1. # major radius
+      ellipse :
+            x0       : .1 # center of ellipse
+            y0       : 1. # center of ellipse
+            z0       : 1. # start of cylinder in third direction
+            rx       : 1. # axis length
+            ry       : 1. # axis length
+            Lz       : 10. # length in third direction
+      rotated_ellipse :
+            x0       : .1 # center of ellipse
+            y0       : 1. # center of ellipse
+            z0       : 1. # start of cylinder in third direction
+            rx       : 1. # axis length
+            ry       : 1. # axis length
+            Lz       : 10. # length in third direction
+            th       : .5 # rotation angle in [0, 1), units of 2*pi
+      shafranov_shift :
+            x0       : .1 # center of ellipse
+            y0       : 1. # center of ellipse
+            z0       : 1. # start of cylinder in third direction
+            rx       : 1. # axis length
+            ry       : 1. # axis length
+            Lz       : 10. # length in third direction
+            de       : .05 # shift factor, should be in [0, 0.1]
+      shafranov_sqrt :
+            x0       : .1 # center of ellipse
+            y0       : 1. # center of ellipse
+            z0       : 1. # start of cylinder in third direction
+            rx       : 1. # axis length
+            ry       : 1. # axis length
+            Lz       : 10. # length in third direction
+            de       : .05 # shift factor, should be in [0, 0.1]
+      shafranov_dshaped :
+            x0       : .1 # center of ellipse
+            y0       : 1. # center of ellipse
+            z0       : 1. # start of cylinder in third direction
+            r0       : 1. # base radius
+            Lz       : 10. # length in third direction
+            dx       : .05 # Shafranov shift in x-direction
+            dy       : .025 # Shafranov shift in y-direction
+            dg       : .05 # delta = sin(alpha): triangularity, shift of high point
+            eg       : .3 # epsilon: inverse aspect ratio a/r0
+            kg       : .3 # Kappa: ellipticity (elongation)
+      spline :
+            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5' # hdf5 file holding spline coeffs
+            Nel      : [6, 6, 6] # number of grid cells, >1
+            p        : [2, 3, 3] # spline degree, >0
+            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
+      spline_cyl :
+            a        : 1. # minor radius
+            R0       : 3. # major radius (shift of pole from zero)
+            Nel      : [8, 24] # number of grid cells, >p
+            p        : [3, 3] # spline degree, >1
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+      spline_torus :
+            a        : 1. # minor radius
+            R0       : 3. # major radius
+            Nel      : [8, 24] # number of grid cells, >p
+            p        : [3, 3] # spline degree, >1
+            spl_kind : [False, True] # spline type: True=periodic, False=clamped
+      spline_straight :
+            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
+      spline_toroidal :
+            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
+            
+      
+fields : 
+      init :
+            type   : TorusModesSin # initial conditions (possible types seen below)
+            coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+            comps  : [[True, True, False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            noise : 
+                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                  amp : 0.1   # noise amplitude
+            ModesSin : 
+                  k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
+                  k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
+                  k3 : [0.] # wave vectors in z or eta_3 (depending on coords)
+                  amp : [[[0.001]]] # amplitudes
+            ModesCos : 
+                  k1 : [6.283186] # wave vectors in x or eta_1 (depending on coords)
+                  k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
+                  k3 : [6.283186] # wave vectors in z or eta_3 (depending on coords)
+                  amp : [[[0.001]]] # amplitudes
+            TorusModesSin : 
+                  ms : [1] # poloidal mode numbers
+                  ns : [0] # toroidal mode numbers
+                  amp : [0.001] # amplitudes
+                  pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                  pfun_params : [None] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and None for "sin"
+            init_eigfun : 
+                  n_tor    : -1 # toroidal mode number
+                  profiles : False # project equilibrium profiles
+                  eig_kind : 11 # real (11) or imag (12) part
+                  eig_freq : 0. # squared eigenfreq.    
+      mhd_u_space : H1vec # Hdiv | H1vec
+      mhd_equilibrium : 
+            type : HomogenSlab # (possible choices seen below)
+            HomogenSlab :
+                  B0x  : 0. # magnetic field in x
+                  B0y  : 0. # magnetic field in y
+                  B0z  : 1. # magnetic field in z
+                  beta : 0. # plasma beta = 2*p*mu_0/B^2
+            ShearedSlab :
+                  a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 
+                  R0   : 3. # major rarius (Lz=2*pi*R0)
+                  B0   : 1. # magnetic field in z-direction    
+                  q0   : 1.05 # q-value at eta_1 = 0
+                  q1   : 1.80 # q-value at eta_1 = 1
+                  n1   : 0. # shape factor for number density profile
+                  n2   : 0. # shape factor for number density profile
+                  na   : 1. # number density at r=a
+                  beta : .01 # plasma beta = 2*p*mu_0/B^2
+            ScrewPinch :
+                  a    : 1. # minor radius (radius of cylinder)
+                  R0   : 3. # major radius (Lz = 2*pi*R0)
+                  B0   : 1. # magnetic field in z-direction
+                  q0   : 1.05 # safety factor at r=0
+                  q1   : 1.80 # safety factor at r=a
+                  n1   : 0. # shape factor for number density profile 
+                  n2   : 0. # shape factor for number density profile 
+                  na   : 1. # number density at r=a
+                  beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+            AdhocTorus :
+                  a    : 1. # minor radius (radius of cylinder)
+                  R0   : 3. # major radius (Lz = 2*pi*R0)
+                  B0   : 1. # magnetic field in z-direction
+                  q0   : 1.05 # safety factor at r=0
+                  q1   : 1.80 # safety factor at r=a
+                  n1   : 0. # shape factor for number density profile 
+                  n2   : 0. # shape factor for number density profile 
+                  na   : 1. # number density at r=a
+                  p_kind : .5 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+                  p1     : .1 # shape factor for ad hoc pressure profile
+                  p2     : .1 # shape factor for ad hoc pressure profile
+                  beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+
+
+kinetic :
+      hot_ions :
+            markers :
+                  type : Particles6D # Particles6D | Particles5D
+                  ppc : 1000  # particles per 3d grid cell
+                  loading :
+                        type              : pseudo_random # particle loading mechanism 
+                        seed              : 1234 # seed for random number generator
+                        dir_particles     : path_to_particles # directory of particles if loaded externally
+                        vth_x             : 1. # thermal velocity in x of Gaussian 
+                        vth_y             : 1. # thermal velocity in y of Gaussian 
+                        vth_z             : 1. # thermal velocity in z of Gaussian 
+                        v0_x              : 0. # mean velocity in x of Gaussian 
+                        v0_y              : 0. # mean velocity in y of Gaussian
+                        v0_z              : 0. # mean velocity in z of Gaussian
+                  n_bins        : [32, 32] # number of bins in (x,v) for 2d particle binning.   
+                  v_max         : 5. # maximum velocity for binning (in units of v_A)
+                  control_var : False # control variate (use delta-f)?
+            attributes :
+                  nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
+                  particle_charge : 1. # in units of elementary charge
+                  particle_mass   : 1. # in units of proton mass
+                  alpha           : 1. # coupling parameter alpha = Omega_{cp0}/Omega_{A0} 
+            background :
+                  type : 0 # 0: Maxwellian in 6d
+                  moms_spec : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
+                  moms_params : [1., 0., 0., 0., 1., 1., 1.] # parameters needed to specify the moments
+            perturbations : # always in logical position space
+                  type   : None # None or possible types seen below
+                  moms : [n, uz] # which velocity moment to perturb: n, ux, uy, uz, vthx, vthy, vthz
+                  None : {} # empty dict
+                  Modes_sin : 
+                        k1 : [6.283186] # wave vectors in eta_1 
+                        k2 : [0.] # wave vectors in eta_2 
+                        k3 : [0.] # wave vectors in eta_3 
+                        amp : [0.001] # amplitudes
+                  Modes_cos : 
+                        k1 : [6.283186] # wave vectors in eta_1 
+                        k2 : [0.] # wave vectors in eta_2
+                        k3 : [0.] # wave vectors in eta_3
+                        amp : [0.001] # amplitudes
+            
+
+solvers :
+      solver_1 : 
+            type : pcg
+            pc : fft # null or fft
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_2 :
+            type : pcg
+            pc : fft # null or fft
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+                

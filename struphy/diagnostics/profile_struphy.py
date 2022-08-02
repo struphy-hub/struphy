@@ -3,16 +3,13 @@ import pickle
 import yaml
 from struphy.diagnostics import Cprofile_analyser
 
-print('hi')
-print(sys.argv[1])
-print(sys.argv[1] == True)
 
 if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
-    list_of_funcs = ['assemble_', 'update_ghost_regions', 'push']
-
-print(list_of_funcs)
+    list_of_funcs = ['assemble_', 'propagator', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'schur', 'pcg', 'bicgstab', 'pbicgstab']
+    print('\nKeyword search enabled:')
+    print(list_of_funcs)
 
 dicts = []
 nproc = []

@@ -35,8 +35,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     print(f'Folders in GVEC eq : {gvec_folders}')
     print(' ')
 
-    from struphy.mhd_equil.gvec.mhd_equil_gvec import Equilibrium_mhd_gvec
-    from struphy.mhd_equil.mhd_equil_physical  import Equilibrium_mhd_physical
+    from struphy.fields_background.mhd_equil.gvec.interface import GVECtoSTRUPHY
 
 
 
@@ -207,26 +206,9 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
     DOMAIN = dom.Domain('spline', params_map=params_map)
     print('Computed spline coefficients.')
 
-
-
-    # ============================================================
-    # Initialize the `Equilibrium_mhd_gvec` class.
-    # ============================================================
-
-    # Dummy. Physical equilibrium is not used.
-    mhd_equil_type = 'slab'
-    params_slab = {
-        'B0x'         : 1.,   # magnetic field in Tesla (x)
-        'B0y'         : 0.,   # magnetic field in Tesla (y)
-        'B0z'         : 0.,   # magnetic field in Tesla (z)
-        'rho0'        : 1.,   # equilibirum mass density
-        'beta'        : 0.,   # plasma beta in %
-    }
-    EQ_MHD_P = Equilibrium_mhd_physical(mhd_equil_type, params_slab)
-
     # Actual initialization.
-    EQ_MHD = Equilibrium_mhd_gvec(params, DOMAIN, EQ_MHD_P, TENSOR_SPACE_FEM, SOURCE_DOMAIN)
-    print('Initialized the `Equilibrium_mhd_gvec` class.')
+    EQ_MHD = GVECtoSTRUPHY(params, DOMAIN, TENSOR_SPACE_FEM, SOURCE_DOMAIN)
+    print('Initialized the `GVECtoSTRUPHY` class.')
 
     temp_dir.cleanup()
     print('Removed temp directory.')
@@ -285,7 +267,7 @@ def test_template_gvec(num_s=21, num_u=4, num_v=5):
         s_range = np.array(gvec.data['grid']['sGrid'])
     s_range[0] = 1e-12 # Bypass 0 if it blows up.
 
-    # TODO: Generalize MC functions to accept a map and an Equilibrium_mhd_gvec class, instead of a GVEC class.
+    # TODO: Generalize MC functions to accept a map and an GVECtoSTRUPHY class, instead of a GVEC class.
     filename = params['filename'][:-5]
     MC.make_ugrid_and_write_vtu(filename, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic)
     gvec.mapfull.clear_cache()
