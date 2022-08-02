@@ -1,7 +1,4 @@
-# Welcome to STRUPHY
-
-__A Python package for 
-simulating energetic particles in plasma fluids.__
+# STRUPHY - a Python package for energetic particles in plasma 
 
 STRUPHY stands for STRUcture-Preserving HYbrid codes. 
 
@@ -10,11 +7,11 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## What you can do with STRUPHY
 
-* Solve [PDEs for plasma physics](https://clapp.pages.mpcdf.de/hylife/sections/models.html) with fluid and/or kinetic components 
-* Use mapped domains in curved geometries
-* Run on HPC clusters (CPUs)
-* Post process data and generate `vtk` files
-* Use Python interfaces to quickly add your own model/mapping/physics feature
+* Solve a variety of [plasma physics PDEs](https://clapp.pages.mpcdf.de/hylife/sections/models.html) with fluid and/or kinetic components 
+* Prescribe curved geometries via [mapped domains](https://clapp.pages.mpcdf.de/hylife/sections/domains.html) 
+* [Post process](https://clapp.pages.mpcdf.de/hylife/sections/userguide.html#post-processing) data and generate `vtk` files
+* Seamlessly [add](https://clapp.pages.mpcdf.de/hylife/sections/developers.html#how-to-add) your own model/mapping/physics feature
+* Contribute to this open source project! 
 
 ## Algorithmic features
 
@@ -34,24 +31,6 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 * F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
 
 * F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [J. Comp. Phys. 464 (2022) 111329](https://www.sciencedirect.com/science/article/pii/S0021999122003916?via%3Dihub)
-
-## Contributors
-
-### Current
-
-* Florian Holderied (since 2019)
-* Stefan Possanner (since 2019)
-* Xin Wang (since 2019)
-* Yingzhe Li (since 2021)
-* Byung Kyu Na (since 2021)
-* Tin Kei Cheng (since 2021)
-* Dominik Bell (since 2022)
-
-### Previous
-
-* Benedikt Aigner (2021-2022)
-
-The project benefits from the constant advice of Yaman Güclü, Said Hadjout and Florian Hindenlang.
 
 ## License
 

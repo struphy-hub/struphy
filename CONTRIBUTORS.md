@@ -1,12 +1,13 @@
 ## Contributors
 
-* Florian Holderied (since 2019)
-* Stefan Possanner (since 2019)
-* Xin Wang (since 2019)
-* Benedikt Aigner (since 2021)
-* Tin Kei Cheng (since 2021)
-* Yingzhe Li (since 2021)
-* Byung Kyu Na (since 2021)
-* Dominik Bell (since 2022)
+* Florian Holderied 
+* Stefan Possanner 
+* Xin Wang 
+* Benedikt Aigner
+* Tin Kei Cheng 
+* Yingzhe Li 
+* Byung Kyu Na 
+* Dominik Bell 
+* Luca Cinnirella
 
-The project benfits from the constant advice of Yaman Güclü and Florian Hindenlang.
+The project benfits from the constant advice of Yaman Güclü, Said Hadjout and Florian Hindenlang.
