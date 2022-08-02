@@ -1,76 +1,20 @@
 .. _models:
 
-Model equations
-===============
+Struphy models
+==============
 
-List of currently available models
+.. note::
 
-* :ref:`maxwell`
-.. * :ref:`Linear MHD <lin_mhd>`
-.. * :ref:`Current coupling with linear MHD <cc_lin_mhd_6d>`
-.. * :ref:`Pressure coupling with linear MHD <pc_lin_mhd_6d>`
-.. * :ref:`Vlasov with massless fluid electrons, extended Ohm's law <kinetic_extended>`
-.. * :ref:`Cold plasma hybrid with Vlasov <cold_plasma>`
-
-All models are implemented with a special Struphy normalization stated below. The notation is
-
-.. math::
-    t = \frac{t'}{\hat \omega}\,,\qquad x = \frac{x'}{\hat k}\,,\qquad \mathbf B = \hat B \ \mathbf B'\,,
-
-where primed quantities like :math:`t'` are dimension-less and hat quantities like :math:`\hat \omega` denote the unit used, i.e.
-:math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
-stands for the unit of the magnetic field.
+    All models are implemented with a special STRUPHY normalization stated with the model equations. 
+    The notation is such that hat quantities like :math:`\hat \omega` denote the unit of a quantity, i.e.
+    :math:`1/\hat \omega` denotes the time unit, :math:`1/\hat k` is the unit of length and :math:`\hat B` 
+    stands for the unit of the magnetic field.
 
 
-.. _initial_solvers:
-
-Initial-value solvers
----------------------
-
-.. _maxwell:
-
-Maxwell equations in vacuum
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Normalization:
-
-.. math::
-    c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
-
-where :math:`c` is the vacuum speed of light. Implemented equations:
-
-.. math::
-    &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,, 
-    
-    &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
-
-
-.. _eigenvalue_solvers:
-
-Eigenvalue solvers
-------------------
-
-
-.. .. _lin_mhd:
-
-.. Linear MHD
-.. ^^^^^^^^^^
-    
-.. Linear, ideal MHD equations (default), command line call ``struphy`` or ``struphy -r lin_mhd``.
-
-.. .. math::
-..     &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_\text{eq} \tilde{\mathbf{U}})=0\,, 
-
-..     \rho_\text{eq}&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
-..     =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_\text{eq} + \mathbf{J}_\text{eq}\times \tilde{\mathbf{B}}
-..     \,, \qquad
-..     \mathbf{J}_\textnormal{eq} = \nabla\times\mathbf{B}_\text{eq}\,,
-
-..     &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_\text{eq} \tilde{\mathbf{U}}) 
-..     + (\gamma-1)p_\text{eq}\nabla\cdot \tilde{\mathbf{U}}=0\,,
-    
-..     &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_\text{eq})
-..     = 0\,.
+.. automodule:: struphy.models.models
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
 
 .. .. _cc_lin_mhd_6d:

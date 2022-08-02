@@ -64,7 +64,7 @@ stages:
   - build
   - install
   - test
-  - deploy
+  - deploy 
   - cleanup
 
 # Create virtual environment (cached)
@@ -78,7 +78,6 @@ create_venv:
     - module list
 
   script:
-    #- rm -rf env
     - pip install -U virtualenv
     - python3 -m venv ${GLOBAL_CACHE_PATH}/env
     - source ${GLOBAL_CACHE_PATH}/env/bin/activate
@@ -209,23 +208,27 @@ ci_variables:
 linting:
   stage: build 
 
+  needs: ["create_venv"]
+
   script:
     - FLAGS="--recursive=y --exit-zero --reports=yes"
     - mkdir linting
-    - pylint struphy/analytic_funcs/           --output-format=text:linting/analytic_funcs.txt $FLAGS
     - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
+    - pylint struphy/dispersion_relations/     --output-format=text:linting/dispersion_relations.txt $FLAGS
     - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
     - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
-    - pylint struphy/fields_equil/             --output-format=text:linting/fields_equil.txt $FLAGS
-    - pylint struphy/fields_init/              --output-format=text:linting/fields_init.txt $FLAGS
+    - pylint struphy/fields_background/        --output-format=text:linting/fields_background.txt $FLAGS
     - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
-    - pylint struphy/kinetic_equil/            --output-format=text:linting/kinetic_equil.txt $FLAGS
+    - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
     - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
+    - pylint struphy/initial/                  --output-format=text:linting/initial.txt $FLAGS
     - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
     - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
+    - pylint struphy/propagators/              --output-format=text:linting/propagators.txt $FLAGS
     - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
+    - pylint struphy/tests_mpi/                --output-format=text:linting/tests_mpi.txt $FLAGS
     
   artifacts:
     paths:
@@ -234,12 +237,12 @@ linting:
 # Build struphy
 build_struphy:
   stage: build
+
+  needs: ["create_venv"]
   
   script:
     - cd psydac
-    - git pull origin devel
-    - export CC="mpicc"
-    - export HDF5_MPI="ON"
+    - git pull origin devel 
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .
@@ -266,6 +269,7 @@ install_and_compile:
     - pip show struphy
     - struphy
     - struphy compile
+    - ./struphy/verify_compilation.sh
     - pip list
     - cd ${ENV_PATH}/psydac/core
     - pyccel kernels.py --language fortran
@@ -274,7 +278,11 @@ install_and_compile:
 unit_tests:
   stage: test
 
+  needs: ["install_and_compile"]
+
   script:
+    - cd ${ENV_PATH}/struphy/tests_mpi/
+    - mpirun -n 2 pytest --with-mpi 
     - cd ${ENV_PATH}/struphy/tests/
     - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
     - cd $CI_PROJECT_DIR
@@ -283,22 +291,28 @@ unit_tests:
     - coverage report --skip-empty
     - coverage erase
 
-  artifacts:
-    reports:
-      cobertura: coverage.xml
+  #artifacts:
+  #  reports:
+  #    cobertura: coverage.xml
 
 code_tests:
   stage: test
 
+  needs: ["install_and_compile"]
+
   script:
-    # Test maxwell
-    - struphy run maxwell -i params_ci_1.yml -o sim_1
-    - struphy run maxwell -i params_ci_2.yml -o sim_2
-    - struphy run maxwell -i params_ci_2.yml -o sim_3 --mpi 2
-    - struphy profile ${ENV_PATH}/struphy/io/out/sim_1/ ${ENV_PATH}/struphy/io/out/sim_2/ ${ENV_PATH}/struphy/io/out/sim_3/
+    # Test Maxwell
+    - struphy run Maxwell -i tests/params_maxwell_1.yml -o sim_1
+    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_2
+    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_3 --mpi 2
+    - struphy profile sim_1 sim_2 sim_3
+    # Test LinearMHD
+    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_4
+    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_5 --mpi 2
+    # - struphy profile sim_4 sim_5
     # Add Test for each model
 
-# Deployment
+#Deployment
 pages:
   stage: deploy
 
@@ -308,11 +322,13 @@ pages:
 
   artifacts:
     paths:
-       - public/
+      - public/
 
-
+# Cleanup
 cleanup:
   stage: cleanup
+
+  when: always
 
   script:
     - pwd

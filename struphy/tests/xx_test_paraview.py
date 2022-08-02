@@ -153,7 +153,7 @@ def test_paraview(sim_path=None):
     # ============================================================
 
     geometry = params['geometry']['type']
-    params_map = params['geometry']['params_' + geometry]
+    params_map = params['geometry'][geometry]
     DOMAIN = dom.Domain(geometry, params_map)
     print(f'Geometry: {geometry}')
     print(f'Params map: {params_map}')

@@ -16,12 +16,12 @@ def test_slab():
 
     # Domain:
     DOMAIN = domain_3d.Domain(params['geometry']['type'], 
-                              params['geometry']['params_' + params['geometry']['type']])
+                              params['geometry'][params['geometry']['type']])
     print('Domain object set.')
 
     # MHD equilibirum (physical)
     EQ_MHD_P = mhd_equil_physical.Equilibrium_mhd_physical(params['mhd_equilibrium']['general']['type'], 
-         params['mhd_equilibrium']['params_' + params['mhd_equilibrium']['general']['type']])
+         params['mhd_equilibrium'][params['mhd_equilibrium']['general']['type']])
     print('MHD equilibrium (physical) set.')
     
     # MHD equilibrium (logical)

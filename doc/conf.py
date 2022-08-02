@@ -20,7 +20,7 @@ from struphy.version import __version__
 # -- Project information -----------------------------------------------------
 
 project = 'STRUPHY'
-copyright = '2021, Max Planck Institute for Plasma Physics'
+copyright = '2022, Max Planck Institute for Plasma Physics'
 author = 'Max Planck Institute for Plasma Physics'
 
 # The full version, including alpha/beta/rc tags
@@ -68,3 +68,5 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
 highlight_language = 'none'
+
+autodoc_member_order = 'bysource'

@@ -1,0 +1,62 @@
+grid :
+      Nel      : [4, 4, 64] # number of grid cells, >p
+      p        : [2, 2, 3]  # spline degree, >1
+      spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
+      bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
+      nq_el    : [6, 6, 6] # quadrature points per grid cell
+      nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
+      polar    : False # use polar splines
+      
+      
+time : 
+      dt         : 0.15 # time step
+      Tend       : 180. # simulation time interval is [0, Tend]
+      max_time   : 300. # maximum runtime of program in minutes
+      split_algo : LieTrotter # LieTrotter | Strang
+      
+
+geometry : 
+      type : cuboid # mapping F (possible types seen below)  
+      cuboid : 
+            l1 : 0. # start of interval in eta1
+            r1 : 1. # end of interval in eta1, r1>l1
+            l2 : 0. # start of interval in eta2
+            r2 : 1. # end of interval in eta2, r2>l2
+            l3 : 0. # start of interval in eta3
+            r3 : 60. # end of interval in eta3, r3>l3 
+            
+
+fields : 
+      init :
+            type   : noise # initial conditions (possible types seen below)
+            coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+            comps  : [[False], [True, True, True], [False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            noise : 
+                  direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                  amp : 0.1   # noise amplitude
+      mhd_u_space : H1vec # Hdiv | H1vec
+      mhd_equilibrium : 
+            type : HomogenSlab # (possible choices seen below)
+            HomogenSlab :
+                  B0x  : 0. # magnetic field in x
+                  B0y  : 1. # magnetic field in y
+                  B0z  : 1. # magnetic field in z
+                  beta : 100. # plasma beta = 2*p*mu_0/B^2
+
+
+solvers :
+      solver_1 : 
+            type : pcg
+            pc : fft # null or fft
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+      solver_2 :
+            type : pbicgstab
+            pc : fft # null or fft
+            tol : 1.e-8
+            maxiter : 3000
+            info : False
+            verbose : False
+            
