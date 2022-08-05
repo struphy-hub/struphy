@@ -13,9 +13,11 @@ from pyccel import epyccel
                                     'hollow_torus', 
                                     'ellipse',
                                     'rotated_ellipse',
+                                    'powered_ellipse',
                                     'shafranov_shift',
                                     'shafranov_sqrt',
                                     'shafranov_dshaped',
+                                    'shafranov_eta3dep',
                                     'spline_cyl', 
                                     'spline_torus', 
                                     'spline'])
