@@ -248,8 +248,26 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
         elif component == 3:
             value = z0 + (eta3 * lz)
 
-    # --------- shafranov shift ---------------------
+    # --------- ellipse with power ---------------------
     elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        s  = params_map[6]
+
+        if   component == 1:
+            value = x0 + (eta1**s) * rx * cos(2*pi*eta2)
+        elif component == 2:
+            value = y0 + (eta1**s) * ry * sin(2*pi*eta2)
+        elif component == 3:
+            value = z0 + (eta3 * lz)
+
+    # --------- shafranov shift ---------------------
+    elif kind_map == 18:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -267,7 +285,7 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
             value = z0 + (eta3 * lz)
 
     # --------- shafranov sqrt ---------------------
-    elif kind_map == 18:
+    elif kind_map == 19:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -285,7 +303,7 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
             value = z0 + (eta3 * lz)
 
     # --------- shafranov D-shaped ---------------------
-    elif kind_map == 19:
+    elif kind_map == 20:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -302,6 +320,28 @@ def f_i(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : in
             value = x0 + r0 * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
         elif component == 2:
             value = y0 + r0 * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+        elif component == 3:
+            value = z0 + (eta3 * lz)
+
+    # --------- shafranov D-shaped with eta3 dependence ---------------------
+    elif kind_map == 21:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        lz = params_map[4]
+        dx = params_map[5]  # Grad-Shafranov shift along x-axis.
+        dy = params_map[6]  # Grad-Shafranov shift along y-axis.
+        dg = params_map[7]  # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8]  # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[9]  # Kappa: Ellipticity (elongation).
+        xi = params_map[10] # Xi: Strength of dependence on eta3.
+
+        if   component == 1:
+            value = x0 + r0 * (1 + xi * cos(2*pi*eta3)) * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+        elif component == 2:
+            value = y0 + r0 * (1 - xi * cos(2*pi*eta3)) * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
         elif component == 3:
             value = z0 + (eta3 * lz)
 
@@ -394,6 +434,7 @@ def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, pa
         a1 = params_map[0]
         a2 = params_map[1]
         r0 = params_map[2]
+        lz = params_map[3]
 
         da = a2 - a1
 
@@ -402,7 +443,7 @@ def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, pa
         elif component == 2:
             value = (arctan2(y, x - r0)/(2*pi))%1.0
         elif component == 3:
-            value = z/(2*pi*r0)
+            value = z / lz
 
     # --------- hollow torus ------------------------
     elif kind_map == 14:
@@ -462,8 +503,26 @@ def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, pa
         elif component == 3:
             value = (z - z0) / lz
 
-    # ---------- shafranov shift ---------------------
+    # ----------- ellipse with power ---------------------
     elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        s  = params_map[6]
+
+        if   component == 1:
+            value = 0. # Not implemented.
+        elif component == 2:
+            value = 0. # Not implemented.
+        elif component == 3:
+            value = (z - z0) / lz
+
+    # ----------- shafranov shift ---------------------
+    elif kind_map == 18:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -474,13 +533,70 @@ def f_inv_i(x : float, y : float, z : float, component : int, kind_map : int, pa
         de = params_map[6] # Domain: [0,0.1]
 
         if   component == 1:
-            # eta1**2 * (rx * de) + eta1 * (-rx * cos(2*pi*eta2)) + (x - x0) - (rx * de) = 0
-            # eta1 = (rx * cos(2*pi*eta2) \pm sqrt(rx**2 * cos(2*pi*eta2)**2 - 4 * (rx * de) * ((x - x0) - (rx * de)))) / (2 * rx * de)
-            #      = (cos(2*pi*eta2) \pm sqrt(cos(2*pi*eta2)**2 - 4 * de * ((x - x0) / rx - de))) / (2 * de)
-            # eta1 = (y - y0) / (ry * sin(2*pi*eta2))
-            value = 0. # TODO: Not implemented. Multiple solutions.
+            value = 0. # Not implemented.
         elif component == 2:
-            value = 0. # TODO: Not implemented. Multiple solutions.
+            value = 0. # Not implemented.
+        elif component == 3:
+            value = (z - z0) / lz
+
+    # ----------- shafranov sqrt ---------------------
+    elif kind_map == 19:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        de = params_map[6] # Domain: [0,0.1]
+
+        if   component == 1:
+            value = 0. # Not implemented.
+        elif component == 2:
+            value = 0. # Not implemented.
+        elif component == 3:
+            value = (z - z0) / lz
+
+    # ----------- shafranov D-shaped ---------------------
+    elif kind_map == 20:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        Lz = params_map[4]
+        dx = params_map[5] # Grad-Shafranov shift along x-axis.
+        dy = params_map[6] # Grad-Shafranov shift along y-axis.
+        dg = params_map[7] # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8] # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[9] # Kappa: Ellipticity (elongation).
+
+        if   component == 1:
+            value = 0. # Not implemented.
+        elif component == 2:
+            value = 0. # Not implemented.
+        elif component == 3:
+            value = (z - z0) / lz
+
+    # ----------- shafranov D-shaped with eta3 dependence ---------------------
+    elif kind_map == 21:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        Lz = params_map[4]
+        dx = params_map[5]  # Grad-Shafranov shift along x-axis.
+        dy = params_map[6]  # Grad-Shafranov shift along y-axis.
+        dg = params_map[7]  # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8]  # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[9]  # Kappa: Ellipticity (elongation).
+        xi = params_map[10] # Xi: Strength of dependence on eta3.
+
+        if   component == 1:
+            value = 0. # Not implemented.
+        elif component == 2:
+            value = 0. # Not implemented.
         elif component == 3:
             value = (z - z0) / lz
 
@@ -665,7 +781,7 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
             value = 0.
         elif component == 33:
             value = e3 - b3
-            
+
     # ------------ hollow cylinder -------------------
     elif kind_map == 11:
 
@@ -836,8 +952,38 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
         elif component == 33:
             value = lz
 
-    # --------------- shafranov shift ---------------------
+    # -------------- ellipse with power ---------------------
     elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        s  = params_map[6]
+
+        if   component == 11:
+            value = (eta1**(s-1)) * rx * cos(2*pi*eta2)
+        elif component == 12:
+            value = -2*pi * (eta1**s) * rx * sin(2*pi*eta2)
+        elif component == 13:
+            value = 0.
+        elif component == 21:
+            value = (eta1**(s-1)) * ry * sin(2*pi*eta2)
+        elif component == 22:
+            value =  2*pi * (eta1**s) * ry * cos(2*pi*eta2)
+        elif component == 23:
+            value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = lz
+
+    # -------------- shafranov shift ---------------------
+    elif kind_map == 18:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -866,8 +1012,8 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
         elif component == 33:
             value = lz
 
-    # ----------------- shafranov sqrt ---------------------
-    elif kind_map == 18:
+    # -------------- shafranov sqrt ---------------------
+    elif kind_map == 19:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -896,8 +1042,8 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
         elif component == 33:
             value = lz
 
-    # --------------- shafranov D-shaped ---------------------
-    elif kind_map == 19:
+    # -------------- shafranov shift, D-shaped ---------------------
+    elif kind_map == 20:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -922,6 +1068,40 @@ def df_ij(eta1 : float, eta2 : float, eta3 : float, component : int, kind_map : 
             value = 2 * pi * r0 * eg * eta1 * kg * cos(2*pi*eta2)
         elif component == 23:
             value = 0.
+        elif component == 31:
+            value = 0.
+        elif component == 32:
+            value = 0.
+        elif component == 33:
+            value = lz
+
+    # -------------- shafranov D-shaped with eta3 dependence ---------------------
+    elif kind_map == 21:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        lz = params_map[4]
+        dx = params_map[5]  # Grad-Shafranov shift along x-axis.
+        dy = params_map[6]  # Grad-Shafranov shift along y-axis.
+        dg = params_map[7]  # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8]  # Epsilon: Inverse aspect ratio a/R0.
+        kg = params_map[9]  # Kappa: Ellipticity (elongation).
+        xi = params_map[10] # Xi: Strength of dependence on eta3.
+
+        if   component == 11:
+            value = r0 * (1 + xi * cos(2*pi*eta3)) * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
+        elif component == 12:
+            value = - r0 * eg * eta1 * (1 + xi * cos(2*pi*eta3)) * (2*pi*eta1 * cos(2*pi*eta2) * arcsin(dg) + 2*pi) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2)
+        elif component == 13:
+            value = - 2 * pi * r0 * xi * (dx * (1 - eta1**2) + eg * eta1 * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + 1) * sin(2*pi*eta3)
+        elif component == 21:
+            value = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2)) * (1 - xi * cos(2*pi*eta3))
+        elif component == 22:
+            value = 2 * pi * r0 * eg * eta1 * kg * (1 - xi * cos(2*pi*eta3)) * cos(2*pi*eta2)
+        elif component == 23:
+            value = 2 * pi * r0 * xi * (dy * (1 - eta1**2) + eg * eta1 * kg * sin(2*pi*eta2)) * sin(2*pi*eta3)
         elif component == 31:
             value = 0.
         elif component == 32:

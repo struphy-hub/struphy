@@ -58,6 +58,7 @@ class Domain():
                                                'z': 'l3 + (r3 - l3)*x3'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = False
 
@@ -76,6 +77,7 @@ class Domain():
                                                'z': 'Lz*x3'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             if self.params_map[0] == 0.:
                 self._pole = True
@@ -96,6 +98,7 @@ class Domain():
                                                'z': 'Lz*x3'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = False
 
@@ -113,6 +116,7 @@ class Domain():
                                                'z': 'Lz*x3'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = False
 
@@ -130,6 +134,7 @@ class Domain():
                                                'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = True
 
             if self.params_map[0] == 0.:
                 self._pole = True
@@ -151,6 +156,7 @@ class Domain():
                                                'z': 'z0 + (x3*Lz)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = True
 
@@ -169,30 +175,48 @@ class Domain():
                                                'z': 'z0 + (x3*Lz)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
             
             self._pole = True
 
-        # ============ shafranov shift =================
-        elif kind_map == 'shafranov_shift':
+        elif kind_map == 'powered_ellipse':
             self._kind_map = 17
-
+            
             if params_map is None:
                 params = {'x0': 0., 'y0': 0., 'z0': 0.,
-                          'rx': 1., 'ry': 1., 'Lz': 1., 'delta': 0.2}
+                          'rx': 1., 'ry': 1., 'Lz': 1., 's': 0.5}
             else:
                 params = params_map
-                
+
+            self.PsydacMapping._expressions = {'x': 'x0 + (x1**s) * rx * cos(2*pi*x2)',
+                                               'y': 'y0 + (x1**s) * ry * sin(2*pi*x2)',
+                                               'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
+            self._params_map = list(params.values())
+            self._periodic_eta3 = False
+
+            self._pole = True
+
+        elif kind_map == 'shafranov_shift':
+            self._kind_map = 18
+
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0' : 0., 'rx' : 1., 'ry' : 1., 'Lz' : 1., 'delta' : 0.2}
+            else:
+                params = params_map
+
             self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
                                                'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
                                                'z': 'z0 + (x3*Lz)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = True
 
         # ============ shafranov sqrt ==================
         elif kind_map == 'shafranov_sqrt':
-            self._kind_map = 18
+            self._kind_map = 19
 
             if params_map is None:
                 params = {'x0': 0., 'y0': 0., 'z0': 0.,
@@ -205,16 +229,17 @@ class Domain():
                                                'z': 'z0 + (x3*Lz)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = True
 
         # ========= shafranov D-shaped =================
         elif kind_map == 'shafranov_dshaped':
-            self._kind_map = 19
+            self._kind_map = 20
 
             if params_map is None:
-                params = {'x0': 0., 'y0': 0., 'z0': 0., 'R0': 3., 'Lz': 1., 'delta_x': 0.1,
-                          'delta_y': 0., 'delta_gs': 0.2, 'epsilon_gs': 1/3, 'kappa_gs': 1.5}
+                params = {'x0': 0., 'y0': 0., 'z0': 0., 'R0': 2., 'Lz': 1., 'delta_x': 0.1,
+                          'delta_y': 0., 'delta_gs': 0.33, 'epsilon_gs': 0.32, 'kappa_gs': 1.7}
             else:
                 params = params_map
 
@@ -223,8 +248,29 @@ class Domain():
                                                'z': 'z0 + (x3*Lz)'}
             self._F_psy = self.PsydacMapping('F', **params)
             self._params_map = list(params.values())
+            self._periodic_eta3 = False
 
             self._pole = True
+
+        elif kind_map == 'shafranov_eta3dep':
+            self._kind_map = 21
+
+            if params_map is None:
+                params = {'x0': 0., 'y0': 0., 'z0': 0., 'R0': 2., 'Lz': 1., 'delta_x': 0.1,
+                          'delta_y': 0., 'delta_gs': 0.33, 'epsilon_gs': 0.32, 'kappa_gs': 1.7, 'xi': 0.2}
+            else:
+                params = params_map
+
+            self.PsydacMapping._expressions = {'x': 'x0 + R0 * (1 + xi * cos(2*pi*x3)) * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
+                                                'y': 'y0 + R0 * (1 - xi * cos(2*pi*x3)) * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
+                                                'z': 'z0 + (x3*Lz)'}
+            self._F_psy = self.PsydacMapping('F', **params)
+            self._params_map = list(params.values())
+            self._periodic_eta3 = False
+
+            self._pole = True
+
+
 
         # ==============================================================
         #               IGA mappings (with control points)
@@ -256,6 +302,7 @@ class Domain():
                     self._cz = handle['cz'][:]
 
             self._params_map = []
+            self._periodic_eta3 = params['spl_kind'][-1] # Set by the user.
 
             if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
                 self._pole = True
@@ -271,6 +318,8 @@ class Domain():
                     8, 24], 'p': [2, 2], 'spl_kind': [False, True]}
             else:
                 params = params_map
+
+            self._periodic_eta3 = False
 
             def X(s, chi): return params['a']*s*np.cos(2*np.pi*chi) + params['R0']
             def Y(s, chi): return params['a']*s*np.sin(2*np.pi*chi)
@@ -300,6 +349,8 @@ class Domain():
             else:
                 params = params_map
 
+            self._periodic_eta3 = True
+
             def R(s, chi): return params['a']*s*np.cos(theta(
                 s, chi, params['a'], params['R0'], params['coordinates'])) + params['R0']
             def Y(s, chi): return params['a']*s*np.sin(theta(
@@ -325,6 +376,8 @@ class Domain():
             self._kind_map = 1
             self._params_map = []
 
+            self._periodic_eta3 = False
+
             with h5py.File(params_map['file'], 'r') as handle:
                 self._cx = handle['cx'][:]
                 self._cy = handle['cy'][:]
@@ -344,6 +397,7 @@ class Domain():
         elif kind_map == 'spline_toroidal':
             self._kind_map = 2
             self._params_map = []
+            self._periodic_eta3 = True
 
             with h5py.File(params_map['file'], 'r') as handle:
 

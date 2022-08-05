@@ -25,9 +25,11 @@ The following mappings are implemented:
 - kind_map = 14 : hollow torus,       params_map = [a1, a2, R0].
 - kind_map = 15 : ellipse,            params_map = [x0, y0, z0, rx, ry, Lz].
 - kind_map = 16 : rotated ellipse,    params_map = [x0, y0, z0, r1, r2, Lz, th].
-- kind_map = 17 : shafranov shift,    params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 18 : shafranov sqrt,     params_map = [x0, y0, z0, rx, ry, Lz, delta].
-- kind_map = 19 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
+- kind_map = 17 : ellipse with power, params_map = [x0, y0, z0, r1, r2, Lz, s].
+- kind_map = 18 : shafranov shift,    params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 19 : shafranov sqrt,     params_map = [x0, y0, z0, rx, ry, Lz, delta].
+- kind_map = 20 : shafranov D-shaped, params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs].
+- kind_map = 21 : eta3-dep D-shaped,  params_map = [x0, y0, z0, R0, Lz, delta_x, delta_y, delta_gs, epsilon_gs, kappa_gs, xi].
 """
 
 from numpy import shape, empty, zeros
@@ -251,8 +253,23 @@ def f(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         f_out[1] = y0 + (eta1 * r1) * sin(2*pi*th) * cos(2*pi*eta2) + (eta1 * r2) * cos(2*pi*th) * sin(2*pi*eta2)
         f_out[2] = z0 + (eta3 * lz)
 
-    # --------- shafranov shift ---------------------
+    # --------- ellipse with power ---------------------
     elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        s  = params_map[6]
+
+        f_out[0] = x0 + (eta1**s) * rx * cos(2*pi*eta2)
+        f_out[1] = y0 + (eta1**s) * ry * sin(2*pi*eta2)
+        f_out[2] = z0 + (eta3 * lz)
+
+    # --------- shafranov shift ---------------------
+    elif kind_map == 18:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -267,7 +284,7 @@ def f(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         f_out[2] = z0 + (eta3 * lz)
 
     # --------- shafranov sqrt ---------------------
-    elif kind_map == 18:
+    elif kind_map == 19:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -282,7 +299,7 @@ def f(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         f_out[2] = z0 + (eta3 * lz)
 
     # --------- shafranov D-shaped ---------------------
-    elif kind_map == 19:
+    elif kind_map == 20:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -298,7 +315,26 @@ def f(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         f_out[0] = x0 + r0 * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
         f_out[1] = y0 + r0 * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
         f_out[2] = z0 + (eta3 * lz)
-    
+
+    # --------- shafranov D-shaped with eta3 dependence ---------------------
+    elif kind_map == 21:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        lz = params_map[4]
+        dx = params_map[5]  # Grad-Shafranov shift along x-axis.
+        dy = params_map[6]  # Grad-Shafranov shift along y-axis.
+        dg = params_map[7]  # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8]  # Epsilon: Inverse aspect ratio a/r0.
+        kg = params_map[9]  # Kappa: Ellipticity (elongation).
+        xi = params_map[10] # Xi: Strength of dependence on eta3.
+
+        f_out[0] = x0 + r0 * (1 + xi * cos(2*pi*eta3)) * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+        f_out[1] = y0 + r0 * (1 - xi * cos(2*pi*eta3)) * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+        f_out[2] = z0 + (eta3 * lz)
+
  
 def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
       kind_map : int, params_map : 'float[:]', # mapping parameters
@@ -580,8 +616,29 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         df_out[2, 1] = 0.
         df_out[2, 2] = lz
 
-    # --------------- shafranov shift ---------------------
+    # -------------- ellipse with power ---------------------
     elif kind_map == 17:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        rx = params_map[3]
+        ry = params_map[4]
+        lz = params_map[5]
+        s  = params_map[6]
+
+        df_out[0, 0] = (eta1**(s-1)) * rx * cos(2*pi*eta2)
+        df_out[0, 1] = -2*pi * (eta1**s) * rx * sin(2*pi*eta2)
+        df_out[0, 2] = 0.
+        df_out[1, 0] = (eta1**(s-1)) * ry * sin(2*pi*eta2)
+        df_out[1, 1] = 2*pi * (eta1**s) * ry * cos(2*pi*eta2)
+        df_out[1, 2] = 0.
+        df_out[2, 0] = 0.
+        df_out[2, 1] = 0.
+        df_out[2, 2] = lz
+
+    # --------------- shafranov shift ---------------------
+    elif kind_map == 18:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -602,7 +659,7 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         df_out[2, 2] = lz
 
     # ----------------- shafranov sqrt ---------------------
-    elif kind_map == 18:
+    elif kind_map == 19:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -623,7 +680,7 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         df_out[2, 2] = lz
 
     # --------------- shafranov D-shaped ---------------------
-    elif kind_map == 19:
+    elif kind_map == 20:
 
         x0 = params_map[0]
         y0 = params_map[1]
@@ -642,6 +699,31 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         df_out[1, 0] = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2))
         df_out[1, 1] = 2 * pi * r0 * eg * eta1 * kg * cos(2*pi*eta2)
         df_out[1, 2] = 0.
+        df_out[2, 0] = 0.
+        df_out[2, 1] = 0.
+        df_out[2, 2] = lz
+
+    # -------------- shafranov D-shaped with eta3 dependence ---------------------
+    elif kind_map == 21:
+
+        x0 = params_map[0]
+        y0 = params_map[1]
+        z0 = params_map[2]
+        r0 = params_map[3]
+        lz = params_map[4]
+        dx = params_map[5]  # Grad-Shafranov shift along x-axis.
+        dy = params_map[6]  # Grad-Shafranov shift along y-axis.
+        dg = params_map[7]  # Delta = sin(alpha): Triangularity, shift of high point.
+        eg = params_map[8]  # Epsilon: Inverse aspect ratio a/R0.
+        kg = params_map[9]  # Kappa: Ellipticity (elongation).
+        xi = params_map[10] # Xi: Strength of dependence on eta3.
+
+        df_out[0, 0] = r0 * (1 + xi * cos(2*pi*eta3)) * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
+        df_out[0, 1] = - r0 * eg * eta1 * (1 + xi * cos(2*pi*eta3)) * (2*pi*eta1 * cos(2*pi*eta2) * arcsin(dg) + 2*pi) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2)
+        df_out[0, 2] = - 2 * pi * r0 * xi * (dx * (1 - eta1**2) + eg * eta1 * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + 1) * sin(2*pi*eta3)
+        df_out[1, 0] = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2)) * (1 - xi * cos(2*pi*eta3))
+        df_out[1, 1] = 2 * pi * r0 * eg * eta1 * kg * (1 - xi * cos(2*pi*eta3)) * cos(2*pi*eta2)
+        df_out[1, 2] = 2 * pi * r0 * xi * (dy * (1 - eta1**2) + eg * eta1 * kg * sin(2*pi*eta2)) * sin(2*pi*eta3)
         df_out[2, 0] = 0.
         df_out[2, 1] = 0.
         df_out[2, 2] = lz

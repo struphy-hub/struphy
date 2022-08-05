@@ -67,12 +67,17 @@ def f(eta1 : float, eta2 : float, eta3 : float, # evaluation point
     elif kind_map == 16:
         maps.rotated_ellipse(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
     elif kind_map == 17:
-        maps.shafranov_shift(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
+        maps.powered_ellipse(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
     elif kind_map == 18:
-        maps.shafranov_sqrt(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
+        maps.shafranov_shift(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
     elif kind_map == 19:
+        maps.shafranov_sqrt(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], params[5], params[6], f_out)
+    elif kind_map == 20:
         maps.shafranov_dshaped(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], 
                                                  params[5], params[6], params[7], params[8], params[9], f_out)
+    elif kind_map == 21:
+        maps.shafranov_eta3dep(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4], 
+                                                 params[5], params[6], params[7], params[8], params[9], params[10], f_out)
 
  
 def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
@@ -132,11 +137,16 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
     elif kind_map == 16:
         maps.rotated_ellipse_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
     elif kind_map == 17:
-        maps.shafranov_shift_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
+        maps.powered_ellipse_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
     elif kind_map == 18:
-        maps.shafranov_sqrt_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
+        maps.shafranov_shift_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
     elif kind_map == 19:
+        maps.shafranov_sqrt_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], df_out)
+    elif kind_map == 20:
         maps.shafranov_dshaped_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], df_out)
+    elif kind_map == 21:
+        maps.shafranov_eta3dep_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], params[10], df_out)
+
 
   
 def det_df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
