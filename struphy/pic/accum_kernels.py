@@ -100,12 +100,12 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           f0_spec: 'int',  # model specific arguments
                           moms_spec: 'int[:]',  # model specific arguments
                           f0_params: 'float[:]'):  # model specific arguments
-    """
+    r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\\nu    
+        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
 
         B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu  
 
@@ -205,13 +205,13 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
                     starts_21: 'int[:]',  # model specific parameters
                     starts_22: 'int[:]',  # model specific parameters
                     starts_23: 'int[:]'):  # model specific parameters
-    '''Accumulates into V1 with the filling functions
+    r'''Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} = w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \\nu}     
+        A_p^{\mu, \nu} = w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \nu}     
 
-    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`. 
+    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`. 
 
     Parameters
     ----------
@@ -327,15 +327,15 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     starts_21: 'int[:]',  # model specific parameters
                     starts_22: 'int[:]',  # model specific parameters
                     starts_23: 'int[:]'):  # model specific parameters
-    '''Accumulates into V1 with the filling functions
+    r'''Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\\times}(\eta_p)^\\top * G^{-1}(\eta_p) ]_{\mu, \\nu}
+        A_p^{\mu, \nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\times}(\eta_p)^\top * G^{-1}(\eta_p) ]_{\mu, \nu}
 
-        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu
+        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu
 
-    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`.
+    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`.
 
     Parameters
     ----------

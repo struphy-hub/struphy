@@ -8,23 +8,23 @@ import struphy.pic.accum_kernels as accums
 
 
 class Accumulator():
-    '''Struphy accumulation matrices and vectors of the form
+    r'''Struphy accumulation matrices and vectors of the form
 
     .. math::
 
-        M^{\mu,\\nu}_{ijk,mno} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * A^{\mu,\\nu}_p * (\Lambda^\\nu_{mno})^\\top(\eta_p)  \qquad  (\mu,\\nu = 1,2,3)
+        M^{\mu,\nu}_{ijk,mno} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * A^{\mu,\nu}_p * (\Lambda^\nu_{mno})^\top(\eta_p)  \qquad  (\mu,\nu = 1,2,3)
 
         V^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
 
     where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
     of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3) evaluated at the particle position :math:`\eta_p`.
 
-    :math:`A^{\mu,\\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
+    :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
     to be defined in the module **struphy.pic.accum_kernels**.
 
     Parameters
     ----------
-        DOMAIN : struphy.geometry.domain_3d.Domain
+        DOMAIN : struphy.geometry.domains
             Domain object for mapping evaluations.
 
         DR : struphy.psydac_api.psydac_derham.Derham

@@ -6,16 +6,15 @@ import pytest
 @pytest.mark.parametrize('p',   [[2, 3, 2], [4, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}],
-    ['colella', {
+    ['Colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}]])
 def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
-    
     import numpy as np
     
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
@@ -36,17 +35,18 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     print('number of processes : ', mpi_size)
     
     # mapping
-    domain = Domain(mapping[0], mapping[1])
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(mapping[1])
     
     if show_plots:
         import matplotlib.pyplot as plt
         domain.show()
     
     # MHD equilibrium
-    if   mapping[0] == 'cuboid':
+    if   mapping[0] == 'Cuboid':
         eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
             
-    elif mapping[0] == 'colella':
+    elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
         
         if show_plots:
@@ -97,5 +97,5 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
     
 if __name__ == '__main__':
-    test_solvers([8, 6, 4], [2, 2, 2], [True, True, True], ['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False, True)
-    #test_solvers([8, 6, 4], [2, 2, 2], [False, True, True], ['colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False, True)
+    test_solvers([8, 6, 4], [2, 2, 2], [True, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False, True)
+    #test_solvers([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False, True)

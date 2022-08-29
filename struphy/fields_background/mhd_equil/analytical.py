@@ -2,15 +2,15 @@ import numpy as np
 
 from struphy.fields_background.mhd_equil.base import EquilibriumMHD
 
-# =======================================================================================
+
 class HomogenSlab(EquilibriumMHD):
-    """
+    r"""
     Homogeneous MHD equilibrium in slab geometry.
     
     .. math::
 
         \mathbf B_0 = B_{0,x}\mathbf e_x + B_{0,y}\mathbf e_y + B_{0,z}\mathbf e_z = const.\,,
-        \qquad p_0 = \\beta \\frac{|\mathbf B_0|^2}{2}\,,\qquad n_0 = 1\,.
+        \qquad p_0 = \beta \frac{|\mathbf B_0|^2}{2}\,,\qquad n_0 = 1\,.
     
     Parameters
     ----------
@@ -22,7 +22,7 @@ class HomogenSlab(EquilibriumMHD):
                 * B0z  : magnetic field in z-direction
                 * beta : plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping. Enables pull-backs if set.             
     """
     
@@ -115,19 +115,18 @@ class HomogenSlab(EquilibriumMHD):
 
         return nn
 
-    
-# =======================================================================================    
+        
 class ShearedSlab(EquilibriumMHD):
-    """
+    r"""
     Sheared slab MHD equilibrium in Cartesian space :math:`(x, y, z)`. Profiles depend on :math:`x` solely. 
     
     .. math::
     
-        \mathbf B_0(x) &= B_{0,z} \left( \mathbf e_z + \\frac{a}{q(x)R_0}\mathbf e_y\\right)\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\\frac{x^2}{a^2}\,,
+        \mathbf B_0(x) &= B_{0,z} \left( \mathbf e_z + \frac{a}{q(x)R_0}\mathbf e_y\right)\,,\qquad q(x) = q_0 + ( q_1 - q_0 )\frac{x^2}{a^2}\,,
 
-        p_0(x) &= \\beta\\frac{B_{0,z}^2}{2} \left( 1 + \\frac{a^2}{q(x)^2 R_0^2} \\right) + B_{0,z}^2 \\frac{a^2}{R_0^2} \left( \\frac{1}{q_0^2} - \\frac{1}{q(x)^2} \\right)\,,
+        p_0(x) &= \beta\frac{B_{0,z}^2}{2} \left( 1 + \frac{a^2}{q(x)^2 R_0^2} \right) + B_{0,z}^2 \frac{a^2}{R_0^2} \left( \frac{1}{q_0^2} - \frac{1}{q(x)^2} \right)\,,
 
-        n_0(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\\frac{x}{a}\\right)^{n_1} \\right)^{n_2} \,.
+        n_0(x) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{x}{a}\right)^{n_1} \right)^{n_2} \,.
     
     Parameters
     ----------
@@ -144,7 +143,7 @@ class ShearedSlab(EquilibriumMHD):
                 * na   : number density at x=a
                 * beta : plasma beta in % at x=0 (ratio of kinetic pressure to magnetic pressure)
             
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping. Enables pull-backs if set.             
     """
     
@@ -342,21 +341,20 @@ class ShearedSlab(EquilibriumMHD):
 
         return nn
     
-    
-# =======================================================================================        
+            
 class ScrewPinch(EquilibriumMHD):
-    """
+    r"""
     Straight tokamak (screw pinch) MHD equilibrium.
     
-    The profiles in cylindrical coordinates :math:`(r, \\theta, z)` are:
+    The profiles in cylindrical coordinates :math:`(r, \theta, z)` are:
     
     .. math::
     
-        \mathbf B_0(r) &= B_{0,z}\left( \mathbf e_z + \\frac{r}{q(r) R_0}\mathbf e_\\theta \\right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+        \mathbf B_0(r) &= B_{0,z}\left( \mathbf e_z + \frac{r}{q(r) R_0}\mathbf e_\theta \right)\,,\qquad q(r) = q_0 + ( q_1 - q_0 )\frac{r^2}{a^2}\,,
 
-        p_0(r) &= \\frac{B_{0,z}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{if $q_1$ not equal $q_0$}\,,\quad p_0(r) = \\beta \\frac{B_{0,z}^2}{2} \quad \\textnormal{else}\,,
+        p_0(r) &= \frac{B_{0,z}^2 a^2 q_0}{ 2 R_0^2(q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad \textnormal{if $q_1$ not equal $q_0$}\,,\quad p_0(r) = \beta \frac{B_{0,z}^2}{2} \quad \textnormal{else}\,,
 
-        n_0(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\\frac{r}{a}\\right)^{n_1} \\right)^{n_2}\,.
+        n_0(r) &= n_a + ( 1 - n_a )\left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
     
     Parameters
     ----------
@@ -373,7 +371,7 @@ class ScrewPinch(EquilibriumMHD):
                 * na   : number density at r=a
                 * beta : plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
             
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping. Enables pull-backs if set.  
     """
     
@@ -587,24 +585,23 @@ class ScrewPinch(EquilibriumMHD):
         return nn
     
     
-# =======================================================================================
 class AdhocTorus(EquilibriumMHD):
-    """
+    r"""
     Ad hoc tokamak MHD equilibrium with circular concentric flux surfaces.
     
     The profiles in toroidal coordinates (r, theta, phi) are:
     
     .. math::
     
-        \mathbf B_0(r) &= \\frac{B_{0,\phi}R_0}{R} \left( \mathbf e_{\phi} + \\frac{r}{\\bar q(r) R_0} \mathbf e_{\\theta} \\right)\,,\qquad \\bar q(r) = q(r) \sqrt{1 - \\frac{r^2}{R_0^2}}\,, \qquad q(r) = q_0 + ( q_1 - q_0 )\\frac{r^2}{a^2}\,,
+        \mathbf B_0(r) &= \frac{B_{0,\phi}R_0}{R} \left( \mathbf e_{\phi} + \frac{r}{\bar q(r) R_0} \mathbf e_{\theta} \right)\,,\qquad \bar q(r) = q(r) \sqrt{1 - \frac{r^2}{R_0^2}}\,, \qquad q(r) = q_0 + ( q_1 - q_0 )\frac{r^2}{a^2}\,,
 
-        R &= R_0 + r \cos(\\theta)
+        R &= R_0 + r \cos(\theta)
     
-        p(r) &=  \\frac{B_{0,\phi}^2\, a^2 q_0}{ 2 R_0^2 (q_1 - q_0) } \left( \\frac{1}{q(r)^2} - \\frac{1}{q_1^2} \\right) \quad \\textnormal{ if $q_1$ not equal $q_0$},\quad p(r) = \\beta \\frac{B_{0,\phi}^2}{2} \quad \\textnormal{else} \,,\qquad \\textnormal{(cylindrical limit)}
+        p(r) &=  \frac{B_{0,\phi}^2\, a^2 q_0}{ 2 R_0^2 (q_1 - q_0) } \left( \frac{1}{q(r)^2} - \frac{1}{q_1^2} \right) \quad \textnormal{ if $q_1$ not equal $q_0$},\quad p(r) = \beta \frac{B_{0,\phi}^2}{2} \quad \textnormal{else} \,,\qquad \textnormal{(cylindrical limit)}
         
-        p(r) &= \\beta \\frac{B_{0,\phi}^2}{2} \left( 1 - p_1 \\frac{ r^2}{a^2} - p_2 \\frac{r^4}{a^4} \\right)\,,\qquad \\textnormal{(ad hoc profile)}
+        p(r) &= \beta \frac{B_{0,\phi}^2}{2} \left( 1 - p_1 \frac{ r^2}{a^2} - p_2 \frac{r^4}{a^4} \right)\,,\qquad \textnormal{(ad hoc profile)}
             
-        n(r) &= n_a + ( 1 - n_a ) \left( 1 - \left(\\frac{r}{a}\\right)^{n_1} \\right)^{n_2}\,.
+        n(r) &= n_a + ( 1 - n_a ) \left( 1 - \left(\frac{r}{a}\right)^{n_1} \right)^{n_2}\,.
     
     Parameters
     ----------
@@ -624,7 +621,7 @@ class AdhocTorus(EquilibriumMHD):
                 * p2     : shape factor for ad hoc pressure profile
                 * beta   : on-axis plasma beta in % (ratio of kinetic pressure to magnetic pressure)
             
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping. Enables pull-backs if set.   
     """
     

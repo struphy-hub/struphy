@@ -208,8 +208,8 @@ How to add ...
 
 .. _add_model:
 
-A new model
-^^^^^^^^^^^
+Model equations
+^^^^^^^^^^^^^^^
 
     1. Check if your model satisfies the follwing criteria:
 
@@ -312,45 +312,35 @@ to perform the in-place update of the variables.
 
 .. _add_mapping:
 
-A new mapping 
-^^^^^^^^^^^^^
+Mapped domains 
+^^^^^^^^^^^^^^^
 
-Implemented mappings are listed in :ref:`avail_mappings`. 
+Implemented domains are listed in :ref:`avail_mappings`. 
 
-The addition of a new mapping starts at the domain class:
+New domains have to be added to ``struphy/geometry/domains.py`` and are sub-classes of the ``Domain`` base class:
 
-.. autoclass:: struphy.geometry.domain_3d.Domain
+.. autoclass:: struphy.geometry.base.Domain
 
-A new mapping must have a **string name** and an **integer identifier**.
-These must be added to the domain class. For example, the mapping 
-``cuboid`` appears as follows:
-
-.. literalinclude:: ../../struphy/geometry/domain_3d.py
-    :language: python
-    :linenos: 
-    :lineno-start: 46
-    :lines: 46-60
-
-The string name is checked in the if-clause and the integer id is assigned to ``self._kind_map``. 
-Add your mappings according to this example.
-
-Moreover, the mapping and its Jacobian have to added to the functions ``struphy.geometry.map_eval.f``
-and ``struphy.geometry.map_eval.df``, respectively. Finally, the actual implementation of 
-the mapping and its Jacobian is done in ``struphy.geometry.mappings_3d_bis``. 
+Please use existing domains as templates. The actual formulas defining the mapping and its Jacobian matrix
+must be implemented in ``struphy/geometry/mappings_fast.py``, which gets pyccelized (compiled).
+These accelerated functions get called in ``struphy.geometry.map_eval.f`` and ``struphy.geometry.map_eval.df``, respectively.
+The ``kind_map`` attribute (``int``) of the domain class serves as the identifier of the mapping in ``f`` and ``df``.
+Note that ``kind_map < 10`` must be used for spline mappings, and ``kind_map >= 10`` must be used
+for analytical mappings. Make sure that your identifier is not already used by another mapping. 
 
 
 .. _add_equil:
 
-A new background
-^^^^^^^^^^^^^^^^
+Backgrounds
+^^^^^^^^^^^^
 
 Implemented backgrounds listed in :ref:`backgrounds`. 
 
 
 .. _add_dispersion:
 
-A new dispersion relation 
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Dispersion relations 
+^^^^^^^^^^^^^^^^^^^^^
 
 Implemented dispersion relations that inherit the base class are listed in :ref:`dispersions`. 
 
@@ -374,14 +364,14 @@ of the computation of each branch. Here, there is just one branch, namely the li
 
 .. _add_pusher:
 
-A new particle pusher
-^^^^^^^^^^^^^^^^^^^^^
+Particle pushers
+^^^^^^^^^^^^^^^^^
 
 
 .. _add_accum:
 
-A new PIC accumulation routine 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PIC accumulation routines 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Implemented accumulation functions are listed in :ref:`accumulators`. 
 
@@ -392,8 +382,8 @@ Implemented accumulation functions are listed in :ref:`accumulators`.
 
 .. _add_weighted_mass:
 
-A new weighted mass matrix 
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Weighted mass matrices 
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: struphy.psydac_api.mass_psydac
     :members:
@@ -401,8 +391,8 @@ A new weighted mass matrix
 
 .. _add_mhd_ops:
 
-A new MHD operator 
-^^^^^^^^^^^^^^^^^^
+MHD operators 
+^^^^^^^^^^^^^^^
 
 Implemented MHD operators are listed in :ref:`mhd_ops`.
 

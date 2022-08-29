@@ -7,18 +7,18 @@ import numpy as np
 @pytest.mark.parametrize('p',   [[2, 3, 2], [4, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
-    #['cuboid', {
+    #['Cuboid', {
     #    'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}],
-    ['colella', {
+    ['Colella', {
         'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}],
-    ['hollow_cyl', {
+    ['HollowCylinder', {
         'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}]
         ])
 def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     
     import numpy as np
     
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
@@ -39,23 +39,24 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     print('number of processes : ', mpi_size)
     
     # mapping
-    domain = Domain(mapping[0], mapping[1])
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(mapping[1])
     
     if show_plots:
         import matplotlib.pyplot as plt
         domain.show()
     
     # MHD equilibrium
-    if   mapping[0] == 'cuboid':
+    if   mapping[0] == 'Cuboid':
         eq_mhd = ShearedSlab({'a': mapping[1]['r1'] - mapping[1]['l1'], 'R0': (mapping[1]['r3'] - mapping[1]['l3'])/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
             
-    elif mapping[0] == 'colella':
+    elif mapping[0] == 'Colella':
         eq_mhd = ShearedSlab({'a': mapping[1]['Lx'], 'R0': mapping[1]['Lz']/(2*np.pi), 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
         
         if show_plots:
             eq_mhd.plot_profiles()
         
-    elif mapping[0] == 'hollow_cyl':
+    elif mapping[0] == 'HollowCylinder':
         eq_mhd = ScrewPinch({'a': mapping[1]['a2'], 'R0': mapping[1]['R0'], 'B0': 1.0, 'q0': 1.05, 'q1': 1.8, 'n1': 3.0, 'n2': 4.0, 'na': 0.0, 'beta': 10.0}, domain)
         
         if show_plots:
@@ -423,6 +424,6 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     print(f'Rank {mpi_rank} | Assertion passed.')
     
 if __name__ == '__main__':
-    #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
-    #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
-    test_mhd_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['hollow_cyl', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}], False)
+    #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    #test_mhd_ops([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
+    test_mhd_ops([6, 7, 4], [2, 3, 2], [False, True, True], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 2*np.pi*3.}], False)

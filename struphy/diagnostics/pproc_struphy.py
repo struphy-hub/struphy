@@ -11,7 +11,7 @@ for path in sys.argv[2:]:
 
     print('')
     fields, space_ids, code = create_femfields(path)
-    point_data_logic, point_data_phys, grids, grids_mapped = eval_femfields(path, fields, space_ids, npts_per_cell=1)
+    point_data_logic, point_data_phys, grids, grids_mapped, masks = eval_femfields(path, fields, space_ids, npts_per_cell=1)
     
     # directory for evaluated data 
     try:
@@ -38,6 +38,10 @@ for path in sys.argv[2:]:
 
     with open(path + '/eval_fields/grids_mapped.bin', 'wb') as handle:
             pickle.dump(grids_mapped, handle,
+                        protocol=pickle.HIGHEST_PROTOCOL)
+
+    with open(path + '/eval_fields/masks.bin', 'wb') as handle:
+            pickle.dump(masks, handle,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
 

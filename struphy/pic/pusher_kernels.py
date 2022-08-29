@@ -26,13 +26,13 @@ def push_v_with_efield(markers: 'float[:,:]', n_markers: 'int',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                        dt: 'float',
                        e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]'):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \hat{\mathbf E}^1(\eta^n_p)
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \hat{\mathbf E}^1(\eta^n_p)
 
-    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf E}^1 in H(\\textnormal{curl})`.
+    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf E}^1 in H(\textnormal{curl})`.
 
     Parameters
     ----------
@@ -114,11 +114,11 @@ def push_vxb_analytic(markers: 'float[:,:]', n_markers: 'int',
                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                       dt: 'float',
                       b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
-    '''Solves exactly the rotation
+    r'''Solves exactly the rotation
 
     .. math::
 
-        \\frac{\\textnormal d \mathbf v_p(t)}{\\textnormal d t} =  \mathbf v_p(t) \\times \\frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
 
     for each marker :math:`p` in markers array, with fixed rotation vector.
 
@@ -226,13 +226,13 @@ def push_bxu_Hdiv(markers: 'float[:,:]', n_markers: 'int',
                   dt: 'float',
                   b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
                   u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]', ):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \left(  \hat{\mathbf B}^2 \\times \\frac{\hat{\mathbf U}^2}{\sqrt g}  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \left(  \hat{\mathbf B}^2 \times \frac{\hat{\mathbf U}^2}{\sqrt g}  \right)^n_p
 
-    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^2 \in H(\\textnormal{div})`.
+    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^2 \in H(\textnormal{div})`.
 
     Parameters
     ----------
@@ -346,13 +346,13 @@ def push_bxu_Hcurl(markers: 'float[:,:]', n_markers: 'int',
                    dt: 'float',
                    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
                    u1_1: 'float[:,:,:]', u1_2: 'float[:,:,:]', u1_3: 'float[:,:,:]'):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \left(  \hat{\mathbf B}^2 \\times G^{-1}\hat{\mathbf U}^1  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \left(  \hat{\mathbf B}^2 \times G^{-1}\hat{\mathbf U}^1  \right)^n_p
 
-    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^1 \in H(\\textnormal{curl})`.
+    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^1 \in H(\textnormal{curl})`.
 
     Parameters
     ----------
@@ -467,11 +467,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', n_markers: 'int',
                    dt: 'float',
                    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]',
                    u0_1: 'float[:,:,:]', u0_2: 'float[:,:,:]', u0_3: 'float[:,:,:]', ):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \left(  \hat{\mathbf B}^2 \\times \hat{\mathbf U}  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \left(  \hat{\mathbf B}^2 \times \hat{\mathbf U}  \right)^n_p
 
     for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}` is a vector-field (dual to 1-form) in :math:`(H^1)^3`.
 
@@ -587,13 +587,13 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', n_markers: 'int',
                         b0: 'float[:,:,:]',
                         u2_1: 'float[:,:,:]', u2_2: 'float[:,:,:]', u2_3: 'float[:,:,:]',
                         mu: 'float[:]'):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\\top} \left(  \hat{\mathbf B}^2 \\times \\frac{\hat{\mathbf U}^2}{\sqrt g} - \mu\,\\nabla \hat{|\mathbf B|}^0  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = DF^{-\top} \left(  \hat{\mathbf B}^2 \times \frac{\hat{\mathbf U}^2}{\sqrt g} - \mu\,\nabla \hat{|\mathbf B|}^0  \right)^n_p
 
-    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^2 \in H(\\textnormal{div})` and :math:`\hat{|\mathbf B|}^0 \in H^1`.
+    for each marker :math:`p` in markers array, where :math:`\hat{\mathbf U}^2 \in H(\textnormal{div})` and :math:`\hat{|\mathbf B|}^0 \in H^1`.
 
     Parameters
     ----------
@@ -736,11 +736,11 @@ def push_pc_Xu_full(markers: 'float[:,:]', n_markers: 'int',
                     grad_Xu_11: 'float[:,:,:]', grad_Xu_12: 'float[:,:,:]', grad_Xu_13: 'float[:,:,:]',
                     grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
                     grad_Xu_31: 'float[:,:,:]', grad_Xu_32: 'float[:,:,:]', grad_Xu_33: 'float[:,:,:]'):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\\top} \left(  \\boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v)  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v)  \right)^n_p
 
     for each marker :math:`p` in markers array, where :math:`\mathbf u` 
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
@@ -750,7 +750,7 @@ def push_pc_Xu_full(markers: 'float[:,:]', n_markers: 'int',
     Parameters
     ----------
         grad_Xu_ij: array[float]
-            3d array of FE coeffs of :math:`\\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
+            3d array of FE coeffs of :math:`\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
     '''
 
     # allocate metric coeffs
@@ -833,11 +833,11 @@ def push_pc_Xu_perp(markers: 'float[:,:]', n_markers: 'int',
                         grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
                     grad_Xu_31: 'float[:,:,:]', grad_Xu_32: 'float[:,:,:]', grad_Xu_33: 'float[:,:,:]',
                     b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
-    '''Updates
+    r'''Updates
 
     .. math::
 
-        \\frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\\top} \left(  \\boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v_\perp)  \\right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v_\perp)  \right)^n_p
 
     for each marker :math:`p` in markers array, where :math:`\mathbf u` 
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
@@ -847,7 +847,7 @@ def push_pc_Xu_perp(markers: 'float[:,:]', n_markers: 'int',
     Parameters
     ----------
         grad_Xu_ij: array[float]
-            3d array of FE coeffs of :math:`\\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
+            3d array of FE coeffs of :math:`\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
 
         b2_1, b2_2, b2_3: array[float]
             3d array of FE coeffs of B-field as 2-form.
@@ -954,11 +954,11 @@ def push_eta_rk4(markers: 'float[:,:]', n_markers: 'int',
                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                  dt: 'float'):
-    '''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of 
 
     .. math::
 
-        \\frac{\\textnormal d \\boldsymbol \eta_p(t)}{\\textnormal d t} = DF^{-1}(\\boldsymbol \eta_p(t)) \mathbf v
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
     '''
@@ -1076,17 +1076,17 @@ def push_pc_eta_rk4_full(markers: 'float[:,:]', n_markers: 'int',
                          dt: 'float',
                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
                          u_basis: 'int',):
-    '''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of 
 
     .. math::
 
-        \\frac{\\textnormal d \\boldsymbol \eta_p(t)}{\\textnormal d t} = DF^{-1}(\\boldsymbol \eta_p(t)) \mathbf v + \\textnormal{vec}( \hat{\mathbf U}^{1(2)})
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
 
     .. math::
 
-        \\textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \\textnormal{vec}( \hat{\mathbf U}^{2}) = \\frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
 
     Parameters
     ----------
@@ -1382,17 +1382,17 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', n_markers: 'int',
                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
                          u_basis: 'int',
                          b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
-    '''Fourth order Runge-Kutta solve of 
+    r'''Fourth order Runge-Kutta solve of 
 
     .. math::
 
-        \\frac{\\textnormal d \\boldsymbol \eta_p(t)}{\\textnormal d t} = DF^{-1}(\\boldsymbol \eta_p(t)) \mathbf v + \\textnormal{vec}( \hat{\mathbf U}^{1(2)})_\perp
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})_\perp
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
 
     .. math::
 
-        \\textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \\textnormal{vec}( \hat{\mathbf U}^{2}) = \\frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
 
     Parameters
     ----------

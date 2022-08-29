@@ -5,7 +5,7 @@ def test_evaluation_mappings():
     import yaml 
     import numpy as np
 
-    from struphy.geometry import domain_3d
+    from struphy.geometry import domains
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/parameters.yml'
     print(f'Path to parameters file: {file_in}')
@@ -18,19 +18,19 @@ def test_evaluation_mappings():
     print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
 
     kind_maps = [
-        'cuboid',
-        'orthogonal',
-        'colella',
-        'hollow_cyl',
-        'hollow_torus',
-        'ellipse',
-        'rotated_ellipse',
-        'shafranov_shift',
-        'shafranov_sqrt',
-        'shafranov_dshaped',
-        'spline',
-        'spline_cyl',
-        'spline_torus',
+        'Cuboid',
+        'Orthogonal',
+        'Colella',
+        'HollowCylinder',
+        'HollowTorus',
+        'EllipticCylinder',
+        'RotatedEllipticCylinder',
+        'ShafranovShiftCylinder',
+        'ShafranovSqrtCylinder',
+        'ShafranovDshapedCylinder',
+        'Spline',
+        'PoloidalSplineCylinder',
+        'PoloidalSplineTorus',
     ]
 
     # arrays:
@@ -43,72 +43,73 @@ def test_evaluation_mappings():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
+        domain_class = getattr(domains, kind_map)
+        domain = domain_class(params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
-        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('domain\'s kind_map   :', domain.kind_map)
         print('yaml\'s params_map   :', params['geometry'][kind_map])
-        print('DOMAIN\'s params_map :', DOMAIN.params_map)
+        print('domain\'s params_map :', domain.params_map)
 
         # point-wise evaluation:
-        print('pointwise evaluation, size:', DOMAIN.evaluate(.5, .5, .5, 'x').size)
-        assert DOMAIN.evaluate(.5, .5, .5, 'x').size == 1
-        assert DOMAIN.evaluate(.5, .5, .5, 'y').size == 1
-        assert DOMAIN.evaluate(.5, .5, .5, 'z').size == 1
+        print('pointwise evaluation, size:', domain.evaluate(.5, .5, .5, 'x').size)
+        assert domain.evaluate(.5, .5, .5, 'x').size == 1
+        assert domain.evaluate(.5, .5, .5, 'y').size == 1
+        assert domain.evaluate(.5, .5, .5, 'z').size == 1
 
         # flat evaluation:
-        print('flat evaluation, shape:', DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape)
-        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape == arr1.shape
-        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'y', flat_eval=True).shape == arr1.shape
-        assert DOMAIN.evaluate(arr1, arr2[:-1], arr3[:-2], 'z', flat_eval=True).shape == arr1.shape
+        print('flat evaluation, shape:', domain.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape)
+        assert domain.evaluate(arr1, arr2[:-1], arr3[:-2], 'x', flat_eval=True).shape == arr1.shape
+        assert domain.evaluate(arr1, arr2[:-1], arr3[:-2], 'y', flat_eval=True).shape == arr1.shape
+        assert domain.evaluate(arr1, arr2[:-1], arr3[:-2], 'z', flat_eval=True).shape == arr1.shape
 
         # eta1-array evaluation:
-        print('eta1 array evaluation, shape:', DOMAIN.evaluate(arr1, .5, .5, 'x').shape)
-        assert DOMAIN.evaluate(arr1, .5, .5, 'x').shape == arr1.shape
-        assert DOMAIN.evaluate(arr1, .5, .5, 'y').shape == arr1.shape
-        assert DOMAIN.evaluate(arr1, .5, .5, 'z').shape == arr1.shape
+        print('eta1 array evaluation, shape:', domain.evaluate(arr1, .5, .5, 'x').shape)
+        assert domain.evaluate(arr1, .5, .5, 'x').shape == arr1.shape
+        assert domain.evaluate(arr1, .5, .5, 'y').shape == arr1.shape
+        assert domain.evaluate(arr1, .5, .5, 'z').shape == arr1.shape
         # eta2-array evaluation:
-        print('eta2 array evaluation, shape:', DOMAIN.evaluate(.5, arr2, .5, 'x').shape)
-        assert DOMAIN.evaluate(.5, arr2, .5, 'x').shape == arr2.shape
-        assert DOMAIN.evaluate(.5, arr2, .5, 'y').shape == arr2.shape
-        assert DOMAIN.evaluate(.5, arr2, .5, 'z').shape == arr2.shape
+        print('eta2 array evaluation, shape:', domain.evaluate(.5, arr2, .5, 'x').shape)
+        assert domain.evaluate(.5, arr2, .5, 'x').shape == arr2.shape
+        assert domain.evaluate(.5, arr2, .5, 'y').shape == arr2.shape
+        assert domain.evaluate(.5, arr2, .5, 'z').shape == arr2.shape
         # eta3-array evaluation:
-        print('eta3 array evaluation, shape:', DOMAIN.evaluate(.5, .5, arr3, 'x').shape)
-        assert DOMAIN.evaluate(.5, .5, arr3, 'x').shape == arr3.shape
-        assert DOMAIN.evaluate(.5, .5, arr3, 'y').shape == arr3.shape
-        assert DOMAIN.evaluate(.5, .5, arr3, 'z').shape == arr3.shape
+        print('eta3 array evaluation, shape:', domain.evaluate(.5, .5, arr3, 'x').shape)
+        assert domain.evaluate(.5, .5, arr3, 'x').shape == arr3.shape
+        assert domain.evaluate(.5, .5, arr3, 'y').shape == arr3.shape
+        assert domain.evaluate(.5, .5, arr3, 'z').shape == arr3.shape
 
         # eta1-eta2-array evaluation:
-        a = DOMAIN.evaluate(arr1, arr2, .5, 'x')
-        b = DOMAIN.evaluate(arr1, arr2, .5, 'y')
-        c = DOMAIN.evaluate(arr1, arr2, .5, 'z')
+        a = domain.evaluate(arr1, arr2, .5, 'x')
+        b = domain.evaluate(arr1, arr2, .5, 'y')
+        c = domain.evaluate(arr1, arr2, .5, 'z')
         print('eta1-eta2 array evaluation, shape:', a.shape)
         assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
         assert b.shape[0] == arr1.size and b.shape[1] == arr2.size
         assert c.shape[0] == arr1.size and c.shape[1] == arr2.size
         # eta1-eta3-array evaluation:
-        a = DOMAIN.evaluate(arr1, .5, arr3, 'x')
-        b = DOMAIN.evaluate(arr1, .5, arr3, 'y')
-        c = DOMAIN.evaluate(arr1, .5, arr3, 'z')
+        a = domain.evaluate(arr1, .5, arr3, 'x')
+        b = domain.evaluate(arr1, .5, arr3, 'y')
+        c = domain.evaluate(arr1, .5, arr3, 'z')
         print('eta1-eta3 array evaluation, shape:', a.shape)
         assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
         assert b.shape[0] == arr1.size and b.shape[1] == arr3.size
         assert c.shape[0] == arr1.size and c.shape[1] == arr3.size
         # eta2-eta3-array evaluation:
-        a = DOMAIN.evaluate(.5, arr2, arr3, 'x')
-        b = DOMAIN.evaluate(.5, arr2, arr3, 'y')
-        c = DOMAIN.evaluate(.5, arr2, arr3, 'z')
+        a = domain.evaluate(.5, arr2, arr3, 'x')
+        b = domain.evaluate(.5, arr2, arr3, 'y')
+        c = domain.evaluate(.5, arr2, arr3, 'z')
         print('eta2-eta3 array evaluation, shape:', a.shape)
         assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
         assert b.shape[0] == arr2.size and b.shape[1] == arr3.size
         assert c.shape[0] == arr2.size and c.shape[1] == arr3.size
 
         # eta1-eta2-eta3 array evaluation:
-        a = DOMAIN.evaluate(arr1, arr2, arr3, 'x')
-        b = DOMAIN.evaluate(arr1, arr2, arr3, 'y')
-        c = DOMAIN.evaluate(arr1, arr2, arr3, 'z')
+        a = domain.evaluate(arr1, arr2, arr3, 'x')
+        b = domain.evaluate(arr1, arr2, arr3, 'y')
+        c = domain.evaluate(arr1, arr2, arr3, 'z')
         print('eta1-eta2-eta3-array evaluation, shape:', a.shape)
         assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
         assert b.shape[0] == arr1.size and b.shape[1] == arr2.size and b.shape[2] == arr3.size
@@ -120,25 +121,25 @@ def test_evaluation_mappings():
         mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
         # eta1-eta2 matrix evaluation:
-        a = DOMAIN.evaluate(mat12_x, mat12_y, .5, 'x')
-        b = DOMAIN.evaluate(mat12_x, mat12_y, .5, 'y')
-        c = DOMAIN.evaluate(mat12_x, mat12_y, .5, 'z')
+        a = domain.evaluate(mat12_x, mat12_y, .5, 'x')
+        b = domain.evaluate(mat12_x, mat12_y, .5, 'y')
+        c = domain.evaluate(mat12_x, mat12_y, .5, 'z')
         print('eta1-eta2 matrix evaluation, shape:', a.shape)
         assert a.shape == mat12_x.shape
         assert b.shape == mat12_x.shape
         assert c.shape == mat12_x.shape
         # eta1-eta3 matrix evaluation:
-        a = DOMAIN.evaluate(mat13_x, .5, mat13_z, 'x')
-        b = DOMAIN.evaluate(mat13_x, .5, mat13_z, 'y')
-        c = DOMAIN.evaluate(mat13_x, .5, mat13_z, 'z')
+        a = domain.evaluate(mat13_x, .5, mat13_z, 'x')
+        b = domain.evaluate(mat13_x, .5, mat13_z, 'y')
+        c = domain.evaluate(mat13_x, .5, mat13_z, 'z')
         print('eta1-eta3 matrix evaluation, shape:', a.shape)
         assert a.shape == mat13_x.shape
         assert b.shape == mat13_x.shape
         assert c.shape == mat13_x.shape
         # eta2-eta3 matrix evaluation:
-        a = DOMAIN.evaluate(.5, mat23_y, mat23_z, 'x')
-        b = DOMAIN.evaluate(.5, mat23_y, mat23_z, 'y')
-        c = DOMAIN.evaluate(.5, mat23_y, mat23_z, 'z')
+        a = domain.evaluate(.5, mat23_y, mat23_z, 'x')
+        b = domain.evaluate(.5, mat23_y, mat23_z, 'y')
+        c = domain.evaluate(.5, mat23_y, mat23_z, 'z')
         print('eta2-eta3 matrix evaluation, shape:', a.shape)
         assert a.shape == mat23_y.shape
         assert b.shape == mat23_y.shape
@@ -146,9 +147,9 @@ def test_evaluation_mappings():
 
         # matrix evaluations for sparse meshgrid
         mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
-        a = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'x')
-        b = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'y')
-        c = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'z')
+        a = domain.evaluate(mat_x, mat_y, mat_z, 'x')
+        b = domain.evaluate(mat_x, mat_y, mat_z, 'y')
+        c = domain.evaluate(mat_x, mat_y, mat_z, 'z')
         print('sparse meshgrid matrix evaluation, shape:', a.shape)
         assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
         assert b.shape[0] == mat_x.shape[0] and b.shape[1] == mat_y.shape[1] and b.shape[2] == mat_z.shape[2]
@@ -156,9 +157,9 @@ def test_evaluation_mappings():
 
         # matrix evaluations 
         mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-        a = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'x')
-        b = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'y')
-        c = DOMAIN.evaluate(mat_x, mat_y, mat_z, 'z')
+        a = domain.evaluate(mat_x, mat_y, mat_z, 'x')
+        b = domain.evaluate(mat_x, mat_y, mat_z, 'y')
+        c = domain.evaluate(mat_x, mat_y, mat_z, 'z')
         print('matrix evaluation, shape:', a.shape)
         assert a.shape == mat_x.shape 
         assert b.shape == mat_x.shape
@@ -172,7 +173,7 @@ def test_pullback():
     import yaml 
     import numpy as np
 
-    from struphy.geometry import domain_3d
+    from struphy.geometry import domains
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
     print(f'Path to parameters file: {file_in}')
@@ -185,19 +186,19 @@ def test_pullback():
     print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
 
     kind_maps = [
-        'cuboid',
-        'orthogonal',
-        'colella',
-        'hollow_cyl',
-        'hollow_torus',
-        'ellipse',
-        'rotated_ellipse',
-        'shafranov_shift',
-        'shafranov_sqrt',
-        'shafranov_dshaped',
-        'spline',
-        'spline_cyl',
-        'spline_torus',
+        'Cuboid',
+        'Orthogonal',
+        'Colella',
+        'HollowCylinder',
+        'HollowTorus',
+        'EllipticCylinder',
+        'RotatedEllipticCylinder',
+        'ShafranovShiftCylinder',
+        'ShafranovSqrtCylinder',
+        'ShafranovDshapedCylinder',
+        'Spline',
+        'PoloidalSplineCylinder',
+        'PoloidalSplineTorus',
     ]
 
     # arrays:
@@ -213,16 +214,17 @@ def test_pullback():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
+        domain_class = getattr(domains, kind_map)
+        domain = domain_class(params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
-        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('domain\'s kind_map   :', domain.kind_map)
         print('yaml\'s params_map   :', params['geometry'][kind_map])
-        print('DOMAIN\'s params_map :', DOMAIN.params_map)
+        print('domain\'s params_map :', domain.params_map)
 
-        for p_str in DOMAIN.keys_pull:
+        for p_str in domain.keys_pull:
 
             print('component:', p_str)
 
@@ -232,39 +234,39 @@ def test_pullback():
                 fun_form = [fun, fun, fun]
 
             # point-wise pullback:
-            assert DOMAIN.pull(fun_form, .5, .5, .5, p_str).size == 1
-            #print('pointwise pullback, size:', DOMAIN.pull(fun_form, .5, .5, .5, p_str).size)
+            assert domain.pull(fun_form, .5, .5, .5, p_str).size == 1
+            #print('pointwise pullback, size:', domain.pull(fun_form, .5, .5, .5, p_str).size)
 
             # flat pullback:
-            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.pull(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 
             # eta1-array pullback:
-            #print('eta1 array pullback, shape:', DOMAIN.pull(fun_form, arr1, .5, .5, p_str).shape)
-            assert DOMAIN.pull(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
+            #print('eta1 array pullback, shape:', domain.pull(fun_form, arr1, .5, .5, p_str).shape)
+            assert domain.pull(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
             # eta2-array pullback:
-            #print('eta2 array pullback, shape:', DOMAIN.pull(fun_form, .5, arr2, .5, p_str).shape)
-            assert DOMAIN.pull(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
+            #print('eta2 array pullback, shape:', domain.pull(fun_form, .5, arr2, .5, p_str).shape)
+            assert domain.pull(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
             # eta3-array pullback:
-            #print('eta3 array pullback, shape:', DOMAIN.pull(fun_form, .5, .5, arr3, p_str).shape)
-            assert DOMAIN.pull(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
+            #print('eta3 array pullback, shape:', domain.pull(fun_form, .5, .5, arr3, p_str).shape)
+            assert domain.pull(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 
             # eta1-eta2-array pullback:
-            a = DOMAIN.pull(fun_form, arr1, arr2, .5, p_str)
+            a = domain.pull(fun_form, arr1, arr2, .5, p_str)
             #print('eta1-eta2 array pullback, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
             # eta1-eta3-array pullback:
-            a = DOMAIN.pull(fun_form, arr1, .5, arr3, p_str)
+            a = domain.pull(fun_form, arr1, .5, arr3, p_str)
             #print('eta1-eta3 array pullback, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
             # eta2-eta3-array pullback:
-            a = DOMAIN.pull(fun_form, .5, arr2, arr3, p_str)
+            a = domain.pull(fun_form, .5, arr2, arr3, p_str)
             #print('eta2-eta3 array pullback, shape:', a.shape)
             assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 
             # eta1-eta2-eta3 array pullback:
-            a = DOMAIN.pull(fun_form, arr1, arr2, arr3, p_str)
+            a = domain.pull(fun_form, arr1, arr2, arr3, p_str)
             #print('eta1-eta2-eta3-array pullback, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
 
@@ -274,27 +276,27 @@ def test_pullback():
             mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
             # eta1-eta2 matrix pullback:
-            a = DOMAIN.pull(fun_form, mat12_x, mat12_y, .5, p_str)
+            a = domain.pull(fun_form, mat12_x, mat12_y, .5, p_str)
             #print('eta1-eta2 matrix pullback, shape:', a.shape)
             assert a.shape == mat12_x.shape
             # eta1-eta3 matrix pullback:
-            a = DOMAIN.pull(fun_form, mat13_x, .5, mat13_z, p_str)
+            a = domain.pull(fun_form, mat13_x, .5, mat13_z, p_str)
             #print('eta1-eta3 matrix pullback, shape:', a.shape)
             assert a.shape == mat13_x.shape
             # eta2-eta3 matrix pullback:
-            a = DOMAIN.pull(fun_form, .5, mat23_y, mat23_z, p_str)
+            a = domain.pull(fun_form, .5, mat23_y, mat23_z, p_str)
             #print('eta2-eta3 matrix pullback, shape:', a.shape)
             assert a.shape == mat23_y.shape
 
             # matrix pullbacks for sparse meshgrid
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
-            a = DOMAIN.pull(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.pull(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('sparse meshgrid matrix pullback, shape:', a.shape)
             assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 
             # matrix pullbacks 
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-            a = DOMAIN.pull(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.pull(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('matrix pullback, shape:', a.shape)
             assert a.shape == mat_x.shape 
 
@@ -306,7 +308,7 @@ def test_pushforward():
     import yaml 
     import numpy as np
 
-    from struphy.geometry import domain_3d
+    from struphy.geometry import domains
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
     print(f'Path to parameters file: {file_in}')
@@ -319,19 +321,19 @@ def test_pushforward():
     print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
 
     kind_maps = [
-        'cuboid',
-        'orthogonal',
-        'colella',
-        'hollow_cyl',
-        'hollow_torus',
-        'ellipse',
-        'rotated_ellipse',
-        'shafranov_shift',
-        'shafranov_sqrt',
-        'shafranov_dshaped',
-        'spline',
-        'spline_cyl',
-        'spline_torus',
+        'Cuboid',
+        'Orthogonal',
+        'Colella',
+        'HollowCylinder',
+        'HollowTorus',
+        'EllipticCylinder',
+        'RotatedEllipticCylinder',
+        'ShafranovShiftCylinder',
+        'ShafranovSqrtCylinder',
+        'ShafranovDshapedCylinder',
+        'Spline',
+        'PoloidalSplineCylinder',
+        'PoloidalSplineTorus',
     ]
 
     # arrays:
@@ -347,16 +349,17 @@ def test_pushforward():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
+        domain_class = getattr(domains, kind_map)
+        domain = domain_class(params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
-        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('domain\'s kind_map   :', domain.kind_map)
         print('yaml\'s params_map   :', params['geometry'][kind_map])
-        print('DOMAIN\'s params_map :', DOMAIN.params_map)
+        print('domain\'s params_map :', domain.params_map)
 
-        for p_str in DOMAIN.keys_push:
+        for p_str in domain.keys_push:
 
             print('component:', p_str)
 
@@ -366,39 +369,39 @@ def test_pushforward():
                 fun_form = [fun, fun, fun]
 
             # point-wise pushforward:
-            assert DOMAIN.push(fun_form, .5, .5, .5, p_str).size == 1
-            #print('pointwise pushforward, size:', DOMAIN.push(fun_form, .5, .5, .5, p_str).size)
+            assert domain.push(fun_form, .5, .5, .5, p_str).size == 1
+            #print('pointwise pushforward, size:', domain.push(fun_form, .5, .5, .5, p_str).size)
 
             # flat pushforward:
-            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.push(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 
             # eta1-array pushforward:
-            #print('eta1 array pushforward, shape:', DOMAIN.push(fun_form, arr1, .5, .5, p_str).shape)
-            assert DOMAIN.push(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
+            #print('eta1 array pushforward, shape:', domain.push(fun_form, arr1, .5, .5, p_str).shape)
+            assert domain.push(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
             # eta2-array pushforward:
-            #print('eta2 array pushforward, shape:', DOMAIN.push(fun_form, .5, arr2, .5, p_str).shape)
-            assert DOMAIN.push(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
+            #print('eta2 array pushforward, shape:', domain.push(fun_form, .5, arr2, .5, p_str).shape)
+            assert domain.push(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
             # eta3-array pushforward:
-            #print('eta3 array pushforward, shape:', DOMAIN.push(fun_form, .5, .5, arr3, p_str).shape)
-            assert DOMAIN.push(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
+            #print('eta3 array pushforward, shape:', domain.push(fun_form, .5, .5, arr3, p_str).shape)
+            assert domain.push(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 
             # eta1-eta2-array pushforward:
-            a = DOMAIN.push(fun_form, arr1, arr2, .5, p_str)
+            a = domain.push(fun_form, arr1, arr2, .5, p_str)
             #print('eta1-eta2 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
             # eta1-eta3-array pushforward:
-            a = DOMAIN.push(fun_form, arr1, .5, arr3, p_str)
+            a = domain.push(fun_form, arr1, .5, arr3, p_str)
             #print('eta1-eta3 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
             # eta2-eta3-array pushforward:
-            a = DOMAIN.push(fun_form, .5, arr2, arr3, p_str)
+            a = domain.push(fun_form, .5, arr2, arr3, p_str)
             #print('eta2-eta3 array pushforward, shape:', a.shape)
             assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 
             # eta1-eta2-eta3 array pushforward:
-            a = DOMAIN.push(fun_form, arr1, arr2, arr3, p_str)
+            a = domain.push(fun_form, arr1, arr2, arr3, p_str)
             #print('eta1-eta2-eta3-array pushforward, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
 
@@ -408,27 +411,27 @@ def test_pushforward():
             mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
             # eta1-eta2 matrix pushforward:
-            a = DOMAIN.push(fun_form, mat12_x, mat12_y, .5, p_str)
+            a = domain.push(fun_form, mat12_x, mat12_y, .5, p_str)
             #print('eta1-eta2 matrix pushforward, shape:', a.shape)
             assert a.shape == mat12_x.shape
             # eta1-eta3 matrix pushforward:
-            a = DOMAIN.push(fun_form, mat13_x, .5, mat13_z, p_str)
+            a = domain.push(fun_form, mat13_x, .5, mat13_z, p_str)
             #print('eta1-eta3 matrix pushforward, shape:', a.shape)
             assert a.shape == mat13_x.shape
             # eta2-eta3 matrix pushforward:
-            a = DOMAIN.push(fun_form, .5, mat23_y, mat23_z, p_str)
+            a = domain.push(fun_form, .5, mat23_y, mat23_z, p_str)
             #print('eta2-eta3 matrix pushforward, shape:', a.shape)
             assert a.shape == mat23_y.shape
 
             # matrix pullbacks for sparse meshgrid
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
-            a = DOMAIN.push(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.push(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('sparse meshgrid matrix pushforward, shape:', a.shape)
             assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 
             # matrix pullbacks 
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-            a = DOMAIN.push(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.push(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('matrix pushforward, shape:', a.shape)
             assert a.shape == mat_x.shape 
 
@@ -440,7 +443,7 @@ def test_transformation():
     import yaml 
     import numpy as np
 
-    from struphy.geometry import domain_3d
+    from struphy.geometry import domains
 
     file_in = sysconfig.get_path("platlib") + '/struphy/io/inp/cc_lin_mhd_6d/parameters.yml'
     print(f'Path to parameters file: {file_in}')
@@ -453,19 +456,19 @@ def test_transformation():
     print(f"Updated path to sample spline coefficients: {params['geometry']['params_spline']['file']}")
 
     kind_maps = [
-        'cuboid',
-        'orthogonal',
-        'colella',
-        'hollow_cyl',
-        'hollow_torus',
-        'ellipse',
-        'rotated_ellipse',
-        'shafranov_shift',
-        'shafranov_sqrt',
-        'shafranov_dshaped',
-        'spline',
-        'spline_cyl',
-        'spline_torus',
+        'Cuboid',
+        'Orthogonal',
+        'Colella',
+        'HollowCylinder',
+        'HollowTorus',
+        'EllipticCylinder',
+        'RotatedEllipticCylinder',
+        'ShafranovShiftCylinder',
+        'ShafranovSqrtCylinder',
+        'ShafranovDshapedCylinder',
+        'Spline',
+        'PoloidalSplineCylinder',
+        'PoloidalSplineTorus',
     ]
 
     # arrays:
@@ -481,16 +484,17 @@ def test_transformation():
 
     for kind_map in kind_maps:
 
-        DOMAIN   = domain_3d.Domain(kind_map, params['geometry'][kind_map])
+        domain_class = getattr(domains, kind_map)
+        domain = domain_class(params['geometry'][kind_map])
         print()
         print('Domain object set.')
 
         print('yaml\'s kind_map     :', kind_map)
-        print('DOMAIN\'s kind_map   :', DOMAIN.kind_map)
+        print('domain\'s kind_map   :', domain.kind_map)
         print('yaml\'s params_map   :', params['geometry'][kind_map])
-        print('DOMAIN\'s params_map :', DOMAIN.params_map)
+        print('domain\'s params_map :', domain.params_map)
 
-        for p_str in DOMAIN.keys_transform:
+        for p_str in domain.keys_transform:
 
             print('component:', p_str)
 
@@ -500,39 +504,39 @@ def test_transformation():
                 fun_form = [fun, fun, fun]
 
             # point-wise transformation:
-            assert DOMAIN.transform(fun_form, .5, .5, .5, p_str).size == 1
-            #print('pointwise transformation, size:', DOMAIN.transform(fun_form, .5, .5, .5, p_str).size)
+            assert domain.transform(fun_form, .5, .5, .5, p_str).size == 1
+            #print('pointwise transformation, size:', domain.transform(fun_form, .5, .5, .5, p_str).size)
 
             # flat transformation:
-            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
-            assert DOMAIN.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
+            assert domain.transform(fun_form, arr1, arr2[:-1], arr3[:-2], p_str, flat_eval=True).shape == arr1.shape
 
             # eta1-array transformation:
-            #print('eta1 array transformation, shape:', DOMAIN.transform(fun_form, arr1, .5, .5, p_str).shape)
-            assert DOMAIN.transform(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
+            #print('eta1 array transformation, shape:', domain.transform(fun_form, arr1, .5, .5, p_str).shape)
+            assert domain.transform(fun_form, arr1, .5, .5, p_str).shape == arr1.shape
             # eta2-array transformation:
-            #print('eta2 array transformation, shape:', DOMAIN.transform(fun_form, .5, arr2, .5, p_str).shape)
-            assert DOMAIN.transform(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
+            #print('eta2 array transformation, shape:', domain.transform(fun_form, .5, arr2, .5, p_str).shape)
+            assert domain.transform(fun_form, .5, arr2, .5, p_str).shape == arr2.shape
             # eta3-array transformation:
-            #print('eta3 array transformation, shape:', DOMAIN.transform(fun_form, .5, .5, arr3, p_str).shape)
-            assert DOMAIN.transform(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
+            #print('eta3 array transformation, shape:', domain.transform(fun_form, .5, .5, arr3, p_str).shape)
+            assert domain.transform(fun_form, .5, .5, arr3, p_str).shape == arr3.shape
 
             # eta1-eta2-array transformation:
-            a = DOMAIN.transform(fun_form, arr1, arr2, .5, p_str)
+            a = domain.transform(fun_form, arr1, arr2, .5, p_str)
             #print('eta1-eta2 array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size
             # eta1-eta3-array transformation:
-            a = DOMAIN.transform(fun_form, arr1, .5, arr3, p_str)
+            a = domain.transform(fun_form, arr1, .5, arr3, p_str)
             #print('eta1-eta3 array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr3.size
             # eta2-eta3-array transformation:
-            a = DOMAIN.transform(fun_form, .5, arr2, arr3, p_str)
+            a = domain.transform(fun_form, .5, arr2, arr3, p_str)
             #print('eta2-eta3 array transformation, shape:', a.shape)
             assert a.shape[0] == arr2.size and a.shape[1] == arr3.size
 
             # eta1-eta2-eta3 array transformation:
-            a = DOMAIN.transform(fun_form, arr1, arr2, arr3, p_str)
+            a = domain.transform(fun_form, arr1, arr2, arr3, p_str)
             #print('eta1-eta2-eta3-array transformation, shape:', a.shape)
             assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size 
 
@@ -542,27 +546,27 @@ def test_transformation():
             mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
 
             # eta1-eta2 matrix transformation:
-            a = DOMAIN.transform(fun_form, mat12_x, mat12_y, .5, p_str)
+            a = domain.transform(fun_form, mat12_x, mat12_y, .5, p_str)
             #print('eta1-eta2 matrix transformation, shape:', a.shape)
             assert a.shape == mat12_x.shape
             # eta1-eta3 matrix transformation:
-            a = DOMAIN.transform(fun_form, mat13_x, .5, mat13_z, p_str)
+            a = domain.transform(fun_form, mat13_x, .5, mat13_z, p_str)
             #print('eta1-eta3 matrix transformation, shape:', a.shape)
             assert a.shape == mat13_x.shape
             # eta2-eta3 matrix transformation:
-            a = DOMAIN.transform(fun_form, .5, mat23_y, mat23_z, p_str)
+            a = domain.transform(fun_form, .5, mat23_y, mat23_z, p_str)
             #print('eta2-eta3 matrix transformation, shape:', a.shape)
             assert a.shape == mat23_y.shape
 
             # matrix transformation for sparse meshgrid
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
-            a = DOMAIN.transform(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('sparse meshgrid matrix transformation, shape:', a.shape)
             assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 
             # matrix transformation 
             mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
-            a = DOMAIN.transform(fun_form, mat_x, mat_y, mat_z, p_str)
+            a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
             #print('matrix transformation, shape:', a.shape)
             assert a.shape == mat_x.shape 
     

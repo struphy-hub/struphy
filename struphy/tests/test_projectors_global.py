@@ -597,8 +597,6 @@ def test_project_splines():
 
     import numpy as np
 
-    import struphy.geometry.domain_3d as dom
-    import struphy.feec.projectors.pro_global.projectors_global as pro
     import struphy.feec.spline_space as spl
 
     Nel      = [16, 16, 8]

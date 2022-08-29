@@ -5,7 +5,7 @@ from struphy.dispersion_relations.base import DispersionRelations1D
 
 
 class Maxwell1D(DispersionRelations1D):
-    '''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
+    r'''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
     
     .. math::
     
@@ -36,7 +36,7 @@ class Maxwell1D(DispersionRelations1D):
     
     
 class Mhd1D(DispersionRelations1D):
-    '''Dispersion relation for linear MHD equations for homogeneous background and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
+    r'''Dispersion relation for linear MHD equations for homogeneous background and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
     
     .. math::
     

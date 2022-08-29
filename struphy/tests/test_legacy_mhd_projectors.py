@@ -6,7 +6,7 @@ def test_1form_projectors_dot():
         import numpy as np
         import time
 
-        from struphy.geometry.domain_3d import Domain
+        from struphy.geometry import domains
         
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
@@ -21,7 +21,7 @@ def test_1form_projectors_dot():
         spl_kind = [True, True, True]
         n_quad   = p.copy()
         bc       = ['d', 'd']
-        kind_map = 'cuboid'     
+        dom_type = 'Cuboid'     
 
         # 1d B-spline spline spaces for finite elements
         spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
@@ -38,8 +38,8 @@ def test_1form_projectors_dot():
         tensor_space_FEM.set_projectors()
         
         # domain
-        domain = Domain(kind_map)
-        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain_class = getattr(domains, dom_type)
+        domain = domain_class()
 
         # assemble mass matrices
         tensor_space_FEM.assemble_Mk(domain, 'V0')
@@ -77,7 +77,7 @@ def test_1form_projectors_dot():
 
         print()
         print('maping  :')
-        print('kind_map = ' + str(kind_map))
+        print('dom_type = ' + str(dom_type))
         print('params_map = ' + str(domain.params_map))
 
         print()
@@ -297,7 +297,7 @@ def test_2form_projectors_dot():
         import time
 
     
-        from struphy.geometry.domain_3d import Domain
+        from struphy.geometry import domains
         
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
@@ -312,7 +312,7 @@ def test_2form_projectors_dot():
         spl_kind = [True, True, True]
         n_quad   = p.copy()
         bc       = ['d', 'd']
-        kind_map = 'cuboid'     
+        dom_type = 'Cuboid'     
 
         # 1d B-spline spline spaces for finite elements
         spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
@@ -329,8 +329,8 @@ def test_2form_projectors_dot():
         tensor_space_FEM.set_projectors()
         
         # domain
-        domain = Domain(kind_map)
-        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain_class = getattr(domains, dom_type)
+        domain = domain_class()
 
         # assemble mass matrices
         tensor_space_FEM.assemble_Mk(domain, 'V0')
@@ -367,7 +367,7 @@ def test_2form_projectors_dot():
 
         print()
         print('maping  :')
-        print('kind_map = ' + str(kind_map))
+        print('dom_type = ' + str(dom_type))
         print('params_map = ' + str(domain.params_map))
         print()
 
@@ -566,7 +566,7 @@ def test_1form_symmetric():
 
         import numpy as np
     
-        from struphy.geometry.domain_3d import Domain
+        from struphy.geometry import domains
         
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
@@ -581,7 +581,7 @@ def test_1form_symmetric():
         spl_kind = [True, True, True]
         n_quad   = p.copy()
         bc       = ['d', 'd']
-        kind_map = 'cuboid'     
+        dom_type = 'Cuboid'     
 
         # 1d B-spline spline spaces for finite elements
         spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
@@ -598,8 +598,8 @@ def test_1form_symmetric():
         tensor_space_FEM.set_projectors()
         
         # domain
-        domain = Domain(kind_map)
-        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain_class = getattr(domains, dom_type)
+        domain = domain_class()
 
         # assemble mass matrices
         tensor_space_FEM.assemble_Mk(domain, 'V0')
@@ -629,7 +629,7 @@ def test_1form_symmetric():
 
         print()
         print('maping  :')
-        print('kind_map = ' + str(kind_map))
+        print('dom_type = ' + str(dom_type))
         print('params_map = ' + str(domain.params_map))
 
         print()
@@ -731,7 +731,7 @@ def test_2form_symmetric():
         import numpy as np
 
 
-        from struphy.geometry.domain_3d import Domain
+        from struphy.geometry import domains
         
         from struphy.feec.spline_space import Spline_space_1d
         from struphy.feec.spline_space import Tensor_spline_space
@@ -746,7 +746,7 @@ def test_2form_symmetric():
         spl_kind = [True, True, True]
         n_quad   = p.copy()
         bc       = ['d', 'd']
-        kind_map = 'cuboid'     
+        dom_type = 'Cuboid'     
 
         # 1d B-spline spline spaces for finite elements
         spaces_FEM = [Spline_space_1d(Nel_i, p_i, spl_kind_i, n_quad_i, bc) 
@@ -763,8 +763,8 @@ def test_2form_symmetric():
         tensor_space_FEM.set_projectors()
         
         # domain
-        domain = Domain(kind_map)
-        #domain = Domain(kind_map, params_map, Nel, p, spl_kind)
+        domain_class = getattr(domains, dom_type)
+        domain = domain_class()
 
         # assemble mass matrices
         tensor_space_FEM.assemble_Mk(domain, 'V0')
@@ -795,7 +795,7 @@ def test_2form_symmetric():
 
         print()
         print('maping  :')
-        print('kind_map = ' + str(kind_map))
+        print('dom_type = ' + str(dom_type))
         print('params_map = ' + str(domain.params_map))
 
         # print('G = ')

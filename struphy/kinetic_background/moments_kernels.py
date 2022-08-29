@@ -16,12 +16,12 @@ def _docstring():
 
 
 def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'float[:]', kys: 'float[:]', kzs: 'float[:]', amps_sin: 'float[:]', amps_cos: 'float[:]') -> float:
-    '''
+    r'''
     Point-wise evaluation of  
     
     .. math::
     
-        u(x, y, z) = \sum_{i=0}^N \left[ A_i\sin(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) + B_i\cos(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) \\right]\,.
+        u(x, y, z) = \sum_{i=0}^N \left[ A_i\sin(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) + B_i\cos(k_{x,i}\,x + k_{y,i}\,y + k_{z,i}\,z) \right]\,.
 
     Parameters
     ----------
@@ -59,16 +59,16 @@ def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'floa
 
 
 def moments(eta : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
-    """
+    r"""
     Point-wise evaluation at logical (eta1, eta2, eta3) of the moments density, mean velocity and thermal velocity:
 
     .. math::
 
-        n_0(\mathbf x) &= \int f_0(\mathbf x, \mathbf v)\,\\textnormal d \mathbf v
+        n_0(\mathbf x) &= \int f_0(\mathbf x, \mathbf v)\,\textnormal d \mathbf v
 
-        \mathbf u_0(\mathbf x) &= \\frac{1}{n_0(\mathbf x)} \int \mathbf v\, f_0(\mathbf x, \mathbf v)\,\\textnormal d \mathbf v
+        \mathbf u_0(\mathbf x) &= \frac{1}{n_0(\mathbf x)} \int \mathbf v\, f_0(\mathbf x, \mathbf v)\,\textnormal d \mathbf v
 
-        v_{\\textnormal{th},0,i}(\mathbf x) &= \sqrt{\\frac{1}{n_0(\mathbf x)} \int \mathbf |v_i - u_{0,i}|^2\, f_0(\mathbf x, \mathbf v)\,\\textnormal d \mathbf v }
+        v_{\textnormal{th},0,i}(\mathbf x) &= \sqrt{\frac{1}{n_0(\mathbf x)} \int \mathbf |v_i - u_{0,i}|^2\, f_0(\mathbf x, \mathbf v)\,\textnormal d \mathbf v }
 
     Parameters
     ----------

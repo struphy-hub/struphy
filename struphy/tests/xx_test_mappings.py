@@ -14,15 +14,14 @@ import numpy as np
 @pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
 @pytest.mark.parametrize('mappings', [
-    ['cuboid', {'l1':0., 'r1':1., 'l2':0., 'r2':1., 'l3':0., 'r3':1.}],
-    ['hollow_cyl', {'a1': np.random.rand(), 'a2': np.random.rand(), 'a3': np.random.rand()}],
-    ['colella', {'Lx':1., 'Ly':1., 'Lz':1., 'alpha':np.random.rand()}],
-    ['orthogonal', {'Lx':1., 'Ly':1., 'Lz':1., 'alpha':np.random.rand()}],
-    ['hollow_torus', {'a1':np.random.rand(), 'a2':np.random.rand(), 'R0':np.random.rand()}],
-    ['ellipse', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'rx':np.random.rand(), 'ry':np.random.rand(), 'Lz':np.random.rand()}],
-    ['rotated_ellipse', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'r1':np.random.rand(), 'r2':np.random.rand(), 'Lz':np.random.rand(), 'th':np.random.rand()}],
-    ['shafranov_sqrt', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'rx':np.random.rand(), 'ry':np.random.rand(), 'Lz':np.random.rand(), 'delta':np.random.rand()}],
-    ['shafranov_sqrt', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'R0':np.random.rand(), 'Lz':np.random.rand(), 'delta_x':np.random.rand(), 'delta_y':np.random.rand(), 'delta_gs':np.random.rand(), 'epsilon_gs':np.random.rand(), 'kappa_gs':np.random.rand()}],
+    ['Cuboid', {'l1':0., 'r1':1., 'l2':0., 'r2':1., 'l3':0., 'r3':1.}],
+    ['HollowCylinder', {'a1': np.random.rand(), 'a2': np.random.rand(), 'a3': np.random.rand()}],
+    ['Colella', {'Lx':1., 'Ly':1., 'Lz':1., 'alpha':np.random.rand()}],
+    ['Orthogonal', {'Lx':1., 'Ly':1., 'Lz':1., 'alpha':np.random.rand()}],
+    ['HollowTorus', {'a1':np.random.rand(), 'a2':np.random.rand(), 'R0':np.random.rand()}],
+    ['EllipticCylinder', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'rx':np.random.rand(), 'ry':np.random.rand(), 'Lz':np.random.rand()}],
+    ['RotatedEllipticCylinder', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'r1':np.random.rand(), 'r2':np.random.rand(), 'Lz':np.random.rand(), 'th':np.random.rand()}],
+    ['ShafranovSqrtCylinder', {'x0':np.random.rand(), 'y0':np.random.rand(), 'z0':np.random.rand(), 'rx':np.random.rand(), 'ry':np.random.rand(), 'Lz':np.random.rand(), 'delta':np.random.rand()}],
 ])
 @pytest.mark.parametrize('N', [100])
 def test_Mappings(Nel, p, spl_kind, mappings, N):
@@ -310,6 +309,6 @@ if __name__ == '__main__':
     Nel         = [4,5,18]
     p           = [2,2,3]
     spl_kind    = [True, True, True]
-    mappings    = 'cuboid', {'l1':0., 'r1':1., 'l2':0., 'r2':1., 'l3':0., 'r3':1.}
+    mappings    = 'Cuboid', {'l1':0., 'r1':1., 'l2':0., 'r2':1., 'l3':0., 'r3':1.}
     N           = 100
     test_Mappings(Nel, p, spl_kind, mappings, N)

@@ -8,8 +8,8 @@ from psydac.api.postprocessing import OutputManager
 from psydac.linalg.stencil import StencilVector
 from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 from struphy.models import models
+from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
-from struphy.geometry.domain_3d import Domain
 import numpy as np
 import time
 import pickle
@@ -55,7 +55,9 @@ with open(file_in) as file:
 # domain object
 dom_type = params['geometry']['type']
 dom_params = params['geometry'][dom_type]
-domain = Domain(dom_type, dom_params)
+
+domain_class = getattr(domains, dom_type)
+domain = domain_class(dom_params)
 
 if rank == 0:
     print(f'domain type: {dom_type}')

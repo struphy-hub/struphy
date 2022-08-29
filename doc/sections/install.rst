@@ -19,11 +19,11 @@ Install ``psydac`` by following :ref:`install_psydac`.
 
 Get current ``struphy`` wheel file::
 
-    curl -O --header "PRIVATE-TOKEN: glpat-6HCAcowp8yKfBzDYWqA_" "https://gitlab.mpcdf.mpg.de/api/v4/projects/2599/jobs/1679170/artifacts/dist/struphy-1.9.0-py3-none-any.whl"
+    curl -O --header "PRIVATE-TOKEN: glpat-6HCAcowp8yKfBzDYWqA_" "https://gitlab.mpcdf.mpg.de/api/v4/projects/2599/jobs/1778199/artifacts/dist/struphy-1.9.1-py3-none-any.whl"
 
 Install from wheel::
 
-    pip install struphy-1.9.0-py3-none-any.whl
+    pip install struphy-1.9.1-py3-none-any.whl
 
 Compile kernels::
 
