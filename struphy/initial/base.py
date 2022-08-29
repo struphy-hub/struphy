@@ -10,8 +10,8 @@ class InitialMaxwell:
         params: dictionary
             Parameters that characterize possible profile functions.
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.        
+        domain: struphy.geometry.domains
+            Enables pull-backs if set.        
     """
     
     def __init__(self, params, domain=None):
@@ -91,8 +91,8 @@ class InitialMHD:
         params: dictionary
             Parameters that characterize the MHD equilibrium.
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.        
+        domain: struphy.geometry.domains
+            Enables pull-backs if set.        
     """
     
     def __init__(self, params, domain=None):

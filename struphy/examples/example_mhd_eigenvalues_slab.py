@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from struphy.geometry.domain_3d import Domain
+from struphy.geometry import domains
 
 from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
@@ -15,10 +15,10 @@ from struphy.diagnostics.continuous_spectra import get_mhd_continua_2d
 
 
 # ------ mapping parameters -----
-mapping    = 'cuboid'
+dom_type    = 'Cuboid'
 a          = 1.
 R0         = 3.
-params_map = {'l1' : 0., 'r1' : a, 'l2' : 0., 'r2' : 2*np.pi*a, 'l3' : 0., 'r3' : 2*np.pi*R0}
+dom_params = {'l1' : 0., 'r1' : a, 'l2' : 0., 'r2' : 2*np.pi*a, 'l3' : 0., 'r3' : 2*np.pi*R0}
 
 # ----- numerical parameters ----
 Nel      = [16, 12]
@@ -57,7 +57,8 @@ params_mhd['na'] = 1.
 params_mhd['beta'] = 0.
 
 # create domain
-domain = Domain(mapping, params_map)
+domain_class = getattr(domains, dom_type)
+domain = domain_class(dom_params)
 
 # for plotting
 etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]

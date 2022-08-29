@@ -11,12 +11,12 @@ from time import sleep
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
 def test_psydac_eval(Nel, p, spl_kind, mapping, n_markers=10):
     '''Compares ``evaluation_kernel_3d`` with ``eval_spline_mpi_3d``.'''
 
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
 
     from struphy.psydac_api.utilities import create_equal_random_arrays as cera
@@ -29,10 +29,10 @@ def test_psydac_eval(Nel, p, spl_kind, mapping, n_markers=10):
     rank = comm.Get_rank()
 
     # Domain object
-    map = mapping[0]
-    params_map = mapping[1]
-
-    DOMAIN = Domain(map, params_map)
+    dom_type = mapping[0]
+    dom_params = mapping[1]
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     # Psydac discrete Derham sequence
     DR = Derham(Nel, p, spl_kind, comm=comm)
@@ -139,5 +139,5 @@ def test_psydac_eval(Nel, p, spl_kind, mapping, n_markers=10):
 
 
 if __name__ == '__main__':
-    test_psydac_eval([8, 9, 10], [2, 3, 4], [False, False, True], ['cuboid', {
+    test_psydac_eval([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], n_markers=1)

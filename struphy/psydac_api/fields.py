@@ -4,7 +4,6 @@ from psydac.linalg.stencil import StencilVector
 # from psydac.linalg.block import BlockVector
 from psydac.fem.tensor import FemField
 
-from struphy.geometry.domain_3d import prepare_args
 from struphy.initial import perturbations
 from struphy.initial import analytic
 
@@ -126,7 +125,7 @@ class Field:
 
         Parameters
         ----------
-            domain: struphy.geometry.domain_3d.Domain
+            domain: struphy.geometry.domains
                 All things mapping.
 
             comps: list
@@ -369,7 +368,7 @@ class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
 
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.domain_3d.prepare_args`).
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
     
     Parameters
     ----------
@@ -379,7 +378,7 @@ class PulledPform:
         fun : list
             Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping.
 
         form : str

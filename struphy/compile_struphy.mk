@@ -28,13 +28,11 @@ BEV2 := ${path_lib}feec/basics/spline_evaluation_2d
 BEV3 := ${path_lib}feec/basics/spline_evaluation_3d
 
 # Mapping
-M3   := ${path_lib}geometry/mappings_3d
-M3N   := ${path_lib}geometry/mappings_3d_new
-M3B   := ${path_lib}geometry/mappings_3d_bis
+MAFA   := ${path_lib}geometry/mappings_fast
 MEVA := ${path_lib}geometry/map_eval
-PB3  := ${path_lib}geometry/pullback_3d
-PF3  := ${path_lib}geometry/pushforward_3d
-TR3  := ${path_lib}geometry/transform_3d
+PB3  := ${path_lib}geometry/pullback
+PF3  := ${path_lib}geometry/pushforward
+TR3  := ${path_lib}geometry/transform
 
 # Kinetic background
 MOMK := ${path_lib}kinetic_background/moments_kernels
@@ -64,7 +62,7 @@ PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
 PLM  := ${path_lib}psydac_api/mass_kernels_psydac
 BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
 
-SOURCES := $(LAC).py $(LAT).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(M3).py $(M3N).py $(M3B).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(ACC).py $(KPG).py $(KPGM).py $(PUSH).py $(PUTL).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
+SOURCES := $(LAC).py $(LAT).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(ACC).py $(KPG).py $(KPGM).py $(PUSH).py $(PUTL).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -94,25 +92,19 @@ $(BEV2)$(SO_EXT) : $(BEV2).py $(BK)$(SO_EXT)
 $(BEV3)$(SO_EXT) : $(BEV3).py $(BK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(M3)$(SO_EXT) : $(M3).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(LAC)$(SO_EXT)
+$(MAFA)$(SO_EXT) : $(MAFA).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-$(M3N)$(SO_EXT) : $(M3N).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) 
-	pyccel $< $(FLAGS)
-
-$(M3B)$(SO_EXT) : $(M3B).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) 
-	pyccel $< $(FLAGS)
-
-$(MEVA)$(SO_EXT) : $(MEVA).py $(M3B)$(SO_EXT) $(LAC)$(SO_EXT)
+$(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(PB3)$(SO_EXT) : $(PB3).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT)
+$(PB3)$(SO_EXT) : $(PB3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(PF3)$(SO_EXT) : $(PF3).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT)
+$(PF3)$(SO_EXT) : $(PF3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-$(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(M3)$(SO_EXT)
+$(TR3)$(SO_EXT) : $(TR3).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(MOMK)$(SO_EXT) : $(MOMK).py
@@ -154,7 +146,7 @@ $(PUSH)$(SO_EXT) : $(PUSH).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $
 $(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
-$(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
+$(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(PLP)$(SO_EXT) : $(PLP).py

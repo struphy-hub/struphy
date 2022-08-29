@@ -4,28 +4,28 @@ from struphy.models.base import StruphyModel
 
 
 class Maxwell(StruphyModel):
-    '''Maxwell's equations in vacuum. 
+    r'''Maxwell's equations in vacuum. 
     
     Normalization:
 
     .. math::
 
-        c = \\frac{\hat \omega}{\hat k} = \\frac{\hat E}{\hat B}\,,
+        c = \frac{\hat \omega}{\hat k} = \frac{\hat E}{\hat B}\,,
 
     where :math:`c` is the vacuum speed of light. Implemented equations:
 
     .. math::
     
-        &\\frac{\partial \mathbf E}{\partial t} - \\nabla\\times\mathbf B = 0\,, 
+        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,, 
         
-        &\\frac{\partial \mathbf B}{\partial t} + \\nabla\\times\mathbf E = 0\,.
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
 
     Parameters
     ----------
         derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping.
 
         params : dict
@@ -80,29 +80,29 @@ class Maxwell(StruphyModel):
 
 
 class LinearMHD(StruphyModel):
-    '''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). 
+    r'''Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`). 
     
     Normalization: 
 
     .. math::
 
-        \\frac{\hat B^2}{\hat \\rho \mu_0} =: \hat v_\\textnormal{A} = \\frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \hat \\rho\, \hat v_\\textnormal{A}^2\,.
+        \frac{\hat B^2}{\hat \rho \mu_0} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \hat \rho\, \hat v_\textnormal{A}^2\,.
 
     Implemented equations:
 
     .. math::
 
-        &\\frac{\partial \\tilde \\rho}{\partial t}+\\nabla\cdot(\\rho_0 \\tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
 
-        \\rho_0&\\frac{\partial \\tilde{\mathbf{U}}}{\partial t} + \\nabla \\tilde p
-        =(\\nabla\\times \\tilde{\mathbf{B}})\\times\mathbf{B}_0 + \mathbf{J}_0\\times \\tilde{\mathbf{B}}
+        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
+        =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
         \,, \qquad
-        \mathbf{J}_0 = \\nabla\\times\mathbf{B}_0\,,
+        \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
 
-        &\\frac{\partial \\tilde p}{\partial t} + \\nabla\cdot(p_0 \\tilde{\mathbf{U}}) 
-        + \\frac{2}{3}\,p_0\\nabla\cdot \\tilde{\mathbf{U}}=0\,,
+        &\frac{\partial \tilde p}{\partial t} + \nabla\cdot(p_0 \tilde{\mathbf{U}}) 
+        + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
         
-        &\\frac{\partial \\tilde{\mathbf{B}}}{\partial t} - \\nabla\\times(\\tilde{\mathbf{U}} \\times \mathbf{B}_0)
+        &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
         = 0\,.
 
     Parameters
@@ -110,7 +110,7 @@ class LinearMHD(StruphyModel):
         derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping.
 
         params : dict

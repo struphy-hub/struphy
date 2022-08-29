@@ -63,6 +63,9 @@ with open(path + '/eval_fields/' + name + '_logical.bin', 'rb') as handle:
 with open(path + '/eval_fields/' + name + '_phys.bin', 'rb') as handle:
     point_data_phys = pickle.load(handle)
 
+with open(path + '/eval_fields/masks.bin', 'rb') as handle:
+    masks = pickle.load(handle)
+
 # fft in (t, z) of pressure on physical grid
-fourier_1d(point_data_log, code, grids,
+fourier_1d(point_data_log, code, grids, masks,
            grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)

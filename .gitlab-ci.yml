@@ -242,7 +242,8 @@ build_struphy:
   
   script:
     - cd psydac
-    - git pull origin devel 
+    #- git pull origin devel 
+    - git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 # last working commit before struphy breaks
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .

@@ -15,8 +15,8 @@ class Particles6D:
         name : str
             Name of the particle species.
 
-        domain: Domain
-            STRUPHY object from struphy.geometry.domain_3d.Domain.
+        domain: struphy.geometry.domains
+            All things mapping.
 
         domain_array : array[float]
             2d array of shape (comm_size, 6) defining the domain of each process.
@@ -408,8 +408,8 @@ class Particles5D:
         name : str
             Name of the particle species.
 
-        domain: Domain
-            STRUPHY object from struphy.geometry.domain_3d.Domain.
+        domain: struphy.geometry.domains
+            All things mapping.
 
         domain_array : array[float]
             2d array of shape (comm_size, 6) defining the domain of each process.

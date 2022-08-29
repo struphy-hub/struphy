@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-import struphy.geometry.domain_3d as dom
+from struphy.geometry import base
+from struphy.geometry import domains
 import struphy.feec.spline_space as spl
 from gvec_to_python.reader.sample_loader import SampleEnum
 
@@ -1126,115 +1127,85 @@ def generate_3d_trial_func(func_test:FuncTest3D=FuncTest3D.GAUSSIAN3D, params:Op
 
 
 
-def map_generator(map_type:MapType, DOMAIN_F:Optional[dom.Domain]=None, params:Optional[Dict]=None, verbose:bool=False):
+def map_generator(map_type:MapType, DOMAIN_F:Optional[base.Domain]=None, params:Optional[Dict]=None, verbose:bool=False):
 
     if map_type == MapType.CIRCLEIDENTICAL: # Unit disc centered at (10,0).
 
+        dom_type = 'HollowCylinder'
         if verbose: print('Running test case 01: Identity map == F1 (unit circle).')
-        if DOMAIN_F is None: # A circle of radius (a2 - a1) offset by (a1 + R0, a1).
-            if params is None:
-                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
-            else:
-                DOMAIN_F = dom.Domain('hollow_cyl', params)
-
-        return DOMAIN_F
+        if params is None: 
+            dom_params = {'a1': .0, 'a2': 1., 'R0': 10.}
 
     elif map_type == MapType.CIRCLESCALED: # Circle scaled to radius = 0.5.
 
+        dom_type = 'HollowCylinder'
         if verbose: print('Running test case 02: Scaled circle.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 0.5, 'R0': 10.})
-            else:
-                DOMAIN_F = dom.Domain('hollow_cyl', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'a1': .0, 'a2': 0.5, 'R0': 10.}
 
     elif map_type == MapType.CIRCLESHIFTED: # Unit disc shifted to 10.005 instead of 10.
 
+        dom_type = 'HollowCylinder'
         if verbose: print('Running test case 03: Circular with x-axis offset.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.005})
-            else:
-                DOMAIN_F = dom.Domain('hollow_cyl', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'a1': .0, 'a2': 1., 'R0': 10.005}
 
     elif map_type == MapType.ELLIPSE: # Ellipse centered at (10,0), with major and minor radii 1 and 0.5 respectively.
 
+        dom_type = 'EllipticCylinder'
         if verbose: print('Running test case 04: Ellipse.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10.})
-            else:
-                DOMAIN_F = dom.Domain('ellipse', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10.}
 
     elif map_type == MapType.ELLIPSEROTATED: # Ellipse centered at (10,0), with major and minor radii 1 and 0.5 respectively, rotated 30 degrees.
 
+        dom_type = 'RotatedEllipticCylinder'
         if verbose: print('Running test case 05: Rotated ellipse.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('rotated_ellipse', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10., 'theta': 30/360})
-            else:
-                DOMAIN_F = dom.Domain('rotated_ellipse', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 0.5, 'Lz': 10., 'theta': 30/360}
 
     elif map_type == MapType.SHAFRANOVSHIFT: # Unit disc centered at (10,0), with a Shafranov shift delta of 0.1.
 
+        dom_type = 'ShafranovShiftCylinder'
         if verbose: print('Running test case 06: Circular map with Shafranov shift.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('shafranov_shift', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.1})
-            else:
-                DOMAIN_F = dom.Domain('shafranov_shift', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.1}
 
     elif map_type == MapType.SHAFRANOVSQRT: # Unit disc centered at (10,0), with a Shafranov shift delta of 0.01.
 
+        dom_type = 'ShafranovSqrtCylinder'
         if verbose: print('Running test case 07: Circular map with Shafranov shift, but with square root dependence on eta1, instead of square.')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('shafranov_sqrt', {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.01})
-            else:
-                DOMAIN_F = dom.Domain('shafranov_sqrt', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {'cx': 10., 'cy': 0., 'cz': 0., 'rx': 1., 'ry': 1., 'Lz': 10., 'delta': 0.01}
 
     elif map_type == MapType.SHAFRANOVDSHAPED: # D-shaped map with Shafranov shift, centered at (10,0), as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).
 
+        dom_type = 'ShafranovDshapedCylinder'
         if verbose: print('Running test case 08: D-shaped map with Shafranov shift, as described by Cerfon and Freiberg (doi: 10.1063/1.3328818).')
-        if DOMAIN_F is None:
-            if params is None:
-                DOMAIN_F = dom.Domain('shafranov_dshaped', {
-                    'x0': 10. - 2., 'y0': 0., 'z0': 0., # Coordinate origin.
-                    'R0': 2.,
-                    'Lz': 10.,
-                    'delta_x': 0.03, 'delta_y': 0.02, # Grad-Shafranov shift: Artificially added asymmetry.
-                    'delta_gs': 0.33, # Delta = sin(alpha), triangularity. Shift of high point.
-                    'epsilon_gs': 0.32, # Inverse aspect ratio a/R0.
-                    'kappa_gs': 1.7, # Ellipticity (elongation).
-                })
-            else:
-                DOMAIN_F = dom.Domain('shafranov_dshaped', params)
-
-        return DOMAIN_F
+        if params is None:
+            dom_params = {
+                'x0': 10. - 2., 'y0': 0., 'z0': 0., # Coordinate origin.
+                'R0': 2.,
+                'Lz': 10.,
+                'delta_x': 0.03, 'delta_y': 0.02, # Grad-Shafranov shift: Artificially added asymmetry.
+                'delta_gs': 0.33, # Delta = sin(alpha), triangularity. Shift of high point.
+                'epsilon_gs': 0.32, # Inverse aspect ratio a/R0.
+                'kappa_gs': 1.7, # Ellipticity (elongation).
+            }
 
     elif is_input_map_spline(map_type):
 
         if verbose: print('Running test case 09: Generic spline map.')
-        if DOMAIN_F is None:
-            raise ValueError('DOMAIN must not be None for spline map.')
-
-        return DOMAIN_F
 
     else:
 
         raise NotImplementedError(f'Map {map_type.name} not implemented.')
+
+    if DOMAIN_F is None:
+        domain_class = getattr(domains, dom_type)
+        DOMAIN_F = domain_class(dom_params)
+
+    return DOMAIN_F
 
 
 
@@ -1242,7 +1213,8 @@ def get_F1_polar_space(Nel, p, spaces_FEM):
     """Instantiate polar spline space from F1 square-to-disk map."""
 
     # Map F1: Canonical disk.
-    DOMAIN_F1 = dom.Domain('hollow_cyl', {'a1': .0, 'a2': 1., 'R0': 10.})
+    domain_class = getattr(domains, 'HollowCylinder')
+    DOMAIN_F1 = domain_class({'a1': .0, 'a2': 1., 'R0': 10.})
 
     def F1_x(eta1, eta2, eta3):
         return DOMAIN_F1.evaluate(eta1, eta2, eta3, 'x', squeeze_output=False)

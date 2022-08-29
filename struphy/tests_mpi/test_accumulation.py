@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, True], [True, False, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
 def test_accumulation(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
     """
@@ -38,7 +38,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
 
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
@@ -50,10 +50,11 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    # DOMAIN object
+    # domain object
     dom_type = mapping[0]
     dom_params = mapping[1]
-    DOMAIN = Domain(dom_type, dom_params)
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     # DeRham object
     DR = Derham(Nel, p, spl_kind, comm=mpi_comm)
@@ -109,11 +110,11 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
                  np.array(SPACES.NbaseN), np.array(SPACES.NbaseD),
                  Np_leg,
                  B2[0], B2[1], B2[2],
-                 DOMAIN.kind_map, DOMAIN.params_map,
-                 DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[2],
-                 np.array(DOMAIN.p), np.array(
-                     DOMAIN.Nel), np.array(DOMAIN.NbaseN),
-                 DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
+                 domain.kind_map, domain.params_map,
+                 domain.T[0], domain.T[1], domain.T[2],
+                 np.array(domain.p), np.array(
+                     domain.Nel), np.array(domain.NbaseN),
+                 domain.cx, domain.cy, domain.cz,
                  mat[0][1], mat[0][2], mat[1][2],
                  basis_u)
     end_time = time()
@@ -134,7 +135,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     for k in range(3):
         args += [np.array(B2_psy[k].starts)]
 
-    ACC = Accumulator(DOMAIN, DR, 'Hcurl', 'cc_lin_mhd_6d_1',
+    ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_1',
                       *args, do_vector=False, symmetry='asym')
 
     start_time = time()
@@ -167,7 +168,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
 
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
@@ -179,10 +180,11 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    # DOMAIN object
+    # domain object
     dom_type = mapping[0]
     dom_params = mapping[1]
-    DOMAIN = Domain(dom_type, dom_params)
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     # DeRham object
     DR = Derham(Nel, p, spl_kind, comm=mpi_comm)
@@ -240,11 +242,11 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
                  np.array(SPACES.NbaseN), np.array(SPACES.NbaseD),
                  Np_leg,
                  B2[0], B2[1], B2[2],
-                 DOMAIN.kind_map, DOMAIN.params_map,
-                 DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[2],
-                 np.array(DOMAIN.p), np.array(
-                     DOMAIN.Nel), np.array(DOMAIN.NbaseN),
-                 DOMAIN.cx, DOMAIN.cy, DOMAIN.cz,
+                 domain.kind_map, domain.params_map,
+                 domain.T[0], domain.T[1], domain.T[2],
+                 np.array(domain.p), np.array(
+                     domain.Nel), np.array(domain.NbaseN),
+                 domain.cx, domain.cy, domain.cz,
                  mat[0][0], mat[0][1], mat[0][2],
                  mat[1][1], mat[1][2], mat[2][2],
                  vec[0], vec[1], vec[2],
@@ -267,7 +269,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     for k in range(3):
         args += [np.array(B2_psy[k].starts)]
 
-    ACC = Accumulator(DOMAIN, DR, 'Hcurl', 'cc_lin_mhd_6d_2',
+    ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_2',
                       *args, do_vector=True, symmetry='symm')
 
     start_time = time()
@@ -320,5 +322,5 @@ if __name__ == '__main__':
 
     for kind in itertools.product([True, False], repeat=2):
         spl_kind = list(kind) + [True]
-        test_accumulation([18, 20, 20], [2, 4, 4], spl_kind, ['cuboid', {
+        test_accumulation([18, 20, 20], [2, 4, 4], spl_kind, ['Cuboid', {
                           'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}], n_markers=10, verbose=True)

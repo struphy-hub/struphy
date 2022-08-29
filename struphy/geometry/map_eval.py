@@ -3,10 +3,8 @@ Module containing accelerated (pyccelized) functions for evaluation of metric co
 corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 """
 
-from numpy import shape, empty, zeros
-from numpy import sin, cos, pi, sqrt, arctan2, arcsin
-
-import struphy.geometry.mappings_3d_bis as maps
+from numpy import shape, empty
+import struphy.geometry.mappings_fast as maps
 from struphy.linear_algebra.core import det, matrix_matrix, transpose, matrix_inv
 
 
@@ -125,7 +123,7 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
     elif kind_map == 10:
         maps.cuboid_df(params[0], params[1], params[2], params[3], params[4], params[5], df_out)
     elif kind_map == 11:
-        maps.hollow_cyl_df(eta1, eta2, params[0], params[1], params[2], df_out)
+        maps.hollow_cyl_df(eta1, eta2, params[0], params[1], params[3], df_out)
     elif kind_map == 12:
         maps.colella_df(eta1, eta2, params[0], params[1], params[2], params[3], df_out)
     elif kind_map == 13:
@@ -146,7 +144,6 @@ def df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
         maps.shafranov_dshaped_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], df_out)
     elif kind_map == 21:
         maps.shafranov_eta3dep_df(eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], params[10], df_out)
-
 
   
 def det_df(eta1 : float, eta2 : float, eta3 : float, # evaluation point
@@ -686,128 +683,3 @@ def kernel_evaluate_flat(eta1 : 'float[:]', eta2 : 'float[:]', eta3 : 'float[:]'
 
     for i in range(len(eta1)):
         mat_f[i] = mappings_all(eta1[i], eta2[i], eta3[i], kind_fun, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
-
-
-def loop_f(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            f_out : 'float[:,:]'):
-
-    for n in range(len(eta1s)):
-
-        f(eta1s[n], eta2s[n], eta3s[n],
-            kind_map, params,
-            tn1, tn2, tn3, pn, 
-            ind_n1, ind_n2, ind_n3, 
-            cx, cy, cz,
-            f_out[n, :])
-
-
-def loop_df(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            mat_out : 'float[:,:,:]'):
-
-    for n in range(len(eta1s)):
-
-        df(eta1s[n], eta2s[n], eta3s[n],
-            kind_map, params,
-            tn1, tn2, tn3, pn, 
-            ind_n1, ind_n2, ind_n3, 
-            cx, cy, cz,
-            mat_out[n, :, :])
-
-
-def loop_f_and_df(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            f_out : 'float[:,:]', mat_out : 'float[:,:,:]'):
-
-    for n in range(len(eta1s)):
-
-        f(eta1s[n], eta2s[n], eta3s[n],
-            kind_map, params,
-            tn1, tn2, tn3, pn, 
-            ind_n1, ind_n2, ind_n3, 
-            cx, cy, cz,
-            f_out[n, :])
-
-        df(eta1s[n], eta2s[n], eta3s[n],
-            kind_map, params,
-            tn1, tn2, tn3, pn, 
-            ind_n1, ind_n2, ind_n3, 
-            cx, cy, cz,
-            mat_out[n, :, :])
-        
-
-def loop_detdf(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            f_out : 'float[:]'):
-
-    for n in range(len(eta1s)):
-
-        f_out[n] = det_df(eta1s[n], eta2s[n], eta3s[n],
-                            kind_map, params,
-                            tn1, tn2, tn3, pn, 
-                            ind_n1, ind_n2, ind_n3, 
-                            cx, cy, cz)
-
-
-def loop_dfinv(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            mat_out : 'float[:,:,:]'):
-
-    for n in range(len(eta1s)):
-
-        df_inv(eta1s[n], eta2s[n], eta3s[n],
-                kind_map, params,
-                tn1, tn2, tn3, pn, 
-                ind_n1, ind_n2, ind_n3, 
-                cx, cy, cz,
-                mat_out[n, :, :])
-
-
-def loop_g(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            mat_out : 'float[:,:,:]'):
-
-    for n in range(len(eta1s)):
-
-        g(eta1s[n], eta2s[n], eta3s[n],
-                kind_map, params,
-                tn1, tn2, tn3, pn, 
-                ind_n1, ind_n2, ind_n3, 
-                cx, cy, cz,
-                mat_out[n, :, :])
-
-
-def loop_ginv(kind_map : int, params : 'float[:]', 
-            tn1 : 'float[:]', tn2 : 'float[:]', tn3 : 'float[:]', pn : 'int[:]', 
-            ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', 
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', 
-            eta1s: 'float[:]', eta2s: 'float[:]', eta3s: 'float[:]',
-            mat_out : 'float[:,:,:]'):
-
-    for n in range(len(eta1s)):
-
-        g_inv(eta1s[n], eta2s[n], eta3s[n],
-                kind_map, params,
-                tn1, tn2, tn3, pn, 
-                ind_n1, ind_n2, ind_n3, 
-                cx, cy, cz,
-                mat_out[n, :, :])

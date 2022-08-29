@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from struphy.geometry.domain_3d import Domain
+from struphy.geometry import domains
 
 from struphy.psydac_api.psydac_derham import Derham
 
@@ -26,7 +26,9 @@ marker_params = {'type': 'fullorbit', 'ppc': 10,
                  'loading': loading_params, 'n_bins': [32, 32], 'v_max': 5.}
 
 # create domain
-domain = Domain('shafranov_shift')
+dom_type = 'ShafranovShiftCylinder'
+domain_class = getattr(domains, dom_type)
+domain = domain_class()
 
 # create de rham object
 derham = Derham(Nel, p, spl_kind, comm=comm)

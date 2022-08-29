@@ -10,8 +10,8 @@ class EquilibriumMHD(metaclass=ABCMeta):
         params: dictionary
             Parameters that characterize the MHD equilibrium.
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.        
+        domain: struphy.geometry.domains
+            Enables pull-backs if set.        
     """
     
     def __init__(self, params, domain=None):

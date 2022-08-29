@@ -8,7 +8,7 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
 
     import numpy as np
 
-    import struphy.geometry.domain_3d as dom
+    from struphy.geometry import base
     import struphy.feec.basics.spline_evaluation_1d as eva
 
     import matplotlib.pyplot as plt
@@ -33,7 +33,7 @@ def test_interpolation_1d(plot=False, p_range=7, N_range=10):
             x_grid = np.linspace(0., 1., Nel + 1)
             
             # call spline interpolation
-            coeff, T, indN = dom.spline_interpolation_nd([p], [x_grid], fun(x_grid))
+            coeff, T, indN = base.spline_interpolation_nd([p], [x_grid], fun(x_grid))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_vector(T[0], p, indN[0], coeff, eta_plot, fh_plot, 0)
@@ -69,7 +69,7 @@ def test_interpolation_2d(plot=False, p_range=7, N_range=8):
 
     import numpy as np
 
-    import struphy.geometry.domain_3d as dom
+    from struphy.geometry import base
     import struphy.feec.basics.spline_evaluation_2d as eva
 
     import matplotlib.pyplot as plt
@@ -100,7 +100,7 @@ def test_interpolation_2d(plot=False, p_range=7, N_range=8):
             ee1, ee2 = np.meshgrid(grids_1d[0], grids_1d[1], indexing='ij')
 
             # call spline interpolation
-            coeff, T, indN = dom.spline_interpolation_nd([p, p], grids_1d, fun(ee1, ee2))
+            coeff, T, indN = base.spline_interpolation_nd([p, p], grids_1d, fun(ee1, ee2))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_tensor_product(T[0], T[1], p, p, indN[0], indN[1], coeff, eta_plot[0], eta_plot[1], fh_plot, 0)
@@ -147,7 +147,7 @@ def test_interpolation_3d(plot=False, p_range=7, N_range=6):
 
     import numpy as np
 
-    import struphy.geometry.domain_3d as dom
+    from struphy.geometry import base
     import struphy.feec.basics.spline_evaluation_3d as eva
 
     import matplotlib.pyplot as plt
@@ -180,7 +180,7 @@ def test_interpolation_3d(plot=False, p_range=7, N_range=6):
             ee1, ee2, ee3 = np.meshgrid(grids_1d[0], grids_1d[1], grids_1d[2], indexing='ij')
 
             # call spline interpolation
-            coeff, T, indN = dom.spline_interpolation_nd([p, p, p], grids_1d, fun(ee1, ee2, ee3))
+            coeff, T, indN = base.spline_interpolation_nd([p, p, p], grids_1d, fun(ee1, ee2, ee3))
 
             # evaluate spline interpolant at plot points (need to use low-level evaluation routine, not spline_space class)
             eva.evaluate_tensor_product(T[0], T[1], T[2], p, p, p, indN[0], indN[1], indN[2],

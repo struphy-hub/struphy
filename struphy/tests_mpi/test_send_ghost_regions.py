@@ -9,7 +9,7 @@ import numpy as np
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False], [True, True, False], [True, False, True], [False, True, True], [True, True, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
 def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     """
@@ -24,7 +24,7 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     """
     from struphy.pic.particles_to_grid import Accumulator
 
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
 
     from itertools import product
@@ -33,10 +33,10 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
     rank = comm.Get_rank()
 
     # Domain object
-    map = mapping[0]
-    params_map = mapping[1]
-
-    DOMAIN = Domain(map, params_map)
+    dom_type = mapping[0]
+    dom_params = mapping[1]
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     # Psydac discrete Derham sequence
     DR = Derham(Nel, p, spl_kind, comm=comm)
@@ -63,7 +63,7 @@ def test_send_ghost_regions(Nel, p, spl_kind, mapping, verbose=False):
                 print(f'========== Space {space_id} =========')
                 print('================================')
         
-        Acc = Accumulator(DOMAIN, DR, space_id, accum_name, do_vector=False)
+        Acc = Accumulator(domain, DR, space_id, accum_name, do_vector=False)
 
         pads = DR.V0.vector_space.pads
 
@@ -201,5 +201,5 @@ if __name__ == '__main__':
         if (np.array(spl_kind) == False).all():
             continue
         else:
-            test_send_ghost_regions([9, 12, 15], [2, 3, 4], spl_kind, ['cuboid', {
+            test_send_ghost_regions([9, 12, 15], [2, 3, 4], spl_kind, ['Cuboid', {
                 'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], verbose=False)

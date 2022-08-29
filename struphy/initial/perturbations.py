@@ -3,7 +3,7 @@
 import numpy as np
 
 class ModesSin:
-    '''Defines the callable
+    r'''Defines the callable
     
     .. math::
     
@@ -45,7 +45,7 @@ class ModesSin:
 
 
 class ModesCos:
-    '''Defines the callable
+    r'''Defines the callable
     
     .. math::
     
@@ -87,7 +87,7 @@ class ModesCos:
 
 
 class TorusModesSin:
-    '''Defines the callable
+    r'''Defines the callable
     
     .. math::
     

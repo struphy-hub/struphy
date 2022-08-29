@@ -6,10 +6,7 @@ import numpy as np
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
-@pytest.mark.parametrize('mapping', [
-    ['cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
-def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
+def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
     '''This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
@@ -19,7 +16,6 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     from mpi4py import MPI
     from time import sleep
 
-    from struphy.geometry.domain_3d import Domain
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.pic import mat_vec_filler as mvf
     from struphy.feec import bsplines_kernels as bsp
@@ -30,12 +26,6 @@ def test_mat_vec_filler(Nel, p, spl_kind, mapping, n_markers=1):
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
     rank = comm.Get_rank()
-
-    # Domain object
-    map = mapping[0]
-    params_map = mapping[1]
-
-    DOMAIN = Domain(map, params_map)
 
     # Psydac discrete Derham sequence
     DR = Derham(Nel, p, spl_kind, comm=comm)
@@ -429,5 +419,4 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
 
 
 if __name__ == '__main__':
-    test_mat_vec_filler([8, 9, 10], [2, 3, 4], [True, False, False], ['cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], n_markers=1)
+    test_mat_vec_filler([8, 9, 10], [2, 3, 4], [True, False, False], n_markers=1)

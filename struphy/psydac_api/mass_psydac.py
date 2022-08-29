@@ -21,7 +21,7 @@ class WeightedMass:
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete de Rham sequence on the logical unit cube.
 
-        domain : struphy.geometry.domain_3d.Domain
+        domain : struphy.geometry.domains
             All things mapping.
             
         weights : obj

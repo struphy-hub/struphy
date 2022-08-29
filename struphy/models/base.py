@@ -14,7 +14,7 @@ class StruphyModel(metaclass=ABCMeta):
         derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping.
 
         params : dict

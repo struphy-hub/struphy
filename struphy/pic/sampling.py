@@ -8,11 +8,9 @@ from struphy.feec.basics.spline_evaluation_2d import evaluation_kernel_2d
 from struphy.feec.basics.spline_evaluation_3d import evaluation_kernel_3d
 
 # import module for mapping evaluation
-from struphy.geometry.mappings_3d import f_df_pic
+from struphy.geometry.map_eval import df
 
 
-
-# ==============================================================================
 def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]'):
     
     from numpy import shape, zeros
@@ -51,7 +49,6 @@ def set_particles_symmetric_6d(numbers : 'float[:,:]', particles : 'float[:,:]')
         particles[i_part, 3:6] = v  
         
         
-# ==============================================================================
 def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]'):
     
     from numpy import shape, zeros
@@ -87,7 +84,6 @@ def set_particles_symmetric_5d(numbers : 'float[:,:]', particles : 'float[:,:]')
         particles[i_part, 3:6] = v               
 
         
-# ==============================================================================
 def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', ind_n1 : 'int[:,:]', ind_n2 : 'int[:,:]', ind_n3 : 'int[:,:]', ind_d1 : 'int[:,:]', ind_d2 : 'int[:,:]', ind_d3 : 'int[:,:]', b_eq_1 : 'float[:,:,:]', b_eq_2 : 'float[:,:,:]', b_eq_3 : 'float[:,:,:]', kind_map : int, params_map : 'float[:]', tf1 : 'float[:]', tf2 : 'float[:]', tf3 : 'float[:]', pf : 'int[:]', ind1f : 'int[:,:]', ind2f : 'int[:,:]', ind3f : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]'):
     
     from numpy import shape, empty
@@ -164,7 +160,7 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
     
     # needed mapping quantities
     fx    = empty( 3    , dtype=float)
-    df    = empty((3, 3), dtype=float)
+    df_out    = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
     # ==========================================================
     
@@ -221,21 +217,16 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
             b[1] = evaluation_kernel_2d(pd1, pn2, bd1, bn2, ind_d1[span_d1 - pd1, :], ind_n2[span_n2 - pn2, :], b_eq_2[:, :, 0])
             b[2] = evaluation_kernel_2d(pd1, pd2, bd1, bd2, ind_d1[span_d1 - pd1, :], ind_d2[span_d2 - pd2, :], b_eq_3[:, :, 0])
         # ==========================================
-        
-        
-        # ========= mapping evaluation =============
-        span1f = int(eta1*nel1f) + pf1
-        span2f = int(eta2*nel2f) + pf2
-        span3f = int(eta3*nel3f) + pf3
-        
+          
+        # ========= mapping evaluation =============        
         # evaluate Jacobian matrix
-        f_df_pic(kind_map, params_map, tf1, tf2, tf3, pf, span1f, span2f, span3f, ind1f, ind2f, ind3f, cx, cy, cz, eta1, eta2, eta3, fx, df, 1)
-        
+        df(eta1, eta2, eta3, kind_map, params_map, tf1, tf2, tf3, pf, ind1f, ind2f, ind3f, cx, cy, cz, df_out)
+
         # evaluate Jacobian determinant
-        det_df = abs(linalg.det(df))
+        det_df = abs(linalg.det(df_out))
         
         # evaluate inverse Jacobian matrix
-        linalg.matrix_inv_with_det(df, det_df, dfinv)
+        linalg.matrix_inv_with_det(df_out, det_df, dfinv)
         
         # extract basis vector perpendicular to b
         e1[0] = dfinv[0, 0]
@@ -248,7 +239,7 @@ def convert(particles : 'float[:,:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'fl
         # ==========================================
         
         # push-forward of magnetic field
-        linalg.matrix_vector(df, b, b_cart)
+        linalg.matrix_vector(df_out, b, b_cart)
         b_cart[:] = b_cart/det_df
         
         # absolute value of magnetic field

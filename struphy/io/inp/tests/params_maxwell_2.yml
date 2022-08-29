@@ -16,96 +16,11 @@ time :
       
 
 geometry : 
-      type           : hollow_torus # mapping F (possible types seen below)  
-      cuboid : 
-            l1       : 0. # start of interval in eta1
-            r1       : 1. # end of interval in eta1, r1>l1
-            l2       : 0. # start of interval in eta2
-            r2       : 1. # end of interval in eta2, r2>l2
-            l3       : 0. # start of interval in eta3
-            r3       : 20. # end of interval in eta3, r3>l3
-      hollow_cyl :
-            a1       : .2 # inner radius
-            a2       : 1. # outer radius
-            R0       : 2. # shift of pole along x-axis and length Lz=2*pi*R0 in z-direction
-            Lz       : 10. # length in third direction   
-      colella :
-            Lx       : 1. # length in x-direction
-            Ly       : 1. # length in y-direction
-            alpha    : .1 # distortion factor
-            Lz       : 1. # length in third direction
-      orthogonal :
-            Lx       : 1. # length in x-direction
-            Ly       : 1. # length in y-direction
-            alpha    : .1 # x-distortion and y-distortion
-            Lz       : 1. # length in third direction
-      hollow_torus :
+      type           : HollowTorus # mapping F (possible types seen below)  
+      HollowTorus :
             a1       : .1 # inner radius
             a2       : 1. # minor radius
             R0       : 4. # major radius
-      ellipse :
-            x0       : .1 # center of ellipse
-            y0       : 1. # center of ellipse
-            z0       : 1. # start of cylinder in third direction
-            rx       : 1. # axis length
-            ry       : 1. # axis length
-            Lz       : 10. # length in third direction
-      rotated_ellipse :
-            x0       : .1 # center of ellipse
-            y0       : 1. # center of ellipse
-            z0       : 1. # start of cylinder in third direction
-            rx       : 1. # axis length
-            ry       : 1. # axis length
-            Lz       : 10. # length in third direction
-            th       : .5 # rotation angle in [0, 1), units of 2*pi
-      shafranov_shift :
-            x0       : .1 # center of ellipse
-            y0       : 1. # center of ellipse
-            z0       : 1. # start of cylinder in third direction
-            rx       : 1. # axis length
-            ry       : 1. # axis length
-            Lz       : 10. # length in third direction
-            de       : .05 # shift factor, should be in [0, 0.1]
-      shafranov_sqrt :
-            x0       : .1 # center of ellipse
-            y0       : 1. # center of ellipse
-            z0       : 1. # start of cylinder in third direction
-            rx       : 1. # axis length
-            ry       : 1. # axis length
-            Lz       : 10. # length in third direction
-            de       : .05 # shift factor, should be in [0, 0.1]
-      shafranov_dshaped :
-            x0       : .1 # center of ellipse
-            y0       : 1. # center of ellipse
-            z0       : 1. # start of cylinder in third direction
-            r0       : 1. # base radius
-            Lz       : 10. # length in third direction
-            dx       : .05 # Shafranov shift in x-direction
-            dy       : .025 # Shafranov shift in y-direction
-            dg       : .05 # delta = sin(alpha): triangularity, shift of high point
-            eg       : .3 # epsilon: inverse aspect ratio a/r0
-            kg       : .3 # Kappa: ellipticity (elongation)
-      spline :
-            file     : 'mhd_equil/gvec/sample_gvec_spline_coeffs.hdf5' # hdf5 file holding spline coeffs
-            Nel      : [6, 6, 6] # number of grid cells, >1
-            p        : [2, 3, 3] # spline degree, >0
-            spl_kind : [False, True, True] # spline type: True=periodic, False=clamped
-      spline_cyl :
-            a        : 1. # minor radius
-            R0       : 3. # major radius (shift of pole from zero)
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
-      spline_torus :
-            a        : 1. # minor radius
-            R0       : 3. # major radius
-            Nel      : [8, 24] # number of grid cells, >p
-            p        : [3, 3] # spline degree, >1
-            spl_kind : [False, True] # spline type: True=periodic, False=clamped
-      spline_straight :
-            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
-      spline_toroidal :
-            file     : 'some_file.hdf5' # hdf5 file holding spline coeffs
             
       
 fields : 

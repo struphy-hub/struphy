@@ -14,13 +14,13 @@ from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 
 class StepMaxwell(Propagator):
-    '''Crank-Nicolson step
+    r'''Crank-Nicolson step
 
     .. math::
 
-        \\begin{bmatrix} e^{n+1} - e^n \\\ b^{n+1} - b^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & \mathbb M_1^{-1} \mathbb C^\\top \\\ - \mathbb C \mathbb M_1^{-1} & 0 \end{bmatrix} 
-        \\begin{bmatrix} \mathbb M_1(e^{n+1} + e^n) \\\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} e^{n+1} - e^n \\ b^{n+1} - b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & \mathbb M_1^{-1} \mathbb C^\top \\ - \mathbb C \mathbb M_1^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} \mathbb M_1(e^{n+1} + e^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -93,13 +93,13 @@ class StepMaxwell(Propagator):
             
             
 class StepShearAlfven1(Propagator):
-    '''Crank-Nicolson step for shear Alfvén part in MHD equations.
+    r'''Crank-Nicolson step for shear Alfvén part in MHD equations.
 
     .. math::
 
-        \\begin{bmatrix} u^{n+1} - u^n \\\ b^{n+1} - b^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & (\mathbb M^n_1)^{-1} \mathcal {T^1}^\\top \mathbb C^\\top \\\ - \mathbb C \mathcal {T^1} (\mathbb M^n_1)^{-1} & 0 \end{bmatrix} 
-        \\begin{bmatrix} {\mathbb M^n_1}(u^{n+1} + u^n) \\\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_1)^{-1} \mathcal {T^1}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^1} (\mathbb M^n_1)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_1}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -187,13 +187,13 @@ class StepShearAlfven1(Propagator):
             
             
 class StepShearAlfven2(Propagator):
-    '''Crank-Nicolson step for shear Alfvén part in MHD equations:
+    r'''Crank-Nicolson step for shear Alfvén part in MHD equations:
 
     .. math::
 
-        \\begin{bmatrix} u^{n+1} - u^n \\\ b^{n+1} - b^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathcal {T^2}^\\top \mathbb C^\\top \\\ - \mathbb C \mathcal {T^2} (\mathbb M^n_2)^{-1} & 0 \end{bmatrix} 
-        \\begin{bmatrix} {\mathbb M^n_2}(u^{n+1} + u^n) \\\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathcal {T^2}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^2} (\mathbb M^n_2)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_2}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -281,13 +281,13 @@ class StepShearAlfven2(Propagator):
 
 
 class StepShearAlfven3(Propagator):
-    '''Crank-Nicolson step for shear Alfvén part in MHD equations:
+    r'''Crank-Nicolson step for shear Alfvén part in MHD equations:
 
     .. math::
 
-        \\begin{bmatrix} u^{n+1} - u^n \\\ b^{n+1} - b^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} \mathcal {T^0}^\\top \mathbb C^\\top \\\ - \mathbb C \mathcal {T^0} (\mathbb M^n_v)^{-1} & 0 \end{bmatrix} 
-        \\begin{bmatrix} {\mathbb M^n_v}(u^{n+1} + u^n) \\\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} \mathcal {T^0}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^0} (\mathbb M^n_v)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_v}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -376,13 +376,13 @@ class StepShearAlfven3(Propagator):
             
                 
 class StepMagnetosonic2(Propagator):
-    '''Crank-Nicolson step for magnetosonic part in MHD equations:
+    r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
     .. math::
 
-        \\begin{bmatrix} u^{n+1} - u^n \\\ p^{n+1} - p^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathbb D^\\top \mathbb M_3 \\\ - \mathbb D \mathcal S^2 - (\\gamma - 1) \mathcal K^2 \mathbb D & 0 \end{bmatrix} 
-        \\begin{bmatrix} (u^{n+1} + u^n) \\\ (p^{n+1} + p^n) \end{bmatrix} + \\begin{bmatrix} \Delta t (\mathbb M^n_2)^{-1} \mathbb M^J_2 b^n \\\ 0 \end{bmatrix},
+        \begin{bmatrix} u^{n+1} - u^n \\ p^{n+1} - p^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^2 - (\gamma - 1) \mathcal K^2 \mathbb D & 0 \end{bmatrix} 
+        \begin{bmatrix} (u^{n+1} + u^n) \\ (p^{n+1} + p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_2)^{-1} \mathbb M^J_2 b^n \\ 0 \end{bmatrix},
 
     based on the :ref:`Schur complement <schur_solver>`.
     
@@ -390,7 +390,7 @@ class StepMagnetosonic2(Propagator):
 
     .. math::
 
-        \\rho^{n+1} = \\rho^n - \\frac{\Delta t}{2} \mathbb D \mathcal Q^2 (u^{n+1} + u^n) \,.
+        \rho^{n+1} = \rho^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^2 (u^{n+1} + u^n) \,.
 
     Parameters
     ---------- 
@@ -496,13 +496,13 @@ class StepMagnetosonic2(Propagator):
             
 
 class StepMagnetosonic3(Propagator):
-    '''Crank-Nicolson step for magnetosonic part in MHD equations:
+    r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
     .. math::
 
-        \\begin{bmatrix} u^{n+1} - u^n \\\ p^{n+1} - p^n \end{bmatrix} 
-        = \\frac{\Delta t}{2} \\begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} {\mathcal J^0}^\\top \mathbb D^\\top \mathbb M_3 \\\ - \mathbb D \mathcal S^0 - (\\gamma - 1) \mathcal K^0 \mathbb D \mathcal J^0 & 0 \end{bmatrix} 
-        \\begin{bmatrix} (u^{n+1} + u^n) \\\ (p^{n+1} + p^n) \end{bmatrix} + \\begin{bmatrix} \Delta t (\mathbb M^n_v)^{-1} \mathbb M^J_v b^n \\\ 0 \end{bmatrix},
+        \begin{bmatrix} u^{n+1} - u^n \\ p^{n+1} - p^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} {\mathcal J^0}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^0 - (\gamma - 1) \mathcal K^0 \mathbb D \mathcal J^0 & 0 \end{bmatrix} 
+        \begin{bmatrix} (u^{n+1} + u^n) \\ (p^{n+1} + p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_v)^{-1} \mathbb M^J_v b^n \\ 0 \end{bmatrix},
 
     based on the :ref:`Schur complement <schur_solver>`.
     
@@ -510,7 +510,7 @@ class StepMagnetosonic3(Propagator):
 
     .. math::
 
-        \\rho^{n+1} = \\rho^n - \\frac{\Delta t}{2} \mathbb D \mathcal Q^0 (u^{n+1} + u^n) \,.
+        \rho^{n+1} = \rho^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^0 (u^{n+1} + u^n) \,.
 
     Parameters
     ---------- 

@@ -16,8 +16,8 @@ time :
       
 
 geometry : 
-      type : cuboid # mapping F (possible types seen below)  
-      cuboid : 
+      type : Cuboid # mapping F (possible types seen below)  
+      Cuboid : 
             l1 : 0. # start of interval in eta1
             r1 : 1. # end of interval in eta1, r1>l1
             l2 : 0. # start of interval in eta2

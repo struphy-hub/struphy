@@ -6,7 +6,7 @@ import pickle
 from tqdm import tqdm
 import h5py
 
-from struphy.geometry.domain_3d import Domain
+from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
 from psydac.api.postprocessing import PostProcessManager
 from psydac.fem.basic import FemField
@@ -77,7 +77,9 @@ def post_process_fields(path, npts_per_cell=None):
     # domain object 
     dom_type = params['geometry']['type']
     dom_params = params['geometry'][dom_type]
-    domain = Domain(dom_type, dom_params)
+  
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     # launch manager with logical domain
     domain_log = Cube('C', bounds1=(0, 1), bounds2=(0, 1), bounds3=(0, 1))
@@ -334,17 +336,26 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
 
     Returns
     -------
-        values : dict
+        point_data_logic : dict
             Nested dictionary holding values of B-spline FemFields on the grid as 3d np.arrays:
             values[name][t] contains the values with the name from parameters.yml in ['fields']['general']['names']
             at time step t (see fields from create_femfields). 
             
-        grids : dict
-            grids[name] contains a 3-list with the logical grids corresponding to values[name]. Each entry is 1d grid in one
-            eta-direction in the format (Nel[i], npts_per_cell[i]). Grids are equally spaced.
+        point_data_phys :
+            Pushed-forward point_data_logic obtained by domain.push().
+
+        grids : 3-list
+            1d logical grids in each eta-direction with Nel[i] * npts_per_cell[i] entries. 
+            All break points other than 0. and 1. appear twice; double entries can be eliminated by using masks. 
             
-        grids_phys : dict
-            grids_phys[name] contains a 3-list holding 3d np.arrays which are the mapping components F_i evaluated at meshgrid(*grids).'''
+        grids_mapped : 3-list
+            Mapped grids obtained by domain.evaluate().
+            
+        masks : 3-list
+            Each entry is a boolean list of same size as the corresponding grids entry. 
+            It is False where a double counted break point appears, and True otherwise.
+            Hence grids[i][masks[i]] gives an equally spaced 1d logical grid.'''
+
 
     assert isinstance(fields, dict)
 
@@ -361,7 +372,9 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
     # domain object 
     dom_type = params['geometry']['type']
     dom_params = params['geometry'][dom_type]
-    domain = Domain(dom_type, dom_params)
+    
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     Nel = params['grid']['Nel']
     print(Nel)
@@ -397,15 +410,22 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
 
             if n == 0:
                 grids = []
+                masks = []
                 # create the grid from first snapshot (breaks are always part of the grid)
                 for Nel_i, n_i in zip(Nel, npts_per_cell):
                     grids += [np.zeros((Nel_i, n_i), dtype=float)]
                     dx = 1./Nel_i
+                    # grid points in one cell (at least 2, the cell boundaries)
                     pts = np.linspace(0., dx, n_i)
-                    pts[-1] -= 1e-6
                     for ne in range(Nel_i):
                         grids[-1][ne, :] = pts + ne*dx
                     grids[-1] = grids[-1].flatten()
+                    # pts_mask is False for the rigth cell boundary, which is a double counted break point
+                    pts_mask = [True]*n_i
+                    pts_mask[-1] = False
+                    tmp_mask = pts_mask*Nel_i
+                    tmp_mask[-1] = True
+                    masks += [tmp_mask]
 
                 # physical grids
                 grids_mapped = [domain.evaluate(*grids, 'x'), domain.evaluate(*grids, 'y'), domain.evaluate(*grids, 'z')]
@@ -457,7 +477,7 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
                                   pointData=point_data_n,
                                   cellData=None)
 
-    return point_data_logic, point_data_phys, grids, grids_mapped
+    return point_data_logic, point_data_phys, grids, grids_mapped, masks
 
 
 def compute_unstructured_mesh_info(mapping_local_domain, npts_per_cell=None, cell_indexes=None):
@@ -614,4 +634,4 @@ def compute_unstructured_mesh_info(mapping_local_domain, npts_per_cell=None, cel
 if __name__ == '__main__':
     path = 'struphy/io/out/sim_1/'
     fields, space_ids, code = create_femfields(path)
-    point_data_logic, point_data_phys, grids, grids_mapped = eval_femfields(path, fields, space_ids, npts_per_cell=1)
+    point_data_logic, point_data_phys, grids, grids_mapped, masks = eval_femfields(path, fields, space_ids, npts_per_cell=1)

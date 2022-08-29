@@ -5,13 +5,13 @@ import pytest
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-    ['colella', {
+    ['Colella', {
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-    ['hollow_torus', {
+    ['HollowTorus', {
         'a1': 1., 'a2': 2., 'R0': 3.}],
-    ['shafranov_dshaped', {
+    ['ShafranovDshapedCylinder', {
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
@@ -19,7 +19,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     from mpi4py import MPI
     import numpy as np
 
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.mass_psydac import WeightedMass
     from struphy.psydac_api.linear_operators import LinOpWithTransp
@@ -31,10 +31,11 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     from psydac.linalg.stencil import StencilVector
     from psydac.linalg.block import BlockVector
 
-    map = mapping[0]
-    params_map = mapping[1]
+    dom_type = mapping[0]
+    dom_params = mapping[1]
 
-    domain = Domain(map, params_map)
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
 
     derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
 
@@ -98,5 +99,5 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
 
 if __name__ == '__main__':
     test_composite_sum_scalar_inverse(
-        [8, 10, 4], [2, 3, 2], [False, True, True], ['colella', {
+        [8, 10, 4], [2, 3, 2], [False, True, True], ['Colella', {
         'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}])
