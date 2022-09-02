@@ -96,6 +96,7 @@ def _docstring():
                 'm_v_fill_u0_full',
                 'mat_fill_u3_full',
                 'm_v_fill_u3_full',
+                'm_v_fill_v1_pressure',
                 ]
     """
     
@@ -6830,3 +6831,128 @@ def m_v_fill_u3_full(pn: 'int[:]', span1: 'int', span2: 'int', span3: 'int', bd1
     fk.fill_mat_u3(pn, bd1, bd2, bd3, ie1, ie2, ie3, starts3, mat32, filling32)
     fk.fill_mat_u3(pn, bd1, bd2, bd3, ie1, ie2, ie3, starts3, mat33, filling33)
 
+
+def m_v_fill_v1_pressure(pn: 'int[:]', span1: 'int', span2: 'int', span3: 'int', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]', 
+                         mat11_11 : 'float[:,:,:,:,:,:]', mat12_11 : 'float[:,:,:,:,:,:]', mat13_11 : 'float[:,:,:,:,:,:]', mat22_11 : 'float[:,:,:,:,:,:]', mat23_11 : 'float[:,:,:,:,:,:]', mat33_11 : 'float[:,:,:,:,:,:]', 
+                         mat11_12 : 'float[:,:,:,:,:,:]', mat12_12 : 'float[:,:,:,:,:,:]', mat13_12 : 'float[:,:,:,:,:,:]', mat22_12 : 'float[:,:,:,:,:,:]', mat23_12 : 'float[:,:,:,:,:,:]', mat33_12 : 'float[:,:,:,:,:,:]',
+                         mat11_13 : 'float[:,:,:,:,:,:]', mat12_13 : 'float[:,:,:,:,:,:]', mat13_13 : 'float[:,:,:,:,:,:]', mat22_13 : 'float[:,:,:,:,:,:]', mat23_13 : 'float[:,:,:,:,:,:]', mat33_13 : 'float[:,:,:,:,:,:]',
+                         mat11_22 : 'float[:,:,:,:,:,:]', mat12_22 : 'float[:,:,:,:,:,:]', mat13_22 : 'float[:,:,:,:,:,:]', mat22_22 : 'float[:,:,:,:,:,:]', mat23_22 : 'float[:,:,:,:,:,:]', mat33_22 : 'float[:,:,:,:,:,:]',
+                         mat11_23 : 'float[:,:,:,:,:,:]', mat12_23 : 'float[:,:,:,:,:,:]', mat13_23 : 'float[:,:,:,:,:,:]', mat22_23 : 'float[:,:,:,:,:,:]', mat23_23 : 'float[:,:,:,:,:,:]', mat33_23 : 'float[:,:,:,:,:,:]',
+                         mat11_33 : 'float[:,:,:,:,:,:]', mat12_33 : 'float[:,:,:,:,:,:]', mat13_33 : 'float[:,:,:,:,:,:]', mat22_33 : 'float[:,:,:,:,:,:]', mat23_33 : 'float[:,:,:,:,:,:]', mat33_33 : 'float[:,:,:,:,:,:]',
+                         filling11 : 'float', filling12 : 'float', filling13 : 'float', filling22 : 'float', filling23 : 'float', filling33 : 'float', 
+                         vec1_1 : 'float[:,:,:]', vec2_1 : 'float[:,:,:]',  vec3_1 : 'float[:,:,:]',
+                         vec1_2 : 'float[:,:,:]', vec2_2 : 'float[:,:,:]',  vec3_2 : 'float[:,:,:]',
+                         vec1_3 : 'float[:,:,:]', vec2_3 : 'float[:,:,:]',  vec3_3 : 'float[:,:,:]',
+                         filling1 : 'float', filling2 : 'float', filling3 : 'float',
+                         v1 : 'float', v2 : 'float', v3 : 'float'):
+    """
+    Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. 
+    The result is returned in mat11_xy, mat12_xy, mat13_xy, mat22_xy, mat23_xy, mat33_xy, vec1_x, vec2_x, vec3_x (x and y denotes components of velocity for the accumulation of the pressure tensor).
+
+    Parameters : 
+    ------------
+        pn: array of integers
+            contains 3 values of the degrees of the B-splines in each direction
+        
+        span : array
+            contains the three values of the span index in each direction
+        
+        bn1 : array
+            contains the values of non-vanishing B-splines in direction 1
+
+        bn2 : array
+            contains the values of non-vanishing B-splines in direction 2
+
+        bn3 : array
+            contains the values of non-vanishing B-splines in direction 3
+
+        bd1 : array
+            contains the values of non-vanishing D-splines in direction 1
+
+        bd2 : array
+            contains the values of non-vanishing D-splines in direction 2
+
+        bd3 : array
+            contains the values of non-vanishing D-splines in direction 3
+        
+        start1, start2, start3 : int
+            start index of the current process in each direction
+        
+        pad1, pad2, pad3 : int
+            paddings of the current process in each direction
+        
+        mat11_xy : array
+            mu=1, nu=1 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+
+        mat12_xy : array
+            mu=1, nu=2 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+
+        mat13_xy : array
+            mu=1, nu=3 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+        
+        mat22_xy : array
+            mu=2, nu=2 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+
+        mat23_xy : array
+            mu=2, nu=3 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+
+        mat33_xy : array
+            mu=3, nu=3 element of the block matrix corresponding to the pressure term with velocity components v_x and v_y 
+
+        filling11 : float
+            number that will be multiplied by the basis functions of V1 and written to mat11
+
+        filling12 : float
+            number that will be multiplied by the basis functions of V1 and written to mat12
+
+        filling13 : float
+            number that will be multiplied by the basis functions of V1 and written to mat13
+
+        filling22 : float
+            number that will be multiplied by the basis functions of V1 and written to mat22
+
+        filling23 : float
+            number that will be multiplied by the basis functions of V1 and written to mat23
+
+        filling33 : float
+            number that will be multiplied by the basis functions of V1 and written to mat33
+        
+        vec1_x : array
+            mu=1 element of the vector corresponding to the pressure term with velocity component v_x
+
+        vec2_x : array
+            mu=2 element of the vector corresponding to the pressure term with velocity component v_x
+            
+        vec3_x : array
+            mu=3 element of the vector corresponding to the pressure term with velocity component v_x
+            
+        filling1 : float
+            number that will be multplied by the basis functions of V1 and written to vec1
+
+        filling2 : float
+            number that will be multplied by the basis functions of V1 and written to vec2
+
+        filling3 : float
+            number that will be multplied by the basis functions of V1 and written to vec3
+
+        v1 : float
+            x=1 component of the particle velocity
+
+        v2 : float
+            x=2 component of the particle velocity
+
+        v3 : float
+            x=3 component of the particle velocity
+    """
+
+    # element index of the particle in each direction
+    ie1 = span1 - pn[0]
+    ie2 = span2 - pn[1]
+    ie3 = span3 - pn[2]
+
+    fk.fill_mat11_vec1_v1_pressure(pn, bd1, bn2, bn3, ie1, ie2, ie3, starts1,      mat11_11, mat11_12, mat11_13, mat11_22, mat11_23, mat11_33, filling11, vec1_1, vec1_2, vec1_3, filling1, v1, v2, v3)
+    fk.fill_mat12_v1_pressure(pn, bn1, bd1, bn2, bd2, bn3, ie1, ie2, ie3, starts1, mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, filling12,                                   v1, v2, v3)
+    fk.fill_mat13_v1_pressure(pn, bn1, bd1, bn2, bn3, bd3, ie1, ie2, ie3, starts1, mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, filling13,                                   v1, v2, v3)
+    fk.fill_mat22_vec2_v1_pressure(pn, bn1, bd2, bn3, ie1, ie2, ie3, starts2,      mat22_11, mat22_12, mat22_13, mat22_22, mat22_23, mat22_33, filling22, vec2_1, vec2_2, vec2_3, filling2, v1, v2, v3)
+    fk.fill_mat23_v1_pressure(pn, bn1, bn2, bd2, bn3, bd3, ie1, ie2, ie3, starts2, mat23_11, mat23_12, mat23_13, mat23_22, mat23_23, mat23_33, filling23,                                   v1, v2, v3)
+    fk.fill_mat33_vec3_v1_pressure(pn, bn1, bn2, bd3, ie1, ie2, ie3, starts3,      mat33_11, mat33_12, mat33_13, mat33_22, mat33_23, mat33_33, filling33, vec3_1, vec3_2, vec3_3, filling3, v1, v2, v3)

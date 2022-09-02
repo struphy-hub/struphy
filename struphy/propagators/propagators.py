@@ -131,6 +131,7 @@ class StepShearAlfven1(Propagator):
 
         self._u = u
         self._b = b
+        self._bc = derham.bc
         self._info = params['info']
 
         # Preconditioner
