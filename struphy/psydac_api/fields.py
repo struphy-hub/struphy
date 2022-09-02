@@ -203,18 +203,6 @@ class Field:
                 self._fun += [PulledPform(init_coords,
                                            _fun_tmp, domain, '3_form')]
                 self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
-
-            elif self.space_id == 'H1vec':
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                _coeffs = self.derham.P0vec(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
                 
             elif self.space_id == 'H1vec':
                 self._fun += [PulledPform(init_coords,
