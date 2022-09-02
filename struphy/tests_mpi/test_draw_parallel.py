@@ -75,11 +75,11 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
     error_mks = particles.markers[np.logical_and(~stay, ~holes)]
 
     print(
-        f'rank {rank} | markers mot on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}')
+        f'rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}')
 
     assert error_mks.size == 0
 
 
 if __name__ == '__main__':
     test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 1234)

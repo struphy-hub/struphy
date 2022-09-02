@@ -101,7 +101,7 @@ class TorusModesSin:
     '''
 
     def __init__(self, ms, ns, amps, pfuns='sin', pfun_params=None):
-        '''
+        r'''
         Parameters
         ----------
             ms : list[int]

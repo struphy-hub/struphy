@@ -304,8 +304,8 @@ class Particles6D:
 
         plt.axis('square')
 
-        plt.xlabel('$\eta_1$')
-        plt.ylabel('$\eta_2$')
+        plt.xlabel(r'$\eta_1$')
+        plt.ylabel(r'$\eta_2$')
 
         if save_dir is not None:
             plt.savefig(save_dir)
