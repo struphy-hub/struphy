@@ -25,7 +25,7 @@ class Maxwell(StruphyModel):
         derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        domain: struphy.geometry.domains
+        domain: struphy.geometry.base.Domain
             All things mapping.
 
         params : dict
@@ -86,15 +86,15 @@ class LinearMHD(StruphyModel):
 
     .. math::
 
-        \frac{\hat B^2}{\hat \rho \mu_0} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \hat \rho\, \hat v_\textnormal{A}^2\,.
-
-    Implemented equations:
+        \frac{\hat B}{\sqrt{\mu_0\,A\, m_\textnormal{p}\,\hat n}} =: \hat v_\textnormal{A} = \frac{\hat \omega}{\hat k} = \hat U \,, \qquad \hat p = \frac{\hat B^2}{\mu_0}\,,
+        
+    where :math:`m_\textnormal{p}` is the proton mass, :math:`A` the mass number of the ion species and :math:`\mu_0` the vacuum permeability. Implemented equations:
 
     .. math::
 
-        &\frac{\partial \tilde \rho}{\partial t}+\nabla\cdot(\rho_0 \tilde{\mathbf{U}})=0\,, 
+        &\frac{\partial \tilde n}{\partial t}+\nabla\cdot(n_0 \tilde{\mathbf{U}})=0\,, 
 
-        \rho_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
+        n_0&\frac{\partial \tilde{\mathbf{U}}}{\partial t} + \nabla \tilde p
         =(\nabla\times \tilde{\mathbf{B}})\times\mathbf{B}_0 + \mathbf{J}_0\times \tilde{\mathbf{B}}
         \,, \qquad
         \mathbf{J}_0 = \nabla\times\mathbf{B}_0\,,
@@ -103,14 +103,16 @@ class LinearMHD(StruphyModel):
         + \frac{2}{3}\,p_0\nabla\cdot \tilde{\mathbf{U}}=0\,,
         
         &\frac{\partial \tilde{\mathbf{B}}}{\partial t} - \nabla\times(\tilde{\mathbf{U}} \times \mathbf{B}_0)
-        = 0\,.
+        = 0\,,
+        
+    where the equilibrium quantities must satisfy the MHD equilibrium condition :math:`\nabla p_0=\mathbf J_0\times\mathbf B_0`.
 
     Parameters
     ----------
         derham: struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
 
-        domain: struphy.geometry.domains
+        domain: struphy.geometry.base.Domain
             All things mapping.
 
         params : dict
