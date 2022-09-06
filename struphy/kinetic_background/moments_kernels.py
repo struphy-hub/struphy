@@ -243,3 +243,46 @@ def moments(eta : 'float[:]', moms_spec : 'int[:]', params: 'float[:]'):
     return n0, u0x, u0y, u0z, vth0x, vth0y, vth0z
 
 
+def array_moments(eta : 'float[:,:]', moms_spec : 'int[:]', params : 'float[:]', n0 : 'float[:]', u0x : 'float[:]', u0y : 'float[:]', u0z : 'float[:]', vth0x : 'float[:]', vth0y : 'float[:]', vth0z : 'float[:]'):
+    r"""
+    Point-wise evaluation at every (ip) logical particle positions (eta1, eta2, eta3) of the moments density, mean velocity and thermal velocity:
+
+    Parameters
+    ----------
+        eta : rank2 array[float]
+            Array of every particle positions at which to evaluate the moments.
+        
+        moms_spec : array[int]
+            Specifier for the seven moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z (in this order).
+
+        params : array[float]
+            Parameters needed to specify the moments; the order is specified in :ref:`kinetic_moments` in the function's docstrings.
+        
+        n0    : array[float]
+            Array of density moment at ip.
+
+        u0x   : array[float]
+            Array of 1st comp of mean velocity at ip.
+
+        u0y   : array[float]
+            Array of 2st comp of mean velocity at ip.
+
+        u0z   : array[float]
+            Array of 2st comp of mean velocity at ip.
+
+        vth0x : array[float]
+            Array of 1st comp of thermal velocity at ip.
+
+        vth0y : array[float]
+            Array of 1st comp of thermal velocity at ip.
+            
+        vth0z : array[float]
+            Array of 1st comp of thermal velocity at ip.
+    
+    Notes
+    -----
+        See :ref:`kinetic_moments` for available moment functions.
+    """
+
+    for ip in range(len(eta[:,0])):
+        n0[ip], u0x[ip], u0y[ip], u0z[ip], vth0x[ip], vth0y[ip], vth0z[ip] = moments(eta[ip,:], moms_spec, params)
