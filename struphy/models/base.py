@@ -61,7 +61,7 @@ class StruphyModel(metaclass=ABCMeta):
         for name, species in zip(self._kinetic_names, self._marker_params):
             kinetic_class = getattr(particles, species['type'])
             self._kinetic_species += [kinetic_class(
-                name, self._domain, species, self._derham.comm)]
+                name, species, self._domain, self._derham.domain_array, self._derham.comm)]
 
     @property
     def names(self):
@@ -139,7 +139,7 @@ class StruphyModel(metaclass=ABCMeta):
             sq_str += key + ': {:16.12f}'.format(val[0]) + '     '
         print(sq_str)
 
-    def set_initial_conditions(self, fields_init, particles_init, particles_params):
+    def set_initial_conditions(self, fields_init, particles_init):
         # TODO: eliminate particles_params, indent in parameters.yml and pass it with particles_init (as is done for fields)
         '''For FE coefficients and marker weights.
 
@@ -172,5 +172,5 @@ class StruphyModel(metaclass=ABCMeta):
                 field.set_initial_conditions(self.domain, comps, fields_init, self.derham.comm.Get_rank())
 
         if particles_init is not None:
-            for species, init, param in zip(self.kinetic_species, particles_init, particles_params):
-                species.set_initial_conditions(init, param)
+            for species, init in zip(self.kinetic_species, particles_init):
+                species.initialize_weights(init['background'], init['perturbations'])

@@ -106,16 +106,13 @@ else:
 
 if 'kinetic' in params:
     particles_init = []
-    particles_params = []
     for key, val in params['kinetic'].items():
-        particles_init += [val['perturbations']['type']]
-        particles_params += [val['perturbations'][particles_init[-1]]]
+        particles_init += [val]
 else:
     particles_init = None
-    particles_params = None
 
 model.set_initial_conditions(
-    fields_init, particles_init, particles_params)
+    fields_init, particles_init)
 
 model.update_scalar_quantities(0.)
 
