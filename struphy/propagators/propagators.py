@@ -7,8 +7,8 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-from struphy.psydac_api.linear_operators import ApplyEssentialBcToOperator as ApplyBc
 from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
+from struphy.psydac_api.preconditioner import MassMatrixPreconditioner3D as MassPreNew
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
@@ -18,9 +18,9 @@ class StepMaxwell(Propagator):
 
     .. math::
 
-        \begin{bmatrix} e^{n+1} - e^n \\ b^{n+1} - b^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf e^{n+1} - \mathbf e^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & \mathbb M_1^{-1} \mathbb C^\top \\ - \mathbb C \mathbb M_1^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} \mathbb M_1(e^{n+1} + e^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} \mathbb M_1(\mathbf e^{n+1} + \mathbf e^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -97,9 +97,9 @@ class StepShearAlfven1(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_1)^{-1} \mathcal {T^1}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^1} (\mathbb M^n_1)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^n_1}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^n_1}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -120,7 +120,7 @@ class StepShearAlfven1(Propagator):
         mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
@@ -138,16 +138,16 @@ class StepShearAlfven1(Propagator):
         if params['pc'] == None:
             pc = None
         elif params['pc'] == 'fft':
-            pc = MassPre(derham.V1)    
+            pc = MassPre(derham.V1)
+        elif params['pc'] == 'new':
+            pc = MassPreNew(derham, 'V1', mass_ops._fun_M1n)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = ApplyBc('Hcurl', derham.bc, mass_ops.M1n)
+        _A = mass_ops.M1n
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T1T, derham.curl.transpose(), mass_ops.M2))
-        self._B = ApplyBc('Hcurl', derham.bc, self._B)
-        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T1))
         
         # Instantiate Schur solver (constant in this case)
@@ -171,10 +171,6 @@ class StepShearAlfven1(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
-        
-        # apply once more boundary conditions to eliminate round-off errors etc.
-        apply_essential_bc_to_array('Hcurl', _u, self._bc)
-        apply_essential_bc_to_array('Hdiv' , _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -192,9 +188,9 @@ class StepShearAlfven2(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathcal {T^2}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^2} (\mathbb M^n_2)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^n_2}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^n_2}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -215,7 +211,7 @@ class StepShearAlfven2(Propagator):
         mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
@@ -226,22 +222,23 @@ class StepShearAlfven2(Propagator):
 
         self._u = u
         self._b = b
+        self._bc = derham.bc
         self._info = params['info']
 
         # Preconditioner
         if params['pc'] == None:
             pc = None
         elif params['pc'] == 'fft':
-            pc = MassPre(derham.V2)     
+            pc = MassPre(derham.V2)
+        elif params['pc'] == 'new':
+            pc = MassPreNew(derham, 'V2', mass_ops._fun_M2n)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = ApplyBc('Hdiv', derham.bc, mass_ops.M2n)
+        _A = mass_ops.M2n
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T2T, derham.curl.transpose(), mass_ops.M2))
-        self._B = ApplyBc('Hdiv', derham.bc, self._B)
-        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T2))
         
         # Instantiate Schur solver (constant in this case)
@@ -265,10 +262,6 @@ class StepShearAlfven2(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
-        
-        # apply once more boundary conditions to eliminate round-off errors etc.
-        apply_essential_bc_to_array('Hdiv', _u, self._bc)
-        apply_essential_bc_to_array('Hdiv', _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -286,9 +279,9 @@ class StepShearAlfven3(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ b^{n+1} - b^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf b^{n+1} - \mathbf b^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} \mathcal {T^0}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^0} (\mathbb M^n_v)^{-1} & 0 \end{bmatrix} 
-        \begin{bmatrix} {\mathbb M^n_v}(u^{n+1} + u^n) \\ \mathbb M_2(b^{n+1} + b^n) \end{bmatrix} ,
+        \begin{bmatrix} {\mathbb M^n_v}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) \end{bmatrix} ,
 
     based on the :ref:`Schur complement <schur_solver>`.
 
@@ -309,7 +302,7 @@ class StepShearAlfven3(Propagator):
         mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
@@ -327,16 +320,16 @@ class StepShearAlfven3(Propagator):
         if params['pc'] == None:
             pc = None
         elif params['pc'] == 'fft':
-            pc = MassPre(derham.V0vec)    
+            pc = MassPre(derham.V0vec)
+        elif params['pc'] == 'new':
+            pc = MassPreNew(derham, 'V0vec', mass_ops._fun_Mvn)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = ApplyBc('H1vec', derham.bc, mass_ops.Mvn)
+        _A = mass_ops.Mvn
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T0T, derham.curl.transpose(), mass_ops.M2))
-        self._B = ApplyBc('H1vec', derham.bc, self._B)
-        
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T0))
         
         # Instantiate Schur solver (constant in this case)
@@ -360,10 +353,6 @@ class StepShearAlfven3(Propagator):
         # allocate temporary FemFields _u, _b during solution
         _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
-        
-        # apply once more boundary conditions to eliminate round-off errors etc.
-        apply_essential_bc_to_array('H1vec', _u, self._bc)
-        apply_essential_bc_to_array('Hdiv' , _b, self._bc)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
@@ -381,9 +370,9 @@ class StepMagnetosonic2(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ p^{n+1} - p^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^2 - (\gamma - 1) \mathcal K^2 \mathbb D & 0 \end{bmatrix} 
-        \begin{bmatrix} (u^{n+1} + u^n) \\ (p^{n+1} + p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_2)^{-1} \mathbb M^J_2 b^n \\ 0 \end{bmatrix},
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_2)^{-1} \mathbb M^J_2 \mathbf b^n \\ 0 \end{bmatrix},
 
     based on the :ref:`Schur complement <schur_solver>`.
     
@@ -391,7 +380,7 @@ class StepMagnetosonic2(Propagator):
 
     .. math::
 
-        \rho^{n+1} = \rho^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^2 (u^{n+1} + u^n) \,.
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^2 (\mathbf u^{n+1} + \mathbf u^n) \,.
 
     Parameters
     ---------- 
@@ -416,7 +405,7 @@ class StepMagnetosonic2(Propagator):
         mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
@@ -439,18 +428,18 @@ class StepMagnetosonic2(Propagator):
             pc = None
         elif params['pc'] == 'fft':
             pc = MassPre(derham.V2)
+        elif params['pc'] == 'new':
+            pc = MassPreNew(derham, 'V2', mass_ops._fun_M2n)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = ApplyBc('Hdiv', derham.bc, mass_ops.M2n)
+        _A = mass_ops.M2n
 
         self._B = Multiply(-1/2., Compose(derham.div.transpose(), mass_ops.M3))
-        self._B = ApplyBc('Hdiv', derham.bc, self._B)
-        
-        self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S2), Multiply(5/3 - 1, Compose(mhd_ops.K2, derham.div))))
+        self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S2), Multiply(2/3, Compose(mhd_ops.K2, derham.div))))
 
-        self._MJ = ApplyBc('Hdiv', derham.bc, mass_ops.M2J)
+        self._MJ = mass_ops.M2J
         self._Q  = mhd_ops.Q2
             
         self._DIV = derham.div
@@ -480,9 +469,6 @@ class StepMagnetosonic2(Propagator):
         _p = pn - dt*self._C.dot(_u + un)
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
-        
-        # apply once more boundary conditions to eliminate round-off errors etc.
-        apply_essential_bc_to_array('Hdiv', _u, self._bc)
 
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
@@ -501,9 +487,9 @@ class StepMagnetosonic3(Propagator):
 
     .. math::
 
-        \begin{bmatrix} u^{n+1} - u^n \\ p^{n+1} - p^n \end{bmatrix} 
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
         = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} {\mathcal J^0}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^0 - (\gamma - 1) \mathcal K^0 \mathbb D \mathcal J^0 & 0 \end{bmatrix} 
-        \begin{bmatrix} (u^{n+1} + u^n) \\ (p^{n+1} + p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_v)^{-1} \mathbb M^J_v b^n \\ 0 \end{bmatrix},
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_v)^{-1} \mathbb M^J_v \mathbf b^n \\ 0 \end{bmatrix},
 
     based on the :ref:`Schur complement <schur_solver>`.
     
@@ -511,7 +497,7 @@ class StepMagnetosonic3(Propagator):
 
     .. math::
 
-        \rho^{n+1} = \rho^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^0 (u^{n+1} + u^n) \,.
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^0 (\mathbf u^{n+1} + \mathbf u^n) \,.
 
     Parameters
     ---------- 
@@ -536,7 +522,7 @@ class StepMagnetosonic3(Propagator):
         mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
             Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
 
-        params: dict
+        params : dict
             Solver parameters for this splitting step. 
     '''
 
@@ -558,19 +544,18 @@ class StepMagnetosonic3(Propagator):
         if params['pc'] == None:
             pc = None
         elif params['pc'] == 'fft':
-            pc = MassPre(derham.V0vec)  
+            pc = MassPre(derham.V0vec)
+        elif params['pc'] == 'new':
+            pc = MassPreNew(derham, 'V0vec', mass_ops._fun_Mvn)
         else:
             raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        _A = ApplyBc('H1vec', derham.bc, mass_ops.Mvn)
+        _A = mass_ops.Mvn
 
         self._B = Multiply(-1/2., Compose(mhd_ops.J0T, derham.div.transpose(), mass_ops.M3))
-        self._B = ApplyBc('H1vec', derham.bc, self._B)
-        
-        self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S0), Multiply(5/3 - 1, Compose(mhd_ops.K0, derham.div, mhd_ops.J0))))
-
-        self._MJ = ApplyBc('H1vec', derham.bc, mass_ops.MvJ)
+        self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S0), Multiply(2/3, Compose(mhd_ops.K0, derham.div, mhd_ops.J0))))
+        self._MJ = mass_ops.MvJ
         self._Q  = mhd_ops.Q0
             
         self._DIV = derham.div
@@ -601,9 +586,6 @@ class StepMagnetosonic3(Propagator):
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
         
-        # apply once more boundary conditions to eliminate round-off errors etc.
-        apply_essential_bc_to_array('H1vec', _u, self._bc)
-
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
 

@@ -608,7 +608,7 @@ def make_knots(breaks, degree, periodic):
 
 # ==============================================================================
 def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
-    """
+    r"""
     Compute the quadrature points and weights for performing integrals over
     each element (interval) of the 1D domain, given a certain Gaussian
     quadrature rule.
