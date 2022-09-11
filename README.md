@@ -32,6 +32,8 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 * F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [J. Comp. Phys. 464 (2022) 111329](https://www.sciencedirect.com/science/article/pii/S0021999122003916?via%3Dihub)
 
+* F. Holderied, "STRUPHY: a structure-preserving hybrid MHD-kinetic code for the interaction of energetic particles with Alfvén waves in magnetized plasmas", [PhD thesis (2022)](https://mediatum.ub.tum.de/?id=1656539)
+
 ## License
 
 Not yet published.
@@ -41,14 +43,3 @@ Not yet published.
 * Florian Holderied [floho@ipp.mpg.de](floho@ipp.mpg.de)
 * Stefan Possanner [spossann@ipp.mpg.de](spossann@ipp.mpg.de)
 * Xin Wang [xin.wang@ipp.mpg.de](xin.wang@ipp.mpg.de)
-
-
-
-
-
-
-
-
-
-
-

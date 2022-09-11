@@ -10,6 +10,7 @@ from psydac.fem.vector import ProductFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api.mass_kernels_psydac import kernel_1d, kernel_2d, kernel_3d
+from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
 
 
 class WeightedMass:
@@ -107,9 +108,9 @@ class WeightedMass:
                 fun_Mv[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))]
                 
                 if 'eq_mhd' in weights:
-                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
-                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
-                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3)]
+                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
                     fun_M1J[-1] += [lambda e1, e2, e3, m=m, n=n : (Ginv(e1, e2, e3) @ eval_cross(e1, e2, e3, j2_cross))[:, :, :, m, n]]
                     fun_M2J[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)/np.sqrt(F.metric_det(e1, e2, e3))]
                     fun_MvJ[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)]
@@ -147,77 +148,77 @@ class WeightedMass:
         """  Assemble mass matrix for L2-scalar product in V0.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M0 ...')
-        self._M0 = get_mass(self.derham.V0, self.derham.V0, self._fun_M0)
+        self._M0 = ApplyHomogeneousDirichletToOperator('H1', 'H1', self.derham.bc, get_mass(self.derham.V0, self.derham.V0, self._fun_M0))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M1(self):
         """  Assemble mass matrix for L2-scalar product in V1.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M1 ...')
-        self._M1 = get_mass(self.derham.V1, self.derham.V1, self._fun_M1)
+        self._M1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V1, self._fun_M1))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2(self):
         """  Assemble mass matrix for L2-scalar product in V2.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M2 ...')
-        self._M2 = get_mass(self.derham.V2, self.derham.V2, self._fun_M2)
+        self._M2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M3(self):
         """  Assemble mass matrix for L2-scalar product in V3.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M3 ...')
-        self._M3 = get_mass(self.derham.V3, self.derham.V3, self._fun_M3)
+        self._M3 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, get_mass(self.derham.V3, self.derham.V3, self._fun_M3))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Mv(self):
         """  Assemble mass matrix for L2-scalar product in V0vec.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling Mv ...')
-        self._Mv = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mv)
+        self._Mv = ApplyHomogeneousDirichletToOperator('H1vec', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mv))
         if self.derham.comm.Get_rank() == 0: print('Done.')
               
     def assemble_M1n(self):
         """  Assemble mass matrix for L2-scalar product in V1 weighted with MHD number density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M1n ...')
-        self._M1n = get_mass(self.derham.V1, self.derham.V1, self._fun_M1n)
+        self._M1n = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V1, self._fun_M1n))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2n(self):
         """  Assemble mass matrix for L2-scalar product in V2 weighted with MHD number density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M2n ...')
-        self._M2n = get_mass(self.derham.V2, self.derham.V2, self._fun_M2n)
+        self._M2n = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2n))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Mvn(self):
         """  Assemble mass matrix for L2-scalar product in V0vec weighted with MHD number density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling Mvn ...')
-        self._Mvn = get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mvn)
+        self._Mvn = ApplyHomogeneousDirichletToOperator('H1vec', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mvn))
         if self.derham.comm.Get_rank() == 0: print('Done.')
             
     def assemble_M1J(self):
         """  Assembles mass matrix for L2-scalar product in V1 weighted with cross product of MHD equilibrium current density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M1J ...')
-        self._M1J = get_mass(self.derham.V1, self.derham.V2, self._fun_M1J)
+        self._M1J = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V2, self._fun_M1J))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_M2J(self):
         """  Assembles mass matrix for L2-scalar product in V2 weighted with cross product of MHD equilibrium current density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling M2J ...')
-        self._M2J = get_mass(self.derham.V2, self.derham.V2, self._fun_M2J)
+        self._M2J = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2J))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_MvJ(self):
         """  Assembles mass matrix for L2-scalar product in V0vec weighted with cross product of MHD equilibrium current density.
         """
         if self.derham.comm.Get_rank() == 0: print('Assembling MvJ ...')
-        self._MvJ = get_mass(self.derham.V0vec, self.derham.V2, self._fun_MvJ)
+        self._MvJ = ApplyHomogeneousDirichletToOperator('Hdiv', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V2, self._fun_MvJ))
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
         
@@ -367,7 +368,7 @@ def get_mass(V, W, weight=None):
                 
                 if weight is not None:
                     if weight[a][b] is not None:
-                        PTS1 = np.meshgrid(pts[0].flatten(), indexing='ij')
+                        PTS1, = np.meshgrid(pts[0].flatten(), indexing='ij')
                         mat_w = weight[a][b](PTS1).copy()
                         mat_w = mat_w.reshape(pts[0].shape[0], nq[0])
                     else:
