@@ -2,11 +2,11 @@
 import struphy.linear_algebra.core as linalg
 
 # import module for mapping evaluation
-import struphy.tests_mpi.test_accum_legacy_files.mappings_3d_fast as mapping_fast
+import struphy.tests_mpi.test_pic_legacy_files.mappings_3d_fast as mapping_fast
 
 # import modules for B-spline evaluation
 import struphy.feec.bsplines_kernels as bsp
-import struphy.tests_mpi.test_accum_legacy_files.spline_evaluation_3d as eva3
+import struphy.tests_mpi.test_pic_legacy_files.spline_evaluation_3d as eva3
 
 
 # ==============================================================================

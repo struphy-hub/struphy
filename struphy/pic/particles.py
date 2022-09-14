@@ -69,7 +69,7 @@ class Particles6D:
         self._n_mks_loc_with_holes = round(
             n_mks_load[self.mpi_rank]*(1 + 1/np.sqrt(n_mks_load[self.mpi_rank]) + 0.25))
 
-        self._markers = np.empty((self.n_mks_loc_with_holes, 9), dtype=float)
+        self._markers = np.zeros((self.n_mks_loc_with_holes, 9), dtype=float)
 
         # load markers from external .hdf5 file
         if self.params['loading']['type'] == 'external':

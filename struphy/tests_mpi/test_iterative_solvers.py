@@ -22,7 +22,7 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
     
     from struphy.linear_algebra.iterative_solvers import bicgstab, pbicgstab
-    from struphy.psydac_api.preconditioner import MassMatrixPreConditioner
+    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     
     from psydac.linalg.iterative_solvers import pcg
     
@@ -63,8 +63,8 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     mass_mats.assemble_M1()
     
     # assemble preconditioners
-    pc0 = MassMatrixPreConditioner(derham.V0)
-    pc1 = MassMatrixPreConditioner(derham.V1)
+    pc0 = MassMatrixPreconditioner(derham, 'V0', mass_mats._fun_M0)
+    pc1 = MassMatrixPreconditioner(derham, 'V1', mass_mats._fun_M1)
     
     # create random right-hand side vectors
     b0_str, b0 = create_equal_random_arrays(derham.V0, 1234)

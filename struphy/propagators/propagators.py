@@ -7,8 +7,7 @@ from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compo
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
 from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
-from struphy.psydac_api.preconditioner import MassMatrixPreConditioner as MassPre
-from struphy.psydac_api.preconditioner import MassMatrixPreconditioner3D as MassPreNew
+from struphy.psydac_api import preconditioner
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
@@ -47,22 +46,23 @@ class StepMaxwell(Propagator):
         self._e = e
         self._b = b
         self._info = params['info']
-
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V1)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
+        
         # Define block matrix [[A B], [C I]] (without time step size dt in the diangonals)
         _A = mass_ops.M1
+        
         self._B = Multiply(-1./2., Compose(derham.curl.transpose(), mass_ops.M2)) # no dt
-        self._C = Multiply(1./2., derham.curl) # no dt
-        _BC = Compose(self._B, self._C)
+        self._C = Multiply( 1./2., derham.curl) # no dt
+        
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V1', mass_ops._fun_M1)
 
         # Instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+        
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
@@ -92,7 +92,8 @@ class StepMaxwell(Propagator):
             print()
             
             
-class StepShearAlfven1(Propagator):
+            
+class StepShearAlfvénHcurl(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations.
 
     .. math::
@@ -134,21 +135,18 @@ class StepShearAlfven1(Propagator):
         self._bc = derham.bc
         self._info = params['info']
 
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V1)
-        elif params['pc'] == 'new':
-            pc = MassPreNew(derham, 'V1', mass_ops._fun_M1n)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M1n
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T1T, derham.curl.transpose(), mass_ops.M2))
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T1))
+        
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V1', mass_ops._fun_M1n)
         
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -156,7 +154,6 @@ class StepShearAlfven1(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
 
     @property
     def variables(self):
@@ -183,7 +180,8 @@ class StepShearAlfven1(Propagator):
             print()
             
             
-class StepShearAlfven2(Propagator):
+            
+class StepShearAlfvénHdiv(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations:
 
     .. math::
@@ -224,31 +222,27 @@ class StepShearAlfven2(Propagator):
         self._b = b
         self._bc = derham.bc
         self._info = params['info']
-
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V2)
-        elif params['pc'] == 'new':
-            pc = MassPreNew(derham, 'V2', mass_ops._fun_M2n)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
+        
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M2n
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T2T, derham.curl.transpose(), mass_ops.M2))
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T2))
         
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V2', mass_ops._fun_M2n)
+
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
-
+        
     @property
     def variables(self):
         return self._u, self._b
@@ -272,9 +266,10 @@ class StepShearAlfven2(Propagator):
             print('Maxdiff u2 for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
+            
 
 
-class StepShearAlfven3(Propagator):
+class StepShearAlfvénH1vec(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations:
 
     .. math::
@@ -315,22 +310,19 @@ class StepShearAlfven3(Propagator):
         self._b = b
         self._bc = derham.bc
         self._info = params['info']
-
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V0vec)
-        elif params['pc'] == 'new':
-            pc = MassPreNew(derham, 'V0vec', mass_ops._fun_Mvn)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
+        
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.Mvn
 
         self._B = Multiply(-1/2., Compose(mhd_ops.T0T, derham.curl.transpose(), mass_ops.M2))
         self._C = Multiply( 1/2., Compose(derham.curl, mhd_ops.T0))
+        
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V0vec', mass_ops._fun_Mvn)
         
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -338,7 +330,6 @@ class StepShearAlfven3(Propagator):
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
 
     @property
     def variables(self):
@@ -364,8 +355,9 @@ class StepShearAlfven3(Propagator):
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
             
+            
                 
-class StepMagnetosonic2(Propagator):
+class StepMagnetosonicHdiv(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
     .. math::
@@ -422,17 +414,7 @@ class StepMagnetosonic2(Propagator):
         self._b = b
         self._bc = derham.bc
         self._info = params['info']
-
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V2)
-        elif params['pc'] == 'new':
-            pc = MassPreNew(derham, 'V2', mass_ops._fun_M2n)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
+        
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.M2n
 
@@ -444,13 +426,19 @@ class StepMagnetosonic2(Propagator):
             
         self._DIV = derham.div
         
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V2', mass_ops._fun_M2n)
+        
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
 
     @property
     def variables(self):
@@ -481,8 +469,9 @@ class StepMagnetosonic2(Propagator):
             print('Maxdiff p3 for Push_magnetosonic:', max(dp))
             print()
             
+            
 
-class StepMagnetosonic3(Propagator):
+class StepMagnetosonicH1vec(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
     .. math::
@@ -539,17 +528,7 @@ class StepMagnetosonic3(Propagator):
         self._b = b
         self._bc = derham.bc
         self._info = params['info']
-
-        # Preconditioner
-        if params['pc'] == None:
-            pc = None
-        elif params['pc'] == 'fft':
-            pc = MassPre(derham.V0vec)
-        elif params['pc'] == 'new':
-            pc = MassPreNew(derham, 'V0vec', mass_ops._fun_Mvn)
-        else:
-            raise ValueError(f'Preconditioner "{params["pc"]}" not implemented.')
-
+        
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = mass_ops.Mvn
 
@@ -560,13 +539,19 @@ class StepMagnetosonic3(Propagator):
             
         self._DIV = derham.div
         
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V0vec', mass_ops._fun_Mvn)
+
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
         
         self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
                                          tol=params['tol'], maxiter=params['maxiter'],
                                          verbose=params['verbose'])
-
 
     @property
     def variables(self):
