@@ -48,14 +48,14 @@ fields :
 solvers :
       solver_1 : 
             type : pcg
-            pc : fft # null or fft
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-8
             maxiter : 3000
             info : False
             verbose : False
       solver_2 :
             type : pbicgstab
-            pc : fft # null or fft
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-8
             maxiter : 3000
             info : False

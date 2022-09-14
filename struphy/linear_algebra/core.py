@@ -65,6 +65,30 @@ def transpose(a : 'float[:,:]', b : 'float[:,:]'):
         for j in range(3):
             b[i, j] = a[j, i]
 
+
+# =========================================
+def scalar_dot(a : 'float[:]', b : 'float[:]') -> float:
+    """
+    Computes scalar (dot) product of two vectors of length 3.
+    
+    Parameters
+    ----------
+        a : array[float]
+            The first input array (vector) of shape (3,).
+        
+        b : array[float]
+            The second input array (vector) of shape (3,).
+        
+    Returns
+    -------
+        value : float
+            The scalar poduct of the two input vectors a and b.
+    """
+    
+    value = a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+    
+    return value           
+            
             
 # =========================================
 def det(a : 'float[:,:]') -> float:

@@ -11,14 +11,14 @@ import pytest
 def test_accumulation(Nel, p, spl_kind, mapping, n_markers=10, verbose=False):
     """
     A test to compare the old accumulation routine of step1 and step3 of cc_lin_mhd_6d with the old way (files stored in
-    ../test_accum_legacy_files) and the new way using the Accumulator object (ghost_region_sender, mat_vec_filler).
+    ../test_pic_legacy_files) and the new way using the Accumulator object (ghost_region_sender, mat_vec_filler).
 
     The two accumulation matrices are computed with the same random magnetic field produced by
     psydac_api.utilities.create_equal_random_arrays and compared against each other at the bottom using
     psydac_api.utilities.compare_arrays().
 
     The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
-    ..test_accum_legacy_files/ are also all compiled.
+    ..test_pic_legacy_files/ are also all compiled.
     """
     from mpi4py import MPI
     rank = MPI.COMM_WORLD.Get_rank()
@@ -46,7 +46,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-    from struphy.tests_mpi.test_accum_legacy_files.accumulation_kernels_3d import kernel_step1
+    from struphy.tests_mpi.test_pic_legacy_files.accumulation_kernels_3d import kernel_step1
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
@@ -176,7 +176,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-    from struphy.tests_mpi.test_accum_legacy_files.accumulation_kernels_3d import kernel_step3
+    from struphy.tests_mpi.test_pic_legacy_files.accumulation_kernels_3d import kernel_step3
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
@@ -332,7 +332,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, n_markers=10, verbose=
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
-    from struphy.tests_mpi.test_accum_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
+    from struphy.tests_mpi.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD

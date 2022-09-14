@@ -135,7 +135,7 @@ class LinearMHD(StruphyModel):
 
         # extract necessary parameters
         equil_params = params['fields']['mhd_equilibrium']
-        alfven_solver = params['solvers']['solver_1']
+        shearalfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
 
         # Load MHD equilibrium
@@ -179,14 +179,10 @@ class LinearMHD(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         
-        if self._u_space == 'Hdiv':
-            Alfven = getattr(propagators, 'StepShearAlfven2')
-            Magnetosonic = getattr(propagators, 'StepMagnetosonic2') 
-        elif self._u_space == 'H1vec':
-            Alfven = getattr(propagators, 'StepShearAlfven3')
-            Magnetosonic = getattr(propagators, 'StepMagnetosonic3') 
+        ShearAlfven = getattr(propagators, 'StepShearAlfvén' + str(self._u_space))
+        Magnetosonic = getattr(propagators, 'StepMagnetosonic' + str(self._u_space)) 
             
-        self._propagators += [Alfven(self._u, self._b, derham, self._mass_ops, self._mhd_ops, alfven_solver)]
+        self._propagators += [ShearAlfven(self._u, self._b, derham, self._mass_ops, self._mhd_ops, shearalfven_solver)]
         self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         
         # Scalar variables to be saved during simulation
