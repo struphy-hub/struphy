@@ -16,7 +16,6 @@ Indices and tables
    :maxdepth: 3
    :caption: Contents
 
-   sections/require
    sections/install
    sections/quickstart
    sections/intro
