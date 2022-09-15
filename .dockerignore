@@ -1,0 +1,11 @@
+Dockerfile
+*.dockerfile*
+*.md
+LICENSE
+env/
+doc/
+**/*.so
+**/__gpyccel__*
+**/__psydac__*
+**/__pycache__*
+**/.git

@@ -1,101 +1,69 @@
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/ee/development/cicd/templates.html
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Python.gitlab-ci.yml
-
 # Keyword reference for the .gitlab-ci.yml file: 
 # https://gitlab.mpcdf.mpg.de/help/ci/yaml/index.md
 
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/python/tags/
 
-  
 
 default:
-  #image: python:3.9-bullseye
-  #image: gitlab-registry.mpcdf.mpg.de/mpcdf/module-image
-
   before_script:
     - module purge
     - module load gcc openmpi anaconda/3/2021.11 mpi4py
     - module list
-    - echo "Hello ${GITLAB_USER_NAME} !"
-    - echo "This is job ${CI_JOB_ID}"
-    - python -V 
-    - python3 -V
-    - pwd
-    - ls -1
-    - echo "Project $CI_PROJECT_NAME"
-    - VERSION=$(python3 -c 'from struphy.version import __version__; print(__version__)')
-    - echo "Version $VERSION"
     - source ${GLOBAL_CACHE_PATH}/env/bin/activate
-    - which python3
     - ENV_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_path("platlib"))')
-    - echo ${ENV_PATH}
-    - pip list
-    # - apt-get -y update
-    # - apt-get install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
-    # - apt-get install -y libhdf5-openmpi-dev
-
-  #cache:
-  #  paths:
-  #    - .cache/pip
-  #    - env/
-
   tags:
     - ipp_vm_linux_struphy
-
-# Change pip's cache directory to be inside the project directory since we can
-# only cache local items.
+  
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   GIT_SUBMODULE_STRATEGY: recursive
   GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/struphy_${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
-  #VENV_NAME: "env/"
-
-# Pip's cache doesn't store the python packages
-# https://pip.pypa.io/en/stable/reference/pip_install/#caching
-#
-# If you want to also cache the installed packages, you have to install
-# them in a virtualenv and cache it as well.
+  UBUNTU20_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20
+  RELEASE_IMAGE: $CI_REGISTRY/struphy/struphy/struphy_release
+  DEV_IMAGE: $CI_REGISTRY/struphy/struphy/struphy_dev
 
 stages:
   - startup
   - build
   - install
-  - test
+  - test_default
+  - test_release
   - deploy 
   - cleanup
 
-# Create virtual environment (cached)
-create_venv:
+# python virtual environment into cache
+default_venv:
   stage: startup
-
   before_script:
-    - echo "Creating virtual environment..."
+    - uname -s # get system info
+    - uname -v
+    - uname -m
+    - uname -o
+    - echo "Hello ${GITLAB_USER_NAME} !"
+    - echo "This is job ${CI_JOB_ID}"
     - module purge
     - module load gcc openmpi anaconda/3/2021.11 mpi4py
     - module list
-
   script:
+    - echo "Creating virtual environment..."
     - pip install -U virtualenv
     - python3 -m venv ${GLOBAL_CACHE_PATH}/env
     - source ${GLOBAL_CACHE_PATH}/env/bin/activate
     - python3 -m pip install --upgrade pip
-    - pip install -U pytest coverage h5py pylint build wheel # somehow the build package is not cached
+    - pip install -U pytest coverage h5py build wheel # somehow the build package is not cached
     - pip list
 
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
-ci_variables:
+ci_vars:
   stage: startup
-
   before_script:
     - echo "All CI predefined variables:"
     - module purge
     - module load gcc openmpi anaconda/3/2021.11 mpi4py
     - module list
-
   script:
+    - echo "All CI predefined variables:"
     - echo $CHAT_CHANNEL
     - echo $CHAT_INPUT
     - echo $CHAT_USER_ID
@@ -204,45 +172,41 @@ ci_variables:
     - echo $GITLAB_USER_NAME
     - echo $TRIGGER_PAYLOAD
 
-# Verify the PEP-8 guidelines for your code
-linting:
-  stage: build 
+# # Verify the PEP-8 guidelines for your code
+# linting:
+#   stage: startup
+#   before_script:
+#     - module load anaconda/3/2021.11 
+#     - pip install -U pylint
+#   script:
+#     - FLAGS="--recursive=y --exit-zero --reports=yes"
+#     - mkdir linting
+#     - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
+#     - pylint struphy/dispersion_relations/     --output-format=text:linting/dispersion_relations.txt $FLAGS
+#     - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
+#     - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
+#     - pylint struphy/fields_background/        --output-format=text:linting/fields_background.txt $FLAGS
+#     - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
+#     - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
+#     - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
+#     - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
+#     - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
+#     - pylint struphy/initial/                  --output-format=text:linting/initial.txt $FLAGS
+#     - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
+#     - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
+#     - pylint struphy/propagators/              --output-format=text:linting/propagators.txt $FLAGS
+#     - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
+#     - pylint struphy/tests_mpi/                --output-format=text:linting/tests_mpi.txt $FLAGS
+#   artifacts:
+#     paths:
+#       - linting/
 
-  needs: ["create_venv"]
-
-  script:
-    - FLAGS="--recursive=y --exit-zero --reports=yes"
-    - mkdir linting
-    - pylint struphy/diagnostics/              --output-format=text:linting/diagnostics.txt $FLAGS
-    - pylint struphy/dispersion_relations/     --output-format=text:linting/dispersion_relations.txt $FLAGS
-    - pylint struphy/examples/                 --output-format=text:linting/examples.txt $FLAGS
-    - pylint struphy/feec/                     --output-format=text:linting/feec.txt $FLAGS
-    - pylint struphy/fields_background/        --output-format=text:linting/fields_background.txt $FLAGS
-    - pylint struphy/geometry/                 --output-format=text:linting/geometry.txt $FLAGS
-    - pylint struphy/kinetic_background/       --output-format=text:linting/kinetic_background.txt $FLAGS
-    - pylint struphy/kinetic_init/             --output-format=text:linting/kinetic_init.txt $FLAGS
-    - pylint struphy/linear_algebra/           --output-format=text:linting/linear_algebra.txt $FLAGS
-    - pylint struphy/models/                   --output-format=text:linting/models.txt $FLAGS
-    - pylint struphy/initial/                  --output-format=text:linting/initial.txt $FLAGS
-    - pylint struphy/pic/                      --output-format=text:linting/pic.txt $FLAGS
-    - pylint struphy/psydac_api/               --output-format=text:linting/psydac_api.txt $FLAGS
-    - pylint struphy/propagators/              --output-format=text:linting/propagators.txt $FLAGS
-    - pylint struphy/tests/                    --output-format=text:linting/tests.txt $FLAGS
-    - pylint struphy/tests_mpi/                --output-format=text:linting/tests_mpi.txt $FLAGS
-    
-  artifacts:
-    paths:
-      - linting/
-
-# Build struphy
-build_struphy:
+# build on mpcdf server
+default_build:
   stage: build
-
-  needs: ["create_venv"]
-  
+  needs: ["default_venv"]
   script:
     - cd psydac
-    #- git pull origin devel 
     - git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 # last working commit before struphy breaks
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
@@ -252,23 +216,42 @@ build_struphy:
     - python3 -m pip install . -r requirements.txt
     - pip install sympy==1.6.1 
     - cd ..
-    - python -m build # build struphy (.whl)
-    - ls -1 
-
+    - python -m build # build struphy (.whl) 
   artifacts:
     paths:
       - dist/
 
+# environment images (no struphy installed)
+ubuntu20_image_build:
+  stage: build
+  needs: []
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $UBUNTU20_IMAGE -f images/ubuntu20.dockerfile .
+    - docker push $UBUNTU20_IMAGE
+
+# struphy images
+release_image_build:
+  stage: build
+  needs: ["ubuntu20_image_build"]
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $RELEASE_IMAGE -f images/struphy_ubuntu20.dockerfile .
+    - docker push $RELEASE_IMAGE
+
 # Install from wheel and compile
-install_and_compile:
+default_install:
   stage: install
-
-  needs: ["build_struphy"]
-
+  needs: ["default_build"]
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
     - struphy
+    - pyccel --version
     - struphy compile
     - ./struphy/verify_compilation.sh
     - pip list
@@ -276,14 +259,12 @@ install_and_compile:
     - pyccel kernels.py --language fortran
 
 # Testing suite
-unit_tests:
-  stage: test
-
-  needs: ["install_and_compile"]
-
+default_unit_tests:
+  stage: test_default
+  needs: ["default_install"]
   script:
-    - cd ${ENV_PATH}/struphy/tests_mpi/
-    - mpirun -n 2 pytest --with-mpi 
+    - struphy test --mpi 2
+    # run unit tests with coverage
     - cd ${ENV_PATH}/struphy/tests/
     - coverage run --omit="*/tests*" --data-file=$CI_PROJECT_DIR/.coverage -m pytest 
     - cd $CI_PROJECT_DIR
@@ -292,35 +273,46 @@ unit_tests:
     - coverage report --skip-empty
     - coverage erase
 
-  #artifacts:
-  #  reports:
-  #    cobertura: coverage.xml
-
-code_tests:
-  stage: test
-
-  needs: ["install_and_compile"]
-
+default_code_tests:
+  stage: test_default
+  needs: ["default_install"]
   script:
-    # Test Maxwell
-    - struphy run Maxwell -i tests/params_maxwell_1.yml -o sim_1
-    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_2
-    - struphy run Maxwell -i tests/params_maxwell_2.yml -o sim_3 --mpi 2
-    - struphy profile sim_1 sim_2 sim_3
-    # Test LinearMHD
-    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_4
-    # - struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_5 --mpi 2
-    # - struphy profile sim_4 sim_5
-    # Add Test for each model
+    - struphy test --codes
+
+release_unit_tests:
+  stage: test_release
+  needs: ["release_image_build", "default_unit_tests"]
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker rm -f release
+    - docker run -d -t --name release $RELEASE_IMAGE
+    - docker ps
+    - docker exec release struphy -p
+    - docker exec release struphy compile
+    - docker exec release struphy test
+
+release_code_tests:
+  stage: test_release
+  needs: ["release_image_build", "default_code_tests"]
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker rm -f release
+    - docker run -d -t --name release $RELEASE_IMAGE
+    - docker ps
+    - docker exec release struphy -p
+    - docker exec release struphy test --codes
 
 #Deployment
 pages:
   stage: deploy
-
+  needs: []
   script:
     - cd doc ; make html
     - mv _build/html/ ../public/
-
   artifacts:
     paths:
       - public/
@@ -328,9 +320,7 @@ pages:
 # Cleanup
 cleanup:
   stage: cleanup
-
   when: always
-
   script:
     - pwd
     - echo "on ${CI_RUNNER_DESCRIPTION}."
