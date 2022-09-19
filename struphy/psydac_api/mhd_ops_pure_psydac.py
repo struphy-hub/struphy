@@ -50,8 +50,6 @@ class MHDOperators:
         
         self._derham = derham
         self._domain = domain
-        
-        F = domain.F_psy.get_callable_mapping()
 
         # Psydac spline spaces
         self._V0 = derham.V0
@@ -67,24 +65,27 @@ class MHDOperators:
         self._P3 = derham.P3
         self._P0vec = derham.P0vec
         
-        # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
+        # Wrapper functions for metric coefficients
         def DF(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian(e1, e2, e3, False, False, True, False)
 
         def DFT(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 1, 0))
-
-        def G(e1, e2, e3):
-            return DFT(e1, e2, e3) @ DF(e1, e2, e3) 
-
+            return domain.jacobian(e1, e2, e3, False, False, True, True)
+            
         def DFinv(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, False)
 
         def DFinvT(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, True)
 
+        def G(e1, e2, e3):
+            return domain.metric(e1, e2, e3, False, False, True)
+            
         def Ginv(e1, e2, e3):
-            return DFinv(e1, e2, e3) @ DFinvT(e1, e2, e3)
+            return domain.metric_inv(e1, e2, e3, False, False, True)
+            
+        def sqrt_g(e1, e2, e3):
+            return abs(domain.jacobian_det(e1, e2, e3, False, False))
 
         # Cross product matrices and evaluation of cross products
         cross_mask = [[ 1, -1,  1], 
@@ -106,13 +107,13 @@ class MHDOperators:
                     [eq_mhd.b2_2, eq_mhd.b2_1, lambda e1, e2, e3: 0*e3]]
         
         # Scalar functions
-        fun_K0  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K0  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         
-        fun_K1  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K1  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         fun_K10 = [[lambda e1, e2, e3 : eq_mhd.p0(e1, e2, e3)]]
         
-        fun_K2  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
-        fun_Y20 = [[lambda e1, e2, e3 : np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K2  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+        fun_Y20 = [[lambda e1, e2, e3 : sqrt_g(e1, e2, e3)]]
         
         # 'Matrix' functions
         fun_Q0 = []
@@ -165,16 +166,16 @@ class MHDOperators:
                 fun_Q0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3(e1, e2, e3) if m == n else 0*e1]
                 fun_T0[-1] += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] * b2_cross[m][n](e1, e2, e3)]
                 fun_S0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(e1, e2, e3) if m == n else 0*e1]
-                fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 
                 fun_Q1[-1]  += [lambda e1, e2, e3, m=m,
                                 n=n: eq_mhd.n3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_W1[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_U1[-1]  += [lambda e1, e2, e3, m=m,
-                                n=n: np.sqrt(F.metric_det(e1, e2, e3)) * Ginv(e1, e2, e3)[:, :, :, m, n]]
+                                n=n: sqrt_g(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_P1[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
-                                j2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                                j2_cross[m][n](e1, e2, e3) / sqrt_g(e1, e2, e3)]
                 fun_S1[-1]  += [lambda e1, e2, e3, m=m,
                                 n=n: eq_mhd.p3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_T1[-1]  += [lambda e1, e2, e3, m=m, n=n: (eval_cross(
@@ -185,19 +186,19 @@ class MHDOperators:
                                  n=n: eq_mhd.p0(e1, e2, e3) if m == n else 0*e1]
 
                 fun_Q2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_T2[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
-                                b2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                                b2_cross[m][n](e1, e2, e3) / sqrt_g(e1, e2, e3)]
                 fun_P2[-1]  += [lambda e1, e2, e3, m=m, n=n: (Ginv(e1, e2, e3) @ eval_cross(
                     e1, e2, e3, j2_cross))[:, :, :, m, n]]  # Matrix product!
                 fun_S2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_X2[-1]  += [lambda e1, e2, e3, m=m,
-                                n=n: DF(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                                n=n: DF(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
                 fun_Z20[-1] += [lambda e1, e2, e3, m=m,
-                                 n=n: G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                                 n=n: G(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
                 fun_S20[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p0(
-                    e1, e2, e3) * G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                    e1, e2, e3) * G(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
 
         # Scalar functions
         self._fun_K0  = fun_K0

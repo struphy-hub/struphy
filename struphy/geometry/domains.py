@@ -35,7 +35,7 @@ class Cuboid(Domain):
                                            'z': 'l3 + (r3 - l3)*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = False
 
@@ -91,7 +91,7 @@ class HollowCylinder(Domain):
                                            'z': 'Lz*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         if self.params_map[0] == 0.:
             self._pole = True
@@ -149,7 +149,7 @@ class Colella(Domain):
                                             'z': 'Lz*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = False
 
@@ -204,7 +204,7 @@ class Orthogonal(Domain):
                                             'z': 'Lz*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = False
 
@@ -259,7 +259,7 @@ class HollowTorus(Domain):
                                             'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = True
         if self.params_map[0] == 0.:
             self._pole = True
@@ -318,7 +318,7 @@ class EllipticCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -374,7 +374,7 @@ class RotatedEllipticCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -430,7 +430,7 @@ class PoweredEllipticCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -485,7 +485,7 @@ class ShafranovShiftCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -541,7 +541,7 @@ class ShafranovSqrtCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -597,7 +597,7 @@ class ShafranovDshapedCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -653,7 +653,7 @@ class ShafranovNonAxisSymmCylinder(Domain):
                                             'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
-        self._params_map = list(params.values())
+        self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = False
         self._pole = True
 
@@ -719,7 +719,7 @@ class Spline(Domain):
                 self._cy = handle['cy'][:]
                 self._cz = handle['cz'][:]
 
-        _float_params = np.empty()
+        _float_params = np.array([])
 
         self._periodic_eta3 = self._params_map['spl_kind'][-1] # Set by the user.
 
@@ -779,7 +779,7 @@ class PoloidalSplineStraight(Domain):
                 self._cx = handle['cx'][:]
                 self._cy = handle['cy'][:]
 
-        _float_params = np.empty()
+        _float_params = np.array([params_map['Lz']])
 
         self._periodic_eta3 = False
 
@@ -845,7 +845,7 @@ class PoloidalSplineToroidal(Domain):
                 self._cx = handle['cx'][:]
                 self._cy = handle['cy'][:]
 
-        _float_params = np.empty()
+        _float_params = np.array([])
 
         self._periodic_eta3 = True
 
@@ -895,7 +895,7 @@ class PoloidalSplineCylinder(Domain):
 
         y &= \sum_{ij} c^y_{ij} N_i(\eta_1) N_j(\eta_2) \quad \approx \quad a\,\eta_1\sin(2\pi\eta_2)\,, 
 
-        z &= L_z\eta_3\,.
+        z &= 2\pi R_0\eta_3\,.
         \end{aligned}\right.
 
     .. image:: ../pics/mappings/xxx.png'''
@@ -911,7 +911,7 @@ class PoloidalSplineCylinder(Domain):
             self._params_map = params_map
 
         # parameter values needed or evaluation
-        _float_params = np.array([2*np.pi*self.params_map['R0'], self.params_map['a']])
+        _float_params = np.array([2*np.pi*self.params_map['R0']])
 
         self._periodic_eta3 = False
 
@@ -930,9 +930,9 @@ class PoloidalSplineCylinder(Domain):
         self._cx = self.cx[:, :, None]
         self._cy = self.cy[:, :, None]
         self._cz = np.zeros((1, 1, 1), dtype=float)
-
+        
         super().__init__()
-
+        
         # reset params_map numpy array
         self._params_map = _float_params
 
@@ -981,7 +981,8 @@ class PoloidalSplineTorus(Domain):
         else:
             self._params_map = params_map
 
-        _float_params = np.empty()
+        # parameter values needed or evaluation
+        _float_params = np.array([])
 
         self._periodic_eta3 = True
 

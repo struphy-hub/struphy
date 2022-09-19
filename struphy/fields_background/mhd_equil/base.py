@@ -108,7 +108,7 @@ class EquilibriumMHD(metaclass=ABCMeta):
         """ 0-form absolute value of equilibrium magnetic field in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.b, s, chi, phi, '0_form', flat_eval, squeeze_output)
+        return self.domain.pull([self.b], s, chi, phi, '0_form', flat_eval, squeeze_output)
       
     def b1_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 1-form equilibrium magnetic field (1-component) in logical space.
@@ -204,22 +204,22 @@ class EquilibriumMHD(metaclass=ABCMeta):
         """ 0-form equilibrium pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '0_form', flat_eval, squeeze_output)
+        return self.domain.pull([self.p], s, chi, phi, '0_form', flat_eval, squeeze_output)
       
     def p3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 3-form equilibrium pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '3_form', flat_eval, squeeze_output)
+        return self.domain.pull([self.p], s, chi, phi, '3_form', flat_eval, squeeze_output)
    
     def n0(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 0-form equilibrium number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '0_form', flat_eval, squeeze_output)
+        return self.domain.pull([self.n], s, chi, phi, '0_form', flat_eval, squeeze_output)
      
     def n3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 3-form equilibrium number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '3_form', flat_eval, squeeze_output)
+        return self.domain.pull([self.n], s, chi, phi, '3_form', flat_eval, squeeze_output)

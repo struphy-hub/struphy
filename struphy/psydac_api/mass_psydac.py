@@ -34,26 +34,27 @@ class WeightedMass:
         self._derham = derham
         self._domain = domain
         
-        F = domain.F_psy.get_callable_mapping()
-        
-        # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
+        # Wrapper functions for metric coefficients
         def DF(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian(e1, e2, e3, False, False, True, False)
 
         def DFT(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 1, 0))
-
-        def G(e1, e2, e3):
-            return DFT(e1, e2, e3) @ DF(e1, e2, e3) 
-
+            return domain.jacobian(e1, e2, e3, False, False, True, True)
+            
         def DFinv(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, False)
 
         def DFinvT(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, True)
 
+        def G(e1, e2, e3):
+            return domain.metric(e1, e2, e3, False, False, True)
+            
         def Ginv(e1, e2, e3):
-            return DFinv(e1, e2, e3) @ DFinvT(e1, e2, e3)
+            return domain.metric_inv(e1, e2, e3, False, False, True)
+            
+        def sqrt_g(e1, e2, e3):
+            return abs(domain.jacobian_det(e1, e2, e3, False, False))
         
         # Cross product matrices and evaluation of cross products
         cross_mask = [[ 1, -1,  1], 
@@ -73,8 +74,8 @@ class WeightedMass:
                         [weights['eq_mhd'].j2_2, weights['eq_mhd'].j2_1, lambda e1, e2, e3 : 0*e3]]
        
         # scalar functions
-        fun_M0 = [[lambda e1, e2, e3 :   np.sqrt(F.metric_det(e1, e2, e3))]]
-        fun_M3 = [[lambda e1, e2, e3 : 1/np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_M0 = [[lambda e1, e2, e3 :   sqrt_g(e1, e2, e3)]]
+        fun_M3 = [[lambda e1, e2, e3 : 1/sqrt_g(e1, e2, e3)]]
         
         # matrix functions
         fun_M1 = []
@@ -103,16 +104,16 @@ class WeightedMass:
                 fun_MvJ += [[]]
             
             for n in range(3):
-                fun_M1[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))]
-                fun_M2[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))]
-                fun_Mv[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))]
+                fun_M1[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)]
+                fun_M2[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/sqrt_g(e1, e2, e3)]
+                fun_Mv[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)]
                 
                 if 'eq_mhd' in weights:
-                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
-                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
-                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*np.sqrt(F.metric_det(e1, e2, e3))*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_M1n[-1] += [lambda e1, e2, e3, m=m, n=n : Ginv(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_M2n[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]/sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
+                    fun_Mvn[-1] += [lambda e1, e2, e3, m=m, n=n : G(e1, e2, e3)[:, :, :, m, n]*sqrt_g(e1, e2, e3)*weights['eq_mhd'].n0(e1, e2, e3, squeeze_output=False)]
                     fun_M1J[-1] += [lambda e1, e2, e3, m=m, n=n : (Ginv(e1, e2, e3) @ eval_cross(e1, e2, e3, j2_cross))[:, :, :, m, n]]
-                    fun_M2J[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)/np.sqrt(F.metric_det(e1, e2, e3))]
+                    fun_M2J[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)/sqrt_g(e1, e2, e3)]
                     fun_MvJ[-1] += [lambda e1, e2, e3, m=m, n=n : cross_mask[m][n]*j2_cross[m][n](e1, e2, e3)]
                     
                 

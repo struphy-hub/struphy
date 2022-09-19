@@ -457,13 +457,13 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
                 # point data for vtk file at time n
                 if space_id == 'Hcurl':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'1_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'1_form_{j + 1}')
                 elif space_id == 'Hdiv':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'2_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'2_form_{j + 1}')
                 elif space_id == 'H1vec':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'vector_{j + 1}') 
+                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'vector_{j + 1}') 
 
                 point_data_phys[name][n*dt] = [point_data_n[name + f'_{j + 1}'] for j in range(3)]
         

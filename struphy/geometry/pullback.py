@@ -278,94 +278,7 @@ def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         print('Error: component does not exist')
 
 
-def pull_all(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
-    """
-    Point-wise pull-back of a Cartesian scalar/vector field to a differential k-form.
-
-    Parameters
-    ----------
-        a : array[float]
-            Value of scalar field [a] or values of Cartesian components of vector field [ax, ay, az].
-
-        eta1, eta2, eta3 : float
-            Evaluation point.
-
-        kind_fun : int
-            Which pull-back to be performed.
-
-        kind_map : int                 
-            Kind of mapping (see module docstring).
-
-        params_map : array[float]
-            Parameters for the mapping in a 1d array.
-
-        tn1, tn2, tn3 : array[float]          
-            Knot vectors of univariate splines.
-
-        pn : array[int]
-            Degrees of univariate splines [pn1, pn2, pn3].
-
-        ind_n1, ind_n2, ind_n3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy, cz : array[float]     
-            Control points of (f_1, f_2, f_3) in case of a IGA mapping.
-
-    Returns
-    -------
-        value : float
-            Component of differential p-form resulting from the pull-back.
-    """
-
-    value = 0.
-
-    # 0-form
-    if kind_fun == 0:
-        value = pull_0_form(a[0], eta1, eta2, eta3, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-    # 3-form
-    elif kind_fun == 3:
-        value = pull_3_form(a[0], eta1, eta2, eta3, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-    # 1-form
-    elif kind_fun == 11:
-        value = pull_1_form(a, eta1, eta2, eta3, 1, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 12:
-        value = pull_1_form(a, eta1, eta2, eta3, 2, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 13:
-        value = pull_1_form(a, eta1, eta2, eta3, 3, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-    # 2-form
-    elif kind_fun == 21:
-        value = pull_2_form(a, eta1, eta2, eta3, 1, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 22:
-        value = pull_2_form(a, eta1, eta2, eta3, 2, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 23:
-        value = pull_2_form(a, eta1, eta2, eta3, 3, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-    # vector
-    elif kind_fun == 31:
-        value = pull_vector(a, eta1, eta2, eta3, 1, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 32:
-        value = pull_vector(a, eta1, eta2, eta3, 2, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-    elif kind_fun == 33:
-        value = pull_vector(a, eta1, eta2, eta3, 3, kind_map, params_map,
-                            tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-    return value
-
-
-def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]'):
+def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid : bool):
     """
     Pull-back of a Cartesian scalar/vector field to a differential k-form.
 
@@ -397,6 +310,9 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
 
         cx, cy, cz : array[float]     
             Control points of (f_1, f_2, f_3) in case of a IGA mapping.
+            
+        is_sparse_meshgrid : bool
+            Whether the evaluation points werde obtained from a sparse meshgrid.
 
     Returns
     -------
@@ -407,103 +323,60 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
+    
+    if is_sparse_meshgrid:
+        sparse_factor = 0
+    else:
+        sparse_factor = 1
 
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                values[i1, i2, i3] = pull_all(a[:, i1, i2, i3], eta1[i1, i2, i3], eta2[i1, i2, i3], eta3[i1, i2, i3],
-                                              kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                
+                e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
+                e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
+                e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
+                
+                # 0-form
+                if   kind_fun == 0:
+                    values[i1, i2, i3] = pull_0_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
+                # 3-form
+                elif kind_fun == 3:
+                    values[i1, i2, i3] = pull_3_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-def kernel_evaluate_sparse(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]'):
-    """
-    Pull-back of a Cartesian scalar/vector field to a differential k-form using sparse meshgrids.
+                # 1-form
+                elif kind_fun == 11:
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 12:
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 13:
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-    Parameters
-    ----------
-        a : array[float]
-            Values of scalar field [a_ijk] or values of Cartesian components of vector field [a_mu,ijk].
+                # 2-form
+                elif kind_fun == 21:
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 22:
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 23:
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
-        eta1, eta2, eta3 : array[float]
-            Evaluation points in 3d arrays such that shape(eta1) = (:,1,1), shape(eta2) = (1,:,1), shape(eta3) = (1,1,:).
-
-        kind_fun : int
-            Which pull-back to be performed.
-
-        kind_map : int                 
-            Kind of mapping (see module docstring).
-
-        params_map : array[float]
-            Parameters for the mapping in a 1d array.
-
-        tn1, tn2, tn3 : array[float]          
-            Knot vectors of univariate splines.
-
-        pn : array[int]
-            Degrees of univariate splines [pn1, pn2, pn3].
-
-        ind_n1, ind_n2, ind_n3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy, cz : array[float]     
-            Control points of (f_1, f_2, f_3) in case of a IGA mapping.
-
-    Returns
-    -------
-        values : float
-            Component of differential p-form resulting from the pull-back.
-    """
-
-    n1 = shape(eta1)[0]
-    n2 = shape(eta2)[1]
-    n3 = shape(eta3)[2]
-
-    for i1 in range(n1):
-        for i2 in range(n2):
-            for i3 in range(n3):
-                values[i1, i2, i3] = pull_all(a[:, i1, i2, i3], eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3],
-                                              kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-
-
-def kernel_evaluate_flat(a: 'float[:,:]', eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]', kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:]'):
-    """
-    Pull-back of a Cartesian scalar/vector field to a differential k-form using a flat evaluation.
-
-    Parameters
-    ----------
-        a : array[float]
-            Values of scalar field [a_ijk] or values of Cartesian components of vector field [a_mu,ijk].
-
-        eta1, eta2, eta3 : array[float]
-            Evaluation points in 1d arrays such that len(eta1) == len(eta2) == len(eta3).
-
-        kind_fun : int
-            Which pull-back to be performed.
-
-        kind_map : int                 
-            Kind of mapping (see module docstring).
-
-        params_map : array[float]
-            Parameters for the mapping in a 1d array.
-
-        tn1, tn2, tn3 : array[float]          
-            Knot vectors of univariate splines.
-
-        pn : array[int]
-            Degrees of univariate splines [pn1, pn2, pn3].
-
-        ind_n1, ind_n2, ind_n3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-
-        cx, cy, cz : array[float]     
-            Control points of (f_1, f_2, f_3) in case of a IGA mapping.
-
-    Returns
-    -------
-        values : float
-            Component of differential p-form resulting from the pull-back.
-    """
-
-    for i in range(len(eta1)):
-        values[i] = pull_all(a[:, i], eta1[i], eta2[i], eta3[i], kind_fun, kind_map,
-                             params_map, tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                # vector
+                elif kind_fun == 31:
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 32:
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                elif kind_fun == 33:
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                                                     tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
+                    
