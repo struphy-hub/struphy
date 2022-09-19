@@ -35,6 +35,8 @@ stages:
 # python virtual environment into cache
 default_venv:
   stage: startup
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - uname -s # get system info
     - uname -v
@@ -57,6 +59,8 @@ default_venv:
 # Print some predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   stage: startup
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - echo "All CI predefined variables:"
     - module purge
@@ -204,6 +208,8 @@ ci_vars:
 # build on mpcdf server
 default_build:
   stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
     - cd psydac
@@ -225,6 +231,8 @@ default_build:
 ubuntu20_image_build:
   stage: build
   needs: []
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "devel"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -236,6 +244,8 @@ ubuntu20_image_build:
 release_image_build:
   stage: build
   needs: ["ubuntu20_image_build"]
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "devel"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -247,6 +257,8 @@ release_image_build:
 default_install:
   stage: install
   needs: ["default_build"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
@@ -262,6 +274,8 @@ default_install:
 default_unit_tests:
   stage: test_default
   needs: ["default_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --mpi 2
     # run unit tests with coverage
@@ -276,12 +290,16 @@ default_unit_tests:
 default_code_tests:
   stage: test_default
   needs: ["default_install"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --codes
 
 release_unit_tests:
   stage: test_release
-  needs: ["release_image_build", "default_unit_tests"]
+  needs: ["release_image_build"]
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "devel"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -295,7 +313,9 @@ release_unit_tests:
 
 release_code_tests:
   stage: test_release
-  needs: ["release_image_build", "default_code_tests"]
+  needs: ["release_image_build"]
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "devel"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -310,6 +330,8 @@ release_code_tests:
 pages:
   stage: deploy
   needs: []
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "devel" 
   script:
     - cd doc ; make html
     - mv _build/html/ ../public/
@@ -320,7 +342,8 @@ pages:
 # Cleanup
 cleanup:
   stage: cleanup
-  when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - pwd
     - echo "on ${CI_RUNNER_DESCRIPTION}."

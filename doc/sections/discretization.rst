@@ -1,9 +1,47 @@
-.. _appendix:
+.. _gempic:
 
-Appendix
-========
+GEMPIC discretization
+=====================
 
-.. _uni_variate_spaces:
+Struphy discretization is performed according to the GEMPIC (Geometric ElectroMagnetic Particle-In-Cell) framework.
+Relevant publications are (and the references therein):
+
+    1. M. Kraus, K. Kormann, P. J. Morrison, E. Sonnendrücker, "GEMPIC: Geometric ElectroMagnetic
+    Particle-In-Cell Methods", [Journal of Plasma Physics 83.4 (2017)](https://www.cambridge.org/core/journals/journal-of-plasma-physics/article/gempic-geometric-electromagnetic-particleincell-methods/C32D97F1B5281878F094B7E5075D291A)
+    
+    2. F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving 
+    finite elements with particles-in-cell", [J. Comp. Phys. 433 (2021) 110143](https://www.sciencedirect.com/science/article/pii/S0021999121000358?via%3Dihub)
+
+
+.. _geomFE:
+
+Geometric finite elements
+-------------------------
+
+Coming soon !
+
+.. image:: ../pics/geometric_dofs.pdf
+
+
+.. _3d_derham_complex:
+
+3d Derham complex
+-----------------
+
+Coming soon !
+
+.. image:: ../pics/deRham_diag.png
+
+
+.. _particle_discrete:
+
+Particle discretization
+-----------------------
+
+Coming soon !
+
+
+. _uni_variate_spaces:
 
 Uni-variate spline spaces
 -------------------------
@@ -207,3 +245,6 @@ Polar splines
 -------------
 
 Coming soon !
+
+
+

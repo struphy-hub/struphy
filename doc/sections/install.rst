@@ -30,7 +30,12 @@ User install
 
 To use struphy via docker, perform the following steps:
 
-1. `Install docker desktop <https://docs.docker.com/desktop/>`_. Test your installation by typing ``docker info`` in the terminal.
+1. `Install Docker Desktop <https://www.docker.com/products/docker-desktop/>`_. 
+You need admin rights to run Docker Desktop.
+
+Test your installation by typing ``sudo docker info`` in the terminal.
+The `sudo` is not necessary if you `add Docker’s official GPG key <https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository>`_.
+If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_::
 
 (REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
 
@@ -55,7 +60,9 @@ Important docker commands
 * ``docker exec <container_name> COMMAND`` gives a command to a detached container.
 * ``docker stop <container_name>`` stops the container.
 * ``docker images`` shows the images available on your computer.
-* ``docker run -i -t -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release`` mirrors struphy output to ``~/<dir>`` on the host machine.
+* Mirror default struphy output to ``~/<dir>`` on the host machine::
+    
+    docker run -i -t -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
 
 .. _docker_devs:
 
@@ -72,12 +79,12 @@ This launches the recommended dev environment for struphy (``Ubuntu 20.04``)
 with all dependencies installed and compiled. Type ``pip list`` to view the installed Python packages.
 Type ``exit`` to exit and close the container.
 
-In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container.
-On Linux this is done via::
+In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
+with the ``-v`` option. For a ``rsa`` key this is done with::
 
     docker run -i -t -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
 
-On other OS ``~/.ssh/id_rsa`` must be replaced with the path to the private key.
+On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
 You can now install struphy in developer mode::
 
@@ -100,6 +107,9 @@ You can click on a running container and go down the file tree to edit the file 
 
 PyPI
 ----
+
+WARNING: this install is tested only on ``x86_64`` with ``Ubuntu 20.04`` 
+and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
 
 Struphy is not yet released on the `Python Packaging Index <https://pypi.org/>`_, instead we describe here the similar
 installation from the latest ``.whl`` file.
@@ -132,6 +142,9 @@ where ``<option>`` is either empty (for Python environment installation), ``--us
 
 Source
 ------
+
+WARNING: this install is tested only on ``x86_64`` with ``Ubuntu 20.04`` 
+and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
 
 1. Clone the `struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, update submodules 
 and name the repo ``<name>`` via::

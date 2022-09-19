@@ -21,6 +21,7 @@ Indices and tables
    sections/intro
    sections/userguide
    sections/developers
+   sections/discretization
    sections/models
    sections/domains
    sections/backgrounds
@@ -28,7 +29,6 @@ Indices and tables
    sections/dispersions
    sections/toolkit
    sections/examples
-   sections/appendix
    
 
 

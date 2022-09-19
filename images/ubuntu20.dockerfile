@@ -1,11 +1,11 @@
 FROM ubuntu:20.04
 
 # install linux pacakges
-RUN apt update -y && apt clean
-RUN apt install -y gfortran gcc git curl
-RUN DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev 
-RUN apt install -y libblas-dev openmpi-bin libomp-dev libomp5 libhdf5-openmpi-dev 
-RUN apt install -y python3-pip python3-mpi4py python3-venv
+RUN apt update -y && apt clean \
+    && apt install -y gfortran gcc git curl vim \
+    && DEBIAN_FRONTEND=noninteractive TZ="Europe/Berlin" apt-get install -y liblapack-dev libopenmpi-dev \
+    && apt install -y libblas-dev openmpi-bin libomp-dev libomp5 libhdf5-openmpi-dev \
+    && apt install -y python3-pip python3-mpi4py python3-venv
 
 # create new working dir
 WORKDIR /struphy/
