@@ -31,12 +31,6 @@ class Pusher:
                           np.array(derham.V2.vector_space.starts),
                           np.array(derham.V3.vector_space.starts))
         
-        # get mapping information
-        self._args_map = (domain.kind_map, domain.params_map,
-                          np.array(domain.p), domain.T[0], domain.T[1], domain.T[2],
-                          domain.indN[0], domain.indN[1], domain.indN[2],
-                          domain.cx, domain.cy, domain.cz)
-        
         # select pusher
         self._pusher_name = pusher_name
         self._pusher = getattr(pushers, self._pusher_name) 
@@ -61,7 +55,7 @@ class Pusher:
                 Whether to do a marker sorting according to the MPI decomposition (needed when marker positions change during push).
         """
         
-        self._pusher(particles.markers, dt, *self.args_fem, *self.args_map, *args)
+        self._pusher(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args)
         
         if do_mpi_sort: particles.send_recv_markers()
         
@@ -81,7 +75,3 @@ class Pusher:
     @property
     def args_fem(self):
         return self._args_fem
-    
-    @property
-    def args_map(self):
-        return self._args_map

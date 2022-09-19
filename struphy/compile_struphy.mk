@@ -19,7 +19,6 @@ path_lib=$(FLAG_PATH)/
 
 # Linear algebra
 LAC  := ${path_lib}linear_algebra/core
-LAT  := ${path_lib}linear_algebra/kernels_tensor_product
 
 # Splines
 BK   := ${path_lib}feec/bsplines_kernels
@@ -28,7 +27,7 @@ BEV2 := ${path_lib}feec/basics/spline_evaluation_2d
 BEV3 := ${path_lib}feec/basics/spline_evaluation_3d
 
 # Mapping
-MAFA   := ${path_lib}geometry/mappings_fast
+MAFA := ${path_lib}geometry/mappings_fast
 MEVA := ${path_lib}geometry/map_eval
 PB3  := ${path_lib}geometry/pullback
 PF3  := ${path_lib}geometry/pushforward
@@ -36,33 +35,31 @@ TR3  := ${path_lib}geometry/transform
 
 # Kinetic background
 MOMK := ${path_lib}kinetic_background/moments_kernels
-F0K := ${path_lib}kinetic_background/f0_kernels
+F0K  := ${path_lib}kinetic_background/f0_kernels
 BEVA := ${path_lib}kinetic_background/background_eval
 
-# Rest
-KM2  := ${path_lib}feec/basics/kernels_2d
-KM3  := ${path_lib}feec/basics/kernels_3d
+# FEM kernels
+PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
+PLM  := ${path_lib}psydac_api/mass_kernels_psydac
+BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
 
-DER  := ${path_lib}feec/derivatives/kernels_derivatives
-
-# Accumulation
-FK	 := ${path_lib}pic/filler_kernels
-MVF	 := ${path_lib}pic/mat_vec_filler
-
-ACC	 := ${path_lib}pic/accum_kernels
-
-KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
-KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
+# PIC
+FK   := ${path_lib}pic/filler_kernels
+MVF  := ${path_lib}pic/mat_vec_filler
+ACC  := ${path_lib}pic/accum_kernels
 
 PUSH := ${path_lib}pic/pusher_kernels
 PUTL := ${path_lib}pic/pusher_utilities
 PS   := ${path_lib}pic/sampling
 
-PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
-PLM  := ${path_lib}psydac_api/mass_kernels_psydac
-BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
+# Legacy
+KM2  := ${path_lib}feec/basics/kernels_2d
+KM3  := ${path_lib}feec/basics/kernels_3d
 
-SOURCES := $(LAC).py $(LAT).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(KM2).py $(KM3).py $(DER).py $(FK).py $(MVF).py $(ACC).py $(KPG).py $(KPGM).py $(PUSH).py $(PUTL).py $(PS).py $(PLP).py $(PLM).py $(BTS).py
+KPG  := ${path_lib}feec/projectors/pro_global/kernels_projectors_global
+KPGM := ${path_lib}feec/projectors/pro_global/kernels_projectors_global_mhd
+
+SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(FK).py $(MVF).py $(ACC).py $(PUSH).py $(PUTL).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py 
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -75,9 +72,6 @@ OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 all: $(OUTPUTS)
 
 $(LAC)$(SO_EXT) : $(LAC).py
-	pyccel $< $(FLAGS) 
-    
-$(LAT)$(SO_EXT) : $(LAT).py
 	pyccel $< $(FLAGS)
 
 $(BK)$(SO_EXT) : $(BK).py
@@ -92,7 +86,7 @@ $(BEV2)$(SO_EXT) : $(BEV2).py $(BK)$(SO_EXT)
 $(BEV3)$(SO_EXT) : $(BEV3).py $(BK)$(SO_EXT)
 	pyccel $< $(FLAGS)
     
-$(MAFA)$(SO_EXT) : $(MAFA).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(LAC)$(SO_EXT)
+$(MAFA)$(SO_EXT) : $(MAFA).py $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT)
 	pyccel $< $(FLAGS)
 
 $(MEVA)$(SO_EXT) : $(MEVA).py $(MAFA)$(SO_EXT) $(LAC)$(SO_EXT)
@@ -115,40 +109,7 @@ $(F0K)$(SO_EXT) : $(F0K).py $(MOMK)$(SO_EXT)
     
 $(BEVA)$(SO_EXT) : $(BEVA).py $(F0K)$(SO_EXT) 
 	pyccel $< $(FLAGS)
-
-$(KM2)$(SO_EXT) : $(KM2).py
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
     
-$(KM3)$(SO_EXT) : $(KM3).py
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-    
-$(DER)$(SO_EXT) : $(DER).py
-	pyccel $< $(FLAGS)
-    
-$(FK)$(SO_EXT) : $(FK).py
-	pyccel $< $(FLAGS)
-    
-$(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(ACC)$(SO_EXT) : $(ACC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $(LAC)$(SO_EXT) $(MVF)$(SO_EXT) $(BEV3)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(KPG)$(SO_EXT) : $(KPG).py
-	pyccel $< $(FLAGS)
-    
-$(KPGM)$(SO_EXT) : $(KPGM).py
-	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
-
-$(PUSH)$(SO_EXT) : $(PUSH).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEVA)$(SO_EXT) $(LAC)$(SO_EXT) $(MVF)$(SO_EXT) $(BEV3)$(SO_EXT)
-	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
-
-$(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
-$(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)
-	pyccel $< $(FLAGS)
-
 $(PLP)$(SO_EXT) : $(PLP).py
 	pyccel $< $(FLAGS)
     
@@ -157,6 +118,38 @@ $(PLM)$(SO_EXT) : $(PLM).py
 
 $(BTS)$(SO_EXT) : $(BTS).py
 	pyccel $< $(FLAGS)
+    
+$(FK)$(SO_EXT) : $(FK).py
+	pyccel $< $(FLAGS)
+    
+$(MVF)$(SO_EXT) : $(MVF).py $(FK)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
+$(ACC)$(SO_EXT) : $(ACC).py $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT) $(BEVA)$(SO_EXT) $(MVF)$(SO_EXT) $(LAC)$(SO_EXT)  
+	pyccel $< $(FLAGS)
+    
+$(PUSH)$(SO_EXT) : $(PUSH).py $(LAC)$(SO_EXT) $(MEVA)$(SO_EXT) $(BK)$(SO_EXT) $(BEV3)$(SO_EXT)
+	pyccel $(FLAGS_openmp_pic) $< $(FLAGS)
+
+$(PUTL)$(SO_EXT) : $(PUTL).py $(LAC)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
+$(PS)$(SO_EXT) : $(PS).py $(LAC)$(SO_EXT) $(BK)$(SO_EXT) $(BEV2)$(SO_EXT) $(BEV3)$(SO_EXT) $(MEVA)$(SO_EXT)
+	pyccel $< $(FLAGS)
+
+$(KM2)$(SO_EXT) : $(KM2).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(KM3)$(SO_EXT) : $(KM3).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+    
+$(KPG)$(SO_EXT) : $(KPG).py
+	pyccel $< $(FLAGS)
+    
+$(KPGM)$(SO_EXT) : $(KPGM).py
+	pyccel $(FLAGS_openmp_mhd) $< $(FLAGS)
+
+
 
 #--------------------------------------
 # CLEAN UP
@@ -169,15 +162,12 @@ clean:
 	rm -rf ${path_lib}linear_algebra/__pyccel__ ${path_lib}linear_algebra/__pycache__ ${path_lib}linear_algebra/.lock_acquisition.lock
 	rm -rf ${path_lib}feec/__pyccel__ ${path_lib}feec/__pycache__ ${path_lib}feec/.lock_acquisition.lock
 	rm -rf ${path_lib}feec/basics/__pyccel__ ${path_lib}feec/basics/__pycache__ ${path_lib}feec/basics/.lock_acquisition.lock
-	rm -rf ${path_lib}feec/derivatives/__pyccel__ ${path_lib}feec/derivatives/__pycache__ ${path_lib}feec/derivatives/.lock_acquisition.lock
 	rm -rf ${path_lib}feec/projectors/__pyccel__ ${path_lib}feec/projectors/__pycache__ ${path_lib}feec/projectors/.lock_acquisition.lock
 	rm -rf ${path_lib}feec/projectors/pro_global/__pyccel__ ${path_lib}feec/projectors/pro_global/__pycache__ ${path_lib}feec/projectors/pro_global/.lock_acquisition.lock
 	rm -rf ${path_lib}feec/projectors/pro_local/__pyccel__ ${path_lib}feec/projectors/pro_local/__pycache__ ${path_lib}feec/projectors/pro_local/.lock_acquisition.lock
 	rm -rf ${path_lib}geometry/__pyccel__ ${path_lib}geometry/__pycache__ ${path_lib}geometry/.lock_acquisition.lock
 	rm -rf ${path_lib}kinetic_background/__pyccel__ ${path_lib}kinetic_background/__pycache__ ${path_lib}kinetic_background/.lock_acquisition.lock
-	rm -rf ${path_lib}kinetic_background/analytical/__pyccel__ ${path_lib}kinetic_background/analytical/__pycache__ ${path_lib}kinetic_background/analytical/.lock_acquisition.lock
 	rm -rf ${path_lib}diagnostics/__pyccel__ ${path_lib}diagnostics/__pycache__ ${path_lib}diagnostics/.lock_acquisition.lock
 	rm -rf ${path_lib}dispersion_relations/__pyccel__ ${path_lib}dispersion_relations/__pycache__ ${path_lib}dispersion_relations/.lock_acquisition.lock
 	rm -rf ${path_lib}pic/__pyccel__ ${path_lib}pic/__pycache__     ${path_lib}pic/.lock_acquisition.lock
-	rm -rf ${path_lib}pic/lin_Vlasov_Maxwell/__pyccel__ ${path_lib}feec/derivatives/__pycache__ ${path_lib}pic/lin_Vlasov_Maxwell/.lock_acquisition.lock
 	rm -rf ${path_lib}psydac_api/__pyccel__ ${path_lib}psydac_api/__pycache__ ${path_lib}psydac_api/.lock_acquisition.lock

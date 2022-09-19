@@ -204,22 +204,22 @@ class InitialMHD:
         """ 0-form initial pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '0_form')
+        return self.domain.pull([self.p], s, chi, phi, '0_form')
       
     def p3(self, s, chi, phi):
         """ 3-form initial pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '3_form')
+        return self.domain.pull([self.p], s, chi, phi, '3_form')
    
     def n0(self, s, chi, phi):
         """ 0-form initial number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '0_form')
+        return self.domain.pull([self.n], s, chi, phi, '0_form')
      
     def n3(self, s, chi, phi):
         """ 3-form initial number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '3_form')
+        return self.domain.pull([self.n], s, chi, phi, '3_form')

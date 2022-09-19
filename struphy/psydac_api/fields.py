@@ -409,13 +409,8 @@ class PulledPform:
 
         if self._coords == 'logical':
             f = self._fun[self._comp](eta1, eta2, eta3)
-
         elif self._coords == 'physical':
-            if len(self._fun) == 1:
-                f = self._domain.pull(self._fun[0], eta1, eta2, eta3, self._form)
-            else:
-                f = self._domain.pull(self._fun, eta1, eta2, eta3, self._form)
-
+            self._domain.pull(self._fun, eta1, eta2, eta3, self._form)
         else:
             raise ValueError(
                 'Coordinates to be used for p-form pullback not properly specified.')
