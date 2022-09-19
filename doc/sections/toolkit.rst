@@ -44,8 +44,8 @@ Propagators
 
 .. _derham:
 
-Discrete Derham sequence (3d)
------------------------------
+Discrete Derham psydac API
+--------------------------
 
 Theoretical background can be found in the :ref:`appendix`.
 
@@ -59,6 +59,15 @@ Finite element fields
 ---------------------
 
 .. autoclass:: struphy.psydac_api.fields.Field
+    :members: 
+
+
+.. _weighted_mass:
+
+Weighted mass matrices
+----------------------
+
+.. autoclass:: struphy.psydac_api.mass_psydac
     :members: 
 
 

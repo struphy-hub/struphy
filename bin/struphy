@@ -49,13 +49,13 @@ CODES=
 
 # Help displayed
 function struphy_help {
-    echo "struphy - structure-preserving hybrid codes"
+    echo "STRUPHY - STRUcture-Preserving HYbrid codes"
     echo
     echo "Usage: struphy [OPTIONS] [COMMAND]"
     echo 
     echo "Options:"
     echo "  -h, --help      This help"
-    echo "  -p, --path      Installation path"
+    echo "  -p, --path      Default installation and i/o paths"
     echo "  -v, --version   Installed version"
     echo
     echo "Commands:"
@@ -91,8 +91,10 @@ function run_help {
     echo "Run a struphy model."
     echo 
     echo "Models:"
-    echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models."
-    echo "  Valid expressions for MODEL are the class names, as in struphy.models.models.MODEL, for example, 'Maxwell'."
+    echo "  Maxwell     Maxwell equations in vacuum"
+    echo "  LinearMHD   Linear ideal MHD with zero-flow equilibrium"
+    echo 
+    echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
     echo 
     echo "Options:"
     echo "  -i, --input     Parameter FILE (.yml) relative to install_path/struphy/io/inp/, the default is 'parameters.yml'"
@@ -122,7 +124,7 @@ function pproc_help {
     echo "Usage: struphy pproc [--ppcell N] DIR_1 [DIR_2 ...]"
     echo
     echo "Post process data from finished struphy run."
-    echo "Here DIR_1, DIR_2 are directories relative to install_path/struphy/io/out/."
+    echo "See https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing for details."
     echo
     echo "Options:"
     echo "  --ppcell    Use N points per cell for field evaluation, default=1."
@@ -133,7 +135,6 @@ function example_help {
     echo "Usage: struphy example CASE"
     echo
     echo "Run complete struphy example with post processing and plotting."
-    echo "Here DIR_1, DIR_2 are directories relative to install_path/struphy/io/out/."
     echo
     echo "Cases:"
     echo "  maxwell       1d Maxwell equations in vacuum, dispersion relation."

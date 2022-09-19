@@ -24,7 +24,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## Installation
 
-* [struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.html)
+* See the [struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.html).
 
 ## Key references
 

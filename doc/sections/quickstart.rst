@@ -11,7 +11,7 @@ Check if kernels are compiled::
 
     struphy compile
 
-Get the ``<install_path>``::
+Get the ``<install_path>`` and default struphy paths::
 
     struphy -p
 
@@ -40,11 +40,11 @@ Profile the runs::
 
 Run Maxwell tests including post-processing and simple diagnostics in serial::
 
-    example_maxwell_serial
+    struphy example maxwell
 
 Same with three mpi processes::
 
-    example_maxwell_mpi_3
+    struphy example maxwell_mpi
 
 The source of the routines used in these post-processing examples is in ``<install_path>/examples/example_diagnostics_1dfft.py`` 
 
