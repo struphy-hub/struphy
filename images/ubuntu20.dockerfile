@@ -24,15 +24,16 @@ RUN git clone https://github.com/pyccel/psydac.git \
     && python3 -m pip install -r requirements_extra.txt --no-build-isolation \
     && pip install . \
     && cd .. \
-    $$ rm -rf psydac/
+    && rm -rf psydac/ 
 
 # compile psydac kernels 
 RUN PSYDAC=$(python3 -c "import psydac as _; print(_.__path__[0])") \
     && pyccel $PSYDAC/core/kernels.py \
     && pyccel $PSYDAC/core/bsplines_pyccel.py 
 
-# additional python pacakges
-RUN pip install pytest coverage h5py pylint build wheel
+# additional python pacakges and alias
+RUN pip install pytest coverage h5py pylint build wheel \
+    && echo 'alias python="python3"' >> /etc/bash.bashrc 
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
