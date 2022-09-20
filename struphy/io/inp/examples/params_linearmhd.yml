@@ -16,8 +16,8 @@ time :
       
 
 geometry : 
-      type : cuboid # mapping F (possible types seen below)  
-      cuboid : 
+      type : Cuboid # mapping F (possible types seen below)  
+      Cuboid : 
             l1 : 0. # start of interval in eta1
             r1 : 1. # end of interval in eta1, r1>l1
             l2 : 0. # start of interval in eta2
@@ -42,19 +42,20 @@ fields :
                   B0y  : 1. # magnetic field in y
                   B0z  : 1. # magnetic field in z
                   beta : 100. # plasma beta = 2*p*mu_0/B^2
+                  n0   : 1. # number density
 
 
 solvers :
       solver_1 : 
             type : pcg
-            pc : fft # null or fft
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-8
             maxiter : 3000
             info : False
             verbose : False
       solver_2 :
             type : pbicgstab
-            pc : fft # null or fft
+            pc : MassMatrixPreconditioner # null or name of preconditioner class
             tol : 1.e-8
             maxiter : 3000
             info : False

@@ -201,20 +201,9 @@ and hence involve the inversion of the collocation/histopolation matrix :math:`\
 The same consideration hold also for the periodic spaces.
 
 
-.. _3d_derham_complex:
-
-3d Derham complex
------------------
-
-In :abbr:`STRUPHY (STRUcture-Preserving HYbrid codes)` all 3D spline spaces are built from uni-variate spaces 
-on the unit cube (*logical domain*). The de Rham diagram looks like this:
-
-.. image:: ../pics/deRham_diag.png
-
-Symbols with an overbar refer to the :ref:`polar_splines` basis.
-
-
 .. _polar_splines:
 
 Polar splines
 -------------
+
+Coming soon !

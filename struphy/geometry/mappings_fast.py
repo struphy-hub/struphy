@@ -22,12 +22,12 @@ def spline_3d(eta1: float, eta2: float, eta3: float,
     where :math:`c^n_{ijk}` are the control points of component :math:`n`.
 
     Note
-    ----    
+    ----
         No example plot yet.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         t1, t2, t3 : array[float]          
@@ -72,7 +72,7 @@ def spline_3d_df(eta1: float, eta2: float, eta3: float,
                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                  df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.spline_3d`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.spline_3d`.
     """
 
     # mapping spans
@@ -123,12 +123,12 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
     where :math:`c^{x(y)}_{ij}` are the control points in the :math:`\eta_1-\eta_2`-plane, independent of :math:`\eta_3`.
 
     Note
-    ----    
+    ----
         No example plot yet.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         t1, t2 : array[float]          
@@ -181,7 +181,7 @@ def spline_2d_straight_df(eta1: float, eta2: float,
                           lz: 'float',
                           df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.spline_2d_straight`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.spline_2d_straight`.
     """
 
     # mapping spans
@@ -238,12 +238,12 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
     where :math:`c^{R(y)}_{ij}` are the control points in the :math:`\eta_1-\eta_2`-plane, independent of :math:`\eta_3`.
 
     Note
-    ----    
+    ----
         No example plot yet.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         t1, t2 : array[float]          
@@ -295,7 +295,7 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
                        cx: 'float[:,:]', cy: 'float[:,:]',
                        df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.spline_2d_torus`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.spline_2d_torus`.
     """
 
     # mapping spans
@@ -357,7 +357,7 @@ def cuboid(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         l1, l2, l3 : float
@@ -367,7 +367,7 @@ def cuboid(eta1: float, eta2: float, eta3: float,
             Right domain boundary.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     # value =  begin + (end - begin) * eta
@@ -381,7 +381,7 @@ def cuboid_df(l1: 'float', r1: 'float',
               l3: 'float', r3: 'float',
               df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.cuboid`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.cuboid`.
     """
         
     df_out[0, 0] = r1 - l1
@@ -417,7 +417,7 @@ def orthogonal(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         lx : float
@@ -433,7 +433,7 @@ def orthogonal(eta1: float, eta2: float, eta3: float,
             Length in third direction.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = lx * (eta1 + alpha * sin(2*pi*eta1))
@@ -445,7 +445,7 @@ def orthogonal_df(eta1: float, eta2: float,
                   lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
                   df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.orthogonal`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.orthogonal`.
     """
 
     df_out[0, 0] = lx * (1 + alpha * cos(2*pi*eta1) * 2*pi)
@@ -455,7 +455,7 @@ def orthogonal_df(eta1: float, eta2: float,
     df_out[1, 1] = ly * (1 + alpha * cos(2*pi*eta2) * 2*pi)
     df_out[1, 2] = 0.
     df_out[2, 0] = 0.
-    df_out[2, 1] = 0.    
+    df_out[2, 1] = 0.
     df_out[2, 2] = lz
 
 
@@ -481,7 +481,7 @@ def colella(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         lx : float
@@ -497,7 +497,7 @@ def colella(eta1: float, eta2: float, eta3: float,
             Length in z-direction.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = lx * (eta1 + alpha * sin(2*pi*eta1) * sin(2*pi*eta2))
@@ -509,7 +509,7 @@ def colella_df(eta1: float, eta2: float,
                lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
                df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.colella`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.colella`.
     """
 
     df_out[0, 0] = lx * (1 + alpha * cos(2*pi*eta1) * sin(2*pi*eta2) * 2*pi)
@@ -545,7 +545,7 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         a1 : float
@@ -561,7 +561,7 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
             Length in third direction.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     da = a2 - a1
@@ -572,23 +572,23 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
 
 
 def hollow_cyl_df(eta1: float, eta2: float, 
-                  a1: 'float', a2: 'float', r0: 'float', 
+                  a1: 'float', a2: 'float', lz: 'float', 
                   df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.hollow_cyl`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_cyl`.
     """
 
     da = a2 - a1
 
     df_out[0, 0] = da * cos(2*pi*eta2)
     df_out[0, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2)
-    df_out[0, 2] = 0.
+    df_out[0, 2 ] = 0.
     df_out[1, 0] = da * sin(2*pi*eta2)
     df_out[1, 1] = 2*pi * (a1 + eta1 * da) * cos(2*pi*eta2)
     df_out[1, 2] = 0.
     df_out[2, 0] = 0.
     df_out[2, 1] = 0.
-    df_out[2, 2] = 2*pi*r0
+    df_out[2, 2] = lz
 
 
 def hollow_torus(eta1: float, eta2: float, eta3: float,
@@ -606,14 +606,14 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
         F_z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(2\pi\,\eta_2)+R_0\\rbrace\sin(2\pi\,\eta_3)\,.
 
     Note
-    ----    
+    ----
         Example with paramters :math:`a_1=0.2\,,a_2=1` and :math:`R_0=3`:
 
         .. image:: ../pics/mappings/hollow_torus.png
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         a1 : float
@@ -626,7 +626,7 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
             Major radius.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     da = a2 - a1
@@ -640,7 +640,7 @@ def hollow_torus_df(eta1: float, eta2: float, eta3: float,
                     a1: 'float', a2: 'float', r0: 'float',
                     df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.hollow_torus`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_torus`.
     """
 
     da = a2 - a1
@@ -671,14 +671,14 @@ def ellipse(eta1: float, eta2: float, eta3: float,
         F_z &= z_0+L_z\,\eta_3\,.
 
     Note
-    ----    
+    ----
         Example with paramters :math:`x_0=y_0=z_0=0\,,r_x=1\,,r_y=2` and :math:`L_z=1`:
 
         .. image:: ../pics/mappings/ellipse.png
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         x0, y0, z0 : float
@@ -691,7 +691,7 @@ def ellipse(eta1: float, eta2: float, eta3: float,
             Length in third direction.
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = x0 + (eta1 * rx) * cos(2*pi*eta2)
@@ -703,7 +703,7 @@ def ellipse_df(eta1: float, eta2: float, eta3: float,
                rx: 'float', ry: 'float', lz: 'float',
                df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.ellipse`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.ellipse`.
     """
 
     df_out[0, 0] = rx * cos(2*pi*eta2)
@@ -734,12 +734,12 @@ def rotated_ellipse(eta1: float, eta2: float, eta3: float,
         F_z &= z_0 + L_z\,\eta_3\,.
 
     Note
-    ----    
+    ----
         No example plot yet.
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         x0, y0, z0 : float
@@ -755,7 +755,7 @@ def rotated_ellipse(eta1: float, eta2: float, eta3: float,
             Rotation angle in [0, 1).
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = x0 + (eta1 * r1) * cos(2*pi*th) * cos(2*pi*eta2) - \
@@ -770,7 +770,7 @@ def rotated_ellipse_df(eta1: float, eta2: float, eta3: float,
                        lz: 'float', th: 'float',
                        df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.rotated_ellipse`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.rotated_ellipse`.
     """
 
     df_out[0, 0] = r1 * cos(2*pi*th) * cos(2*pi*eta2) - r2 * sin(2*pi*th) * sin(2*pi*eta2)
@@ -778,6 +778,72 @@ def rotated_ellipse_df(eta1: float, eta2: float, eta3: float,
     df_out[0, 2] = 0.
     df_out[1, 0] = r1 * sin(2*pi*th) * cos(2*pi*eta2) + r2 * cos(2*pi*th) * sin(2*pi*eta2)
     df_out[1, 1] = -2*pi * (eta1 * r1) * sin(2*pi*th) * sin(2*pi*eta2) + 2*pi * (eta1 * r2) * cos(2*pi*th) * cos(2*pi*eta2)
+    df_out[1, 2] = 0.
+    df_out[2, 0] = 0.
+    df_out[2, 1] = 0.
+    df_out[2, 2] = lz
+
+
+def powered_ellipse(eta1: float, eta2: float, eta3: float,
+                    x0: 'float', y0: 'float', z0: 'float',
+                    rx: 'float', ry: 'float',
+                    lz: 'float', s: 'float',
+                    f_out: 'float[:]'):
+    '''
+    Point-wise evaluation of
+
+    .. math::
+        F_x &= x_0+r_x\,\eta_1^s\cos(2\pi\,\eta_2)\,, 
+
+        F_y &= y_0+r_y\,\eta_1^s\sin(2\pi\,\eta_2)\,, 
+
+        F_z &= z_0+L_z\,\eta_3\,.
+
+    Note
+    ----
+        Example with paramters :math:`x_0=y_0=z_0=0\,,r_x=1\,,r_y=2,s=0.5` and :math:`L_z=1`:
+
+        .. image:: ../pics/mappings/ellipse.png
+
+    Parameters
+    ----------
+        eta1, eta2, eta3 : float
+            Logical coordinate in [0, 1].
+
+        x0, y0, z0 : float
+            Center of the ellipse.
+
+        rx, ry : float
+            Axes lengths.
+
+        lz : float
+            Length in third direction.
+
+        s : float
+            Power of eta1
+
+        f_out : array[float]
+            Output: (x, y, z) = F(eta1, eta2, eta3).
+    '''
+
+    f_out[0] = x0 + (eta1**s) * rx * cos(2*pi*eta2)
+    f_out[1] = y0 + (eta1**s) * ry * sin(2*pi*eta2)
+    f_out[2] = z0 + (eta3 * lz)
+
+
+def powered_ellipse_df(eta1: float, eta2: float, eta3: float,
+                       rx: 'float', ry: 'float',
+                       lz: 'float', s: 'float',
+                       df_out: 'float[:,:]'):
+    """
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.powered_ellipse`.
+    """
+
+    df_out[0, 0] = (eta1**(s-1)) * rx * cos(2*pi*eta2)
+    df_out[0, 1] = -2*pi * (eta1**s) * rx * sin(2*pi*eta2)
+    df_out[0, 2] = 0.
+    df_out[1, 0] = (eta1**(s-1)) * ry * sin(2*pi*eta2)
+    df_out[1, 1] =  2*pi * (eta1**s) * ry * cos(2*pi*eta2)
     df_out[1, 2] = 0.
     df_out[2, 0] = 0.
     df_out[2, 1] = 0.
@@ -808,7 +874,7 @@ def shafranov_shift(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         x0, y0, z0 : float
@@ -824,7 +890,7 @@ def shafranov_shift(eta1: float, eta2: float, eta3: float,
             Shift factor, should be in [0, 0.1].
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-eta1**2) * rx * de
@@ -837,7 +903,7 @@ def shafranov_shift_df(eta1: float, eta2: float, eta3: float,
                        lz: 'float', de: 'float',
                        df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.shafranov_shift`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_shift`.
     """
 
     df_out[0, 0] = rx * cos(2*pi*eta2) - 2 * eta1 * rx * de
@@ -873,7 +939,7 @@ def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         x0, y0, z0 : float
@@ -889,7 +955,7 @@ def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
             Shift factor, should be in [0, 0.1].
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = x0 + (eta1 * rx) * cos(2*pi*eta2) + (1-sqrt(eta1)) * rx * de
@@ -902,7 +968,7 @@ def shafranov_sqrt_df(eta1: float, eta2: float, eta3: float,
                       lz: 'float', de: 'float',
                       df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.shafranov_sqrt`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_sqrt`.
     """
 
     df_out[0, 0] = rx * cos(2*pi*eta2) - 0.5 / sqrt(eta1) * rx * de
@@ -933,14 +999,14 @@ def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
         z &= z_0+L_z\,\eta_3\,.
 
     Note
-    ----    
+    ----
         Example with paramters :math:`x_0=y_0=z_0=0\,,R_0=3\,,L_z=1\,,\Delta_x=0.1\,,\Delta_y=0\,,\delta=0.2\,,\epsilon=1/3` and :math:`\kappa=1.5`:
 
         .. image:: ../pics/mappings/shafranov_dshaped.png
 
     Parameters
     ----------
-        eta1, eta2, eta3 : float              
+        eta1, eta2, eta3 : float
             Logical coordinate in [0, 1].
 
         x0, y0, z0 : float
@@ -968,7 +1034,7 @@ def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
             Kappa: Ellipticity (elongation).
 
         f_out : array[float]
-            Output: (x, y, z) = F(eta1, eta2, eta3).    
+            Output: (x, y, z) = F(eta1, eta2, eta3).
     '''
 
     f_out[0] = x0 + r0 * (1 + (1 - eta1**2) * dx + eg *
@@ -982,7 +1048,7 @@ def shafranov_dshaped_df(eta1: float, eta2: float, eta3: float,
                          dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float',
                          df_out: 'float[:,:]'):
     """
-    Jacobian matrix for :meth:`struphy.geometry.mappings_3d_bis.shafranov_dshaped`.
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_dshaped`.
     """
 
     df_out[0, 0] = r0 * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
@@ -991,6 +1057,88 @@ def shafranov_dshaped_df(eta1: float, eta2: float, eta3: float,
     df_out[1, 0] = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2))
     df_out[1, 1] = 2 * pi * r0 * eg * eta1 * kg * cos(2*pi*eta2)
     df_out[1, 2] = 0.
+    df_out[2, 0] = 0.
+    df_out[2, 1] = 0.
+    df_out[2, 2] = lz
+
+
+def shafranov_eta3dep(eta1: float, eta2: float, eta3: float,
+                      x0: 'float', y0: 'float', z0: 'float',
+                      r0: 'float', lz: 'float',
+                      dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float', xi: 'float',
+                      f_out: 'float[:]'):
+    '''
+    Point-wise evaluation of
+
+    .. math::
+
+        x &= x_0+R_0(1 + \chi \cos(2\pi\eta_3))\left[1 + (1 - \eta_1^2)\Delta_x + \eta_1\epsilon\cos(2\pi\,\eta_2 + \\arcsin(\delta)\eta_1\sin(2\pi\,\eta_2)) \\right]\,, 
+
+        y &= y_0+R_0(1 + \chi \cos(2\pi\eta_3))\left[    (1 - \eta_1^2)\Delta_y + \eta_1\epsilon\kappa\sin(2\pi\,\eta_2)\\right]\,, 
+
+        z &= z_0+L_z\,\eta_3\,.
+
+    Note
+    ----
+        Example with paramters :math:`x_0=y_0=z_0=0\,,R_0=3\,,L_z=1\,,\Delta_x=0.1\,,\Delta_y=0\,,\delta=0.2\,,\epsilon=1/3` and :math:`\kappa=1.5`:
+
+        .. image:: ../pics/mappings/shafranov_dshaped.png
+
+    Parameters
+    ----------
+        eta1, eta2, eta3 : float
+            Logical coordinate in [0, 1].
+
+        x0, y0, z0 : float
+            Center of the ellipse.
+
+        r0 : float
+            Base radius.
+
+        lz : float
+            Length in third direction.
+
+        dx : float
+            Shafranov shift in x-direction.
+
+        dy : float
+            Shafranov shift in y-direction.
+
+        dg : float
+            Delta = sin(alpha): Triangularity, shift of high point.
+
+        eg : float
+            Epsilon: Inverse aspect ratio a/r0.
+
+        kg : float
+            Kappa: Ellipticity (elongation).
+
+        xi : float
+            Xi: Strength of dependence on eta3.
+
+        f_out : array[float]
+            Output: (x, y, z) = F(eta1, eta2, eta3).
+    '''
+
+    f_out[0] = x0 + r0 * (1 + xi * cos(2*pi*eta3)) * (1 + (1 - eta1**2) * dx + eg *      eta1 * cos(2*pi*eta2 + arcsin(dg)*eta1*sin(2*pi*eta2)))
+    f_out[1] = y0 + r0 * (1 - xi * cos(2*pi*eta3)) * (    (1 - eta1**2) * dy + eg * kg * eta1 * sin(2*pi*eta2))
+    f_out[2] = z0 + (eta3 * lz)
+
+
+def shafranov_eta3dep_df(eta1: float, eta2: float, eta3: float,
+                         r0: 'float', lz: 'float',
+                         dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float', xi: 'float',
+                         df_out: 'float[:,:]'):
+    """
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.shafranov_eta3dep`.
+    """
+
+    df_out[0, 0] = r0 * (1 + xi * cos(2*pi*eta3)) * (- 2 * dx * eta1 - eg * eta1 * sin(2*pi*eta2) * arcsin(dg) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + eg * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2))
+    df_out[0, 1] = - r0 * eg * eta1 * (1 + xi * cos(2*pi*eta3)) * (2*pi*eta1 * cos(2*pi*eta2) * arcsin(dg) + 2*pi) * sin(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2)
+    df_out[0, 2] = - 2 * pi * r0 * xi * (dx * (1 - eta1**2) + eg * eta1 * cos(eta1 * sin(2*pi*eta2) * arcsin(dg) + 2*pi*eta2) + 1) * sin(2*pi*eta3)
+    df_out[1, 0] = r0 * (- 2 * dy * eta1 + eg * kg * sin(2*pi*eta2)) * (1 - xi * cos(2*pi*eta3))
+    df_out[1, 1] = 2 * pi * r0 * eg * eta1 * kg * (1 - xi * cos(2*pi*eta3)) * cos(2*pi*eta2)
+    df_out[1, 2] = 2 * pi * r0 * xi * (dy * (1 - eta1**2) + eg * eta1 * kg * sin(2*pi*eta2)) * sin(2*pi*eta3)
     df_out[2, 0] = 0.
     df_out[2, 1] = 0.
     df_out[2, 2] = lz

@@ -10,8 +10,8 @@ class EquilibriumMHD(metaclass=ABCMeta):
         params: dictionary
             Parameters that characterize the MHD equilibrium.
             
-        domain: Domain, optional
-            From struphy.geometry.domain_3d. Enables pull-backs if set.        
+        domain: struphy.geometry.domains
+            Enables pull-backs if set.        
     """
     
     def __init__(self, params, domain=None):
@@ -104,122 +104,122 @@ class EquilibriumMHD(metaclass=ABCMeta):
         
         return np.sqrt(bx**2 + by**2 + bz**2)
     
-    def b0(self, s, chi, phi):
+    def b0(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 0-form absolute value of equilibrium magnetic field in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.b, s, chi, phi, '0_form')
+        return self.domain.pull([self.b], s, chi, phi, '0_form', flat_eval, squeeze_output)
       
-    def b1_1(self, s, chi, phi):
+    def b1_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 1-form equilibrium magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_1')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_1', flat_eval, squeeze_output)
         
-    def b1_2(self, s, chi, phi):
+    def b1_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 1-form equilibrium magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_2')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_2', flat_eval, squeeze_output)
 
-    def b1_3(self, s, chi, phi):
+    def b1_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 1-form equilibrium magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_3')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '1_form_3', flat_eval, squeeze_output)
     
-    def b2_1(self, s, chi, phi):
+    def b2_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_1')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_1', flat_eval, squeeze_output)
     
-    def b2_2(self, s, chi, phi):
+    def b2_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_2')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_2', flat_eval, squeeze_output)
         
-    def b2_3(self, s, chi, phi):
+    def b2_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_3')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_3', flat_eval, squeeze_output)
 
-    def bv_1(self, s, chi, phi):
+    def bv_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium magnetic field (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_1')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_1', flat_eval, squeeze_output)
 
-    def bv_2(self, s, chi, phi):
+    def bv_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium magnetic field (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_2')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_2', flat_eval, squeeze_output)
  
-    def bv_3(self, s, chi, phi):
+    def bv_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium magnetic field (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_3')
+        return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, 'vector_3', flat_eval, squeeze_output)
  
-    def j2_1(self, s, chi, phi):
+    def j2_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium current (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_1')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_1', flat_eval, squeeze_output)
    
-    def j2_2(self, s, chi, phi):
+    def j2_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium current (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_2')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_2', flat_eval, squeeze_output)
    
-    def j2_3(self, s, chi, phi):
+    def j2_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 2-form equilibrium current (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_3')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, '2_form_3', flat_eval, squeeze_output)
       
-    def jv_1(self, s, chi, phi):
+    def jv_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium current (1-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_1')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_1', flat_eval, squeeze_output)
   
-    def jv_2(self, s, chi, phi):
+    def jv_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium current (2-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_2')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_2', flat_eval, squeeze_output)
        
-    def jv_3(self, s, chi, phi):
+    def jv_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium current (3-component) in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_3')
+        return self.domain.pull([self.j_x, self.j_y, self.j_z], s, chi, phi, 'vector_3', flat_eval, squeeze_output)
     
-    def p0(self, s, chi, phi):
+    def p0(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 0-form equilibrium pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '0_form')
+        return self.domain.pull([self.p], s, chi, phi, '0_form', flat_eval, squeeze_output)
       
-    def p3(self, s, chi, phi):
+    def p3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 3-form equilibrium pressure in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.p, s, chi, phi, '3_form')
+        return self.domain.pull([self.p], s, chi, phi, '3_form', flat_eval, squeeze_output)
    
-    def n0(self, s, chi, phi):
+    def n0(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 0-form equilibrium number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '0_form')
+        return self.domain.pull([self.n], s, chi, phi, '0_form', flat_eval, squeeze_output)
      
-    def n3(self, s, chi, phi):
+    def n3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 3-form equilibrium number density in logical space.
         """
         assert hasattr(self, 'domain')
-        return self.domain.pull(self.n, s, chi, phi, '3_form')
+        return self.domain.pull([self.n], s, chi, phi, '3_form', flat_eval, squeeze_output)

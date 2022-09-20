@@ -4,16 +4,8 @@ import pytest
 @pytest.mark.parametrize('p',   [[2, 3, 2]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}]
-    # ['cuboid', {
-    #     'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}],
-    # ['colella', {
-    #     'Lx': 1., 'Ly': 2., 'alpha': .5, 'Lz': 3.}],
-    # ['hollow_torus', {
-    #     'a1': 1., 'a2': 2., 'R0': 3.}],
-    # ['shafranov_dshaped', {
-    #     'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}],
 ])
 def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     '''Tests the MHD specific projection operators PI_ijk(fun*Lambda_mno).
@@ -22,7 +14,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     Lambda_mno are the basis functions of the input space (domain), 
     and fun is an arbitrary (matrix-valued) function.
     '''
-    from struphy.geometry.domain_3d import Domain
+    from struphy.geometry import domains
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
     from struphy.fields_background.mhd_equil.analytical import HomogenSlab
@@ -48,7 +40,8 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     MPI_COMM.Barrier()
 
     # Domain object
-    domain = Domain(mapping[0], mapping[1])
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(mapping[1])
     
     # de Rham object
     n_quad_el = [5, 5, 5]
@@ -64,7 +57,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
         print(f'Rank {mpi_rank} | ')
 
     # Mhd equilibirum (slab)
-    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200.}
+    mhd_equil_params = {'B0x': 0., 'B0y': 0., 'B0z': 1., 'beta': 200., 'n0' : 1.}
     
     EQ_MHD = HomogenSlab(mhd_equil_params, domain)
 
@@ -626,4 +619,4 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
 if __name__ == '__main__':
     test_some_mhd_ops(Nel=[8, 8, 8], p=[2, 2, 2], spl_kind=[False, True, True], 
-                        mapping=['cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])
+                        mapping=['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}])

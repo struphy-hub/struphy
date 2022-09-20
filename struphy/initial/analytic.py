@@ -4,32 +4,30 @@ from struphy.initial.base import InitialMHD
 
 
 class InitialMHDSlab(InitialMHD):
-    """
+    r"""
     Defines the initial condition
 
     .. math::
+    
+        n(t=0,x,y,z) &= 0\,,
 
-        &\\textnormal{if}\,\,\, m\\neq 0:
+        U_x(t=0,x,y,z) &= \left\{\begin{aligned}
+        &U\sin\left(\frac{\pi x}{a}\right)\sin\left(\frac{my}{a} + \frac{nz}{R_0}\right)\quad\textnormal{if}\quad m\neq 0\,,
+        
+        &0\quad\textnormal{else}\,,
+        \end{aligned}\right.
 
-        &U_x(t=0,x,y,z) = U\sin\left(\\frac{\pi x}{a}\\right)\sin\left(\\frac{my}{a} + \\frac{nz}{R_0}\\right)\,,
+        U_y(t=0,x,y,z) &= \left\{\begin{aligned}
+        &U\cos\left(\frac{\pi x}{a}\right)\cos\left(\frac{my}{a} + \frac{nz}{R_0}\right)\frac{\pi}{m}\quad\textnormal{if}\quad m\neq 0\,,
+        
+        &U\cos\left(\frac{nz}{R_0}\right)\quad\textnormal{else}\,,
+        \end{aligned}\right.
 
-        &U_y(t=0,x,y,z) = U\cos\left(\\frac{\pi x}{a}\\right)\cos\left(\\frac{my}{a} + \\frac{nz}{R_0}\\right)\\frac{\pi}{m}\,,
+        U_z(t=0,x,y,z) &= A\cos\left(\frac{my}{a}\right)\,,
 
-        &U_z(t=0,x,y,z) = A\cos\left(\\frac{my}{a}\\right)\,,
-
-        &p(t=0,x,y,z)=n(t=0,x,y,z)=\mathbf{B}(t=0,x,y,z)=0\,,
-
-        &
-
-        &\\textnormal{else}:
-
-        &U_x(t=0,x,y,z) = 0\,,
-
-        &U_y(t=0,x,y,z) = U\cos\left(\\frac{nz}{R_0}\\right)\,,
-
-        &U_z(t=0,x,y,z) = A\cos\left(\\frac{my}{a}\\right)\,,
-
-        &p(t=0,x,y,z)=n(t=0,x,y,z)=\mathbf{B}(t=0,x,y,z)=0\,,
+        p(t=0,x,y,z) &= 0\,,
+        
+        \mathbf{B}(t=0,x,y,z) &=0\,.
 
     Parameters
     ----------
@@ -43,7 +41,7 @@ class InitialMHDSlab(InitialMHD):
                 * U  : amplitude of Ux/Uy
                 * A  : amplitude of Uz
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.base.Domain
             All things mapping. Enables pull-backs if set.       
     """
 

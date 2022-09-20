@@ -11,6 +11,7 @@ from psydac.feec.global_projectors import GlobalProjector
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api.linear_operators import LinOpWithTransp
+from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
 
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_1d as assemble_1d
 from struphy.psydac_api.mhd_ops_kernels_pure_psydac import assemble_dofs_for_weighted_basisfuns_2d as assemble_2d
@@ -30,7 +31,7 @@ class MHDOperators:
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete de Rham sequence on the logical unit cube.
             
-        domain : struphy.geometry.domain_3d.Domain
+        domain : struphy.geometry.domains
             All things mapping.
 
         eq_mhd : EquilibriumMHD
@@ -49,8 +50,6 @@ class MHDOperators:
         
         self._derham = derham
         self._domain = domain
-        
-        F = domain.F_psy.get_callable_mapping()
 
         # Psydac spline spaces
         self._V0 = derham.V0
@@ -66,24 +65,27 @@ class MHDOperators:
         self._P3 = derham.P3
         self._P0vec = derham.P0vec
         
-        # Make sure that mapping matrices correspond to last two indices when evaluating 3d point sets, i.e. (:,:,:,3,3) in order to enable matrix-matrix products with @
+        # Wrapper functions for metric coefficients
         def DF(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian(e1, e2, e3, False, False, True, False)
 
         def DFT(e1, e2, e3):
-            return np.transpose(F.jacobian(e1, e2, e3), axes=(2, 3, 4, 1, 0))
-
-        def G(e1, e2, e3):
-            return DFT(e1, e2, e3) @ DF(e1, e2, e3) 
-
+            return domain.jacobian(e1, e2, e3, False, False, True, True)
+            
         def DFinv(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 0, 1))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, False)
 
         def DFinvT(e1, e2, e3):
-            return np.transpose(F.jacobian_inv(e1, e2, e3), axes=(2, 3, 4, 1, 0))
+            return domain.jacobian_inv(e1, e2, e3, False, False, True, True)
 
+        def G(e1, e2, e3):
+            return domain.metric(e1, e2, e3, False, False, True)
+            
         def Ginv(e1, e2, e3):
-            return DFinv(e1, e2, e3) @ DFinvT(e1, e2, e3)
+            return domain.metric_inv(e1, e2, e3, False, False, True)
+            
+        def sqrt_g(e1, e2, e3):
+            return abs(domain.jacobian_det(e1, e2, e3, False, False))
 
         # Cross product matrices and evaluation of cross products
         cross_mask = [[ 1, -1,  1], 
@@ -105,13 +107,13 @@ class MHDOperators:
                     [eq_mhd.b2_2, eq_mhd.b2_1, lambda e1, e2, e3: 0*e3]]
         
         # Scalar functions
-        fun_K0  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K0  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         
-        fun_K1  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K1  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
         fun_K10 = [[lambda e1, e2, e3 : eq_mhd.p0(e1, e2, e3)]]
         
-        fun_K2  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]]
-        fun_Y20 = [[lambda e1, e2, e3 : np.sqrt(F.metric_det(e1, e2, e3))]]
+        fun_K2  = [[lambda e1, e2, e3 : eq_mhd.p3(e1, e2, e3) / sqrt_g(e1, e2, e3)]]
+        fun_Y20 = [[lambda e1, e2, e3 : sqrt_g(e1, e2, e3)]]
         
         # 'Matrix' functions
         fun_Q0 = []
@@ -164,16 +166,16 @@ class MHDOperators:
                 fun_Q0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3(e1, e2, e3) if m == n else 0*e1]
                 fun_T0[-1] += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] * b2_cross[m][n](e1, e2, e3)]
                 fun_S0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(e1, e2, e3) if m == n else 0*e1]
-                fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 
                 fun_Q1[-1]  += [lambda e1, e2, e3, m=m,
                                 n=n: eq_mhd.n3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_W1[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_U1[-1]  += [lambda e1, e2, e3, m=m,
-                                n=n: np.sqrt(F.metric_det(e1, e2, e3)) * Ginv(e1, e2, e3)[:, :, :, m, n]]
+                                n=n: sqrt_g(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_P1[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
-                                j2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                                j2_cross[m][n](e1, e2, e3) / sqrt_g(e1, e2, e3)]
                 fun_S1[-1]  += [lambda e1, e2, e3, m=m,
                                 n=n: eq_mhd.p3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
                 fun_T1[-1]  += [lambda e1, e2, e3, m=m, n=n: (eval_cross(
@@ -184,19 +186,19 @@ class MHDOperators:
                                  n=n: eq_mhd.p0(e1, e2, e3) if m == n else 0*e1]
 
                 fun_Q2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.n3( 
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_T2[-1]  += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] *
-                                b2_cross[m][n](e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3))]
+                                b2_cross[m][n](e1, e2, e3) / sqrt_g(e1, e2, e3)]
                 fun_P2[-1]  += [lambda e1, e2, e3, m=m, n=n: (Ginv(e1, e2, e3) @ eval_cross(
                     e1, e2, e3, j2_cross))[:, :, :, m, n]]  # Matrix product!
                 fun_S2[-1]  += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(
-                    e1, e2, e3) / np.sqrt(F.metric_det(e1, e2, e3)) if m == n else 0*e1]
+                    e1, e2, e3) / sqrt_g(e1, e2, e3) if m == n else 0*e1]
                 fun_X2[-1]  += [lambda e1, e2, e3, m=m,
-                                n=n: DF(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                                n=n: DF(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
                 fun_Z20[-1] += [lambda e1, e2, e3, m=m,
-                                 n=n: G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                                 n=n: G(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
                 fun_S20[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p0(
-                    e1, e2, e3) * G(e1, e2, e3)[:, :, :, m, n] / np.sqrt(F.metric_det(e1, e2, e3))]
+                    e1, e2, e3) * G(e1, e2, e3)[:, :, :, m, n] / sqrt_g(e1, e2, e3)]
 
         # Scalar functions
         self._fun_K0  = fun_K0
@@ -276,339 +278,339 @@ class MHDOperators:
             
     # MHD operators with velocity (up) as 0-form^3:
     def assemble_K0(self):
-        '''Assemble :math:`\mathcal{K}^0` MHD projection operator with the velocity as 0-form :math:`\\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{K}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{K}^0 = \\hat{\Pi}_3 \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \\right] \in \mathbb{R}^{N^3 \\times N^3}, 
-            \qquad \mathcal{K}^0_{(ijk),(mno)} := \\hat{\Pi}_{3,(ijk)} \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \\right] \,.
+            \mathcal{K}^0 = \hat{\Pi}_3 \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \right] \in \mathbb{R}^{N^3 \times N^3}, 
+            \qquad \mathcal{K}^0_{(ijk),(mno)} := \hat{\Pi}_{3,(ijk)} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling K0 and K0T ...')
-        self.K0 = MHDOperator(self._P3, self._V3, self._fun_K0)
+        self.K0 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, MHDOperator(self._P3, self._V3, self._fun_K0))
         self.K0T = self.K0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_Q0(self):
-        '''Assemble :math:`\mathcal{Q}^0` MHD projection operator with the velocity as 0-form :math:`\\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{Q}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{Q}^0 = \\hat{\Pi}_2 \\left[ \\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{Q}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{\\rho}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
+            \mathcal{Q}^0 = \hat{\Pi}_2 \left[ \hat{\rho}^3_{\text{eq}} \mathbf{\vec{\Lambda}}^0 \right] \in \mathbb{R}^{N^2 \times 3 \times N^0}, 
+            \qquad \mathcal{Q}^0_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\hat{\rho}^3_{\text{eq}} \mathbf{\vec{\Lambda}}^0_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Q0 and Q0T ...')
-        self.Q0 = MHDOperator(self._P2, self._V0vec, self._fun_Q0)
+        self.Q0 = ApplyHomogeneousDirichletToOperator('H1vec', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V0vec, self._fun_Q0))
         self.Q0T = self.Q0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_T0(self):
-        '''Assemble :math:`\mathcal{T}^0` MHD projection operator with the velocity as 0-form :math:`\\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{T}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{T}^0 = \\hat{\Pi}_1 \\left[ \\hat{B}^2_{\\text{eq}} \\times \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^1 \\times 3 \\times N^0}, 
-            \qquad \mathcal{T}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\nu} \\hat{B}^2_{\\text{eq},\\alpha} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
+            \mathcal{T}^0 = \hat{\Pi}_1 \left[ \hat{B}^2_{\text{eq}} \times \mathbf{\vec{\Lambda}}^0 \right] \in \mathbb{R}^{N^1 \times 3 \times N^0}, 
+            \qquad \mathcal{T}^0_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\epsilon_{\mu \alpha \nu} \hat{B}^2_{\text{eq},\alpha} \mathbf{\vec{\Lambda}}^0_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling T0 and T0T ...')
-        self.T0 = MHDOperator(self._P1, self._V0vec, self._fun_T0)
+        self.T0 = ApplyHomogeneousDirichletToOperator('H1vec', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V0vec, self._fun_T0))
         self.T0T = self.T0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_S0(self):
-        '''Assemble :math:`\mathcal{S}^0` MHD projection operator with the velocity as 0-form :math:`\\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{S}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{S}^0 = \\hat{\Pi}_2 \\left[ \\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{S}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{p}^3_{\\text{eq}} \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^0 = \hat{\Pi}_2 \left[ \hat{p}^3_{\text{eq}} \mathbf{\vec{\Lambda}}^0 \right] \in \mathbb{R}^{N^2 \times 3 \times N^0}, 
+            \qquad \mathcal{S}^0_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\hat{p}^3_{\text{eq}} \mathbf{\vec{\Lambda}}^0_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S0 and S0T ...')
-        self.S0 = MHDOperator(self._P2, self._V0vec, self._fun_S0)
+        self.S0 = ApplyHomogeneousDirichletToOperator('H1vec', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V0vec, self._fun_S0))
         self.S0T = self.S0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
         
     def assemble_J0(self):
-        '''Assemble :math:`\mathcal{J}^0` MHD projection operator with the velocity as 0-form :math:`\\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{J}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{J}^0 = \\hat{\Pi}_2 \\left[ \sqrt{g} \, \mathbf{\\vec{\Lambda}}^0 \\right] \in \mathbb{R}^{N^2 \\times 3 \\times N^0}, 
-            \qquad \mathcal{J}^0_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\sqrt{g} \, \mathbf{\\vec{\Lambda}}^0_{\\nu,(mno)} \\right] \,.
+            \mathcal{J}^0 = \hat{\Pi}_2 \left[ \sqrt{g} \, \mathbf{\vec{\Lambda}}^0 \right] \in \mathbb{R}^{N^2 \times 3 \times N^0}, 
+            \qquad \mathcal{J}^0_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\sqrt{g} \, \mathbf{\vec{\Lambda}}^0_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling J0 and J0T ...')
-        self.J0 = MHDOperator(self._P2, self._V0vec, self._fun_J0)
+        self.J0 = ApplyHomogeneousDirichletToOperator('H1vec', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V0vec, self._fun_J0))
         self.J0T = self.J0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
     
     # MHD operators with velocity (up) as 1-form:
     def assemble_K1(self):
-        '''Assemble :math:`\mathcal{K}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{K}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{K}^1 = \\hat{\Pi}_3 \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \\right] \in \mathbb{R}^{N^3 \\times N^3}, 
-            \qquad \mathcal{K}^1_{(ijk),(mno)} := \\hat{\Pi}_{3,(ijk)} \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \\right] \,.
+            \mathcal{K}^1 = \hat{\Pi}_3 \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \right] \in \mathbb{R}^{N^3 \times N^3}, 
+            \qquad \mathcal{K}^1_{(ijk),(mno)} := \hat{\Pi}_{3,(ijk)} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling K1 and K1T ...')
-        self.K1 = MHDOperator(self._P3, self._V3, self._fun_K1)
+        self.K1 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, MHDOperator(self._P3, self._V3, self._fun_K1))
         self.K1T = self.K1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Q1(self):
-        '''Assemble :math:`\mathcal{Q}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{Q}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{Q}^1 = \\hat{\Pi}_2 \\left[ \\hat{\\rho}^3_{\\text{eq}} G^{-1} \mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^2 \\times N^1}, 
-            \qquad \mathcal{Q}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{\\rho}^3_{\\text{eq}}G^{-1}\mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{Q}^1 = \hat{\Pi}_2 \left[ \hat{\rho}^3_{\text{eq}} G^{-1} \mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^2 \times N^1}, 
+            \qquad \mathcal{Q}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\hat{\rho}^3_{\text{eq}}G^{-1}\mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Q1 and Q1T ...')
-        self.Q1 = MHDOperator(self._P2, self._V1, self._fun_Q1)
+        self.Q1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V1, self._fun_Q1))
         self.Q1T = self.Q1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_W1(self):
-        '''Assemble :math:`\mathcal{W}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{W}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{W}^1 = \\hat{\Pi}_1 \\left[ \\frac{\\hat{\\rho}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^1 \\times N^1}, 
-            \qquad \mathcal{W}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\frac{\\hat{\\rho}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{W}^1 = \hat{\Pi}_1 \left[ \frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^1 \times N^1}, 
+            \qquad \mathcal{W}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling W1 and W1T ...')
-        self.W1 = MHDOperator(self._P1, self._V1, self._fun_W1)
+        self.W1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V1, self._fun_W1))
         self.W1T = self.W1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_U1(self):
-        '''Assemble :math:`\mathcal{U}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{U}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{U}^1 = \\hat{\Pi}_2 \\left[ \sqrt{g} \, G^{-1} \mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^2 \\times N^1}, 
-            \qquad \mathcal{U}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[ \sqrt{g} \, G^{-1} \mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{U}^1 = \hat{\Pi}_2 \left[ \sqrt{g} \, G^{-1} \mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^2 \times N^1}, 
+            \qquad \mathcal{U}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[ \sqrt{g} \, G^{-1} \mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling U1 and U1T ...')
-        self.U1 = MHDOperator(self._P2, self._V1, self._fun_U1)
+        self.U1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V1, self._fun_U1))
         self.U1T = self.U1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_P1(self):
-        '''Assemble :math:`\mathcal{P}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{P}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{P}^1 = \\hat{\Pi}_1 \\left[ \\frac{\\hat{J}^2_{\\text{eq}}}{\sqrt{g}} \\times \mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^1 \\times N^2}, 
-            \qquad \mathcal{P}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\nu}\\frac{\\hat{J}^2_{\\text{eq}, \\alpha}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{P}^1 = \hat{\Pi}_1 \left[ \frac{\hat{J}^2_{\text{eq}}}{\sqrt{g}} \times \mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^1 \times N^2}, 
+            \qquad \mathcal{P}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\epsilon_{\mu \alpha \nu}\frac{\hat{J}^2_{\text{eq}, \alpha}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling P1 and P1T ...')
-        self.P1 = MHDOperator(self._P1, self._V2, self._fun_P1)
+        self.P1 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V2, self._fun_P1))
         self.P1T = self.P1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S1(self):
-        '''Assemble :math:`\mathcal{S}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{S}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{S}^1 = \\hat{\Pi}_2 \\left[ \\hat{p}^3_{\\text{eq}} G^{-1} \mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^2 \\times N^1}, 
-            \qquad \mathcal{S}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\hat{p}^3_{\\text{eq}}G^{-1}\mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^1 = \hat{\Pi}_2 \left[ \hat{p}^3_{\text{eq}} G^{-1} \mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^2 \times N^1}, 
+            \qquad \mathcal{S}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\hat{p}^3_{\text{eq}}G^{-1}\mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S1 and S1T ...')
-        self.S1 = MHDOperator(self._P2, self._V1, self._fun_S1)
+        self.S1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V1, self._fun_S1))
         self.S1T = self.S1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_T1(self):
-        '''Assemble :math:`\mathcal{T}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{T}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{T}^1 = \\hat{\Pi}_1 \\left[ \\hat{B}^2_{\\text{eq}} \\times (G^{-1} \mathbf{\\vec{\Lambda}}^1) \\right] \in \mathbb{R}^{N^1 \\times N^1}, 
-            \qquad \mathcal{T}^1_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\beta} \\hat{B}^2_{\\text{eq},\\alpha}G^{-1}_{\\beta \\nu}\mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{T}^1 = \hat{\Pi}_1 \left[ \hat{B}^2_{\text{eq}} \times (G^{-1} \mathbf{\vec{\Lambda}}^1) \right] \in \mathbb{R}^{N^1 \times N^1}, 
+            \qquad \mathcal{T}^1_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\epsilon_{\mu \alpha \beta} \hat{B}^2_{\text{eq},\alpha}G^{-1}_{\beta \nu}\mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling T1 and T1T ...')
-        self.T1 = MHDOperator(self._P1, self._V1, self._fun_T1)
+        self.T1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V1, self._fun_T1))
         self.T1T = self.T1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_X1(self):
-        '''Assemble :math:`\mathcal{X}^1` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{X}^1` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{X}^1 = \\hat{\Pi}_0 \\left[ DF^{-\\top}\mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^0 \\times 3 \\times N^1}, 
-            \qquad \mathcal{X}^1_{\\nu,(ijk),(mno)} := \\hat{\Pi}_{0,(ijk)} \\left[ DF^{-\\top}\mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{X}^1 = \hat{\Pi}_0 \left[ DF^{-\top}\mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^0 \times 3 \times N^1}, 
+            \qquad \mathcal{X}^1_{\nu,(ijk),(mno)} := \hat{\Pi}_{0,(ijk)} \left[ DF^{-\top}\mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling X1 and X1T ...')
-        self.X1 = MHDOperator(self._P0vec, self._V1, self._fun_X1)
+        self.X1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'H1vec', self.derham.bc, MHDOperator(self._P0vec, self._V1, self._fun_X1))
         self.X1T = self.X1.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_K10(self):
-        '''Assemble :math:`\mathcal{K}^{10}` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 0-form  :math:`\\hat{p}^0`.
+        r'''Assemble :math:`\mathcal{K}^{10}` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 0-form  :math:`\hat{p}^0`.
 
         .. math::
 
-            \mathcal{K}^{10} = \\hat{\Pi}_3 \\left[ \\hat{p}^0_{\\text{eq}} \mathbf{\Lambda}^0 \\right] \in \mathbb{R}^{N^0 \\times N^0}, 
-            \qquad \mathcal{K}^{10}_{(ijk),(mno)} := \\hat{\Pi}_{3,(ijk)} \\left[  \\hat{p}^0_{\\text{eq}} \mathbf{\Lambda}^0_{(mno)} \\right] \,.
+            \mathcal{K}^{10} = \hat{\Pi}_3 \left[ \hat{p}^0_{\text{eq}} \mathbf{\Lambda}^0 \right] \in \mathbb{R}^{N^0 \times N^0}, 
+            \qquad \mathcal{K}^{10}_{(ijk),(mno)} := \hat{\Pi}_{3,(ijk)} \left[  \hat{p}^0_{\text{eq}} \mathbf{\Lambda}^0_{(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling K10 and K10T ...')
-        self.K10 = MHDOperator(self._P0, self._V0, self._fun_K10)
+        self.K10 = ApplyHomogeneousDirichletToOperator('H1', 'H1', self.derham.bc, MHDOperator(self._P0, self._V0, self._fun_K10))
         self.K10T = self.K10.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S10(self):
-        '''Assemble :math:`\mathcal{S}^{10}` MHD projection operator with the velocity as 1-form :math:`\\hat{\mathbf{U}}^1` and the pressure as 0-form  :math:`\\hat{p}^0`.
+        r'''Assemble :math:`\mathcal{S}^{10}` MHD projection operator with the velocity as 1-form :math:`\hat{\mathbf{U}}^1` and the pressure as 0-form  :math:`\hat{p}^0`.
 
         .. math::
 
-            \mathcal{S}^{10} = \\hat{\Pi}_1 \\left[ \\hat{p}^0_{\\text{eq}} \mathbf{\\vec{\Lambda}}^1 \\right] \in \mathbb{R}^{N^1 \\times N^1}, 
-            \qquad \mathcal{S}^{10}_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[ \\hat{p}^0_{\\text{eq}} \mathbf{\\vec{\Lambda}}^1_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^{10} = \hat{\Pi}_1 \left[ \hat{p}^0_{\text{eq}} \mathbf{\vec{\Lambda}}^1 \right] \in \mathbb{R}^{N^1 \times N^1}, 
+            \qquad \mathcal{S}^{10}_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[ \hat{p}^0_{\text{eq}} \mathbf{\vec{\Lambda}}^1_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S10 and S10T ...')
-        self.S10 = MHDOperator(self._P1, self._V1, self._fun_S10)
+        self.S10 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V1, self._fun_S10))
         self.S10T = self.S10.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     # MHD operators with velocity (up) as 2-form:
     def assemble_K2(self):
-        '''Assemble :math:`\mathcal{K}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{K}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{K}^2 = \\hat{\Pi}_3 \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \\right] \in \mathbb{R}^{N^3 \\times N^3}, 
-            \qquad \mathcal{K}^1_{(ijk),(mno)} := \\hat{\Pi}_{3,(ijk)} \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \\right] \,.
+            \mathcal{K}^2 = \hat{\Pi}_3 \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3 \right] \in \mathbb{R}^{N^3 \times N^3}, 
+            \qquad \mathcal{K}^1_{(ijk),(mno)} := \hat{\Pi}_{3,(ijk)} \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\Lambda}^3_{(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling K2 and K2T ...')
-        self.K2 = MHDOperator(self._P3, self._V3, self._fun_K2)
+        self.K2 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, MHDOperator(self._P3, self._V3, self._fun_K2))
         self.K2T = self.K2.transpose()
     
     def assemble_Q2(self):
-        '''Assemble :math:`\mathcal{Q}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{Q}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{Q}^2 = \\hat{\Pi}_2 \\left[ \\frac{\\hat{\\rho}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^2 \\times N^2}, 
-            \qquad \mathcal{Q}^2_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\frac{\\hat{\\rho}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{Q}^2 = \hat{\Pi}_2 \left[ \frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^2 \times N^2}, 
+            \qquad \mathcal{Q}^2_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\frac{\hat{\rho}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Q2 and Q2T ...')
-        self.Q2 = MHDOperator(self._P2, self._V2, self._fun_Q2)
+        self.Q2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V2, self._fun_Q2))
         self.Q2T = self.Q2.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_T2(self):
-        '''Assemble :math:`\mathcal{T}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{T}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{T}^2 = \\hat{\Pi}_1 \\left[ \\frac{\\hat{B}^2_{\\text{eq}}}{\sqrt{g}} \\times \mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^1 \\times N^2}, 
-            \qquad \mathcal{T}^2_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\nu} \\frac{\\hat{B}^2_{\\text{eq},\\alpha}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{T}^2 = \hat{\Pi}_1 \left[ \frac{\hat{B}^2_{\text{eq}}}{\sqrt{g}} \times \mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^1 \times N^2}, 
+            \qquad \mathcal{T}^2_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\epsilon_{\mu \alpha \nu} \frac{\hat{B}^2_{\text{eq},\alpha}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling T2 and T2T ...')
-        self.T2 = MHDOperator(self._P1, self._V2, self._fun_T2)
+        self.T2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V2, self._fun_T2))
         self.T2T = self.T2.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_P2(self):
-        '''Assemble :math:`\mathcal{P}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{P}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{P}^2 = \\hat{\Pi}_2 \\left[\\hat{J}^2_{\\text{eq}} \\times (G^{-1} \mathbf{\\vec{\Lambda}}^2) \\right] \in \mathbb{R}^{N^2 \\times N^2}, 
-            \qquad \mathcal{P}^2_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\epsilon_{\\mu \\alpha \\beta}\\hat{J}^2_{\\text{eq}, \\alpha} G^{-1}_{\\beta \\nu} \mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{P}^2 = \hat{\Pi}_2 \left[\hat{J}^2_{\text{eq}} \times (G^{-1} \mathbf{\vec{\Lambda}}^2) \right] \in \mathbb{R}^{N^2 \times N^2}, 
+            \qquad \mathcal{P}^2_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\epsilon_{\mu \alpha \beta}\hat{J}^2_{\text{eq}, \alpha} G^{-1}_{\beta \nu} \mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling P2 and P2T ...')
-        self.P2 = MHDOperator(self._P2, self._V2, self._fun_P2)
+        self.P2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V2, self._fun_P2))
         self.P2T = self.P2.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S2(self):
-        '''Assemble :math:`\mathcal{S}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{S}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{S}^2 = \\hat{\Pi}_2 \\left[ \\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^2 \\times N^2}, 
-            \qquad \mathcal{S}^2_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{2,\\mu,(ijk)} \\left[\\frac{\\hat{p}^3_{\\text{eq}}}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^2 = \hat{\Pi}_2 \left[ \frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^2 \times N^2}, 
+            \qquad \mathcal{S}^2_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{2,\mu,(ijk)} \left[\frac{\hat{p}^3_{\text{eq}}}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S2 and S2T ...')
-        self.S2 = MHDOperator(self._P2, self._V2, self._fun_S2)
+        self.S2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V2, self._fun_S2))
         self.S2T = self.S2.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_X2(self):
-        '''Assemble :math:`\mathcal{X}^2` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\\hat{p}^3`.
+        r'''Assemble :math:`\mathcal{X}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.
 
         .. math::
 
-            \mathcal{X}^2 = \\hat{\Pi}_0 \\left[ \\frac{DF}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^0 \\times 3 \\times N^2}, 
-            \qquad \mathcal{X}^2_{\\nu,(ijk),(mno)} := \\hat{\Pi}_{0,(ijk)} \\left[ \\frac{DF}{\sqrt{g}} \mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{X}^2 = \hat{\Pi}_0 \left[ \frac{DF}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^0 \times 3 \times N^2}, 
+            \qquad \mathcal{X}^2_{\nu,(ijk),(mno)} := \hat{\Pi}_{0,(ijk)} \left[ \frac{DF}{\sqrt{g}} \mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling X2 and X2T ...')
-        self.X2 = MHDOperator(self._P0vec, self._V2, self._fun_X2)
+        self.X2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'H1vec', self.derham.bc, MHDOperator(self._P0vec, self._V2, self._fun_X2))
         self.X2T = self.X2.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
      
     def assemble_Y20(self):
-        '''Assemble :math:`\mathcal{Y}^{20}` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\\hat{p}^0`.
+        r'''Assemble :math:`\mathcal{Y}^{20}` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\hat{p}^0`.
 
         .. math::
 
-            \mathcal{Y}^{20} = \\hat{\Pi}_3 \\left[ \sqrt{g} \, \mathbf{\Lambda}^0 \\right] \in \mathbb{R}^{N^3 \\times N^0}, 
-            \qquad \mathcal{Y}^{20}_{(ijk),(mno)} := \\hat{\Pi}_{3,(ijk)} \\left[\sqrt{g} \, \mathbf{\Lambda}^0_{(mno)} \\right] \,.
+            \mathcal{Y}^{20} = \hat{\Pi}_3 \left[ \sqrt{g} \, \mathbf{\Lambda}^0 \right] \in \mathbb{R}^{N^3 \times N^0}, 
+            \qquad \mathcal{Y}^{20}_{(ijk),(mno)} := \hat{\Pi}_{3,(ijk)} \left[\sqrt{g} \, \mathbf{\Lambda}^0_{(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Y20 and Y20T ...')
-        self.Y20 = MHDOperator(self._P3, self._V0, self._fun_Y20)
+        self.Y20 = ApplyHomogeneousDirichletToOperator('H1', 'L2', self.derham.bc, MHDOperator(self._P3, self._V0, self._fun_Y20))
         self.Y20T = self.Y20.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Z20(self):
-        '''Assemble :math:`\mathcal{Z}^{20}` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\\hat{p}^0`.
+        r'''Assemble :math:`\mathcal{Z}^{20}` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\hat{p}^0`.
 
         .. math::
 
-            \mathcal{Z}^{20} = \\hat{\Pi}_1 \\left[ \\frac{G}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^1 \\times N^2}, 
-            \qquad \mathcal{Z}^{20}_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\frac{G}{\sqrt{g}} \mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{Z}^{20} = \hat{\Pi}_1 \left[ \frac{G}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^1 \times N^2}, 
+            \qquad \mathcal{Z}^{20}_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\frac{G}{\sqrt{g}} \mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling Z20 and Z20T ...')
-        self.Z20 = MHDOperator(self._P1, self._V2, self._fun_Z20)
+        self.Z20 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V2, self._fun_Z20))
         self.Z20T = self.Z20.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 
     def assemble_S20(self):
-        '''Assemble :math:`\mathcal{S}^{20}` MHD projection operator with the velocity as 2-form :math:`\\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\\hat{p}^0`.
+        r'''Assemble :math:`\mathcal{S}^{20}` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 0-form  :math:`\hat{p}^0`.
 
         .. math::
 
-            \mathcal{S}^{20} = \\hat{\Pi}_1 \\left[ \\hat{p}_{\\text{eq}} \\frac{G}{\sqrt{g}}\mathbf{\\vec{\Lambda}}^2 \\right] \in \mathbb{R}^{N^1 \\times N^2}, 
-            \qquad \mathcal{S}^{20}_{\\mu\\nu,(ijk),(mno)} := \\hat{\Pi}_{1,\\mu,(ijk)} \\left[\\hat{p}_{\\text{eq}} \\frac{G}{\sqrt{g}} \mathbf{\\vec{\Lambda}}^2_{\\nu,(mno)} \\right] \,.
+            \mathcal{S}^{20} = \hat{\Pi}_1 \left[ \hat{p}_{\text{eq}} \frac{G}{\sqrt{g}}\mathbf{\vec{\Lambda}}^2 \right] \in \mathbb{R}^{N^1 \times N^2}, 
+            \qquad \mathcal{S}^{20}_{\mu\nu,(ijk),(mno)} := \hat{\Pi}_{1,\mu,(ijk)} \left[\hat{p}_{\text{eq}} \frac{G}{\sqrt{g}} \mathbf{\vec{\Lambda}}^2_{\nu,(mno)} \right] \,.
 
         '''
         if self.derham.comm.Get_rank() == 0: print('Assembling S20 and S20T ...')
-        self.S20 = MHDOperator(self._P1, self._V2, self._fun_S20)
+        self.S20 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, MHDOperator(self._P1, self._V2, self._fun_S20))
         self.S20T = self.S20.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
 

@@ -100,12 +100,12 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           f0_spec: 'int',  # model specific arguments
                           moms_spec: 'int[:]',  # model specific arguments
                           f0_params: 'float[:]'):  # model specific arguments
-    """
+    r"""
     Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\\nu    
+        A_p^{\mu, \nu} &= f_0(\eta_p, v_p) * [ G^{-1}(\eta_p) * v_p ]_\mu * [ DF^{-1}(\eta_p) * v_p ]_\nu    
 
         B_p^\mu &= \sqrt{f_0(\eta_p, v_p)} * w_p * [ G^{-1}(\eta_p) * v_p ]_\mu  
 
@@ -205,13 +205,13 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
                     starts_21: 'int[:]',  # model specific parameters
                     starts_22: 'int[:]',  # model specific parameters
                     starts_23: 'int[:]'):  # model specific parameters
-    '''Accumulates into V1 with the filling functions
+    r'''Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} = w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \\nu}     
+        A_p^{\mu, \nu} = w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * G^{-1}(\eta_p) ]_{\mu, \nu}     
 
-    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`. 
+    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`. 
 
     Parameters
     ----------
@@ -327,15 +327,15 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     starts_21: 'int[:]',  # model specific parameters
                     starts_22: 'int[:]',  # model specific parameters
                     starts_23: 'int[:]'):  # model specific parameters
-    '''Accumulates into V1 with the filling functions
+    r'''Accumulates into V1 with the filling functions
 
     .. math::
 
-        A_p^{\mu, \\nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\\times}(\eta_p)^\\top * G^{-1}(\eta_p) ]_{\mu, \\nu}
+        A_p^{\mu, \nu} &= w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * G^{-1}(\eta_p) * B2_{\times}(\eta_p)^\top * G^{-1}(\eta_p) ]_{\mu, \nu}
 
-        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu
+        B_p^\mu &= w_p * [ G^{-1}(\eta_p) * B2_{\times}(\eta_p) * DF^{-1}(\eta_p) * v_p ]_\mu
 
-    where :math:`B2_{\\times} * a := B2 \\times a` for :math:`a \in \mathbb R^3`.
+    where :math:`B2_{\times} * a := B2 \times a` for :math:`a \in \mathbb R^3`.
 
     Parameters
     ----------
@@ -455,4 +455,178 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                              filling_m[2, 2],
                              vec1, vec2, vec3,
                              filling_v[0], filling_v[1], filling_v[2])
+    #$ omp end parallel
+
+
+def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers: 'int',
+                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                  kind_map: 'int', params_map: 'float[:]',
+                  p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                  ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                  cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                  starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
+                  mat11_11: 'float[:,:,:,:,:,:]',
+                  mat12_11: 'float[:,:,:,:,:,:]',
+                  mat13_11: 'float[:,:,:,:,:,:]',
+                  mat22_11: 'float[:,:,:,:,:,:]',
+                  mat23_11: 'float[:,:,:,:,:,:]',
+                  mat33_11: 'float[:,:,:,:,:,:]',
+                  mat11_12: 'float[:,:,:,:,:,:]',
+                  mat12_12: 'float[:,:,:,:,:,:]',
+                  mat13_12: 'float[:,:,:,:,:,:]',
+                  mat22_12: 'float[:,:,:,:,:,:]',
+                  mat23_12: 'float[:,:,:,:,:,:]',
+                  mat33_12: 'float[:,:,:,:,:,:]',
+                  mat11_13: 'float[:,:,:,:,:,:]',
+                  mat12_13: 'float[:,:,:,:,:,:]',
+                  mat13_13: 'float[:,:,:,:,:,:]',
+                  mat22_13: 'float[:,:,:,:,:,:]',
+                  mat23_13: 'float[:,:,:,:,:,:]',
+                  mat33_13: 'float[:,:,:,:,:,:]',
+                  mat11_22: 'float[:,:,:,:,:,:]',
+                  mat12_22: 'float[:,:,:,:,:,:]',
+                  mat13_22: 'float[:,:,:,:,:,:]',
+                  mat22_22: 'float[:,:,:,:,:,:]',
+                  mat23_22: 'float[:,:,:,:,:,:]',
+                  mat33_22: 'float[:,:,:,:,:,:]',
+                  mat11_23: 'float[:,:,:,:,:,:]',
+                  mat12_23: 'float[:,:,:,:,:,:]',
+                  mat13_23: 'float[:,:,:,:,:,:]',
+                  mat22_23: 'float[:,:,:,:,:,:]',
+                  mat23_23: 'float[:,:,:,:,:,:]',
+                  mat33_23: 'float[:,:,:,:,:,:]',
+                  mat11_33: 'float[:,:,:,:,:,:]',
+                  mat12_33: 'float[:,:,:,:,:,:]',
+                  mat13_33: 'float[:,:,:,:,:,:]',
+                  mat22_33: 'float[:,:,:,:,:,:]',
+                  mat23_33: 'float[:,:,:,:,:,:]',
+                  mat33_33: 'float[:,:,:,:,:,:]',
+                  vec1_1: 'float[:,:,:]',
+                  vec2_1: 'float[:,:,:]',
+                  vec3_1: 'float[:,:,:]',
+                  vec1_2: 'float[:,:,:]',
+                  vec2_2: 'float[:,:,:]',
+                  vec3_2: 'float[:,:,:]',
+                  vec1_3: 'float[:,:,:]',
+                  vec2_3: 'float[:,:,:]',
+                  vec3_3: 'float[:,:,:]'):
+    '''Accumulates into V1 with the filling functions
+
+    .. math::
+
+        V_{p,i} A_p^{\mu, \\nu} V_{p,j} &= w_p * [ DF^{-1}(\eta_p) DF^{-\\top}(\eta_p) ]_{\mu, \\nu} * V_{p,i} * V_{p,j} \,,
+        
+        V_{p,i} B_p^\mu &= w_p * [DF^{-1}(\eta_p) V_p]_\mu * V_{p,i} \,.
+
+    Parameters
+    ----------
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    '''
+
+    # allocate for metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_t = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    filling_m = empty((3, 3), dtype=float)
+    filling_v = empty(3, dtype=float)
+
+    tmp1 = empty((3, 3), dtype=float)
+    tmp1_t = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
+    tmp3 = empty((3, 3), dtype=float)
+
+    tmp_v = empty(3, dtype=float)
+    df_inv_times_v = empty(3, dtype=float)
+
+    # allocate for magnetic field evaluation
+    b = empty(3, dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    #$ omp parallel private(ip, eta1, eta2, eta3, v, weight, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, df, df_inv, df_t, df_inv_t, tmp1, tmp_v, filling_m, filling_v) 
+    #$ omp for reduction ( + : mat11_11, mat11_12, mat11_13, mat11_22, mat11_23, mat11_33, mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, mat22_11, mat22_12, mat22_13, mat22_22, mat22_23, mat22_33, mat23_11, mat23_12, mat23_13, mat23_22, mat23_23, mat23_33, mat33_11, mat33_12, mat33_13, mat33_22, mat33_23, mat33_33, vec1_1, vec1_2, vec1_3, vec2_1, vec2_2, vec2_3, vec3_1, vec3_2, vec3_3)
+    for ip in range(n_markers):
+
+        # marker data
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        v = markers[ip, 3:6]
+        weight = markers[ip, 8]
+
+        # b-field evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # Avoid second computation of df, use linear_algebra.core routines to get g_inv:
+        linalg.matrix_inv(df, df_inv)
+        linalg.transpose(df, df_t)
+        linalg.transpose(df_inv, df_inv_t)
+
+        # filling functions
+        linalg.matrix_matrix(df_inv, df_inv_t, tmp1)
+        linalg.matrix_vector(df_inv, v, tmp_v)
+
+        filling_m[:] = weight * tmp1
+        filling_v[:] = weight * tmp_v
+
+        # call the appropriate matvec filler
+        mvf.m_v_fill_v1_pressure(pn, span1, span2, span3,
+                                 bn1, bn2, bn3,
+                                 bd1, bd2, bd3,
+                                 starts1, starts2, starts3,
+                                 mat11_11, mat12_11, mat13_11, 
+                                 mat22_11, mat23_11, 
+                                 mat33_11,
+                                 mat11_12, mat12_12, mat13_12, 
+                                 mat22_12, mat23_12, 
+                                 mat33_12,
+                                 mat11_13, mat12_13, mat13_13, 
+                                 mat22_13, mat23_13, 
+                                 mat33_13,
+                                 mat11_22, mat12_22, mat13_22, 
+                                 mat22_22, mat23_22, 
+                                 mat33_22,
+                                 mat11_23, mat12_23, mat13_23, 
+                                 mat22_23, mat23_23, 
+                                 mat33_23,
+                                 mat11_33, mat12_33, mat13_33, 
+                                 mat22_33, mat23_33, 
+                                 mat33_33, 
+                                 filling_m[0, 0], filling_m[0, 1], filling_m[0, 2], 
+                                 filling_m[1, 1], filling_m[1, 2], 
+                                 filling_m[2, 2],
+                                 vec1_1, vec2_1, vec3_1,
+                                 vec1_2, vec2_2, vec3_2,
+                                 vec1_3, vec2_3, vec3_3,
+                                 filling_v[0], filling_v[1], filling_v[2],
+                                 v[0], v[1], v[2])
     #$ omp end parallel

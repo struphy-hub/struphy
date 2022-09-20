@@ -19,12 +19,13 @@ from struphy.version import __version__
 
 # -- Project information -----------------------------------------------------
 
-project = 'STRUPHY'
-copyright = '2022, Max Planck Institute for Plasma Physics'
-author = 'Max Planck Institute for Plasma Physics'
+project = 'struphy'
+copyright = 'Copyright 2022 (c) struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
+author = 'struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics'
+version = __version__ + ' beta'
 
 # The full version, including alpha/beta/rc tags
-release = __version__
+release = __version__ + ' beta'
 
 # -- General configuration ---------------------------------------------------
 
@@ -70,3 +71,10 @@ html_static_path = ['_static']
 highlight_language = 'none'
 
 autodoc_member_order = 'bysource'
+
+html_logo = 'dog-cartoon-struphy-vsmall.jpg'
+html_theme_options = {
+    'display_version': True,
+    'style_external_links': True,
+}
+

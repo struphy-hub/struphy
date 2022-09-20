@@ -10,12 +10,11 @@ from time import sleep
 @pytest.mark.parametrize('p', [[2, 3, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True]])
 @pytest.mark.parametrize('mapping', [
-    ['cuboid', {
+    ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], ])
 def test_psydac_basics(Nel, p, spl_kind, mapping):
     '''Show attributes of basic psydac objects.'''
 
-    from struphy.geometry.domain_3d import Domain
     from struphy.psydac_api.psydac_derham import Derham
 
     from psydac.fem.basic import FemField
@@ -311,5 +310,5 @@ def test_psydac_basics(Nel, p, spl_kind, mapping):
 
 
 if __name__ == '__main__':
-    test_psydac_basics([8, 8, 12], [2, 3, 4], [False, False, True], ['cuboid', {
+    test_psydac_basics([8, 8, 12], [2, 3, 4], [False, False, True], ['Cuboid', {
         'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])

@@ -3,30 +3,28 @@
 Userguide
 =========
 
-This section explains the use of existing models and physics features, and how to conduct
-numerical experiments with STRUPHY.
-The basic commands are explained in :ref:`quickstart`. Here, a more in-depth description
-of the command line tools is given.
+Basic struphy commands are explained in :ref:`quickstart`. Here, a more in-depth description
+of struphy use is given. Command line help is accessed by typing ``struphy``.
 
-The main point of interaction for the **regular user** is the STRUPHY parameters file. 
+The main point of interaction for the **regular user** is the struphy parameters file. 
 A default of this file is provided in ``<install_path>/io/inp/parameters.yml``. 
 This file is discussed in :ref:`params_yml`.
 
 
 .. _running_codes:
 
-Running STRUPHY models
+Running struphy models
 ----------------------
 
 The basic command is::
 
-        struphy run <model> [<run options>]
+        struphy run MODEL [OPTIONS]
 
-where ``[<run options>]`` is optional. Currently available models are listed in :ref:`models`. Valid choices for ``<model>``
-are the listed class names, as in ``struphy.models.models.<model>``, for example ``Maxwell``.
-To add a new ``<model>``  please go to :ref:`developers` and follow section :ref:`add_model`. 
+where ``[OPTIONS]`` is optional. Currently available models are listed in :ref:`models`. Valid choices for ``MODEL``
+are the listed class names, as in ``struphy.models.models.MODEL``, for example ``Maxwell``.
+To add a new ``MODEL``  please go to :ref:`developers` and follow section :ref:`add_model`. 
 
-If no ``[<run options>]`` are specified, the input is taken from ``<install_path>/io/inp/parameters.yml``,
+If no ``[OPTIONS]`` are specified, the input is taken from ``<install_path>/io/inp/parameters.yml``,
 where ``<install_path>`` is obtained from::
 
         struphy -p
@@ -35,29 +33,29 @@ By default, simulation data is written to ``<install_path>/io/out/sim_1/``.
 Different input files and/or output folders in ``<install_path>/io/`` can be specified when launching a run
 with the ``-i`` and/or ``-o`` flags, respectively::
 
-        struphy run <model> -i my_params.yml -o my_folder/
+        struphy run MODEL -i my_params.yml -o my_folder/
 
 Absolute paths can also be specified::
 
-        struphy run <model> --input-abs abs_path_to_file.yml --output-abs abs_path_to_folder/
+        struphy run MODEL --input-abs abs_path_to_file.yml --output-abs abs_path_to_folder/
 
 `Slurm <https://slurm.schedmd.com/documentation.html>`_ jobs can be submitted via batch scripts. 
 Some default batch scripts are provided in ``<install_path>/io/batch``, 
 e.g. ``batch/cobra_0160proc.sh``. Those can be called with the ``-b`` flag::
 
-        struphy run <model> -b cobra_0160proc.sh
+        struphy run MODEL -b cobra_0160proc.sh
 
 Again, an absolute path to a batch script can be specified::
 
-        struphy run <model> --batch-abs abs_path_to_batch.sh
+        struphy run MODEL --batch-abs abs_path_to_batch.sh
 
 Small parallel runs for testing can be called via::
 
-        struphy run <model> --mpi <int>
+        struphy run MODEL --mpi <int>
 
 where ``<int>`` denotes the number of processes. 
 
-The ``[<run options>]`` can be combined (the order is not important).
+``[OPTIONS]`` can be combined (the order is not important).
 
 
 .. _params_yml:
@@ -107,7 +105,7 @@ Available mappings :math:`F:(\eta_1, \eta_2, \eta_3) \mapsto (x, y, z)` are list
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
     :lineno-start: 18
-    :lines: 18-108
+    :lines: 18-134
 
 
 .. _fields:
@@ -115,7 +113,7 @@ Available mappings :math:`F:(\eta_1, \eta_2, \eta_3) \mapsto (x, y, z)` are list
 fields
 ^^^^^^
 
-Available initial perturbations to be added on :ref:`backgrounds` are listed in :ref:`avail_inits`.
+Available initial perturbations to be added on :ref:`mhd_equil` are listed in :ref:`avail_inits`.
 
 The keyword ``coords`` specifies the coordinate system in which the initial conditions shall be prescribed.
 For instance, with ``type: Modes_sin`` it is possible to initialize a sine wave as a functin of :math:`(x, y, z)`
@@ -132,8 +130,8 @@ With ``mhd_equilibrium`` you choose the background; the available choices are li
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 111
-    :lines: 111-174
+    :lineno-start: 137
+    :lines: 137-214
 
 
 .. _kinetic:
@@ -159,8 +157,8 @@ defined by the given parameters.
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 184
-    :lines: 184-219
+    :lineno-start: 217
+    :lines: 217-252
 
 
 .. _solvers:
@@ -174,8 +172,8 @@ Available preconditioners are listed in :ref:`preconditioner`.
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 222
-    :lines: 222-236
+    :lineno-start: 255
+    :lines: 255-269
 
 
 .. _pproc:
@@ -192,10 +190,11 @@ Here, ``sim_1`` (and ``sim_2`` etc.) is relative to ``<install_path>/io/out/``. 
     1. ``vtk`` files for each time step in ``<install_path>/io/out/sim_1/vtk/`` 
     2. numpy arrays of evaluated fields and grids in ``<install_path>/io/out/sim_1/eval_fields/`` 
 
-The called STRUPHY routine is
+The called struphy routines are
 
 .. automodule:: struphy.diagnostics.post_processing
     :members:
+    :exclude-members: post_process_fields, compute_unstructured_mesh_info
     :undoc-members:
 
 
@@ -204,7 +203,7 @@ The called STRUPHY routine is
 Diagnostics
 -----------
 
-Once the simulation data has been post processed, one can apply STRUPHY's diagnostics tools:
+Once the simulation data has been post processed, one can apply struphy's diagnostics tools:
 
 .. automodule:: struphy.diagnostics.diagn_tools
     :members:
@@ -218,7 +217,7 @@ An examples of the whole workflow is in ``struphy/examples/example_diagnostics_1
 Code profiling
 --------------
 
-Finished runs (with the smae ``<model>``) can be profiled (=list individual run times of called sub-functions)::
+Finished runs (with the smae ``MODEL``) can be profiled (=list individual run times of called sub-functions)::
 
         struphy profile sim_1 [sim_2 ...]
 

@@ -42,42 +42,63 @@ class KineticPerturbation:
         '''
 
         # unperturbed moments
-        n0, u0x, u0y, u0z, vth0x, vth0y, vth0z = moments_kernels.moments(
-            eta, self.moms_spec, self.moms_params)
+        n0    = np.empty(len(eta[:,0]), dtype=float)
+        u0x   = np.empty(len(eta[:,0]), dtype=float)
+        u0y   = np.empty(len(eta[:,0]), dtype=float)
+        u0z   = np.empty(len(eta[:,0]), dtype=float)
+        vth0x = np.empty(len(eta[:,0]), dtype=float)
+        vth0y = np.empty(len(eta[:,0]), dtype=float)
+        vth0z = np.empty(len(eta[:,0]), dtype=float)
+
+        moments_kernels.array_moments(np.array(eta), 
+                                      np.array(self.moms_spec), np.array(self.moms_params),
+                                      n0, u0x, u0y, u0z, vth0x, vth0y, vth0z)
 
         # add perturbation
-        p_class = getattr(perturbations, self.p_type)
-        perturb = p_class(**self.p_params)
+        if self.p_type == 'None':
+            n = n0
+            ux = u0x
+            uy = u0y
+            uz = u0z
+            vthx = vth0x
+            vthy = vth0y
+            vthz = vth0z
 
-        if 'n' in self.p_moms:
-            n = n0 + perturb
+        else:
+            p_class = getattr(perturbations, self.p_type)
+            perturb = p_class(**self.p_params)
 
-        if 'ux' in self.p_moms:
-            ux = u0x + perturb
+            if 'n' in self.p_moms:
+                n = n0 + perturb
 
-        if 'uy' in self.p_moms:
-            uy = u0y + perturb
+            if 'ux' in self.p_moms:
+                ux = u0x + perturb
 
-        if 'uz' in self.p_moms:
-            uz = u0z + perturb
+            if 'uy' in self.p_moms: 
+                uy = u0y + perturb
 
-        if 'vthx' in self.p_moms:
-            vthx = vth0x + perturb
+            if 'uz' in self.p_moms:
+                uz = u0z + perturb
 
-        if 'vthy' in self.p_moms:
-            vthy = vth0y + perturb
+            if 'vthx' in self.p_moms:
+                vthx = vth0x + perturb
 
-        if 'vthz' in self.p_moms:
-            vthz = vth0z + perturb
+            if 'vthy' in self.p_moms:
+                vthy = vth0y + perturb
+
+            if 'vthz' in self.p_moms:
+                vthz = vth0z + perturb
 
         if self.back_type == 0:  # maxwellian_6d, see kinetic_background/f0_kernels.py
 
-            Gx = np.exp(-(v[0] - ux)**2 / (vthx**2)) / (np.sqrt(np.pi)*vthx)
-            Gy = np.exp(-(v[1] - uy)**2 / (vthy**2)) / (np.sqrt(np.pi)*vthy)
-            Gz = np.exp(-(v[2] - uz)**2 / (vthz**2)) / (np.sqrt(np.pi)*vthz)
+            Gx = np.exp(-(v[:,0] - ux)**2 / (vthx**2)) / (np.sqrt(np.pi)*vthx)
+            Gy = np.exp(-(v[:,1] - uy)**2 / (vthy**2)) / (np.sqrt(np.pi)*vthy)
+            Gz = np.exp(-(v[:,2] - uz)**2 / (vthz**2)) / (np.sqrt(np.pi)*vthz)
 
             return n*Gx*Gy*Gz
 
         else:
+
             raise NotImplementedError(
                 f'Background of type {self.back_type} not implemented.')
+

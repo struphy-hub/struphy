@@ -34,6 +34,9 @@ with open(path + '/eval_fields/grids.bin', 'rb') as handle:
 with open(path + '/eval_fields/grids_mapped.bin', 'rb') as handle:
     grids_mapped = pickle.load(handle)
 
+with open(path + '/eval_fields/masks.bin', 'rb') as handle:
+    masks = pickle.load(handle)
+
 # fft in (t, z) of first component of e_field on physical grid
-fourier_1d(point_data_log, name, code, grids,
+fourier_1d(point_data_log, name, code, grids, masks,
            grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Maxwell1D')

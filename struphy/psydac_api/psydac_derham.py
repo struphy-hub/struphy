@@ -7,6 +7,7 @@ from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
 from struphy.psydac_api.H1vec_psydac import Projector_H1vec
+from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
 
 import numpy as np
 
@@ -119,6 +120,11 @@ class Derham:
             self._grad, self._curl, self._div = _derham.derivatives_as_matrices
         else:
             self._grad, self._curl, self._div = _derham.derivatives_as_operators
+            
+        # TODO: Boundary conditions with der_as_mat=False don't work yet
+        self._grad = ApplyHomogeneousDirichletToOperator('H1', 'Hcurl', self._bc, self._grad)
+        self._curl = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hdiv', self._bc, self._curl)
+        self._div  = ApplyHomogeneousDirichletToOperator('Hdiv', 'L2', self._bc, self._div)
 
         # Break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
