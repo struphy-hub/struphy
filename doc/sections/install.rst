@@ -30,14 +30,17 @@ User install
 
 To use struphy via docker, perform the following steps:
 
-1. `Install Docker Desktop <https://www.docker.com/products/docker-desktop/>`_. 
-You need admin rights to run Docker Desktop.
+1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_.
 
-Test your installation by typing ``sudo docker info`` in the terminal.
-The `sudo` is not necessary if you `add Docker’s official GPG key <https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository>`_.
-If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_::
-
+On Mac, we recommend to `understand the permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
 (REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
+
+On Windows, we recommend to `understand the permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
+
+On Linux, if you do not want to preface the docker command with ``sudo``, you can 
+`create a Unix group <https://docs.docker.com/engine/install/linux-postinstall/>`_ 
+called ``docker`` and add your user to it.
+If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_.
 
 2. Login to the MPCDF Gitlab registry using a predefined struphy user and token::
 
@@ -45,7 +48,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 3. Run the latest release of struphy in a container::
 
-    docker run -i -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal. Test the container by typing ``struphy``,
 which should display the struphy help. ``struphy compile`` will show that all kernels are already compiled. 
@@ -55,14 +58,17 @@ Type ``exit`` to exit and close the container.
 Important docker commands
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* ``docker run -d -t --name <container_name> IMAGE`` runs the container in the background (detached).
-* ``docker ps`` lists running containers.
-* ``docker exec <container_name> COMMAND`` gives a command to a detached container.
-* ``docker stop <container_name>`` stops the container.
 * ``docker images`` shows the images available on your computer.
+* ``docker run -d -t --name <container_name> IMAGE`` runs the container in the background (detached).
+* ``docker exec <container_name> COMMAND`` gives a bash command to a detached container.
+* ``docker stop <container_name>`` stops the container.
+* ``docker ps -l`` lists all containers (also exited/stopped).
+* ``docker restart <container_name>`` restarts the container in detached mode.
+* ``docker attach <container_name>`` opens a terminal to a detached container.
+
 * Mirror default struphy output to ``~/<dir>`` on the host machine::
     
-    docker run -i -t -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
+    docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
 
 .. _docker_devs:
 
@@ -71,13 +77,9 @@ Docker for devs
 
 Docker is well-suited for developers on any kind of platform. 
 After installing docker desktop (1.) and logging in to the registry (2.),
-you can run the following container::
-
-    docker run -i -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
-
-This launches the recommended dev environment for struphy (``Ubuntu 20.04``) 
-with all dependencies installed and compiled. Type ``pip list`` to view the installed Python packages.
-Type ``exit`` to exit and close the container.
+the relevant docker image to run is ``gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20``.
+It initializes the recommended dev environment for struphy (``Ubuntu 20.04``) 
+with all dependencies installed and compiled. 
 
 In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
@@ -94,10 +96,13 @@ You can now install struphy in developer mode::
     struphy
 
 In order to develop inside the container, we recommend to use `Visual Studio Code <https://code.visualstudio.com/>`_.
-Once installed, you can click on *Extensions* (fifth icon on the left sidebar) and search and install the ``Docker``
-extension. Now you will be able to edit container files in VScode, as shown in the picture below.
-Clicking on the new docker icon (red) on the left sidebar opens a box of running and exited containers (green).
-You can click on a running container and go down the file tree to edit the file of choice.
+Once installed, you can click on **Extensions** (red circle below) and install the ``Remote - Containers``
+extension (green box). Now you will be able to edit container files in VScode by clicking on the green symbol
+in the bottom-left corner (yellow circle). Choose ``Attach to a running container ...`` and select 
+the container in which you want to edit. By doing ``File - Open Folder...`` you are able to
+open any folder from the container.
+
+In order to have Python highlighting we recommend to install the ``Python`` extension in VScode.
 
 .. image:: ../pics/vscode_docker_red.png
 
