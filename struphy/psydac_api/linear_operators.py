@@ -16,15 +16,16 @@ class LinOpWithTransp(LinearOperator):
 
 
 class CompositeLinearOperator(LinOpWithTransp):
-    '''Composition of n linear operators: L_n(L_{n-1}(...L_2(L_1(v))...) .'''
+    r"""
+    Composition of n linear operators: :math:`A(\mathbf v)=L_n(L_{n-1}(...L_2(L_1(\mathbf v))...)`.
+    
+    Parameters
+    ----------
+        operators: LinOpWithTransp | StencilMatrix | BlockMatrix
+            The sequence of n linear operators.
+    """
 
     def __init__(self, *operators):
-        '''
-        Parameters
-        ----------
-            operators: LinOpWithTransp | StencilMatrix | BlockMatrix
-                Sequence: L_n, L_{n-1}, ..., L_2, L_1 .
-        '''
 
         self._operators = list(operators)[::-1]
 
@@ -67,16 +68,19 @@ class CompositeLinearOperator(LinOpWithTransp):
 
 
 class ScalarTimesLinearOperator(LinOpWithTransp):
-    '''a*L with a in R.'''
+    r"""
+    Multiplication of a linear operator with a scalar: :math:`A(\mathbf v)=aL(\mathbf v)` with :math:`a \in \mathbb R`.
+    
+    Parameters
+    ----------
+        a : float
+            The scalar that is multiplied with the linear operator. 
+
+        operator: LinOpWithTransp | StencilMatrix | BlockMatrix
+            The linear operator.
+    """
 
     def __init__(self, a, operator):
-        '''
-        Parameters
-        ----------
-            a : float
-
-            operator: LinOpWithTransp | StencilMatrix | BlockMatrix
-        '''
 
         assert isinstance(a, (int, float, complex))
         assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
@@ -112,14 +116,16 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
 
 
 class SumLinearOperator(LinOpWithTransp):
-    '''(L_n + L_{n-1} + ... + L_2 + L_1)(v) .'''
+    r"""
+    Sum of n linear operators: :math:`A(\mathbf v)=(L_n + L_{n-1} + ... + L_2 + L_1)(\mathbf v)`.
+    
+    Parameters
+    ----------
+        operators: LinOpWithTransp | StencilMatrix | BlockMatrix
+            The sequence of n linear operators.
+    """
 
     def __init__(self, *operators):
-        '''
-        Parameters
-        ----------
-            operators: LinOpWithTransp | StencilMatrix | BlockMatrix
-        '''
 
         self._operators = list(operators)
 
@@ -163,32 +169,33 @@ class SumLinearOperator(LinOpWithTransp):
 
 
 class InverseLinearOperator(LinOpWithTransp):
-    '''Inverse linear operator L^{-1}.'''
+    r"""
+    Inverse linear operator: :math:`A(\mathbf v)=L^{-1}(\mathbf v)`.
+    
+    Parameters
+    ----------
+        operator: LinOpWithTransp | StencilMatrix | BlockMatrix
+            Should be symmetric, positive semi-definite.
+
+        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
+            Preconditioner for "operator", it should approximate the inverse of "operator".
+            Can either be:
+            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
+            * A LinearSolver object (in which case the out parameter is used)
+            * A callable with two parameters ("operator", r), where r is the residual.
+
+        tol : float
+            Absolute tolerance for L2-norm of residual r = A*x - b.
+
+        maxiter: int
+            Maximum number of iterations.
+
+        verbose : bool
+            If True, L2-norm of residual r is printed at each iteration. 
+    """
 
     def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, verbose=False):
-        '''
-        Parameters
-        ----------
-            operator: LinOpWithTransp | StencilMatrix | BlockMatrix
-                Should be symmetric, positive semi-definite.
-
-            pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-                Preconditioner for "operator", it should approximate the inverse of "operator".
-                Can either be:
-                * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-                * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-                * A LinearSolver object (in which case the out parameter is used)
-                * A callable with two parameters ("operator", r), where r is the residual.
-
-            tol : float
-                Absolute tolerance for L2-norm of residual r = A*x - b.
-
-            maxiter: int
-                Maximum number of iterations.
-
-            verbose : bool
-                If True, L2-norm of residual r is printed at each iteration. 
-        '''
 
         assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
         assert operator.domain.dimension == operator.codomain.dimension
@@ -236,14 +243,32 @@ class InverseLinearOperator(LinOpWithTransp):
         return InverseLinearOperator(self._operator.transpose(), pc=self._pc, tol=self._tol, maxiter=self._maxiter, verbose=self._verbose)
     
     
-class ApplyEssentialBcToOperator(LinOpWithTransp):
+class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
+    r"""
+    Apply homogeneous Dirichlet boundary conditions to operator (assuming that the input vector already satisfies homogeneous Dirichlet boundary conditions).
     
-    def __init__(self, space_id, bc, operator):
+    Parameters
+    ----------
+        space_id_i : str
+            Space ID of input space (H1, Hcurl, Hdiv, L2 or H1vec).
+            
+        space_id_o : str
+            Space ID of output space (H1, Hcurl, Hdiv, L2 or H1vec).
+            
+        bc : list
+            Boundary conditions in each direction in format [[bc_eta1=0, bc_eta1=1], [bc_eta2=0, bc_eta2=1], [bc_eta3=0, bc_eta3=1]].
+            
+        operator : LinOpWithTransp | StencilMatrix | BlockMatrix
+            The operator to which the boundary condition shall be applied.
+    """
+    
+    def __init__(self, space_id_i, space_id_o, bc, operator):
         
         assert isinstance(bc, list)
         assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
 
-        self._space_id = space_id
+        self._space_id_i = space_id_i
+        self._space_id_o = space_id_o
         self._bc = bc
         self._operator = operator
 
@@ -268,13 +293,14 @@ class ApplyEssentialBcToOperator(LinOpWithTransp):
         assert isinstance(v, (StencilVector, BlockVector))
         assert v.space == self.domain
 
+        # perform matrix-vector product
         tmp = self._operator.dot(v)
         
-        # apply boundary conditions
-        apply_essential_bc_to_array(self._space_id, tmp, self._bc)
+        # apply boundary conditions to output vector
+        apply_essential_bc_to_array(self._space_id_o, tmp, self._bc)
         
         return tmp
 
     def transpose(self):
         # NOTE: we re-allocate all temporary vectors here... Maybe re-use instead?
-        return ApplyEssentialBcToOperator(self._space_id, self._bc, self._operator.transpose())
+        return ApplyHomogeneousDirichletToOperator(self._space_id_o, self._space_id_i, self._bc, self._operator.transpose())

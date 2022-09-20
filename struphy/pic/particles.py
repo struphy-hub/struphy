@@ -15,8 +15,8 @@ class Particles6D:
         name : str
             Name of the particle species.
 
-        domain: Domain
-            STRUPHY object from struphy.geometry.domain_3d.Domain.
+        domain: struphy.geometry.domains
+            All things mapping.
 
         domain_array : array[float]
             2d array of shape (comm_size, 6) defining the domain of each process.
@@ -69,7 +69,7 @@ class Particles6D:
         self._n_mks_loc_with_holes = round(
             n_mks_load[self.mpi_rank]*(1 + 1/np.sqrt(n_mks_load[self.mpi_rank]) + 0.25))
 
-        self._markers = np.empty((self.n_mks_loc_with_holes, 9), dtype=float)
+        self._markers = np.zeros((self.n_mks_loc_with_holes, 9), dtype=float)
 
         # load markers from external .hdf5 file
         if self.params['loading']['type'] == 'external':
@@ -143,7 +143,12 @@ class Particles6D:
 
         # compute initial sampling density s0 at particle positions
         self._markers[:n_mks_load[self.mpi_rank], 7] = self.s0(
-            self.markers[:n_mks_load[self.mpi_rank], :3], self.markers[:n_mks_load[self.mpi_rank], 3:6])
+            self.markers[:n_mks_load[self.mpi_rank], 0],
+            self.markers[:n_mks_load[self.mpi_rank], 1],
+            self.markers[:n_mks_load[self.mpi_rank], 2],
+            self.markers[:n_mks_load[self.mpi_rank], 3], 
+            self.markers[:n_mks_load[self.mpi_rank], 4],
+            self.markers[:n_mks_load[self.mpi_rank], 5])
 
         # fill buffer in markers array with -1
         self._markers[n_mks_load[self.mpi_rank]:, :] = -1.
@@ -211,39 +216,30 @@ class Particles6D:
         """Number of MPI processes."""
         return self._mpi_size
 
-    def s3(self, v):
+    def s3(self, eta1, eta2, eta3, vx, vy, vz):
+        """ Gaussian velocity distribution for sampling markers (normalized to 1, constant moments). 
         """
-        Gaussian velocity distribution for sampling markers (normalized to 1, constant moments). 
-        
-        Parameters
-        ----------
-            v : array[float]
-                2d array of shape (Np, 3).
-        """
-
-        assert len(v.shape) == 2
 
         vthx = self.params['loading']['moms_params'][4]
         vthy = self.params['loading']['moms_params'][5]
         vthz = self.params['loading']['moms_params'][6]
 
-        Gx = np.exp(-(v[:, 0] - self.params['loading']['moms_params'][1])**2 / vthx**2) / vthx / np.sqrt(np.pi)
-        Gy = np.exp(-(v[:, 1] - self.params['loading']['moms_params'][2])**2 / vthy**2) / vthy / np.sqrt(np.pi)
-        Gz = np.exp(-(v[:, 2] - self.params['loading']['moms_params'][3])**2 / vthz**2) / vthz / np.sqrt(np.pi)
+        Gx = np.exp(-(vx - self.params['loading']['moms_params'][1])**2 / vthx**2) / vthx / np.sqrt(np.pi)
+        Gy = np.exp(-(vy - self.params['loading']['moms_params'][2])**2 / vthy**2) / vthy / np.sqrt(np.pi)
+        Gz = np.exp(-(vz - self.params['loading']['moms_params'][3])**2 / vthz**2) / vthz / np.sqrt(np.pi)
     
         return Gx*Gy*Gz
 
-    def s0(self, eta, v):
-        """Sampling distribution trasformed to 0-form."""
-        assert eta.shape == v.shape
+    def s0(self, eta1, eta2, eta3, vx, vy, vz):
+        """ Sampling distribution trasformed to 0-form.
+        """
 
-        s3_markers = self.s3(v)
+        s3_markers = self.s3(eta1, eta2, eta3, vx, vy, vz)
 
-        return self.domain.transform(s3_markers, eta[:, 0], eta[:, 1], eta[:, 2], '3_to_0', flat_eval=True)
+        return self.domain.transform(s3_markers, eta1.copy(), eta2.copy(), eta3.copy(), '3_to_0', flat_eval=True)
 
     def send_recv_markers(self):
-        """
-        Sorts markers according to domain decomposition.
+        """ Sorts markers according to domain decomposition.
         """
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
@@ -304,8 +300,8 @@ class Particles6D:
 
         plt.axis('square')
 
-        plt.xlabel('$\eta_1$')
-        plt.ylabel('$\eta_2$')
+        plt.xlabel(r'$\eta_1$')
+        plt.ylabel(r'$\eta_2$')
 
         if save_dir is not None:
             plt.savefig(save_dir)
@@ -408,8 +404,8 @@ class Particles5D:
         name : str
             Name of the particle species.
 
-        domain: Domain
-            STRUPHY object from struphy.geometry.domain_3d.Domain.
+        domain: struphy.geometry.domains
+            All things mapping.
 
         domain_array : array[float]
             2d array of shape (comm_size, 6) defining the domain of each process.

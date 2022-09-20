@@ -12,7 +12,7 @@ import pickle
 import os, shutil
 
 
-def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_at=[None, 0, 0], plot=False, disp_name=None, disp_params={}):
+def fourier_1d(values, name, code, grids, masks, grids_mapped=None, component=0, slice_at=[None, 0, 0], plot=False, disp_name=None, disp_params={}):
     """
     Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
@@ -30,13 +30,16 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
             From which code the data has been obtained.
 
         grids : 3-list
-            Logical grids corresponding to values. Each entry is 1d grid in one
-            eta-direction in the format (Nel[i], npts_per_cell[i]). Grids are equally spaced.
+            1d logical grids in each eta-direction with Nel[i] * npts_per_cell[i] entries. 
+            All break points other than 0. and 1. appear twice; double entries can be eliminated by using masks. 
+            
+        masks : 3-list
+            Each entry is a boolean list of same size as the corresponding grids entry. 
+            It is False where a double counted break point appears, and True otherwise.
+            Hence grids[i][masks[i]] gives an equally spaced 1d logical grid.
 
         grids_mapped : 3-list
-            Physical grid corresponding to values. Each entry is a 3d np.arrays
-            which is the mapping component F_i evaluated at meshgrid(*grids).
-            If None, the fft is performed on the logical grids.
+            Mapped grids obtained by domain.evaluate(). If None, the fft is performed on the logical grids.
 
         component : int
             Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
@@ -89,30 +92,41 @@ def fourier_1d(values, name, code, grids, grids_mapped=None, component=0, slice_
     # Extract 2d data (t, eta) for fft
     if slice_at[0] == None:
 
-        data = temp[:, :, slice_at[1], slice_at[2]]
-        grid = grids[0].flatten()
+        data_brk = temp[:, :, slice_at[1], slice_at[2]]
+        grid_brk = grids[0].flatten()
         if grids_mapped is not None:
-            grid = grids_mapped[0][:, slice_at[1], slice_at[2]]
+            grid_brk = grids_mapped[0][:, slice_at[1], slice_at[2]]
+        mask = masks[0]
 
     elif slice_at[1] == None:
 
-        data = temp[:, slice_at[0], :, slice_at[2]]
-        grid = grids[1].flatten()
+        data_brk = temp[:, slice_at[0], :, slice_at[2]]
+        grid_brk = grids[1].flatten()
         if grids_mapped is not None:
-            grid = grids_mapped[1][slice_at[0], :, slice_at[2]]
+            grid_brk = grids_mapped[1][slice_at[0], :, slice_at[2]]
+        mask = masks[1]
 
     elif slice_at[2] == None:
 
-        data = temp[:, slice_at[0], slice_at[1], :]
-        grid = grids[2].flatten()
+        data_brk = temp[:, slice_at[0], slice_at[1], :]
+        grid_brk = grids[2].flatten()
         if grids_mapped is not None:
-            grid = grids_mapped[2][slice_at[0], slice_at[1], :]
+            grid_brk = grids_mapped[2][slice_at[0], slice_at[1], :]
+        mask = masks[2]
 
     else:
         AssertionError('One entry of slice_at must be "None".')
 
-    Nt, Nx = data.shape
-    # check uniform grid in space
+    # eliminate double appearance of break points in grid
+    grid = grid_brk[mask]
+
+    # eliminate double output of data at break points
+    Nt = data_brk.shape[0]
+    Nx = grid.size
+    data = np.empty((Nt, Nx), dtype=float)
+    data[:, :] = data_brk[:, mask]
+
+    # extract uniform grid in space
     dx = grid[1] - grid[0]
     print(f'space step: {dx}')
     assert np.allclose(grid[1:] - grid[:-1], dx*np.ones_like(grid[:-1]))

@@ -1,0 +1,537 @@
+#!/bin/bash -e
+
+# Python interpreter
+PYTHON=python3
+
+# Struphy installation path
+cd ~
+STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
+# STRUPHY=
+# li=$(pip show struphy)
+# #echo $li
+# take=false
+# for i in $li; do
+
+#     if [ "$take" = "true" ]; then
+#         #echo $take
+#         STRUPHY=$i/struphy
+#         break
+#     fi
+#     #echo "$i"
+#     if [ "$i" = "Location:" ]; then
+#         #echo "$i"
+#         take=true
+#     fi
+# done
+
+# Defaults
+RUN=false
+COMPILE=false 
+PROFILE=false
+PPROC=false
+PROFILE_ALL=false    
+CFLAGS=--openmp    
+CODE=                                 
+INPUT=parameters.yml            
+INPUT_ABS=        
+OUTPUT=sim_1           
+OUTPUT_ABS=   
+BATCH=false            
+BATCH_SCRIPT=     
+BATCH_SCRIPT_ABS=         
+RESTART_DIR=          
+MPI_SIZE=1
+PPCELL=1
+RUN_CMD=$PYTHON
+EXAMPLE=
+SERIAL=true
+CODES=
+
+# Help displayed
+function struphy_help {
+    echo "STRUPHY - STRUcture-Preserving HYbrid codes"
+    echo
+    echo "Usage: struphy [OPTIONS] [COMMAND]"
+    echo 
+    echo "Options:"
+    echo "  -h, --help      This help"
+    echo "  -p, --path      Default installation and i/o paths"
+    echo "  -v, --version   Installed version"
+    echo
+    echo "Commands:"
+    echo "  compile   Compile struphy kernels"
+    echo "  run       Run a struphy model"
+    echo "  profile   Profile finished struphy runs"
+    echo "  pproc     Post process data from finished struphy runs"
+    echo "  example   Run complete struphy examples with post processing and plotting"
+    echo "  test      Run struphy tests"
+    echo 
+    echo "Run 'struphy COMMAND --help' for more information on a command."
+}
+
+function compile_help {
+    echo
+    echo "Usage: struphy compile [OPTIONS]"
+    echo
+    echo "Compile struphy kernels using pyccel, https://github.com/pyccel/pyccel."
+    echo 
+    echo "Options:"
+    echo "  --no-openmp   Compile without OpenMP"
+    echo "  --delete      Remove .f90 and .so files (for running pure Python code)"
+}
+
+function run_help {
+    echo
+    echo "Usage: struphy run MODEL [-i FILE] [-o DIR]"
+    echo "                         [--input-abs FILE] [--output-abs DIR]"
+    echo "                         [-b FILE] [--batch-abs FILE]"
+    echo "                         [--restart DIR]"
+    echo "                         [--mpi N]"
+    echo
+    echo "Run a struphy model."
+    echo 
+    echo "Models:"
+    echo "  Maxwell     Maxwell equations in vacuum"
+    echo "  LinearMHD   Linear ideal MHD with zero-flow equilibrium"
+    echo 
+    echo "  See https://struphy.pages.mpcdf.de/struphy/sections/models.html for more info on available models."
+    echo 
+    echo "Options:"
+    echo "  -i, --input     Parameter FILE (.yml) relative to install_path/struphy/io/inp/, the default is 'parameters.yml'"
+    echo "  --input-abs     Parameter FILE (.yml), absolute path"
+    echo "  -o, --output    Output directory DIR relative to install_path/struphy/io/out/, the default is 'sim_1'"  
+    echo "  --output-abs    Output directory DIR, absolute path"  
+    echo "  -b, --batch     Batch script FILE relative to install_path/struphy/io/batch/"
+    echo "  --batch-abs     Batch script FILE, absolute path"
+    echo "  --restart       Run with restart, give absolute path to restart DIR"
+    echo "  --mpi           Use 'mpirun -n N' to launch struphy"
+}
+
+function profile_help {
+    echo
+    echo "Usage: struphy profile [OPTIONS] DIR_1 [DIR_2 ...]"
+    echo
+    echo "Profile finished struphy runs."
+    echo "Here DIR_1, DIR_2 are directories relative to install_path/struphy/io/out/,"
+    echo "containing struphy simulation data obtained from the same (!) model."
+    echo
+    echo "Options:"
+    echo "  -a, --all   Profile all functions called in struphy. The default strings are stated in https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#code-profiling"
+}
+
+function pproc_help {
+    echo
+    echo "Usage: struphy pproc [--ppcell N] DIR_1 [DIR_2 ...]"
+    echo
+    echo "Post process data from finished struphy run."
+    echo "See https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing for details."
+    echo
+    echo "Options:"
+    echo "  --ppcell    Use N points per cell for field evaluation, default=1."
+}
+
+function example_help {
+    echo
+    echo "Usage: struphy example CASE"
+    echo
+    echo "Run complete struphy example with post processing and plotting."
+    echo
+    echo "Cases:"
+    echo "  maxwell       1d Maxwell equations in vacuum, dispersion relation."
+    echo "  maxwell_mpi   maxwell with 3 mpi processes."
+    echo "  linearmhd     1d linear MHD equations, dispersion relation, 4 mpi processes."
+}
+
+function test_help {
+    echo
+    echo "Usage: struphy test [OPTIONS]"
+    echo
+    echo "Run available struphy tests. If no options are given, all available unit tests are run (2 processes for parallel tests)."
+    echo 
+    echo "Options:"
+    echo "  --serial    Run only serial unit tests."
+    echo "  --mpi N     Use 'mpirun -n N' to run only parallel unit tests."
+    echo "  --codes     Run code tests."
+}
+
+# No arguments - display help and exit
+if [ $# -eq 0 ]; then
+    struphy_help
+    exit 0
+fi
+
+POSITIONAL_ARGS=()
+
+# Scan arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--help)
+      struphy_help
+      exit 0
+      ;;
+    -p|--path)
+      echo "Struphy installation path:" $STRUPHY
+      echo "default input:            " $STRUPHY/io/inp 
+      echo "default output:           " $STRUPHY/io/out
+      echo "template batch scripts:   " $STRUPHY/io/batch
+      exit 0
+      ;;
+    -v|--version)
+      $PYTHON $STRUPHY/version.py
+      exit 0
+      ;;
+    run) 
+      RUN=true
+      case $2 in
+        --help)
+          run_help
+          exit 0
+          ;;
+      esac
+      CODE="$2"
+      shift
+      shift
+      ;;
+    compile)
+      COMPILE=true
+      case $2 in
+        --help)
+          compile_help
+          exit 0
+          ;;
+      esac
+      shift
+      ;;
+    profile)
+      PROFILE=true
+      case $2 in
+        --help)
+          profile_help
+          exit 0
+          ;;
+      esac
+      shift
+      ;;
+    pproc)
+      PPROC=true
+      case $2 in
+        --help)
+          pproc_help
+          exit 0
+          ;;
+      esac
+      shift
+      ;;
+    example) 
+      case $2 in
+        --help)
+          example_help
+          exit 0
+          ;;
+      esac
+      EXAMPLE="$2"
+      shift
+      shift
+      ;;
+    test)
+      TEST=true 
+      case $2 in
+        --help)
+          test_help
+          exit 0
+          ;;
+      esac
+      shift
+      ;;
+    -a|--all)
+      PROFILE_ALL=true
+      shift 
+      ;;
+    --no-openmp)
+      CFLAGS=
+      shift 
+      ;;
+    --delete)
+      CLEAN=true
+      shift 
+      ;;
+    --serial)
+      MPI_SIZE=
+      shift 
+      ;;
+    --codes)
+      SERIAL=false
+      MPI_SIZE=
+      CODES=true
+      shift 
+      ;;
+    -i|--input)
+      INPUT="$2"
+      shift
+      shift
+      ;;
+    --input-abs)
+      INPUT_ABS="$2"
+      shift
+      shift
+      ;;
+    -o|--output)
+      OUTPUT="$2"
+      shift
+      shift
+      ;;
+    --output-abs)
+      OUTPUT_ABS="$2"
+      shift
+      shift
+      ;;
+    -b|--batch)
+      BATCH=true
+      BATCH_SCRIPT="$2"
+      shift
+      shift
+      ;;
+    --batch-abs)
+      BATCH=true
+      BATCH_SCRIPT_ABS="$2"
+      shift
+      shift
+      ;;
+    -r|--restart)
+      RESTART_DIR="$2"
+      shift
+      shift
+      ;;
+    --mpi)
+      MPI_SIZE="$2"
+      SERIAL=false
+      shift
+      shift
+      ;;
+    --ppcell)
+      PPCELL="$2"
+      shift
+      shift
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+# Code compilation
+if [ "$COMPILE" = true ]; then
+
+  # Print parameters
+  echo "Makefile: $STRUPHY/compile_struphy.mk"
+  echo "COMPILE = ${COMPILE}"
+  echo "CFLAGS  = ${CFLAGS}"
+  echo "CLEAN   = ${CLEAN}"
+
+  if [ "$CLEAN" = true ]; then
+    echo "Start cleaning up struphy..."
+    cd .. # change dir not be in source path
+    command make clean -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY 
+    exit 0
+  else
+    echo "Start compiling struphy..."
+    cd .. # change dir not be in source path
+    command make -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY flags_openmp_pic=$CFLAGS
+    exit 0
+  fi
+
+fi
+
+# Run
+if [ "$RUN" = true ] ; then
+
+  # Restart
+  if [ $RESTART_DIR ]; then
+    echo "Restart not yet implemented."
+    exit 0
+  fi
+
+  # In-/output paths
+  if [ -z $INPUT_ABS ]; then
+    INPUT_ABS=$STRUPHY/io/inp/$INPUT
+  fi
+
+  if [ -z $OUTPUT_ABS ]; then
+    OUTPUT_ABS=$STRUPHY/io/out/$OUTPUT
+  fi
+
+  # delete output folder if it exists
+  rm -rf $OUTPUT_ABS
+
+  # Create ouput folder and copy parameters there
+  mkdir $OUTPUT_ABS
+  cp $INPUT_ABS $OUTPUT_ABS/parameters.yml 
+  METAFILE=$OUTPUT_ABS/meta.txt 
+
+  # Run flags
+  CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/main.py"
+  ARGS="$CODE $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
+
+  # Normal run  
+  RUN_CMD="$PYTHON $CPROFILE $ARGS"  
+
+  # MPI mode
+  if [ "$MPI_SIZE" ]; then
+    RUN_CMD="mpirun -n $MPI_SIZE $PYTHON $CPROFILE $ARGS"
+  fi
+
+  # Batch mode
+  if [ "$BATCH" = true ]; then
+
+    if [ -z $BATCH_SCRIPT_ABS ]; then
+      BATCH_SCRIPT_ABS=$STRUPHY/io/batch/$BATCH_SCRIPT
+    fi
+
+    chmod +x $BATCH_SCRIPT_ABS
+
+    # Check if batch script already has an "srun" command; if yes, remove
+    LASTLINE=$(tail -1 $BATCH_SCRIPT_ABS)
+
+    if [[ $LASTLINE == *"srun"* ]]; then
+      sed -i '$ d' $BATCH_SCRIPT_ABS
+      sed -i '$ d' $BATCH_SCRIPT_ABS
+    elif [ "$LASTLINE" ]; then
+      echo -e "\n" >> $BATCH_SCRIPT_ABS 
+    fi
+
+    # Append run command to batch script
+    echo "# Run command added by Struphy" >> $BATCH_SCRIPT_ABS
+    echo "srun $PYTHON $CPROFILE $ARGS> $OUTPUT_ABS/struphy.out" >> $BATCH_SCRIPT_ABS
+
+    RUN_CMD="sbatch $BATCH_SCRIPT_ABS"
+
+  fi
+
+  # Print parameters
+  echo "STRUPHY          = ${STRUPHY}"
+  echo "RUN              = ${RUN}"
+  echo "CODE             = ${CODE}"
+  echo "RESTART_DIR      = ${RESTART_DIR}"
+  echo "MPI_SIZE         = ${MPI_SIZE}"
+  echo "INPUT_ABS        = ${INPUT_ABS}"
+  echo "OUTPUT_ABS       = ${OUTPUT_ABS}"
+  echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}"
+  echo "RUN_CMD          = ${RUN_CMD}"
+  echo "METAFILE         = ${METAFILE}"
+
+  # Write to meta.txt
+  echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
+  echo "CODE             = ${CODE}" >> $METAFILE
+  echo "RESTART_DIR   = ${RESTART_DIR}" >> $METAFILE
+  echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
+  echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE
+  echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE
+  echo "BATCH_SCRIPT_ABS = ${BATCH_SCRIPT_ABS}" >> $METAFILE
+  echo "RUN_CMD          = ${RUN_CMD}" >> $METAFILE
+  echo "METAFILE         = ${METAFILE}" >> $METAFILE
+
+  # Start code
+  $RUN_CMD
+
+fi
+
+# Profile runs
+if [ "$PROFILE" = true ]; then
+
+  if (( ${#POSITIONAL_ARGS[@]} == 0 )); then
+
+    echo "  ERROR: no simulation folders to profile specified."
+    exit 1
+
+  else
+
+    folders=()
+    for i in ${POSITIONAL_ARGS[@]}; do
+      folders+=($STRUPHY/io/out/$i/)
+    done
+
+    # Print parameters
+    echo "Executing $STRUPHY/diagnostics/profile_struphy.py"
+    echo "PROFILE_ALL = $PROFILE_ALL"
+    echo "folders  = ${folders[*]}"
+
+    $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${folders[@]}
+
+  fi
+
+fi
+
+# Post processing
+if [ "$PPROC" = true ]; then
+
+  if (( ${#POSITIONAL_ARGS[@]} == 0 )); then
+
+    echo "  ERROR: no simulation folders to post process specified."
+    exit 1
+
+  else
+
+    folders=()
+    for i in ${POSITIONAL_ARGS[@]}; do
+      folders+=($STRUPHY/io/out/$i/)
+    done
+
+    # Print parameters
+    echo "Executing $STRUPHY/diagnostics/pproc_struphy.py"
+    echo "PPCELL = $PPCELL"
+    echo "folders  = ${folders[*]}"
+
+    $PYTHON $STRUPHY/diagnostics/pproc_struphy.py $PPCELL ${folders[@]}
+
+  fi
+
+fi
+
+# Examples
+if [ $EXAMPLE ]; then
+
+  if [ "$EXAMPLE" == maxwell ]; then
+    example_maxwell_serial
+  elif [ "$EXAMPLE" == maxwell_mpi ]; then
+    example_maxwell_mpi_3
+  elif [ "$EXAMPLE" == linearmhd ]; then
+    example_linearmhd_mpi_4
+  else
+    echo "Example $EXAMPLE not implemented."
+  fi
+
+fi
+
+# Unit tetst
+if [ $TEST ]; then
+
+  if [ $SERIAL == true ]; then
+    cd $STRUPHY/tests
+    echo "Unit tests from $STRUPHY/tests"
+    pytest
+  fi
+
+  if [ $MPI_SIZE ]; then 
+    cd $STRUPHY/tests_mpi
+    echo "Unit tests from $STRUPHY/tests_mpi"
+    if (($MPI_SIZE == 1)); then
+      MPI_SIZE=2
+    fi
+    mpirun -n $MPI_SIZE pytest --with-mpi
+  fi
+
+  if [ $CODES ]; then
+    echo "Code tests from bin/code_tests"
+    code_tests
+  fi
+  
+fi
+
+

@@ -1,9 +1,0 @@
-#!/bin/bash -e
-
-PYTHON=python3
-
-path_lib=$($PYTHON -c 'import sysconfig; print(sysconfig.get_path("platlib"))')/struphy/
-
-path_examples=${path_lib}examples/
-
-mpirun -n 4 $PYTHON ${path_examples}example_psydac_parallel.py

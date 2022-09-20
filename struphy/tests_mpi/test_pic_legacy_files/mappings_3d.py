@@ -32,8 +32,8 @@ from numpy import shape
 from numpy import sin, cos, pi, empty, sqrt, arctan2, arcsin
 
 
-import struphy.tests_mpi.test_accum_legacy_files.spline_evaluation_2d as eva_2d
-import struphy.tests_mpi.test_accum_legacy_files.spline_evaluation_3d as eva_3d
+import struphy.tests_mpi.test_pic_legacy_files.spline_evaluation_2d as eva_2d
+import struphy.tests_mpi.test_pic_legacy_files.spline_evaluation_3d as eva_3d
 
 
 # =======================================================================

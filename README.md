@@ -1,16 +1,16 @@
-# STRUPHY - a Python package for energetic particles in plasma 
+# STRUPHY - STRUcture-Preserving HYbrid codes
 
-STRUPHY stands for STRUcture-Preserving HYbrid codes. 
+A Python package for energetic particles in plasma.
 
 The package is developed since 2019 at [Max Planck Institute for Plasma Physics](https://www.ipp.mpg.de/) 
 in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mpg.de/ippcms/de/for/bereiche/numerik).
 
-## What you can do with STRUPHY
+## What you can do with struphy
 
-* Solve a variety of [plasma physics PDEs](https://clapp.pages.mpcdf.de/hylife/sections/models.html) with fluid and/or kinetic components 
-* Prescribe curved geometries via [mapped domains](https://clapp.pages.mpcdf.de/hylife/sections/domains.html) 
-* [Post process](https://clapp.pages.mpcdf.de/hylife/sections/userguide.html#post-processing) data and generate `vtk` files
-* Seamlessly [add](https://clapp.pages.mpcdf.de/hylife/sections/developers.html#how-to-add) your own model/mapping/physics feature
+* Solve a variety of [plasma physics PDEs](https://struphy.pages.mpcdf.de/struphy/sections/models.html) with fluid and/or kinetic components 
+* Prescribe curved geometries via [mapped domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
+* [Post process](https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing) data and generate `vtk` files
+* Seamlessly [add](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#how-to-add) your own model/mapping/physics feature
 * Contribute to this open source project! 
 
 ## Algorithmic features
@@ -24,7 +24,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## Installation
 
-* [Struphy documentation](https://clapp.pages.mpcdf.de/hylife/)
+* See the [struphy documentation](https://struphy.pages.mpcdf.de/struphy/index.html).
 
 ## Key references
 
@@ -32,23 +32,25 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 * F. Holderied, S. Possanner, "Magneto-hydrodynamic eigenvalue solver for axis-symmetric equilibria based on smooth polar splines", [J. Comp. Phys. 464 (2022) 111329](https://www.sciencedirect.com/science/article/pii/S0021999122003916?via%3Dihub)
 
+* F. Holderied, "STRUPHY: a structure-preserving hybrid MHD-kinetic code for the interaction of energetic particles with Alfvén waves in magnetized plasmas", [PhD thesis (2022)](https://mediatum.ub.tum.de/?id=1656539)
+
 ## License
 
-Not yet published.
+Copyright 2022 (c) struphy dev team | CONTRIBUTING.md | Max Planck Institute for Plasma Physics
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+In addition, we ask you to cite the following reference in scientific publications which contain results obtained with
+this software and developments:
+
+F. Holderied, S. Possanner, X. Wang, "MHD-kinetic hybrid code based on structure-preserving finite elements with particles-in-cell", J. Comp. Phys. 433 (2021) 110143
 
 ## Contact
 
 * Florian Holderied [floho@ipp.mpg.de](floho@ipp.mpg.de)
 * Stefan Possanner [spossann@ipp.mpg.de](spossann@ipp.mpg.de)
 * Xin Wang [xin.wang@ipp.mpg.de](xin.wang@ipp.mpg.de)
-
-
-
-
-
-
-
-
-
-
-

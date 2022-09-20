@@ -5,7 +5,7 @@ from struphy.dispersion_relations.base import DispersionRelations1D
 
 
 class Maxwell1D(DispersionRelations1D):
-    '''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
+    r'''Dispersion relation for Maxwell's equation in vacuum in Struphy units (see ``Maxwell`` in :ref:`models`):
     
     .. math::
     
@@ -36,11 +36,15 @@ class Maxwell1D(DispersionRelations1D):
     
     
 class Mhd1D(DispersionRelations1D):
-    '''Dispersion relation for linear MHD equations for homogeneous background and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
+    r'''Dispersion relation for linear MHD equations for homogeneous background :math:`(n_0,p_0,\mathbf B_0)` and wave propagation along z-axis in Struphy units (see ``LinearMHD`` in :ref:`models`):
     
     .. math::
     
-        \omega^2 = ...\,.
+        \textnormal{shear Alfvén}:\quad &\omega^2 = c_\textnormal{A}^2 k^2\frac{B_{0z}^2}{|\mathbf B_0|^2}\,,
+        
+        \textnormal{fast (+) and slow (-) magnetosonic}:\quad &\omega^2 =\frac{1}{2}(c_\textnormal{S}^2+c_\textnormal{A}^2)k^2(1\pm\sqrt{1-\delta}\,)\,,\quad\delta=\frac{4B_{0z}^2c_\textnormal{S}^2c_\textnormal{A}^2}{(c_\textnormal{S}^2+c_\textnormal{A}^2)^2|\mathbf B_0|^2}\,,
+        
+    where :math:`c_\textnormal{A}^2=|\mathbf B_0|^2/n_0` is the Alfvén velocity and :math:`c_\textnormal{S}^2=\gamma\,p_0/n_0` is the speed of sound.
     '''
 
     def __init__(self, **params):

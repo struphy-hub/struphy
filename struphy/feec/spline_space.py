@@ -210,7 +210,7 @@ class Spline_space_1d:
         # -------------------------------------------------
         self.G, self.G0 = der.discrete_derivatives_1d(self)
 
-        #print('Spline space set up (1d) done.')
+        # print('Spline space set up (1d) done.')
                     
 
     # functions for setting mass matrices:        
@@ -244,7 +244,7 @@ class Spline_space_1d:
     def set_projectors(self, nq=6):
         '''Initialize 1d projectors object.'''
         self.projectors = pro.Projectors_global_1d(self, nq)
-        #print('Set projectors (1d) done.')
+        # print('Set projectors (1d) done.')
 
     
     # spline evaluation and plotting:
@@ -763,7 +763,7 @@ class Tensor_spline_space:
         # -------------------------------------------------
         self.G, self.G0, self.C, self.C0, self.D, self.D0 = der.discrete_derivatives_3d(self)
                 
-        #print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
+        # print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
 
     
     
@@ -785,7 +785,7 @@ class Tensor_spline_space:
         elif which == 'general':
             self.projectors = pro.ProjectorsGlobal3D(self)
 
-        #print('Set projectors ({}d) done.'.format(self.dim))
+        # print('Set projectors ({}d) done.'.format(self.dim))
 
 
 

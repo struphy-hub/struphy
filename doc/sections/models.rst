@@ -1,7 +1,7 @@
 .. _models:
 
-Struphy models
-==============
+Available models
+================
 
 .. note::
 

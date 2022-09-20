@@ -10,10 +10,10 @@ from numpy import empty, cos, sin, pi
 
 import struphy.feec.bsplines_kernels as bsp
 
-from struphy.tests_mpi.test_accum_legacy_files.spline_evaluation_2d import evaluation_kernel_2d
-from struphy.tests_mpi.test_accum_legacy_files.spline_evaluation_3d import evaluation_kernel_3d
+from struphy.tests_mpi.test_pic_legacy_files.spline_evaluation_2d import evaluation_kernel_2d
+from struphy.tests_mpi.test_pic_legacy_files.spline_evaluation_3d import evaluation_kernel_3d
 
-import struphy.tests_mpi.test_accum_legacy_files.mappings_3d as mapping
+import struphy.tests_mpi.test_pic_legacy_files.mappings_3d as mapping
 
 
 # ==========================================================================

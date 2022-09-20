@@ -4,7 +4,6 @@ from psydac.linalg.stencil import StencilVector
 # from psydac.linalg.block import BlockVector
 from psydac.fem.tensor import FemField
 
-from struphy.geometry.domain_3d import prepare_args
 from struphy.initial import perturbations
 from struphy.initial import analytic
 
@@ -126,7 +125,7 @@ class Field:
 
         Parameters
         ----------
-            domain: struphy.geometry.domain_3d.Domain
+            domain: struphy.geometry.domains
                 All things mapping.
 
             comps: list
@@ -204,18 +203,6 @@ class Field:
                 self._fun += [PulledPform(init_coords,
                                            _fun_tmp, domain, '3_form')]
                 self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
-
-            elif self.space_id == 'H1vec':
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                self._fun += [Pulled_pform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
-                _coeffs = self.derham.P0vec(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
                 
             elif self.space_id == 'H1vec':
                 self._fun += [PulledPform(init_coords,
@@ -369,7 +356,7 @@ class PulledPform:
     """
     Construct callable (component of) p-form on logical domain (unit cube).
 
-    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.domain_3d.prepare_args`).
+    Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
     
     Parameters
     ----------
@@ -379,7 +366,7 @@ class PulledPform:
         fun : list
             Callable function components. Has to be length 3 for 1- and 2-forms, length 1 otherwise.
 
-        domain: struphy.geometry.domain_3d.Domain
+        domain: struphy.geometry.domains
             All things mapping.
 
         form : str
@@ -422,13 +409,8 @@ class PulledPform:
 
         if self._coords == 'logical':
             f = self._fun[self._comp](eta1, eta2, eta3)
-
         elif self._coords == 'physical':
-            if len(self._fun) == 1:
-                f = self._domain.pull(self._fun[0], eta1, eta2, eta3, self._form)
-            else:
-                f = self._domain.pull(self._fun, eta1, eta2, eta3, self._form)
-
+            self._domain.pull(self._fun, eta1, eta2, eta3, self._form)
         else:
             raise ValueError(
                 'Coordinates to be used for p-form pullback not properly specified.')

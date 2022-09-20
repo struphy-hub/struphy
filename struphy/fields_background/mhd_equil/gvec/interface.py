@@ -6,7 +6,7 @@ basedir = os.path.dirname(os.path.realpath(__file__))
 # sys.path.insert(0, os.path.join(basedir, '..'))
 
 # Import necessary struphy.modules.
-from struphy.geometry.domain_3d import Domain
+from struphy.geometry import domains
 
 from gvec_to_python import GVEC, Form, Variable
 from gvec_to_python.reader.gvec_reader import GVEC_Reader
@@ -52,8 +52,10 @@ class GVECtoSTRUPHY:
         if SOURCE_DOMAIN is None:
             # Default (s,u,v) = (eta1, eta2, eta3). LHS is coordinates in GVEC, RHS is STRUPHY.
             # bounds = [0,1,0,1,0,1]
-            bounds = {'b1': 0., 'e1': 1., 'b2': 0., 'e2': 1., 'b3': 0., 'e3': 1.}
-            self.SOURCE_DOMAIN = Domain('cuboid', params_map=bounds)
+            dom_params = {'b1': 0., 'e1': 1., 'b2': 0., 'e2': 1., 'b3': 0., 'e3': 1.}
+            dom_type = 'Cuboid'
+            domain_class = getattr(domains, dom_type)
+            self.SOURCE_DOMAIN = domain_class(dom_params)
 
         # Create 3D projector. It's not automatic.
         for space in TENSOR_SPACE.spaces:

@@ -21,11 +21,11 @@ setup(
         'struphy': ['compile_struphy.mk'],
     },
     # list of executable(s) that come with the package (if applicable)s
-    scripts=['scripts/struphy',
-             'scripts/example_psydac_parallel',
-             'scripts/example_maxwell_serial',
-             'scripts/example_maxwell_mpi_3',
-             'scripts/example_linearmhd_mpi_4'
+    scripts=['bin/struphy',
+             'bin/code_tests',
+             'bin/example_maxwell_serial',
+             'bin/example_maxwell_mpi_3',
+             'bin/example_linearmhd_mpi_4'
              ],
     # list of package dependencies (if necessary)
     install_requires=[
@@ -53,10 +53,10 @@ setup(
         'gvec_to_python',
     ],
     # more information, necessary for an upload to PyPI
-    author="Max Planck Institute for Plasma Physics, Garching, Germany",
+    author="Max Planck Institute for Plasma Physics",
     author_email="stefan.possanner@ipp.mpg.de, florian.holderied@ipp.mpg.de, xin.wang@ipp.mpg.de",
     description="Multi-model plasma physics package",
-    license="not yet licensed.",
-    keywords="plasma physics, nuclear fusion, partial differential equations, energetic particles",
-    url="https://clapp.pages.mpcdf.de/hylife/",   # project home page, if any
+    license="MIT",
+    keywords="plasma physics, fusion, numerical modeling, partial differential equations, energetic particles",
+    url="https://struphy.pages.mpcdf.de/struphy/",   # project home page, if any
 )

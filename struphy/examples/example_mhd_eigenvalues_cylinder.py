@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-from struphy.geometry.domain_3d import Domain
+from struphy.geometry import domains
 
 from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
 
@@ -29,10 +29,10 @@ n_tor = -1
 b_tor = 'i'
 
 # ------ mapping parameters -----
-mapping    = 'spline_cyl'
+dom_type    = 'PoloidalSplineCylinder'
 a          = 1.
 R0         = 5.
-params_map = {'a' : a, 'R0' : R0, 'Nel' : Nel, 'p' : p, 'spl_kind' : spl_kind}
+dom_params = {'a' : a, 'R0' : R0, 'Nel' : Nel, 'p' : p, 'spl_kind' : spl_kind}
 
 
 # -- MHD equilibrium parameters --
@@ -55,7 +55,8 @@ params_mhd['n2'] = 3.
 params_mhd['na'] = 0.
 
 # create domain
-domain = Domain(mapping, params_map)
+domain_class = getattr(domains, dom_type)
+domain = domain_class(dom_params)
 
 # for plotting
 etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
