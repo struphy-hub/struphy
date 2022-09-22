@@ -53,7 +53,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -138,7 +138,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -229,7 +229,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -320,7 +320,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -411,7 +411,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -504,7 +504,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.send_recv_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
