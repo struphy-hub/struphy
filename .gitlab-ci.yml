@@ -251,7 +251,7 @@ release_image_build:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $RELEASE_TEST_IMAGE -f images/struphy_ubuntu20_test.dockerfile .
+    - docker build -t $RELEASE_TEST_IMAGE -f images/struphy_ubuntu20.dockerfile .
     - docker push $RELEASE_TEST_IMAGE
 
 # image tests (when not merged to master)
@@ -264,11 +264,13 @@ image_unit_tests:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker rm -f release
-    - docker run -d -t --name release $RELEASE_TEST_IMAGE
-    - docker ps
-    - docker exec release struphy -p
-    - docker exec release struphy test
+    - docker rm -f unit
+    - docker run -d -t --name unit $RELEASE_TEST_IMAGE
+    - docker images
+    - docker container ls --all
+    - docker exec unit struphy test
+    - docker stop unit
+    - docker rm -f unit 
 
 image_code_tests:
   stage: test_image
@@ -279,11 +281,14 @@ image_code_tests:
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker rm -f release
-    - docker run -d -t --name release $RELEASE_TEST_IMAGE
-    - docker ps
-    - docker exec release struphy -p
-    - docker exec release struphy test --codes
+    - docker rm -f codes
+    - docker run -d -t --name codes $RELEASE_TEST_IMAGE
+    - docker images
+    - docker container ls --all
+    - docker exec codes struphy -p
+    - docker exec codes struphy test --codes
+    - docker stop codes
+    - docker rm -f codes
 
 # Install from wheel and compile on mpcdf cluster arch
 default_install:
