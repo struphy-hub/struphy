@@ -1,4 +1,4 @@
-FROM gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
+FROM gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20_test
 
 # install struphy in dev mode
 COPY . .
