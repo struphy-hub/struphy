@@ -238,7 +238,7 @@ class Particles6D:
 
         return self.domain.transform(s3_markers, eta1.copy(), eta2.copy(), eta3.copy(), '3_to_0', flat_eval=True)
 
-    def send_recv_markers(self):
+    def send_recv_markers(self, do_test=False):
         """ Sorts markers according to domain decomposition.
         """
 
@@ -258,7 +258,13 @@ class Particles6D:
                          self._markers, self.comm)
 
         # new number of markers on process
-        self._n_mks_loc = np.count_nonzero(~(self.markers[:, 0] == -1.))
+        is_hole = self.markers[:, 0] == -1.
+        self._n_mks_loc = np.count_nonzero(~is_hole)
+
+        # test
+        if do_test:
+            assert np.all(np.logical_and(self.markers[~is_hole, :3] > self.domain_array[self.mpi_rank, ::3], 
+                            self.markers[~is_hole, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
     def show_logical(self, save_dir=None):
         """
@@ -445,21 +451,24 @@ def sendrecv_determine_mtbs(markers, domain_array, mpi_rank):
         markers_to_be_sent : array[float]
             Markers of shape (n_send, 9) to be sent.
 
-        holes : array[int]
+        hole_inds_after_send : array[int]
             Indices of empty columns in markers after send.
     """
 
     # check which particles are in a certain interval (e.g. the process domain)
-    conds = np.logical_and(
+    is_on_proc_domain = np.logical_and(
         markers[:, :3] > domain_array[mpi_rank, ::3], markers[:, :3] < domain_array[mpi_rank, 1::3])
-    conds_m1 = markers[:, 0] == -1.
+    is_hole = markers[:, 0] == -1.
 
-    # to stay on the current process, all three columns must be True
-    stay = np.all(conds, axis=1)
+    # to can_stay on the current process, all three columns must be True
+    can_stay = np.all(is_on_proc_domain, axis=1)
+    # holes can also stay
+    can_stay[is_hole] = True
 
-    # True values can stay on the process, False must be sent, already empty rows (-1) cannot be sent
-    holes = np.nonzero(~stay)[0]
-    send_inds = np.nonzero(~stay[~conds_m1])[0]
+    # True values can can_stay on the process, False must be sent, already empty rows (-1) cannot be sent
+    send_inds = np.nonzero(~can_stay)[0]
+
+    hole_inds_after_send = np.nonzero(np.logical_or(~can_stay, is_hole))[0]
 
     # New array for sending particles.
     # TODO: do not create new array, but just return send_inds?
@@ -469,7 +478,7 @@ def sendrecv_determine_mtbs(markers, domain_array, mpi_rank):
     # set new holes to -1
     markers[send_inds] = -1.
 
-    return markers_to_be_sent, holes
+    return markers_to_be_sent, hole_inds_after_send
 
 
 def sendrecv_get_destinations(markers_to_be_sent, domain_array, mpi_size):
