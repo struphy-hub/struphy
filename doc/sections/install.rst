@@ -48,7 +48,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
 3. Run the latest release of struphy in a container::
 
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal. Test the container by typing ``struphy``,
 which should display the struphy help. ``struphy compile`` will show that all kernels are already compiled. 
@@ -119,6 +119,13 @@ and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.
 Struphy is not yet released on the `Python Packaging Index <https://pypi.org/>`_, instead we describe here the similar
 installation from the latest ``.whl`` file.
 
+Required Linux packages (``.deb``)::
+
+    sudo apt update -y
+    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    sudo apt install -y libhdf5-openmpi-dev
+    sudo apt install -y python3-pip python3-mpi4py
+
 Two dependencies have to be installed "by hand":
 
 1. Install ``gvec_to_python`` from wheel file::
@@ -150,6 +157,13 @@ Source
 
 WARNING: this install is tested only on ``x86_64`` with ``Ubuntu 20.04`` 
 and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
+
+Required Linux packages (``.deb``)::
+
+    sudo apt update -y
+    sudo apt install -y gfortran gcc libblas-dev liblapack-dev libopenmpi-dev openmpi-bin libomp-dev libomp5
+    sudo apt install -y libhdf5-openmpi-dev
+    sudo apt install -y python3-pip python3-mpi4py
 
 1. Clone the `struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_, update submodules 
 and name the repo ``<name>`` via::

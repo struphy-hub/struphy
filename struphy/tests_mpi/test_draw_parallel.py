@@ -11,8 +11,7 @@ import pytest
     ['ShafranovDshapedCylinder', {
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
-@pytest.mark.parametrize('seed', [1234, 4321])
-def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
+def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     '''Asserts whether all particles are on the correct process after `particles.send_recv_markers()`.'''
 
     from mpi4py import MPI
@@ -28,6 +27,7 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
     assert comm.size >= 2
     rank = comm.Get_rank()
 
+    seed = int(np.random.rand()*1000)
     loading_params = {'type': 'pseudo_random', 'seed': seed, 'dir_particles': 'dir',
                       'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
@@ -59,7 +59,7 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
 
     # sort particles according to domain decomposition
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.send_recv_markers(do_test=True)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process after sorting : ')
@@ -82,4 +82,4 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
 
 if __name__ == '__main__':
     test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 1234)
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])

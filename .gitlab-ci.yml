@@ -19,17 +19,18 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   GIT_SUBMODULE_STRATEGY: recursive
   GLOBAL_CACHE_PATH: "/home/gitlab-runner/globalcache/struphy_${CI_PIPELINE_ID}_${CI_COMMIT_REF_NAME}"
+  UBUNTU20_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20_test
+  RELEASE_TEST_IMAGE: $CI_REGISTRY/struphy/struphy/release_test
   UBUNTU20_IMAGE: $CI_REGISTRY/struphy/struphy/ubuntu20
-  RELEASE_IMAGE: $CI_REGISTRY/struphy/struphy/struphy_release
-  DEV_IMAGE: $CI_REGISTRY/struphy/struphy/struphy_dev
+  RELEASE_IMAGE: $CI_REGISTRY/struphy/struphy/release
 
 stages:
   - startup
   - build
+  - test_image
   - install
   - test_default
-  - test_release
-  - deploy 
+  - release 
   - cleanup
 
 # python virtual environment into cache
@@ -227,33 +228,64 @@ default_build:
     paths:
       - dist/
 
-# environment images (no struphy installed)
+# build environment image (no struphy installed)
 ubuntu20_image_build:
   stage: build
   needs: []
   rules:
-    - if: $CI_COMMIT_REF_NAME == "devel"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $UBUNTU20_IMAGE -f images/ubuntu20.dockerfile .
-    - docker push $UBUNTU20_IMAGE
+    - docker build -t $UBUNTU20_TEST_IMAGE -f images/ubuntu20.dockerfile .
+    - docker push $UBUNTU20_TEST_IMAGE
 
-# struphy images
+# build release image (struphy installed and compiled)
 release_image_build:
   stage: build
   needs: ["ubuntu20_image_build"]
   rules:
-    - if: $CI_COMMIT_REF_NAME == "devel"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker build -t $RELEASE_IMAGE -f images/struphy_ubuntu20.dockerfile .
-    - docker push $RELEASE_IMAGE
+    - docker build -t $RELEASE_TEST_IMAGE -f images/struphy_ubuntu20_test.dockerfile .
+    - docker push $RELEASE_TEST_IMAGE
 
-# Install from wheel and compile
+# image tests (when not merged to master)
+image_unit_tests:
+  stage: test_image
+  needs: ["release_image_build"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker rm -f release
+    - docker run -d -t --name release $RELEASE_TEST_IMAGE
+    - docker ps
+    - docker exec release struphy -p
+    - docker exec release struphy test
+
+image_code_tests:
+  stage: test_image
+  needs: ["release_image_build"]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker rm -f release
+    - docker run -d -t --name release $RELEASE_TEST_IMAGE
+    - docker ps
+    - docker exec release struphy -p
+    - docker exec release struphy test --codes
+
+# Install from wheel and compile on mpcdf cluster arch
 default_install:
   stage: install
   needs: ["default_build"]
@@ -270,7 +302,7 @@ default_install:
     - cd ${ENV_PATH}/psydac/core
     - pyccel kernels.py --language fortran
 
-# Testing suite
+# default tests (always)
 default_unit_tests:
   stage: test_default
   needs: ["default_install"]
@@ -295,43 +327,29 @@ default_code_tests:
   script:
     - struphy test --codes
 
-release_unit_tests:
-  stage: test_release
-  needs: ["release_image_build"]
+# release
+# build release image
+release_images:
+  stage: release
+  needs: ["image_unit_tests", "image_code_tests"]
   rules:
-    - if: $CI_COMMIT_REF_NAME == "devel"
+    - if: $CI_COMMIT_REF_NAME == "master"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - docker rm -f release
-    - docker run -d -t --name release $RELEASE_IMAGE
-    - docker ps
-    - docker exec release struphy -p
-    - docker exec release struphy compile
-    - docker exec release struphy test
+    - docker pull $UBUNTU20_TEST_IMAGE
+    - docker tag $UBUNTU20_TEST_IMAGE $UBUNTU20_IMAGE
+    - docker push $UBUNTU20_IMAGE
+    - docker pull $RELEASE_TEST_IMAGE
+    - docker tag $RELEASE_TEST_IMAGE $RELEASE_IMAGE
+    - docker push $RELEASE_IMAGE
 
-release_code_tests:
-  stage: test_release
-  needs: ["release_image_build"]
-  rules:
-    - if: $CI_COMMIT_REF_NAME == "devel"
-  before_script: 
-    - docker info
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker rm -f release
-    - docker run -d -t --name release $RELEASE_IMAGE
-    - docker ps
-    - docker exec release struphy -p
-    - docker exec release struphy test --codes
-
-#Deployment
 pages:
-  stage: deploy
+  stage: release
   needs: []
   rules:
-    - if: $CI_COMMIT_REF_NAME == "devel" 
+    - if: $CI_COMMIT_REF_NAME == "master" 
   script:
     - cd doc ; make html
     - mv _build/html/ ../public/
@@ -344,9 +362,14 @@ cleanup:
   stage: cleanup
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
+      when: always
+  before_script: 
+    - docker info
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - pwd
     - echo "on ${CI_RUNNER_DESCRIPTION}."
     - echo "remove:" ${GLOBAL_CACHE_PATH}
     - rm -rf ${GLOBAL_CACHE_PATH}
+    - docker image rm -f $UBUNTU20_TEST_IMAGE $RELEASE_TEST_IMAGE
 
