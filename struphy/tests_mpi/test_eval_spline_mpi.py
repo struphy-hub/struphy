@@ -101,38 +101,38 @@ def test_psydac_eval(Nel, p, spl_kind, mapping, n_markers=10):
 
         # compare spline evaluation routines in V0
         val = eval3d(*DR.p, bn1, bn2, bn3, ind_n1, ind_n2, ind_n3, x0[0])
-        val_mpi = eval3d_mpi(*DR.p, bn1, bn2, bn3, span1, span2, span3, x0_psy._data, np.array(x0_psy.starts), pn)
+        val_mpi = eval3d_mpi(*DR.p, bn1, bn2, bn3, span1, span2, span3, x0_psy._data, np.array(x0_psy.starts))
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V1
         val = eval3d(DR.p[0] - 1, DR.p[1], DR.p[2], bd1, bn2, bn3, ind_d1, ind_n2, ind_n3, x1[0])
-        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1], DR.p[2], bd1, bn2, bn3, span1, span2, span3, x1_psy[0]._data, np.array(x1_psy[0].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1], DR.p[2], bd1, bn2, bn3, span1, span2, span3, x1_psy[0]._data, np.array(x1_psy[0].starts))
         assert np.allclose(val, val_mpi)
 
         val = eval3d(DR.p[0], DR.p[1] - 1, DR.p[2], bn1, bd2, bn3, ind_n1, ind_d2, ind_n3, x1[1])
-        val_mpi = eval3d_mpi(DR.p[0], DR.p[1] - 1, DR.p[2], bn1, bd2, bn3, span1, span2, span3, x1_psy[1]._data, np.array(x1_psy[1].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0], DR.p[1] - 1, DR.p[2], bn1, bd2, bn3, span1, span2, span3, x1_psy[1]._data, np.array(x1_psy[1].starts))
         assert np.allclose(val, val_mpi)
 
         val = eval3d(DR.p[0], DR.p[1], DR.p[2] - 1, bn1, bn2, bd3, ind_n1, ind_n2, ind_d3, x1[2])
-        val_mpi = eval3d_mpi(DR.p[0], DR.p[1], DR.p[2] - 1, bn1, bn2, bd3, span1, span2, span3, x1_psy[2]._data, np.array(x1_psy[2].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0], DR.p[1], DR.p[2] - 1, bn1, bn2, bd3, span1, span2, span3, x1_psy[2]._data, np.array(x1_psy[2].starts))
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V2
         val = eval3d(DR.p[0], DR.p[1] - 1, DR.p[2] - 1, bn1, bd2, bd3, ind_n1, ind_d2, ind_d3, x2[0])
-        val_mpi = eval3d_mpi(DR.p[0], DR.p[1] - 1, DR.p[2] - 1, bn1, bd2, bd3, span1, span2, span3, x2_psy[0]._data, np.array(x2_psy[0].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0], DR.p[1] - 1, DR.p[2] - 1, bn1, bd2, bd3, span1, span2, span3, x2_psy[0]._data, np.array(x2_psy[0].starts))
         assert np.allclose(val, val_mpi)
 
         val = eval3d(DR.p[0] - 1, DR.p[1], DR.p[2] - 1, bd1, bn2, bd3, ind_d1, ind_n2, ind_d3, x2[1])
-        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1], DR.p[2] - 1, bd1, bn2, bd3, span1, span2, span3, x2_psy[1]._data, np.array(x2_psy[1].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1], DR.p[2] - 1, bd1, bn2, bd3, span1, span2, span3, x2_psy[1]._data, np.array(x2_psy[1].starts))
         assert np.allclose(val, val_mpi)
 
         val = eval3d(DR.p[0] - 1, DR.p[1] - 1, DR.p[2], bd1, bd2, bn3, ind_d1, ind_d2, ind_n3, x2[2])
-        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1] - 1, DR.p[2], bd1, bd2, bn3, span1, span2, span3, x2_psy[2]._data, np.array(x2_psy[2].starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1] - 1, DR.p[2], bd1, bd2, bn3, span1, span2, span3, x2_psy[2]._data, np.array(x2_psy[2].starts))
         assert np.allclose(val, val_mpi)
 
         # compare spline evaluation routines in V3
         val = eval3d(DR.p[0] - 1, DR.p[1] - 1, DR.p[2] - 1, bd1, bd2, bd3, ind_d1, ind_d2, ind_d3, x3[0])
-        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1] - 1, DR.p[2] - 1, bd1, bd2, bd3, span1, span2, span3, x3_psy._data, np.array(x3_psy.starts), pn)
+        val_mpi = eval3d_mpi(DR.p[0] - 1, DR.p[1] - 1, DR.p[2] - 1, bd1, bd2, bd3, span1, span2, span3, x3_psy._data, np.array(x3_psy.starts))
         assert np.allclose(val, val_mpi)
 
 
