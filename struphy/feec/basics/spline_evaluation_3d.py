@@ -358,7 +358,7 @@ def evaluate_sparse(t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p1 : int,
                     spline_values[i1, i2, i3] = evaluate(1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
 
 
-def eval_spline_mpi_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'float[:]', basis2 : 'float[:]', basis3 : 'float[:]', span1 : 'int', span2 : 'int', span3 : 'int', coeff : 'float[:,:,:]', starts: 'int[:]', pn: 'int[:]') -> float:
+def eval_spline_mpi_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'float[:]', basis2 : 'float[:]', basis3 : 'float[:]', span1 : 'int', span2 : 'int', span3 : 'int', coeff : 'float[:,:,:]', starts: 'int[:]') -> float:
     """
     Evaluate a spline function on the current process.
 
@@ -379,24 +379,21 @@ def eval_spline_mpi_3d(p1 : 'int', p2 : 'int', p3 : 'int', basis1 : 'float[:]', 
         starts : array[int]
             Starting indices of current process.
 
-        pn : array[int]
-            B-spline degrees in each direction (=paddings).
-
     Returns
     -------
         spline_value : float
             Value of tensor-product spline at point (eta1, eta2, eta3).
     """
-    
+
     spline_value = 0.
-    
+
     for il1 in range(p1 + 1):
         i1 = span1 + il1 - starts[0]  # span1 = ie1 + pn[0] 
         for il2 in range(p2 + 1):
             i2 = span2 + il2 - starts[1] 
             for il3 in range(p3 + 1):
                 i3 = span3 + il3 - starts[2]  
-                
+
                 spline_value += coeff[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
-        
+
     return spline_value
