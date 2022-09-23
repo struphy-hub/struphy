@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from psydac.linalg.stencil import StencilVector
-# from psydac.linalg.block import BlockVector
 from psydac.fem.tensor import FemField
 
 from struphy.initial import perturbations
@@ -18,11 +17,11 @@ class Field:
 
     Parameters
     ----------
-        name: str
+        name : str
             Field's key to be used for saving in the hdf5 file.
 
-        space_id: str
-            Space identifier for the field (H1, Hcurl, Hdiv or L2).
+        space_id : str
+            Space identifier for the field (H1, Hcurl, Hdiv, L2 or H1vec).
 
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
@@ -35,19 +34,8 @@ class Field:
         self._derham = derham
 
         # Initialize field in memory
-        if space_id == 'H1':
-            self._space = derham.V0
-        elif space_id == 'Hcurl':
-            self._space = derham.V1
-        elif space_id == 'Hdiv':
-            self._space = derham.V2
-        elif space_id == 'L2':
-            self._space = derham.V3
-        elif space_id == 'H1vec':
-            self._space = derham.V0vec
-        else:
-            raise ValueError('Space for field not properly defined.')
-
+        self._space = getattr(derham, derham.spaces_dict[space_id])
+        
         self._field = FemField(self._space)
         self._vector = self._field.coeffs
 

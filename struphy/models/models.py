@@ -139,9 +139,15 @@ class LinearMHD(StruphyModel):
         shearalfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
 
-        # Load MHD equilibrium
+        # Load MHD equilibrium and project fields
         mhd_equil_class = getattr(analytical, equil_params['type'])
         mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+        
+        self._b_eq = derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
+        self._p_eq = derham.P3(mhd_equil.p3).coeffs
+        
+        self._ones = derham.V3.vector_space.zeros()
+        self._ones[:] = 1.
         
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMass(derham, domain, eq_mhd=mhd_equil)
@@ -189,12 +195,17 @@ class LinearMHD(StruphyModel):
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         
-        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        # time
+        self._scalar_quantities['time']     = np.empty(1, dtype=float)
         
-        self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_p'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
-        self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
+        # energies
+        self._scalar_quantities['en_U']     = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p']     = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B']     = np.empty(1, dtype=float)
+        self._scalar_quantities['en_p_eq']  = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_eq']  = np.empty(1, dtype=float)
+        self._scalar_quantities['en_B_tot'] = np.empty(1, dtype=float)
+        self._scalar_quantities['en_tot']   = np.empty(1, dtype=float)
         
     @property
     def propagators(self):
@@ -209,12 +220,16 @@ class LinearMHD(StruphyModel):
         
         if self._u_space == 'Hdiv':
             self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.M2n.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
         else:
             self._scalar_quantities['en_U'][0] = self._u.dot(self._mass_ops.Mvn.dot(self._u))/2
-            self._scalar_quantities['en_p'][0] = self._p.toarray().sum()/(5/3 - 1)
-        
+            
+        self._scalar_quantities['en_p'][0] = self._p.dot(self._ones)/(5/3 - 1)
         self._scalar_quantities['en_B'][0] = self._b.dot(self._mass_ops.M2.dot(self._b))/2
+        
+        self._scalar_quantities['en_p_eq'][0] = self._p_eq.dot(self._ones)/(5/3 - 1)
+        self._scalar_quantities['en_B_eq'][0] = self._b_eq.dot(self._mass_ops.M2.dot(self._b_eq))/2
+        
+        self._scalar_quantities['en_B_tot'][0] = (self._b_eq + self._b).dot(self._mass_ops.M2.dot(self._b_eq + self._b))/2
 
         self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0] 
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0] 

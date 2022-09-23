@@ -325,231 +325,8 @@ def g_inv(eta1 : float, eta2 : float, eta3 : float, # evaluation point
 
     matrix_inv(g_mat, ginv_out)
     
-    
-def mappings_all(eta1 : float, eta2 : float, eta3 : float, # evaluation point
-            kind_fun : int, # metric coefficient key
-            kind_map : int, params : 'float[:]', # mapping parameters 
-            t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', p : 'int[:]', # spline mapping knots and degrees
-            ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', # spline index arrays
-            cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]') -> float: # control points (numpy array, cloned to each process)
-    """
-    Point-wise evaluation of
-        - f_i       : mapping x_i = f_i(eta1, eta2, eta3),
-        - df_ij     : Jacobian matrix df_i/deta_j,
-        - det_df    : Jacobian determinant det(df),
-        - df_inv_ij : inverse Jacobian matrix (df_i/deta_j)^(-1),
-        - g_ij      : metric tensor df^T * df,
-        - g_inv_ij  : inverse metric tensor df^(-1) * df^(-T).
-    
-    Parameters
-    ----------
-        eta1, eta2, eta3 : float              
-            Logical coordinates in [0, 1].
-            
-        kind_fun : int
-            Which metric coefficient to evaluate
-        
-        kind_map : int                 
-            Kind of mapping (see module docstring).
-        
-        params : array[float]
-            Parameters for the mapping in a 1d array.
-        
-        t1, t2, t3 : array[float]          
-            Knot vectors of univariate splines.
-        
-        p : array[int]
-            Degrees of univariate splines.
-        
-        ind1, ind2, ind3 : array[int]                 
-            Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
-        
-        cx, cy, cz : array[float]     
-            Control points of (F_x, F_y, F_z) in case of a IGA mapping.
 
-    Returns:
-    --------
-        value : float
-            Point value of metric coefficient at (eta1, eta2, eta3).
-    """
-    
-    value = 0.
-    
-    # mapping f
-    if   kind_fun == 1:
-        f_vec = empty(3, dtype=float)
-        f(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, f_vec)
-        value = f_vec[0]
-    elif kind_fun == 2:
-        f_vec = empty(3, dtype=float)
-        f(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, f_vec)
-        value = f_vec[1]
-    elif kind_fun == 3:
-        f_vec = empty(3, dtype=float)
-        f(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, f_vec)
-        value = f_vec[2]
-    
-    # Jacobian matrix df
-    elif kind_fun == 11:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[0, 0]
-    elif kind_fun == 12:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[0, 1]
-    elif kind_fun == 13:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[0, 2]
-    elif kind_fun == 14:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[1, 0]
-    elif kind_fun == 15:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[1, 1]
-    elif kind_fun == 16:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[1, 2]
-    elif kind_fun == 17:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[2, 0]
-    elif kind_fun == 18:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[2, 1]
-    elif kind_fun == 19:
-        df_mat = empty((3, 3), dtype=float)
-        df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, df_mat)
-        value = df_mat[2, 2]
-        
-    # Jacobian determinant det_df
-    elif kind_fun == 4:
-        value = det_df(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
-        
-    # inverse Jacobian matrix df_inv
-    elif kind_fun == 21:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[0, 0]
-    elif kind_fun == 22:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[0, 1]
-    elif kind_fun == 23:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[0, 2]
-    elif kind_fun == 24:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[1, 0]
-    elif kind_fun == 25:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[1, 1]
-    elif kind_fun == 26:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[1, 2]
-    elif kind_fun == 27:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[2, 0]
-    elif kind_fun == 28:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[2, 1]
-    elif kind_fun == 29:
-        dfinv_mat = empty((3, 3), dtype=float)
-        df_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, dfinv_mat)
-        value = dfinv_mat[2, 2]
-        
-    # metric tensor g
-    elif kind_fun == 31:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[0, 0]
-    elif kind_fun == 32:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[0, 1]
-    elif kind_fun == 33:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[0, 2]
-    elif kind_fun == 34:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[1, 0]
-    elif kind_fun == 35:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[1, 1]
-    elif kind_fun == 36:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[1, 2]
-    elif kind_fun == 37:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[2, 0]     
-    elif kind_fun == 38:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[2, 1]
-    elif kind_fun == 39:
-        g_mat = empty((3, 3), dtype=float)
-        g(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, g_mat)
-        value = g_mat[2, 2]
-    
-    # metric tensor g_inv
-    elif kind_fun == 41:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[0, 0]
-    elif kind_fun == 42:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[0, 1]
-    elif kind_fun == 43:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[0, 2]  
-    elif kind_fun == 44:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[1, 0]
-    elif kind_fun == 45:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[1, 1]
-    elif kind_fun == 46:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[1, 2]
-    elif kind_fun == 47:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[2, 0]
-    elif kind_fun == 48:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[2, 1]
-    elif kind_fun == 49:
-        ginv_mat = empty((3, 3), dtype=float)
-        g_inv(eta1, eta2, eta3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, ginv_mat)
-        value = ginv_mat[2, 2]
-    
-    return value
-
-
-
-def kernel_evaluate_new(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
+def kernel_evaluate_all(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
     """
     Matrix-wise evaluation of
         - f      : mapping x_i = f_i(eta1, eta2, eta3),
@@ -596,8 +373,7 @@ def kernel_evaluate_new(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'fl
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
     
-    # containers for point-wise evaluation
-    vec = empty(3, dtype=float)
+    # container for point-wise evaluation
     mat = empty((3, 3), dtype=float)
     
     if is_sparse_meshgrid:
@@ -615,8 +391,8 @@ def kernel_evaluate_new(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'fl
                 
                 # mapping f
                 if kind_fun == 0:
-                    f(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, vec)
-                    mat_f[:, 0, i1, i2, i3] = vec
+                    f(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat[0])
+                    mat_f[:, 0, i1, i2, i3] = mat[0]
                     
                 # Jacobian matrix df
                 elif kind_fun == 1:
@@ -692,6 +468,9 @@ def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
     
+    # container for point-wise evaluation
+    mat = empty((3, 3), dtype=float)
+    
     if is_sparse_meshgrid:
         sparse_factor = 0
     else:
@@ -705,4 +484,109 @@ def kernel_evaluate(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
                 
-                mat_f[i1, i2, i3] = mappings_all(e1, e2, e3, kind_fun, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
+                # mapping f
+                if kind_fun > 0 and kind_fun < 4:
+                    f(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat[0])
+                    
+                    if   kind_fun == 1:  
+                        mat_f[i1, i2, i3] = mat[0, 0]
+                    elif kind_fun == 2:
+                        mat_f[i1, i2, i3] = mat[0, 1]
+                    elif kind_fun == 3:
+                        mat_f[i1, i2, i3] = mat[0, 2]
+
+                # Jacobian matrix df
+                elif kind_fun > 10 and kind_fun < 20:
+                    df(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
+                
+                    if   kind_fun == 11:
+                        mat_f[i1, i2, i3] = mat[0, 0]
+                    elif kind_fun == 12:
+                        mat_f[i1, i2, i3] = mat[0, 1]
+                    elif kind_fun == 13:
+                        mat_f[i1, i2, i3] = mat[0, 2]
+                    elif kind_fun == 14:
+                        mat_f[i1, i2, i3] = mat[1, 0]
+                    elif kind_fun == 15:
+                        mat_f[i1, i2, i3] = mat[1, 1]
+                    elif kind_fun == 16:
+                        mat_f[i1, i2, i3] = mat[1, 2]
+                    elif kind_fun == 17:
+                        mat_f[i1, i2, i3] = mat[2, 0]
+                    elif kind_fun == 18:
+                        mat_f[i1, i2, i3] = mat[2, 1]
+                    elif kind_fun == 19:
+                        mat_f[i1, i2, i3] = mat[2, 2]
+
+                # Jacobian determinant det_df
+                elif kind_fun == 4:
+                    mat_f[i1, i2, i3] = det_df(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz)
+
+                # inverse Jacobian matrix df_inv
+                elif kind_fun > 20 and kind_fun < 30:
+                    df_inv(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
+                
+                    if   kind_fun == 21:
+                        mat_f[i1, i2, i3] = mat[0, 0]
+                    elif kind_fun == 22:
+                        mat_f[i1, i2, i3] = mat[0, 1]
+                    elif kind_fun == 23:
+                        mat_f[i1, i2, i3] = mat[0, 2]
+                    elif kind_fun == 24:
+                        mat_f[i1, i2, i3] = mat[1, 0]
+                    elif kind_fun == 25:
+                        mat_f[i1, i2, i3] = mat[1, 1]
+                    elif kind_fun == 26:
+                        mat_f[i1, i2, i3] = mat[1, 2]
+                    elif kind_fun == 27:
+                        mat_f[i1, i2, i3] = mat[2, 0]
+                    elif kind_fun == 28:
+                        mat_f[i1, i2, i3] = mat[2, 1]
+                    elif kind_fun == 29:
+                        mat_f[i1, i2, i3] = mat[2, 2]
+
+                # metric tensor g
+                elif kind_fun > 30 and kind_fun < 40:
+                    g(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
+                    
+                    if   kind_fun == 31:
+                        mat_f[i1, i2, i3] = mat[0, 0]
+                    elif kind_fun == 32:
+                        mat_f[i1, i2, i3] = mat[0, 1]
+                    elif kind_fun == 33:
+                        mat_f[i1, i2, i3] = mat[0, 2]
+                    elif kind_fun == 34:
+                        mat_f[i1, i2, i3] = mat[1, 0]
+                    elif kind_fun == 35:
+                        mat_f[i1, i2, i3] = mat[1, 1]
+                    elif kind_fun == 36:
+                        mat_f[i1, i2, i3] = mat[1, 2]
+                    elif kind_fun == 37:
+                        mat_f[i1, i2, i3] = mat[2, 0]     
+                    elif kind_fun == 38:
+                        mat_f[i1, i2, i3] = mat[2, 1]
+                    elif kind_fun == 39:
+                        mat_f[i1, i2, i3] = mat[2, 2]
+
+                # metric tensor g_inv
+                elif kind_fun > 40 and kind_fun < 50:
+                    g_inv(e1, e2, e3, kind_map, params, t1, t2, t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
+                    
+                    if   kind_fun == 41:                 
+                        mat_f[i1, i2, i3] = mat[0, 0]
+                    elif kind_fun == 42:
+                        mat_f[i1, i2, i3] = mat[0, 1]
+                    elif kind_fun == 43:
+                        mat_f[i1, i2, i3] = mat[0, 2]  
+                    elif kind_fun == 44:
+                        mat_f[i1, i2, i3] = mat[1, 0]
+                    elif kind_fun == 45:
+                        mat_f[i1, i2, i3] = mat[1, 1]
+                    elif kind_fun == 46:
+                        mat_f[i1, i2, i3] = mat[1, 2]
+                    elif kind_fun == 47:
+                        mat_f[i1, i2, i3] = mat[2, 0]
+                    elif kind_fun == 48:
+                        mat_f[i1, i2, i3] = mat[2, 1]
+                    elif kind_fun == 49:
+                        mat_f[i1, i2, i3] = mat[2, 2]

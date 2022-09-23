@@ -47,18 +47,12 @@ class Derham:
  
         # Input parameters:
         assert len(Nel) == 3
-        self._Nel = Nel
-
         assert len(p) == 3
-        self._p = p
-
         assert len(spl_kind) == 3
+        
+        self._Nel = Nel
+        self._p = p
         self._spl_kind = spl_kind
-
-        assert isinstance(der_as_mat, bool)
-        self._der_as_mat= der_as_mat
-
-        self._comm = comm
         
         if bc is None:
             self._bc = [[None, None], [None, None], [None, None]]
@@ -69,21 +63,28 @@ class Derham:
             if spl_kind[2]: assert bc[2][0] is None and bc[2][1] is None
             
             self._bc = bc
-
+        
+        # exact integration of products of B-splines
         if quad_order is None:
-            # exact integration of products of B-splines
             self._quad_order = [pi for pi in p]
         else:
             assert len(quad_order) == 3
             self._quad_order = quad_order
         
-        if nq_pr is None:
-            # exact histopolation of products of B-splines
+        # exact histopolation of products of B-splines
+        if nq_pr is None: 
             self._nq_pr = [pi + 1 for pi in p]
         else:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
+        
 
+        assert isinstance(der_as_mat, bool)
+        self._der_as_mat= der_as_mat
+
+        self._comm = comm
+        
+        
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
             0, 1), bounds2=(0, 1), bounds3=(0, 1))
@@ -101,6 +102,8 @@ class Derham:
                              degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
 
         # Psydac spline spaces
+        self._spaces_dict = {'H1' : 'V0', 'Hcurl' : 'V1', 'Hdiv' : 'V2', 'L2' : 'V3', 'H1vec' : 'V0vec'}
+        
         self._V0 = _derham.V0
         self._V1 = _derham.V1
         self._V2 = _derham.V2
@@ -447,6 +450,12 @@ class Derham:
                 res = unique_ranks[0]
         
         return res
+    
+    @property
+    def spaces_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
+        """
+        return self._spaces_dict
     
     @property
     def V0(self):

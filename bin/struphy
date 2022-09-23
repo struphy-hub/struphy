@@ -458,11 +458,11 @@ if [ "$PROFILE" = true ]; then
     done
 
     # Print parameters
-    echo "Executing $STRUPHY/diagnostics/profile_struphy.py"
+    echo "Executing $STRUPHY/post_processing/profile_struphy.py"
     echo "PROFILE_ALL = $PROFILE_ALL"
     echo "folders  = ${folders[*]}"
 
-    $PYTHON $STRUPHY/diagnostics/profile_struphy.py $PROFILE_ALL ${folders[@]}
+    $PYTHON $STRUPHY/post_processing/profile_struphy.py $PROFILE_ALL ${folders[@]}
 
   fi
 
@@ -484,11 +484,11 @@ if [ "$PPROC" = true ]; then
     done
 
     # Print parameters
-    echo "Executing $STRUPHY/diagnostics/pproc_struphy.py"
+    echo "Executing $STRUPHY/post_processing/pproc_struphy.py"
     echo "PPCELL = $PPCELL"
     echo "folders  = ${folders[*]}"
 
-    $PYTHON $STRUPHY/diagnostics/pproc_struphy.py $PPCELL ${folders[@]}
+    $PYTHON $STRUPHY/post_processing/pproc_struphy.py $PPCELL ${folders[@]}
 
   fi
 
