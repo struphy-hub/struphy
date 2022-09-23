@@ -714,9 +714,9 @@ class StepEfieldWeights(Propagator):
 
         # write new coeffs into Propagator.variables
         de = self.in_place_update(_e)
-        self._pusher.push(self._particles, dt,
-                          en.blocks[0]._data, en.blocks[1]._data, en.blocks[2]._data,
-                          self.f0_spec, array(self.moms_spec), array(self.f0_params))
+        self._pusher(self._particles, dt,
+                     en.blocks[0]._data, en.blocks[1]._data, en.blocks[2]._data,
+                     self.f0_spec, array(self.moms_spec), array(self.f0_params))
 
         # TODO: Implement info for weights as well
         if self._info:
@@ -797,10 +797,10 @@ class StepStaticEfield(Propagator):
         return [self._particles]
 
     def __call__(self, dt):
-        self._pusher.push(self._particles, dt,
-                          self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
-                          self._e_bg.blocks[0]._data, self._e_bg.blocks[1]._data, self._e_bg.blocks[2]._data,
-                          array([1e-10, 1e-10]), 100)
+        self._pusher(self._particles, dt,
+                     self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
+                     self._e_bg.blocks[0]._data, self._e_bg.blocks[1]._data, self._e_bg.blocks[2]._data,
+                     array([1e-10, 1e-10]), 100)
 
 
 class StepStaticBfield(Propagator):
@@ -843,6 +843,107 @@ class StepStaticBfield(Propagator):
         return [self._particles]
 
     def __call__(self, dt):
-        self._pusher.push(self._particles, dt,
-                          self._b_bg.blocks[0]._data, self._b_bg.blocks[1]._data, self._b_bg.blocks[2]._data)
+        self._pusher(self._particles, dt,
+                     self._b_bg.blocks[0]._data, 
+                     self._b_bg.blocks[1]._data, 
+                     self._b_bg.blocks[2]._data)
+        
+        
+class StepPushVxB(Propagator):
+    r"""Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
     
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles6D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+            
+        b : psydac.linalg.block.BlockVector
+            FE coefficients of a dynamical magnetic field (2-form).
+            
+        b_static : psydac.linalg.block.BlockVector (optional)
+            FE coefficients of a static (background) magnetic field (2-form).
+    """
+    
+    def __init__(self, particles, derham, b, b_static=None):
+        
+        self._particles = particles
+        
+        # load pusher
+        from struphy.pic.pusher import Pusher
+        
+        self._pusher = Pusher(derham, particles.domain, 'push_vxb_analytic')
+        
+        assert isinstance(b, BlockVector)
+        
+        self._b = b
+        
+        if b_static is None:
+            self._b_static = b.space.zeros()
+        else:
+            assert isinstance(b_static, BlockVector)
+            self._b_static = b_static
+        
+    
+    @property
+    def variables(self):
+        return self._particles
+    
+    def __call__(self, dt):
+        
+        # check if ghost regions are synchronized
+        if not self._b[0].ghost_regions_in_sync: self._b[0].update_ghost_regions()
+        if not self._b[1].ghost_regions_in_sync: self._b[1].update_ghost_regions()
+        if not self._b[2].ghost_regions_in_sync: self._b[2].update_ghost_regions()
+            
+        if not self._b_static[0].ghost_regions_in_sync: self._b_static[0].update_ghost_regions()
+        if not self._b_static[1].ghost_regions_in_sync: self._b_static[1].update_ghost_regions()
+        if not self._b_static[2].ghost_regions_in_sync: self._b_static[2].update_ghost_regions()
+        
+        self._pusher(self._particles, dt, 
+                     self._b_static[0]._data + self._b[0]._data,
+                     self._b_static[1]._data + self._b[1]._data,
+                     self._b_static[2]._data + self._b[2]._data)
+        
+        
+class StepPushEtaRk4(Propagator):
+    r"""Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles6D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+    """
+    
+    def __init__(self, particles, derham):
+        
+        self._particles = particles
+        
+        # load pusher
+        from struphy.pic.pusher import Pusher
+        
+        self._pusher = Pusher(derham, particles.domain, 'push_eta_rk4')
+        
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+        self._pusher(self._particles, dt, do_mpi_sort=True)

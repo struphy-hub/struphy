@@ -192,130 +192,113 @@ def create_femfields(path, snapshots=None):
         path : str
             Absolute path to folder with hdf5 data files.
 
-        snapshots : list of int
+        snapshots : list/array of int
             Time indices at which FemFields are to be created; must be <= #time_steps. 
 
     Returns
     -------
         fields : dict
-            Nested dictionary holding FemFields: fields[n][name] contains the Femfield 
-            with the name from parameters.yml in ['fields']['general']['names'] at snapshot n.
+            Nested dictionary holding psydac FemFields: fields[n][name] contains the Femfield of the field with the name "name" in the hdf5 file at time step n.
 
-        domain : Struphy object
+        space_ids : list of ints
+            The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec).
 
         code : str
             From which code the data has been obtained.
     '''
 
+    # get code name and # of MPI processes
     with open(path + '/meta.txt', 'r') as f:
         lines = f.readlines()
-
-    with open(path + '/MODEL_names.bin', 'rb') as handle:
-        tmp = pickle.load(handle)
-        names = tmp[0]
-        space_ids = tmp[1]
-        del tmp
-
-    # code name
+        
     code = lines[-2].split()[-1]
-    # number of processes
     nproc = int(lines[-1].split()[-1])
 
     with open(path + '/parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
-    # Derham sequence
-    Nel = params['grid']['Nel']           # Number of grid cells
-    p = params['grid']['p']               # spline degree
-    spl_kind = params['grid']['spl_kind'] # Spline type
+    # create Derham sequence
+    derham = Derham(params['grid']['Nel'], 
+                    params['grid']['p'],
+                    params['grid']['spl_kind'])
 
-    derham = Derham(Nel, p, spl_kind)
+    # get names and discrete spaces of fields from 0-th rank hdf5 file
+    file = h5py.File(path + '/data_proc0.hdf5', 'r')
+    
+    names = []
+    space_ids = []
+    spaces = []
+    
+    for name, dset in file['fields'].items():
+        
+        names += [name]
+        space_ids += [dset.attrs['space_id']]
+        spaces += [getattr(derham, derham.spaces_dict[space_ids[-1]])]
+    
 
-    # spaces of fields
-    _spaces = []
-    for sid in space_ids:
-
-        if sid == 'H1':
-            _space = derham.V0
-        elif sid == 'Hcurl':
-            _space = derham.V1
-        elif sid == 'Hdiv':
-            _space = derham.V2
-        elif sid == 'L2':
-            _space = derham.V3
-        elif sid == 'H1vec':
-            _space = derham.V0vec
-        else:
-            raise ValueError('Space for field not properly defined.')
-
-        _spaces += [_space]
-
-    # FemFields
+    # create FemFields
     dt = params['time']['dt']
-    nt = int(params['time']['Tend'] / dt)
-    if snapshots == None:
+    nt = int(params['time']['Tend']/dt)
+    
+    if snapshots is None:
         snapshots = [i for i in range(nt + 1)]
     else:
+        assert max(snapshots) <= nt
         assert len(snapshots) <= nt + 1
 
-    fields = {}
     # create one FemField for each snapshot
+    fields = {}
     for n in snapshots:
         fields[n] = {}
-        for name, space in zip(names, _spaces):
+        for name, space in zip(names, spaces):
             fields[n][name] = FemField(space)
 
-    # Get hdf5 data
+    # get hdf5 data
     for rank in range(nproc):
 
-        f_name = '/data_proc' + str(rank) + '.hdf5'
-        #print(f'File: {f_name}')
-        f = h5py.File(path + f_name, 'r')
+        # open file (0-th rank file is already open!)
+        if rank > 0: file = h5py.File(path + '/data_proc' + str(rank) + '.hdf5', 'r')
 
-        for key, dset in tqdm(f.items()):
+        for field_name, dset in tqdm(file['fields'].items()):
 
-            #print(f'key, shape: {key}, {dset.shape}')
-            assert max(snapshots) <= dset.shape[0] - 1
-
-            if len(dset.shape) < 4:
-                #print('Skipping time series dataset...')
-                continue
-
-            space_id = dset.attrs['space_id']
-            starts = dset.attrs['starts']
-            ends = dset.attrs['ends']
+            # get global start indices, end indices and pads
+            gl_s = dset.attrs['starts']
+            gl_e = dset.attrs['ends']
             pads = dset.attrs['pads']
-
-            if space_id in ('Hcurl', 'Hdiv', 'H1vec'):
-                comp = int(key[-1])
-                name = key[:-2]
-            else:
-                comp = 0
-                name = key
-
-            #print(f'name, comp: {name}, {comp}')
-
-            s0 = starts[comp][0]
-            s1 = starts[comp][1]
-            s2 = starts[comp][2]
-
-            e0 = ends[comp][0]
-            e1 = ends[comp][1]
-            e2 = ends[comp][2]
-
-            p0 = pads[comp][0]
-            p1 = pads[comp][1]
-            p2 = pads[comp][2]
-
+            
+            assert gl_s.shape == (1, 3) or gl_s.shape == (3, 3)
+            assert gl_e.shape == (1, 3) or gl_e.shape == (3, 3)
+            assert pads.shape == (1, 3) or pads.shape == (3, 3)
+            
+            # loop over snapshots
             for n in fields:
-                if space_id in ('Hcurl', 'Hdiv', 'H1vec'):
-                    fields[n][name][comp].coeffs[s0:e0 + 1, s1:e1 + 1,
-                                            s2:e2 + 1] = dset[n, p0:-p0, p1:-p1, p2:-p2]
+                
+                # scalar field
+                if gl_s.shape[0] == 1:
+                    
+                    s1, s2, s3 = gl_s[0]
+                    e1, e2, e3 = gl_e[0]
+                    p1, p2, p3 = pads[0]
+                    
+                    data = dset[n, p1:-p1, p2:-p2, p3:-p3]
+                    
+                    fields[n][field_name].coeffs[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = data
+                
+                # vector-valued field
                 else:
-                    fields[n][name].coeffs[s0:e0 + 1, s1:e1 + 1,
-                                        s2:e2 + 1] = dset[n, p0:-p0, p1:-p1, p2:-p2]
+                    for comp in range(3):
+                        
+                        s1, s2, s3 = gl_s[comp]
+                        e1, e2, e3 = gl_e[comp]
+                        p1, p2, p3 = pads[comp]
+                        
+                        data = dset[str(comp + 1)][n, p1:-p1, p2:-p2, p3:-p3]
+                        
+                        fields[n][field_name][comp].coeffs[s1:e1 + 1, s2:e2 + 1, s3:e3 + 1] = data
+                               
+        file.close()
 
-    print('Creation of FemFields done.')
+    print('Creation of PSYDAC FemFields done.')
 
     return fields, space_ids, code
 
@@ -428,7 +411,9 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
                     masks += [tmp_mask]
 
                 # physical grids
-                grids_mapped = [domain.evaluate(*grids, 'x'), domain.evaluate(*grids, 'y'), domain.evaluate(*grids, 'z')]
+                grids_mapped = [domain.evaluate(*grids, 'x'), 
+                                domain.evaluate(*grids, 'y'), 
+                                domain.evaluate(*grids, 'z')]
 
                 # create point_data dicts for each name
                 point_data_logic[name] = {}
@@ -439,7 +424,7 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
             # scalar spaces
             if isinstance(temp_val, np.ndarray):
                 
-                point_data_logic[name][n*dt] = [temp_val]
+                point_data_logic[name][n*dt] = (temp_val,)
 
                 # point data for vtk file at time n
                 if space_id == 'H1':
@@ -457,13 +442,13 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
                 # point data for vtk file at time n
                 if space_id == 'Hcurl':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'1_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'1_form_{j + 1}')
                 elif space_id == 'Hdiv':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'2_form_{j + 1}')
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'2_form_{j + 1}')
                 elif space_id == 'H1vec':
                     for j in range(3):
-                        point_data_n[name + f'_{j + 1}'] = domain.push(np.array(temp_val), *grids, f'vector_{j + 1}') 
+                        point_data_n[name + f'_{j + 1}'] = domain.push(temp_val, *grids, f'vector_{j + 1}') 
 
                 point_data_phys[name][n*dt] = [point_data_n[name + f'_{j + 1}'] for j in range(3)]
         

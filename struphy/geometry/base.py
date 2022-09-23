@@ -8,14 +8,16 @@ from struphy.geometry import map_eval, pullback, pushforward, transform
 from struphy.linear_algebra import linalg_kron 
 import struphy.feec.bsplines as bsp
 
+from scipy.sparse import csc_matrix, kron
+from scipy.sparse.linalg import splu, spsolve
+
 import h5py
 import numpy as np
-import scipy.sparse as spa
-from scipy.sparse.linalg import splu
 
 
 class Domain(metaclass=ABCMeta):
-    '''Base class for mapped domains.'''
+    """ Base class for mapped domains.
+    """
 
     def __init__(self):
 
@@ -227,15 +229,34 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def __call__(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
         """
-        TODO
+        Evaluates the mapping.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+            change_out_order : bool
+                If True, the axis corresponding to the x, y, z coordinates in the output array is the last one, otherwise the first one.
+                
+        Returns
+        -------
+            values : array-like
+                The Cartesian coordinates corresponding to the given logical ones.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((3, 1, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 0, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 0, *self.args_map, values, is_sparse_meshgrid)
         
         values = values[:, 0, :, :, :]
             
@@ -256,15 +277,37 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False, transposed=False):
         """
-        TODO
+        Evaluates the Jacobian matrix.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+            change_out_order : bool
+                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
+                
+            transposed : bool
+                If True, the transposed Jacobian matrix is evaluated.
+                
+        Returns
+        -------
+            values : array-like
+                The Jacobian matrix evaluated at the given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 1, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 1, *self.args_map, values, is_sparse_meshgrid)
             
         if transposed: values = np.transpose(values, axes=(1, 0, 2, 3, 4))
             
@@ -285,15 +328,31 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian_det(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True):
         """
-        TODO
+        Evaluates the Jacobian determinant.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+        Returns
+        -------
+            values : array-like
+                The Jacobian determinant evaluated at the given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((1, 1, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 2, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 2, *self.args_map, values, is_sparse_meshgrid)
         
         values = values[0, 0, :, :, :]
         
@@ -311,15 +370,37 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def jacobian_inv(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False, transposed=False):
         """
-        TODO
+        Evaluates the inverse Jacobian matrix.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+            change_out_order : bool
+                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
+                
+            transposed : bool
+                If True, the inverse transposed Jacobian matrix is evaluated.
+                
+        Returns
+        -------
+            values : array-like
+                The inverse Jacobian matrix evaluated at the given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 3, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 3, *self.args_map, values, is_sparse_meshgrid)
             
         if transposed: values = np.transpose(values, axes=(1, 0, 2, 3, 4))
             
@@ -340,15 +421,34 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def metric(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
         """
-        TODO
+        Evaluates the metric tensor.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+            change_out_order : bool
+                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
+                
+        Returns
+        -------
+            values : array-like
+                The metric tensor evaluated at the given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 4, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 4, *self.args_map, values, is_sparse_meshgrid)
             
         if flat_eval:
             values = values[:, :, :, 0, 0]
@@ -367,15 +467,34 @@ class Domain(metaclass=ABCMeta):
     # ========================
     def metric_inv(self, eta1, eta2, eta3, flat_eval=False, squeeze_output=True, change_out_order=False):
         """
-        TODO
+        Evaluates the inverse metric tensor.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+                
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+                
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+                
+            change_out_order : bool
+                If True, the axes corresponding to the 3x3 entries in the output array are the last two, otherwise the first two.
+                
+        Returns
+        -------
+            values : array-like
+                The metric tensor evaluated at the given logical coordinates.
         """
         
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         values = np.empty((3, 3, E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        map_eval.kernel_evaluate_new(E1, E2, E3, 5, *self.args_map, values, is_sparse_meshgrid)
+        map_eval.kernel_evaluate_all(E1, E2, E3, 5, *self.args_map, values, is_sparse_meshgrid)
             
         if flat_eval:
             values = values[:, :, :, 0, 0]
@@ -396,7 +515,7 @@ class Domain(metaclass=ABCMeta):
         """
         Evaluate mapping/metric coefficients. 
 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_args).
+        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
         -----------
@@ -430,7 +549,7 @@ class Domain(metaclass=ABCMeta):
         """
 
         # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
         # call evaluation kernel
@@ -455,10 +574,10 @@ class Domain(metaclass=ABCMeta):
         """
         Pull-back of p-forms. 
 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_args).
+        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
-        ----------
+        ----------13:00 -14:30
             a : list of callables or array-like
                 The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
                 
@@ -490,51 +609,18 @@ class Domain(metaclass=ABCMeta):
         """
         
         # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
-
-        # convert input to be pulled (a) to 4d array (a_in) 
-        if isinstance(a, list):
-            
-            if len(kind_pull) == 6: 
-                assert len(a) == 1
-            else:
-                assert len(a) == 3
-                
-            X = self(E1, E2, E3, squeeze_output=False)
-            
-            a_in = []
-            for fun in a:
-                a_in += [fun(X[0], X[1], X[2])]
-                
-            a_in = np.array(a_in, dtype=float)
-
-        elif isinstance(a, np.ndarray):
-
-            if len(kind_trans) != 6: 
-                assert a.shape[0] == 3
-            
-            if flat_eval:
-                if a.ndim == 1: 
-                    a_in = a[None, :, None, None]
-                else:
-                    a_in = a[:, :, None, None]
-            
-            else:
-                if a.ndim == 3:
-                    a_in = a[None, :, :, :]
-                else:
-                    a_in = a
-                
-        else:
-            raise ValueError('Argument a must be either a list of callables or a numpy array of appropriate shape!')
-            
-        assert a_in.ndim == 4
+        
+        # convert input to be transformed (a) to 4d array of appropriate shape
+        X = self(E1, E2, E3, squeeze_output=False)
+        
+        A = Domain.prepare_arg(a, X[0], X[1], X[2], flat_eval)
 
         # call evaluation kernel
         values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        pullback.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_pull], *self.args_map, values, is_sparse_meshgrid)
+        pullback.kernel_evaluate(A, E1, E2, E3, self.keys_pull[kind_pull], *self.args_map, values, is_sparse_meshgrid)
         
         # convert pulled values to correct shape
         if flat_eval:
@@ -553,7 +639,7 @@ class Domain(metaclass=ABCMeta):
         """
         Push-forward of p-forms. 
 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_args).
+        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
         -----------
@@ -588,49 +674,16 @@ class Domain(metaclass=ABCMeta):
         """
 
         # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
-
-        # convert input to be pushed (a) to 4d array (a_in) 
-        if isinstance(a, list):
-            
-            if len(kind_pull) == 6: 
-                assert len(a) == 1
-            else:
-                assert len(a) == 3
-            
-            a_in = []
-            for fun in a:
-                a_in += [fun(E1, E2, E3)]
-                
-            a_in = np.array(a_in, dtype=float)
-
-        elif isinstance(a, np.ndarray):
-
-            if len(kind_push) != 6: 
-                assert a.shape[0] == 3
-            
-            if flat_eval:
-                if a.ndim == 1: 
-                    a_in = a[None, :, None, None]
-                else:
-                    a_in = a[:, :, None, None]
-            
-            else:
-                if a.ndim == 3:
-                    a_in = a[None, :, :, :]
-                else:
-                    a_in = a
-                
-        else:
-            raise ValueError('Argument a must be either a list of callables or a numpy array of appropriate shape!')
-            
-        assert a_in.ndim == 4
+        
+        # convert input to be transformed (a) to 4d array of appropriate shape
+        A = Domain.prepare_arg(a, E1, E2, E3, flat_eval)
 
         # call evaluation kernel
         values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        pushforward.kernel_evaluate(a_in, E1, E2, E3, self.keys_pull[kind_push], *self.args_map, values, is_sparse_meshgrid)
+        pushforward.kernel_evaluate(A, E1, E2, E3, self.keys_pull[kind_push], *self.args_map, values, is_sparse_meshgrid)
 
         # convert pushed values to correct shape
         if flat_eval:
@@ -649,7 +702,7 @@ class Domain(metaclass=ABCMeta):
         """
         Transformation between different p-forms on logical domain. 
 
-        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_args).
+        Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
         ----------
@@ -685,50 +738,17 @@ class Domain(metaclass=ABCMeta):
                 * '0_to_3', '3_to_0'
         """
 
-        # convert evaluation points to 3d array of appropriate shape
-        E1, E2, E3, is_sparse_meshgrid = prepare_args(
+        # convert evaluation points (eta1, eta2, eta3) to 3d array of appropriate shape
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
             eta1, eta2, eta3, flat_eval)
 
-        # convert input to be transformed (a) to 4d array (a_in) 
-        if isinstance(a, list):
-            
-            if len(kind_trans) == 6: 
-                assert len(a) == 1
-            else:
-                assert len(a) == 3
-            
-            a_in = []
-            for fun in a:
-                a_in += [fun(E1, E2, E3)]
-                
-            a_in = np.array(a_in, dtype=float)
-              
-        elif isinstance(a, np.ndarray):
-            
-            if len(kind_trans) != 6: 
-                assert a.shape[0] == 3
-            
-            if flat_eval:
-                if a.ndim == 1: 
-                    a_in = a[None, :, None, None]
-                else:
-                    a_in = a[:, :, None, None]
-            
-            else:
-                if a.ndim == 3:
-                    a_in = a[None, :, :, :]
-                else:
-                    a_in = a
-                    
-        else:
-            raise ValueError('Argument a must be either a list of callables or a numpy array of appropriate shape!')
-                    
-        assert a_in.ndim == 4
+        # convert input to be transformed (a) to 4d array of appropriate shape
+        A = Domain.prepare_arg(a, E1, E2, E3, flat_eval)
 
         # call evaluation kernel
         values = np.empty((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
         
-        transform.kernel_evaluate(a_in, E1, E2, E3, self.keys_transform[kind_trans], *self.args_map, values, is_sparse_meshgrid)
+        transform.kernel_evaluate(A, E1, E2, E3, self.keys_transform[kind_trans], *self.args_map, values, is_sparse_meshgrid)
 
         # convert transformed values to correct shape
         if flat_eval:
@@ -740,7 +760,236 @@ class Domain(metaclass=ABCMeta):
             if values.ndim == 0:
                 values = values.item()
 
-        return values
+        return values 
+    
+    # ================================
+    @staticmethod
+    def prepare_eval_pts(x, y, z, flat_eval=False):
+        """
+        Broadcasts evaluation point sets to 3d arrays of correct shape.
+
+        Parameters
+        ----------
+            x, y, z : list or numpy array or float 
+                Evaluation point sets.
+
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+
+        Returns
+        -------
+            E1, E2, E3 : numpy array
+                3d arrays of correct shape for evaluation.
+
+            is_sparse_meshgrid : bool
+                Whether arguments fit sparse_meshgrid shape.
+        """
+
+        is_sparse_meshgrid = False
+
+        # flat evaluation (works only if all arguments are 1d numpy arrays/lists of equal length!)
+        if flat_eval:
+
+            # convert list type data to numpy array:
+            if isinstance(x, list):
+                arg_x = np.array(x)
+            elif isinstance(x, np.ndarray):
+                arg_x = x
+            else:
+                raise ValueError('Input x must be a 1d list or numpy array')
+
+            if isinstance(y, list):
+                arg_y = np.array(y)
+            elif isinstance(y, np.ndarray):
+                arg_y = y
+            else:
+                raise ValueError('Input y must be a 1d list or numpy array')
+
+            if isinstance(z, list):
+                arg_z = np.array(z)
+            elif isinstance(z, np.ndarray):
+                arg_z = z
+            else:
+                raise ValueError('Input z must be a 1d list or numpy array')
+
+            assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
+            assert arg_x.size == arg_y.size == arg_z.size
+
+            E1 = arg_x[:, None, None]
+            E2 = arg_y[:, None, None]
+            E3 = arg_z[:, None, None]
+
+            return E1, E2, E3, is_sparse_meshgrid
+
+        # non-flat evaluation (broadcast to 3d arrays)
+        else:
+
+            # convert list type data to numpy array:
+            if isinstance(x, float):
+                arg_x = np.array([x])
+            elif isinstance(x, list):
+                arg_x = np.array(x)
+            elif isinstance(x, np.ndarray):
+                arg_x = x
+            else:
+                print('data type not supported')
+
+            if isinstance(y, float):
+                arg_y = np.array([y])
+            elif isinstance(y, list):
+                arg_y = np.array(y)
+            elif isinstance(y, np.ndarray):
+                arg_y = y
+            else:
+                print('data type not supported')
+
+            if isinstance(z, float):
+                arg_z = np.array([z])
+            elif isinstance(z, list):
+                arg_z = np.array(z)
+            elif isinstance(z, np.ndarray):
+                arg_z = z
+            else:
+                print('data type not supported')
+
+            # tensor-product for given three 1D arrays
+            if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
+                E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
+            # given xy-plane at point z:
+            elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
+                E1 = arg_x[:, :, None]
+                E2 = arg_y[:, :, None]
+                E3 = arg_z*np.ones(E1.shape)
+            # given xz-plane at point y:
+            elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
+                E1 = arg_x[:, None, :]
+                E2 = arg_y*np.ones(E1.shape)
+                E3 = arg_z[:, None, :]
+            # given yz-plane at point x:
+            elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
+                E2 = arg_y[None, :, :]
+                E3 = arg_z[None, :, :]
+                E1 = arg_x*np.ones(E2.shape)
+            # given three 3D arrays
+            elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
+                # Distinguish if input coordinates are from sparse or dense meshgrid.
+                # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
+                # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
+                E1, E2, E3 = arg_x, arg_y, arg_z
+
+                # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
+                if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
+                    assert max(arg_x.shape) == arg_x.size
+                    assert max(arg_y.shape) == arg_y.size
+                    assert max(arg_z.shape) == arg_z.size
+                    is_sparse_meshgrid = True
+                # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
+
+            else:
+                raise ValueError('Argument dimensions not supported')
+
+            return E1, E2, E3, is_sparse_meshgrid
+    
+    # ================================
+    @staticmethod
+    def prepare_arg(a_in, X1, X2, X3, flat_eval=False):
+        """
+        Broadcasts argument to be pulled, pushed or transformed to 4d array of correct shape.
+
+        Parameters
+        ----------
+            a_in : list, tuple or array-like
+                The argument to be pulled, pushed or transformed. Can be a list/tuple of callables that are first evaluated, OR numpy arrays of appropriate shape.
+
+            X1, X2, X3 : array-like
+                The evaluation point sets. Obtained from prepare_eval_pts function (with possible additional __call__ for physical coordinates).
+
+            flat_eval : bool
+                    Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+
+        Returns
+        -------
+            a_out : array-like
+                The 4d array suitable for evaluation kernels.
+        """
+
+
+        # single callable:
+        # scalar function -> must return a 3d array for 3d evaluation points
+        # vector-valued function -> must return a 4d array of shape (3,:,:,:)
+        if callable(a_in):
+
+            a_out = a_in(X1, X2, X3)
+
+            if   a_out.ndim == 3:
+                a_out = a_out[None, :, :, :]
+            elif a_out.ndim == 4:
+                a_out = a_out[:, :, :, :]
+            else:
+                raise ValueError('Input callable a_in must return a 3d array (for a scalar function) \
+                or 4d array of shape (3,:,:,:) (for a vector-valued function) for 3d evaluation point sets!')
+
+        # list/tuple of length 1 or 3 containing:
+        # callable(s) that must return 3d array(s) for 3d evaluation points
+        # 1d array(s) (flat_eval=True)
+        # 3d array(s) (flat eval=False)
+        elif isinstance(a_in, (list, tuple)):
+            
+            assert len(a_in) == 1 or len(a_in) == 3
+
+            a_out = []
+            for component in a_in:
+
+                if callable(component):
+                    tmp = component(X1, X2, X3)
+                    assert tmp.ndim == 3
+                    a_out += [tmp]
+
+                elif isinstance(component, np.ndarray):
+
+                    if flat_eval:
+                        assert component.ndim == 1
+                        a_out += [component[:, None, None]]
+                    else:
+                        assert component.ndim == 3
+                        a_out += [component[:, :, :]]
+
+            a_out = np.array(a_out, dtype=float)
+
+        # numpy array:
+        # 1d array (flat_eval=True and scalar input)
+        # 2d array (flat_eval=True and vector-valued input of shape (3,:)) 
+        # 3d array (flat_eval=False and scalar input) 
+        # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:)) 
+        elif isinstance(a_in, np.ndarray):
+
+            if flat_eval:
+                if   a_in.ndim == 1: 
+                    a_out = a_in[None, :, None, None]
+                elif a_in.ndim == 2:
+                    a_out = a_in[:, :, None, None]
+                else:
+                    raise ValueError('Input array a_in must be either 1d (scalar) or \
+                    2d (vector-valued, shape (3,:)) for flat evaluation (flat_eval=True)!')
+
+            else:
+                if   a_in.ndim == 3:
+                    a_out = a_in[None, :, :, :]
+                elif a_in.ndim == 4:
+                    a_out = a_in[:, :, :, :]
+                else:
+                    raise ValueError('Input array a_in must be either 3d (scalar) or \
+                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation (flat_eval=False)!')
+
+        else:
+            raise TypeError('Argument a must be either a list/tuple of 1/3 callable(s)/numpy array(s) \
+            OR a single numpy array OR a single callable!')
+
+        # make sure that output array is 4d and of shape (1,:,:,:) or (3,:,:,:)
+        assert a_out.ndim == 4
+        assert a_out.shape[0] == 1 or a_out.shape[0] == 3
+
+        return a_out
     
     # ================================
     def show(self, save_dir=None):
@@ -785,25 +1034,27 @@ class Domain(metaclass=ABCMeta):
             plt.show()
 
 
+            
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
-    '''
+    """
     Interpolates the mapping (eta1, eta2, eta3) --> (X, Y, Z) on the given spline space.
 
     Parameters
     -----------
-        Nel, p, spl_kind: array-like
-            defining the spline space
+        Nel, p, spl_kind : array-like
+            Defining the spline space.
 
-        X, Y: callable
-            either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D
+        X, Y : callable
+            Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
 
-        Z: callable Z(eta1, eta2, eta3)
+        Z : callable 
+            3rd mapping component Z(eta1, eta2, eta3) in 3D.
 
     Returns
     --------
-        cx, cy (, cz): np.array
-            spline coefficients
-    '''
+        cx, cy (, cz) : array-like
+            The control points.
+    """
 
     # number of basis functions
     NbaseN = [Nel + p - kind*p for Nel, p, kind in zip(Nel, p, spl_kind)]
@@ -819,33 +1070,33 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
 
     # 1D interpolation matrices
-    I_mat = [spa.csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
+    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind))
              for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
 
     # 2D interpolation
     if len(Nel) == 2:
-        I = spa.kron(I_mat[0], I_mat[1], format='csc')
+        I = kron(I_mat[0], I_mat[1], format='csc')
 
         I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing='ij')
 
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
+        cx = spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
             NbaseN[0], NbaseN[1])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
+        cy = spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
             NbaseN[0], NbaseN[1])
 
         return cx, cy
 
     # 3D interpolation
     elif len(Nel) == 3:
-        I = spa.kron(I_mat[0], spa.kron(I_mat[1], I_mat[2]), format='csc')
+        I = kron(I_mat[0], kron(I_mat[1], I_mat[2]), format='csc')
 
         I_pts = np.meshgrid(I_pts[0], I_pts[1], I_pts[2], indexing='ij')
 
-        cx = spa.linalg.spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+        cx = spsolve(I, X(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
             NbaseN[0], NbaseN[1], NbaseN[2])
-        cy = spa.linalg.spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+        cy = spsolve(I, Y(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
             NbaseN[0], NbaseN[1], NbaseN[2])
-        cz = spa.linalg.spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
+        cz = spsolve(I, Z(I_pts[0], I_pts[1], I_pts[2]).flatten()).reshape(
             NbaseN[0], NbaseN[1], NbaseN[2])
 
         return cx, cy, cz
@@ -856,133 +1107,8 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.
 
 
-def prepare_args(x, y, z, flat_eval=False):
-    '''Broadcast point sets to correct size for evaluation.
-
-    Parameters
-    ----------
-        x, y, z : float or list or np.array
-            Evaluation point sets.
-        flat_eval : boolean
-            Whether to do a flat evaluation, i.e. f([x1, x2], [y1, y2]) = [f(x1, y1) f(x2, y2)]. 
-
-    Returns
-    -------
-        E1, E2, E3 : np.arrays
-            3d arrays, except for flat_eval=True (1d arrays).
-
-        is_sparse_meshgrid : boolean
-            Whether arguments fit sparse_meshgrid shape.
-    '''
-
-    is_sparse_meshgrid = False
-
-    # flat evaluation (works only if all arguments are 1d numpy arrays/lists of equal length!)
-    if flat_eval:
-        
-        # convert list type data to numpy array:
-        if isinstance(x, list):
-            arg_x = np.array(x)
-        elif isinstance(x, np.ndarray):
-            arg_x = x
-        else:
-            raise ValueError('Input x must be a 1d list or numpy array')
-
-        if isinstance(y, list):
-            arg_y = np.array(y)
-        elif isinstance(y, np.ndarray):
-            arg_y = y
-        else:
-            raise ValueError('Input y must be a 1d list or numpy array')
-
-        if isinstance(z, list):
-            arg_z = np.array(z)
-        elif isinstance(z, np.ndarray):
-            arg_z = z
-        else:
-            raise ValueError('Input z must be a 1d list or numpy array')
-        
-        assert arg_x.ndim == arg_y.ndim == arg_z.ndim == 1
-        assert arg_x.size == arg_y.size == arg_z.size
-
-        E1 = arg_x[:, None, None]
-        E2 = arg_y[:, None, None]
-        E3 = arg_z[:, None, None]
-
-        return E1, E2, E3, is_sparse_meshgrid
-
-    # non-flat evaluation (broadcast to 3d arrays)
-    else:
-        
-        # convert list type data to numpy array:
-        if isinstance(x, float):
-            arg_x = np.array([x])
-        elif isinstance(x, list):
-            arg_x = np.array(x)
-        elif isinstance(x, np.ndarray):
-            arg_x = x
-        else:
-            print('data type not supported')
-
-        if isinstance(y, float):
-            arg_y = np.array([y])
-        elif isinstance(y, list):
-            arg_y = np.array(y)
-        elif isinstance(y, np.ndarray):
-            arg_y = y
-        else:
-            print('data type not supported')
-
-        if isinstance(z, float):
-            arg_z = np.array([z])
-        elif isinstance(z, list):
-            arg_z = np.array(z)
-        elif isinstance(z, np.ndarray):
-            arg_z = z
-        else:
-            print('data type not supported')
-        
-        # tensor-product for given three 1D arrays
-        if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
-            E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing='ij')
-        # given xy-plane at point z:
-        elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
-            E1 = arg_x[:, :, None]
-            E2 = arg_y[:, :, None]
-            E3 = arg_z*np.ones(E1.shape)
-        # given xz-plane at point y:
-        elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
-            E1 = arg_x[:, None, :]
-            E2 = arg_y*np.ones(E1.shape)
-            E3 = arg_z[:, None, :]
-        # given yz-plane at point x:
-        elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
-            E2 = arg_y[None, :, :]
-            E3 = arg_z[None, :, :]
-            E1 = arg_x*np.ones(E2.shape)
-        # given three 3D arrays
-        elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
-            # Distinguish if input coordinates are from sparse or dense meshgrid.
-            # Sparse: arg_x.shape = (n1, 1, 1), arg_y.shape = (1, n2, 1), arg_z.shape = (1, 1, n3)
-            # Dense : arg_x.shape = (n1, n2, n3), arg_y.shape = (n1, n2, n3) arg_z.shape = (n1, n2, n3)
-            E1, E2, E3 = arg_x, arg_y, arg_z
-
-            # `arg_x` `arg_y` `arg_z` are all sparse meshgrids.
-            if max(arg_x.shape) == arg_x.size or max(arg_y.shape) == arg_y.size or max(arg_z.shape) == arg_z.size:
-                assert max(arg_x.shape) == arg_x.size
-                assert max(arg_y.shape) == arg_y.size
-                assert max(arg_z.shape) == arg_z.size
-                is_sparse_meshgrid = True
-            # one of `arg_x` `arg_y` `arg_z` is a dense meshgrid.(i.e., all are dense meshgrid) Process each point as default.
-
-        else:
-            raise ValueError('Argument dimensions not supported')
-
-        return E1, E2, E3, is_sparse_meshgrid
-
-
 def spline_interpolation_nd(p, grids_1d, values):
-    '''
+    """
     nd spline interpolation with discrete input (nonuniform).
 
     The knot vector for the clamped spline interpolant is constructed from grids_1d.
@@ -990,13 +1116,13 @@ def spline_interpolation_nd(p, grids_1d, values):
     Parameters
     -----------
         p : list 
-            spline degree
+            Spline degree.
 
         grids_1d : list of np.arrays
-            interpolation points
+            Interpolation points.
 
         values: np.array
-            function values at interpolation points. values.shape = (grid1.size, ..., gridn.size)
+            Function values at interpolation points. values.shape = (grid1.size, ..., gridn.size).
 
     Returns
     --------
@@ -1004,8 +1130,8 @@ def spline_interpolation_nd(p, grids_1d, values):
             spline coefficients as nd array.
 
         T : list
-            Knot vector of spline interpolant
-    '''
+            Knot vector of spline interpolant.
+    """
 
     # dimension check
     for sh, x_grid in zip(values.shape, grids_1d):
@@ -1037,7 +1163,7 @@ def spline_interpolation_nd(p, grids_1d, values):
     I_mat = [bsp.collocation_matrix(T_i, p_i, grids_1d_i, periodic=False)
              for T_i, p_i, grids_1d_i in zip(T, p, grids_1d)]
 
-    I_LU = [splu(spa.csc_matrix(I_mat_i)) for I_mat_i in I_mat]
+    I_LU = [splu(csc_matrix(I_mat_i)) for I_mat_i in I_mat]
 
     # dimension check
     for I, x_grid in zip(I_mat, grids_1d):

@@ -1,6 +1,6 @@
 import sys, os, shutil
 import pickle
-from struphy.diagnostics.post_processing import create_femfields, eval_femfields
+from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields
 
 ppcell = int(sys.argv[1])
 
@@ -23,20 +23,20 @@ for path in sys.argv[2:]:
     # save data dicts for each field
     for name, val in point_data_logic.items():
 
-        with open(path + '/eval_fields/' + name + '_logical.bin', 'wb') as handle:
+        with open(path + '/eval_fields/' + name + '_log.bin', 'wb') as handle:
             pickle.dump(val, handle,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open(path + '/eval_fields/' + name + '_physical.bin', 'wb') as handle:
+        with open(path + '/eval_fields/' + name + '_phy.bin', 'wb') as handle:
             pickle.dump(point_data_phys[name], handle,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
     # save grids
-    with open(path + '/eval_fields/grids.bin', 'wb') as handle:
+    with open(path + '/eval_fields/grids_log.bin', 'wb') as handle:
             pickle.dump(grids, handle,
                         protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(path + '/eval_fields/grids_mapped.bin', 'wb') as handle:
+    with open(path + '/eval_fields/grids_phy.bin', 'wb') as handle:
             pickle.dump(grids_mapped, handle,
                         protocol=pickle.HIGHEST_PROTOCOL)
 

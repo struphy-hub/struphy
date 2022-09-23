@@ -1,7 +1,7 @@
 import sys
 import pickle
 import yaml
-from struphy.diagnostics import Cprofile_analyser
+from struphy.post_processing import Cprofile_analyser
 
 
 if sys.argv[1] == 'true':
