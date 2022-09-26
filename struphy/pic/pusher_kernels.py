@@ -1,3 +1,5 @@
+from pyccel.decorators import stack_array
+
 import struphy.linear_algebra.core as linalg
 import struphy.geometry.map_eval as map_eval
 import struphy.feec.bsplines_kernels as bsp
@@ -8,6 +10,7 @@ from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
 from numpy import zeros, empty, shape, sqrt, cos, sin
 
 
+@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: 'float',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -102,6 +105,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_vxb_analytic(markers: 'float[:,:]', dt: 'float',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -219,7 +223,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float',
 
     #$ omp end parallel
 
-
+@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -335,6 +339,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -454,6 +459,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -569,6 +575,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
 def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -720,6 +727,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -818,6 +826,7 @@ def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'b', 'b_cart', 'b0', 'v', 'vperp', 'vxb0', 'b0xvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -947,6 +956,7 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'eta', 'v', 'k1', 'k2', 'k3', 'k4')
 def push_eta_rk4(markers: 'float[:,:]', dt: 'float',
                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1073,6 +1083,7 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k1', 'k2', 'k3', 'k4', 'k1_v', 'k2_v', 'k3_v', 'k4_v', 'k1_u', 'k2_u', 'k3_u', 'k4_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1380,6 +1391,7 @@ def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'u_cart', 'b', 'b_cart', 'b0', 'uperp', 'uxb0', 'k1', 'k2', 'k3', 'k4', 'k1_v', 'k2_v', 'k3_v', 'k4_v', 'k1_u', 'k2_u', 'k3_u', 'k4_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                          starts0: 'int[:]', starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
@@ -1790,6 +1802,7 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: 'float',
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1897,6 +1910,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
+@stack_array('particle')
 def push_x_v_static_efield(markers: 'float[:,:]', dt: 'float',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',

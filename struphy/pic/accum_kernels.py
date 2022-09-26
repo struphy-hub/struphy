@@ -1,3 +1,5 @@
+from pyccel.decorators import stack_array
+
 from numpy import zeros, empty, sqrt
 
 import struphy.geometry.map_eval as map_eval
@@ -78,6 +80,7 @@ def _docstring():
     print('This is just the docstring function.')
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'g_inv_times_v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           kind_map: 'int', params_map: 'float[:]',
@@ -189,6 +192,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -305,6 +309,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -458,6 +463,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   kind_map: 'int', params_map: 'float[:]',

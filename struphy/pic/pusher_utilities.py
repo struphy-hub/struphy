@@ -1,11 +1,14 @@
+from pyccel.decorators import pure, stack_array
+
 from numpy import empty, sqrt, floor
 
 import struphy.geometry.map_eval as map_eval
 import struphy.feec.bsplines_kernels as bsp
-
 import struphy.linear_algebra.core as linalg
 
 
+@pure
+@stack_array('vg', 'basis', 'basis_inv')
 def reflect(df : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
     '''TODO'''
 
@@ -35,6 +38,7 @@ def reflect(df : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
     linalg.matrix_vector(basis, vg, v)
 
 
+@pure
 def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
     """
     Implementation of the quicksort sorting algorithm. Ref?
@@ -114,6 +118,7 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
         print('ValueError, uniform must be 1 or 0 !')
 
 
+@stack_array('df', 'df_inv', 'Nel', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def aux_fun_x_v_stat_e(particle: 'float[:]',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',

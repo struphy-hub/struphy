@@ -10,6 +10,7 @@ Basic push-forward (logical --> physical) operations between scalar fields, vect
 
 - vector: (ax, ay, az) =             DF      (a_1  , a_2  , a_3  )  
 """
+from pyccel.decorators import pure, stack_array
 
 from numpy import shape, empty
 
@@ -17,6 +18,7 @@ from struphy.linear_algebra.core import det, matrix_inv, matrix_vector, transpos
 from struphy.geometry.map_eval import df, det_df
 
 
+@pure
 def push_0_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of a differential 0-form to a scalar field.
@@ -58,6 +60,7 @@ def push_0_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int,
     return a
 
 
+@stack_array('tmp', 'df_out', 'df_T')
 def push_1_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of components of a differential 1-form to Cartesian components of a vector field.
@@ -116,6 +119,7 @@ def push_1_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component
         print('Error: component does not exist')
 
 
+@stack_array('tmp', 'df_out')
 def push_2_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of components of a differential 2-form to Cartesian components of a vector field.
@@ -172,6 +176,7 @@ def push_2_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component
         print('Error: component does not exist')
 
 
+@pure
 def push_3_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of a differential 3-form to a scalar field.
@@ -216,6 +221,7 @@ def push_3_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int,
     return a
 
 
+@stack_array('tmp', 'df_out')
 def push_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of contravariant components of a vector field to Cartesian components of a vector field.
@@ -358,7 +364,7 @@ def push_all(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int
     return value
 
 
-def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid : bool):
+def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
     """
     Push-forward of a differential k-form or contravariant vector field to Cartesian scalar/vector field.
 
@@ -390,7 +396,7 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
 
         cx, cy, cz : array[float]     
             Control points of (f_1, f_2, f_3) in case of a IGA mapping.
-            
+
         is_sparse_meshgrid : bool
             Whether the evaluation points werde obtained from a sparse meshgrid.
 
@@ -403,7 +409,7 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     if is_sparse_meshgrid:
         sparse_factor = 0
     else:
@@ -412,30 +418,30 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                
+
                 e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
-                
+
                 # 0-form
-                if   kind_fun == 0:
-                    values[i1, i2, i3] = push_0_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                if kind_fun == 0:
+                    values[i1, i2, i3] = push_0_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 3-form
                 elif kind_fun == 3:
-                    values[i1, i2, i3] = push_3_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                    values[i1, i2, i3] = push_3_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 1-form
                 elif kind_fun == 11:
-                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 12:
-                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 13:
-                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                    values[i1, i2, i3] = push_1_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 2-form
@@ -459,4 +465,3 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                 elif kind_fun == 33:
                     values[i1, i2, i3] = push_vector(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-                
