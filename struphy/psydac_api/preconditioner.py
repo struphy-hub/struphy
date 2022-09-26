@@ -142,7 +142,6 @@ class MassMatrixPreconditioner(LinearSolver):
         assert isinstance(rhs, (StencilVector, BlockVector))
         assert rhs.space == self.space
         return self._solver.solve(rhs)
-        
 
 
 class FFTSolver(DirectSolver):

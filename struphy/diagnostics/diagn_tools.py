@@ -6,7 +6,6 @@ from scipy.fft import fftfreq, fftn
 import matplotlib.colors as colors
 
 from struphy.dispersion_relations import analytic
-from struphy.diagnostics.post_processing import post_process_fields
 
 import pickle
 import os, shutil

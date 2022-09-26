@@ -1,4 +1,6 @@
-from numpy import sin, cos, pi
+from pyccel.decorators import pure
+
+from numpy import sin, cos
 
 
 def _docstring():
@@ -15,6 +17,7 @@ def _docstring():
     print('This is just the docstring function.')
 
 
+@pure
 def modes_sin_cos(x: 'float', y: 'float', z: 'float', n_modes: 'int', kxs: 'float[:]', kys: 'float[:]', kzs: 'float[:]', amps_sin: 'float[:]', amps_cos: 'float[:]') -> float:
     r'''
     Point-wise evaluation of  

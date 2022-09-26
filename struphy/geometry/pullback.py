@@ -10,13 +10,15 @@ Basic pull-back (physical --> logical) operations between scalar fields, vector 
 
 - vector: (a_1  , a_2  , a_3  ) =           DF^(-1) (ax, ay, az)
 """
+from pyccel.decorators import pure, stack_array
 
 from numpy import shape, empty
 
-from struphy.linear_algebra.core import det, matrix_vector, transpose, matrix_inv_with_det
+from struphy.linear_algebra.core import det, matrix_vector, transpose
 from struphy.geometry.map_eval import df, det_df, df_inv
 
 
+@pure
 def pull_0_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a scalar field to a differential 0-form.
@@ -58,6 +60,7 @@ def pull_0_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, 
     return a0
 
 
+@stack_array('tmp', 'df_out', 'df_T')
 def pull_1_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a Cartesian vector field to a differential 1-form.
@@ -116,6 +119,7 @@ def pull_1_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         print('Error: component does not exist')
 
 
+@stack_array('df_mat')
 def pull_2_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a Cartesian vector field to a differential 2-form.
@@ -178,6 +182,7 @@ def pull_2_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
     return value
 
 
+@pure
 def pull_3_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a scalar field to component of a differential 3-form.
@@ -222,6 +227,7 @@ def pull_3_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, 
     return a3
 
 
+@stack_array('tmp', 'dfinv_out')
 def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a Cartesian vector field to contravariant components.
@@ -263,7 +269,7 @@ def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
 
     tmp = empty(3, dtype=float)
     dfinv_out = empty((3, 3), dtype=float)
-    
+
     df_inv(eta1, eta2, eta3, kind_map, params_map, tn1, tn2, tn3,
            pn, ind_n1, ind_n2, ind_n3, cx, cy, cz, dfinv_out)
     matrix_vector(dfinv_out, a, tmp)
@@ -278,7 +284,7 @@ def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         print('Error: component does not exist')
 
 
-def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid : bool):
+def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
     """
     Pull-back of a Cartesian scalar/vector field to a differential k-form.
 
@@ -310,7 +316,7 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
 
         cx, cy, cz : array[float]     
             Control points of (f_1, f_2, f_3) in case of a IGA mapping.
-            
+
         is_sparse_meshgrid : bool
             Whether the evaluation points werde obtained from a sparse meshgrid.
 
@@ -323,7 +329,7 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     if is_sparse_meshgrid:
         sparse_factor = 0
     else:
@@ -332,51 +338,50 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                
+
                 e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
-                
+
                 # 0-form
-                if   kind_fun == 0:
-                    values[i1, i2, i3] = pull_0_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                if kind_fun == 0:
+                    values[i1, i2, i3] = pull_0_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 3-form
                 elif kind_fun == 3:
-                    values[i1, i2, i3] = pull_3_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_3_form(a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 1-form
                 elif kind_fun == 11:
-                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 12:
-                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 13:
-                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_1_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # 2-form
                 elif kind_fun == 21:
-                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 22:
-                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 23:
-                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_2_form(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
                 # vector
                 elif kind_fun == 31:
-                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 32:
-                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 2, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
                 elif kind_fun == 33:
-                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map, 
+                    values[i1, i2, i3] = pull_vector(a[:, i1, i2, i3], e1, e2, e3, 3, kind_map, params_map,
                                                      tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-                    

@@ -36,7 +36,7 @@ class Pusher:
         self._pusher = getattr(pushers, self._pusher_name) 
           
         
-    def push(self, particles, dt, *args, do_mpi_sort=False):
+    def __call__(self, particles, dt, *args_opt, do_mpi_sort=False):
         """
         Applies the chosen particle pusher by a time step dt.
         
@@ -48,14 +48,14 @@ class Pusher:
             dt : float
                 The time step.
                 
-            args : tuple
-                Additional arguments needed for the pushing (typically spline coefficients for field evaluation).
+            args_opt : tuple
+                Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
                 
             do_mpi_sort : bool
                 Whether to do a marker sorting according to the MPI decomposition (needed when marker positions change during push).
         """
         
-        self._pusher(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args)
+        self._pusher(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
         
         if do_mpi_sort: particles.send_recv_markers()
         

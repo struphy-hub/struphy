@@ -1,6 +1,9 @@
+from pyccel.decorators import pure
+
 from numpy import shape, mod
 
 
+@pure
 def band_to_stencil_1d(arr: 'float[:, :]', out: 'float[:, :]'):
     '''Converts the 2d banded matrix arr, of shape (n, m) and with 2*p + 1 < m bands centered around the diagonal,
     into the array out, of shape (n, 2*p + 1), which corresponds to the StencilMatrix format.
@@ -14,6 +17,7 @@ def band_to_stencil_1d(arr: 'float[:, :]', out: 'float[:, :]'):
             out[i, j] = arr[i, jj]
 
 
+@pure
 def band_to_stencil_2d(arr: 'float[:, :, :, :]', out: 'float[:, :, :, :]'):
     '''Converts a 4d banded matrix to StencilMatrix format (see band_to_stencil_1d).
     '''
@@ -31,6 +35,7 @@ def band_to_stencil_2d(arr: 'float[:, :, :, :]', out: 'float[:, :, :, :]'):
                     out[i1, i2, j1, j2] = arr[i1, i2, jj1, jj2]
 
 
+@pure
 def band_to_stencil_3d(arr: 'float[:, :, :, :, :, :]', out: 'float[:, :, :, :, :, :]'):
     '''Converts a 6d banded matrix to StencilMatrix format (see band_to_stencil_1d).
     '''
