@@ -57,7 +57,10 @@ __all__ = [ 'fill_mat11_v1',
             ]
 """
 
+from pyccel.decorators import pure
 
+
+@pure
 def fill_mat11_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
@@ -119,6 +122,7 @@ def fill_mat11_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'floa
                             mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat12_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
@@ -187,6 +191,7 @@ def fill_mat12_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat13_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling13 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
@@ -255,6 +260,7 @@ def fill_mat13_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat21_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
@@ -323,6 +329,7 @@ def fill_mat21_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat22_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
@@ -384,6 +391,7 @@ def fill_mat22_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'floa
                             mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat23_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
@@ -452,6 +460,7 @@ def fill_mat23_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'floa
                             mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat31_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
@@ -520,6 +529,7 @@ def fill_mat31_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat32_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
@@ -588,6 +598,7 @@ def fill_mat32_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'floa
                             mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat33_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
@@ -649,6 +660,7 @@ def fill_mat33_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'floa
                             mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat11_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
@@ -711,6 +723,7 @@ def fill_mat11_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'floa
                             mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat12_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
@@ -780,6 +793,7 @@ def fill_mat12_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat13_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
@@ -849,6 +863,7 @@ def fill_mat13_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'floa
                             mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat21_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
@@ -918,6 +933,7 @@ def fill_mat21_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'floa
                             mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat22_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
@@ -980,6 +996,7 @@ def fill_mat22_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'floa
                             mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat23_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
@@ -1049,6 +1066,7 @@ def fill_mat23_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'floa
                             mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat31_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
@@ -1118,6 +1136,7 @@ def fill_mat31_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'floa
                             mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat32_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
@@ -1187,6 +1206,7 @@ def fill_mat32_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'floa
                             mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat33_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
@@ -1249,6 +1269,7 @@ def fill_mat33_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'floa
                             mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat11_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
@@ -1318,6 +1339,7 @@ def fill_mat11_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 
                             mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat12_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V1 and fills it with basis functions times filling
@@ -1394,6 +1416,7 @@ def fill_mat12_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat13_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V1 and fills it with basis functions times filling
@@ -1470,6 +1493,7 @@ def fill_mat13_vec1_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat21_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V1 and fills it with basis functions times filling
@@ -1546,6 +1570,7 @@ def fill_mat21_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat22_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V1 and fills it with basis functions times filling
@@ -1615,6 +1640,7 @@ def fill_mat22_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 
                             mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat23_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V1 and fills it with basis functions times filling
@@ -1691,6 +1717,7 @@ def fill_mat23_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 
                             mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat31_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V1 and fills it with basis functions times filling
@@ -1767,6 +1794,7 @@ def fill_mat31_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat32_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V1 and fills it with basis functions times filling
@@ -1843,6 +1871,7 @@ def fill_mat32_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 
                             mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat33_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V1 and fills it with basis functions times filling
@@ -1912,6 +1941,7 @@ def fill_mat33_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 
                             mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat11_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat11 : 'float[:,:,:,:,:,:]', filling11 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=1 in V2 and fills it with basis functions times filling
@@ -1982,6 +2012,7 @@ def fill_mat11_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 
                             mat11[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat12_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat12 : 'float[:,:,:,:,:,:]', filling12 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=2 in V2 and fills it with basis functions times filling
@@ -2059,6 +2090,7 @@ def fill_mat12_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat12[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat13_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat13 : 'float[:,:,:,:,:,:]', filling13 : 'float', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the entries of the matrix mu=1,nu=3 in V2 and fills it with basis functions times filling
@@ -2136,6 +2168,7 @@ def fill_mat13_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 
                             mat13[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat21_vec2_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat21 : 'float[:,:,:,:,:,:]', filling21 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=1 in V2 and fills it with basis functions times filling
@@ -2213,6 +2246,7 @@ def fill_mat21_vec2_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 
                             mat21[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat22_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat22 : 'float[:,:,:,:,:,:]', filling22 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=2 in V2 and fills it with basis functions times filling
@@ -2283,6 +2317,7 @@ def fill_mat22_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 
                             mat22[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat23_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat23 : 'float[:,:,:,:,:,:]', filling23 : 'float', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the entries of the matrix mu=2,nu=3 in V2 and fills it with basis functions times filling
@@ -2360,6 +2395,7 @@ def fill_mat23_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 
                             mat23[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat31_vec3_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat31 : 'float[:,:,:,:,:,:]', filling31 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=1 in V2 and fills it with basis functions times filling
@@ -2437,6 +2473,7 @@ def fill_mat31_vec3_v2(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bd2 : 
                             mat31[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat32_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat32 : 'float[:,:,:,:,:,:]', filling32 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=2 in V2 and fills it with basis functions times filling
@@ -2514,6 +2551,7 @@ def fill_mat32_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 
                             mat32[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat33_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat33 : 'float[:,:,:,:,:,:]', filling33 : 'float', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the entries of the matrix mu=3,nu=3 in V2 and fills it with basis functions times filling
@@ -2584,6 +2622,7 @@ def fill_mat33_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 
                             mat33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the mu=1 element of a vector in V1 and fills it with basis functions times filling1
@@ -2637,6 +2676,7 @@ def fill_vec1_v1(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float
                 vec1[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling1
 
 
+@pure
 def fill_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the mu=2 element of a vector in V1 and fills it with basis functions times filling2
@@ -2690,6 +2730,7 @@ def fill_vec2_v1(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
                 vec2[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling2
 
 
+@pure
 def fill_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the mu=3 element of a vector in V1 and fills it with basis functions times filling3
@@ -2743,6 +2784,7 @@ def fill_vec3_v1(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
                 vec3[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling3
 
 
+@pure
 def fill_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec1 : 'float[:,:,:]', filling1 : 'float'):
     """
     Computes the mu=1 element of a vector in V2 and fills it with basis functions times filling1
@@ -2796,6 +2838,7 @@ def fill_vec1_v2(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float
                 vec1[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling1
 
 
+@pure
 def fill_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec2 : 'float[:,:,:]', filling2 : 'float'):
     """
     Computes the mu=2 element of a vector in V2 and fills it with basis functions times filling2
@@ -2849,6 +2892,7 @@ def fill_vec2_v2(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float
                 vec2[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling2
 
 
+@pure
 def fill_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec3 : 'float[:,:,:]', filling3 : 'float'):
     """
     Computes the mu=3 element of a vector in V2 and fills it with basis functions times filling3
@@ -2902,6 +2946,7 @@ def fill_vec3_v2(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float
                 vec3[i1 - starts[0] + pn[0], i2 - starts[1] + pn[1], i3 - starts[2] + pn[2]] += bi3 * filling3
 
 
+@pure
 def fill_mat_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
     """
     Computes the entries of the matrix for three-vectors in V0 and fills it with basis functions times filling
@@ -2962,6 +3007,7 @@ def fill_mat_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[
                             mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts : 'int[:]', mat : 'float[:,:,:,:,:,:]', filling : 'float'):
     """
     Computes the entries of the matrix for three-vectors in V3 and fills it with basis functions times filling
@@ -3026,6 +3072,7 @@ def fill_mat_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[
                             mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Computes the entries of the matrix and of the three-vector in V0 and fills it with basis functions times filling
@@ -3094,6 +3141,7 @@ def fill_mat_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'fl
                             mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_mat_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', mat : 'float[:,:,:,:,:,:]', filling_m : 'float', vec : 'float[:,:,:]', filling_v : 'float'):
     """
     Computes the entries of the matrix and of the three-vector in V3 and fills it with basis functions times filling
@@ -3166,6 +3214,7 @@ def fill_mat_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'fl
                             mat[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3
 
 
+@pure
 def fill_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec : 'float[:,:,:]', filling : 'float'):
     """
     Computes an element of a thre-vector in V0 and fills it with basis functions times filling
@@ -3219,6 +3268,7 @@ def fill_vec_u0(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[
                 vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling
 
 
+@pure
 def fill_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', vec : 'float[:,:,:]', filling : 'float'):
     """
     Computes an element of a three-vector in V3 and fills it with basis functions times filling1
@@ -3276,6 +3326,7 @@ def fill_vec_u3(pn : 'int[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[
                 vec[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3] += bi3 * filling
 
 
+@pure
 def fill_mat11_vec1_v1_pressure(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', 
                                 mat11_11 : 'float[:,:,:,:,:,:]', mat11_12 : 'float[:,:,:,:,:,:]', mat11_13 : 'float[:,:,:,:,:,:]', mat11_22 : 'float[:,:,:,:,:,:]', mat11_23 : 'float[:,:,:,:,:,:]', mat11_33 : 'float[:,:,:,:,:,:]',
                                 filling11 : 'float', 
@@ -3366,6 +3417,7 @@ def fill_mat11_vec1_v1_pressure(pn : 'int[:]', bd1 : 'float[:]', bn2 : 'float[:]
                             mat11_33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3 * v3 * v3
 
 
+@pure
 def fill_mat22_vec2_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', 
                                 mat22_11 : 'float[:,:,:,:,:,:]', mat22_12 : 'float[:,:,:,:,:,:]', mat22_13 : 'float[:,:,:,:,:,:]', mat22_22 : 'float[:,:,:,:,:,:]', mat22_23 : 'float[:,:,:,:,:,:]', mat22_33 : 'float[:,:,:,:,:,:]', 
                                 filling22 : 'float', 
@@ -3456,6 +3508,7 @@ def fill_mat22_vec2_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd2 : 'float[:]
                             mat22_33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3 * v3 * v3
 
 
+@pure
 def fill_mat33_vec3_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', 
                                 mat33_11 : 'float[:,:,:,:,:,:]', mat33_12 : 'float[:,:,:,:,:,:]', mat33_13 : 'float[:,:,:,:,:,:]', mat33_22 : 'float[:,:,:,:,:,:]', mat33_23 : 'float[:,:,:,:,:,:]', mat33_33 : 'float[:,:,:,:,:,:]',
                                 filling33 : 'float', 
@@ -3546,6 +3599,7 @@ def fill_mat33_vec3_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]
                             mat33_33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3 * v3 * v3
 
 
+@pure
 def fill_mat12_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', 
                            mat12_11 : 'float[:,:,:,:,:,:]', mat12_12 : 'float[:,:,:,:,:,:]', mat12_13 : 'float[:,:,:,:,:,:]', mat12_22 : 'float[:,:,:,:,:,:]', mat12_23 : 'float[:,:,:,:,:,:]', mat12_33 : 'float[:,:,:,:,:,:]',
                            filling12 : 'float',
@@ -3631,6 +3685,7 @@ def fill_mat12_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn
                             mat12_33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3 * v3 * v3
 
 
+@pure
 def fill_mat13_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]',
                            mat13_11 : 'float[:,:,:,:,:,:]', mat13_12 : 'float[:,:,:,:,:,:]', mat13_13 : 'float[:,:,:,:,:,:]', mat13_22 : 'float[:,:,:,:,:,:]', mat13_23 : 'float[:,:,:,:,:,:]', mat13_33 : 'float[:,:,:,:,:,:]',
                            filling13 : 'float',
@@ -3716,6 +3771,7 @@ def fill_mat13_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bd1 : 'float[:]', bn
                             mat13_33[i1 - starts[0] + pn1, i2 - starts[1] + pn2, i3 - starts[2] + pn3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3] += bj3 * v3 * v3
 
 
+@pure
 def fill_mat23_v1_pressure(pn : 'int[:]', bn1 : 'float[:]', bn2 : 'float[:]', bd2 : 'float[:]', bn3 : 'float[:]', bd3 : 'float[:]', ie1 : 'int', ie2 : 'int', ie3 : 'int', starts: 'int[:]', 
                            mat23_11 : 'float[:,:,:,:,:,:]', mat23_12 : 'float[:,:,:,:,:,:]', mat23_13 : 'float[:,:,:,:,:,:]', mat23_22 : 'float[:,:,:,:,:,:]', mat23_23 : 'float[:,:,:,:,:,:]', mat23_33 : 'float[:,:,:,:,:,:]',
                            filling23 : 'float',

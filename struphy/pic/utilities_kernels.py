@@ -1,9 +1,12 @@
+from pyccel.decorators import stack_array
+
 import struphy.feec.bsplines_kernels as bsp
 from struphy.feec.basics.spline_evaluation_3d import eval_spline_mpi_3d
 
 from numpy import empty, shape
 
 
+@stack_array('bn1', 'bn2', 'bn3')
 def eval_0_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -40,8 +43,8 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # # $ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3)
-    # # $ omp for reduction( + : res)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3)
+    #$ omp for reduction( + : res)
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -61,11 +64,12 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
         res = res + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
                                        bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
 
-    # # $ omp end parallel
+    #$ omp end parallel
 
     return res
 
 
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def eval_1_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -107,8 +111,8 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # # $ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3)
-    # # $ omp for reduction( + : res)
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3)
+    #$ omp for reduction( + : res)
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -132,9 +136,10 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
         res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
                                              bn1, bn2, bd3, span1, span2, span3, coeffs3, starts[2])
 
-    # # $ omp end parallel
+    #$ omp end parallel
 
 
+@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def eval_2_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -176,8 +181,8 @@ def eval_2_form_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # # $ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3)
-    # # $ omp for
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3)
+    #$ omp for
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -201,9 +206,10 @@ def eval_2_form_at_particles(markers: 'float[:,:]',
         res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
                                              bd1, bd2, bn3, span1, span2, span3, coeffs3, starts[2])
 
-    # # $ omp end parallel
+    #$ omp end parallel
 
 
+@stack_array('bd1', 'bd2', 'bd3')
 def eval_3_form_at_particles(markers: 'float[:,:]',
                              pn: 'int[:]',
                              tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -239,8 +245,8 @@ def eval_3_form_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # # $ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bd1, bd2, bd3)
-    # # $ omp for
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bd1, bd2, bd3)
+    #$ omp for
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -260,11 +266,12 @@ def eval_3_form_at_particles(markers: 'float[:,:]',
         res = res + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
                                        bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
 
-    # # $ omp end parallel
+    #$ omp end parallel
 
     return res
 
 
+@stack_array('bn1', 'bn2', 'bn3')
 def eval_H1vec_at_particles(markers: 'float[:,:]',
                             pn: 'int[:]',
                             tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -302,8 +309,8 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # # $ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3)
-    # # $ omp for
+    #$ omp parallel private(ip, eta1, eta2, eta3, span1, span2, span3, bn1, bn2, bn3)
+    #$ omp for
     for ip in range(n_markers):
 
         eta1 = markers[ip, 0]
@@ -327,4 +334,4 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
         res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
                                              bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
 
-    # # $ omp end parallel
+    #$ omp end parallel
