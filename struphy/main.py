@@ -137,6 +137,18 @@ for field in model.fields:
     data.file[key_field].attrs['pads'] = field.pads
 
 # save kinetic data in group 'kinetic/'
+markers_to_be_saved = []
+
+#for species in model.kinetic_species:
+#    key_species = 'kinetic/' + species.name
+#    
+#    # save markers with ID < 20
+#    markers_to_be_saved += [np.zeros((20, species.markers.shape[1]), dtype=float)]
+#    
+#    cond = species.markers[-1] < 
+#    
+#    data.add_data({key_species : })
+     
 # TODO
             
 

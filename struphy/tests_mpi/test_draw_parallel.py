@@ -28,17 +28,14 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     rank = comm.Get_rank()
 
     seed = int(np.random.rand()*1000)
-    loading_params = {'type': 'pseudo_random', 'seed': seed, 'dir_particles': 'dir',
+    loading_params = {'type': 'pseudo_random', 'seed': seed,
                       'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-    marker_params = {'type': 'fullorbit', 'ppc': ppc,
-                     'loading': loading_params, 'n_bins': [32, 32], 'v_max': 5.}
+    marker_params = {'ppc': ppc, 'loading': loading_params}
 
     # Domain object
-    dom_type = mapping[0]
-    dom_params = mapping[1]
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(mapping[1])
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -55,7 +52,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc,
-          particles.n_mks_loc_with_holes)
+          particles.markers.shape[0])
 
     # sort particles according to domain decomposition
     comm.Barrier()
@@ -64,10 +61,10 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     comm.Barrier()
     print('Number of particles w/wo holes on each process after sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc,
-          particles.n_mks_loc_with_holes)
+          particles.markers.shape[0])
 
     # are all markers in the correct domain?
-    conds = np.logical_and(particles.markers[:, :3] > derham.domain_array[rank, ::3],
+    conds = np.logical_and(particles.markers[:, :3] > derham.domain_array[rank, 0::3],
                            particles.markers[:, :3] < derham.domain_array[rank, 1::3])
     holes = particles.markers[:, 0] == -1.
     stay = np.all(conds, axis=1)

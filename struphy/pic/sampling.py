@@ -14,15 +14,15 @@ from struphy.geometry.map_eval import df
 
 
 @stack_array('e', 'v')
-def set_particles_symmetric_6d(numbers: 'float[:,:]', particles: 'float[:,:]'):
-
+def set_particles_symmetric_3d_3v(numbers : 'float[:,:]', markers : 'float[:,:]'):
+    
     from numpy import shape, zeros
 
     e = zeros(3, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = shape(particles)[1]
-
+    np = 64*shape(numbers)[0]
+    
     for i_part in range(np):
         ip = i_part % 64
 
@@ -48,20 +48,20 @@ def set_particles_symmetric_6d(numbers: 'float[:,:]', particles: 'float[:,:]'):
         else:
             e[0] = 1 - e[0]
 
-        particles[i_part, 0:3] = e
-        particles[i_part, 3:6] = v
+        markers[i_part, 0:3] = e
+        markers[i_part, 3:6] = v  
 
-
-@stack_array('e', 'v')
-def set_particles_symmetric_5d(numbers: 'float[:,:]', particles: 'float[:,:]'):
-
+       
+@stack_array('e', 'v')        
+def set_particles_symmetric_2d_3v(numbers : 'float[:,:]', markers : 'float[:,:]'):
+    
     from numpy import shape, zeros
 
     e = zeros(2, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = shape(particles)[1]
-
+    np = 32*shape(numbers)[0]
+    
     for i_part in range(np):
         ip = i_part % 32
 
@@ -84,8 +84,8 @@ def set_particles_symmetric_5d(numbers: 'float[:,:]', particles: 'float[:,:]'):
         else:
             e[0] = 1 - e[0]
 
-        particles[i_part, 1:3] = e
-        particles[i_part, 3:6] = v
+        markers[i_part, 1:3] = e
+        markers[i_part, 3:6] = v
 
 
 @stack_array('b1', 'b2', 'b3', 'l1', 'l2', 'l3', 'r1', 'r2', 'r3', 'd1', 'd2', 'd3', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'b', 'b_cart', 'b0', 'v', 'vperp', 'vxb0', 'b0xvperp', 'nel1f', 'nel2f', 'nel3f', 'pf1', 'pf2', 'pf3', 'fx', 'df_out', 'dfinv', 'e1', 'e2')

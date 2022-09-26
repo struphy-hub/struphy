@@ -18,12 +18,11 @@ Nel = [8, 16, 4]
 p = [2, 2, 2]
 spl_kind = [False, True, True]
 
-
-loading_params = {'type': 'pseudo_random', 'seed': 1234, 'dir_particles': 'dir',
+loading_type = 'pseudo_random'
+loading_params = {'type': loading_type, 'seed': 1234,
                   'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-marker_params = {'type': 'fullorbit', 'ppc': 10,
-                 'loading': loading_params, 'n_bins': [32, 32], 'v_max': 5.}
+marker_params = {'ppc': 10, 'loading': loading_params}
 
 # create domain
 dom_type = 'ShafranovShiftCylinder'
@@ -44,7 +43,7 @@ particles = Particles6D('energetic_ions', marker_params,
 
 comm.Barrier()
 print('Number of particles w/wo holes on each process before sorting : ')
-print('Rank', rank, ':', particles.n_mks_loc, particles.n_mks_loc_with_holes)
+print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
 particles.show_physical()
 
@@ -54,12 +53,15 @@ particles.send_recv_markers()
 
 comm.Barrier()
 print('Number of particles w/wo holes on each process after sorting : ')
-print('Rank', rank, ':', particles.n_mks_loc, particles.n_mks_loc_with_holes)
+print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
 particles.show_physical()
 
 # are all markers in the correct domain?
-conds = np.logical_and(particles.markers[:, :3] > derham.domain_array[rank, ::3], particles.markers[:, :3] < derham.domain_array[rank, 1::3])
+conds = np.logical_and(
+    particles.markers[:, :3] > derham.domain_array[rank, 0::3], 
+    particles.markers[:, :3] < derham.domain_array[rank, 1::3])
+
 holes = particles.markers[:, 0] == -1.
 stay = np.all(conds, axis=1)
 
