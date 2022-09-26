@@ -3,7 +3,6 @@ import scipy.special as sp
 
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
-from struphy.diagnostics.data_module import Data_container_psydac as Data_container
 
 
 class StruphyModel(metaclass=ABCMeta):

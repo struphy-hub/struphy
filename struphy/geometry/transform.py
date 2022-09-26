@@ -19,6 +19,7 @@ evaluation types:
 
 - kernel_evaluate
 """
+from pyccel.decorators import pure, stack_array
 
 from numpy import shape, empty, sqrt, sum
 
@@ -26,6 +27,7 @@ from struphy.linear_algebra.core import det, matrix_vector
 from struphy.geometry.map_eval import df, det_df, g, g_inv
 
 
+@stack_array('df_out')
 def transform_norm_vector_to_vector(norm_a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     vector
@@ -49,6 +51,7 @@ def transform_norm_vector_to_vector(norm_a: 'float[:]', eta1: float, eta2: float
         print('Error: component does not exist')
 
 
+@stack_array('tmp', 'df_out', 'g_out')
 def transform_norm_vector_to_1_form(norm_a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     vector
@@ -84,6 +87,7 @@ def transform_norm_vector_to_1_form(norm_a: 'float[:]', eta1: float, eta2: float
         print('Error: component does not exist')
 
 
+@stack_array('df_out')
 def transform_norm_vector_to_2_form(norm_a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     vector
@@ -109,6 +113,7 @@ def transform_norm_vector_to_2_form(norm_a: 'float[:]', eta1: float, eta2: float
         print('Error: component does not exist')
 
 
+@pure
 def transform_0_form_to_3_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     scalar
@@ -124,6 +129,7 @@ def transform_0_form_to_3_form(a0: float, eta1: float, eta2: float, eta3: float,
     return a3
 
 
+@stack_array('tmp', 'ginv_out')
 def transform_1_form_to_2_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     vector
@@ -151,6 +157,7 @@ def transform_1_form_to_2_form(a1: 'float[:]', eta1: float, eta2: float, eta3: f
         print('Error: component does not exist')
 
 
+@stack_array('tmp', 'g_out')
 def transform_2_form_to_1_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     vector
@@ -178,6 +185,7 @@ def transform_2_form_to_1_form(a2: 'float[:]', eta1: float, eta2: float, eta3: f
         print('Error: component does not exist')
 
 
+@pure
 def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     scalar
@@ -193,27 +201,27 @@ def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float,
     return a0
 
 
-def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid : bool):
+def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
 
     n1 = shape(eta1)[0]
     n2 = shape(eta2)[1]
     n3 = shape(eta3)[2]
-    
+
     if is_sparse_meshgrid:
         sparse_factor = 0
     else:
         sparse_factor = 1
-        
+
     for i1 in range(n1):
         for i2 in range(n2):
             for i3 in range(n3):
-                
+
                 e1 = eta1[i1, i2*sparse_factor, i3*sparse_factor]
                 e2 = eta2[i1*sparse_factor, i2, i3*sparse_factor]
                 e3 = eta3[i1*sparse_factor, i2*sparse_factor, i3]
-                
+
                 # norm vector to vector
-                if   kind_fun == 11:
+                if kind_fun == 11:
                     values[i1, i2, i3] = transform_norm_vector_to_vector(
                         a[:, i1, i2, i3], e1, e2, e3, 1, kind_map, params_map,
                         tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
@@ -293,4 +301,3 @@ def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,
                     values[i1, i2, i3] = transform_3_form_to_0_form(
                         a[0, i1, i2, i3], e1, e2, e3, kind_map, params_map,
                         tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
-                    

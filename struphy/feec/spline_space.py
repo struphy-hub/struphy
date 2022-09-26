@@ -332,7 +332,7 @@ class Spline_space_1d:
     
     
     # =================================================
-    def plot_splines(self, n_pts=500, which='B-splines'):
+    def plot_splines(self, n_pts=500, which='N'):
         """
         Plots all basis functions.
         
@@ -342,12 +342,14 @@ class Spline_space_1d:
             number of points for plotting (optinal, default=500)
             
         which : string
-            which basis to plot. B-splines (N) or M-splines (D) (optional, default='B-splines')
+            which basis to plot. 'N', 'D' or 'dN' (optional, default='N')
         """
 
         etaplot = np.linspace(0., 1., n_pts)
 
-        if which == 'B-splines':
+        degree = self.p
+
+        if which == 'N':
 
             coeff = np.zeros(self.NbaseN, dtype=float)
 
@@ -356,7 +358,7 @@ class Spline_space_1d:
                 coeff[i] = 1.
                 plt.plot(etaplot, self.evaluate_N(etaplot, coeff), label=str(i))
 
-        elif which == 'M-splines':
+        elif which == 'D':
 
             coeff = np.zeros(self.NbaseD, dtype=float)
 
@@ -364,8 +366,10 @@ class Spline_space_1d:
                 coeff[:] = 0.
                 coeff[i] = 1.
                 plt.plot(etaplot, self.evaluate_D(etaplot, coeff), label=str(i))
+
+            degree = self.p - 1
                 
-        elif which == 'B-splines-derivatives':
+        elif which == 'dN':
 
             coeff = np.zeros(self.NbaseN, dtype=float)
 
@@ -375,12 +379,17 @@ class Spline_space_1d:
                 plt.plot(etaplot, self.evaluate_N(etaplot, coeff, 2), label=str(i))
 
         else:
-            print('Only B-splines, M-splines and derivatives of B-splines available')
+            print('Only N, D and dN available')
 
-        plt.plot(self.greville, np.zeros(self.greville.shape), 'ro', label='greville')
-        plt.plot(self.el_b, np.zeros(self.el_b.shape), 'k+', label='breaks')
-        plt.title(which + ', spl_kind=' + str(self.spl_kind) + ', p={0:2d}, Nel={1:4d}'.format(self.p, self.Nel))
-        plt.legend()
+        if self.spl_kind:
+            bcs = 'periodic'
+        else:
+            bcs = 'clamped'
+
+        greville, = plt.plot(self.greville, np.zeros(self.greville.shape), 'ro', label='greville')
+        breaks, = plt.plot(self.el_b, np.zeros(self.el_b.shape), 'k+', label='breaks')
+        plt.title(which + f'$^{degree}$-splines, ' + bcs + f', Nel={self.Nel}')
+        plt.legend(handles=[greville, breaks])
             
         
         

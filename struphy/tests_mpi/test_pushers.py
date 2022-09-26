@@ -45,7 +45,8 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -78,10 +79,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     
     pusher_str.push_step5(markers_str, dt, b2_str)
     
-    pusher_psy.push(particles, dt,
-                    b2_eq_psy[0]._data + b2_psy[0]._data,
-                    b2_eq_psy[1]._data + b2_psy[1]._data,
-                    b2_eq_psy[2]._data + b2_psy[2]._data)
+    pusher_psy(particles, dt, 
+               b2_eq_psy[0]._data + b2_psy[0]._data,
+               b2_eq_psy[1]._data + b2_psy[1]._data,
+               b2_eq_psy[2]._data + b2_psy[2]._data)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -129,7 +130,8 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -165,13 +167,13 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     
     pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
     
-    pusher_psy.push(particles, dt,
-                    b2_eq_psy[0]._data + b2_psy[0]._data,
-                    b2_eq_psy[1]._data + b2_psy[1]._data,
-                    b2_eq_psy[2]._data + b2_psy[2]._data,
-                    u2_psy[0]._data,
-                    u2_psy[1]._data,
-                    u2_psy[2]._data)
+    pusher_psy(particles, dt,
+               b2_eq_psy[0]._data + b2_psy[0]._data,
+               b2_eq_psy[1]._data + b2_psy[1]._data,
+               b2_eq_psy[2]._data + b2_psy[2]._data,
+               u2_psy[0]._data,
+               u2_psy[1]._data,
+               u2_psy[2]._data)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -219,7 +221,8 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -255,13 +258,13 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     
     pusher_str.push_step3(markers_str, dt, b2_str, u1_str, mu0_str, pow_str)
     
-    pusher_psy.push(particles, dt,
-                    b2_eq_psy[0]._data + b2_psy[0]._data,
-                    b2_eq_psy[1]._data + b2_psy[1]._data,
-                    b2_eq_psy[2]._data + b2_psy[2]._data,
-                    u1_psy[0]._data,
-                    u1_psy[1]._data,
-                    u1_psy[2]._data)
+    pusher_psy(particles, dt,
+               b2_eq_psy[0]._data + b2_psy[0]._data,
+               b2_eq_psy[1]._data + b2_psy[1]._data,
+               b2_eq_psy[2]._data + b2_psy[2]._data,
+               u1_psy[0]._data,
+               u1_psy[1]._data,
+               u1_psy[2]._data)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -309,7 +312,8 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -345,13 +349,13 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     
     pusher_str.push_step3(markers_str, dt, b2_str, uv_str, mu0_str, pow_str)
     
-    pusher_psy.push(particles, dt,
-                    b2_eq_psy[0]._data + b2_psy[0]._data,
-                    b2_eq_psy[1]._data + b2_psy[1]._data,
-                    b2_eq_psy[2]._data + b2_psy[2]._data,
-                    uv_psy[0]._data,
-                    uv_psy[1]._data,
-                    uv_psy[2]._data)
+    pusher_psy(particles, dt,
+               b2_eq_psy[0]._data + b2_psy[0]._data,
+               b2_eq_psy[1]._data + b2_psy[1]._data,
+               b2_eq_psy[2]._data + b2_psy[2]._data,
+               uv_psy[0]._data,
+               uv_psy[1]._data,
+               uv_psy[2]._data)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -399,7 +403,8 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -435,15 +440,15 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     
     pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
     
-    pusher_psy.push(particles, dt,
-                    b2_eq_psy[0]._data + b2_psy[0]._data,
-                    b2_eq_psy[1]._data + b2_psy[1]._data,
-                    b2_eq_psy[2]._data + b2_psy[2]._data,
-                    u2_psy[0]._data,
-                    u2_psy[1]._data,
-                    u2_psy[2]._data,
-                    b0_eq_psy._data,
-                    mu0_str)
+    pusher_psy(particles, dt,
+               b2_eq_psy[0]._data + b2_psy[0]._data,
+               b2_eq_psy[1]._data + b2_psy[1]._data,
+               b2_eq_psy[2]._data + b2_psy[2]._data,
+               u2_psy[0]._data,
+               u2_psy[1]._data,
+               u2_psy[2]._data,
+               b0_eq_psy._data,
+               mu0_str)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -491,7 +496,8 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     space = Tensor_spline_space(spaces)
     
     # particle loading and sorting
-    loader_params = {'type': 'pseudo_random', 'seed': 1234, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
+    seed = int(np.random.rand()*1000)
+    loader_params = {'type': 'pseudo_random', 'seed': seed, 'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
     marker_params = {'ppc': 2, 'loading': loader_params}
     
     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
@@ -520,7 +526,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     dt = 0.1
     
     pusher_str.push_step4(markers_str, dt)
-    pusher_psy.push(particles, dt)
+    pusher_psy(particles, dt)
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
@@ -535,9 +541,9 @@ if __name__ == '__main__':
     #    'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     #test_push_bxu_Hcurl([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #    'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
-    #test_push_bxu_H1vec([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
-    #    'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
+    test_push_bxu_H1vec([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
+        'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     #test_push_bxu_Hdiv_pauli([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #    'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
-    test_push_eta_rk4([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
-        'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
+    #test_push_eta_rk4([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
+    #    'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)

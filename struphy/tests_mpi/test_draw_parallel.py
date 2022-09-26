@@ -11,8 +11,7 @@ import pytest
     ['ShafranovDshapedCylinder', {
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
-@pytest.mark.parametrize('seed', [1234, 4321])
-def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
+def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     '''Asserts whether all particles are on the correct process after `particles.send_recv_markers()`.'''
 
     from mpi4py import MPI
@@ -28,17 +27,15 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
     assert comm.size >= 2
     rank = comm.Get_rank()
 
-    loading_params = {'type': 'pseudo_random', 'seed': seed, 'dir_particles': 'dir',
+    seed = int(np.random.rand()*1000)
+    loading_params = {'type': 'pseudo_random', 'seed': seed,
                       'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-    marker_params = {'type': 'fullorbit', 'ppc': ppc,
-                     'loading': loading_params, 'n_bins': [32, 32], 'v_max': 5.}
+    marker_params = {'ppc': ppc, 'loading': loading_params}
 
     # Domain object
-    dom_type = mapping[0]
-    dom_params = mapping[1]
-    domain_class = getattr(domains, dom_type)
-    domain = domain_class(dom_params)
+    domain_class = getattr(domains, mapping[0])
+    domain = domain_class(mapping[1])
 
     # Psydac discrete Derham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -55,19 +52,19 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
     comm.Barrier()
     print('Number of particles w/wo holes on each process before sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc,
-          particles.n_mks_loc_with_holes)
+          particles.markers.shape[0])
 
     # sort particles according to domain decomposition
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.send_recv_markers(do_test=True)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process after sorting : ')
     print('Rank', rank, ':', particles.n_mks_loc,
-          particles.n_mks_loc_with_holes)
+          particles.markers.shape[0])
 
     # are all markers in the correct domain?
-    conds = np.logical_and(particles.markers[:, :3] > derham.domain_array[rank, ::3],
+    conds = np.logical_and(particles.markers[:, :3] > derham.domain_array[rank, 0::3],
                            particles.markers[:, :3] < derham.domain_array[rank, 1::3])
     holes = particles.markers[:, 0] == -1.
     stay = np.all(conds, axis=1)
@@ -82,4 +79,4 @@ def test_draw(Nel, p, spl_kind, mapping, seed, ppc=10):
 
 if __name__ == '__main__':
     test_draw([8, 9, 10], [2, 3, 4], [False, False, True], ['Cuboid', {
-        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}], 1234)
+        'l1': 1., 'r1': 2., 'l2': 10., 'r2': 20., 'l3': 100., 'r3': 200.}])

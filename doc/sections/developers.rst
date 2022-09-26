@@ -212,8 +212,7 @@ Struphy models can be composed of **fluid/field variables** (3D in space) and **
 The discretization is performed according to the GEMPIC (Geometric ElectroMagnetic Particle-In-Cell) framework.
 The relevant publications are listed in :ref:`gempic`.
 
-Field variables are discretized within the :ref:`3d_derham_complex` of geometric finite elements, 
-see :ref:`geomFE` for a quickstart on discretization. 
+Field variables are discretized with :ref:`geomFE`. 
 Kinetic variables are discretized within the Particles-In-Cell (PIC) method, which is described in :ref:`particle_discrete`.
 
 Struphy models must be added to the module ``struphy/models/models.py``. 
@@ -385,7 +384,7 @@ Implemented accumulation functions are listed in :ref:`accumulators`.
 .. autofunction:: struphy.pic.accum_kernels._docstring
 
 
-.. _add_weighted_mass:
+.. _weighted_mass:
 
 Weighted mass matrices 
 ^^^^^^^^^^^^^^^^^^^^^^

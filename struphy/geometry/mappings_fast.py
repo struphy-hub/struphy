@@ -1,4 +1,6 @@
-from numpy import shape, empty, zeros
+from pyccel.decorators import pure, stack_array
+
+from numpy import zeros
 from numpy import sin, cos, pi, sqrt, arctan2, arcsin
 
 import struphy.feec.bsplines_kernels as bsp
@@ -7,6 +9,8 @@ import struphy.feec.basics.spline_evaluation_2d as eva_2d
 import struphy.feec.basics.spline_evaluation_3d as eva_3d
 
 
+@pure
+@stack_array('b1', 'b2', 'b3')
 def spline_3d(eta1: float, eta2: float, eta3: float,
               t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
               ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
@@ -66,6 +70,8 @@ def spline_3d(eta1: float, eta2: float, eta3: float,
     f_out[2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
 
 
+@pure
+@stack_array('b1', 'b2', 'b3', 'der1', 'der2', 'der3')
 def spline_3d_df(eta1: float, eta2: float, eta3: float,
                  t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
                  ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]',
@@ -105,6 +111,8 @@ def spline_3d_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, der3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
 
 
+@pure
+@stack_array('b1', 'b2')
 def spline_2d_straight(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                        ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -174,6 +182,8 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
         f_out[1] = cy[0, 0]
 
 
+@pure
+@stack_array('b1', 'b2', 'der1', 'der2')
 def spline_2d_straight_df(eta1: float, eta2: float,
                           t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                           ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -217,6 +227,8 @@ def spline_2d_straight_df(eta1: float, eta2: float,
         df_out[1, 1] = 0.
 
 
+@pure
+@stack_array('b1', 'b2')
 def spline_2d_torus(eta1: float, eta2: float, eta3: float,
                     t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                     ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -289,6 +301,8 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
         f_out[2] = cx[0, 0]*sin(2*pi*eta3)
 
 
+@pure
+@stack_array('b1', 'b2', 'der1', 'der2')
 def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
                        ind1: 'int[:,:]', ind2: 'int[:,:]',
@@ -333,6 +347,7 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
         df_out[2, 1] = 0.
 
 
+@pure
 def cuboid(eta1: float, eta2: float, eta3: float,
            l1: 'float', r1: 'float',
            l2: 'float', r2: 'float',
@@ -376,6 +391,7 @@ def cuboid(eta1: float, eta2: float, eta3: float,
     f_out[2] = l3 + (r3 - l3) * eta3
 
 
+@pure
 def cuboid_df(l1: 'float', r1: 'float',
               l2: 'float', r2: 'float',
               l3: 'float', r3: 'float',
@@ -395,6 +411,7 @@ def cuboid_df(l1: 'float', r1: 'float',
     df_out[2, 2] = r3 - l3
 
 
+@pure
 def orthogonal(eta1: float, eta2: float, eta3: float,
                lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
                f_out: 'float[:]'):
@@ -441,6 +458,7 @@ def orthogonal(eta1: float, eta2: float, eta3: float,
     f_out[2] = lz * eta3
 
 
+@pure
 def orthogonal_df(eta1: float, eta2: float,
                   lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
                   df_out: 'float[:,:]'):
@@ -459,6 +477,7 @@ def orthogonal_df(eta1: float, eta2: float,
     df_out[2, 2] = lz
 
 
+@pure
 def colella(eta1: float, eta2: float, eta3: float,
             lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
             f_out: 'float[:]'):
@@ -505,6 +524,7 @@ def colella(eta1: float, eta2: float, eta3: float,
     f_out[2] = lz * eta3
 
 
+@pure
 def colella_df(eta1: float, eta2: float,
                lx: 'float', ly: 'float', alpha: 'float', lz: 'float',
                df_out: 'float[:,:]'):
@@ -523,6 +543,7 @@ def colella_df(eta1: float, eta2: float,
     df_out[2, 2] = lz
 
 
+@pure
 def hollow_cyl(eta1: float, eta2: float, eta3: float,
                a1: 'float', a2: 'float', r0: 'float', lz: 'float',
                f_out: 'float[:]'):
@@ -571,6 +592,7 @@ def hollow_cyl(eta1: float, eta2: float, eta3: float,
     f_out[2] = lz * eta3
 
 
+@pure
 def hollow_cyl_df(eta1: float, eta2: float, 
                   a1: 'float', a2: 'float', lz: 'float', 
                   df_out: 'float[:,:]'):
@@ -591,6 +613,7 @@ def hollow_cyl_df(eta1: float, eta2: float,
     df_out[2, 2] = lz
 
 
+@pure
 def hollow_torus(eta1: float, eta2: float, eta3: float,
                  a1: 'float', a2: 'float', r0: 'float',
                  f_out: 'float[:]'):
@@ -636,6 +659,7 @@ def hollow_torus(eta1: float, eta2: float, eta3: float,
     f_out[2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * sin(2*pi*eta3)
 
 
+@pure
 def hollow_torus_df(eta1: float, eta2: float, eta3: float,
                     a1: 'float', a2: 'float', r0: 'float',
                     df_out: 'float[:,:]'):
@@ -656,6 +680,7 @@ def hollow_torus_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
 
 
+@pure
 def ellipse(eta1: float, eta2: float, eta3: float,
             x0: 'float', y0: 'float', z0: 'float',
             rx: 'float', ry: 'float', lz: 'float',
@@ -699,6 +724,7 @@ def ellipse(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def ellipse_df(eta1: float, eta2: float, eta3: float,
                rx: 'float', ry: 'float', lz: 'float',
                df_out: 'float[:,:]'):
@@ -717,6 +743,7 @@ def ellipse_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def rotated_ellipse(eta1: float, eta2: float, eta3: float,
                     x0: 'float', y0: 'float', z0: 'float',
                     r1: 'float', r2: 'float',
@@ -765,6 +792,7 @@ def rotated_ellipse(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def rotated_ellipse_df(eta1: float, eta2: float, eta3: float,
                        r1: 'float', r2: 'float',
                        lz: 'float', th: 'float',
@@ -784,6 +812,7 @@ def rotated_ellipse_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def powered_ellipse(eta1: float, eta2: float, eta3: float,
                     x0: 'float', y0: 'float', z0: 'float',
                     rx: 'float', ry: 'float',
@@ -831,6 +860,7 @@ def powered_ellipse(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def powered_ellipse_df(eta1: float, eta2: float, eta3: float,
                        rx: 'float', ry: 'float',
                        lz: 'float', s: 'float',
@@ -850,6 +880,7 @@ def powered_ellipse_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def shafranov_shift(eta1: float, eta2: float, eta3: float,
                     x0: 'float', y0: 'float', z0: 'float',
                     rx: 'float', ry: 'float',
@@ -898,6 +929,7 @@ def shafranov_shift(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def shafranov_shift_df(eta1: float, eta2: float, eta3: float,
                        rx: 'float', ry: 'float',
                        lz: 'float', de: 'float',
@@ -917,6 +949,7 @@ def shafranov_shift_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
                    x0: 'float', y0: 'float', z0: 'float',
                    rx: 'float', ry: 'float',
@@ -963,6 +996,7 @@ def shafranov_sqrt(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def shafranov_sqrt_df(eta1: float, eta2: float, eta3: float,
                       rx: 'float', ry: 'float',
                       lz: 'float', de: 'float',
@@ -982,6 +1016,7 @@ def shafranov_sqrt_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
                       x0: 'float', y0: 'float', z0: 'float',
                       r0: 'float', lz: 'float',
@@ -1043,6 +1078,7 @@ def shafranov_dshaped(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def shafranov_dshaped_df(eta1: float, eta2: float, eta3: float,
                          r0: 'float', lz: 'float',
                          dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float',
@@ -1062,6 +1098,7 @@ def shafranov_dshaped_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 2] = lz
 
 
+@pure
 def shafranov_eta3dep(eta1: float, eta2: float, eta3: float,
                       x0: 'float', y0: 'float', z0: 'float',
                       r0: 'float', lz: 'float',
@@ -1125,6 +1162,7 @@ def shafranov_eta3dep(eta1: float, eta2: float, eta3: float,
     f_out[2] = z0 + (eta3 * lz)
 
 
+@pure
 def shafranov_eta3dep_df(eta1: float, eta2: float, eta3: float,
                          r0: 'float', lz: 'float',
                          dx: 'float', dy: 'float', dg: 'float', eg: 'float', kg: 'float', xi: 'float',

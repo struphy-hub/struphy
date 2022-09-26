@@ -1,8 +1,14 @@
+from numpy import array
+
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 
 from struphy.propagators.base import Propagator
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.pic.particles_to_grid import Accumulator
+import struphy.pic.pusher_kernels as pushers
+from struphy.pic.pusher import Pusher
+
 from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
 from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
 from struphy.psydac_api.linear_operators import ScalarTimesLinearOperator as Multiply
@@ -90,9 +96,8 @@ class StepMaxwell(Propagator):
             print('Maxdiff e1 for Push_maxwell_psydac:', max(de))
             print('Maxdiff b2 for Push_maxwell_psydac:', max(db))
             print()
-            
-            
-            
+
+        
 class StepShearAlfvénHcurl(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations.
 
@@ -178,9 +183,8 @@ class StepShearAlfvénHcurl(Propagator):
             print('Maxdiff u1 for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
-            
-            
-            
+
+
 class StepShearAlfvénHdiv(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations:
 
@@ -266,7 +270,6 @@ class StepShearAlfvénHdiv(Propagator):
             print('Maxdiff u2 for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
-            
 
 
 class StepShearAlfvénH1vec(Propagator):
@@ -354,9 +357,8 @@ class StepShearAlfvénH1vec(Propagator):
             print('Maxdiff uv for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
-            
-            
-                
+
+
 class StepMagnetosonicHdiv(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
@@ -468,8 +470,7 @@ class StepMagnetosonicHdiv(Propagator):
             print('Maxdiff u2 for Push_magnetosonic:', max(du))
             print('Maxdiff p3 for Push_magnetosonic:', max(dp))
             print()
-            
-            
+
 
 class StepMagnetosonicH1vec(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
@@ -581,4 +582,368 @@ class StepMagnetosonicH1vec(Propagator):
             print('Maxdiff uv for Push_magnetosonic:', max(du))
             print('Maxdiff p3 for Push_magnetosonic:', max(dp))
             print()
+
+
+class StepEfieldWeights(Propagator):
+    r'''Solve the following Crank-Nicolson step
+
+    .. math::
+
+        \begin{bmatrix}
+            \mathbb{M}_1 \left( \mathbf{e}^{n+1} - \mathbf{e}^n \right) \\
+            \mathbf{W}^{n+1} - \mathbf{W}^n
+        \end{bmatrix}
+        = 
+        \begin{bmatrix}
+            0 & - \mathbb{H} \\
+            - \mathbb{A} & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf{e}^{n+1} + \mathbf{e}^n
+            \mathbf{W}^{n+1} + \mathbf{W}^n
+        \end{bmatrix}
+
+    based on the :ref:`Schur complement <schur_solver>` where
+
+    .. math::
+        \mathbb{A} & = - \frac{\Delta t}{2} \hat{\mathbf{F}}_0 \mathbb{V} \overline{DL}^T \left( \mathbb{P}^1 \right)^T \,,
+        \mathbb{H} & = \frac{\Delta t}{2} \mathbb{P}^1 \overline{G} \left( \mathbb{V} \right)^T \hat{\mathbf{F}}_0 \,.
+
+    make up the accumulation matrix :math:`\mathbb{H} \mathbb{A}` .
+
+    Parameters
+    ---------- 
+        e : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        particles : struphy.pic.particles.Particles6D
+            Particles object.
+
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, domain, derham, e, particles, mass_ops, params_bs, params_solver):
+        
+        assert isinstance(e, BlockVector)
+
+        # Read out relevant parameters for Accumulator object
+        self.f0_spec   = params_bs['type']
+        self.moms_spec = params_bs['moms_spec']
+        self.f0_params = params_bs['moms_params']
+        # raise NotImplementedError('Parameters are not correct yet!')
+
+        # Initialize Accumulator object
+        self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
+                                  self.f0_spec, array(self.moms_spec), array(self.f0_params), do_vector=True)
+
+        self._e = e
+        self._particles = particles
+        self._info = params_solver['info']
+
+        self._domain = domain
+        self._derham = derham
+
+        self._accum.accumulate(particles.markers)
+
+        # ================================
+        # ========= Schur Solver =========
+        # ================================
+
+        # Preconditioner
+        if params_solver['pc'] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params_solver["pc"])
+            self._pc = pc_class(derham, 'V1', mass_ops._fun_M1)
+
+        r'''
+        .. math::
+
+            \begin{bmatrix}
+                \mathbb{M}_1 & \mathbb{H} \\
+                \mathbb{A} & \mathbb{1}
+            \end{bmatrix}
+            \begin{bmatrix}
+                \mathbf{e}^{n+1} \\
+                \mathbf{W}^{n+1}
+            \end{bmatrix}
+            =
+            \begin{bmatrix}
+                \mathbb{M}_1 & -\mathbb{H} \\
+                -\mathbb{A} & \mathbb{1}
+            \end{bmatrix}
+            \begin{bmatrix}
+                \mathbf{e}^{n} \\
+                \mathbf{W}^{n}
+            \end{bmatrix}
+        '''
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = mass_ops.M1
+        _BC = self._accum.matrix
+
+        # Instantiate Schur solver
+        self._schur_solver = SchurSolver(_A, _BC, pc=self._pc, solver_type=params_solver['type'], 
+                                         tol=params_solver['tol'], maxiter=params_solver['maxiter'],
+                                         verbose=params_solver['verbose'])
+
+        self._pusher = Pusher(derham, domain, 'push_weights_with_efield')
+
+    @property
+    def variables(self):
+        return [self._e, self._particles]
+
+    def __call__(self, dt):
+
+        # current variables
+        en = self.variables[0]
+
+        self._accum.accumulate(self._particles.markers)
+
+        # Update Schur solver
+        self._schur_solver.BC = self._accum.matrix
+
+        # allocate temporary FemFields _e during solution
+        _e, info = self._schur_solver(en, self._accum.vector, dt)
+
+        # write new coeffs into Propagator.variables
+        de = self.in_place_update(_e)
+        self._pusher(self._particles, dt,
+                     en.blocks[0]._data, en.blocks[1]._data, en.blocks[2]._data,
+                     self.f0_spec, array(self.moms_spec), array(self.f0_params))
+
+        # TODO: Implement info for weights as well
+        if self._info:
+            print('Status     for StepEfieldWeights:', info['success'])
+            print('Iterations for StepEfieldWeights:', info['niter'])
+            print('Maxdiff e1 for StepEfieldWeights:', max(de))
+            print()
+
+
+class StepStaticEfield(Propagator):
+    r'''Solve the following system
+
+    .. math::
+
+        \frac{\text{d} \mathbf{\eta}_p}{\text{d} t} & = DL^{-1} \mathbf{v}_p \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = DL^{-T} \mathbf{E}_0
+
+    which is solved by an average discrete gradient method, implicitly iterating
+    over :math:`k` (for every particle :math:`p`):
+
+    .. math::
+    
+        \mathbf{\eta}^{n+1}_{k+1} = \mathbf{\eta}^n + \frac{\Delta t}{2} DL^{-1}
+        \left( \frac{\mathbf{\eta}^{n+1}_k + \mathbf{\eta}^n }{2} \right) \left( \mathbf{v}^{n+1}_k + \mathbf{v}^n \right) \,,
+        \mathbf{v}^{n+1}_{k+1} = \mathbf{v}^n + \Delta t DL^{-1}\left(\mathbf{\eta}^n\right)
+        \int_0^1 \left[ \mathbb{\Lambda}\left( \eta^n + \tau (\mathbf{\eta}^{n+1}_k - \mathbf{\eta}^n) \right) \right]^T \mathbf{e}_0 \, \text{d} \tau
+
+    Parameters
+    ---------- 
+        e : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        particles : struphy.pic.particles.Particles6D
+            Particles object.
+
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, domain, derham, particles, e_background):
+        from numpy import polynomial, floor
+
+        self._domain = domain
+        self._derham = derham
+        self._particles = particles
+        self._e_bg = e_background
+
+        pn1 = derham.p[0]
+        pd1 = pn1 - 1
+        pn2 = derham.p[1]
+        pd2 = pn2 - 1
+        pn3 = derham.p[2]
+        pd3 = pn3 - 1
+
+        # number of quadrature points in direction 1
+        n_quad1 = int(floor(pd1 * pn2 * pn3 / 2 + 1))
+        # number of quadrature points in direction 2
+        n_quad2 = int(floor(pn1 * pd2 * pn3 / 2 + 1))
+        # number of quadrature points in direction 3
+        n_quad3 = int(floor(pn1 * pn2 * pd3 / 2 + 1))
+
+        # get quadrature weights and locations
+        self._loc1, self._weight1 = polynomial.legendre.leggauss(n_quad1)
+        self._loc2, self._weight2 = polynomial.legendre.leggauss(n_quad2)
+        self._loc3, self._weight3 = polynomial.legendre.leggauss(n_quad3)
+
+        self._pusher = Pusher(derham, domain, 'push_x_v_static_efield')
+
+
+    @property
+    def variables(self):
+        return [self._particles]
+
+    def __call__(self, dt):
+        self._pusher(self._particles, dt,
+                     self._loc1, self._loc2, self._loc3, self._weight1, self._weight2, self._weight3,
+                     self._e_bg.blocks[0]._data, self._e_bg.blocks[1]._data, self._e_bg.blocks[2]._data,
+                     array([1e-10, 1e-10]), 100)
+
+
+class StepStaticBfield(Propagator):
+    r'''Solve the following system
+
+    .. math::
+
+        \frac{\text{d} \mathbf{\eta}_p}{\text{d} t} & = 0 \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} & = \mathbf{v}_p \times \left[ \frac{1}{\text{det}(DL)} DL \mathbf{B}_0 \right]
+
+    Parameters
+    ---------- 
+        e : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        particles : struphy.pic.particles.Particles6D
+            Particles object.
+
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, domain, derham, particles, b_background):
+
+        self._domain = domain
+        self._derham = derham
+        self._particles = particles
+        self._b_bg = b_background
+        
+        self._pusher = Pusher(derham, domain, 'push_vxb_analytic')
+
+    @property
+    def variables(self):
+        return [self._particles]
+
+    def __call__(self, dt):
+        self._pusher(self._particles, dt,
+                     self._b_bg.blocks[0]._data, 
+                     self._b_bg.blocks[1]._data, 
+                     self._b_bg.blocks[2]._data)
+        
+        
+class StepPushVxB(Propagator):
+    r"""Solves exactly the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    for each marker :math:`p` in markers array, with fixed rotation vector.
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles6D
+            Holdes the markers to push.
             
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+            
+        b : psydac.linalg.block.BlockVector
+            FE coefficients of a dynamical magnetic field (2-form).
+            
+        b_static : psydac.linalg.block.BlockVector (optional)
+            FE coefficients of a static (background) magnetic field (2-form).
+    """
+    
+    def __init__(self, particles, derham, b, b_static=None):
+        
+        self._particles = particles
+        
+        # load pusher
+        from struphy.pic.pusher import Pusher
+        
+        self._pusher = Pusher(derham, particles.domain, 'push_vxb_analytic')
+        
+        assert isinstance(b, BlockVector)
+        
+        self._b = b
+        
+        if b_static is None:
+            self._b_static = b.space.zeros()
+        else:
+            assert isinstance(b_static, BlockVector)
+            self._b_static = b_static
+        
+    
+    @property
+    def variables(self):
+        return self._particles
+    
+    def __call__(self, dt):
+        
+        # check if ghost regions are synchronized
+        if not self._b[0].ghost_regions_in_sync: self._b[0].update_ghost_regions()
+        if not self._b[1].ghost_regions_in_sync: self._b[1].update_ghost_regions()
+        if not self._b[2].ghost_regions_in_sync: self._b[2].update_ghost_regions()
+            
+        if not self._b_static[0].ghost_regions_in_sync: self._b_static[0].update_ghost_regions()
+        if not self._b_static[1].ghost_regions_in_sync: self._b_static[1].update_ghost_regions()
+        if not self._b_static[2].ghost_regions_in_sync: self._b_static[2].update_ghost_regions()
+        
+        self._pusher(self._particles, dt, 
+                     self._b_static[0]._data + self._b[0]._data,
+                     self._b_static[1]._data + self._b[1]._data,
+                     self._b_static[2]._data + self._b[2]._data)
+        
+        
+class StepPushEtaRk4(Propagator):
+    r"""Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles6D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+    """
+    
+    def __init__(self, particles, derham):
+        
+        self._particles = particles
+        
+        # load pusher
+        from struphy.pic.pusher import Pusher
+        
+        self._pusher = Pusher(derham, particles.domain, 'push_eta_rk4')
+        
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+        self._pusher(self._particles, dt, do_mpi_sort=True)

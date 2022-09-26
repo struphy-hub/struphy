@@ -1,3 +1,5 @@
+from pyccel.decorators import stack_array
+
 from numpy import zeros, empty, sqrt
 
 import struphy.geometry.map_eval as map_eval
@@ -78,13 +80,14 @@ def _docstring():
     print('This is just the docstring function.')
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'g_inv_times_v', 'df_inv_times_v', 'filling_m', 'filling_v')
 def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                          starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                           kind_map: 'int', params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
                           mat11: 'float[:,:,:,:,:,:]',
                           mat12: 'float[:,:,:,:,:,:]',
                           mat13: 'float[:,:,:,:,:,:]',
@@ -144,15 +147,15 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
     for ip in range(n_markers):
 
         # marker data
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
-        v = markers[3:6, ip]
-        weight = markers[6, ip]
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        v = markers[ip, 3:6]
+        weight = markers[ip, 6]
 
         # evaluate background
         f0 = background_eval.f0(
-            markers[:3, ip], v, f0_spec, moms_spec, f0_params)
+            markers[ip, 0:3], v, f0_spec, moms_spec, f0_params)
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,
@@ -189,6 +192,7 @@ def linear_vlasov_maxwell(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('g_inv', 'tmp1', 'tmp2', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -265,11 +269,11 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21, pn)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21)
         b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22, pn)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22)
         b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -305,6 +309,7 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                     kind_map: 'int', params_map: 'float[:]',
@@ -402,11 +407,11 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21, pn)
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21)
         b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22, pn)
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22)
         b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23, pn)
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23)
 
         # operator bx() as matrix
         b_prod[0, 1] = -b[2]
@@ -458,6 +463,7 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
     #$ omp end parallel
 
 
+@stack_array('df', 'df_t', 'df_inv', 'g', 'g_inv', 'filling_m', 'filling_v', 'tmp1', 'tmp1_t', 'tmp2', 'tmp3', 'tmp_v', 'df_inv_times_v', 'b', 'b_prod', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def pc_lin_mhd_6d(markers: 'float[:,:]', n_markers: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   kind_map: 'int', params_map: 'float[:]',

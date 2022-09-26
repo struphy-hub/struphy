@@ -6,7 +6,7 @@ STRUPHY main execution file.
 
 from psydac.api.postprocessing import OutputManager
 from psydac.linalg.stencil import StencilVector
-from struphy.diagnostics.data_module import Data_container_psydac as Data_container
+from struphy.post_processing.output_handling import DataContainer
 from struphy.models import models
 from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
@@ -92,12 +92,6 @@ if rank == 0:
 model_class = getattr(models, model_name)
 model = model_class(derham, domain, params)
 
-# Save model object
-if rank == 0:
-    with open(path_out + 'MODEL_names.bin', 'wb') as handle:
-        pickle.dump([model.names, model.space_ids], handle,
-                    protocol=pickle.HIGHEST_PROTOCOL)
-
 # Set initial conditions for fields and particles (if they exist)
 if 'fields' in params:
     fields_init = params['fields']['init']
@@ -117,40 +111,57 @@ model.set_initial_conditions(
 model.update_scalar_quantities(0.)
 
 # data object for saving
-data = Data_container(path_out, comm=comm)
+data = DataContainer(path_out, comm=comm)
 
+# save scalar quantities in group 'scalar/'
+for key, val in model.scalar_quantities.items():
+    key_scalar = 'scalar/' + key
+    data.add_data({key_scalar : val})
+
+# save fields in group 'fields/'
 for field in model.fields:
-
-    if isinstance(field.vector, StencilVector):
-        key = field.name
-        # save numpy array to be updated each time step.
-        data.add_data({key: field.vector._data})
-        data.f[key].attrs['space_id'] = field.space_id
-        data.f[key].attrs['starts'] = field.starts
-        data.f[key].attrs['ends'] = field.ends
-        data.f[key].attrs['pads'] = field.pads
+    key_field = 'fields/' + field.name
+    
+    # save numpy array to be updated each time step.
+    if isinstance(field.vector, StencilVector):    
+        data.add_data({key_field : field.vector._data})
     else:
         for n in range(3):
-            key = field.name + '_' + str(n)
-            # save numpy array to be updated each time step.
-            data.add_data({key: field.vector[n]._data})
-            data.f[key].attrs['space_id'] = field.space_id
-            data.f[key].attrs['starts'] = field.starts
-            data.f[key].attrs['ends'] = field.ends
-            data.f[key].attrs['pads'] = field.pads
+            key_component = key_field + '/' + str(n + 1)
+            data.add_data({key_component : field.vector[n]._data})
+            
+    # save field meta data
+    data.file[key_field].attrs['space_id'] = field.space_id
+    data.file[key_field].attrs['starts'] = field.starts
+    data.file[key_field].attrs['ends'] = field.ends
+    data.file[key_field].attrs['pads'] = field.pads
 
-data.add_data(model.scalar_quantities)
+# save kinetic data in group 'kinetic/'
+markers_to_be_saved = []
+
+#for species in model.kinetic_species:
+#    key_species = 'kinetic/' + species.name
+#    
+#    # save markers with ID < 20
+#    markers_to_be_saved += [np.zeros((20, species.markers.shape[1]), dtype=float)]
+#    
+#    cond = species.markers[-1] < 
+#    
+#    data.add_data({key_species : })
+     
+# TODO
+            
 
 if rank == 0:
     print(f'\nRank: {rank} | Initial time series saved.\n')
     model.print_scalar_quantities()
 
-# Define stepping scheme
+# define stepping scheme
 dt = params['time']['dt']
 split_algo = params['time']['split_algo']
 
 
-def update():
+def integrate_in_time():
 
     # First order in time
     if split_algo == 'LieTrotter':
@@ -174,7 +185,7 @@ def update():
             f'Splitting scheme {split_algo} not available.')
 
 
-# time integration
+# start time integration
 if rank == 0:
     print('Start time integration: ' + split_algo)
     print()
@@ -196,7 +207,7 @@ while True:
     # stop time loop?
     if break_cond_1 or break_cond_2:
         # close output file and time loop
-        data.f.close()
+        data.file.close()
         # om.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
         end_simulation = time.time()
         if rank == 0:
@@ -206,8 +217,8 @@ while True:
             print()
         break
 
-    # call update function for time stepping
-    update()
+    # call time integrator for time stepping
+    integrate_in_time()
     time_steps_done += 1
 
     # update time series

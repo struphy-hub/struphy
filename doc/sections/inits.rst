@@ -1,7 +1,7 @@
 .. _avail_inits:
 
-Initial conditions
-==================
+Available initial conditions
+============================
 
 Initial conditions can be specified via the parameters file, as explained in :ref:`params_yml`.
 Besides noise, the following pertubations can be applied to all :ref:`backgrounds`:

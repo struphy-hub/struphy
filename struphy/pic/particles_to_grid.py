@@ -7,7 +7,7 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 import struphy.pic.accum_kernels as accums
 
 
-class Accumulator():
+class Accumulator:
     r'''Struphy accumulation matrices and vectors of the form
 
     .. math::
@@ -24,7 +24,7 @@ class Accumulator():
 
     Parameters
     ----------
-        DOMAIN : struphy.geometry.domains
+        domain : struphy.geometry.domains
             Domain object for mapping evaluations.
 
         DR : struphy.psydac_api.psydac_derham.Derham
@@ -54,10 +54,10 @@ class Accumulator():
         Please follow the docstring in `struphy.pic.accum_kernels._docstring`.
     '''
 
-    def __init__(self, DOMAIN, DR, space_id, accumulator_name, *args_add, do_vector=False, symmetry=None):
+    def __init__(self, domain, derham, space_id, accumulator_name, *args_add, do_vector=False, symmetry=None):
 
-        self._domain = DOMAIN
-        self._derham = DR
+        self._domain = domain
+        self._derham = derham
         self._space_id = space_id
         self._accumulator_name = accumulator_name
         self._args_add = args_add
@@ -65,15 +65,15 @@ class Accumulator():
         self._symmetry = symmetry
 
         if space_id == 'H1':
-            self._space = DR.V0
+            self._space = derham.V0
         elif space_id == 'Hcurl':
-            self._space = DR.V1
+            self._space = derham.V1
         elif space_id == 'Hdiv':
-            self._space = DR.V2
+            self._space = derham.V2
         elif space_id == 'L2':
-            self._space = DR.V3
+            self._space = derham.V3
         elif space_id == 'H1^3':
-            self._space = DR.V0vec
+            self._space = derham.V0vec
         else:
             raise ValueError('Space not properly defined.')
 
@@ -342,16 +342,11 @@ class Accumulator():
                                     self._vector3[2]._data]
 
         # fixed arguments for the accumulator function
-        self._args_fixed = [np.array(DR.p),
-                            DR.V0.spaces[0].knots,
-                            DR.V0.spaces[1].knots,
-                            DR.V0.spaces[2].knots,
-                            DOMAIN.kind_map,
-                            np.array(DOMAIN.params_map),
-                            np.array(DOMAIN.p),
-                            DOMAIN.T[0], DOMAIN.T[1], DOMAIN.T[2],
-                            DR.indN[0], DR.indN[1], DR.indN[2],
-                            DOMAIN.cx, DOMAIN.cy, DOMAIN.cz, ]
+        self._args_fixed = [np.array(derham.p),
+                            derham.V0.spaces[0].knots,
+                            derham.V0.spaces[1].knots,
+                            derham.V0.spaces[2].knots,
+                            *domain.args_map]
 
         # combine all arguments
         self._args = self.args_fixed + self.args_space + \
