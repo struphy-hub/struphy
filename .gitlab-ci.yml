@@ -37,7 +37,7 @@ stages:
 default_venv:
   stage: startup
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script:
     - uname -s # get system info
     - uname -v
@@ -210,7 +210,7 @@ ci_vars:
 default_build:
   stage: build
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
     - cd psydac
@@ -233,7 +233,7 @@ ubuntu20_image_build:
   stage: build
   needs: []
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -246,7 +246,7 @@ release_image_build:
   stage: build
   needs: ["ubuntu20_image_build"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -259,7 +259,7 @@ image_unit_tests:
   stage: test_image
   needs: ["release_image_build"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -276,7 +276,7 @@ image_code_tests:
   stage: test_image
   needs: ["release_image_build"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "master"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -295,7 +295,7 @@ default_install:
   stage: install
   needs: ["default_build"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
     - pip show struphy
@@ -312,7 +312,7 @@ default_unit_tests:
   stage: test_default
   needs: ["default_install"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --mpi 2
     # run unit tests with coverage
@@ -328,15 +328,13 @@ default_code_tests:
   stage: test_default
   needs: ["default_install"]
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --codes
 
 # release
-# build release image
 release_images:
   stage: release
-  needs: ["image_unit_tests", "image_code_tests"]
   rules:
     - if: $CI_COMMIT_REF_NAME == "master"
   before_script: 
@@ -352,7 +350,6 @@ release_images:
 
 pages:
   stage: release
-  needs: []
   rules:
     - if: $CI_COMMIT_REF_NAME == "master" 
   script:
