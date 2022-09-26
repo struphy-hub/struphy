@@ -352,6 +352,8 @@ pages:
   stage: release
   rules:
     - if: $CI_COMMIT_REF_NAME == "master" 
+  before_script: 
+    - docker info
   script:
     - cd doc ; make html
     - mv _build/html/ ../public/
