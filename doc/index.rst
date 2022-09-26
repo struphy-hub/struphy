@@ -20,14 +20,15 @@ Indices and tables
    sections/quickstart
    sections/intro
    sections/userguide
-   sections/developers
-   sections/discretization
    sections/models
    sections/domains
    sections/backgrounds
    sections/inits
    sections/dispersions
+   sections/developers
    sections/toolkit
+   sections/notebooks
+   sections/discretization
    sections/examples
    
 

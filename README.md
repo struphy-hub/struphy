@@ -9,7 +9,7 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 * Solve a variety of [plasma physics PDEs](https://struphy.pages.mpcdf.de/struphy/sections/models.html) with fluid and/or kinetic components 
 * Prescribe curved geometries via [mapped domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
-* [Post process](https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing) data and generate `vtk` files
+* [Post process](https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing) data and generate `.vtk` files
 * Seamlessly [add](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#how-to-add) your own model/mapping/physics feature
 * Contribute to this open source project! 
 
