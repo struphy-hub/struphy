@@ -1,14 +1,14 @@
 .. _backgrounds:
 
-Static backgrounds
-==================
+Available backgrounds
+=====================
 
 
 .. _kinetic_backgrounds:
 
 Kinetic backgrounds
 -------------------
-
+    
 .. automodule:: struphy.kinetic_background.f0_kernels
     :members:
     :undoc-members:

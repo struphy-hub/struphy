@@ -62,15 +62,6 @@ Finite element fields
     :members: 
 
 
-.. _weighted_mass:
-
-Weighted mass matrices
-----------------------
-
-.. autoclass:: struphy.psydac_api.mass_psydac
-    :members: 
-
-
 .. _particles:
 
 Kinetic particles

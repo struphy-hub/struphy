@@ -1,3 +1,23 @@
+## Version 1.9.3
+
+* Make spline maps work, !188
+* Bug fix in `send_recv_determine_mtbs` v2, !193
+* New model: Linearized Vlasov Maxwell, !197
+* Improved hdf5 file structure, !198
+* Add new pyccel decorators, !199
+* Added holes attribute to Particles6D class, !200
+* Added GEMPIC doc, first jupyter notebook on derham, !201
+
+
+## Version 1.9.2
+
+* Use of mappings is now object-oriented, similar to other features in Struphy, see !181
+* New Accumulator routines for pressure coupling scheme, see !182
+* Improve handling of homogeneous Dirichlet boundary conditions, see !185
+* Add particle pusher wrapper class and pusher unit tests, !186
+* Added docker install mode, !187
+
+
 ## Version 1.9.1
 
 * New ideal MHD equilibrium base class and four example subclasses

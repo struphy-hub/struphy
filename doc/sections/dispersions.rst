@@ -1,7 +1,7 @@
 .. _dispersions:
 
-Dispersion relations 
-====================
+Available dispersion relations 
+==============================
 
 .. automodule:: struphy.dispersion_relations.analytic
     :members:

@@ -377,4 +377,5 @@ cleanup:
     - echo "remove:" ${GLOBAL_CACHE_PATH}
     - rm -rf ${GLOBAL_CACHE_PATH}
     - docker image rm -f $UBUNTU20_TEST_IMAGE $RELEASE_TEST_IMAGE
+    - docker images
 

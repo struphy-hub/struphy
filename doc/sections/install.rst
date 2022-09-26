@@ -32,10 +32,10 @@ To use struphy via docker, perform the following steps:
 
 1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_.
 
-On Mac, we recommend to `understand the permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
+On Mac, it is recommended to read the `Mac OS permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
 (REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
 
-On Windows, we recommend to `understand the permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
+On Windows, it is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
 
 On Linux, if you do not want to preface the docker command with ``sudo``, you can 
 `create a Unix group <https://docs.docker.com/engine/install/linux-postinstall/>`_ 
@@ -46,7 +46,7 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
     docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
 
-3. Run the latest release of struphy in a container::
+3. Run the latest release of struphy in a container (about 2 GB in size)::
 
     docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
 
@@ -68,7 +68,7 @@ Important docker commands
 
 * Mirror default struphy output to ``~/<dir>`` on the host machine::
     
-    docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_release
+    docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
 
 .. _docker_devs:
 
@@ -84,7 +84,7 @@ with all dependencies installed and compiled.
 In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
 
-    docker run -i -t -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
+    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 

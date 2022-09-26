@@ -15,16 +15,16 @@ def test_plot_splines(plot=False):
 
         plt.figure()
         plt.subplot(2, 2, 1)
-        Vh_per.plot_splines(which='B-splines')
-
-        plt.subplot(2, 2, 2)
-        Vh_per.plot_splines(which='M-splines')
+        Vh_per.plot_splines(which='N')
 
         plt.subplot(2, 2, 3)
-        Vh_cla.plot_splines(which='B-splines')
+        Vh_per.plot_splines(which='D')
+
+        plt.subplot(2, 2, 2)
+        Vh_cla.plot_splines(which='N')
 
         plt.subplot(2, 2, 4)
-        Vh_cla.plot_splines(which='M-splines')
+        Vh_cla.plot_splines(which='D')
 
         
     if plot:
