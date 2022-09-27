@@ -210,7 +210,7 @@ ci_vars:
 default_build:
   stage: build
   rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
     - cd psydac
@@ -352,7 +352,11 @@ pages:
   stage: release
   rules:
     - if: $CI_COMMIT_REF_NAME == "master" 
+  needs: ["default_build"]
   script:
+    - pip install dist/struphy*.whl
+    - pip show struphy
+    - struphy
     - cd doc ; make html
     - mv _build/html/ ../public/
   artifacts:
