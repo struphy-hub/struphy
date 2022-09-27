@@ -18,10 +18,12 @@ class Pusher:
             The name of the pusher in the file struphy.pic.pusher_kernels.
     """
     
-    def __init__(self, derham, domain, pusher_name):
+    def __init__(self, derham, domain, pusher_name, stage_num = 1):
         
         self._derham = derham
         self._domain = domain
+        self._stage_num = stage_num
+        self._rank = derham.comm.Get_rank()
         
         # get FEM information
         self._args_fem = (np.array(derham.p), 
@@ -54,10 +56,25 @@ class Pusher:
             do_mpi_sort : bool
                 Whether to do a marker sorting according to the MPI decomposition (needed when marker positions change during push).
         """
+        # save eta
+        if self._stage_num > 1:
+            particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
+
+        for step in range(self._stage_num):
+            self._pusher(particles.markers, dt, step, *self.args_fem, *self.domain.args_map, *args_opt)
+
+            if do_mpi_sort: 
+                self._derham.comm.Barrier()
+                particles.send_recv_markers()
+                self._derham.comm.Barrier()
+                
+            if self._rank == 0: print(self._pusher_name, 'done. (stage :', step+1, ')')
         
-        self._pusher(particles.markers, dt, *self.args_fem, *self.domain.args_map, *args_opt)
-        
-        if do_mpi_sort: particles.send_recv_markers()
+        if self._rank == 0: print()
+
+        # clear the markers
+        if self._stage_num > 1:
+            particles.markers[~particles.holes, 9:15] = 0.
         
         
     @property
