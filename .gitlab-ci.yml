@@ -37,7 +37,7 @@ stages:
 default_venv:
   stage: startup
   rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - uname -s # get system info
     - uname -v
@@ -352,8 +352,6 @@ pages:
   stage: release
   rules:
     - if: $CI_COMMIT_REF_NAME == "master" 
-  before_script: 
-    - docker info
   script:
     - cd doc ; make html
     - mv _build/html/ ../public/
