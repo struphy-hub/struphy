@@ -259,42 +259,42 @@ class Accumulator:
                 self._matrix33 = BlockMatrix(self._space.vector_space,
                                            self._space.vector_space, blocks=dict_blocks_33)
 
-                self._args_data = [self._matrix11[0, 0]._data,
-                                   self._matrix11[0, 1]._data,
-                                   self._matrix11[0, 2]._data,
-                                   self._matrix11[1, 1]._data,
-                                   self._matrix11[1, 2]._data,
-                                   self._matrix11[2, 2]._data,
-                                   self._matrix12[0, 0]._data,
-                                   self._matrix12[0, 1]._data,
-                                   self._matrix12[0, 2]._data,
-                                   self._matrix12[1, 1]._data,
-                                   self._matrix12[1, 2]._data,
-                                   self._matrix12[2, 2]._data,
-                                   self._matrix13[0, 0]._data,
-                                   self._matrix13[0, 1]._data,
-                                   self._matrix13[0, 2]._data,
-                                   self._matrix13[1, 1]._data,
-                                   self._matrix13[1, 2]._data,
-                                   self._matrix13[2, 2]._data,
-                                   self._matrix22[0, 0]._data,
-                                   self._matrix22[0, 1]._data,
-                                   self._matrix22[0, 2]._data,
-                                   self._matrix22[1, 1]._data,
-                                   self._matrix22[1, 2]._data,
-                                   self._matrix22[2, 2]._data,
-                                   self._matrix23[0, 0]._data,
-                                   self._matrix23[0, 1]._data,
-                                   self._matrix23[0, 2]._data,
-                                   self._matrix23[1, 1]._data,
-                                   self._matrix23[1, 2]._data,
-                                   self._matrix23[2, 2]._data,
-                                   self._matrix33[0, 0]._data,
-                                   self._matrix33[0, 1]._data,
-                                   self._matrix33[0, 2]._data,
-                                   self._matrix33[1, 1]._data,
-                                   self._matrix33[1, 2]._data,
-                                   self._matrix33[2, 2]._data]
+                self._args_data = [self.matrix11[0, 0]._data,
+                                   self.matrix11[0, 1]._data,
+                                   self.matrix11[0, 2]._data,
+                                   self.matrix11[1, 1]._data,
+                                   self.matrix11[1, 2]._data,
+                                   self.matrix11[2, 2]._data,
+                                   self.matrix12[0, 0]._data,
+                                   self.matrix12[0, 1]._data,
+                                   self.matrix12[0, 2]._data,
+                                   self.matrix12[1, 1]._data,
+                                   self.matrix12[1, 2]._data,
+                                   self.matrix12[2, 2]._data,
+                                   self.matrix13[0, 0]._data,
+                                   self.matrix13[0, 1]._data,
+                                   self.matrix13[0, 2]._data,
+                                   self.matrix13[1, 1]._data,
+                                   self.matrix13[1, 2]._data,
+                                   self.matrix13[2, 2]._data,
+                                   self.matrix22[0, 0]._data,
+                                   self.matrix22[0, 1]._data,
+                                   self.matrix22[0, 2]._data,
+                                   self.matrix22[1, 1]._data,
+                                   self.matrix22[1, 2]._data,
+                                   self.matrix22[2, 2]._data,
+                                   self.matrix23[0, 0]._data,
+                                   self.matrix23[0, 1]._data,
+                                   self.matrix23[0, 2]._data,
+                                   self.matrix23[1, 1]._data,
+                                   self.matrix23[1, 2]._data,
+                                   self.matrix23[2, 2]._data,
+                                   self.matrix33[0, 0]._data,
+                                   self.matrix33[0, 1]._data,
+                                   self.matrix33[0, 2]._data,
+                                   self.matrix33[1, 1]._data,
+                                   self.matrix33[1, 2]._data,
+                                   self.matrix33[2, 2]._data]
                                    
             else:
                 raise ValueError(
@@ -511,7 +511,7 @@ class Accumulator:
 
         return temp
 
-    def accumulate(self, markers):
+    def accumulate(self, markers, n_mks):
         '''Perform accumulation.
 
         Parameters
@@ -528,6 +528,10 @@ class Accumulator:
 
         # accumulate
         self.accumulator(markers_wo_holes, np.shape(markers_wo_holes)[0], *self.args)
+
+        #divide by n_mks 
+        for dat in self._args_data:
+            dat[:] = dat[:] / n_mks
 
         # use mpi
         self._send_ghost_regions()

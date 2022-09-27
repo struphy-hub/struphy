@@ -236,3 +236,4 @@ while True:
         message = 'time steps finished : ' + step + '/' + total_steps
         print('\r', message, end='\n')
         model.print_scalar_quantities()
+        print()

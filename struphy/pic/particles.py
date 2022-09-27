@@ -64,7 +64,7 @@ class Particles6D:
         
         markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + 0.25))
 
-        self._markers = np.zeros((markers_size, 10), dtype=float)
+        self._markers = np.zeros((markers_size, 16), dtype=float)
         
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
 
