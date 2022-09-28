@@ -217,15 +217,15 @@ fields :
 kinetic :
       hot_ions :
             markers :
-                  type : Particles6D # Particles6D | Particles5D
-                  ppc : 1000  # particles per 3d grid cell
+                  ppc : 100  # number of markers per 3d grid cell
                   loading :
-                        type              : pseudo_random # particle loading mechanism 
-                        seed              : 1234 # seed for random number generator
-                        dir_particles     : path_to_particles # directory of particles if loaded externally
-                        moms_params       : [1., 0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                  n_bins        : [32, 32] # number of bins in (x,v) for 2d particle binning.   
-                  v_max         : 5. # maximum velocity for binning (in units of v_A)
+                        type          : pseudo_random # particle loading mechanism 
+                        seed          : 1234 # seed for random number generator
+                        dir_particles : path_to_particles # directory of particles if loaded externally
+                        moms_params   : [1., 0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
+                  n_save      : 0 # number of markers to be saved during simulation
+                  n_bins      : [32, 32] # number of bins in (x,v) for 2d particle binning.   
+                  v_max       : 5. # maximum velocity for binning (in units of v_A)
                   control_var : False # control variate (use delta-f)?
             attributes :
                   nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)

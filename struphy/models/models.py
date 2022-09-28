@@ -24,28 +24,22 @@ class Maxwell(StruphyModel):
 
     Parameters
     ----------
-        derham: struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
-
-        domain: struphy.geometry.base.Domain
-            All things mapping.
-
         params : dict
             Simulation parameters, see from :ref:`params_yml`.
     '''
 
-    def __init__(self, derham, domain, params):
+    def __init__(self, params, comm):
 
         from struphy.psydac_api.mass_psydac import WeightedMass
         from struphy.propagators.propagators import StepMaxwell
 
-        super().__init__(derham, domain, params, e_field='Hcurl', b_field='Hdiv')
+        super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
 
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(derham, domain)
+        self._mass_ops = WeightedMass(self.derham, self.domain)
         self._mass_ops.assemble_M1()
         self._mass_ops.assemble_M2()
 
@@ -56,7 +50,7 @@ class Maxwell(StruphyModel):
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
         self._propagators += [StepMaxwell(self._e,
-                                          self._b, derham, self._mass_ops, solver_params)]
+                                          self._b, self.derham, self._mass_ops, solver_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -111,17 +105,11 @@ class LinearMHD(StruphyModel):
 
     Parameters
     ----------
-        derham: struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
-
-        domain: struphy.geometry.base.Domain
-            All things mapping.
-
         params : dict
             Simulation parameters, see from :ref:`params_yml`.
     '''
 
-    def __init__(self, derham, domain, params):
+    def __init__(self, params, comm):
         
         from struphy.psydac_api.mass_psydac import WeightedMass
         from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
@@ -131,9 +119,9 @@ class LinearMHD(StruphyModel):
         self._u_space = params['fields']['mhd_u_space']
         
         if self._u_space == 'Hdiv':
-            super().__init__(derham, domain, params, n3='L2', u2=self._u_space, p3='L2', b2='Hdiv')
+            super().__init__(params, comm, n3='L2', u2=self._u_space, p3='L2', b2='Hdiv')
         else:
-            super().__init__(derham, domain, params, n3='L2', uv=self._u_space, p3='L2', b2='Hdiv')
+            super().__init__(params, comm, n3='L2', uv=self._u_space, p3='L2', b2='Hdiv')
 
         # extract necessary parameters
         equil_params = params['fields']['mhd_equilibrium']
@@ -142,16 +130,16 @@ class LinearMHD(StruphyModel):
 
         # Load MHD equilibrium and project fields
         mhd_equil_class = getattr(analytical, equil_params['type'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
         
-        self._b_eq = derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
-        self._p_eq = derham.P3(mhd_equil.p3).coeffs
+        self._b_eq = self.derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
+        self._p_eq = self.derham.P3(mhd_equil.p3).coeffs
         
-        self._ones = derham.V3.vector_space.zeros()
+        self._ones = self.derham.V3.vector_space.zeros()
         self._ones[:] = 1.
         
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(derham, domain, eq_mhd=mhd_equil)
+        self._mass_ops = WeightedMass(self.derham, self.domain, eq_mhd=mhd_equil)
         
         self._mass_ops.assemble_M2()
         self._mass_ops.assemble_M3()
@@ -164,7 +152,7 @@ class LinearMHD(StruphyModel):
             self._mass_ops.assemble_MvJ()
         
         # Assemble necessary linear MHD projection operators
-        self._mhd_ops = MHDOperators(derham, domain, mhd_equil)
+        self._mhd_ops = MHDOperators(self.derham, self.domain, mhd_equil)
         
         if self._u_space == 'Hdiv':
             self._mhd_ops.assemble_K2()
@@ -190,8 +178,8 @@ class LinearMHD(StruphyModel):
         ShearAlfven = getattr(propagators, 'StepShearAlfvén' + str(self._u_space))
         Magnetosonic = getattr(propagators, 'StepMagnetosonic' + str(self._u_space)) 
             
-        self._propagators += [ShearAlfven(self._u, self._b, derham, self._mass_ops, self._mhd_ops, shearalfven_solver)]
-        self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
+        self._propagators += [ShearAlfven(self._u, self._b, self.derham, self._mass_ops, self._mhd_ops, shearalfven_solver)]
+        self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, self.derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -270,31 +258,24 @@ class LinearVlasovMaxwell(StruphyModel):
 
     Parameters
     ----------
-        derham: struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
-
-        domain: struphy.geometry.domains
-
-            All things mapping.
-
         params : dict
             Simulation parameters, see from :ref:`params_yml`.
     '''
 
-    def __init__(self, derham, domain, params):
+    def __init__(self, params, comm):
 
         from struphy.psydac_api.mass_psydac import WeightedMass
         from struphy.propagators.propagators import StepStaticEfield, StepStaticBfield, StepEfieldWeights, StepMaxwell
         from struphy.psydac_api.fields import Field
         from struphy.fields_background.mhd_equil import analytical
 
-        super().__init__(derham, domain, params, e_field='Hcurl', b_field='Hdiv', electrons=params['kinetic']['electrons']['markers'])
+        super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv', electrons='Particles6D')
 
         # extract necessary parameters
         solver_params = params['solvers']['solver_1']
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(derham, domain)
+        self._mass_ops = WeightedMass(self.derham, self.domain)
         self._mass_ops.assemble_M1()
         self._mass_ops.assemble_M2()
 
@@ -307,36 +288,36 @@ class LinearVlasovMaxwell(StruphyModel):
         # ====================================================================================
         # Instantiate background electric field and potential
         self._background_fields = []
-        self._background_fields += [Field('e_background', 'Hcurl', derham)]
-        self._background_fields += [Field('phi_background', 'H1', derham)]
+        self._background_fields += [Field('e_background', 'Hcurl', self.derham)]
+        self._background_fields += [Field('phi_background', 'H1', self.derham)]
 
-        self._background_fields[1].set_initial_conditions(domain, [True], params['fields']['init'], derham.comm.Get_rank())
+        self._background_fields[1].set_initial_conditions(self.domain, [True], params['fields']['init'])
 
         self._e_background = self._background_fields[0].vector
         self._phi_background = self._background_fields[1].vector
 
-        self._e_background = derham.grad.dot(self._phi_background)
+        self._e_background = self.derham.grad.dot(self._phi_background)
 
         # Initialize background magnetic field from MHD equilibrium
-        self._background_fields += [Field('b_background', 'Hdiv', derham)]
+        self._background_fields += [Field('b_background', 'Hdiv', self.derham)]
         self._b_background = self._background_fields[2].vector
         
         # Create MHD equilibrium
         equil_params = params['fields']['mhd_equilibrium']
         mhd_equil_class = getattr(analytical, equil_params['type'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
         
         # self._b_background[0] = 
-        self._b_background = derham.P2([mhd_equil.b_x, mhd_equil.b_y, mhd_equil.b_z]).coeffs
+        self._b_background = self.derham.P2([mhd_equil.b_x, mhd_equil.b_y, mhd_equil.b_z]).coeffs
         # ====================================================================================
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [StepStaticEfield(domain, derham, self._electrons, self._e_background)]
-        self._propagators += [StepStaticBfield(domain, derham, self._electrons, self._b_background)]
-        self._propagators += [StepEfieldWeights(domain, derham, self._e, self._electrons, self._mass_ops,
+        self._propagators += [StepStaticEfield(self.domain, self.derham, self._electrons, self._e_background)]
+        self._propagators += [StepStaticBfield(self.domain, self.derham, self._electrons, self._b_background)]
+        self._propagators += [StepEfieldWeights(self.domain, self.derham, self._e, self._electrons, self._mass_ops,
                                                 params['kinetic']['electrons']['background'], params['solvers']['solver_1'])]
-        self._propagators += [StepMaxwell(self._e, self._b, derham, self._mass_ops, solver_params)]
+        self._propagators += [StepMaxwell(self._e, self._b, self.derham, self._mass_ops, solver_params)]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
@@ -410,9 +391,14 @@ class PC_LinMHD_6d_full(StruphyModel):
 
         &\tilde{\mathbb{P}_h} = \int \mathbf{v}\mathbf{v}^\top f_h d\mathbf{v} \,.
         domain: struphy.geometry.domain_3d.Domain
+        
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
     '''
 
-    def __init__(self, derham, domain, params):
+    def __init__(self, params, comm):
         
         from struphy.psydac_api.mass_psydac import WeightedMass
         from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
@@ -420,7 +406,7 @@ class PC_LinMHD_6d_full(StruphyModel):
         from struphy.propagators import propagators
         
         self._u_space = params['fields']['mhd_u_space']
-        super().__init__(derham, domain, params, n3='L2', u1=self._u_space, p3='L2', b2='Hdiv', energetic_ions = params['kinetic']['hot_ions']['markers'])
+        super().__init__(params, comm, n3='L2', u1=self._u_space, p3='L2', b2='Hdiv', energetic_ions='Particles6D')
 
         # extract necessary parameters
         equil_params = params['fields']['mhd_equilibrium']
@@ -429,14 +415,14 @@ class PC_LinMHD_6d_full(StruphyModel):
         pressurecoupling_solver = params['solvers']['solver_2']
         nuh =  params['kinetic']['hot_ions']['attributes']['nuh']
         self._nuh = nuh
-        self._comm = derham.comm
+        self._comm = self.derham.comm
 
         # Load MHD equilibrium
         mhd_equil_class = getattr(analytical, equil_params['type'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
         
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(derham, domain, eq_mhd=mhd_equil)
+        self._mass_ops = WeightedMass(self.derham, self.domain, eq_mhd=mhd_equil)
         
         self._mass_ops.assemble_M1()
         self._mass_ops.assemble_M2()
@@ -453,7 +439,7 @@ class PC_LinMHD_6d_full(StruphyModel):
             self._mass_ops.assemble_MvJ()
         
         # Assemble necessary linear MHD projection operators
-        self._mhd_ops = MHDOperators(derham, domain, mhd_equil)
+        self._mhd_ops = MHDOperators(self.derham, self.domain, mhd_equil)
         
         if self._u_space == 'Hcurl':
             self._mhd_ops.assemble_X1()
@@ -503,13 +489,13 @@ class PC_LinMHD_6d_full(StruphyModel):
             PushEta = getattr(propagators, 'StepPushEtaPC')                     #TODO
             PushVel = getattr(propagators, 'StepPushVxB')
             
-        self._propagators += [Alfven(self._u, self._b, derham, self._mass_ops, self._mhd_ops, alfven_solver)]
+        self._propagators += [Alfven(self._u, self._b, self.derham, self._mass_ops, self._mhd_ops, alfven_solver)]
         # self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         for particles in self._kinetic_species:
-            self._propagators += [PushEta(self._u, particles, derham, domain, self._u_space)]
-            self._propagators += [Pressurecoupling(self._u, particles, derham, domain, self._mass_ops, self._mhd_ops, pressurecoupling_solver)]
-            self._propagators += [PushVel(particles, derham, self._b)]
-        
+            self._propagators += [PushEta(self._u, particles, self.derham, self.domain, self._u_space)]
+            self._propagators += [Pressurecoupling(self._u, particles, self.derham, self.domain, self._mass_ops, self._mhd_ops, pressurecoupling_solver)]
+            self._propagators += [PushVel(particles, self.derham, self._b)]
+            
         # Scalar variables to be saved during simulation
         self._scalar_quantities = {}
         
@@ -521,7 +507,7 @@ class PC_LinMHD_6d_full(StruphyModel):
         self._en_f_loc = np.empty(1, dtype=float)
         self._scalar_quantities['en_f'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-
+        
     @property
     def propagators(self):
         return self._propagators
@@ -529,8 +515,8 @@ class PC_LinMHD_6d_full(StruphyModel):
     @property
     def scalar_quantities(self):
         return self._scalar_quantities
-
-
+    
+    
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         
@@ -560,3 +546,49 @@ class PC_LinMHD_6d_full(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0] 
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_B'][0]
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
+        
+        
+class Vlasov6D(StruphyModel):
+    r'''TODO
+    '''
+    
+    def __init__(self, params, comm):
+        
+        from struphy.propagators.propagators import StepPushVxB, StepPushEtaRk4
+        from struphy.fields_background.mhd_equil import analytical
+        
+        super().__init__(params, comm, ions='Particles6D')
+        
+        # Load and project magnetic field
+        equil_params = params['fields']['mhd_equilibrium']
+        mhd_equil_class = getattr(analytical, equil_params['type'])
+        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
+        
+        self._b = self.derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
+        
+        # Pointer to ions
+        self._ions = self.kinetic_species[0]
+        
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+            
+        self._propagators += [StepPushVxB(self._ions, self.derham, self._b)]
+        self._propagators += [StepPushEtaRk4(self._ions, self.derham)]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities = {}
+        
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+        
+    @property
+    def propagators(self):
+        return self._propagators
+
+    @property
+    def scalar_quantities(self):
+        return self._scalar_quantities
+        
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
+        

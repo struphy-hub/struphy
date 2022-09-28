@@ -360,7 +360,6 @@ def eval_femfields(path, fields, space_ids, npts_per_cell=1):
     domain = domain_class(dom_params)
 
     Nel = params['grid']['Nel']
-    print(Nel)
     local_domain = ((0, 0, 0), tuple([Ni - 1 for Ni in Nel]))
 
     if npts_per_cell is None:
@@ -615,6 +614,111 @@ def compute_unstructured_mesh_info(mapping_local_domain, npts_per_cell=None, cel
 
         return connectivity, offsets, celltypes, cellshape
 
+    
+    
+    
+    
+def post_process_markers(path):
+    """
+    Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to text files that can be imported to e.g. Paraview (one text file for each time step saved as "<name_of_species>_<time_step>.txt" in a directory "kinetic_data/<name_of_species>/orbits/").
+    
+    Parameters
+    ----------
+        path : str
+            Absolute path to folder with hdf5 data files.
+    """
+    
+    # get code name and # of MPI processes
+    with open(path + '/meta.txt', 'r') as f:
+        lines = f.readlines()
+        
+    code = lines[-2].split()[-1]
+    nproc = int(lines[-1].split()[-1])
+
+    with open(path + '/parameters.yml', 'r') as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+        
+    # directory for kinetic data
+    try:
+        os.mkdir(path + 'kinetic_data/')
+    except:
+        shutil.rmtree(path + 'kinetic_data/')
+        os.mkdir(path + 'kinetic_data/')
+        
+    # domain object 
+    dom_type = params['geometry']['type']
+    dom_params = params['geometry'][dom_type]
+    
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
+    
+    # open hdf5 files and get names and number of saved markers of kinetic species
+    files = [h5py.File(path + f'/data_proc{i}.hdf5', 'r') for i in range(nproc)]
+    
+    names = []
+    nps = []
+    for name in files[0]['kinetic'].keys():
+        names += [name]
+        nps += [files[0]['kinetic/' + name + '/markers'].shape[1]]
+        
+        try:
+            os.mkdir(path + 'kinetic_data/' + name)
+        except:
+            shutil.rmtree(path + 'kinetic_data/' + name)
+            os.mkdir(path + 'kinetic_data/' + name)
+            
+        try:
+            os.mkdir(path + 'kinetic_data/' + name + '/orbits')
+        except:
+            shutil.rmtree(path + 'kinetic_data/' + name + '/orbits')
+            os.mkdir(path + 'kinetic_data/' + name + '/orbits')
+            
+    
+    dt = params['time']['dt']
+    nt = int(params['time']['Tend']/dt)
+    t = np.linspace(0., params['time']['Tend'], nt + 1)
+    
+    log_nt = int(np.log10(nt)) + 1
+    
+    print('Evaluation marker orbits ...')
+    
+    # loop over time
+    for n, tt in tqdm(enumerate(t)):
+        
+        # loop over kinetic species
+        for ns, name in enumerate(names):
+            
+            # create text file for this time step and this species
+            with open(path + 'kinetic_data/' + name + '/orbits/' + name + '_{0:0{1}d}.txt'.format(n, log_nt), 'w') as f_out:
+
+                # find markers with right IDs by looping over all hdf5 files and all saved markers
+                for ID in range(nps[ns]):
+                    
+                    break_flag = False
+                    for m in range(nps[ns]):
+                        for file in files:
+                            marker = file['kinetic/' + name + '/markers'][n, m, :]
+
+                            if marker[-1] == ID:
+
+                                # compute x, y, z coordinates and write to .txt file
+                                X = domain(marker[0], marker[1], marker[2])
+
+                                f_out.write('{0:0{1}d}'.format(int(ID), 2) 
+                                            + ',' + str(X[0])
+                                            + ',' + str(X[1]) 
+                                            + ',' + str(X[2]) + '\n')
+                                break_flag = True
+                                break
+                        
+                        if break_flag: break
+
+       
+    # close hdf5 files
+    for file in files:
+        file.close()
+        
+    
 
 if __name__ == '__main__':
     path = 'struphy/io/out/sim_1/'
