@@ -45,7 +45,7 @@ comm.Barrier()
 print('Number of particles w/wo holes on each process before sorting : ')
 print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-particles.show_physical()
+domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
 
 # sort particles according to domain decomposition
 comm.Barrier()
@@ -55,7 +55,7 @@ comm.Barrier()
 print('Number of particles w/wo holes on each process after sorting : ')
 print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-particles.show_physical()
+domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
 
 # are all markers in the correct domain?
 conds = np.logical_and(

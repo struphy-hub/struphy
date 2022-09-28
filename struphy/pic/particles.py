@@ -69,10 +69,10 @@ class Particles6D:
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
 
         # load markers from external .hdf5 file
-        if self.params['loading']['type'] == 'external':
+        if params_markers['loading']['type'] == 'external':
 
             if self.mpi_rank == 0:
-                file = h5py.File(self.params['loading']['dir_markers'], 'r')
+                file = h5py.File(params_markers['loading']['dir_markers'], 'r')
 
                 self._markers[:n_mks_load_cum_sum[0], :
                               ] = file['markers'][:n_mks_load_cum_sum[0], :]
@@ -91,9 +91,9 @@ class Particles6D:
         else:
 
             # 1. standard random number generator (pseudo-random)
-            if self.params['loading']['type'] == 'pseudo_random':
+            if params_markers['loading']['type'] == 'pseudo_random':
 
-                np.random.seed(self.params['loading']['seed'])
+                np.random.seed(params_markers['loading']['seed'])
 
                 for i in range(self.mpi_size):
                     temp = np.random.rand(n_mks_load[i], 6)
@@ -105,13 +105,13 @@ class Particles6D:
                 del temp
 
             # 2. plain sobol numbers with skip of first 1000 numbers
-            elif self.params['loading']['type'] == 'sobol_standard':
+            elif params_markers['loading']['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self.mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
-            elif self._params['loading']['type'] == 'sobol_antithetic':
+            elif params_markers['loading']['type'] == 'sobol_antithetic':
 
                 temp_markers = sobol_seq.i4_sobol_generate(
                     6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self.mpi_rank]//64)
@@ -126,7 +126,7 @@ class Particles6D:
             # inversion of Gaussian in velocity space
             for i in range(3):
                 self._markers[:n_mks_load_loc, i + 3] = sp.erfinv(
-                2*self._markers[:n_mks_load_loc, i + 3] - 1)*self.params['loading']['moms_params'][i + 4] + self.params['loading']['moms_params'][i + 1]
+                2*self._markers[:n_mks_load_loc, i + 3] - 1)*params_markers['loading']['moms_params'][i + 4] + params_markers['loading']['moms_params'][i + 1]
             
         # compute initial sampling density s0 at particle positions
         self._markers[:n_mks_load_loc, 7] = self.s0(
@@ -194,6 +194,13 @@ class Particles6D:
         """ Array of booleans stating if an entry in the markers array is a hole or not. 
         """
         return self._holes
+    
+    @property
+    def markers_wo_holes(self):
+        """ Numpy array of particle information, excluding holes. The i-th row holds the i-th marker's info:
+            3 x positions, 3 x velocities, weights, s0, w0 and ID.
+        """
+        return self._markers[~self._holes]
 
     @property
     def domain(self):
@@ -284,102 +291,6 @@ class Particles6D:
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
                 self.markers[~self._holes, :3] < self.domain_array[self.mpi_rank, 1::3]))
 
-    def show_logical(self, save_dir=None):
-        """
-        Plots the markers on current process on the logical domain in the eta1-eta2-plane at eta3=0.
-
-        Parameters
-        ----------
-            save_dir : string (optional)
-                if given, the figure is saved at the given directory save_dir.
-        """
-
-        import matplotlib.pyplot as plt
-
-        plt.scatter(self.markers[~self._holes, 0],
-                    self.markers[~self._holes, 1], s=1, color='b')
-
-        # plot domain decomposition
-        for i in range(self.mpi_size):
-
-            e1 = np.linspace(self.domain_array[i, 0], self.domain_array[i, 1], int(
-                self.domain_array[i, 2]) + 1)
-            e2 = np.linspace(self.domain_array[i, 3], self.domain_array[i, 4], int(
-                self.domain_array[i, 5]) + 1)
-
-            E1, E2 = np.meshgrid(e1, e2, indexing='ij')
-
-            # eta1-isolines
-            first_line = plt.plot(E1[0, :], E2[0, :])
-
-            for j in range(e1.size):
-                plt.plot(E1[j, :], E2[j, :], color=first_line[0].get_color())
-
-            # eta2-isolines
-            for k in range(e2.size):
-                plt.plot(E1[:, k], E2[:, k], color=first_line[0].get_color())
-
-        plt.axis('square')
-
-        plt.xlabel(r'$\eta_1$')
-        plt.ylabel(r'$\eta_2$')
-
-        if save_dir is not None:
-            plt.savefig(save_dir)
-        else:
-            plt.show()
-
-    def show_physical(self, save_dir=None):
-        """
-        Plots the particles on current process on the logical domain in the eta1-eta2-plane at eta3=0.
-
-        Parameters
-        ----------
-            save_dir : string (optional)
-                if given, the figure is saved at the given directory save_dir.
-        """
-
-        import matplotlib.pyplot as plt
-
-        X = self.domain.evaluate(self.markers[~self._holes, 0], self.markers[~self._holes, 1], np.zeros(
-            self.markers[~self._holes, 1].size, dtype=float), 'x', 'flat')
-        Y = self.domain.evaluate(self.markers[~self._holes, 0], self.markers[~self._holes, 1], np.zeros(
-            self.markers[~self._holes, 1].size, dtype=float), 'y', 'flat')
-
-        plt.scatter(X, Y, s=1, color='b')
-
-        # plot domain decomposition
-        for i in range(self.mpi_size):
-
-            e1 = np.linspace(self.domain_array[i, 0], self.domain_array[i, 1], int(
-                self.domain_array[i, 2]) + 1)
-            e2 = np.linspace(self.domain_array[i, 3], self.domain_array[i, 4], int(
-                self.domain_array[i, 5]) + 1)
-
-            X = self.domain.evaluate(e1, e2, 0., 'x')
-            Y = self.domain.evaluate(e1, e2, 0., 'y')
-
-            # eta1-isolines
-            first_line = plt.plot(X[0, :], Y[0, :], label='rank=' + str(i))
-
-            for j in range(e1.size):
-                plt.plot(X[j, :], Y[j, :], color=first_line[0].get_color())
-
-            # eta2-isolines
-            for k in range(e2.size):
-                plt.plot(X[:, k], Y[:, k], color=first_line[0].get_color())
-
-        plt.axis('square')
-        plt.legend()
-
-        plt.xlabel('$x$')
-        plt.ylabel('$y$')
-
-        if save_dir is not None:
-            plt.savefig(save_dir)
-        else:
-            plt.show()
-
     def initialize_weights(self, background_params, perturb_params):
         """
         Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial conditions.
@@ -392,11 +303,11 @@ class Particles6D:
         f_init = KineticPerturbation(background_params, perturb_params)
 
         # compute w0
-        self._markers[:, 8] = f_init(
-            self.markers[:, :3], self.markers[:, 3:6]) / self.markers[:, 7]
+        self._markers[~self._holes, 8] = f_init(
+            self._markers[~self.holes, :3], self._markers[~self.holes, 3:6]) / self.markers[~self.holes, 7]
 
         # set weights
-        self._markers[:, 6] = self.markers[:, 8]
+        self._markers[~self._holes, 6] = self.markers[~self._holes, 8]
 
     def update_weights(self, kinetic_background, use_control):
         """
@@ -408,10 +319,13 @@ class Particles6D:
         """
 
         if use_control:
-            self._markers[:, 6] = self._markers[:, 8] - kinetic_background.fh0_eq(
-                self.markers[:, 0], self.markers[:, 1], self.markers[:, 2], self.markers[:, 3], self.markers[:, 4], self.markers[:, 5])
-        else:
-            self._markers[:, 6] = self.markers[:, 8]
+            self._markers[~self._holes, 6] = self._markers[~self._holes, 8] - kinetic_background.fh0_eq(
+                self.markers[~self._holes, 0], 
+                self.markers[~self._holes, 1], 
+                self.markers[~self._holes, 2], 
+                self.markers[~self._holes, 3], 
+                self.markers[~self._holes, 4], 
+                self.markers[~self._holes, 5])
 
 
 class Particles5D:
