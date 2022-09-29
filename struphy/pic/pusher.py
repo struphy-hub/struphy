@@ -45,7 +45,7 @@ class Pusher:
         Parameters
         ----------
             particles : struphy.pic.particles.Particles6D
-                The particles object holding the markers of shape (Np, 9) to push.
+                The particles object holding the markers of shape (Np, 16) to push.
                 
             dt : float
                 The time step.
