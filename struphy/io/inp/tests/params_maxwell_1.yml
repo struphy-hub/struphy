@@ -110,6 +110,7 @@ kinetic :
                   n_bins      : [32, 32] # number of bins in (x,v) for 2d particle binning.   
                   v_max       : 5. # maximum velocity for binning (in units of v_A)
                   control_var : False # control variate (use delta-f)?
+                  bc_type      : [periodic, periodic, periodic] # remove, reflect or periodic
             attributes :
                   nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
                   particle_charge : 1. # in units of elementary charge

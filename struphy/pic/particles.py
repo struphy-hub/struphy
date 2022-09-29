@@ -4,6 +4,7 @@ import scipy.special as sp
 
 from struphy.pic import sampling, sobol_seq
 from struphy.initial.initialize import KineticPerturbation
+from struphy.pic.pusher_utilities import reflect
 
 
 class Particles6D:
@@ -263,6 +264,8 @@ class Particles6D:
             do_test : bool
                 Check if all markers are on the right process after send and recieve.
         """
+        # sorting out particles outside of the logical cube
+        apply_kinetic_bc(self._markers, self._holes, self._domain, self._params['bc_type'])
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
@@ -534,3 +537,27 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
 
                     test_reqs.pop()
                     reqs[i] = None
+
+
+def apply_kinetic_bc(markers, holes, domain, bc_type):
+
+    for axis, bc in enumerate(bc_type):
+        # sorting out particles outside of the logical cube
+        is_outside_cube = np.logical_or(markers[:, axis] > 1., 
+                                    markers[:, axis] < 0.)
+
+        # Exclude holes
+        is_outside_cube[holes] = False
+
+        outside_inds = np.nonzero(is_outside_cube)[0]
+
+        if bc == 'remove':
+            markers[outside_inds, :-1] = -1.
+
+        elif bc == 'periodic':
+            markers[outside_inds, axis] = (markers[outside_inds, axis])%1.
+        
+        elif bc == 'reflect':
+            reflect(markers, *domain.args_map, outside_inds, axis)
+
+        else: print('invalid bc_type')

@@ -17,10 +17,6 @@ from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
-from struphy.pic import pusher_kernels as pk
-from struphy.pic.particles_to_grid import Accumulator
-from struphy.pic.pusher import Pusher
-
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
     
 
