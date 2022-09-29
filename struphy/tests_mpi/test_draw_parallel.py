@@ -31,7 +31,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     loading_params = {'type': 'pseudo_random', 'seed': seed,
                       'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-    marker_params = {'ppc': ppc, 'loading': loading_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
+    marker_params = {'ppc': ppc, 'eps': .25, 'loading': loading_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
 
     # Domain object
     domain_class = getattr(domains, mapping[0])

@@ -548,7 +548,7 @@ class PC_LinMHD_6d_full(StruphyModel):
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_f'][0]
         
         
-class Vlasov6D(StruphyModel):
+class Vlasov(StruphyModel):
     r'''TODO
     '''
     
@@ -559,12 +559,18 @@ class Vlasov6D(StruphyModel):
         
         super().__init__(params, comm, ions='Particles6D')
         
+        print(f'rank : {self.derham.comm.Get_rank()}, Np : {self.kinetic_species[0].n_mks}, markers shape : {self.kinetic_species[0].markers.shape}')
+        
         # Load and project magnetic field
         equil_params = params['fields']['mhd_equilibrium']
         mhd_equil_class = getattr(analytical, equil_params['type'])
-        mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
+        self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
         
-        self._b = self.derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
+        if self.derham.comm.Get_rank() == 0: print('Start of background magnetic field projection ...')
+        self._b = self.derham.P2([self._mhd_equil.b2_1, 
+                                  self._mhd_equil.b2_2, 
+                                  self._mhd_equil.b2_3]).coeffs
+        if self.derham.comm.Get_rank() == 0: print('Background magnetic field projection done ...')
         
         # Pointer to ions
         self._ions = self.kinetic_species[0]
