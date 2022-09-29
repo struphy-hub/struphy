@@ -177,6 +177,7 @@ kinetic :
       electrons :
             markers :
                   ppc : 30  # particles per 3d grid cell
+                  eps : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   loading :
                         type          : pseudo_random # particle loading mechanism 
                         seed          : 1234 # seed for random number generator

@@ -48,7 +48,7 @@ class Particles6D:
 
         # gather n_mks_load info in order to load same markers for arbitrary number of processes (see below)
         self.comm.Allgather(
-            np.array(params_markers['ppc']*n_cells_loc[0]*n_cells_loc[1]*n_cells_loc[2]), n_mks_load)
+            np.array(int(params_markers['ppc']*n_cells_loc[0]*n_cells_loc[1]*n_cells_loc[2])), n_mks_load)
         
         # total number of cells and markers
         n_cells = 0
@@ -58,12 +58,12 @@ class Particles6D:
             
             n_cells += n_cells_loc[0]*n_cells_loc[1]*n_cells_loc[2]
 
-        self._n_mks = params_markers['ppc']*n_cells
+        self._n_mks = int(params_markers['ppc']*n_cells)
 
         # initialize particle array (3 x positions, 3 x velocities and weight) with 25% send/receive buffer
         n_mks_load_loc = n_mks_load[self.mpi_rank]
         
-        markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + 0.25))
+        markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params_markers['eps']))
 
         self._markers = np.zeros((markers_size, 16), dtype=float)
         
@@ -277,7 +277,7 @@ class Particles6D:
 
         # transpose send_info
         recv_info = sendrecv_all_to_all(send_info, self.comm)
-
+        
         # send and receive markers
         sendrecv_markers(send_list, recv_info, hole_inds_after_send,
                          self._markers, self.comm)

@@ -680,10 +680,10 @@ def post_process_markers(path):
     
     log_nt = int(np.log10(nt)) + 1
     
-    print('Evaluation marker orbits ...')
+    print('Evaluation of marker orbits ...')
     
     # loop over time
-    for n, tt in tqdm(enumerate(t)):
+    for n in tqdm(range(nt + 1)):
         
         # loop over kinetic species
         for ns, name in enumerate(names):

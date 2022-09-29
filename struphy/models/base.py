@@ -84,11 +84,20 @@ class StruphyModel(metaclass=ABCMeta):
 
         # create kinetic species
         self._kinetic_species = []
-        for name, ID, params in zip(self._kinetic_names, self._kinetic_ids, self._kinetic_params):
+        for name, ID, k_params in zip(self._kinetic_names, self._kinetic_ids, self._kinetic_params):
             kinetic_class = getattr(particles, ID)
             
             self._kinetic_species += [kinetic_class(
-                name, params['markers'], self._domain, self._derham.domain_array, self._derham.comm)]
+                name, k_params['markers'], self._domain, self._derham.domain_array, self._derham.comm)]
+            
+            # set specific initial condition for some particles
+            if 'initial' in k_params['markers']['loading']:
+                specific_initial_cond = k_params['markers']['loading']['initial']
+                
+                for i in range(len(specific_initial_cond)):
+                    for j in range(6):
+                        if specific_initial_cond[i][j] is not None:
+                            self._kinetic_species[-1]._markers[i, j] = specific_initial_cond[i][j]
 
     
     @property

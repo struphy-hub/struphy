@@ -38,7 +38,7 @@ class Pusher:
         self._pusher = getattr(pushers, self._pusher_name) 
           
         
-    def __call__(self, particles, dt, *args_opt, do_mpi_sort=False):
+    def __call__(self, particles, dt, *args_opt, do_mpi_sort=False, verbose=False):
         """
         Applies the chosen particle pusher by a time step dt.
         
@@ -68,9 +68,9 @@ class Pusher:
                 particles.send_recv_markers()
                 self._derham.comm.Barrier()
                 
-            if self._rank == 0: print(self._pusher_name, 'done. (stage :', step+1, ')')
+            if self._rank == 0 and verbose: print(self._pusher_name, 'done. (stage :', step+1, ')')
         
-        if self._rank == 0: print()
+        if self._rank == 0 and verbose: print()
 
         # clear the markers
         if self._stage_num > 1:
