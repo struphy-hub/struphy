@@ -14,7 +14,7 @@ class StruphyModel(metaclass=ABCMeta):
     ----------
         params : dict
             Simulation parameters, see from :ref:`params_yml`.
-            
+
         mpi_comm : mpi4py.MPI.Intracomm
             MPI communicator for parallel runs (=None for serial runs).
 
@@ -29,36 +29,40 @@ class StruphyModel(metaclass=ABCMeta):
     '''
 
     def __init__(self, params, mpi_comm=None, **kwargs):
-        
+
         # create domain (mapping from logical unit cube to physical domain)
         dom_type = params['geometry']['type']
         dom_params = params['geometry'][dom_type]
 
         domain_class = getattr(domains, dom_type)
         self._domain = domain_class(dom_params)
-        
+
         # create 3d derham sequence
         Nel = params['grid']['Nel']             # Number of grid cells
         p = params['grid']['p']                 # spline degrees
-        spl_kind = params['grid']['spl_kind']   # Spline types (clamped vs. periodic)
-        bc = params['grid']['bc']               # Boundary conditions (Homogeneous Dirichlet or None)
-        nq_pr = params['grid']['nq_pr']         # Number of quadrature points per histopolation cell
-        nq_el = params['grid']['nq_el']         # Number of quadrature points per grid cell
-        
-        quad_order = [nq_el[0] - 1, 
-                      nq_el[1] - 1, 
+        # Spline types (clamped vs. periodic)
+        spl_kind = params['grid']['spl_kind']
+        # Boundary conditions (Homogeneous Dirichlet or None)
+        bc = params['grid']['bc']
+        # Number of quadrature points per histopolation cell
+        nq_pr = params['grid']['nq_pr']
+        # Number of quadrature points per grid cell
+        nq_el = params['grid']['nq_el']
+
+        quad_order = [nq_el[0] - 1,
+                      nq_el[1] - 1,
                       nq_el[2] - 1]
-        
-        self._derham = Derham(Nel, p, spl_kind, bc, 
-                              quad_order=quad_order, 
-                              nq_pr=nq_pr, 
-                              comm=mpi_comm) 
-        
+
+        self._derham = Derham(Nel, p, spl_kind, bc,
+                              quad_order=quad_order,
+                              nq_pr=nq_pr,
+                              comm=mpi_comm)
+
         # create fields and kinetic species
         self._field_names = []
         self._field_ids = []
         self._field_params = params['fields']
-        
+
         self._kinetic_names = []
         self._kinetic_ids = []
         self._kinetic_params = []
@@ -69,15 +73,14 @@ class StruphyModel(metaclass=ABCMeta):
             if val in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}:
                 self._field_names += [key]
                 self._field_ids += [val]
-                
+
             # kinetic variables
             else:
                 self._kinetic_names += [key]
                 self._kinetic_ids += [val]
                 self._kinetic_params += [params['kinetic'][key]]
-                
-        
-        # create fields  
+
+        # create fields
         self._fields = []
         for name, ID in zip(self._field_names, self._field_ids):
             self._fields += [Field(name, ID, self._derham)]
@@ -86,7 +89,7 @@ class StruphyModel(metaclass=ABCMeta):
         self._kinetic_species = []
         for name, ID, k_params in zip(self._kinetic_names, self._kinetic_ids, self._kinetic_params):
             kinetic_class = getattr(particles, ID)
-            
+
             self._kinetic_species += [kinetic_class(
                 name, k_params['markers'], self._domain, self._derham.domain_array, self._derham.comm)]
             
@@ -99,7 +102,6 @@ class StruphyModel(metaclass=ABCMeta):
                         if specific_initial_cond[i][j] is not None:
                             self._kinetic_species[-1]._markers[i, j] = specific_initial_cond[i][j]
 
-    
     @property
     def derham(self):
         '''3d Derham sequence, see :ref:`derham`.'''
@@ -109,7 +111,7 @@ class StruphyModel(metaclass=ABCMeta):
     def domain(self):
         '''Domain object, see :ref:`avail_mappings`.'''
         return self._domain
-    
+
     @property
     def field_names(self):
         '''List of FE variable names (str).'''
@@ -124,7 +126,7 @@ class StruphyModel(metaclass=ABCMeta):
     def field_params(self):
         '''Field simulation parameters (dict), see section "fields" from :ref:`params_yml`.'''
         return self._field_params
-    
+
     @property
     def fields(self):
         '''List of Struphy fields, see :ref:`fields`.'''
@@ -134,12 +136,12 @@ class StruphyModel(metaclass=ABCMeta):
     def kinetic_names(self):
         '''List of kinetic species names (str).'''
         return self._kinetic_names
-    
+
     @property
     def kinetic_ids(self):
         '''List of kinetic identifiers (str) corresponding to classes in struphy.pic.particles.py'''
         return self._kinetic_ids
-    
+
     @property
     def kinetic_params(self):
         '''List of parameters (dict) for each kinetic species, see section "kinetic" from :ref:`params_yml`.'''
@@ -190,33 +192,28 @@ class StruphyModel(metaclass=ABCMeta):
         '''
         Set initial conditions for FE coefficients and marker weights.
         '''
-        
+
         # initialize fields by setting FE coefficients
         if len(self._fields) > 0:
-            init_type = self._field_params['init']['type']
-            init_coords = self._field_params['init']['coords']
+
             comps_li = self._field_params['init']['comps']
 
-            # initialize all field components
-            if comps_li == 'all':
-                comps_li = []
-                for ID in self._field_ids:
-                    if ID in {'H1', 'L2'}:
-                        comps_li += [[True]]
-                    elif ID in {'Hcurl', 'Hdiv', 'H1vec'}:
-                        comps_li += [[True] * 3]
+            if self._field_params['init']['coords'] == 'physical':
+                dom_arg = self._domain
+            else:
+                dom_arg = None
 
             for field, comps in zip(self._fields, comps_li):
-                field.set_initial_conditions(self._domain, comps, self._field_params['init'])
+                field.initialize_coeffs(comps, self._field_params['init'], domain=dom_arg)
 
         # initialize particles by first doing MPI sorting and then setting the weights
         if len(self._kinetic_species) > 0:
 
             for species, params in zip(self._kinetic_species, self._kinetic_params):
-                
+
                 species.send_recv_markers(do_test=True)
-                
-                species.initialize_weights(params['background'], params['perturbations'])
-                
+                species.initialize_weights(
+                    params['background'], params['perturbations'])
+
         # initialize the scalar quantities
         self.update_scalar_quantities(0.)

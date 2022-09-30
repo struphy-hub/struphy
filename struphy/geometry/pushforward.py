@@ -18,7 +18,6 @@ from struphy.linear_algebra.core import det, matrix_inv, matrix_vector, transpos
 from struphy.geometry.map_eval import df, det_df
 
 
-@pure
 def push_0_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of a differential 0-form to a scalar field.
@@ -58,7 +57,6 @@ def push_0_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int,
     a = a0
 
     return a
-
 
 @stack_array('tmp', 'df_out', 'df_T')
 def push_1_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -118,7 +116,6 @@ def push_1_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component
     else:
         print('Error: component does not exist')
 
-
 @stack_array('tmp', 'df_out')
 def push_2_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
@@ -175,8 +172,6 @@ def push_2_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component
     else:
         print('Error: component does not exist')
 
-
-@pure
 def push_3_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise push-forward of a differential 3-form to a scalar field.
@@ -219,7 +214,6 @@ def push_3_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int,
     a = a3 / abs(detdf)
 
     return a
-
 
 @stack_array('tmp', 'df_out')
 def push_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -275,7 +269,6 @@ def push_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         return tmp[2]
     else:
         print('Error: component does not exist')
-
 
 def push_all(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
@@ -362,7 +355,6 @@ def push_all(a: 'float[:]', eta1: float, eta2: float, eta3: float, kind_fun: int
                             tn1, tn2, tn3, pn, ind_n1, ind_n2, ind_n3, cx, cy, cz)
 
     return value
-
 
 def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:, :]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
     """

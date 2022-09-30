@@ -37,6 +37,8 @@ stages:
 default_venv:
   stage: startup
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - uname -s # get system info
@@ -61,6 +63,8 @@ default_venv:
 ci_vars:
   stage: startup
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
   before_script:
     - echo "All CI predefined variables:"
@@ -210,6 +214,8 @@ ci_vars:
 default_build:
   stage: build
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
   needs: ["default_venv"]
   script:
@@ -233,6 +239,8 @@ ubuntu20_image_build:
   stage: build
   needs: []
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
@@ -246,6 +254,8 @@ release_image_build:
   stage: build
   needs: ["ubuntu20_image_build"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
@@ -259,6 +269,8 @@ image_unit_tests:
   stage: test_image
   needs: ["release_image_build"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
@@ -276,6 +288,8 @@ image_code_tests:
   stage: test_image
   needs: ["release_image_build"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   before_script: 
     - docker info
@@ -295,6 +309,8 @@ default_install:
   stage: install
   needs: ["default_build"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - pip install dist/struphy*.whl
@@ -312,6 +328,8 @@ default_unit_tests:
   stage: test_default
   needs: ["default_install"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --mpi 2
@@ -328,6 +346,8 @@ default_code_tests:
   stage: test_default
   needs: ["default_install"]
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
     - struphy test --codes
@@ -336,6 +356,8 @@ default_code_tests:
 release_images:
   stage: release
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_NAME == "master"
   before_script: 
     - docker info
@@ -351,6 +373,8 @@ release_images:
 pages:
   stage: release
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_COMMIT_REF_NAME == "master" 
   needs: ["default_build"]
   script:
@@ -362,11 +386,17 @@ pages:
   artifacts:
     paths:
       - public/
+  release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
+    tag_name: 'v0.$CI_PIPELINE_IID'                # The version is incremented per pipeline.
+    description: 'v0.$CI_PIPELINE_IID'
+    ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
 
 # Cleanup
 cleanup:
   stage: cleanup
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
     - if: $CI_PIPELINE_SOURCE == "push"
       when: always
   before_script: 

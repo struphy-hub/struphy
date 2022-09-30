@@ -9,7 +9,6 @@ import struphy.feec.basics.spline_evaluation_2d as eva_2d
 import struphy.feec.basics.spline_evaluation_3d as eva_3d
 
 
-@pure
 @stack_array('b1', 'b2', 'b3')
 def spline_3d(eta1: float, eta2: float, eta3: float,
               t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
@@ -69,8 +68,6 @@ def spline_3d(eta1: float, eta2: float, eta3: float,
     f_out[1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cy)
     f_out[2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
 
-
-@pure
 @stack_array('b1', 'b2', 'b3', 'der1', 'der2', 'der3')
 def spline_3d_df(eta1: float, eta2: float, eta3: float,
                  t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p: 'int[:]',
@@ -110,8 +107,6 @@ def spline_3d_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 1] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, der2, b3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
     df_out[2, 2] = eva_3d.evaluation_kernel_3d(p[0], p[1], p[2], b1, b2, der3, ind1[span1 - p[0], :], ind2[span2 - p[1], :], ind3[span3 - p[2], :], cz)
 
-
-@pure
 @stack_array('b1', 'b2')
 def spline_2d_straight(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
@@ -181,8 +176,6 @@ def spline_2d_straight(eta1: float, eta2: float, eta3: float,
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         f_out[1] = cy[0, 0]
 
-
-@pure
 @stack_array('b1', 'b2', 'der1', 'der2')
 def spline_2d_straight_df(eta1: float, eta2: float,
                           t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
@@ -226,8 +219,6 @@ def spline_2d_straight_df(eta1: float, eta2: float,
     if eta1 == 0. and cy[0, 0] == cy[0, 1]:
         df_out[1, 1] = 0.
 
-
-@pure
 @stack_array('b1', 'b2')
 def spline_2d_torus(eta1: float, eta2: float, eta3: float,
                     t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
@@ -300,8 +291,6 @@ def spline_2d_torus(eta1: float, eta2: float, eta3: float,
     if eta1 == 0. and cx[0, 0] == cx[0, 1]:
         f_out[2] = cx[0, 0]*sin(2*pi*eta3)
 
-
-@pure
 @stack_array('b1', 'b2', 'der1', 'der2')
 def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
                        t1: 'float[:]', t2: 'float[:]', p: 'int[:]',
@@ -345,7 +334,6 @@ def spline_2d_torus_df(eta1: float, eta2: float, eta3: float,
 
     if eta1 == 0. and cx[0, 0] == cx[0, 1]:
         df_out[2, 1] = 0.
-
 
 @pure
 def cuboid(eta1: float, eta2: float, eta3: float,

@@ -9,7 +9,6 @@ import struphy.geometry.mappings_fast as maps
 from struphy.linear_algebra.core import det, matrix_matrix, transpose, matrix_inv
 
 
-@pure
 def f(eta1: float, eta2: float, eta3: float,  # evaluation point
       kind_map: int, params: 'float[:]',  # mapping parameters
       # spline mapping knots and degrees
@@ -95,8 +94,6 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
         maps.shafranov_eta3dep(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
                                params[5], params[6], params[7], params[8], params[9], params[10], f_out)
 
-
-@pure
 def df(eta1: float, eta2: float, eta3: float,  # evaluation point
        kind_map: int, params: 'float[:]',  # mapping parameters
        # spline mapping knots and degrees
@@ -181,8 +178,6 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
         maps.shafranov_eta3dep_df(
             eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], params[10], df_out)
 
-
-@pure
 @stack_array('df_mat')
 def det_df(eta1: float, eta2: float, eta3: float,  # evaluation point
            kind_map: int, params: 'float[:]',  # mapping parameters
@@ -231,8 +226,6 @@ def det_df(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     return detdf
 
-
-@pure
 @stack_array('df_mat')
 def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
            kind_map: int, params: 'float[:]',  # mapping parameters
@@ -285,8 +278,6 @@ def df_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     matrix_inv(df_mat, dfinv_out)
 
-
-@pure
 @stack_array('df_mat', 'df_t')
 def g(eta1: float, eta2: float, eta3: float,  # evaluation point
       kind_map: int, params: 'float[:]',  # mapping parameters
@@ -336,8 +327,6 @@ def g(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     matrix_matrix(df_t, df_mat, g_out)
 
-
-@pure
 @stack_array('g_mat')
 def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
           kind_map: int, params: 'float[:]',  # mapping parameters
@@ -384,8 +373,6 @@ def g_inv(eta1: float, eta2: float, eta3: float,  # evaluation point
 
     matrix_inv(g_mat, ginv_out)
     
-
-@pure
 @stack_array('mat')
 def kernel_evaluate_all(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'float[:,:,:]', kind_fun : int, kind_map : int, params : 'float[:]', p : 'int[:]', t1 : 'float[:]', t2 : 'float[:]', t3 : 'float[:]', ind1 : 'int[:,:]', ind2 : 'int[:,:]', ind3 : 'int[:,:]', cx : 'float[:,:,:]', cy : 'float[:,:,:]', cz : 'float[:,:,:]', mat_f : 'float[:,:,:,:,:]', is_sparse_meshgrid : bool):
     """
@@ -484,8 +471,6 @@ def kernel_evaluate_all(eta1 : 'float[:,:,:]', eta2 : 'float[:,:,:]', eta3 : 'fl
                           t3, p, ind1, ind2, ind3, cx, cy, cz, mat)
                     mat_f[:, :, i1, i2, i3] = mat
 
-
-@pure
 def kernel_evaluate(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params: 'float[:]', p: 'int[:]', t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', ind1: 'int[:,:]', ind2: 'int[:,:]', ind3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', mat_f: 'float[:,:,:]', is_sparse_meshgrid: bool):
     """
     Matrix-wise evaluation of

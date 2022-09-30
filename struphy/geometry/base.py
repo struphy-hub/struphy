@@ -770,7 +770,7 @@ class Domain(metaclass=ABCMeta):
 
         Parameters
         ----------
-            x, y, z : list or numpy array or float 
+            x, y, z : float | int | list | numpy array 
                 Evaluation point sets.
 
             flat_eval : bool
@@ -827,30 +827,36 @@ class Domain(metaclass=ABCMeta):
             # convert list type data to numpy array:
             if isinstance(x, float):
                 arg_x = np.array([x])
+            elif isinstance(x, int):
+                arg_x = np.array([float(x)])
             elif isinstance(x, list):
                 arg_x = np.array(x)
             elif isinstance(x, np.ndarray):
                 arg_x = x
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(x)} not supported')
 
             if isinstance(y, float):
                 arg_y = np.array([y])
+            elif isinstance(y, int):
+                arg_y = np.array([float(y)])
             elif isinstance(y, list):
                 arg_y = np.array(y)
             elif isinstance(y, np.ndarray):
                 arg_y = y
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(y)} not supported')
 
             if isinstance(z, float):
                 arg_z = np.array([z])
+            elif isinstance(z, int):
+                arg_z = np.array([float(z)])
             elif isinstance(z, list):
                 arg_z = np.array(z)
             elif isinstance(z, np.ndarray):
                 arg_z = z
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(z)} not supported')
 
             # tensor-product for given three 1D arrays
             if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
