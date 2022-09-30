@@ -455,6 +455,7 @@ class PC_LinMHD_6d_full(StruphyModel):
             self._mhd_ops.assemble_T2()
             self._mhd_ops.assemble_S2()
         else:
+            self._mhd_ops.assemble_X0()
             self._mhd_ops.assemble_K0()
             self._mhd_ops.assemble_Q0()
             self._mhd_ops.assemble_T0()
@@ -483,10 +484,10 @@ class PC_LinMHD_6d_full(StruphyModel):
             PushEta = getattr(propagators, 'StepPushEtaPC')
             PushVel = getattr(propagators, 'StepPushVxB')
         elif self._u_space == 'H1vec':
-            Alfven = getattr(propagators, 'StepShearAlfvénHH1vec')
+            Alfven = getattr(propagators, 'StepShearAlfvénH1vec')
             Magnetosonic = getattr(propagators, 'StepMagnetosonicH1vec') 
-            # Pressurecoupling = getattr(propagators, 'StepPressurecouplingH1vec')    #TODO
-            # PushEta = getattr(propagators, 'StepPushEtaPC')                     #TODO
+            Pressurecoupling = getattr(propagators, 'StepPressurecouplingH1vec')
+            PushEta = getattr(propagators, 'StepPushEtaPC')
             PushVel = getattr(propagators, 'StepPushVxB')
             
         self._propagators += [Alfven(self._u, self._b, self.derham, self._mass_ops, self._mhd_ops, alfven_solver)]
