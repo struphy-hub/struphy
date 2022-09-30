@@ -268,11 +268,11 @@ def cc_lin_mhd_6d_1(markers: 'float[:,:]', n_markers: 'int',
         bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
-        b[0] = eval_3d.eval_spline_mpi_3d(
+        b[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21)
-        b[1] = eval_3d.eval_spline_mpi_3d(
+        b[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22)
-        b[2] = eval_3d.eval_spline_mpi_3d(
+        b[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23)
 
         # operator bx() as matrix
@@ -406,11 +406,11 @@ def cc_lin_mhd_6d_2(markers: 'float[:,:]', n_markers: 'int',
         bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
-        b[0] = eval_3d.eval_spline_mpi_3d(
+        b[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts_21)
-        b[1] = eval_3d.eval_spline_mpi_3d(
+        b[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts_22)
-        b[2] = eval_3d.eval_spline_mpi_3d(
+        b[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts_23)
 
         # operator bx() as matrix
