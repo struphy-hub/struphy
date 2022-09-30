@@ -62,7 +62,7 @@ fields :
                   profiles : False # project equilibrium profiles
                   eig_kind : 11 # real (11) or imag (12) part
                   eig_freq : 0. # squared eigenfreq.    
-      mhd_u_space : Hcurl # Hdiv | H1vec
+      mhd_u_space : Hdiv # Hdiv | H1vec
       mhd_equilibrium : 
             type : HomogenSlab # (possible choices seen below)
             HomogenSlab :
@@ -107,7 +107,7 @@ fields :
 
 
 kinetic :
-      hot_ions :
+      energetic_ions :
             markers :
                   ppc : 10  # particles per 3d grid cell
                   eps : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)

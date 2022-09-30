@@ -413,7 +413,7 @@ class PC_LinMHD_6d_full(StruphyModel):
         alfven_solver = params['solvers']['solver_1']
         magnetosonic_solver = params['solvers']['solver_2']
         pressurecoupling_solver = params['solvers']['solver_2']
-        nuh =  params['kinetic']['hot_ions']['attributes']['nuh']
+        nuh =  params['kinetic']['energetic_ions']['attributes']['nuh']
         self._nuh = nuh
         self._comm = self.derham.comm
 
@@ -472,25 +472,25 @@ class PC_LinMHD_6d_full(StruphyModel):
         
         if self._u_space == 'Hcurl':
             Alfven = getattr(propagators, 'StepShearAlfvénHcurl')
-            # Magnetosonic = getattr(propagators, 'StepMagnetosonicHcurl')           #TODO
+            Magnetosonic = getattr(propagators, 'StepMagnetosonicHcurl')
             Pressurecoupling = getattr(propagators, 'StepPressurecouplingHcurl')
             PushEta = getattr(propagators, 'StepPushEtaPC')
             PushVel = getattr(propagators, 'StepPushVxB')
         elif self._u_space == 'Hdiv':
             Alfven = getattr(propagators, 'StepShearAlfvénHdiv')
-            # Magnetosonic = getattr(propagators, 'StepMagnetosonicHdiv')
+            Magnetosonic = getattr(propagators, 'StepMagnetosonicHdiv')
             Pressurecoupling = getattr(propagators, 'StepPressurecouplingHdiv')
             PushEta = getattr(propagators, 'StepPushEtaPC')
             PushVel = getattr(propagators, 'StepPushVxB')
         elif self._u_space == 'H1vec':
             Alfven = getattr(propagators, 'StepShearAlfvénHH1vec')
-            # Magnetosonic = getattr(propagators, 'StepMagnetosonicH1vec') 
-            Pressurecoupling = getattr(propagators, 'StepPressurecouplingH1vec')    #TODO
-            PushEta = getattr(propagators, 'StepPushEtaPC')                     #TODO
+            Magnetosonic = getattr(propagators, 'StepMagnetosonicH1vec') 
+            # Pressurecoupling = getattr(propagators, 'StepPressurecouplingH1vec')    #TODO
+            # PushEta = getattr(propagators, 'StepPushEtaPC')                     #TODO
             PushVel = getattr(propagators, 'StepPushVxB')
             
         self._propagators += [Alfven(self._u, self._b, self.derham, self._mass_ops, self._mhd_ops, alfven_solver)]
-        # self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
+        self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, self.derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         for particles in self._kinetic_species:
             self._propagators += [PushEta(self._u, particles, self.derham, self.domain, self._u_space)]
             self._propagators += [Pressurecoupling(self._u, particles, self.derham, self.domain, self._mass_ops, self._mhd_ops, pressurecoupling_solver)]
@@ -538,9 +538,8 @@ class PC_LinMHD_6d_full(StruphyModel):
                                                                       +particles.markers[~particles.holes,4]**2
                                                                       +particles.markers[~particles.holes,5]**2
                                                                       )/(2. * particles.n_mks) 
-            self._comm.Barrier()
+
             self._comm.Reduce(self._en_f_loc, self._scalar_quantities['en_f'], op=MPI.SUM, root=0)
-            self._comm.Barrier()
 
         self._scalar_quantities['en_tot'][0]  = self._scalar_quantities['en_U'][0] 
         self._scalar_quantities['en_tot'][0] += self._scalar_quantities['en_p'][0] 

@@ -501,6 +501,7 @@ class MHDOperators:
         if self.derham.comm.Get_rank() == 0: print('Assembling K2 and K2T ...')
         self.K2 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, MHDOperator(self._P3, self._V3, self._fun_K2))
         self.K2T = self.K2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Q2(self):
         r'''Assemble :math:`\mathcal{Q}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.

@@ -364,6 +364,119 @@ class StepShearAlfvénH1vec(Propagator):
             print()
 
 
+class StepMagnetosonicHcurl(Propagator):
+    r'''Crank-Nicolson step for magnetosonic part in MHD equations:
+
+    .. math::
+
+        \begin{bmatrix} \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_1)^{-1} {\mathcal U^1}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^1 - (\gamma - 1) \mathcal K^1 \mathbb D \mathcal U^1 & 0 \end{bmatrix} 
+        \begin{bmatrix} (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) \end{bmatrix} + \begin{bmatrix} \Delta t (\mathbb M^n_1)^{-1} \mathbb M^J_1 \mathbf b^n \\ 0 \end{bmatrix},
+
+    based on the :ref:`Schur complement <schur_solver>`.
+    
+    Decoupled density update:
+
+    .. math::
+
+        \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^1 (\mathbf u^{n+1} + \mathbf u^n) \,.
+
+    Parameters
+    ---------- 
+        n : psydac.linalg.block.StencilVector
+            FE coefficients of a discrete 3-form.
+        
+        u : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete vector field 1-form.
+
+        p : psydac.linalg.block.StencilVector
+            FE coefficients of a discrete 3-form.
+            
+        b : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete 2-form.
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+            
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+            
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
+            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+
+        params : dict
+            Solver parameters for this splitting step. 
+    '''
+
+    def __init__(self, n, u, p, b, derham, mass_ops, mhd_ops, params):
+
+        assert isinstance(n, StencilVector)
+        assert isinstance(u, BlockVector)
+        assert isinstance(p, StencilVector)
+        assert isinstance(b, BlockVector)
+
+        self._n = n
+        self._u = u
+        self._p = p
+        self._b = b
+        self._bc = derham.bc
+        self._info = params['info']
+        self._rank = derham.comm.Get_rank()
+        
+        # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+        _A = mass_ops.M1n
+
+        self._B = Multiply(-1/2., Compose(mhd_ops.U1T, derham.div.transpose(), mass_ops.M3))
+        self._C = Multiply( 1/2., Sum(Compose(derham.div, mhd_ops.S1), Multiply(2/3, Compose(mhd_ops.K1, derham.div, mhd_ops.U1))))
+        self._MJ = mass_ops.M1J
+        self._Q  = mhd_ops.Q1
+            
+        self._DIV = derham.div
+        
+        # Preconditioner
+        if params['pc'] is None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            pc = pc_class(derham, 'V1', mass_ops._fun_M1n)
+
+        # Instantiate Schur solver (constant in this case)
+        _BC = Compose(self._B, self._C)
+        
+        self._schur_solver = SchurSolver(_A, _BC, pc=pc, solver_type=params['type'], 
+                                         tol=params['tol'], maxiter=params['maxiter'],
+                                         verbose=params['verbose'])
+
+    @property
+    def variables(self):
+        return self._n, self._u, self._p, self._b
+
+    def __call__(self, dt):
+
+        # current variables
+        nn = self.variables[0]
+        un = self.variables[1]
+        pn = self.variables[2]
+        bn = self.variables[3]
+
+        # allocate temporary FemFields _u, _b during solution
+        _u, self._info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2, dt)
+        _p = pn - dt*self._C.dot(_u + un)
+        _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
+        _b = 1*bn
+        
+        # write new coeffs into Propagator.variables
+        dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
+
+        if self._info and self._rank == 0:
+            print('Status     for Push_magnetosonic:', self._info['success'])
+            print('Iterations for Push_magnetosonic:', self._info['niter'])
+            print('Maxdiff n3 for Push_magnetosonic:', max(dn))
+            print('Maxdiff u1 for Push_magnetosonic:', max(du))
+            print('Maxdiff p3 for Push_magnetosonic:', max(dp))
+            print()
+
+
 class StepMagnetosonicHdiv(Propagator):
     r'''Crank-Nicolson step for magnetosonic part in MHD equations:
 
@@ -468,7 +581,7 @@ class StepMagnetosonicHdiv(Propagator):
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
 
-        if self._info:
+        if self._info and self._rank == 0:
             print('Status     for Push_magnetosonic:', info['success'])
             print('Iterations for Push_magnetosonic:', info['niter'])
             print('Maxdiff n3 for Push_magnetosonic:', max(dn))
@@ -580,7 +693,7 @@ class StepMagnetosonicH1vec(Propagator):
         # write new coeffs into Propagator.variables
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
 
-        if self._info:
+        if self._info and self._rank == 0:
             print('Status     for Push_magnetosonic:', info['success'])
             print('Iterations for Push_magnetosonic:', info['niter'])
             print('Maxdiff n3 for Push_magnetosonic:', max(dn))
@@ -935,11 +1048,6 @@ class StepPressurecouplingHcurl(Propagator):
                [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
         VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
 
-        # assemble G^T dot VEC
-        GTVec = [self._GT.dot(VEC[0]),
-                 self._GT.dot(VEC[1]),
-                 self._GT.dot(VEC[2])]
-
         GT_VEC = BlockVector(self._derham.V0vec.vector_space, blocks=[self._GT.dot(VEC[0]),
                                                                       self._GT.dot(VEC[1]),
                                                                       self._GT.dot(VEC[2])])
@@ -961,14 +1069,14 @@ class StepPressurecouplingHcurl(Propagator):
         GXu_1 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[0])
         GXu_2 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[1])
         GXu_3 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[2])
-
-        # update ghost regions (still needed for mpi == 1 case! if you are using periodic bc)
-        for i in range(3):
-            GXu_1[i].update_ghost_regions()
-            GXu_2[i].update_ghost_regions()
-            GXu_3[i].update_ghost_regions()
             
         # push particles
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+
         self._pusher(self._particles, dt,
                      GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
                      GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
@@ -1171,13 +1279,13 @@ class StepPressurecouplingHdiv(Propagator):
         GXu_2 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[1])
         GXu_3 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[2])
 
-        # update ghost regions (still needed for mpi == 1 case! if you are using periodic bc)
-        for i in range(3):
-            GXu_1[i].update_ghost_regions()
-            GXu_2[i].update_ghost_regions()
-            GXu_3[i].update_ghost_regions()
-
         # push particles
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+
         self._pusher(self._particles, dt,
                      GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
                      GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
@@ -1324,6 +1432,11 @@ class StepPushEtaPC(Propagator):
     def __call__(self, dt):
 
         # push particles
+        # check if ghost regions are synchronized
+        if not self._u[0].ghost_regions_in_sync: self._u[0].update_ghost_regions()
+        if not self._u[1].ghost_regions_in_sync: self._u[1].update_ghost_regions()
+        if not self._u[2].ghost_regions_in_sync: self._u[2].update_ghost_regions()
+
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
                      do_mpi_sort=True)
