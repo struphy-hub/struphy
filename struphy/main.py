@@ -68,7 +68,6 @@ if rank == 0:
     print(f'bc         : {model.derham.bc}')
     print(f'quad_order : {model.derham.quad_order}')
     print(f'nq_pr      : {model.derham.nq_pr}\n')
-    print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')
     print()
 
 # set initial condition

@@ -23,8 +23,13 @@ class KineticPerturbation:
         self.moms_params = background_params['moms_params']
 
         self.p_type = perturb_params['type']
-        self.p_moms = perturb_params['moms']
-        self.p_params = perturb_params[self.p_type]
+        
+        if self.p_type is not None:
+            self.p_moms = perturb_params['moms']
+            self.p_params = perturb_params[self.p_type]
+        else:
+            self.p_moms = []
+            self.p_params = {}
 
     def __call__(self, eta, v):
         '''
@@ -55,7 +60,7 @@ class KineticPerturbation:
                                       n0, u0x, u0y, u0z, vth0x, vth0y, vth0z)
 
         # add perturbation
-        if self.p_type == 'None':
+        if self.p_type is None:
             n = n0
             ux = u0x
             uy = u0y
