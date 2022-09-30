@@ -56,7 +56,12 @@ fields :
                   n  : 1
                   U  : 0.1
                   A  : 0.
-      mhd_u_space : Hdiv # Hdiv | H1vec
+            init_eigfun : 
+                  n_tor    : -1 # toroidal mode number
+                  profiles : False # project equilibrium profiles
+                  eig_kind : 11 # real (11) or imag (12) part
+                  eig_freq : 0. # squared eigenfreq.    
+      mhd_u_space : H1vec # H1vec, Hcurl or Hdiv
       mhd_equilibrium : 
             type : HomogenSlab # (possible choices seen below)
             HomogenSlab :
