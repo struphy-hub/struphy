@@ -208,13 +208,13 @@ def create_femfields(path, snapshots=None):
     '''
 
     # get code name and # of MPI processes
-    with open(path + '/meta.txt', 'r') as f:
+    with open(path + 'meta.txt', 'r') as f:
         lines = f.readlines()
         
     code = lines[-2].split()[-1]
     nproc = int(lines[-1].split()[-1])
 
-    with open(path + '/parameters.yml', 'r') as f:
+    with open(path + 'parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # create Derham sequence
@@ -223,7 +223,7 @@ def create_femfields(path, snapshots=None):
                     params['grid']['spl_kind'])
 
     # get names and discrete spaces of fields from 0-th rank hdf5 file
-    file = h5py.File(path + '/data_proc0.hdf5', 'r')
+    file = h5py.File(path + 'data_proc0.hdf5', 'r')
     
     names = []
     space_ids = []
@@ -257,7 +257,7 @@ def create_femfields(path, snapshots=None):
     for rank in range(nproc):
 
         # open file (0-th rank file is already open!)
-        if rank > 0: file = h5py.File(path + '/data_proc' + str(rank) + '.hdf5', 'r')
+        if rank > 0: file = h5py.File(path + 'data_proc' + str(rank) + '.hdf5', 'r')
 
         for field_name, dset in tqdm(file['fields'].items()):
 
@@ -618,7 +618,7 @@ def compute_unstructured_mesh_info(mapping_local_domain, npts_per_cell=None, cel
     
     
     
-def post_process_markers(path):
+def post_process_markers(path, species):
     """
     Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to text files that can be imported to e.g. Paraview (one text file for each time step saved as "<name_of_species>_<time_step>.txt" in a directory "kinetic_data/<name_of_species>/orbits/").
     
@@ -626,24 +626,20 @@ def post_process_markers(path):
     ----------
         path : str
             Absolute path to folder with hdf5 data files.
+            
+        species : str
+            Name of the species for which the post processing should be performed.
     """
     
     # get code name and # of MPI processes
-    with open(path + '/meta.txt', 'r') as f:
+    with open(path + 'meta.txt', 'r') as f:
         lines = f.readlines()
         
     code = lines[-2].split()[-1]
     nproc = int(lines[-1].split()[-1])
 
-    with open(path + '/parameters.yml', 'r') as f:
+    with open(path + 'parameters.yml', 'r') as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
-        
-    # directory for kinetic data
-    try:
-        os.mkdir(path + 'kinetic_data/')
-    except:
-        shutil.rmtree(path + 'kinetic_data/')
-        os.mkdir(path + 'kinetic_data/')
         
     # domain object 
     dom_type = params['geometry']['type']
@@ -653,25 +649,21 @@ def post_process_markers(path):
     domain = domain_class(dom_params)
     
     # open hdf5 files and get names and number of saved markers of kinetic species
-    files = [h5py.File(path + f'/data_proc{i}.hdf5', 'r') for i in range(nproc)]
+    files = [h5py.File(path + f'data_proc{i}.hdf5', 'r') for i in range(nproc)]
     
-    names = []
-    nps = []
-    for name in files[0]['kinetic'].keys():
-        names += [name]
-        nps += [files[0]['kinetic/' + name + '/markers'].shape[1]]
+    n_IDs = files[0]['kinetic/' + species + '/markers'].shape[1]
         
-        try:
-            os.mkdir(path + 'kinetic_data/' + name)
-        except:
-            shutil.rmtree(path + 'kinetic_data/' + name)
-            os.mkdir(path + 'kinetic_data/' + name)
-            
-        try:
-            os.mkdir(path + 'kinetic_data/' + name + '/orbits')
-        except:
-            shutil.rmtree(path + 'kinetic_data/' + name + '/orbits')
-            os.mkdir(path + 'kinetic_data/' + name + '/orbits')
+    try:
+        os.mkdir(path + 'kinetic_data/' + species)
+    except:
+        shutil.rmtree(path + 'kinetic_data/' + species)
+        os.mkdir(path + 'kinetic_data/' + species)
+
+    try:
+        os.mkdir(path + 'kinetic_data/' + species + '/orbits')
+    except:
+        shutil.rmtree(path + 'kinetic_data/' + species + '/orbits')
+        os.mkdir(path + 'kinetic_data/' + species + '/orbits')
             
     
     dt = params['time']['dt']
@@ -685,33 +677,30 @@ def post_process_markers(path):
     # loop over time
     for n in tqdm(range(nt + 1)):
         
-        # loop over kinetic species
-        for ns, name in enumerate(names):
-            
-            # create text file for this time step and this species
-            with open(path + 'kinetic_data/' + name + '/orbits/' + name + '_{0:0{1}d}.txt'.format(n, log_nt), 'w') as f_out:
+        # create text file for this time step and this species
+        with open(path + 'kinetic_data/' + species + '/orbits/' + species + '_{0:0{1}d}.txt'.format(n, log_nt), 'w') as f_out:
 
-                # find markers with right IDs by looping over all hdf5 files and all saved markers
-                for ID in range(nps[ns]):
-                    
-                    break_flag = False
-                    for m in range(nps[ns]):
-                        for file in files:
-                            marker = file['kinetic/' + name + '/markers'][n, m, :]
+            # find markers with right IDs by looping over all hdf5 files and all saved markers
+            for ID in range(n_IDs):
 
-                            if marker[-1] == ID:
+                break_flag = False
+                for m in range(n_IDs):
+                    for file in files:
+                        marker = file['kinetic/' + species + '/markers'][n, m, :]
 
-                                # compute x, y, z coordinates and write to .txt file
-                                X = domain(marker[0], marker[1], marker[2])
+                        if marker[-1] == ID:
 
-                                f_out.write('{0:0{1}d}'.format(int(ID), 2) 
-                                            + ',' + str(X[0])
-                                            + ',' + str(X[1]) 
-                                            + ',' + str(X[2]) + '\n')
-                                break_flag = True
-                                break
-                        
-                        if break_flag: break
+                            # compute x, y, z coordinates and write to .txt file
+                            X = domain(marker[0], marker[1], marker[2])
+
+                            f_out.write('{0:0{1}d}'.format(int(ID), 2) 
+                                        + ',' + str(X[0])
+                                        + ',' + str(X[1]) 
+                                        + ',' + str(X[2]) + '\n')
+                            break_flag = True
+                            break
+
+                    if break_flag: break
 
        
     # close hdf5 files

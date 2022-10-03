@@ -30,7 +30,7 @@ grid_info = file['scalar'].attrs['grid_info']
 file.close()
     
 Nt = int(params['time']['Tend']/params['time']['dt'])
-Np = params['kinetic']['ions']['markers']['n_save']
+Np = params['kinetic']['ions']['save_data']['n_markers']
 
 log_Nt = int(np.log10(Nt)) + 1
 

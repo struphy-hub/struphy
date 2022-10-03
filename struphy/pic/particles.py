@@ -329,6 +329,87 @@ class Particles6D:
                 self.markers[~self._holes, 3], 
                 self.markers[~self._holes, 4], 
                 self.markers[~self._holes, 5])
+            
+    def binning(self, components, bin_edges):
+        """
+        Computes the distribution function via marker binning in logical space using numpy's histogramdd.
+        
+        Parameters
+        ----------
+            components : list[bool]
+                List of length 6 giving the directions in phase space in which to bin.
+                
+            bin_edges : list[array]
+                List of bin edges (resolution) having the length of True entries in components.
+                
+        Returns
+        -------
+            f_sclice : array-like
+                The reconstructed distribution function.
+        """
+        
+        assert np.count_nonzero(components) == len(bin_edges)
+        
+        # volume of a bin
+        bin_vol = 1.
+        
+        for bin_edges_i in bin_edges:
+            bin_vol *= bin_edges_i[1] - bin_edges_i[0]
+            
+        # extend components list to number of columns of markers array
+        slicing = components + [False] * (self._markers.shape[1] - 6)
+        
+        # binning
+        f_slice = np.histogramdd(self.markers_wo_holes[:, slicing], 
+                                 bins=bin_edges, 
+                                 weights=self.markers_wo_holes[:, 6]
+                                 /self._domain.jacobian_det(self.markers_wo_holes[:, 0].copy(), 
+                                                            self.markers_wo_holes[:, 1].copy(),
+                                                            self.markers_wo_holes[:, 2].copy(), 
+                                                            flat_eval=True))[0]
+        
+        return f_slice/(self._n_mks*bin_vol)
+    
+    def show_distribution_function(self, components, bin_edges):
+        """
+        1D and 2D plots of slices of the distribution function via marker binning.
+        
+        Parameters
+        ----------
+            components : list[bool]
+                List of length 6 giving the directions in phase space in which to bin.
+                
+            bin_edges : list[array]
+                List of bin edges (resolution) having the length of True entries in components.
+        """
+        
+        import matplotlib.pyplot as plt
+        
+        n_dim = np.count_nonzero(components)
+        
+        assert n_dim == 1 or n_dim == 2
+        
+        f_slice = self.binning(components, bin_edges)
+
+        bin_centers = [bi[:-1] + (bi[1] - bi[0])/2 for bi in bin_edges]
+        
+        labels = {0 : '$\eta_1$', 1 : '$\eta_2$', 2 : '$\eta_3$',
+                  3 : '$v_x$', 4 : '$v_y$', 5 : '$v_z$'}
+        
+        indices = np.nonzero(components)[0]
+        
+        if n_dim == 1:
+            plt.plot(bin_centers[0], f_slice)
+            plt.xlabel(labels[indices[0]])
+        else:
+            plt.contourf(bin_centers[0], bin_centers[1], f_slice, levels=20)
+            plt.colorbar()
+            plt.axis('square')
+            plt.xlabel(labels[indices[0]])
+            plt.ylabel(labels[indices[1]])
+            
+        plt.show()
+        
 
 
 class Particles5D:

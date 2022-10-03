@@ -44,8 +44,7 @@ kinetic :
       ions :
             markers :
                   ppc     : .01  # number of markers per 3d grid cell
-                  eps     : .75 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-                  n_save  : 3 # number of markers to be saved during simulation
+                  eps     : 1.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   bc_type : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
                         type        : pseudo_random # particle loading mechanism 
@@ -65,3 +64,5 @@ kinetic :
                   moms_params : [1., 0., 0., 0., 1., 1., 1.] # parameters needed to specify the moments
             perturbations : # always in logical position space
                   type : null # null or possible types seen below
+            save_data :
+                  n_markers : 3 # number of markers to be save during simulation

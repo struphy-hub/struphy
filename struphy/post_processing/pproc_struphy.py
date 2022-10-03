@@ -11,7 +11,7 @@ for path in sys.argv[2:]:
 
     print('')
     
-    # check for fields and kinetic data in hdf5 file
+    # check for fields and kinetic data in hdf5 file that need post processing
     file = h5py.File(path + '/data_proc0.hdf5', 'r')
     
     if 'fields' in file.keys():
@@ -21,6 +21,15 @@ for path in sys.argv[2:]:
         
     if 'kinetic' in file.keys():
         exist_kinetic = True
+        
+        kinetic_species = []
+        exist_markers = []
+        for name in file['kinetic'].keys():
+            kinetic_species += [name]
+            if 'markers' in file['kinetic'][name]:
+                exist_markers += [True]
+            else:
+                exist_markers += [False]
     else:
         exist_kinetic = False
         
@@ -34,34 +43,45 @@ for path in sys.argv[2:]:
 
         # directory for evaluated field data 
         try:
-            os.mkdir(path + '/eval_fields/')
+            os.mkdir(path + 'eval_fields/')
         except:
-            shutil.rmtree(path + '/eval_fields/')
-            os.mkdir(path + '/eval_fields/')
+            shutil.rmtree(path + 'eval_fields/')
+            os.mkdir(path + 'eval_fields/')
 
         # save data dicts for each field
         for name, val in point_data_logic.items():
 
-            with open(path + '/eval_fields/' + name + '_log.bin', 'wb') as handle:
+            with open(path + 'eval_fields/' + name + '_log.bin', 'wb') as handle:
                 pickle.dump(val, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(path + '/eval_fields/' + name + '_phy.bin', 'wb') as handle:
+            with open(path + 'eval_fields/' + name + '_phy.bin', 'wb') as handle:
                 pickle.dump(point_data_phys[name], handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
         # save grids
-        with open(path + '/eval_fields/grids_log.bin', 'wb') as handle:
+        with open(path + 'eval_fields/grids_log.bin', 'wb') as handle:
                 pickle.dump(grids, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open(path + '/eval_fields/grids_phy.bin', 'wb') as handle:
+        with open(path + 'eval_fields/grids_phy.bin', 'wb') as handle:
                 pickle.dump(grids_mapped, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
 
-        with open(path + '/eval_fields/masks.bin', 'wb') as handle:
+        with open(path + 'eval_fields/masks.bin', 'wb') as handle:
                 pickle.dump(masks, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
     
     if exist_kinetic:
-        post_process_markers(path)
+        
+        # directory for evaluated kinetic data
+        try:
+            os.mkdir(path + 'kinetic_data/')
+        except:
+            shutil.rmtree(path + 'kinetic_data/')
+            os.mkdir(path + 'kinetic_data/')
+            
+        # post processing for each species
+        for n, species in enumerate(kinetic_species):
+            if exist_markers[n]:
+                post_process_markers(path, species)
