@@ -105,20 +105,23 @@ for field in model.fields:
 n_mks_to_be_saved = []
 markers_to_be_saved = []
 
-for species in model.kinetic_species:
-    key_species = 'kinetic/' + species.name
+for ns, (species, k_data) in enumerate(zip(model.kinetic_species, model.kinetic_data)):
+    key_spec = 'kinetic/' + species.name
     
-    # save markers with 0 <= marker ID < n_mks_to_be_saved
-    n_mks_to_be_saved += [int(params['kinetic'][species.name]['markers']['n_save'])]
-    
-    markers_to_be_saved += [np.zeros((n_mks_to_be_saved[-1], species.markers.shape[1]), dtype=float)]
-    
-    markers_on_proc = np.logical_and(species.markers[:, -1] >= 0., species.markers[:, -1] < float(n_mks_to_be_saved[-1]))
-    
-    markers_to_be_saved[-1][:] = -1.
-    markers_to_be_saved[-1][:np.count_nonzero(markers_on_proc)] = species.markers[markers_on_proc]
-    
-    data.add_data({key_species + '/markers' : markers_to_be_saved[-1]})
+    for key1, val1 in k_data.items():
+        key_dat = key_spec + '/' + key1
+        
+        if isinstance(val1, dict):
+            for key2, val2 in val1.items():
+                key_f = key_dat + '/' + key2
+                data.add_data({key_f : val2})
+                
+                dims = (len(key2) - 2)//3 + 1
+                for dim in range(dims):
+                    data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = model._bin_edges[ns][key2][dim][:-1] + (model._bin_edges[ns][key2][dim][1] - model._bin_edges[ns][key2][dim][0])/2
+            
+        else:
+            data.add_data({key_dat : val1})
             
 
 if rank == 0:
@@ -192,15 +195,10 @@ while True:
 
     # update time series
     model.update_scalar_quantities(dt*time_steps_done)
+    model.update_markers_to_be_saved()
+    model.update_distr_function()
 
     # save data
-    for i, species in enumerate(model.kinetic_species):
-        
-        # save markers with 0 <= marker ID < n_mks_to_be_saved
-        markers_on_proc = np.logical_and(species.markers[:, -1] >= 0., species.markers[:, -1] < float(n_mks_to_be_saved[i]))
-        markers_to_be_saved[i][:] = -1.
-        markers_to_be_saved[i][:np.count_nonzero(markers_on_proc)] = species.markers[markers_on_proc]
-    
     data.save_data()
 
     # print number of finished time steps and current energies

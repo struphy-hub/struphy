@@ -213,9 +213,6 @@ kinetic :
             markers :
                   ppc         : 100  # number of markers per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-                  n_save      : 0 # number of markers to be saved during simulation
-                  n_bins      : [32, 32] # number of bins in (x,v) for 2d particle binning.   
-                  v_max       : 5. # maximum velocity for binning (in units of v_A)
                   control_var : False # control variate (use delta-f)?
                   bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
                   loading :
@@ -245,6 +242,12 @@ kinetic :
                         k2 : [0.] # wave vectors in eta_2
                         k3 : [0.] # wave vectors in eta_3
                         amp : [0.001] # amplitudes
+            save_data :
+                  n_markers : 3 # number of markers to be save during simulation
+                  f :
+                        slices : [vz]
+                        n_bins : [[32]]
+                        ranges : [[[-3., 3.]]]
             
 
 solvers :

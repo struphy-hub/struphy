@@ -53,20 +53,15 @@ class Maxwell(StruphyModel):
                                           self._b, self.derham, self._mass_ops, solver_params)]
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_E'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_B'] = np.empty(1, dtype=float)
         self._scalar_quantities['en_tot'] = np.empty(1, dtype=float)
-
+        
     @property
     def propagators(self):
         return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
+ 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         self._scalar_quantities['en_E'][0] = .5*self._e.dot(self._mass_ops.M1.dot(self._e))
@@ -174,7 +169,6 @@ class LinearMHD(StruphyModel):
         
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        
         ShearAlfven = getattr(propagators, 'StepShearAlfvén' + str(self._u_space))
         Magnetosonic = getattr(propagators, 'StepMagnetosonic' + str(self._u_space)) 
             
@@ -182,7 +176,6 @@ class LinearMHD(StruphyModel):
         self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, self.derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
         
         # time
         self._scalar_quantities['time']     = np.empty(1, dtype=float)
@@ -199,11 +192,7 @@ class LinearMHD(StruphyModel):
     @property
     def propagators(self):
         return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
+    
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         
@@ -320,7 +309,6 @@ class LinearVlasovMaxwell(StruphyModel):
         self._propagators += [StepMaxwell(self._e, self._b, self.derham, self._mass_ops, solver_params)]
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
         self._scalar_quantities['time']       = np.empty(1, dtype=float)
         self._scalar_quantities['en_E']       = np.empty(1, dtype=float)
         self._scalar_quantities['en_B']       = np.empty(1, dtype=float)
@@ -329,15 +317,11 @@ class LinearVlasovMaxwell(StruphyModel):
         self._scalar_quantities['en_el_pot']  = np.empty(1, dtype=float)
         self._scalar_quantities['en_kin']     = np.empty(1, dtype=float)
         self._scalar_quantities['en_sing']    = np.empty(1, dtype=float)
-
+        
     @property
     def propagators(self):
-        return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-
+        return self._propagators    
+    
     def _compute_electric_potential(self):
         ''' Compute the sum of the electric potential at all particle positions '''
         
@@ -469,8 +453,6 @@ class PC_LinMHD_6d_full(StruphyModel):
         self._b = self.fields[3].vector
 
         # Initialize propagators/integrators used in splitting substeps
-        self._propagators = []
-        
         if self._u_space == 'Hcurl':
             Alfven = getattr(propagators, 'StepShearAlfvénHcurl')
             Magnetosonic = getattr(propagators, 'StepMagnetosonicHcurl')
@@ -490,6 +472,7 @@ class PC_LinMHD_6d_full(StruphyModel):
             PushEta = getattr(propagators, 'StepPushEtaPC')
             PushVel = getattr(propagators, 'StepPushVxB')
             
+        self._propagators = []
         self._propagators += [Alfven(self._u, self._b, self.derham, self._mass_ops, self._mhd_ops, alfven_solver)]
         self._propagators += [Magnetosonic(self._n, self._u, self._p, self._b, self.derham, self._mass_ops, self._mhd_ops, magnetosonic_solver)]
         for particles in self._kinetic_species:
@@ -498,8 +481,6 @@ class PC_LinMHD_6d_full(StruphyModel):
             self._propagators += [PushVel(particles, self.derham, self._b)]
             
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         
         self._scalar_quantities['en_U'] = np.empty(1, dtype=float)
@@ -513,11 +494,6 @@ class PC_LinMHD_6d_full(StruphyModel):
     def propagators(self):
         return self._propagators
 
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-    
-    
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         
@@ -577,24 +553,16 @@ class Vlasov(StruphyModel):
         
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-            
         self._propagators += [StepPushVxB(self._ions, self.derham, self._b)]
         self._propagators += [StepPushEtaRk4(self._ions, self.derham)]
 
         # Scalar variables to be saved during simulation
-        self._scalar_quantities = {}
-        
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
         
     @property
     def propagators(self):
         return self._propagators
-
-    @property
-    def scalar_quantities(self):
-        return self._scalar_quantities
-        
-
+    
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
         
