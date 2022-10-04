@@ -99,6 +99,98 @@ class StepMaxwell(Propagator):
             print('Maxdiff b2 for Push_maxwell_psydac:', max(db))
             print()
 
+
+class StepOhmCold(Propagator):
+    r'''Analytical step
+
+    Discrete solution:
+
+    .. math::
+
+        \begin{bmatrix}
+            \mathbf j^{n+1} \\
+            \mathbf e^{n+1}
+        \end{bmatrix}
+        = \begin{bmatrix}
+            \cos{\alpha \Delta t} & \sin{\alpha \Delta t} \\
+            - \sin{\alpha \Delta t} & \cos{\alpha \Delta t}
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbf j^n \\
+            \mathbf e^n
+        \end{bmatrix}\,,
+
+    which is derived from problem:
+
+    .. math::
+
+    \partial_{t}
+    \begin{bmatrix}
+        \mathbf j \\
+        \mathbf e
+    \end{bmatrix}
+        = \begin{bmatrix}
+        0 & \alpha\mathbb M_1^{-1} \\
+        -\alpha\mathbb M_1^{-1} & 0
+    \end{bmatrix}
+    \begin{bmatrix}
+        \mathbb M_1 \mathbf j \\
+        \mathbb M_1 \mathbf e
+    \end{bmatrix}\,,
+
+    where :math:`\alpha = \Omega_{pe} / \Omega_{ce}`, :math:`\Omega_{pe}` is the plasma frequency and :math:`\Omega_{ce}` is the electron cyclotron frequency.
+
+    Parameters
+    ----------
+        j : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        e : psydac.linalg.block.BlockVector
+            FE coefficients of a 1-form.
+
+        a : float
+            plasma frequency measured in unit of electron cyclotron frequency
+
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        params : dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, j, e, a, derham, params):
+
+        assert isinstance(j, BlockVector)
+        assert isinstance(e, BlockVector)
+        assert isinstance(a, float)
+
+        self._j = j
+        self._e = e
+        self._a = a
+        self._info = params['info']
+
+    @property
+    def variables(self):
+        return [self._j, self._e]
+
+    def __call__(self, dt):
+
+        # current variables
+        jn = self.variables[0]
+        en = self.variables[1]
+
+        # allocate temporary FemFields _j, _e during solution
+        _j = np.cos(self._a * dt) * jn + np.sin(self._a * dt) * en
+        _e = -np.sin(self._a * dt) * jn + np.cos(self._a * dt) * en
+
+        # write new coeffs into Propagator.variables
+        dj, de = self.in_place_update(_j, _e)
+
+        if self._info:
+            print('Maxdiff j1 for Push_cold_Ohm_psydac:', max(dj))
+            print('Maxdiff e2 for Push_cold_Ohm_psydac:', max(de))
+            print()
+
         
 class StepShearAlfvénHcurl(Propagator):
     r'''Crank-Nicolson step for shear Alfvén part in MHD equations.
