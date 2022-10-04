@@ -1,6 +1,8 @@
 import sys, os, shutil, h5py
 import pickle
-from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, post_process_markers
+import numpy as np
+
+import struphy.post_processing.post_processing_tools as pproc
 
 ppcell = int(sys.argv[1])
 
@@ -20,26 +22,31 @@ for path in sys.argv[2:]:
         exist_fields = False
         
     if 'kinetic' in file.keys():
-        exist_kinetic = True
-        
+        exist_kinetic = [[], []]
         kinetic_species = []
-        exist_markers = []
+        
         for name in file['kinetic'].keys():
             kinetic_species += [name]
+            
+            # check for saved markers
             if 'markers' in file['kinetic'][name]:
-                exist_markers += [True]
+                exist_kinetic[0] += [True]
             else:
-                exist_markers += [False]
-    else:
-        exist_kinetic = False
-        
+                exist_kinetic[0] += [False]
+                
+            # check for saved distribution function
+            if 'f' in file['kinetic'][name]:
+                exist_kinetic[1] += [True]
+            else:
+                exist_kinetic[1] += [False]
+            
     file.close()
     
     
     if exist_fields:
     
-        fields, space_ids, code = create_femfields(path)
-        point_data_logic, point_data_phys, grids, grids_mapped, masks = eval_femfields(path, fields, space_ids, npts_per_cell=1)
+        fields, space_ids, code = pproc.create_femfields(path)
+        point_data_logic, point_data_phys, grids, grids_mapped, masks = pproc.eval_femfields(path, fields, space_ids, npts_per_cell=1)
 
         # directory for evaluated field data 
         try:
@@ -72,7 +79,7 @@ for path in sys.argv[2:]:
                 pickle.dump(masks, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
     
-    if exist_kinetic:
+    if np.any(exist_kinetic):
         
         # directory for evaluated kinetic data
         try:
@@ -81,7 +88,19 @@ for path in sys.argv[2:]:
             shutil.rmtree(path + 'kinetic_data/')
             os.mkdir(path + 'kinetic_data/')
             
-        # post processing for each species
-        for n, species in enumerate(kinetic_species):
-            if exist_markers[n]:
-                post_process_markers(path, species)
+    # kinetic post processing for each species
+    for n, species in enumerate(kinetic_species):
+        
+        try:
+            os.mkdir(path + 'kinetic_data/' + species + '/')
+        except:
+            shutil.rmtree(path + 'kinetic_data/' + species + '/')
+            os.mkdir(path + 'kinetic_data/' + species + '/')
+        
+        # markers
+        if exist_kinetic[0][n]:
+            pproc.post_process_markers(path, species)
+        
+        # distribution function
+        if exist_kinetic[1][n]:
+            pproc.post_process_f(path, species) 
