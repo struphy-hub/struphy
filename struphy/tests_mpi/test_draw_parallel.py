@@ -12,7 +12,7 @@ import pytest
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
-    '''Asserts whether all particles are on the correct process after `particles.send_recv_markers()`.'''
+    '''Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`.'''
 
     from mpi4py import MPI
     import numpy as np
@@ -56,7 +56,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     # sort particles according to domain decomposition
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.mpi_sort_markers(do_test=True)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process after sorting : ')

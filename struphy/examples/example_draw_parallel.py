@@ -49,7 +49,7 @@ domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
 
 # sort particles according to domain decomposition
 comm.Barrier()
-particles.send_recv_markers()
+particles.mpi_sort_markers()
 
 comm.Barrier()
 print('Number of particles w/wo holes on each process after sorting : ')

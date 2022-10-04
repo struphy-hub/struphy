@@ -1084,11 +1084,11 @@ class Domain(metaclass=ABCMeta):
 
             # eta1-isolines
             for i in range(e1.size//5 + 1):
-                plt.plot(X[0, i*5, :], X[1, i*5, :], 'tab:blue')
+                plt.plot(X[0, i*5, :], X[1, i*5, :], 'tab:blue', alpha=.5)
 
             # eta2-isolines
             for j in range(e2.size//5 + 1):
-                plt.plot(X[0, :, j*5], X[1, :, j*5], 'tab:blue')
+                plt.plot(X[0, :, j*5], X[1, :, j*5], 'tab:blue', alpha=.5)
                 
         # plot domain according to given grid [nel1, nel2, (nel3)]
         elif isinstance(grid_info, list):
@@ -1106,11 +1106,11 @@ class Domain(metaclass=ABCMeta):
 
             # eta1-isolines
             for i in range(e1.size):
-                plt.plot(X[0, i, :], X[1, i, :], 'tab:blue')
+                plt.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
 
             # eta2-isolines
             for j in range(e2.size):
-                plt.plot(X[0, :, j], X[1, :, j], 'tab:blue')
+                plt.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
         
         # plot domain with MPI decomposition
         elif isinstance(grid_info, np.ndarray):
@@ -1135,11 +1135,11 @@ class Domain(metaclass=ABCMeta):
                 first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i))
 
                 for j in range(e1.size):
-                    plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color())
+                    plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
 
                 # eta2-isolines
                 for k in range(e2.size):
-                    plt.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color())
+                    plt.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
                     
         else:
             raise ValueError('given grid_info is not supported!')

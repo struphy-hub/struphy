@@ -306,7 +306,7 @@ class StruphyModel(metaclass=ABCMeta):
                                 self._kinetic_species[-1]._markers[i, j] = specific_markers[i][j]
                 
                 # do MPI sort
-                species.send_recv_markers(do_test=True)
+                species.mpi_sort_markers(do_test=True)
                 
                 # compute weights
                 species.initialize_weights(params['background'], params['perturbations'])

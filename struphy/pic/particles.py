@@ -255,7 +255,7 @@ class Particles6D:
 
         return self.domain.transform(s3_markers, eta1.copy(), eta2.copy(), eta3.copy(), '3_to_0', flat_eval=True)
 
-    def send_recv_markers(self, do_test=False):
+    def mpi_sort_markers(self, do_test=False):
         """ 
         Sorts markers according to domain decomposition.
         
@@ -577,7 +577,7 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
             Amount of markers to be received from i-th process.
 
         hole_inds_after_send : array[int]
-            Indices of empty columns in markers after send.
+            Indices of empty rows in markers after send.
 
         markers : array[float]
             Local markers array of shape (n_mks_loc + n_holes_loc, :).

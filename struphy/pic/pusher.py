@@ -65,7 +65,7 @@ class Pusher:
 
             if do_mpi_sort: 
                 self._derham.comm.Barrier()
-                particles.send_recv_markers()
+                particles.mpi_sort_markers()
                 self._derham.comm.Barrier()
                 
             if self._rank == 0 and verbose: print(self._pusher_name, 'done. (stage :', step+1, ')')

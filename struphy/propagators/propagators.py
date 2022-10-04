@@ -1037,7 +1037,7 @@ class StepPressurecouplingHcurl(Propagator):
 
         # reorganize particles
         self._derham.comm.Barrier()
-        self._particles.send_recv_markers()
+        self._particles.mpi_sort_markers()
         self._derham.comm.Barrier()
 
         # acuumulate MAT and VEC
@@ -1244,7 +1244,7 @@ class StepPressurecouplingHdiv(Propagator):
 
         # reorganize particles
         self._derham.comm.Barrier()
-        self._particles.send_recv_markers()
+        self._particles.mpi_sort_markers()
         self._derham.comm.Barrier()
 
         # acuumulate MAT and VEC
@@ -1452,7 +1452,7 @@ class StepPressurecouplingH1vec(Propagator):
 
         # reorganize particles
         self._derham.comm.Barrier()
-        self._particles.send_recv_markers()
+        self._particles.mpi_sort_markers()
         self._derham.comm.Barrier()
 
         # acuumulate MAT and VEC
