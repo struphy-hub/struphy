@@ -54,7 +54,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -139,7 +139,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -230,7 +230,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -321,7 +321,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -412,7 +412,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -505,7 +505,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
     if show_plots: particles.show_physical()
     comm.Barrier()
-    particles.send_recv_markers()
+    particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots: particles.show_physical()
     
@@ -586,7 +586,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
 #     if show_plots: particles.show_physical()
 #     comm.Barrier()
-#     particles.send_recv_markers()
+#     particles.mpi_sort_markers()
 #     comm.Barrier()
 #     if show_plots: particles.show_physical()
     
@@ -672,7 +672,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     particles = Particles6D('energetic_ions', marker_params, domain, derham.domain_array, comm)
 
 #     comm.Barrier()
-#     particles.send_recv_markers()
+#     particles.mpi_sort_markers()
 #     comm.Barrier()
 
 #     # make copy of markers (legacy struphy uses transposed markers!)

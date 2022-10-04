@@ -68,7 +68,7 @@ def reflect(markers: 'float[:,:]',
                                 
     Reverse the v_normal, v_normal[0] = -v_normal[0]
 
-    For the application, see `struphy.pic.particles.Particles6D.send_recv_markers` and `struphy.pic.particles.apply_kinetic_bc`.
+    For the application, see `struphy.pic.particles.Particles6D.mpi_sort_markers` and `struphy.pic.particles.apply_kinetic_bc`.
     
     Parameters
     ----------
