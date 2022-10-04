@@ -652,18 +652,12 @@ def post_process_markers(path, species):
     files = [h5py.File(path + f'data_proc{i}.hdf5', 'r') for i in range(nproc)]
     
     n_IDs = files[0]['kinetic/' + species + '/markers'].shape[1]
-        
-    try:
-        os.mkdir(path + 'kinetic_data/' + species)
-    except:
-        shutil.rmtree(path + 'kinetic_data/' + species)
-        os.mkdir(path + 'kinetic_data/' + species)
 
     try:
-        os.mkdir(path + 'kinetic_data/' + species + '/orbits')
+        os.mkdir(path + 'kinetic_data/' + species + '/orbits/')
     except:
-        shutil.rmtree(path + 'kinetic_data/' + species + '/orbits')
-        os.mkdir(path + 'kinetic_data/' + species + '/orbits')
+        shutil.rmtree(path + 'kinetic_data/' + species + '/orbits/')
+        os.mkdir(path + 'kinetic_data/' + species + '/orbits/')
             
     
     dt = params['time']['dt']
@@ -672,7 +666,7 @@ def post_process_markers(path, species):
     
     log_nt = int(np.log10(nt)) + 1
     
-    print('Evaluation of marker orbits ...')
+    print('Evaluation of marker orbits for ' + str(species))
     
     # loop over time
     for n in tqdm(range(nt + 1)):
@@ -706,6 +700,58 @@ def post_process_markers(path, species):
     # close hdf5 files
     for file in files:
         file.close()
+        
+
+def post_process_f(path, species):
+    """
+    Computes and saved distribution function of saved binning data during a simulation (saved as f_<slice>.npy in a directory "kinetic_data/<name_of_species>/distribution_function/").
+    
+    Parameters
+    ----------
+        path : str
+            Absolute path to folder with hdf5 data files.
+            
+        species : str
+            Name of the species for which the post processing should be performed.
+    """
+    
+    # get # of MPI processes
+    with open(path + 'meta.txt', 'r') as f:
+        lines = f.readlines()
+        
+    nproc = int(lines[-1].split()[-1])
+        
+    # open hdf5 files
+    files = [h5py.File(path + f'data_proc{i}.hdf5', 'r') for i in range(nproc)]
+    
+    # create directories
+    try:
+        os.mkdir(path + 'kinetic_data/' + species + '/f/')
+    except:
+        shutil.rmtree(path + 'kinetic_data/' + species + '/f/')
+        os.mkdir(path + 'kinetic_data/' + species + '/f/')
+        
+    print('Evaluation of distribution functions for ' + str(species))
+    
+    # loop over saved slices and sum up all ranks
+    for slice_name, dset in tqdm(files[0]['kinetic/' + species + '/f'].items()):
+        
+        # save grid
+        for n_gr, (gr_name, gr) in enumerate(files[0]['kinetic/' + species + '/f/' + slice_name].attrs.items()):
+            np.save(path + 'kinetic_data/' + species + '/f/grid_' + slice_name + '_' + str(n_gr + 1) + '.npy', gr[:])
+        
+        data = dset[:]
+        for rank in range(1, nproc):
+            data += files[rank]['kinetic/' + species + '/f/' + slice_name][:]
+            
+        # save distribution function
+        np.save(path + 'kinetic_data/' + species + '/f/f_' + slice_name + '.npy', data)
+        
+    # close hdf5 files
+    for file in files:
+        file.close()
+    
+            
         
     
 
