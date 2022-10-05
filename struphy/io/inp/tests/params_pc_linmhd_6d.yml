@@ -8,7 +8,7 @@ grid :
       
 
 time : 
-      dt         : 0.001 # time step
+      dt         : 0.01 # time step
       Tend       : 1 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
@@ -34,33 +34,28 @@ fields :
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
             ModesSin : 
-                  k1 : [0.] # wave vectors in x or eta_1 (depending on coords)
-                  k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
-                  k3 : [0.8] # wave vectors in z or eta_3 (depending on coords)
-                  amp : [[[0.001]]] # amplitudes
+                  ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                  ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                  ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                  amp : [0.001] # amplitudes of each mode
             ModesCos : 
-                  k1 : [0.] # wave vectors in x or eta_1 (depending on coords)
-                  k2 : [0.] # wave vectors in y or eta_2 (depending on coords)
-                  k3 : [0.8] # wave vectors in z or eta_3 (depending on coords)
-                  amp : [[[0.001]]] # amplitudes
+                  ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                  ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                  ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                  amp : [0.001] # amplitudes of each mode
             TorusModesSin : 
                   ms : [1] # poloidal mode numbers
                   ns : [0] # toroidal mode numbers
-                  amp : [0.001] # amplitudes
+                  amp : [0.001] # amplitudes of each mode
                   pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                   pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
             InitialMHDSlab :
-                  a  : 1.
-                  R0 : 3.
-                  m  : 0
-                  n  : 1
-                  U  : 0.1
-                  A  : 0.
-            init_eigfun : 
-                  n_tor    : -1 # toroidal mode number
-                  profiles : False # project equilibrium profiles
-                  eig_kind : 11 # real (11) or imag (12) part
-                  eig_freq : 0. # squared eigenfreq.    
+                  a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
+                  R0 : 3. # major radius (Lz=2*pi*R0)
+                  m  : 0  # poloidal (y) mode number
+                  n  : 1  # toroidal (z) mode number
+                  U  : 0.1 # amplitude of Ux/Uy
+                  A  : 0. # amplitude of Uz     
       mhd_u_space : H1vec # H1vec, Hcurl or Hdiv
       mhd_equilibrium : 
             type : HomogenSlab # (possible choices seen below)
@@ -70,45 +65,11 @@ fields :
                   B0z  : 1. # magnetic field in z
                   beta : 100. # plasma beta = 2*p*mu_0/B^2
                   n0   : 1. # number density
-            ShearedSlab :
-                  a    : 1. # minor radius (Lx=a, Ly=2*pi*a) 
-                  R0   : 3. # major rarius (Lz=2*pi*R0)
-                  B0   : 1. # magnetic field in z-direction    
-                  q0   : 1.05 # q-value at eta_1 = 0
-                  q1   : 1.80 # q-value at eta_1 = 1
-                  n1   : 0. # shape factor for number density profile
-                  n2   : 0. # shape factor for number density profile
-                  na   : 1. # number density at r=a
-                  beta : .01 # plasma beta = 2*p*mu_0/B^2
-            ScrewPinch :
-                  a    : 1. # minor radius (radius of cylinder)
-                  R0   : 3. # major radius (Lz = 2*pi*R0)
-                  B0   : 1. # magnetic field in z-direction
-                  q0   : 1.05 # safety factor at r=0
-                  q1   : 1.80 # safety factor at r=a
-                  n1   : 0. # shape factor for number density profile 
-                  n2   : 0. # shape factor for number density profile 
-                  na   : 1. # number density at r=a
-                  beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-            AdhocTorus :
-                  a    : 1. # minor radius (radius of cylinder)
-                  R0   : 3. # major radius (Lz = 2*pi*R0)
-                  B0   : 1. # magnetic field in z-direction
-                  q0   : 1.05 # safety factor at r=0
-                  q1   : 1.80 # safety factor at r=a
-                  n1   : 0. # shape factor for number density profile 
-                  n2   : 0. # shape factor for number density profile 
-                  na   : 1. # number density at r=a
-                  p_kind : .5 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-                  p1     : .1 # shape factor for ad hoc pressure profile
-                  p2     : .1 # shape factor for ad hoc pressure profile
-                  beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-
 
 kinetic :
       energetic_ions :
             markers :
-                  ppc         : 10  # particles per 3d grid cell
+                  ppc         : 100  # particles per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   control_var : False # control variate (use delta-f)?
                   bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic
@@ -139,6 +100,12 @@ kinetic :
                         k2 : [0.] # wave vectors in eta_2
                         k3 : [0.] # wave vectors in eta_3
                         amp : [0.001] # amplitudes
+            save_data :
+                  n_markers : 3 # number of markers to be save during simulation
+                  f :
+                        slices : [vz]
+                        n_bins : [[32]]
+                        ranges : [[[-3., 3.]]]
             
 
 solvers :
