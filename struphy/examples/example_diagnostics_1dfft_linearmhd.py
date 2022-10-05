@@ -33,7 +33,6 @@ file = h5py.File(path + '/data_proc0.hdf5', 'r')
 names = list(file['fields'].keys())
 file.close()
     
-
 # load grids
 with open(path + '/eval_fields/grids_log.bin', 'rb') as handle:
     grids = pickle.load(handle)
@@ -47,12 +46,9 @@ with open(path + '/eval_fields/' + names[3] + '_log.bin', 'rb') as handle:
 
 with open(path + '/eval_fields/' + names[3] + '_phy.bin', 'rb') as handle:
     point_data_phys = pickle.load(handle)
-    
-with open(path + '/eval_fields/masks.bin', 'rb') as handle:
-    masks = pickle.load(handle)
 
 # fft in (t, z) of first component of u_field on physical grid
-fourier_1d(point_data_log, names[3], code, grids, masks,
+fourier_1d(point_data_log, names[3], code, grids, 
            grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)
 
 # load data dicts for pressure
@@ -62,7 +58,6 @@ with open(path + '/eval_fields/' + names[2] + '_log.bin', 'rb') as handle:
 with open(path + '/eval_fields/' + names[2] + '_phy.bin', 'rb') as handle:
     point_data_phys = pickle.load(handle)
 
-
 # fft in (t, z) of pressure on physical grid
-fourier_1d(point_data_log, names[2], code, grids, masks,
+fourier_1d(point_data_log, names[2], code, grids, 
            grids_mapped=grids_mapped, component=0, slice_at=[0, 0, None], plot=True, disp_name='Mhd1D', disp_params=disp_params)

@@ -311,7 +311,10 @@ class Field:
 
         # check if eval points are "interior points" in domain_array; if so, add small offset
         dom_arr = self.derham.domain_array
-        rank = self.derham.comm.Get_rank()
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
 
         if dom_arr[rank, 0] != 0.:
             E1[E1==dom_arr[rank, 0]] += 1e-8
@@ -357,7 +360,10 @@ class Field:
                                                self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
                                                np.array(self.starts), tmp)
 
-            self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+            if self.derham.comm is not None:
+                self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+            else:
+                tmp_global = tmp
 
             # all processes have all values
             values = tmp_global
@@ -378,7 +384,10 @@ class Field:
                                                    self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
                                                    np.array(self.starts[n]), tmp)
             
-                self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+                if self.derham.comm is not None:
+                    self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+                else:
+                    tmp_global = tmp.copy()
                 tmp[:] = 0.
 
                 # all processes have all values
@@ -396,7 +405,7 @@ class Field:
         Parameters
         ----------
             fun_params : dict
-                From parameters/fields/int/noise.
+                From parameters/fields/init/noise.
         """
 
         _direction = fun_params['direction']
@@ -404,76 +413,76 @@ class Field:
 
         if n == None:
             _shape_w_pads = self._vector[:].shape
-            _shape = (self._gl_e[0][0] + 1 - self._gl_s[0][0], self._gl_e[0]
-                      [1] + 1 - self._gl_s[0][1], self._gl_e[0][2] + 1 - self._gl_s[0][2])
+            _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
+                      [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
         else:
             _shape_w_pads = self._vector[n][:].shape
             _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                       [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
         if _direction == 'x':
-            _amps = np.random.rand(_shape_w_pads[0]) * _ampsize
+            _amps = (np.random.rand(_shape_w_pads[0]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 for k in range(_shape[2]):
                     if n == None:
-                        self._vector[:, self._gl_s[0][1] +
-                                     j, self._gl_s[0][2] + k] = _amps
+                        self._vector[:, self._gl_s[1] +
+                                     j, self._gl_s[2] + k] = _amps
                     else:
                         self._vector[n][:, self._gl_s[n][1] +
                                         j, self._gl_s[n][2] + k] = _amps
 
         elif _direction == 'y':
-            _amps = np.random.rand(_shape_w_pads[1]) * _ampsize
+            _amps = (np.random.rand(_shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[2]):
                     if n == None:
-                        self._vector[self._gl_s[0][0] + j,
-                                     :, self._gl_s[0][2] + k] = _amps
+                        self._vector[self._gl_s[0] + j,
+                                     :, self._gl_s[2] + k] = _amps
                     else:
                         self._vector[n][self._gl_s[n][0] + j,
                                         :, self._gl_s[n][2] + k] = _amps
 
         elif _direction == 'z':
-            _amps = np.random.rand(_shape_w_pads[2]) * _ampsize
+            _amps = (np.random.rand(_shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[1]):
                     if n == None:
-                        self._vector[self._gl_s[0][0] + j,
-                                     self._gl_s[0][1] + k, :] = _amps
+                        self._vector[self._gl_s[0] + j,
+                                     self._gl_s[1] + k, :] = _amps
                     else:
                         self._vector[n][self._gl_s[n][0] + j,
                                         self._gl_s[n][1] + k, :] = _amps
 
         elif _direction == 'xy':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1]) * _ampsize
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[2]):
                 if n == None:
-                    self._vector[:, :, self._gl_s[0][2] + j] = _amps
+                    self._vector[:, :, self._gl_s[2] + j] = _amps
                 else:
                     self._vector[n][:, :, self._gl_s[n][2] + j] = _amps
 
         elif _direction == 'xz':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[2]) * _ampsize
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 if n == None:
-                    self._vector[:, self._gl_s[0][1] + j, :] = _amps
+                    self._vector[:, self._gl_s[1] + j, :] = _amps
                 else:
                     self._vector[n][:, self._gl_s[n][1] + j, :] = _amps
 
         elif _direction == 'yz':
-            _amps = np.random.rand(
-                _shape_w_pads[1], _shape_w_pads[2]) * _ampsize
+            _amps = (np.random.rand(
+                _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 if n == None:
-                    self._vector[self._gl_s[0][0] + j, :, :] = _amps
+                    self._vector[self._gl_s[0] + j, :, :] = _amps
                 else:
                     self._vector[n][self._gl_s[n][0] + j, :, :] = _amps
 
         elif _direction == 'xyz':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) * _ampsize
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             if n == None:
                 self._vector[:, :, :] = _amps
             else:

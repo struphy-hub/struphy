@@ -1,6 +1,4 @@
 # coding: utf-8
-#
-# Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 """
 Acccelerated functions for point-wise evaluation of tensor product B-splines.
@@ -389,7 +387,6 @@ def evaluate_sparse(t1: 'float[:]', t2: 'float[:]', t3: 'float[:]', p1: int, p2:
                     spline_values[i1, i2, i3] = evaluate(
                         1, 1, 3, t1, t2, t3, p1, p2, p3, ind1, ind2, ind3, coeff, eta1[i1, 0, 0], eta2[0, i2, 0], eta3[0, 0, i3])
 
-@pure
 def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', basis2: 'float[:]', basis3: 'float[:]', span1: 'int', span2: 'int', span3: 'int', _data: 'float[:,:,:]', starts: 'int[:]') -> float:
     """
     Kernel for struphy.feec.basics.spline_evaluation_3d.eval_spline_mpi.
@@ -431,7 +428,6 @@ def eval_spline_mpi_kernel(p1: 'int', p2: 'int', p3: 'int', basis1: 'float[:]', 
 
     return spline_value
 
-@pure
 def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
                     _data: 'float[:,:,:]', kind: 'int[:]',
                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -502,7 +498,6 @@ def eval_spline_mpi(eta1: float, eta2: float, eta3: float,
 
     return value
 
-@pure
 def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'float[:]', 
                                     _data: 'float[:,:,:]', kind: 'int[:]',
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -536,15 +531,14 @@ def eval_spline_mpi_tensor_product(eta1: 'float[:]', eta2: 'float[:]', eta3: 'fl
     """
 
     for i in range(len(eta1)):
-        if eta1[i] == -1.: continue # particle not in process domain
+        if eta1[i] == -1.: continue # point not in process domain
         for j in range(len(eta2)):
-            if eta2[j] == -1.: continue # particle not in process domain
+            if eta2[j] == -1.: continue # point not in process domain
             for k in range(len(eta3)):
-                if eta3[k] == -1.: continue # particle not in process domain
+                if eta3[k] == -1.: continue # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(eta1[i], eta2[j], eta3[k], _data, kind, pn, tn1, tn2, tn3, starts)
 
-@pure
 def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', 
                                 _data: 'float[:,:,:]', kind: 'int[:]',
                                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -584,13 +578,12 @@ def eval_spline_mpi_matrix(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'fl
     for i in range(shp[0]):
         for j in range(shp[1]):
             for k in range(shp[2]):
-                if eta1[i, j, k] == -1.: continue # particle not in process domain
-                if eta2[i, j, k] == -1.: continue # particle not in process domain
-                if eta3[i, j, k] == -1.: continue # particle not in process domain
+                if eta1[i, j, k] == -1.: continue # point not in process domain
+                if eta2[i, j, k] == -1.: continue # point not in process domain
+                if eta3[i, j, k] == -1.: continue # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(eta1[i, j, k], eta2[i, j, k], eta3[i, j, k], _data, kind, pn, tn1, tn2, tn3, starts)
 
-@pure
 def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', 
                                     _data: 'float[:,:,:]', kind: 'int[:]',
                                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -630,11 +623,11 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
     n3 = size(eta3)
 
     for i in range(n1):
-        if eta1[i, 0, 0] == -1.: continue # particle not in process domain
+        if eta1[i, 0, 0] == -1.: continue # point not in process domain
         for j in range(n2):
-            if eta2[0, j, 0] == -1.: continue # particle not in process domain
+            if eta2[0, j, 0] == -1.: continue # point not in process domain
             for k in range(n3):
-                if eta3[0, 0, k] == -1.: continue # particle not in process domain
+                if eta3[0, 0, k] == -1.: continue # point not in process domain
 
                 values[i, j, k] = eval_spline_mpi(eta1[i, 0, 0], eta2[0, j, 0], eta3[0, 0, k], _data, kind, pn, tn1, tn2, tn3, starts)
 

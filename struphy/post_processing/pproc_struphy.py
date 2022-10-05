@@ -4,10 +4,9 @@ import numpy as np
 
 import struphy.post_processing.post_processing_tools as pproc
 
-ppcell = int(sys.argv[1])
+cell_divide = int(sys.argv[1])
 
-if ppcell == 1:
-    ppcell = None
+assert cell_divide > 0
 
 for path in sys.argv[2:]:
 
@@ -21,9 +20,9 @@ for path in sys.argv[2:]:
     else:
         exist_fields = False
         
+    kinetic_species = []
     if 'kinetic' in file.keys():
         exist_kinetic = [[], []]
-        kinetic_species = []
         
         for name in file['kinetic'].keys():
             kinetic_species += [name]
@@ -39,14 +38,15 @@ for path in sys.argv[2:]:
                 exist_kinetic[1] += [True]
             else:
                 exist_kinetic[1] += [False]
+    else:
+        exist_kinetic = False
             
     file.close()
-    
     
     if exist_fields:
     
         fields, space_ids, code = pproc.create_femfields(path)
-        point_data_logic, point_data_phys, grids, grids_mapped, masks = pproc.eval_femfields(path, fields, space_ids, npts_per_cell=1)
+        point_data_logic, point_data_phys, grids, grids_mapped = pproc.eval_femfields(path, fields, space_ids, cell_divide=cell_divide)
 
         # directory for evaluated field data 
         try:
@@ -73,10 +73,6 @@ for path in sys.argv[2:]:
 
         with open(path + 'eval_fields/grids_phy.bin', 'wb') as handle:
                 pickle.dump(grids_mapped, handle,
-                            protocol=pickle.HIGHEST_PROTOCOL)
-
-        with open(path + 'eval_fields/masks.bin', 'wb') as handle:
-                pickle.dump(masks, handle,
                             protocol=pickle.HIGHEST_PROTOCOL)
     
     if np.any(exist_kinetic):
