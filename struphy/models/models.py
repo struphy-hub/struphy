@@ -401,9 +401,11 @@ class PC_LinMHD_6d_full(StruphyModel):
         self._nuh = nuh
         self._comm = self.derham.comm
 
-        # Load MHD equilibrium
+        # Load MHD equilibrium and project fields
         mhd_equil_class = getattr(analytical, equil_params['type'])
         mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
+        
+        self._b_eq = self.derham.P2([mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
         
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMass(self.derham, self.domain, eq_mhd=mhd_equil)
@@ -478,7 +480,7 @@ class PC_LinMHD_6d_full(StruphyModel):
         for particles in self._kinetic_species:
             self._propagators += [PushEta(self._u, particles, self.derham, self.domain, self._u_space)]
             self._propagators += [Pressurecoupling(self._u, particles, self.derham, self.domain, self._mass_ops, self._mhd_ops, pressurecoupling_solver)]
-            self._propagators += [PushVel(particles, self.derham, self._b)]
+            self._propagators += [PushVel(particles, self.derham, self._b, self._b_eq)]
             
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
