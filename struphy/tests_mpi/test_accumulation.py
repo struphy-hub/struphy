@@ -141,9 +141,6 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     for k in range(3):
         args += [B2_psy[k]._data[:, :, :]]
 
-    for k in range(3):
-        args += [np.array(B2_psy[k].starts)]
-
     ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_1',
                       *args, do_vector=False, symmetry='asym')
 
@@ -280,9 +277,6 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
 
     for k in range(3):
         args += [B2_psy[k]._data[:, :, :]]
-
-    for k in range(3):
-        args += [np.array(B2_psy[k].starts)]
 
     ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_2',
                       *args, do_vector=True, symmetry='symm')

@@ -224,7 +224,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
                         print(f'\nTesting {name_b} ...')
 
                     fun_b(pn, tn1, tn2, tn3,
-                        starts1[space], starts2[space], starts3[space],
+                        np.array([starts1[space], starts2[space], starts3[space]]),
                         eta1, eta2, eta3,
                         *args)
 
@@ -243,7 +243,7 @@ def test_mat_vec_filler(Nel, p, spl_kind, n_markers=1):
                     fun(pn, span1, span2, span3,
                         bn1, bn2, bn3,
                         bd1, bd2, bd3,
-                        starts1[space], starts2[space], starts3[space],
+                        np.array([starts1[space], starts2[space], starts3[space]]),
                         *args)
 
                     for n, ij in enumerate(ind_pairs):
