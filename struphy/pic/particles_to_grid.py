@@ -87,8 +87,6 @@ class Accumulator:
             self._matrix = StencilMatrix(
                 self._space.vector_space, self._space.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
 
-            self._args_space = [np.array(self.space.vector_space.starts)]
-
             self._args_data = [self.matrix._data]
 
             if do_vector:
@@ -96,10 +94,6 @@ class Accumulator:
                 self._args_data += [self.vector._data]
 
         else:
-
-            self._args_space = [np.array(self.space.vector_space.starts[0]),
-                                np.array(self.space.vector_space.starts[1]),
-                                np.array(self.space.vector_space.starts[2])]
 
             if symmetry is None:
 
@@ -346,10 +340,14 @@ class Accumulator:
                             derham.V0.spaces[0].knots,
                             derham.V0.spaces[1].knots,
                             derham.V0.spaces[2].knots,
+                            np.array(derham.V0.vector_space.starts), 
+                            np.array(derham.V1.vector_space.starts),
+                            np.array(derham.V2.vector_space.starts),
+                            np.array(derham.V3.vector_space.starts),
                             *domain.args_map]
 
         # combine all arguments
-        self._args = self.args_fixed + self.args_space + \
+        self._args = self.args_fixed + \
             self.args_data + list(self.args_add)
 
         # load the appropriate accumulation routine (pyccelized)
@@ -517,17 +515,14 @@ class Accumulator:
         Parameters
         ----------
             markers : array[float]
-                Particle information in format (7, n_markers), including holes.'''
-
-        # remove holes
-        markers_wo_holes = markers[np.nonzero(markers[:, 0] != -1.)[0], :]
+                Particle information in format (n_markers, :), including holes.'''
 
         # reset arrays
         for dat in self._args_data:
             dat[:] = 0.
 
         # accumulate
-        self.accumulator(markers_wo_holes, np.shape(markers_wo_holes)[0], *self.args)
+        self.accumulator(markers, *self.args)
 
         #divide by n_mks 
         for dat in self._args_data:
@@ -770,11 +765,6 @@ class Accumulator:
     def args_fixed(self):
         '''List of mandatory arguments for the accumulator.'''
         return self._args_fixed
-
-    @property
-    def args_space(self):
-        '''List of space-dependent arguments (starts, ends, pads) for the accumulator.'''
-        return self._args_space
 
     @property
     def args_data(self):
