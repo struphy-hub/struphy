@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.parametrize('Nel', [[8, 12, 4]])
-@pytest.mark.parametrize('p',   [[2, 3, 2]])
+@pytest.mark.parametrize('p',   [[2, 3, 1]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, False]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {

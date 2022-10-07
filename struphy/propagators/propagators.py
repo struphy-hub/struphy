@@ -266,15 +266,15 @@ class StepShearAlfvénHcurl(Propagator):
         bn = self.variables[1]
 
         # allocate temporary FemFields _u, _b during solution
-        _u, self._info = self._schur_solver(un, self._B.dot(bn), dt)
+        _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
 
         if self._info and self._rank ==0:
-            print('Status     for Push_shear_alfvén:', self._info['success'])
-            print('Iterations for Push_shear_alfvén:', self._info['niter'])
+            print('Status     for Push_shear_alfvén:', info['success'])
+            print('Iterations for Push_shear_alfvén:', info['niter'])
             print('Maxdiff u1 for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
@@ -354,15 +354,15 @@ class StepShearAlfvénHdiv(Propagator):
         bn = self.variables[1]
 
         # allocate temporary FemFields _u, _b during solution
-        _u, self._info = self._schur_solver(un, self._B.dot(bn), dt)
+        _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
 
         if self._info and self._rank == 0:
-            print('Status     for Push_shear_alfvén:', self._info['success'])
-            print('Iterations for Push_shear_alfvén:', self._info['niter'])
+            print('Status     for Push_shear_alfvén:', info['success'])
+            print('Iterations for Push_shear_alfvén:', info['niter'])
             print('Maxdiff u2 for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
@@ -442,15 +442,15 @@ class StepShearAlfvénH1vec(Propagator):
         bn = self.variables[1]
 
         # allocate temporary FemFields _u, _b during solution
-        _u, self._info = self._schur_solver(un, self._B.dot(bn), dt)
+        _u, info = self._schur_solver(un, self._B.dot(bn), dt)
         _b = bn - dt*self._C.dot(_u + un)
 
         # write new coeffs into Propagator.variables
         du, db = self.in_place_update(_u, _b)
 
         if self._info and self._rank == 0:
-            print('Status     for Push_shear_alfvén:', self._info['success'])
-            print('Iterations for Push_shear_alfvén:', self._info['niter'])
+            print('Status     for Push_shear_alfvén:', info['success'])
+            print('Iterations for Push_shear_alfvén:', info['niter'])
             print('Maxdiff uv for Push_shear_alfvén:', max(du))
             print('Maxdiff b2 for Push_shear_alfvén:', max(db))
             print()
@@ -552,7 +552,7 @@ class StepMagnetosonicHcurl(Propagator):
         bn = self.variables[3]
 
         # allocate temporary FemFields _u, _b during solution
-        _u, self._info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2, dt)
+        _u, info = self._schur_solver(un, self._B.dot(pn) - self._MJ.dot(bn)/2, dt)
         _p = pn - dt*self._C.dot(_u + un)
         _n = nn - dt/2*self._DIV.dot(self._Q.dot(_u + un))
         _b = 1*bn
@@ -561,8 +561,8 @@ class StepMagnetosonicHcurl(Propagator):
         dn, du, dp, db = self.in_place_update(_n, _u, _p, _b)
 
         if self._info and self._rank == 0:
-            print('Status     for Push_magnetosonic:', self._info['success'])
-            print('Iterations for Push_magnetosonic:', self._info['niter'])
+            print('Status     for Push_magnetosonic:', info['success'])
+            print('Iterations for Push_magnetosonic:', info['niter'])
             print('Maxdiff n3 for Push_magnetosonic:', max(dn))
             print('Maxdiff u1 for Push_magnetosonic:', max(du))
             print('Maxdiff p3 for Push_magnetosonic:', max(dp))
@@ -1155,7 +1155,7 @@ class StepPressurecouplingHcurl(Propagator):
                                          verbose=self._params['verbose'])
 
         # allocate temporary FemFields _u during solution
-        _u, self._info = schur_solver(un, BV, dt) 
+        _u, info = schur_solver(un, BV, dt) 
 
         # calculate GXu
         GXu_1 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[0])
@@ -1178,8 +1178,8 @@ class StepPressurecouplingHcurl(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', self._info['success'])
-            print('Iterations for StepPressurecoupling1:', self._info['niter'])
+            print('Status     for StepPressurecoupling1:', info['success'])
+            print('Iterations for StepPressurecoupling1:', info['niter'])
             print('Maxdiff u1 for StepPressurecoupling1:', max(du))
             print()
 
@@ -1364,7 +1364,7 @@ class StepPressurecouplingHdiv(Propagator):
                                          verbose=self._params['verbose'])
 
         # allocate temporary FemFields _u during solution
-        _u, self._info = schur_solver(un, BV, dt)
+        _u, info = schur_solver(un, BV, dt)
 
         # calculate GXu
         GXu_1 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[0])
@@ -1387,8 +1387,8 @@ class StepPressurecouplingHdiv(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', self._info['success'])
-            print('Iterations for StepPressurecoupling1:', self._info['niter'])
+            print('Status     for StepPressurecoupling1:', info['success'])
+            print('Iterations for StepPressurecoupling1:', info['niter'])
             print('Maxdiff u1 for StepPressurecoupling1:', max(du))
             print()
 
@@ -1571,7 +1571,7 @@ class StepPressurecouplingH1vec(Propagator):
                                          verbose=self._params['verbose'])
 
         # allocate temporary FemFields _u during solution
-        _u, self._info = schur_solver(un, BV, dt) 
+        _u, info = schur_solver(un, BV, dt) 
 
         # calculate GXu
         GXu_1 = self._G.dot(self._mhd_ops.X0.dot(un + _u)[0])
@@ -1594,8 +1594,8 @@ class StepPressurecouplingH1vec(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', self._info['success'])
-            print('Iterations for StepPressurecoupling1:', self._info['niter'])
+            print('Status     for StepPressurecoupling1:', info['success'])
+            print('Iterations for StepPressurecoupling1:', info['niter'])
             print('Maxdiff u1 for StepPressurecoupling1:', max(du))
             print()
 

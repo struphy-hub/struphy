@@ -48,6 +48,8 @@ class MHDOperators:
 
     def __init__(self, derham, domain, eq_mhd, assemble_all=False):
         
+        assert np.all(np.array(derham.p) > 1), 'Spline degrees must be >1 to use MHD operators (-> avoid interpolation of piece-wise constants).'
+
         self._derham = derham
         self._domain = domain
 

@@ -219,6 +219,7 @@ Psydac installation instructions
 
 In the psydac repository type::
 
+    git checkout struphy-branch
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
     pip install .
