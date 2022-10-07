@@ -1,6 +1,6 @@
 grid :
       Nel      : [16, 16, 8] # number of grid cells, >p
-      p        : [2, 2, 2]  # spline degree, >1
+      p        : [2, 2, 1]  # spline degree
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [2, 2, 2] # quadrature points per grid cell

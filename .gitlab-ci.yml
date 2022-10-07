@@ -220,7 +220,7 @@ default_build:
   needs: ["default_venv"]
   script:
     - cd psydac
-    - git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 # last working commit before struphy breaks
+    - git checkout struphy-branch # our own dedicated branch 
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
     - pip install .
@@ -322,6 +322,7 @@ default_install:
     - pip list
     - cd ${ENV_PATH}/psydac/core
     - pyccel kernels.py --language fortran
+    - pyccel bsplines_pyccel.py --language fortran
 
 # default tests (always)
 default_unit_tests:

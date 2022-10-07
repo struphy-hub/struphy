@@ -8,7 +8,7 @@ from time import sleep
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[2, 3, 4]])
+@pytest.mark.parametrize('p', [[1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     '''Compares evaluation_kernel_3d with eval_spline_mpi_kernel.'''
@@ -143,7 +143,7 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[2, 3, 4], [3, 2, 5]])
+@pytest.mark.parametrize('p', [[1, 2, 3], [3, 2, 4]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 def test_eval_field(Nel, p, spl_kind):
     '''Compares distributed array spline evaluation in Field object with legacy code.'''
