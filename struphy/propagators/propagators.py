@@ -793,6 +793,7 @@ class StepMagnetosonicH1vec(Propagator):
             print('Maxdiff p3 for Push_magnetosonic:', max(dp))
             print()
 
+
 class StepEfieldWeights(Propagator):
     r'''Solve the following Crank-Nicolson step
 
@@ -1056,6 +1057,628 @@ class StepStaticBfield(Propagator):
                           self._b_bg.blocks[0]._data, self._b_bg.blocks[1]._data, self._b_bg.blocks[2]._data)
     
 
+class StepFullPressurecouplingHcurl(Propagator):
+    r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
+
+    .. math::
+
+        \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_1)^{-1} V^\top (\bar {\mathcal X}^1)^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X}^1 V (\mathbb M^n_1)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_1}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} ,
+
+    based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+        u : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete 1-form.
+
+        particles : struphy.pic.particles.Particles6D
+
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
+            
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+            
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
+            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+
+        params: dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, u, particles, derham, domain, mass_ops, mhd_ops, params):
+
+        assert isinstance(u, BlockVector)
+
+        self._u = u
+        self._particles = particles
+        self._derham = derham
+        self._G = derham.grad
+        self._GT = derham.grad.transpose()
+        self._domain = domain
+        self._params = params
+        self._info = params['info']
+        self._mass_ops = mass_ops
+        self._mhd_ops = mhd_ops
+        self._rank = derham.comm.Get_rank()
+
+        # Preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(derham, 'V1', mass_ops._fun_M1n)
+
+        # call the accumulation class
+        args = []
+        self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d_full', *args, do_vector = True, symmetry = 'pressure')
+
+        # Define A of the Schur block matrix [[A, B], [C, I]] (B and C are needed to be defined every time the propagater is called since they include accumulated values)
+        self._A = mass_ops.M1n
+
+        # call Pusher class
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
+
+    @property
+    def variables(self):
+        return [self._u]
+    
+    def __call__(self, dt):
+        un = self.variables[0]
+
+        # reorganize particles
+        self._derham.comm.Barrier()
+        self._particles.mpi_sort_markers()
+        self._derham.comm.Barrier()
+
+        # acuumulate MAT and VEC
+        self._ACC.accumulate(self._particles.markers, self._particles.n_mks)
+
+        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13], 
+               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23], 
+               [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
+        VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
+
+        GT_VEC = BlockVector(self._derham.V0vec.vector_space, blocks=[self._GT.dot(VEC[0]),
+                                                                      self._GT.dot(VEC[1]),
+                                                                      self._GT.dot(VEC[2])])
+
+        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
+        BC = Multiply(-1/4, Compose(self._mhd_ops.X1T, self.GT_MAT_G(self._derham, MAT), self._mhd_ops.X1))
+
+        BV = Multiply(-1/2, self._mhd_ops.X1T).dot(GT_VEC)
+        
+        # call SchurSolver class
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._params['type'], 
+                                         tol=self._params['tol'], maxiter=self._params['maxiter'],
+                                         verbose=self._params['verbose'])
+
+        # allocate temporary FemFields _u during solution
+        _u, info = schur_solver(un, BV, dt) 
+
+        # calculate GXu
+        GXu_1 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[0])
+        GXu_2 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[1])
+        GXu_3 = self._G.dot(self._mhd_ops.X1.dot(un + _u)[2])
+            
+        # push particles
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+
+        self._pusher(self._particles, dt,
+                     GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
+                     GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
+                     GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
+
+        # write new coeffs into Propagator.variables
+        du = self.in_place_update(_u)
+
+        if self._info and self._rank == 0:
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
+            print()
+
+    class GT_MAT_G(LinOpWithTransp):
+        r'''
+        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}` 
+        where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
+        
+        Parameters
+        ----------
+            derham : struphy.psydac_api.psydac_derham.Derham
+                Discrete de Rham sequence on the logical unit cube.
+
+            MAT : List of StencilMatrices
+                List with six of accumulated pressure terms
+        '''
+
+        def __init__(self, derham, MAT, transposed=False):
+
+            self._derham = derham
+            self._G = derham.grad
+            self._GT = derham.grad.transpose()
+
+            self._domain = derham.V0vec.vector_space
+            self._codomain = derham.V0vec.vector_space
+            self._MAT = MAT
+
+            v1 = StencilVector(derham.V0vec.vector_space.spaces[0])
+            v2 = StencilVector(derham.V0vec.vector_space.spaces[1])
+            v3 = StencilVector(derham.V0vec.vector_space.spaces[2])
+            list_blocks = [v1, v2, v3]
+            self._vector = BlockVector(derham.V0vec.vector_space, blocks=list_blocks)
+
+        @property
+        def domain(self):
+            return self._domain
+
+        @property
+        def codomain(self):
+            return self._codomain
+
+        @property
+        def dtype(self):
+            return self._derham.V0vec.vector_space.dtype
+
+        @property
+        def transposed(self):
+            return self._transposed
+
+        def transpose(self):
+            return self.GT_MAT_G(self._derham, self._MAT, True)
+
+        def dot(self, v, out=None):
+            '''dot product between GT_MAT_G and v.
+
+            Parameters
+            ----------
+                v : StencilVector or BlockVector
+                    Input FE coefficients from V.vector_space.
+
+            Returns
+            -------
+                A StencilVector or BlockVector from W.vector_space.'''
+
+            assert v.space == self.domain
+
+            v.update_ghost_regions()
+
+            temp = [None, None, None]
+
+            for i in range(3):
+                for j in range(3):
+                    temp[j] = self._MAT[i][j].dot(self._G.dot(v[j]))
+                self._vector[i] = self._GT.dot(temp[0] + temp[1] + temp[2])
+
+            self._vector.update_ghost_regions()
+
+            assert self._vector.space == self.codomain
+
+            return self._vector  
+
+
+class StepFullPressurecouplingHdiv(Propagator):
+    r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
+
+    .. math::
+
+        \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_2)^{-1} V^\top (\bar {\mathcal X}^2)^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X}^2 V (\mathbb M^n_2)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_2}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} ,
+
+    based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+        u : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete 2-form.
+
+        particles : struphy.pic.particles.Particles6D
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
+            
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+            
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
+            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+
+        params: dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, u, particles, derham, domain, mass_ops, mhd_ops, params):
+
+        assert isinstance(u, BlockVector)
+
+        self._u = u
+        self._particles = particles
+        self._derham = derham
+        self._G = derham.grad
+        self._GT = derham.grad.transpose()
+        self._domain = domain
+        self._params = params
+        self._info = params['info']
+        self._mass_ops = mass_ops
+        self._mhd_ops = mhd_ops
+        self._rank = derham.comm.Get_rank()
+
+        # Preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(derham, 'V2', mass_ops._fun_M2n)
+
+        # call the accumulation class
+        args = []
+        self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d_full', *args, do_vector = True, symmetry = 'pressure')
+
+        # Define A of the Schur block matrix [[A, B], [C, I]] (B and C are needed to be defined every time the propagater is called since they include accumulated values)
+        self._A = mass_ops.M2n
+
+        # call Pusher class
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
+
+    @property
+    def variables(self):
+        return [self._u]
+
+    def __call__(self, dt):
+
+        # current variables
+        un = self.variables[0]
+
+        # reorganize particles
+        self._derham.comm.Barrier()
+        self._particles.mpi_sort_markers()
+        self._derham.comm.Barrier()
+
+        # acuumulate MAT and VEC
+        self._ACC.accumulate(self._particles.markers, self._particles.n_mks)
+
+        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13], 
+               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23], 
+               [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
+        VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
+
+        # assemble G^T dot VEC
+        GT_VEC = BlockVector(self._derham.V0vec.vector_space, blocks=[self._GT.dot(VEC[0]),
+                                                                      self._GT.dot(VEC[1]),
+                                                                      self._GT.dot(VEC[2])])
+
+
+        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
+        BC = Multiply(-1/4, Compose(self._mhd_ops.X2T, self.GT_MAT_G(self._derham, MAT), self._mhd_ops.X2))
+
+        BV = Multiply(-1/2, self._mhd_ops.X2T).dot(GT_VEC)
+        
+        # call SchurSolver class
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._params['type'], 
+                                         tol=self._params['tol'], maxiter=self._params['maxiter'],
+                                         verbose=self._params['verbose'])
+
+        # allocate temporary FemFields _u during solution
+        _u, info = schur_solver(un, BV, dt)
+
+        # calculate GXu
+        GXu_1 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[0])
+        GXu_2 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[1])
+        GXu_3 = self._G.dot(self._mhd_ops.X2.dot(un + _u)[2])
+
+        # push particles
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+
+        self._pusher(self._particles, dt,
+                     GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
+                     GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
+                     GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
+
+        # write new coeffs into Propagator.variables
+        du = self.in_place_update(_u)
+
+        if self._info and self._rank == 0:
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
+            print()
+
+    class GT_MAT_G(LinOpWithTransp):
+        r'''
+        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}` 
+        where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
+        
+        Parameters
+        ----------
+            derham : struphy.psydac_api.psydac_derham.Derham
+                Discrete de Rham sequence on the logical unit cube.
+
+            MAT : List of StencilMatrices
+                List with six of accumulated pressure terms
+        '''
+
+        def __init__(self, derham, MAT, transposed=False):
+
+            self._derham = derham
+            self._G = derham.grad
+            self._GT = derham.grad.transpose()
+
+            self._domain = derham.V0vec.vector_space
+            self._codomain = derham.V0vec.vector_space
+            self._MAT = MAT
+
+            v1 = StencilVector(derham.V0vec.vector_space.spaces[0])
+            v2 = StencilVector(derham.V0vec.vector_space.spaces[1])
+            v3 = StencilVector(derham.V0vec.vector_space.spaces[2])
+            list_blocks = [v1, v2, v3]
+            self._vector = BlockVector(derham.V0vec.vector_space, blocks=list_blocks)
+
+        @property
+        def domain(self):
+            return self._domain
+
+        @property
+        def codomain(self):
+            return self._codomain
+
+        @property
+        def dtype(self):
+            return self._derham.V0vec.vector_space.dtype
+
+        @property
+        def transposed(self):
+            return self._transposed
+
+        def transpose(self):
+            return self.GT_MAT_G(self._derham, self._MAT, True)
+
+        def dot(self, v, out=None):
+            '''dot product between GT_MAT_G and v.
+
+            Parameters
+            ----------
+                v : StencilVector or BlockVector
+                    Input FE coefficients from V.vector_space.
+
+            Returns
+            -------
+                A StencilVector or BlockVector from W.vector_space.'''
+
+            assert v.space == self.domain
+
+            v.update_ghost_regions()
+
+            temp = [None, None, None]
+
+            for i in range(3):
+                for j in range(3):
+                    temp[j] = self._MAT[i][j].dot(self._G.dot(v[j]))
+                self._vector[i] = self._GT.dot(temp[0] + temp[1] + temp[2])
+
+            self._vector.update_ghost_regions()
+
+            assert self._vector.space == self.codomain
+
+            return self._vector 
+
+
+class StepFullPressurecouplingH1vec(Propagator):
+    r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
+
+    .. math::
+
+        \begin{bmatrix} u^{n+1} - u^n \\ V^{n+1} - V^n \end{bmatrix} 
+        = \frac{\Delta t}{2} \begin{bmatrix} 0 & (\mathbb M^n_v)^{-1} V^\top (\bar {\mathcal X}^0)^\top \mathbb G^\top (\bar {\mathbf \Lambda}^1)^\top \bar {DF}^{-1} \\ - {DF}^{-\top} \bar {\mathbf \Lambda}^1 \mathbb G \bar {\mathcal X}^0 V (\mathbb M^n_v)^{-1} & 0 \end{bmatrix} 
+        \begin{bmatrix} {\mathbb M^n_v}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} ,
+
+    based on the :ref:`Schur complement <schur_solver>`.
+
+    Parameters
+    ---------- 
+        u : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete vector field (0-form discretization in each component).
+
+        particles : struphy.pic.particles.Particles6D
+
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
+            
+        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+            
+        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
+            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+
+        params: dict
+            Solver parameters for this splitting step.
+    '''
+
+    def __init__(self, u, particles, derham, domain, mass_ops, mhd_ops, params):
+
+        assert isinstance(u, BlockVector)
+
+        self._u = u
+        self._particles = particles
+        self._derham = derham
+        self._G = derham.grad
+        self._GT = derham.grad.transpose()
+        self._domain = domain
+        self._params = params
+        self._info = params['info']
+        self._mass_ops = mass_ops
+        self._mhd_ops = mhd_ops
+        self._rank = derham.comm.Get_rank()
+
+        # Preconditioner
+        if params['pc'] is None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, params['pc'])
+            self._pc = pc_class(derham, 'V0vec', mass_ops._fun_Mvn)
+
+        # call the accumulation class
+        args = []
+        self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d_full', *args, do_vector = True, symmetry = 'pressure')
+
+        # Define A of the Schur block matrix [[A, B], [C, I]] (B and C are needed to be defined every time the propagater is called since they include accumulated values)
+        self._A = mass_ops.Mvn
+
+        # call Pusher class
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
+
+    @property
+    def variables(self):
+        return [self._u]
+    
+    def __call__(self, dt):
+        un = self.variables[0]
+
+        # reorganize particles
+        self._derham.comm.Barrier()
+        self._particles.mpi_sort_markers()
+        self._derham.comm.Barrier()
+
+        # acuumulate MAT and VEC
+        self._ACC.accumulate(self._particles.markers, self._particles.n_mks)
+
+        MAT = [[self._ACC.matrix11, self._ACC.matrix12, self._ACC.matrix13], 
+               [self._ACC.matrix12, self._ACC.matrix22, self._ACC.matrix23], 
+               [self._ACC.matrix13, self._ACC.matrix23, self._ACC.matrix33]]
+        VEC =  [self._ACC.vector1, self._ACC.vector2, self._ACC.vector3]
+
+        # assemble G^T dot VEC
+        GT_VEC = BlockVector(self._derham.V0vec.vector_space, blocks=[self._GT.dot(VEC[0]),
+                                                                      self._GT.dot(VEC[1]),
+                                                                      self._GT.dot(VEC[2])])
+
+        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
+        BC = Multiply(-1/4, Compose(self._mhd_ops.X0T, self.GT_MAT_G(self._derham, MAT), self._mhd_ops.X0))
+
+        BV = Multiply(-1/2, self._mhd_ops.X0T).dot(GT_VEC)
+        
+        # call SchurSolver class
+        schur_solver = SchurSolver(self._A, BC, pc=self._pc, solver_type=self._params['type'], 
+                                         tol=self._params['tol'], maxiter=self._params['maxiter'],
+                                         verbose=self._params['verbose'])
+
+        # allocate temporary FemFields _u during solution
+        _u, info = schur_solver(un, BV, dt) 
+
+        # calculate GXu
+        GXu_1 = self._G.dot(self._mhd_ops.X0.dot(un + _u)[0])
+        GXu_2 = self._G.dot(self._mhd_ops.X0.dot(un + _u)[1])
+        GXu_3 = self._G.dot(self._mhd_ops.X0.dot(un + _u)[2])
+
+        # push particles
+        # check if ghost regions are synchronized
+        for i in range(3):
+            if not GXu_1[i].ghost_regions_in_sync: GXu_1[i].update_ghost_regions()
+            if not GXu_2[i].ghost_regions_in_sync: GXu_2[i].update_ghost_regions()
+            if not GXu_3[i].ghost_regions_in_sync: GXu_3[i].update_ghost_regions()
+
+        self._pusher(self._particles, dt,
+                     GXu_1[0]._data, GXu_1[1]._data, GXu_1[2]._data,
+                     GXu_2[0]._data, GXu_2[1]._data, GXu_2[2]._data,
+                     GXu_3[0]._data, GXu_3[1]._data, GXu_3[2]._data)
+
+        # write new coeffs into Propagator.variables
+        du = self.in_place_update(_u)
+
+        if self._info and self._rank == 0:
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
+            print()
+
+    class GT_MAT_G(LinOpWithTransp):
+        r'''
+        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}` 
+        where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
+        
+        Parameters
+        ----------
+            derham : struphy.psydac_api.psydac_derham.Derham
+                Discrete de Rham sequence on the logical unit cube.
+
+            MAT : List of StencilMatrices
+                List with six of accumulated pressure terms
+        '''
+
+        def __init__(self, derham, MAT, transposed=False):
+
+            self._derham = derham
+            self._G = derham.grad
+            self._GT = derham.grad.transpose()
+
+            self._domain = derham.V0vec.vector_space
+            self._codomain = derham.V0vec.vector_space
+            self._MAT = MAT
+
+            v1 = StencilVector(derham.V0vec.vector_space.spaces[0])
+            v2 = StencilVector(derham.V0vec.vector_space.spaces[1])
+            v3 = StencilVector(derham.V0vec.vector_space.spaces[2])
+            list_blocks = [v1, v2, v3]
+            self._vector = BlockVector(derham.V0vec.vector_space, blocks=list_blocks)
+
+        @property
+        def domain(self):
+            return self._domain
+
+        @property
+        def codomain(self):
+            return self._codomain
+
+        @property
+        def dtype(self):
+            return self._derham.V0vec.vector_space.dtype
+
+        @property
+        def transposed(self):
+            return self._transposed
+
+        def transpose(self):
+            return self.GT_MAT_G(self._derham, self._MAT, True)
+
+        def dot(self, v, out=None):
+            '''dot product between GT_MAT_G and v.
+
+            Parameters
+            ----------
+                v : StencilVector or BlockVector
+                    Input FE coefficients from V.vector_space.
+
+            Returns
+            -------
+                A StencilVector or BlockVector from W.vector_space.'''
+
+            assert v.space == self.domain
+
+            v.update_ghost_regions()
+
+            temp = [None, None, None]
+
+            for i in range(3):
+                for j in range(3):
+                    temp[j] = self._MAT[i][j].dot(self._G.dot(v[j]))
+                self._vector[i] = self._GT.dot(temp[0] + temp[1] + temp[2])
+
+            self._vector.update_ghost_regions()
+
+            assert self._vector.space == self.codomain
+
+            return self._vector  
+
+
 class StepPressurecouplingHcurl(Propagator):
     r'''Crank-Nicolson step for pressure coupling term in MHD equations and velocity update with the force term :math:`\nabla \mathbf U \cdot \mathbf v`.
 
@@ -1118,7 +1741,7 @@ class StepPressurecouplingHcurl(Propagator):
         self._A = mass_ops.M1n
 
         # call Pusher class
-        self._pusher = Pusher(self._derham, self._domain, 'push_pc_Xu_full')
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
     @property
     def variables(self):
@@ -1178,9 +1801,9 @@ class StepPressurecouplingHcurl(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', info['success'])
-            print('Iterations for StepPressurecoupling1:', info['niter'])
-            print('Maxdiff u1 for StepPressurecoupling1:', max(du))
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
             print()
 
     class GT_MAT_G(LinOpWithTransp):
@@ -1323,7 +1946,7 @@ class StepPressurecouplingHdiv(Propagator):
         self._A = mass_ops.M2n
 
         # call Pusher class
-        self._pusher = Pusher(self._derham, self._domain, 'push_pc_Xu_full')
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
     @property
     def variables(self):
@@ -1387,9 +2010,9 @@ class StepPressurecouplingHdiv(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', info['success'])
-            print('Iterations for StepPressurecoupling1:', info['niter'])
-            print('Maxdiff u1 for StepPressurecoupling1:', max(du))
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
             print()
 
     class GT_MAT_G(LinOpWithTransp):
@@ -1533,7 +2156,7 @@ class StepPressurecouplingH1vec(Propagator):
         self._A = mass_ops.Mvn
 
         # call Pusher class
-        self._pusher = Pusher(self._derham, self._domain, 'push_pc_Xu_full')
+        self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
     @property
     def variables(self):
@@ -1594,9 +2217,9 @@ class StepPressurecouplingH1vec(Propagator):
         du = self.in_place_update(_u)
 
         if self._info and self._rank == 0:
-            print('Status     for StepPressurecoupling1:', info['success'])
-            print('Iterations for StepPressurecoupling1:', info['niter'])
-            print('Maxdiff u1 for StepPressurecoupling1:', max(du))
+            print('Status     for StepPressurecoupling:', info['success'])
+            print('Iterations for StepPressurecoupling:', info['niter'])
+            print('Maxdiff u1 for StepPressurecoupling:', max(du))
             print()
 
     class GT_MAT_G(LinOpWithTransp):
@@ -1678,7 +2301,7 @@ class StepPressurecouplingH1vec(Propagator):
             return self._vector  
 
 
-class StepPushEtaPC(Propagator):
+class StepPushEtaFullPC(Propagator):
     r'''Step for the update of particles' positions with the RK4 method which solves
 
     .. math::
@@ -1737,6 +2360,68 @@ class StepPushEtaPC(Propagator):
 
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
+                     do_mpi_sort=True)
+
+
+class StepPushEtaPC(Propagator):
+    r'''Step for the update of particles' positions with the RK4 method which solves
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u : psydac.linalg.block.BlockVector
+            FE coefficients of a discrete 0-form, 1-form or 2-form.
+
+        particles : struphy.pic.particles.Particles6D
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
+
+        u_space : dic
+            params['fields']['mhd_u_space']
+    '''
+    def __init__(self, u, particles, derham, domain, u_space):
+
+        assert isinstance(u, BlockVector)
+
+        self._derham = derham
+        self._domain = domain
+        self._u = u
+        self._particles = particles
+        self._u_space = u_space
+
+        # call Pusher class
+        if self._u_space == 'Hcurl':
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', stage_num=4)
+
+        elif self._u_space == 'Hdiv':
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', stage_num=4)
+
+        else:
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec', stage_num=4)
+
+    @property
+    def variables(self):
+        return
+
+    def __call__(self, dt):
+
+        # push particles
+        # check if ghost regions are synchronized
+        if not self._u[0].ghost_regions_in_sync: self._u[0].update_ghost_regions()
+        if not self._u[1].ghost_regions_in_sync: self._u[1].update_ghost_regions()
+        if not self._u[2].ghost_regions_in_sync: self._u[2].update_ghost_regions()
+
+        self._pusher(self._particles, dt,
+                     self._u[0]._data, self._u[1]._data,
                      do_mpi_sort=True)
 
 

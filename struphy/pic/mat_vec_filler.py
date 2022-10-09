@@ -96,6 +96,7 @@ def _docstring():
                 'm_v_fill_v0vec_full',
                 'mat_fill_v3vec_full',
                 'm_v_fill_v3vec_full',
+                'm_v_fill_v1_pressure_full',
                 'm_v_fill_v1_pressure',
                 ]
     """
@@ -5809,7 +5810,102 @@ def m_v_fill_v3vec_full(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bd
 
 
 @pure
-def m_v_fill_v1_pressure(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts1 : 'int[:,:]', mat11_11 : 'float[:,:,:,:,:,:]', mat12_11 : 'float[:,:,:,:,:,:]', mat13_11 : 'float[:,:,:,:,:,:]', mat22_11 : 'float[:,:,:,:,:,:]', mat23_11 : 'float[:,:,:,:,:,:]', mat33_11 : 'float[:,:,:,:,:,:]', mat11_12 : 'float[:,:,:,:,:,:]', mat12_12 : 'float[:,:,:,:,:,:]', mat13_12 : 'float[:,:,:,:,:,:]', mat22_12 : 'float[:,:,:,:,:,:]', mat23_12 : 'float[:,:,:,:,:,:]', mat33_12 : 'float[:,:,:,:,:,:]', mat11_13 : 'float[:,:,:,:,:,:]', mat12_13 : 'float[:,:,:,:,:,:]', mat13_13 : 'float[:,:,:,:,:,:]', mat22_13 : 'float[:,:,:,:,:,:]', mat23_13 : 'float[:,:,:,:,:,:]', mat33_13 : 'float[:,:,:,:,:,:]', mat11_22 : 'float[:,:,:,:,:,:]', mat12_22 : 'float[:,:,:,:,:,:]', mat13_22 : 'float[:,:,:,:,:,:]', mat22_22 : 'float[:,:,:,:,:,:]', mat23_22 : 'float[:,:,:,:,:,:]', mat33_22 : 'float[:,:,:,:,:,:]', mat11_23 : 'float[:,:,:,:,:,:]', mat12_23 : 'float[:,:,:,:,:,:]', mat13_23 : 'float[:,:,:,:,:,:]', mat22_23 : 'float[:,:,:,:,:,:]', mat23_23 : 'float[:,:,:,:,:,:]', mat33_23 : 'float[:,:,:,:,:,:]', mat11_33 : 'float[:,:,:,:,:,:]', mat12_33 : 'float[:,:,:,:,:,:]', mat13_33 : 'float[:,:,:,:,:,:]', mat22_33 : 'float[:,:,:,:,:,:]', mat23_33 : 'float[:,:,:,:,:,:]', mat33_33 : 'float[:,:,:,:,:,:]', fill11 : float, fill12 : float, fill13 : float, fill22 : float, fill23 : float, fill33 : float, vec1_1 : 'float[:,:,:]', vec2_1 : 'float[:,:,:]',  vec3_1 : 'float[:,:,:]', vec1_2 : 'float[:,:,:]', vec2_2 : 'float[:,:,:]',  vec3_2 : 'float[:,:,:]', vec1_3 : 'float[:,:,:]', vec2_3 : 'float[:,:,:]',  vec3_3 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float, vx : float, vy : float, vz : float):
+def m_v_fill_v1_pressure_full(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts1 : 'int[:,:]', mat11_11 : 'float[:,:,:,:,:,:]', mat12_11 : 'float[:,:,:,:,:,:]', mat13_11 : 'float[:,:,:,:,:,:]', mat22_11 : 'float[:,:,:,:,:,:]', mat23_11 : 'float[:,:,:,:,:,:]', mat33_11 : 'float[:,:,:,:,:,:]', mat11_12 : 'float[:,:,:,:,:,:]', mat12_12 : 'float[:,:,:,:,:,:]', mat13_12 : 'float[:,:,:,:,:,:]', mat22_12 : 'float[:,:,:,:,:,:]', mat23_12 : 'float[:,:,:,:,:,:]', mat33_12 : 'float[:,:,:,:,:,:]', mat11_13 : 'float[:,:,:,:,:,:]', mat12_13 : 'float[:,:,:,:,:,:]', mat13_13 : 'float[:,:,:,:,:,:]', mat22_13 : 'float[:,:,:,:,:,:]', mat23_13 : 'float[:,:,:,:,:,:]', mat33_13 : 'float[:,:,:,:,:,:]', mat11_22 : 'float[:,:,:,:,:,:]', mat12_22 : 'float[:,:,:,:,:,:]', mat13_22 : 'float[:,:,:,:,:,:]', mat22_22 : 'float[:,:,:,:,:,:]', mat23_22 : 'float[:,:,:,:,:,:]', mat33_22 : 'float[:,:,:,:,:,:]', mat11_23 : 'float[:,:,:,:,:,:]', mat12_23 : 'float[:,:,:,:,:,:]', mat13_23 : 'float[:,:,:,:,:,:]', mat22_23 : 'float[:,:,:,:,:,:]', mat23_23 : 'float[:,:,:,:,:,:]', mat33_23 : 'float[:,:,:,:,:,:]', mat11_33 : 'float[:,:,:,:,:,:]', mat12_33 : 'float[:,:,:,:,:,:]', mat13_33 : 'float[:,:,:,:,:,:]', mat22_33 : 'float[:,:,:,:,:,:]', mat23_33 : 'float[:,:,:,:,:,:]', mat33_33 : 'float[:,:,:,:,:,:]', fill11 : float, fill12 : float, fill13 : float, fill22 : float, fill23 : float, fill33 : float, vec1_1 : 'float[:,:,:]', vec2_1 : 'float[:,:,:]',  vec3_1 : 'float[:,:,:]', vec1_2 : 'float[:,:,:]', vec2_2 : 'float[:,:,:]',  vec3_2 : 'float[:,:,:]', vec1_3 : 'float[:,:,:]', vec2_3 : 'float[:,:,:]',  vec3_3 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float, vx : float, vy : float, vz : float):
+    """
+    Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. 
+    The result is returned in mat11_xy, mat12_xy, mat13_xy, mat22_xy, mat23_xy, mat33_xy, vec1_x, vec2_x, vec3_x (x and y denotes components of velocity for the accumulation of the pressure tensor).
+
+    Parameters 
+    ----------
+        pn : array[int]
+            Spline degrees in each direction.
+
+        span1, span2, span3 : int
+            Spline knot span indices in each direction.
+
+        bn1, bn2, bn3 : array[float]
+            Evaluated B-splines at particle position in each direction.
+
+        bd1, bd2, bd3 : array[float]
+            Evaluated D-splines at particle position in each direction.
+
+        starts1 : array[int]
+            Start indices of the current process in space V1.
+
+        mat.._.. : array[float]
+            (mu, nu)-th element (mu, nu=1,2,3) of the block matrix corresponding to the pressure term with velocity components v_a and v_b (a,b=x,y,z). 
+
+        fill11, fill12, fill13, fill22, fill23, fill33 : float
+            Number that will be multiplied by the basis functions of V1 and written to mat.._..
+
+        vec._. : array[float]
+            mu-th element (mu=1,2,3) of the vector corresponding to the pressure term with velocity component v_a (a=x,y,z).
+
+        fill1, fill2, fill3 : float
+            Number that will be multplied by the basis functions of V1 and written to vec._.
+
+        vx, vy, vz : float
+            Component of the particle velocity.
+    """
+
+    # degrees of the basis functions : B-splines (pn) and D-splines (pd)
+    pn1 = pn[0]
+    pn2 = pn[1]
+    pn3 = pn[2]
+    
+    pd1 = pn1 - 1
+    pd2 = pn2 - 1
+    pd3 = pn3 - 1
+    
+    # fill matrix and vector entries
+    fk.fill_mat_vec_pressure_full(pd1, pn2, pn3, pd1, pn2, pn3,
+                                  bd1, bn2, bn3, bd1, bn2, bn3,
+                                  span1, span2, span3,
+                                  starts1[0], pn,
+                                  mat11_11, mat11_12, mat11_13, mat11_22, mat11_23, mat11_33, fill11, 
+                                  vec1_1, vec1_2, vec1_3, fill1, 
+                                  vx, vy, vz)
+    
+    fk.fill_mat_vec_pressure_full(pn1, pd2, pn3, pn1, pd2, pn3,
+                                  bn1, bd2, bn3, bn1, bd2, bn3,
+                                  span1, span2, span3,
+                                  starts1[1], pn,
+                                  mat22_11, mat22_12, mat22_13, mat22_22, mat22_23, mat22_33, fill22, 
+                                  vec2_1, vec2_2, vec2_3, fill2, 
+                                  vx, vy, vz)
+    
+    fk.fill_mat_vec_pressure_full(pn1, pn2, pd3, pn1, pn2, pd3,
+                                  bn1, bn2, bd3, bn1, bn2, bd3,
+                                  span1, span2, span3,
+                                  starts1[2], pn,
+                                  mat33_11, mat33_12, mat33_13, mat33_22, mat33_23, mat33_33, fill33, 
+                                  vec3_1, vec3_2, vec3_3, fill3, 
+                                  vx, vy, vz)
+    
+    fk.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pd2, pn3,
+                              bd1, bn2, bn3, bn1, bd2, bn3,
+                              span1, span2, span3,
+                              starts1[0], pn,
+                              mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, fill12, 
+                              vx, vy, vz)
+    
+    fk.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pn2, pd3,
+                              bd1, bn2, bn3, bn1, bn2, bd3,
+                              span1, span2, span3,
+                              starts1[0], pn,
+                              mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, fill13, 
+                              vx, vy, vz)
+    
+    fk.fill_mat_pressure_full(pn1, pd2, pn3, pn1, pn2, pd3,
+                              bn1, bd2, bn3, bn1, bn2, bd3,
+                              span1, span2, span3,
+                              starts1[1], pn,
+                              mat23_11, mat23_12, mat23_13, mat23_22, mat23_23, mat23_33, fill23, 
+                              vx, vy, vz)
+
+
+@pure
+def m_v_fill_v1_pressure(pn : 'int[:]', span1 : int, span2 : int, span3 : int, bn1 : 'float[:]', bn2 : 'float[:]', bn3 : 'float[:]', bd1 : 'float[:]', bd2 : 'float[:]', bd3 : 'float[:]', starts1 : 'int[:,:]', mat11_11 : 'float[:,:,:,:,:,:]', mat12_11 : 'float[:,:,:,:,:,:]', mat13_11 : 'float[:,:,:,:,:,:]', mat22_11 : 'float[:,:,:,:,:,:]', mat23_11 : 'float[:,:,:,:,:,:]', mat33_11 : 'float[:,:,:,:,:,:]', mat11_12 : 'float[:,:,:,:,:,:]', mat12_12 : 'float[:,:,:,:,:,:]', mat13_12 : 'float[:,:,:,:,:,:]', mat22_12 : 'float[:,:,:,:,:,:]', mat23_12 : 'float[:,:,:,:,:,:]', mat33_12 : 'float[:,:,:,:,:,:]', mat11_22 : 'float[:,:,:,:,:,:]', mat12_22 : 'float[:,:,:,:,:,:]', mat13_22 : 'float[:,:,:,:,:,:]', mat22_22 : 'float[:,:,:,:,:,:]', mat23_22 : 'float[:,:,:,:,:,:]', mat33_22 : 'float[:,:,:,:,:,:]', fill11 : float, fill12 : float, fill13 : float, fill22 : float, fill23 : float, fill33 : float, vec1_1 : 'float[:,:,:]', vec2_1 : 'float[:,:,:]',  vec3_1 : 'float[:,:,:]', vec1_2 : 'float[:,:,:]', vec2_2 : 'float[:,:,:]',  vec3_2 : 'float[:,:,:]', fill1 : float, fill2 : float, fill3 : float, vx : float, vy : float):
     """
     Adds the contribution of one particle to the symmetric elements (mu,nu)=(1,1), (mu,nu)=(1,2), (mu,nu)=(1,3), (mu,nu)=(2,2), (mu,nu)=(2,3) and (mu,nu)=(3,3) of an accumulation block matrix V1 -> V1. 
     The result is returned in mat11_xy, mat12_xy, mat13_xy, mat22_xy, mat23_xy, mat33_xy, vec1_x, vec2_x, vec3_x (x and y denotes components of velocity for the accumulation of the pressure tensor).
@@ -5861,44 +5957,44 @@ def m_v_fill_v1_pressure(pn : 'int[:]', span1 : int, span2 : int, span3 : int, b
                              bd1, bn2, bn3, bd1, bn2, bn3,
                              span1, span2, span3,
                              starts1[0], pn,
-                             mat11_11, mat11_12, mat11_13, mat11_22, mat11_23, mat11_33, fill11, 
-                             vec1_1, vec1_2, vec1_3, fill1, 
-                             vx, vy, vz)
+                             mat11_11, mat11_12, mat11_22, fill11, 
+                             vec1_1, vec1_2, fill1, 
+                             vx, vy)
     
     fk.fill_mat_vec_pressure(pn1, pd2, pn3, pn1, pd2, pn3,
                              bn1, bd2, bn3, bn1, bd2, bn3,
                              span1, span2, span3,
                              starts1[1], pn,
-                             mat22_11, mat22_12, mat22_13, mat22_22, mat22_23, mat22_33, fill22, 
-                             vec2_1, vec2_2, vec2_3, fill2, 
-                             vx, vy, vz)
+                             mat22_11, mat22_12, mat22_22, fill22, 
+                             vec2_1, vec2_2, fill2, 
+                             vx, vy)
     
     fk.fill_mat_vec_pressure(pn1, pn2, pd3, pn1, pn2, pd3,
                              bn1, bn2, bd3, bn1, bn2, bd3,
                              span1, span2, span3,
                              starts1[2], pn,
-                             mat33_11, mat33_12, mat33_13, mat33_22, mat33_23, mat33_33, fill33, 
-                             vec3_1, vec3_2, vec3_3, fill3, 
-                             vx, vy, vz)
+                             mat33_11, mat33_12, mat33_22, fill33, 
+                             vec3_1, vec3_2, fill3, 
+                             vx, vy)
     
     fk.fill_mat_pressure(pd1, pn2, pn3, pn1, pd2, pn3,
                          bd1, bn2, bn3, bn1, bd2, bn3,
                          span1, span2, span3,
                          starts1[0], pn,
-                         mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, fill12, 
-                         vx, vy, vz)
+                         mat12_11, mat12_12, mat12_22, fill12, 
+                         vx, vy)
     
     fk.fill_mat_pressure(pd1, pn2, pn3, pn1, pn2, pd3,
                          bd1, bn2, bn3, bn1, bn2, bd3,
                          span1, span2, span3,
                          starts1[0], pn,
-                         mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, fill13, 
-                         vx, vy, vz)
+                         mat13_11, mat13_12, mat13_22, fill13, 
+                         vx, vy)
     
     fk.fill_mat_pressure(pn1, pd2, pn3, pn1, pn2, pd3,
                          bn1, bd2, bn3, bn1, bn2, bd3,
                          span1, span2, span3,
                          starts1[1], pn,
-                         mat23_11, mat23_12, mat23_13, mat23_22, mat23_23, mat23_33, fill23, 
-                         vx, vy, vz)
+                         mat23_11, mat23_12, mat23_22, fill23, 
+                         vx, vy)
     

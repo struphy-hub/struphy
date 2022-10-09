@@ -56,7 +56,7 @@ fields :
                   n  : 1  # toroidal (z) mode number
                   U  : 0.1 # amplitude of Ux/Uy
                   A  : 0. # amplitude of Uz     
-      mhd_u_space : H1vec # H1vec, Hcurl or Hdiv
+      mhd_u_space : Hcurl # H1vec, Hcurl or Hdiv
       mhd_equilibrium : 
             type : HomogenSlab # (possible choices seen below)
             HomogenSlab :
@@ -69,7 +69,7 @@ fields :
 kinetic :
       energetic_ions :
             markers :
-                  ppc         : 100  # particles per 3d grid cell
+                  ppc         : 1000  # particles per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
                   control_var : False # control variate (use delta-f)?
                   bc_type     : [periodic, periodic, periodic] # remove, reflect or periodic

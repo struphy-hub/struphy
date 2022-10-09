@@ -543,7 +543,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 # @pytest.mark.parametrize('mapping', [
 #     ['Colella', {
 #         'Lx' : 2., 'Ly' : 3., 'alpha' : .1, 'Lz' : 4.}]])
-# def test_push_pc_Xu(Nel, p, spl_kind, mapping, show_plots=False):
+# def test_push_pc_GXu(Nel, p, spl_kind, mapping, show_plots=False):
     
 #     from mpi4py import MPI
     
@@ -593,7 +593,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     # make copy of markers (legacy struphy uses transposed markers!)
 #     markers_str = particles.markers.copy().T
     
-#     # test_push_pc_Xu_Full ----------------------------------------------------------------
+#     # test_push_pc_GXu_Full ----------------------------------------------------------------
 #     # create random FEM coefficients for magnetic field
 #     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
 #     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
@@ -605,7 +605,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
 #     # create legacy struphy pusher and psydac based pusher 
 #     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=1, bc_pos=0)
-#     pusher_psy = Pusher_psy(derham, domain, 'push_pc_Xu_full')
+#     pusher_psy = Pusher_psy(derham, domain, 'push_pc_GXu_full')
     
 #     # compare if markers are the same BEFORE push
 #     assert np.allclose(particles.markers, markers_str.T)
@@ -678,7 +678,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 #     # make copy of markers (legacy struphy uses transposed markers!)
 #     markers_str = particles.markers.copy().T
     
-#     # test_push_pc_Xu_Full ----------------------------------------------------------------
+#     # test_push_pc_GXu_Full ----------------------------------------------------------------
 #     # create random FEM coefficients for magnetic field
 #     b0_eq_str, b0_eq_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
 #     b2_eq_str, b2_eq_psy = create_equal_random_arrays(derham.V2, seed=2345, flattened=True)
@@ -742,7 +742,7 @@ if __name__ == '__main__':
        'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     test_push_eta_rk4([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
        'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
-    # test_push_pc_Xu([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
+    # test_push_pc_GXu([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)
     # test_push_eta_pc([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #      'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)

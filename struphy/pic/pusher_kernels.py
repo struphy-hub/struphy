@@ -728,16 +728,16 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float', step: 'int',
 
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                    kind_map: 'int', params_map: 'float[:]',
-                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
-                    GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
-                    GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
+def push_pc_GXu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                     kind_map: 'int', params_map: 'float[:]',
+                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+                     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+                     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
     r'''Updates
 
     .. math::
@@ -819,6 +819,99 @@ def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
 
         # update velocities
         markers[ip, 3:6] -= dt*e_cart[:]/2.
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_GXu(markers: 'float[:,:]', dt: 'float', step: 'int',
+                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                kind_map: 'int', params_map: 'float[:]',
+                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+                GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+                GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
+    r'''Updates
+
+    .. math::
+
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v)  \right)^n_p
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf u` 
+    are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
+    is either the MHD operator :meth:`struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators.assemble_X1` (if u is 1-form)
+    or :meth:`struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators.assemble_X2` (if u is 2-form).
+
+    Parameters
+    ----------
+        grad_Xu_ij: array[float]
+            3d array of FE coeffs of :math:`\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+
+    # allocate for field evaluations
+    e = empty(3, dtype=float)
+    e_cart = empty(3, dtype=float)
+
+    # particle velocity
+    v = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        v[:] = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta1, eta2, eta3,
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta1)
+        span2 = bsp.find_span(tn2, pn[1], eta2)
+        span3 = bsp.find_span(tn3, pn[2], eta3)
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+
+        # Evaluate grad(X(u, v)) at the particle positions
+        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1], starts1[0])
+        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1], starts1[1])
+        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1], starts1[2])
+
+        # electric field in Cartesian coordinates
+        linalg.matrix_vector(dfinv_t, e, e_cart)
+
+        # update velocities
+        markers[ip, 3:6] -= dt*e_cart/2.
 
 
 @stack_array('df', 'dfinv', 'eta', 'v', 'k1', 'k2', 'k3', 'k4')
@@ -950,13 +1043,13 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
-                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                         kind_map: 'int', params_map: 'float[:]',
-                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               kind_map: 'int', params_map: 'float[:]',
+                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
@@ -1203,16 +1296,15 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         # update markers for the next step
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
-                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                         kind_map: 'int', params_map: 'float[:]',
-                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               kind_map: 'int', params_map: 'float[:]',
+                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
@@ -1328,6 +1420,384 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         # update markers for the next step
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+
+        # pull-back of velocity
+        linalg.matrix_vector(dfinv, v, k_v)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # U-field
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
+        u[2] = 0.
+
+        # transform to vector field
+        linalg.matrix_vector(ginv, u, k_u)
+
+        # sum contribs
+        k[:] = k_v + k_u
+
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
+                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              kind_map: 'int', params_map: 'float[:]',
+                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else:
+        nk = 2.
+
+    # is it the last step?
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    else:
+        last = 0.
+        cont  = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+
+        # pull-back of velocity
+        linalg.matrix_vector(dfinv, v, k_v)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # U-field
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
+        u[2] = 0.
+
+        # transform to vector field
+        k_u[:] = u/det_df
+
+        # sum contribs
+        k[:] = k_v + k_u
+
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+
+        # pull-back of velocity
+        linalg.matrix_vector(dfinv, v, k_v)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # U-field
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
+        u[2] = 0.
+
+        # sum contribs
+        k[:] = k_v + u
+
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',

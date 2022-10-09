@@ -428,7 +428,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, n_markers=10, verbose=
 
     args = []
 
-    ACC = Accumulator(domain, DR, 'Hcurl', 'pc_lin_mhd_6d',
+    ACC = Accumulator(domain, DR, 'Hcurl', 'pc_lin_mhd_6d_full',
                       *args, do_vector=True, symmetry='pressure')
 
     start_time = time()
