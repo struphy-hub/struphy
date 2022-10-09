@@ -238,8 +238,6 @@ class Accumulator:
                 dict_blocks_23 = {(0, 0): A11_23, (0, 1): A12_23, (0, 2): A13_23,(1, 1): A22_23, (1, 2): A23_23, (2, 2): A33_23}
                 dict_blocks_33 = {(0, 0): A11_33, (0, 1): A12_33, (0, 2): A13_33,(1, 1): A22_33, (1, 2): A23_33, (2, 2): A33_33}
 
-                # self._matrix = BlockMatrix(self._space.vector_space,
-                #                            self._space.vector_space, blocks=dict_blocks_11)
                 self._matrix11 = BlockMatrix(self._space.vector_space,
                                            self._space.vector_space, blocks=dict_blocks_11)
                 self._matrix12 = BlockMatrix(self._space.vector_space,
@@ -294,46 +292,47 @@ class Accumulator:
                 raise ValueError(
                     f'Symmetry attribute {symmetry} is not defined.')
 
-            if do_vector and symmetry != 'pressure':
-                v1 = StencilVector(self.space.vector_space.spaces[0])
-                v2 = StencilVector(self.space.vector_space.spaces[1])
-                v3 = StencilVector(self.space.vector_space.spaces[2])
-                list_blocks = [v1, v2, v3]
+            if do_vector:
+                if symmetry == 'pressure':
+                    v1_1 = StencilVector(self.space.vector_space.spaces[0])
+                    v2_1 = StencilVector(self.space.vector_space.spaces[1])
+                    v3_1 = StencilVector(self.space.vector_space.spaces[2])
+                    v1_2 = StencilVector(self.space.vector_space.spaces[0])
+                    v2_2 = StencilVector(self.space.vector_space.spaces[1])
+                    v3_2 = StencilVector(self.space.vector_space.spaces[2])
+                    v1_3 = StencilVector(self.space.vector_space.spaces[0])
+                    v2_3 = StencilVector(self.space.vector_space.spaces[1])
+                    v3_3 = StencilVector(self.space.vector_space.spaces[2])
+                    list_blocks1 = [v1_1, v2_1, v3_1]
+                    list_blocks2 = [v1_2, v2_2, v3_2]
+                    list_blocks3 = [v1_3, v2_3, v3_3]
 
-                self._vector = BlockVector(
-                    self._space.vector_space, blocks=list_blocks)
+                    self._vector1 = BlockVector(self._space.vector_space, blocks=list_blocks1)
+                    self._vector2 = BlockVector(self._space.vector_space, blocks=list_blocks2)
+                    self._vector3 = BlockVector(self._space.vector_space, blocks=list_blocks3)
 
-                self._args_data += [self._vector[0]._data,
-                                    self._vector[1]._data,
-                                    self._vector[2]._data]
+                    self._args_data += [self._vector1[0]._data,
+                                        self._vector1[1]._data,
+                                        self._vector1[2]._data,
+                                        self._vector2[0]._data,
+                                        self._vector2[1]._data,
+                                        self._vector2[2]._data,
+                                        self._vector3[0]._data,
+                                        self._vector3[1]._data,
+                                        self._vector3[2]._data]
 
-            if do_vector and symmetry == 'pressure':
-                v1_1 = StencilVector(self.space.vector_space.spaces[0])
-                v2_1 = StencilVector(self.space.vector_space.spaces[1])
-                v3_1 = StencilVector(self.space.vector_space.spaces[2])
-                v1_2 = StencilVector(self.space.vector_space.spaces[0])
-                v2_2 = StencilVector(self.space.vector_space.spaces[1])
-                v3_2 = StencilVector(self.space.vector_space.spaces[2])
-                v1_3 = StencilVector(self.space.vector_space.spaces[0])
-                v2_3 = StencilVector(self.space.vector_space.spaces[1])
-                v3_3 = StencilVector(self.space.vector_space.spaces[2])
-                list_blocks1 = [v1_1, v2_1, v3_1]
-                list_blocks2 = [v1_2, v2_2, v3_2]
-                list_blocks3 = [v1_3, v2_3, v3_3]
+                else: 
+                    v1 = StencilVector(self.space.vector_space.spaces[0])
+                    v2 = StencilVector(self.space.vector_space.spaces[1])
+                    v3 = StencilVector(self.space.vector_space.spaces[2])
+                    list_blocks = [v1, v2, v3]
 
-                #self._vector = BlockVector(self._space.vector_space, blocks=list_blocks1)
-                self._vector1 = BlockVector(self._space.vector_space, blocks=list_blocks1)
-                self._vector2 = BlockVector(self._space.vector_space, blocks=list_blocks2)
-                self._vector3 = BlockVector(self._space.vector_space, blocks=list_blocks3)
-                self._args_data += [self._vector1[0]._data,
-                                    self._vector1[1]._data,
-                                    self._vector1[2]._data,
-                                    self._vector2[0]._data,
-                                    self._vector2[1]._data,
-                                    self._vector2[2]._data,
-                                    self._vector3[0]._data,
-                                    self._vector3[1]._data,
-                                    self._vector3[2]._data]
+                    self._vector = BlockVector(
+                        self._space.vector_space, blocks=list_blocks)
+
+                    self._args_data += [self._vector[0]._data,
+                                        self._vector[1]._data,
+                                        self._vector[2]._data]
 
         # fixed arguments for the accumulator function
         self._args_fixed = [np.array(derham.p),
