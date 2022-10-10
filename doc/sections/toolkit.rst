@@ -29,18 +29,7 @@ Implemented propagators that inherit the base class are listed in :ref:`propagat
     :members:
     :undoc-members:
     :special-members:
-
-
-.. _propagators:
-
-Propagators
------------
-
-.. automodule:: struphy.propagators.propagators
-    :members:
-    :undoc-members:
-    :exclude-members: push, variables
-
+    
 
 .. _derham:
 
@@ -55,8 +44,8 @@ Theoretical background can be found in the :ref:`appendix`.
 
 .. _struphy_field:
 
-Finite element fields
----------------------
+Struphy field base class
+------------------------
 
 .. autoclass:: struphy.psydac_api.fields.Field
     :members: 
@@ -87,15 +76,22 @@ Velocity moments
 .. automethod:: struphy.kinetic_background.moments_kernels.moments
 
 
-.. _accumulators:
+.. _domain_base:
 
-Particle accumulation functions 
--------------------------------
+Domain base class
+-----------------
 
-See :ref:`add_accum` for how to use these acumulation functions.
+.. autoclass:: struphy.geometry.base.Domain
+    :members:
 
-.. automodule:: struphy.pic.accum_kernels
-    :members: 
+
+.. _dispersion_base:
+
+Dispersion relation base class
+------------------------------
+
+.. autoclass:: struphy.dispersion_relations.base.DispersionRelations1D
+    :members:
 
 
 .. _pushers:
@@ -108,6 +104,34 @@ Python module of accelerated particle pushers.
 .. automodule:: struphy.pic.pusher_kernels
     :members: 
     :undoc-members:
+
+
+.. _accumulator_class:
+
+Accumulator class 
+-----------------
+
+.. autoclass:: struphy.pic.particles_to_grid.Accumulator
+
+
+.. _accumulators:
+
+Particle accumulation functions 
+-------------------------------
+
+See :ref:`add_accum` for how to use these acumulation functions.
+
+.. automodule:: struphy.pic.accum_kernels
+    :members: 
+
+
+.. _weightes_mass_class:
+
+Weighted mass matrix class
+--------------------------
+
+.. automodule:: struphy.psydac_api.mass_psydac
+    :members:
 
 
 .. _linear_operators:
@@ -139,8 +163,8 @@ Preconditioner
 
 .. _mhd_ops:
 
-MHD operators
--------------
+Basis projection operators
+--------------------------
 
 .. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
     :members: 

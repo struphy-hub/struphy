@@ -3,12 +3,12 @@ Installation
 
 Struphy can be installed in the following ways:
 
-    1. Using :ref:`docker_install` images, also suited :ref:`for developers <docker_devs>`
-    2. From :ref:`pypi_install` using ``pip install struphy``
-    3. From :ref:`source_install` 
+    1. Using Docker images, also suited :ref:`for developers <docker_devs>`
+    2. From PyPI using ``pip install struphy``
+    3. From source 
 
-Option 1. is recommended as it works on all `docker-viable architectures <https://www.docker.com/>`_.
-Options 2. and 3. are tested on ``x86_64`` with ``Ubuntu 20.04`` 
+Option 1 is recommended as it works on all `docker-viable architectures <https://www.docker.com/>`_.
+Options 2 and 3 are tested on ``x86_64`` with ``Ubuntu 20.04`` 
 and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
 
 
@@ -30,7 +30,7 @@ User install
 
 To use struphy via docker, perform the following steps:
 
-1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_.
+1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_ and start it.
 
 On Mac, it is recommended to read the `Mac OS permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
 (REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
@@ -76,7 +76,7 @@ Docker for devs
 ^^^^^^^^^^^^^^^
 
 Docker is well-suited for developers on any kind of platform. 
-After installing docker desktop (1.) and logging in to the registry (2.),
+After installing and launching docker desktop (1. from above) and logging in to the registry (2. from above),
 the relevant docker image to run is ``gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20``.
 It initializes the recommended dev environment for struphy (``Ubuntu 20.04``) 
 with all dependencies installed and compiled. 
@@ -116,8 +116,9 @@ PyPI
 WARNING: this install is tested only on ``x86_64`` with ``Ubuntu 20.04`` 
 and on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
 
-Struphy is not yet released on the `Python Packaging Index <https://pypi.org/>`_, instead we describe here the similar
-installation from the latest ``.whl`` file.
+Struphy is not yet released on the `Python Packaging Index <https://pypi.org/>`_, coming soon! 
+
+Preliminary Notes:
 
 Required Linux packages (``.deb``)::
 
@@ -135,15 +136,9 @@ Two dependencies have to be installed "by hand":
 
 2. Install ``psydac`` by following :ref:`install_psydac`. 
 
-3. Download the latest ``struphy`` wheel file::
+3. Install ``struphy``::
 
-    curl -O --header "PRIVATE-TOKEN: glpat-6HCAcowp8yKfBzDYWqA_" "https://gitlab.mpcdf.mpg.de/api/v4/projects/2599/jobs/1778199/artifacts/dist/struphy-latest.whl"
-    
-4. Install ``struphy``::
-
-    pip install struphy-1.9.1-py3-none-any.whl
-
-where ``<option>`` is either empty (for Python environment installation), ``--user`` (for installation in ``.local/lib``) or ``-e`` (or installation in development mode).
+    pip install struphy
 
 5. Compile kernels::
 

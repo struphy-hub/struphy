@@ -577,7 +577,7 @@ class Domain(metaclass=ABCMeta):
         Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
-        ----------13:00 -14:30
+        ----------
             a : list of callables or array-like
                 The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
                 
