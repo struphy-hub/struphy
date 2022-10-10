@@ -42,12 +42,14 @@ class MHDOperators:
 
     Notes
     -----
-    The `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
+    The `X0`, `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
     In order not to modify the `MHDOperator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
     """
 
     def __init__(self, derham, domain, eq_mhd, assemble_all=False):
         
+        assert np.all(np.array(derham.p) > 1), 'Spline degrees must be >1 to use MHD operators (-> avoid interpolation of piece-wise constants).'
+
         self._derham = derham
         self._domain = domain
 
@@ -120,6 +122,7 @@ class MHDOperators:
         fun_T0 = []
         fun_S0 = []
         fun_J0 = []
+        fun_X0 = []
         
         fun_Q1 = []
         fun_W1 = []
@@ -143,6 +146,7 @@ class MHDOperators:
             fun_T0 += [[]]
             fun_S0 += [[]]
             fun_J0 += [[]]
+            fun_X0 += [[]]
             
             fun_Q1 += [[]]
             fun_W1 += [[]]
@@ -167,6 +171,8 @@ class MHDOperators:
                 fun_T0[-1] += [lambda e1, e2, e3, m=m, n=n: cross_mask[m][n] * b2_cross[m][n](e1, e2, e3)]
                 fun_S0[-1] += [lambda e1, e2, e3, m=m, n=n: eq_mhd.p3(e1, e2, e3) if m == n else 0*e1]
                 fun_J0[-1] += [lambda e1, e2, e3, m=m, n=n: sqrt_g(e1, e2, e3) if m == n else 0*e1]
+                fun_X0[-1] += [lambda e1, e2, e3, m=m, 
+                               n=n: DF(e1, e2, e3)[:, :, :, m, n]]
                 
                 fun_Q1[-1]  += [lambda e1, e2, e3, m=m,
                                 n=n: eq_mhd.n3(e1, e2, e3) * Ginv(e1, e2, e3)[:, :, :, m, n]]
@@ -214,6 +220,7 @@ class MHDOperators:
         self._fun_T0  = fun_T0
         self._fun_S0  = fun_S0
         self._fun_J0  = fun_J0
+        self._fun_X0  = fun_X0
         
         self._fun_Q1  = fun_Q1
         self._fun_W1  = fun_W1
@@ -241,6 +248,7 @@ class MHDOperators:
             self.assemble_T0()
             self.assemble_S0()
             self.assemble_J0()
+            self.assemble_X0()
             
             # MHD operators with velocity (up) as 1-form:
             self.assemble_K1()
@@ -345,6 +353,20 @@ class MHDOperators:
         if self.derham.comm.Get_rank() == 0: print('Assembling J0 and J0T ...')
         self.J0 = ApplyHomogeneousDirichletToOperator('H1vec', 'Hdiv', self.derham.bc, MHDOperator(self._P2, self._V0vec, self._fun_J0))
         self.J0T = self.J0.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
+
+    def assemble_X0(self):
+        r'''Assemble :math:`\mathcal{X}^0` MHD projection operator with the velocity as 0-form :math:`\hat{\mathbf{U}}` and the pressure as 3-form  :math:`\hat{p}^3`.
+
+        .. math::
+
+            \mathcal{X}^0 = \hat{\Pi}_0 \left[ DF\mathbf{\vec{\Lambda}}^0 \right] \in \mathbb{R}^{N^0 \times 3 \times N^0}, 
+            \qquad \mathcal{X}^0_{\nu,(ijk),(mno)} := \hat{\Pi}_{0,(ijk)} \left[ DF\mathbf{\vec{\Lambda}}^0_{\nu,(mno)} \right] \,.
+
+        '''
+        if self.derham.comm.Get_rank() == 0: print('Assembling X0 and X0T ...')
+        self.X0 = ApplyHomogeneousDirichletToOperator('H1vec', 'H1vec', self.derham.bc, MHDOperator(self._P0vec, self._V0vec, self._fun_X0))
+        self.X0T = self.X0.transpose()
         if self.derham.comm.Get_rank() == 0: print('Done.')
     
     # MHD operators with velocity (up) as 1-form:
@@ -501,6 +523,7 @@ class MHDOperators:
         if self.derham.comm.Get_rank() == 0: print('Assembling K2 and K2T ...')
         self.K2 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, MHDOperator(self._P3, self._V3, self._fun_K2))
         self.K2T = self.K2.transpose()
+        if self.derham.comm.Get_rank() == 0: print('Done.')
     
     def assemble_Q2(self):
         r'''Assemble :math:`\mathcal{Q}^2` MHD projection operator with the velocity as 2-form :math:`\hat{\mathbf{U}}^2` and the pressure as 3-form  :math:`\hat{p}^3`.

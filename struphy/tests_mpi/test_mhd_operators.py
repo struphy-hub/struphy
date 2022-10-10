@@ -4,7 +4,7 @@ import numpy as np
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[6, 7, 4], [5, 6, 7]])
-@pytest.mark.parametrize('p',   [[2, 3, 2], [4, 2, 3]])
+@pytest.mark.parametrize('p',   [[2, 3, 2], [2, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
     #['Cuboid', {
@@ -337,7 +337,7 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     r_str2 = mhd_str2.P2_dot(x2_str)
     
     print(f'Rank {mpi_rank} | Asserting MHD operator P2.')
-    compare_arrays(r_psy, r_str2, mpi_rank, atol=1e-14)
+    compare_arrays(r_psy, r_str2, mpi_rank, atol=1e-14, verbose=True)
     print(f'Rank {mpi_rank} | Assertion passed.')
     
     mpi_comm.Barrier()

@@ -6,8 +6,8 @@ from struphy.feec import spline_space
 import numpy as np
 
 
-@pytest.mark.parametrize('Nel', [[8, 5, 6], [4, 4, 128]])
-@pytest.mark.parametrize('p', [[2, 3, 2], [1, 1, 4]])
+@pytest.mark.parametrize('Nel', [[8, 5, 6], [4, 3, 128]])
+@pytest.mark.parametrize('p', [[3, 2, 1], [1, 1, 4]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
 @pytest.mark.parametrize('N', [100])
 def test_bsplines_kernels(Nel, p, spl_kind, N):

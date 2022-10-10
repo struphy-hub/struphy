@@ -117,3 +117,107 @@ class Pusher:
         else:
 
             push_vel_3d.pusher_step5(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], self.b2_eq[0] + b2[0], self.b2_eq[1] + b2[1], self.b2_eq[2] + b2[2], self.domain.kind_map, self.domain.params_map, self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, self.domain.Nel, self.domain.NbaseN, self.domain.cx, self.domain.cy, self.domain.cz)
+
+
+    
+    # ======================================================
+    def push_eta_pc_full(self, particles, dt, up):
+        """
+        TODO
+        """
+
+        # extract flattened flow field FE coefficients
+        if self.basis_u == 1:
+            up = self.fem_space.extract_1(up)
+        elif self.basis_u == 2:
+            up = self.fem_space.extract_2(up)
+        else:
+            up = self.fem_space.extract_v(up)
+
+        # push particles
+        push_pos.pusher_rk4_pc_full(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
+                                    self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
+                                    up[0], up[1], up[2], 
+                                    self.basis_u, self.domain.kind_map, self.domain.params_map, 
+                                    self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
+                                    self.domain.Nel, self.domain.NbaseN, 
+                                    self.domain.cx, self.domain.cy, self.domain.cz, 
+                                    self.bc_pos)
+
+
+
+
+    # ======================================================
+    def push_eta_pc_perp(self, particles, dt, up):
+        """
+        TODO
+        """
+
+        # extract flattened magnetic FE coefficients
+        if self.basis_u == 1:
+            up = self.fem_space.extract_1(up)
+        elif self.basus_u == 2:
+            up = self.fem_space.extract_2(up)
+        else:
+            up[0] = self.fem_space.extract_0(up[0])
+            up[1] = self.fem_space.extract_0(up[1])
+            up[2] = self.fem_space.extract_0(up[2])
+
+        # push particles
+        push_pos.pusher_rk4_pc_perp(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
+                                    self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
+                                    up[0], up[1], up[2], 
+                                    self.basis_u, self.domain.kind_map, self.domain.params_map, 
+                                    self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
+                                    self.domain.Nel, self.domain.NbaseN, 
+                                    self.domain.cx, self.domain.cy, self.domain.cz, self.bc_pos)
+
+
+
+
+    # ======================================================
+    def push_vel_pc_full(self, particles, dt, GXu_1, GXu_2, GXu_3):
+        """
+        TODO
+        """
+
+        # extract flattened magnetic FE coefficients
+        GXu_1_1, GXu_1_2, GXu_1_3 = self.fem_space.extract_1(GXu_1)
+        GXu_2_1, GXu_2_2, GXu_2_3 = self.fem_space.extract_1(GXu_2)
+        GXu_3_1, GXu_3_2, GXu_3_3 = self.fem_space.extract_1(GXu_3)
+
+        # push particles
+        push_vel_3d.pusher_v_pressure_full(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
+                                           self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
+                                           GXu_1_1, GXu_1_2, GXu_1_3, 
+                                           GXu_2_1, GXu_2_2, GXu_2_3, 
+                                           GXu_3_1, GXu_3_2, GXu_3_3, 
+                                           self.domain.kind_map, self.domain.params_map, 
+                                           self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
+                                           self.domain.Nel, self.domain.NbaseN, 
+                                           self.domain.cx, self.domain.cy, self.domain.cz)
+
+
+
+
+    # ======================================================
+    def push_vel_pc_perp(self, particles, dt, GXu_1, GXu_2, GXu_3):
+        """
+        TODO
+        """
+
+        # extract flattened magnetic FE coefficients
+        GXu_1_1, GXu_1_2, GXu_1_3 = self.fem_space.extract_1(GXu_1)
+        GXu_2_1, GXu_2_2, GXu_2_3 = self.fem_space.extract_1(GXu_2)
+        GXu_3_1, GXu_3_2, GXu_3_3 = self.fem_space.extract_1(GXu_3)
+
+        # push particles
+        push_vel_3d.pusher_v_pressure_perp(particles, dt, self.fem_space.T[0], self.fem_space.T[1], self.fem_space.T[2], 
+                                           self.fem_space.p, self.fem_space.Nel, self.fem_space.NbaseN, self.fem_space.NbaseD, particles.shape[1], 
+                                           GXu_1_1, GXu_1_2, GXu_1_3, 
+                                           GXu_2_1, GXu_2_2, GXu_2_3, 
+                                           GXu_3_1, GXu_3_2, GXu_3_3, 
+                                           self.domain.kind_map, self.domain.params_map, 
+                                           self.domain.T[0], self.domain.T[1], self.domain.T[2], self.domain.p, 
+                                           self.domain.Nel, self.domain.NbaseN, 
+                                           self.domain.cx, self.domain.cy, self.domain.cz)

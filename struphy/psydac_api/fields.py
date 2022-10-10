@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from xml import dom
 from psydac.linalg.stencil import StencilVector
 from psydac.fem.tensor import FemField
 
@@ -7,8 +8,11 @@ from struphy.initial import perturbations
 from struphy.initial import analytic
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
+from struphy.geometry.base import Domain
+from struphy.feec.basics import spline_evaluation_3d as eval_3d
 
 import numpy as np
+from mpi4py import MPI
 
 
 class Field:
@@ -26,7 +30,7 @@ class Field:
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
     """
-    
+
     def __init__(self, name, space_id, derham):
 
         self._name = name
@@ -35,53 +39,69 @@ class Field:
 
         # Initialize field in memory
         self._space = getattr(derham, derham.spaces_dict[space_id])
-        
+
         self._field = FemField(self._space)
         self._vector = self._field.coeffs
 
         # Global indices of each process, and paddings
         if isinstance(self._vector, StencilVector):
-            self._gl_s = [self._vector.starts]
-            self._gl_e = [self._vector.ends]
-            self._pads = [self._vector.pads]
+            self._gl_s = self._vector.starts
+            self._gl_e = self._vector.ends
+            self._pads = self._vector.pads
         else:
             self._gl_s = [comp.starts for comp in self._vector]
             self._gl_e = [comp.ends for comp in self._vector]
             self._pads = [comp.pads for comp in self._vector]
 
+        # 1d spline types in each direction
+        if isinstance(self._vector, StencilVector):
+            self._spline_types = [space.basis for space in self._space.spaces]
+            self._spline_types_pyccel = np.array([int(space.basis == 'M') for space in self._space.spaces])
+        else:
+            self._spline_types = [[space.basis for space in tensor_femspace.spaces]
+                                  for tensor_femspace in self._space._spaces]
+            self._spline_types_pyccel = [
+                np.array([int(space.basis == 'M') for space in tensor_femspace.spaces]) for tensor_femspace in self._space._spaces]
+
+        # dimensions in each direction
+        if isinstance(self._vector, StencilVector):
+            self._nbasis = tuple([space.nbasis for space in self._space.spaces])
+        else:
+            self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self._space.spaces]
+
     @property
     def name(self):
-        """ Name of the field in DATA container.
+        """ Name of the field in data container (string).
         """
         return self._name
 
     @property
     def space(self):
-        """ Discrete space of the field (Psydac object).
-        """ 
+        """ Discrete space of the field, either psydac.fem.tensor.TensorFemSpace or psydac.fem.vector.ProductFemSpace.
+        """
         return self._space
 
     @property
     def space_id(self):
-        """ Continuous space fo the field (string).
+        """ String identifying the continuous space of the field: 'H1', 'Hcurl', 'Hdiv', 'L2' or 'H1vec'.
         """
         return self._space_id
 
     @property
     def derham(self):
-        """ 3d Derham complex.
+        """ 3d Derham complex struphy.psydac_api.psydac_derham.Derham.
         """
         return self._derham
 
     @property
     def field(self):
-        """ Psydac Femfield.
+        """ psydac.fem.tensor.FemField.
         """
         return self._field
 
     @property
     def vector(self):
-        """ Local finite element coefficients (Stencil- or Blockvector).
+        """ psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector.
         """
         return self._vector
 
@@ -91,85 +111,105 @@ class Field:
 
     @property
     def starts(self):
-        """ Global start indices.
+        """ Global indices of the first FE coefficient on the process, in each direction.
         """
         return self._gl_s
 
     @property
     def ends(self):
-        """ Global end indices (add +1 when indexing).
+        """ Global indices of the last FE coefficient on the process, in each direction.
         """
         return self._gl_e
 
     @property
     def pads(self):
-        """ Paddings for ghost regions.
+        """ Paddings for ghost regions, in each direction.
         """
         return self._pads
 
-    def set_initial_conditions(self, domain, comps, init_params, rank):
+    @property
+    def spline_types(self):
+        """ List holding holding 1d spline types in each direction, entries either 'B' or 'M'.
+        """
+        return self._spline_types
+
+    @property
+    def spline_types_pyccel(self):
+        """ List holding holding 1d spline types in each direction, entries either 0 (='B') or 1 (='M').
+        """
+        return self._spline_types_pyccel
+
+    @property
+    def nbasis(self):
+        """ Tuple(s) of 1d dimensions for each direction.
+        """
+        return self._nbasis
+
+    def initialize_coeffs(self, comps, init_params, domain=None):
         """
         Sets the initial conditions for self.vector.
 
         Parameters
         ----------
-            domain: struphy.geometry.domains
-                All things mapping.
-
             comps: list
                 Booleans that specify whether field component has non-zero initial conditions (True).
 
             init_params: dict
                 Parameters of initial condition, see from :ref:`params_yml`.
 
-            rank : int
-                mpi rank.
+            domain: struphy.geometry.domains
+                Optional: all things mapping. Needed when init_params['coords'] == 'physical'.
         """
 
+        rank = self._derham.comm.Get_rank()
+        
         if rank == 0: print(f'Setting initial conditions for {self.name} in {self.space_id} ...')
 
         # Set initial conditions for each component
         assert isinstance(comps, list)
 
-        self._init_type = init_params['type']
-        self._init_params = init_params[self.init_type]
         init_coords = init_params['coords']
+        if init_coords == 'physical':
+            assert domain is not None
 
-        if self.init_type == 'noise':
+        fun_params = init_params[init_params['type']]
+
+        if init_params['type'] == 'noise':
 
             # Set white noise FE coefficients
             if self.space_id in {'H1', 'L2'}:
                 if comps[0]:
-                    self._add_noise()
+                    self._add_noise(fun_params)
 
             elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
                 for n, comp in enumerate(comps):
                     if comp:
-                        self._add_noise(n=n)
-        
-        elif 'ModesSin' in self.init_type or 'ModesCos' in self.init_type:
+                        self._add_noise(fun_params, n=n)
+
+        elif 'ModesSin' in init_params['type'] or 'ModesCos' in init_params['type']:
 
             # Get callable(s) for specified init type
             _fun_tmp = [None] * len(comps)
             for n, comp in enumerate(comps):
+                assert isinstance(comp, bool)
                 if comp:
-                    fun_class = getattr(perturbations, self.init_type)
-                    _fun_tmp[n] = fun_class(*list(self._init_params.values()))
+                    fun_class = getattr(perturbations, init_params['type'])
+                    _fun_tmp[n] = fun_class(*list(fun_params.values()))
 
             # Pullback callable and project
             self._fun = []
             if self.space_id == 'H1':
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '0_form')]
+                                          _fun_tmp, domain, '0_form')]
                 self._vector[:] = self.derham.P0(self._fun[0]).coeffs[:]
 
             elif self.space_id == 'Hcurl':
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '1_form_1')]
+                                          _fun_tmp, domain, '1_form_1')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '1_form_2')]
+                                          _fun_tmp, domain, '1_form_2')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '1_form_3')]
+                                          _fun_tmp, domain, '1_form_3')]
                 _coeffs = self.derham.P1(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
@@ -177,11 +217,11 @@ class Field:
 
             elif self.space_id == 'Hdiv':
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '2_form_1')]
+                                          _fun_tmp, domain, '2_form_1')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '2_form_2')]
+                                          _fun_tmp, domain, '2_form_2')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '2_form_3')]
+                                          _fun_tmp, domain, '2_form_3')]
                 _coeffs = self.derham.P2(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
@@ -189,148 +229,260 @@ class Field:
 
             elif self.space_id == 'L2':
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, '3_form')]
+                                          _fun_tmp, domain, '3_form')]
                 self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
-                
+
             elif self.space_id == 'H1vec':
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, 'vector_1')]
+                                          _fun_tmp, domain, 'vector_1')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, 'vector_2')]
+                                          _fun_tmp, domain, 'vector_2')]
                 self._fun += [PulledPform(init_coords,
-                                           _fun_tmp, domain, 'vector_3')]
+                                          _fun_tmp, domain, 'vector_3')]
                 _coeffs = self.derham.P0vec(self._fun).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
-                
+
         else:
-            
-            fun_class = getattr(analytic, self.init_type)
+
+            fun_class = getattr(analytic, init_params['type'])
             funs = fun_class(self.init_params, domain)
-            
+
             if self.space_id == 'H1':
-                self._vector[:] = self.derham.P0(getattr(funs, self.name)).coeffs[:]
-                
+                self._vector[:] = self.derham.P0(
+                    getattr(funs, self.name)).coeffs[:]
+
             elif self.space_id == 'Hcurl':
                 _coeffs = self.derham.P1(getattr(funs, self.name)).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
-                
+
             elif self.space_id == 'Hdiv':
                 _coeffs = self.derham.P2(getattr(funs, self.name)).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
-                
+
             elif self.space_id == 'L2':
-                self._vector[:] = self.derham.P3(getattr(funs, self.name)).coeffs[:]
-                
+                self._vector[:] = self.derham.P3(
+                    getattr(funs, self.name)).coeffs[:]
+
             elif self.space_id == 'H1vec':
                 _coeffs = self.derham.P0vec(getattr(funs, self.name)).coeffs
                 self._vector[0][:] = _coeffs[0][:]
                 self._vector[1][:] = _coeffs[1][:]
                 self._vector[2][:] = _coeffs[2][:]
-                
+
         # apply boundary conditions
-        apply_essential_bc_to_array(self.space_id, self._vector, self.derham.bc)
-        
+        apply_essential_bc_to_array(
+            self.space_id, self._vector, self.derham.bc)
+
         self._vector.update_ghost_regions()
 
-        if rank == 0: print('Done.')
+        if rank == 0:
+            print('Done.')
 
-    @property
-    def init_type(self):
-        """ Type of initial condition.
+    def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
-        return self._init_type
+        Evaluates the spline function on the local domain.
 
-    @property
-    def init_params(self):
-        """ Parameters of initial condition.
+        Parameters
+        ----------
+            eta1, eta2, eta3 : array-like
+                Logical coordinates at which to evaluate.
+
+            flat_eval : bool
+                Whether to do a flat evaluation, i.e. f([e11, e12], [e21, e22]) = [f(e11, e21), f(e12, e22)].
+
+            squeeze_output : bool
+                Whether to remove singleton dimensions in output "values".
+
+        Returns
+        -------
+            values : array[float] or list
+                The values of the spline function at the given point set (list in case of vector-valued spaces).
         """
-        return self._init_params
 
-    def _add_noise(self, n=None):
+        # all eval points
+        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+            eta1, eta2, eta3)
+
+        # check if eval points are "interior points" in domain_array; if so, add small offset
+        dom_arr = self.derham.domain_array
+        if self.derham.comm is not None:
+            rank = self.derham.comm.Get_rank()
+        else:
+            rank = 0
+
+        if dom_arr[rank, 0] != 0.:
+            E1[E1==dom_arr[rank, 0]] += 1e-8
+        if dom_arr[rank, 1] != 1.:
+            E1[E1==dom_arr[rank, 1]] += 1e-8
+
+        if dom_arr[rank, 3] != 0.:
+            E2[E2==dom_arr[rank, 3]] += 1e-8
+        if dom_arr[rank, 4] != 1.:
+            E2[E2==dom_arr[rank, 4]] += 1e-8
+
+        if dom_arr[rank, 6] != 0.:
+            E3[E3==dom_arr[rank, 6]] += 1e-8
+        if dom_arr[rank, 7] != 1.:
+            E3[E3==dom_arr[rank, 7]] += 1e-8
+
+        # True for eval points on current process
+        E1_on_proc = np.logical_and(E1 >= dom_arr[rank, 0], E1 <= dom_arr[rank, 1])
+        E2_on_proc = np.logical_and(E2 >= dom_arr[rank, 3], E2 <= dom_arr[rank, 4])
+        E3_on_proc = np.logical_and(E3 >= dom_arr[rank, 6], E3 <= dom_arr[rank, 7])
+
+        # flag eval points not on current process
+        E1[~E1_on_proc] = -1.
+        E2[~E2_on_proc] = -1.
+        E3[~E3_on_proc] = -1.
+
+        # prepare arrays for AllReduce
+        tmp = np.zeros((E1.shape[0], E2.shape[1], E3.shape[2]), dtype=float)
+        tmp_global = tmp.copy()
+
+        # call pyccel kernels
+        if isinstance(self.vector, StencilVector):
+
+            kind = self.spline_types_pyccel
+            if is_sparse_meshgrid:
+                # eval_mpi needs flagged arrays E1, E2, E3 as input
+                eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self.vector._data, kind, np.array(self.derham.p),
+                                                        self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
+                                                        np.array(self.starts), tmp)
+            else:
+                # eval_mpi needs flagged arrays E1, E2, E3 as input
+                eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self.vector._data, kind, np.array(self.derham.p),
+                                               self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
+                                               np.array(self.starts), tmp)
+
+            if self.derham.comm is not None:
+                self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+            else:
+                tmp_global = tmp
+
+            # all processes have all values
+            values = tmp_global
+
+            if squeeze_output:
+                values = np.squeeze(values)
+
+        else:
+
+            values = []
+            for n, kind in enumerate(self.spline_types_pyccel):
+                if is_sparse_meshgrid:
+                    eval_3d.eval_spline_mpi_sparse_meshgrid(E1, E2, E3, self.vector[n]._data, kind, np.array(self.derham.p),
+                                                            self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
+                                                            np.array(self.starts[n]), tmp)
+                else:
+                    eval_3d.eval_spline_mpi_matrix(E1, E2, E3, self.vector[n]._data, kind, np.array(self.derham.p),
+                                                   self.derham.V0.knots[0], self.derham.V0.knots[1], self.derham.V0.knots[2],
+                                                   np.array(self.starts[n]), tmp)
+            
+                if self.derham.comm is not None:
+                    self.derham.comm.Allreduce(tmp, tmp_global, op=MPI.SUM)
+                else:
+                    tmp_global = tmp.copy()
+                tmp[:] = 0.
+
+                # all processes have all values
+                values += [tmp_global.copy()]
+                tmp_global[:] = 0.
+
+                if squeeze_output:
+                    values[-1] = np.squeeze(values[-1])
+            
+        return values
+
+    def _add_noise(self, fun_params, n=None):
         """ Add noise to a vector component where init_comps==True, otherwise leave at zero.
+
+        Parameters
+        ----------
+            fun_params : dict
+                From parameters/fields/init/noise.
         """
 
-        self._direction = self._init_params['direction']
-        self._ampsize = self._init_params['amp']
+        _direction = fun_params['direction']
+        _ampsize = fun_params['amp']
 
         if n == None:
             _shape_w_pads = self._vector[:].shape
-            _shape = (self._gl_e[0][0] + 1 - self._gl_s[0][0], self._gl_e[0]
-                      [1] + 1 - self._gl_s[0][1], self._gl_e[0][2] + 1 - self._gl_s[0][2])
+            _shape = (self._gl_e[0] + 1 - self._gl_s[0], self._gl_e
+                      [1] + 1 - self._gl_s[1], self._gl_e[2] + 1 - self._gl_s[2])
         else:
             _shape_w_pads = self._vector[n][:].shape
             _shape = (self._gl_e[n][0] + 1 - self._gl_s[n][0], self._gl_e[n]
                       [1] + 1 - self._gl_s[n][1], self._gl_e[n][2] + 1 - self._gl_s[n][2])
 
-        if self._direction == 'x':
-            _amps = np.random.rand(_shape_w_pads[0]) * self._ampsize
+        if _direction == 'x':
+            _amps = (np.random.rand(_shape_w_pads[0]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 for k in range(_shape[2]):
                     if n == None:
-                        self._vector[:, self._gl_s[0][1] +
-                                     j, self._gl_s[0][2] + k] = _amps
+                        self._vector[:, self._gl_s[1] +
+                                     j, self._gl_s[2] + k] = _amps
                     else:
                         self._vector[n][:, self._gl_s[n][1] +
                                         j, self._gl_s[n][2] + k] = _amps
 
-        elif self._direction == 'y':
-            _amps = np.random.rand(_shape_w_pads[1]) * self._ampsize
+        elif _direction == 'y':
+            _amps = (np.random.rand(_shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[2]):
                     if n == None:
-                        self._vector[self._gl_s[0][0] + j,
-                                     :, self._gl_s[0][2] + k] = _amps
+                        self._vector[self._gl_s[0] + j,
+                                     :, self._gl_s[2] + k] = _amps
                     else:
                         self._vector[n][self._gl_s[n][0] + j,
                                         :, self._gl_s[n][2] + k] = _amps
 
-        elif self._direction == 'z':
-            _amps = np.random.rand(_shape_w_pads[2]) * self._ampsize
+        elif _direction == 'z':
+            _amps = (np.random.rand(_shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 for k in range(_shape[1]):
                     if n == None:
-                        self._vector[self._gl_s[0][0] + j,
-                                     self._gl_s[0][1] + k, :] = _amps
+                        self._vector[self._gl_s[0] + j,
+                                     self._gl_s[1] + k, :] = _amps
                     else:
                         self._vector[n][self._gl_s[n][0] + j,
                                         self._gl_s[n][1] + k, :] = _amps
 
-        elif self._direction == 'xy':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1]) * self._ampsize
+        elif _direction == 'xy':
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[1]) - .5) * 2. * _ampsize
             for j in range(_shape[2]):
                 if n == None:
-                    self._vector[:, :, self._gl_s[0][2] + j] = _amps
+                    self._vector[:, :, self._gl_s[2] + j] = _amps
                 else:
                     self._vector[n][:, :, self._gl_s[n][2] + j] = _amps
 
-        elif self._direction == 'xz':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[2]) * self._ampsize
+        elif _direction == 'xz':
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[1]):
                 if n == None:
-                    self._vector[:, self._gl_s[0][1] + j, :] = _amps
+                    self._vector[:, self._gl_s[1] + j, :] = _amps
                 else:
                     self._vector[n][:, self._gl_s[n][1] + j, :] = _amps
 
-        elif self._direction == 'yz':
-            _amps = np.random.rand(
-                _shape_w_pads[1], _shape_w_pads[2]) * self._ampsize
+        elif _direction == 'yz':
+            _amps = (np.random.rand(
+                _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             for j in range(_shape[0]):
                 if n == None:
-                    self._vector[self._gl_s[0][0] + j, :, :] = _amps
+                    self._vector[self._gl_s[0] + j, :, :] = _amps
                 else:
                     self._vector[n][self._gl_s[n][0] + j, :, :] = _amps
 
-        elif self._direction == 'xyz':
-            _amps = np.random.rand(
-                _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) * self._ampsize
+        elif _direction == 'xyz':
+            _amps = (np.random.rand(
+                _shape_w_pads[0], _shape_w_pads[1], _shape_w_pads[2]) - .5) * 2. * _ampsize
             if n == None:
                 self._vector[:, :, :] = _amps
             else:
@@ -345,7 +497,7 @@ class PulledPform:
     Construct callable (component of) p-form on logical domain (unit cube).
 
     Depending on the dimension of eta1 either point-wise, tensor-product, slice plane or general (see :ref:`struphy.geometry.map_eval.prepare_args`).
-    
+
     Parameters
     ----------
         coords : str
@@ -388,7 +540,7 @@ class PulledPform:
             self._comp = 0
         else:
             self._comp = int(self._form[-1]) - 1
-            
+
         assert isinstance(self._fun, list)
 
     def __call__(self, eta1, eta2, eta3):

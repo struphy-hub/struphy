@@ -4,10 +4,9 @@ Userguide
 =========
 
 Basic struphy commands are explained in :ref:`quickstart`. Here, a more in-depth description
-of struphy use is given. Command line help is accessed by typing ``struphy``.
+of struphy use is given. 
 
-The main point of interaction for the **regular user** is the struphy parameters file. 
-A default of this file is provided in ``<install_path>/io/inp/parameters.yml``. 
+The main point of interaction for the user is the struphy parameter file; a default is provided in ``<install_path>/io/inp/parameters.yml``. 
 This file is discussed in :ref:`params_yml`.
 
 
@@ -16,38 +15,41 @@ This file is discussed in :ref:`params_yml`.
 Running struphy models
 ----------------------
 
+The help for running struphy models can be accessed with::
+
+    struphy run --help
+
 The basic command is::
 
-        struphy run MODEL [OPTIONS]
+    struphy run MODEL [OPTIONS]
 
-where ``[OPTIONS]`` is optional. Currently available models are listed in :ref:`models`. Valid choices for ``MODEL``
-are the listed class names, as in ``struphy.models.models.MODEL``, for example ``Maxwell``.
-To add a new ``MODEL``  please go to :ref:`developers` and follow section :ref:`add_model`. 
+See :ref:`models` for valid ``MODEL`` names, which
+are the listed class names, for example ``Maxwell``. 
 
 If no ``[OPTIONS]`` are specified, the input is taken from ``<install_path>/io/inp/parameters.yml``,
 where ``<install_path>`` is obtained from::
 
-        struphy -p
+    struphy -p
 
 By default, simulation data is written to ``<install_path>/io/out/sim_1/``. 
-Different input files and/or output folders in ``<install_path>/io/`` can be specified when launching a run
+Different input files and/or output folders in ``<install_path>/io/`` can be specified
 with the ``-i`` and/or ``-o`` flags, respectively::
 
-        struphy run MODEL -i my_params.yml -o my_folder/
+    struphy run MODEL -i my_params.yml -o my_folder/
 
 Absolute paths can also be specified::
 
-        struphy run MODEL --input-abs abs_path_to_file.yml --output-abs abs_path_to_folder/
+    struphy run MODEL --input-abs path/to/file.yml --output-abs path/to/folder/
 
 `Slurm <https://slurm.schedmd.com/documentation.html>`_ jobs can be submitted via batch scripts. 
-Some default batch scripts are provided in ``<install_path>/io/batch``, 
-e.g. ``batch/cobra_0160proc.sh``. Those can be called with the ``-b`` flag::
+Some default batch scripts are provided in ``<install_path>/io/batch``. 
+A model is run as a slurm job with the ``-b`` flag::
 
         struphy run MODEL -b cobra_0160proc.sh
 
 Again, an absolute path to a batch script can be specified::
 
-        struphy run MODEL --batch-abs abs_path_to_batch.sh
+        struphy run MODEL --batch-abs path/to/batch.sh
 
 Small parallel runs for testing can be called via::
 
@@ -82,7 +84,7 @@ grid
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
     :lineno-start: 1
-    :lines: 1-8
+    :lines: 1-7
 
 .. _time:
 
@@ -91,8 +93,8 @@ time
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 11
-    :lines: 11-15
+    :lineno-start: 10
+    :lines: 10-14
 
 
 .. _geometry:
@@ -104,8 +106,8 @@ Available mappings :math:`F:(\eta_1, \eta_2, \eta_3) \mapsto (x, y, z)` are list
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 18
-    :lines: 18-134
+    :lineno-start: 17
+    :lines: 17-133
 
 
 .. _fields:
@@ -113,25 +115,36 @@ Available mappings :math:`F:(\eta_1, \eta_2, \eta_3) \mapsto (x, y, z)` are list
 fields
 ^^^^^^
 
-Available initial perturbations to be added on :ref:`mhd_equil` are listed in :ref:`avail_inits`.
+There are three sub-keywords in ``fields``:
 
-The keyword ``coords`` specifies the coordinate system in which the initial conditions shall be prescribed.
-For instance, with ``type: Modes_sin`` it is possible to initialize a sine wave as a functin of :math:`(x, y, z)`
-(before pullback) or as a function of :math:`(\eta_1, \eta_2, \eta_3)` (after pullback).
+1. ``init``: defines the initial conditions of field variables. 
 
-The keyword ``comps`` lets you define which components of a (vector-valued) p-form to perturb.
-Suppose you have two fields in your simulation, a scalar-valued 0-form and a vector-valued 1-form.
-In this case ``comps: [[False], [False, True, False]]`` would initialize only the second component
-of the 1-form, all other field pertubrations would be set to zero.
+    Available initial perturbations to be added on :ref:`mhd_equil` are listed in :ref:`avail_inits`.
 
-The keys ``mhd_`` are needed in case the field variables describe some set of MHD equations. With ``mhd_u_space``
-you can choose whether the momentum varibale is represented in :math:`H(\textnormal{div})` or in :math:`(H^1)^3` space.
-With ``mhd_equilibrium`` you choose the background; the available choices are listed in :ref:`mhd_equil`.
+    The keyword ``coords`` must be set for the types ``ModesSin`` and ``ModesCos``.
+    It specifies the coordinate system of the initial conditions.
+    For instance, with ``type: ModesSin`` it is possible to initialize a sine wave as a functin of :math:`(x, y, z)`
+    (before pullback) or as a function of :math:`(\eta_1, \eta_2, \eta_3)` (after pullback).
+
+    The keyword ``comps`` must be set for the types ``ModesSin``, ``ModesCos`` and ``TorusModesSin``.
+    It lets you define which components of a (vector-valued) p-form to perturb.
+    Suppose you have two fields in your simulation, a scalar-valued 0-form and a vector-valued 1-form.
+    In this case ``comps: [[False], [False, True, False]]`` would initialize only the second component
+    of the 1-form, all other field pertubrations would be set to zero. 
+    All components with ``True`` are initialized with the same ``type``.
+
+    Types other than ``ModesSin``, ``ModesCos`` and ``TorusModesSin`` are model-specific.
+
+2. ``mhd_u_space``: choose whether the momentum varibale in MHD models is represented in :math:`H(\textnormal{div})` or in :math:`(H^1)^3`.
+
+
+3. ``mhd_equilibrium``: choose an MHD background (:math:`\mathbf{B}_0,\, p_0` and :math:`\rho_0` profiles). Available choices are listed in :ref:`mhd_equil`.
+
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 137
-    :lines: 137-214
+    :lineno-start: 136
+    :lines: 136-208
 
 
 .. _kinetic:
@@ -139,26 +152,27 @@ With ``mhd_equilibrium`` you choose the background; the available choices are li
 kinetic
 ^^^^^^^
 
-Each kinetic species has its own dictionary under its key, which is for instance ``hot_ions`` or ``electrons``.
-We show here one such dictionary.
+Each kinetic species has its own sub-keyword which refers to the name of the species; 
+in the example below there is just one species named ``hot_ions``, but in principle an arbitrary 
+number of species can be addressed.
 
-You can choose between full-orbit species (``Particles6D``) and gyro-/driftkinetic species (``Particles5D``).
+There are five sub-keywords for each kinetic species:
 
-Available background distribution functions are listed in :ref:`backgrounds`. The :ref:`vel_moments` of the backgrounds are
-defined through ``moms_spec``. 
-An entry ``0`` means that the corresponding moment is constant in logical space.
-The corresponding value is then defined in ``moms_params``.
+1. ``markers``: numerical marker parameters
 
-Available perturbation functions (added to the background) are listed in :ref:`avail_inits`.
-If you choose for instance ``Modes_sin``, the moments specified in ``moms`` will be perturbed
-according to :math:`n = n_0 + \delta n`, where :math:`\delta n` will be a sinusoidal mode 
-defined by the given parameters.
+2. ``attributes``: physical parameters of the species
+
+3. ``background``: available background distribution functions are listed in :ref:`backgrounds`. The :ref:`vel_moments` of the backgrounds are defined through ``moms_spec``. An entry ``0`` means that the corresponding moment is constant in logical space. The corresponding value is then defined in ``moms_params``.
+
+4. ``perturbations``: perturbations of velovity moments of the distribution function (see ``fields/init``).
+
+5. ``save_data``: specify number of markers to be saved and under ``f`` possible binning of the distribution function (in case not all markers are saved).
 
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 217
-    :lines: 217-252
+    :lineno-start: 211
+    :lines: 211-250
 
 
 .. _solvers:
@@ -166,14 +180,16 @@ defined by the given parameters.
 solvers
 ^^^^^^^
 
-Available solvers are listed in :ref:`avail_solvers`.
+Define some parameters of the linear solvers used in a model. Each solver has its own sub-key ``solver_1``, ``solver_2``, etc.
+In principle, there can be an arbitrary number of solvers in a model. Which solver refers to which propagator
+has to be deduced from the model's source code.
 
-Available preconditioners are listed in :ref:`preconditioner`.
+Available solvers are listed in :ref:`avail_solvers`. Available preconditioners are listed in :ref:`preconditioner`.
 
 .. literalinclude:: ../../struphy/io/inp/parameters.yml
     :language: yaml
-    :lineno-start: 255
-    :lines: 255-269
+    :lineno-start: 253
+    :lines: 253-267
 
 
 .. _pproc:
@@ -189,13 +205,6 @@ Here, ``sim_1`` (and ``sim_2`` etc.) is relative to ``<install_path>/io/out/``. 
 
     1. ``vtk`` files for each time step in ``<install_path>/io/out/sim_1/vtk/`` 
     2. numpy arrays of evaluated fields and grids in ``<install_path>/io/out/sim_1/eval_fields/`` 
-
-The called struphy routines are
-
-.. automodule:: struphy.diagnostics.post_processing
-    :members:
-    :exclude-members: post_process_fields, compute_unstructured_mesh_info
-    :undoc-members:
 
 
 .. _diagnostics:
@@ -224,7 +233,7 @@ Finished runs (with the smae ``MODEL``) can be profiled (=list individual run ti
 Here, ``sim_1`` is relative to ``<install_path>/io/out/``. By default the profiler searches only for functions including
 one of the following strings:
 
-.. literalinclude:: ../../struphy/diagnostics/profile_struphy.py
+.. literalinclude:: ../../struphy/post_processing/profile_struphy.py
     :language: python
     :lineno-start: 10
     :lines: 10-10

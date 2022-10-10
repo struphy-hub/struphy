@@ -7,39 +7,43 @@ class ModesSin:
     
     .. math::
     
-        u(x, y, z) = \sum_{o=1}^{N_x}\sum_{m=1}^{N_y}\sum_{n=1}^{N_z} A_{omn} \sin(k_{x,o} x + k_{y,m} y + k_{z,n} z) \,.
+        u(x, y, z) = \sum_{i} A_i \sin \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
     '''
 
-    def __init__(self, k1s, k2s, k3s, amps):
+    def __init__(self, ls, ms, ns, amps, Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
-            k1s : list
-                Mode numbers in x-direction, k1 = o*2*pi/Lx.
+            ls : list
+                Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-            k2s : list
-                Mode numbers in y-direction, k2 = m*2*pi/Ly.
+            ms : list
+                Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-            k3s : list
-                Mode numbers in z-direction, k3 = n*2*pi/Lz.
+            ns : list
+                Mode numbers in z-direction (kz = n*2*pi/Lz).
 
             amps : list
-                Amplitude of each mode k = (k1, k2, k3), must be a 3d list such that amps[o][m][n] is the amplitude of mode (o,m,m).
+                Amplitude of each mode.
+
+            Lx, Ly, Lz : float
+                Domain lengths.
         '''
 
-        self._k1s = k1s
-        self._k2s = k2s
-        self._k3s = k3s
+        self._ls = ls
+        self._ms = ms
+        self._ns = ns
         self._amps = amps
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
 
     def __call__(self, x, y, z):
         
         val = 0.
         
-        for o, k1 in enumerate(self._k1s):
-            for m, k2 in enumerate(self._k2s):
-                for n, k3 in enumerate(self._k3s):
-                    val += self._amps[o][m][n]*np.sin(k1*x + k2*y + k3*z)
+        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
+            val += amp*np.sin(l*2.*np.pi/self._Lx*x + m*2.*np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
 
         return val
 
@@ -49,39 +53,43 @@ class ModesCos:
     
     .. math::
     
-        u(x, y, z) = \sum_{o=1}^{N_x}\sum_{m=1}^{N_y}\sum_{n=1}^{N_z} A_{omn} \cos(k_{x,o} x + k_{y,m} y + k_{z,n} z) \,.
+        u(x, y, z) = \sum_{i} A_i \cos \left(l_i \frac{2\pi}{L_x} x + m_i \frac{2\pi}{L_y} y + n_i \frac{2\pi}{L_z} z \right) \,.
     '''
 
-    def __init__(self, k1s, k2s, k3s, amps):
+    def __init__(self, ls, ms, ns, amps, Lx=1., Ly=1., Lz=1.):
         '''
         Parameters
         ----------
-            k1s : list
-                Mode numbers in x-direction, k1 = 2*pi/Lx.
+            ls : list
+                Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-            k2s : list
-                Mode numbers in y-direction, k2 = 2*pi/Ly.
+            ms : list
+                Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-            k3s : list
-                Mode numbers in z-direction, k3 = 2*pi/Lz.
+            ns : list
+                Mode numbers in z-direction (kz = n*2*pi/Lz).
 
             amps : list
-                Amplitude of each mode k = (k1, k2, k3), must be a 3d list such that amps[o][m][n] is the amplitude of mode (o,m,m).
+                Amplitude of each mode.
+
+            Lx, Ly, Lz : float
+                Domain lengths.
         '''
 
-        self._k1s = k1s
-        self._k2s = k2s
-        self._k3s = k3s
+        self._ls = ls
+        self._ms = ms
+        self._ns = ns
         self._amps = amps
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
 
     def __call__(self, x, y, z):
-
+        
         val = 0.
         
-        for o, k1 in enumerate(self._k1s):
-            for m, k2 in enumerate(self._k2s):
-                for n, k3 in enumerate(self._k3s):
-                    val += self._amps[o][m][n]*np.cos(k1*x + k2*y + k3*z)
+        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
+            val += amp*np.cos(l*2.*np.pi/self._Lx*x + m*2.*np.pi/self._Ly*y + n*2.*np.pi/self._Lz*z)
 
         return val
 

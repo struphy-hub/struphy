@@ -7,11 +7,9 @@ in the division [NMPP (Numerical Methods for Plasma Physics)](https://www.ipp.mp
 
 ## What you can do with struphy
 
-* Solve a variety of [plasma physics PDEs](https://struphy.pages.mpcdf.de/struphy/sections/models.html) with fluid and/or kinetic components 
-* Prescribe curved geometries via [mapped domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
-* [Post process](https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing) data and generate `.vtk` files
-* Seamlessly [add](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#how-to-add) your own model/mapping/physics feature
-* Contribute to this open source project! 
+* Solve a variety of [plasma physics PDEs](https://struphy.pages.mpcdf.de/struphy/sections/models.html) with fluid and/or kinetic components on [curved domains](https://struphy.pages.mpcdf.de/struphy/sections/domains.html) 
+* [Post process](https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing) data and generate `.vtk` files for 3d views
+* Add your own [model equations](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#model-equations) or [physics feature](https://struphy.pages.mpcdf.de/struphy/sections/developers.html#how-to-add) 
 
 ## Algorithmic features
 

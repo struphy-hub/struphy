@@ -1,7 +1,7 @@
 from pyccel.decorators import stack_array
 
 import struphy.feec.bsplines_kernels as bsp
-from struphy.feec.basics.spline_evaluation_3d import eval_spline_mpi_3d
+from struphy.feec.basics.spline_evaluation_3d import eval_spline_mpi_kernel
 
 from numpy import empty, shape
 
@@ -61,7 +61,7 @@ def eval_0_form_at_particles(markers: 'float[:,:]',
         bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         # sum up result
-        res = res + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res = res + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                        bn1, bn2, bn3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
@@ -129,11 +129,11 @@ def eval_1_form_at_particles(markers: 'float[:,:]',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bd1, bn2, bn3, span1, span2, span3, coeffs1, starts[0])
-        res[1] = res[1] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bd2, bn3, span1, span2, span3, coeffs2, starts[1])
-        res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bn2, bd3, span1, span2, span3, coeffs3, starts[2])
 
     #$ omp end parallel
@@ -199,11 +199,11 @@ def eval_2_form_at_particles(markers: 'float[:,:]',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bd2, bd3, span1, span2, span3, coeffs1, starts[0])
-        res[1] = res[1] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bd1, bn2, bd3, span1, span2, span3, coeffs2, starts[1])
-        res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bd1, bd2, bn3, span1, span2, span3, coeffs3, starts[2])
 
     #$ omp end parallel
@@ -263,7 +263,7 @@ def eval_3_form_at_particles(markers: 'float[:,:]',
         bsp.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
 
         # sum up result
-        res = res + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res = res + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                        bd1, bd2, bd3, span1, span2, span3, coeffs, starts)
 
     #$ omp end parallel
@@ -327,11 +327,11 @@ def eval_H1vec_at_particles(markers: 'float[:,:]',
         bsp.b_splines_slim(tn3, pn[2], eta3, span3, bn3)
 
         # sum up result
-        res[0] = res[0] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[0] = res[0] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bn2, bn3, span1, span2, span3, coeffs1, starts)
-        res[1] = res[1] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[1] = res[1] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bn2, bn3, span1, span2, span3, coeffs2, starts)
-        res[2] = res[2] + eval_spline_mpi_3d(pn[0], pn[1], pn[2],
+        res[2] = res[2] + eval_spline_mpi_kernel(pn[0], pn[1], pn[2],
                                              bn1, bn2, bn3, span1, span2, span3, coeffs3, starts)
 
     #$ omp end parallel

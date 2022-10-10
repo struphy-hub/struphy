@@ -50,7 +50,7 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
-    assert mpi_comm.size >= 2
+    # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
@@ -124,6 +124,11 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
 
+    # mat / Np
+    for a in range(3):
+        for b in range(a, 3):
+            mat[a][b] = mat[a][b]/Np
+
     if rank == 0 and verbose:
         print(f'Step 1 Legacy took {tot_time} seconds.')
 
@@ -136,14 +141,11 @@ def cc_lin_mhd_6d_step_1(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     for k in range(3):
         args += [B2_psy[k]._data[:, :, :]]
 
-    for k in range(3):
-        args += [np.array(B2_psy[k].starts)]
-
     ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_1',
                       *args, do_vector=False, symmetry='asym')
 
     start_time = time()
-    ACC.accumulate(particles)
+    ACC.accumulate(particles, Np)
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
 
@@ -180,7 +182,7 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
-    assert mpi_comm.size >= 2
+    # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
@@ -258,6 +260,12 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
 
+    # vec, mat / Np
+    for a in range(3):
+        vec[a] = vec[a]/Np
+        for b in range(a, 3):
+            mat[a][b] = mat[a][b]/Np
+
     if rank == 0 and verbose:
         print(f'Step 3 Legacy took {tot_time} seconds.')
 
@@ -270,14 +278,11 @@ def cc_lin_mhd_6d_step_3(Nel, p, spl_kind, mapping, n_markers=10, verbose=False)
     for k in range(3):
         args += [B2_psy[k]._data[:, :, :]]
 
-    for k in range(3):
-        args += [np.array(B2_psy[k].starts)]
-
     ACC = Accumulator(domain, DR, 'Hcurl', 'cc_lin_mhd_6d_2',
                       *args, do_vector=True, symmetry='symm')
 
     start_time = time()
-    ACC.accumulate(particles)
+    ACC.accumulate(particles, Np)
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
 
@@ -336,7 +341,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, n_markers=10, verbose=
     from struphy.pic.particles_to_grid import Accumulator
 
     mpi_comm = MPI.COMM_WORLD
-    assert mpi_comm.size >= 2
+    # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
@@ -408,6 +413,12 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, n_markers=10, verbose=
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)
 
+    # vec, mat / Np
+    for a in range(3):
+        vec[a] = vec[a]/Np
+        for b in range(a, 3):
+            mat[a][b] = mat[a][b]/Np
+
     if rank == 0 and verbose:
         print(f'Step 1 Legacy took {tot_time} seconds.')
 
@@ -417,11 +428,11 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, n_markers=10, verbose=
 
     args = []
 
-    ACC = Accumulator(domain, DR, 'Hcurl', 'pc_lin_mhd_6d',
+    ACC = Accumulator(domain, DR, 'Hcurl', 'pc_lin_mhd_6d_full',
                       *args, do_vector=True, symmetry='pressure')
 
     start_time = time()
-    ACC.accumulate(particles)
+    ACC.accumulate(particles, Np)
 
     end_time = time()
     tot_time = np.round(end_time - start_time, 3)

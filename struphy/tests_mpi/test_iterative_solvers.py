@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[6, 7, 4], [5, 6, 7]])
-@pytest.mark.parametrize('p',   [[2, 3, 2], [4, 2, 3]])
+@pytest.mark.parametrize('Nel', [[5, 6, 7]])
+@pytest.mark.parametrize('p',   [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
@@ -97,5 +97,5 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
     
 if __name__ == '__main__':
-    test_solvers([8, 6, 4], [2, 2, 2], [True, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False, True)
+    test_solvers([5, 6, 7], [1, 2, 3], [False, True, True], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False, True)
     #test_solvers([8, 6, 4], [2, 2, 2], [False, True, True], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False, True)

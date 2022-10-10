@@ -18,7 +18,6 @@ from struphy.linear_algebra.core import det, matrix_vector, transpose
 from struphy.geometry.map_eval import df, det_df, df_inv
 
 
-@pure
 def pull_0_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a scalar field to a differential 0-form.
@@ -58,7 +57,6 @@ def pull_0_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, 
     a0 = a
 
     return a0
-
 
 @stack_array('tmp', 'df_out', 'df_T')
 def pull_1_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -117,7 +115,6 @@ def pull_1_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         return tmp[2]
     else:
         print('Error: component does not exist')
-
 
 @stack_array('df_mat')
 def pull_2_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -181,8 +178,6 @@ def pull_2_form(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
 
     return value
 
-
-@pure
 def pull_3_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     """
     Point-wise pull-back of a scalar field to component of a differential 3-form.
@@ -225,7 +220,6 @@ def pull_3_form(a: float, eta1: float, eta2: float, eta3: float, kind_map: int, 
     a3 = a * abs(detdf)
 
     return a3
-
 
 @stack_array('tmp', 'dfinv_out')
 def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -282,7 +276,6 @@ def pull_vector(a: 'float[:]', eta1: float, eta2: float, eta3: float, component:
         return tmp[2]
     else:
         print('Error: component does not exist')
-
 
 def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
     """

@@ -7,8 +7,8 @@ from   struphy.pic                   import filler_kernels
 import numpy as np
 
 
-@pytest.mark.parametrize('Nel', [[8,5,6], [4, 4, 128]])
-@pytest.mark.parametrize('p', [[2,3,2], [1,1,4]])
+@pytest.mark.parametrize('Nel', [[8,5,6], [2, 2, 128]])
+@pytest.mark.parametrize('p', [[3,1,2], [1,1,4]])
 @pytest.mark.parametrize('spl_kind', [[True, True, True], [False, False, True]])
 def test_Filler_Kernel(Nel, p, spl_kind):
     # ========================================================================================= 

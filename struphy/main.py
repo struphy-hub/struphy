@@ -8,8 +8,6 @@ from psydac.api.postprocessing import OutputManager
 from psydac.linalg.stencil import StencilVector
 from struphy.post_processing.output_handling import DataContainer
 from struphy.models import models
-from struphy.geometry import domains
-from struphy.psydac_api.psydac_derham import Derham
 import numpy as np
 import time
 import pickle
@@ -48,67 +46,32 @@ if rank == 0:
         f'\nMPI communicator initialized with {comm.Get_size()} process(es).\n')
     print('Starting model ' + model_name + '...\n')
 
-# load simulation VARIABLES
+# load simulation parameters
 with open(file_in) as file:
     params = yaml.load(file, Loader=yaml.FullLoader)
+    
+# load STRUPHY model
+model_class = getattr(models, model_name)
+model = model_class(params, comm)
 
-# domain object
 dom_type = params['geometry']['type']
 dom_params = params['geometry'][dom_type]
-
-domain_class = getattr(domains, dom_type)
-domain = domain_class(dom_params)
 
 if rank == 0:
     print(f'domain type: {dom_type}')
     print(f'domain parameters: {dom_params}\n')
 
-# DERHAM object
-Nel = params['grid']['Nel']             # Number of grid cells
-p = params['grid']['p']                 # spline degrees
-spl_kind = params['grid']['spl_kind']   # Spline types (clamped vs. periodic)
-bc = params['grid']['bc']               # Boundary conditions (Homogeneous Dirichlet or None)
-
-# Number of quadrature points per grid cell
-nq_el = params['grid']['nq_el']
-# Number of quadrature points per histopolation cell
-nq_pr = params['grid']['nq_pr']
-
-derham = Derham(Nel, p, spl_kind, bc, quad_order=[
-                nq_el[0] - 1, nq_el[1] - 1, nq_el[2] - 1], nq_pr=nq_pr, comm=comm)
-
-if rank == 0:
     print('GRID parameters:')
-    print(f'Nel     : {Nel}')
-    print(f'p       : {p}')
-    print(f'spl_kind: {spl_kind}')
-    print(f'bc      : {bc}')
-    print(f'nq_el   : {nq_el}')
-    print(f'nq_pr   : {nq_pr}\n')
-    print('Discrete Derham set (polar=' + str(params['grid']['polar']) + ').')
+    print(f'Nel        : {model.derham.Nel}')
+    print(f'p          : {model.derham.p}')
+    print(f'spl_kind   : {model.derham.spl_kind}')
+    print(f'bc         : {model.derham.bc}')
+    print(f'quad_order : {model.derham.quad_order}')
+    print(f'nq_pr      : {model.derham.nq_pr}\n')
     print()
 
-# STRUPHY model
-model_class = getattr(models, model_name)
-model = model_class(derham, domain, params)
-
-# Set initial conditions for fields and particles (if they exist)
-if 'fields' in params:
-    fields_init = params['fields']['init']
-else:
-    fields_init = None
-
-if 'kinetic' in params:
-    particles_init = []
-    for key, val in params['kinetic'].items():
-        particles_init += [val]
-else:
-    particles_init = None
-
-model.set_initial_conditions(
-    fields_init, particles_init)
-
-model.update_scalar_quantities(0.)
+# set initial condition
+model.set_initial_conditions()
 
 # data object for saving
 data = DataContainer(path_out, comm=comm)
@@ -117,6 +80,8 @@ data = DataContainer(path_out, comm=comm)
 for key, val in model.scalar_quantities.items():
     key_scalar = 'scalar/' + key
     data.add_data({key_scalar : val})
+    
+data.file['scalar'].attrs['grid_info'] = model.derham.domain_array
 
 # save fields in group 'fields/'
 for field in model.fields:
@@ -135,21 +100,28 @@ for field in model.fields:
     data.file[key_field].attrs['starts'] = field.starts
     data.file[key_field].attrs['ends'] = field.ends
     data.file[key_field].attrs['pads'] = field.pads
-
+    
 # save kinetic data in group 'kinetic/'
+n_mks_to_be_saved = []
 markers_to_be_saved = []
 
-#for species in model.kinetic_species:
-#    key_species = 'kinetic/' + species.name
-#    
-#    # save markers with ID < 20
-#    markers_to_be_saved += [np.zeros((20, species.markers.shape[1]), dtype=float)]
-#    
-#    cond = species.markers[-1] < 
-#    
-#    data.add_data({key_species : })
-     
-# TODO
+for ns, (species, k_data) in enumerate(zip(model.kinetic_species, model.kinetic_data)):
+    key_spec = 'kinetic/' + species.name
+    
+    for key1, val1 in k_data.items():
+        key_dat = key_spec + '/' + key1
+        
+        if isinstance(val1, dict):
+            for key2, val2 in val1.items():
+                key_f = key_dat + '/' + key2
+                data.add_data({key_f : val2})
+                
+                dims = (len(key2) - 2)//3 + 1
+                for dim in range(dims):
+                    data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = model._bin_edges[ns][key2][dim][:-1] + (model._bin_edges[ns][key2][dim][1] - model._bin_edges[ns][key2][dim][0])/2
+            
+        else:
+            data.add_data({key_dat : val1})
             
 
 if rank == 0:
@@ -223,6 +195,8 @@ while True:
 
     # update time series
     model.update_scalar_quantities(dt*time_steps_done)
+    model.update_markers_to_be_saved()
+    model.update_distr_function()
 
     # save data
     data.save_data()
@@ -236,3 +210,4 @@ while True:
         message = 'time steps finished : ' + step + '/' + total_steps
         print('\r', message, end='\n')
         model.print_scalar_quantities()
+        print()

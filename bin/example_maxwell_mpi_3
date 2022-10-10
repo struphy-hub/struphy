@@ -28,4 +28,4 @@ for i in $li; do
 done
 
 path_e=$STRUPHY/examples
-$PYTHON ${path_e}/example_diagnostics_1dfft_maxwell.py $STRUPHY/io/out/sim_2
+$PYTHON ${path_e}/example_diagnostics_1dfft_maxwell.py $STRUPHY/io/out/sim_2/

@@ -7,35 +7,167 @@ import struphy.feec.bsplines_kernels as bsp
 import struphy.linear_algebra.core as linalg
 
 
-@pure
-@stack_array('vg', 'basis', 'basis_inv')
-def reflect(df : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
-    '''TODO'''
+# @pure
+# @stack_array('vg', 'basis', 'basis_inv')
+# def reflect(df : 'float[:,:]', df_inv : 'float[:,:]', v : 'float[:]'):
+#     '''TODO'''
 
-    vg        = empty( 3    , dtype=float)
+#     vg        = empty( 3    , dtype=float)
 
-    basis     = empty((3, 3), dtype=float)
-    basis_inv = empty((3, 3), dtype=float)
+#     basis     = empty((3, 3), dtype=float)
+#     basis_inv = empty((3, 3), dtype=float)
 
 
-    # calculate normalized basis vectors
-    norm1 = sqrt(df_inv[0, 0]**2 + df_inv[0, 1]**2 + df_inv[0, 2]**2)
+#     # calculate normalized basis vectors
+#     norm1 = sqrt(df_inv[0, 0]**2 + df_inv[0, 1]**2 + df_inv[0, 2]**2)
 
-    norm2 = sqrt(df[0, 1]**2 + df[1, 1]**2 + df[2, 1]**2)
-    norm3 = sqrt(df[0, 2]**2 + df[1, 2]**2 + df[2, 2]**2)
+#     norm2 = sqrt(df[0, 1]**2 + df[1, 1]**2 + df[2, 1]**2)
+#     norm3 = sqrt(df[0, 2]**2 + df[1, 2]**2 + df[2, 2]**2)
 
-    basis[:, 0] = df_inv[0, :]/norm1
+#     basis[:, 0] = df_inv[0, :]/norm1
 
-    basis[:, 1] = df[:, 1]/norm2
-    basis[:, 2] = df[:, 2]/norm3
+#     basis[:, 1] = df[:, 1]/norm2
+#     basis[:, 2] = df[:, 2]/norm3
 
-    linalg.matrix_inv(basis, basis_inv)
+#     linalg.matrix_inv(basis, basis_inv)
 
-    linalg.matrix_vector(basis_inv, v, vg)
+#     linalg.matrix_vector(basis_inv, v, vg)
 
-    vg[0] = -vg[0]
+#     vg[0] = -vg[0]
 
-    linalg.matrix_vector(basis, vg, v)
+#     linalg.matrix_vector(basis, vg, v)
+
+
+@stack_array('df', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
+def reflect(markers: 'float[:,:]',
+            kind_map: 'int', params_map: 'float[:]',
+            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', 
+            outside_inds: 'int[:]', axis: 'int'):
+    '''
+    Reflect the particles which are pushed outside of the logical cube.
+
+    Reflected particles' position:
+    e.g. axis == 0
+
+                                       |
+                        o              |              o
+          (1 - eta1%1, eta2, eta3)     |      (eta1, eta2, eta3)
+                                       |
+    
+    Reflected particles' velocity:
+    e.g. axis == 0
+
+    normalized basis vectors normal to the plane which is spanned by axis 1 and 2
+                   [DF^(-T)[0,0]/norm  DF[0,1]/norm  DF[0,2]/norm]
+    basis_normal = [DF^(-T)[1,0]/norm  DF[1,1]/norm  DF[1,2]/norm]
+                   [DF^(-T)[2,0]/norm  DF[2,1]/norm  DF[2,2]/norm]
+                                
+    v_nomral     = basis_normal  x  v
+                                
+    Reverse the v_normal, v_normal[0] = -v_normal[0]
+
+    For the application, see `struphy.pic.particles.Particles6D.mpi_sort_markers` and `struphy.pic.particles.apply_kinetic_bc`.
+    
+    Parameters
+    ----------
+        markers : array[float]
+            Local markers array
+
+        domain.args_map : tuple of all needed mapping parameters
+            kind_map, params_map, ..., cx, cy, cz
+        
+        outside_inds : array[int]
+            inds indicate the particles which are pushed outside of the local cube
+        
+        axis : int
+            0, 1 or 2
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_T = empty((3, 3), dtype=float)
+    basis_normal = empty((3, 3), dtype=float)
+    basis_normal_inv = empty((3, 3), dtype=float)
+    norm_df = empty(3, dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    eta_old = empty(3, dtype=float)
+    eta_boundary = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+    v_logical = empty(3, dtype=float)
+    v_normal = empty(3, dtype=float)
+
+    for ip in outside_inds:
+
+        eta[:] = markers[ip, 0:3]
+        eta_old[:] = markers[ip, 9:12]
+        v[:]   = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta_old[0], eta_old[1], eta_old[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        linalg.matrix_inv(df, dfinv)
+
+        # pull back of the velocity
+        linalg.matrix_vector(dfinv, v, v_logical)
+
+        if eta[axis] > 1.:
+            t = (1. - eta_old[axis])/v_logical[axis]
+            eta_boundary[:] = eta_old + t*v_logical
+
+            # assert allclose(eta_boundary[axis], 1.)
+
+        else:
+            t = (0. - eta_old[axis])/v[axis]
+            eta_boundary[:] = eta_old + t*v_logical
+
+            # assert allclose(eta_boundary[axis], 0.)
+            
+
+        # evaluate Jacobian, result in df
+        map_eval.df(eta_boundary[0], eta_boundary[1], eta_boundary[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_T)
+
+        # assemble normalized basis which is normal to the reflection plane
+        norm_df[:] = sqrt(df[0,:]**2 + df[1,:]**2 + df[2,:]**2)
+        norm_dfinv_T = sqrt(dfinv_T[0,axis]**2 + dfinv_T[1,axis]**2 + dfinv_T[2,axis]**2)
+        
+        basis_normal = df/norm_df
+        basis_normal[:, axis] = dfinv_T[:, axis]/norm_dfinv_T
+
+        linalg.matrix_inv(basis_normal, basis_normal_inv)
+
+        # pull-back of velocity
+        linalg.matrix_vector(basis_normal_inv, v, v_normal)
+
+        # reverse the velocity
+        v_normal[axis] = -v_normal[axis]
+
+        # push-forward of velocity
+        linalg.matrix_vector(basis_normal, v_normal, v)
+
+        # update the particle positions
+        markers[ip, axis] = 1. - (markers[ip, axis])%1.
+
+        # update the particle velocities
+        markers[ip, 3:6] = v[:]
 
 
 @pure
