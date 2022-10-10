@@ -1,11 +1,10 @@
 grid :
-      Nel      : [4, 4, 64] # number of grid cells, >p
-      p        : [2, 2, 3]  # spline degree, >1
+      Nel      : [3, 3, 64] # number of grid cells, >p
+      p        : [2, 2, 3]  # spline degree
       spl_kind : [True, True, True] # spline type: True=periodic, False=clamped
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
-      polar    : False # use polar splines
       
       
 time : 

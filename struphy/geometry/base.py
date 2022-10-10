@@ -577,7 +577,7 @@ class Domain(metaclass=ABCMeta):
         Depending on the dimension of eta1, eta2, eta3 either point-wise, tensor-product, slice plane, etc. (see prepare_eval_pts).
 
         Parameters
-        ----------13:00 -14:30
+        ----------
             a : list of callables or array-like
                 The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
                 
@@ -770,7 +770,7 @@ class Domain(metaclass=ABCMeta):
 
         Parameters
         ----------
-            x, y, z : list or numpy array or float 
+            x, y, z : float | int | list | numpy array 
                 Evaluation point sets.
 
             flat_eval : bool
@@ -827,30 +827,36 @@ class Domain(metaclass=ABCMeta):
             # convert list type data to numpy array:
             if isinstance(x, float):
                 arg_x = np.array([x])
+            elif isinstance(x, int):
+                arg_x = np.array([float(x)])
             elif isinstance(x, list):
                 arg_x = np.array(x)
             elif isinstance(x, np.ndarray):
                 arg_x = x
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(x)} not supported')
 
             if isinstance(y, float):
                 arg_y = np.array([y])
+            elif isinstance(y, int):
+                arg_y = np.array([float(y)])
             elif isinstance(y, list):
                 arg_y = np.array(y)
             elif isinstance(y, np.ndarray):
                 arg_y = y
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(y)} not supported')
 
             if isinstance(z, float):
                 arg_z = np.array([z])
+            elif isinstance(z, int):
+                arg_z = np.array([float(z)])
             elif isinstance(z, list):
                 arg_z = np.array(z)
             elif isinstance(z, np.ndarray):
                 arg_z = z
             else:
-                print('data type not supported')
+                raise ValueError(f'data type {type(z)} not supported')
 
             # tensor-product for given three 1D arrays
             if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
@@ -990,43 +996,167 @@ class Domain(metaclass=ABCMeta):
         assert a_out.shape[0] == 1 or a_out.shape[0] == 3
 
         return a_out
-    
+
     # ================================
-    def show(self, save_dir=None):
+    def show(self, logical=False, grid_info=None, markers=None, marker_coords='logical', save_dir=None):
         """
-        Plots isolines (and control point in case on spline mappings) of the 2D domain at eta3 = 0.
+        Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
+        Markers can be plotted as well (optional).
 
         Parameters
         ----------
+            logical : bool
+                Whether to plot the physical domain (False) or logical domain (True).
+        
+            grid_info : array-like (optional)
+                Information about the grid. If not given, the domain is shown with high resolution. If given, can be either
+                    * a list of # of elements [Nel1, Nel2, (Nel3)], OR
+                    * a 2d array with information about MPI decomposition.
+                    
+            markers : array-like (optional)
+                Markers to be plotted. Can be of shape (Np, 3) or (:, Np, 3). For the former, all markers are plotted with the same color. For the latter, with different colors (are interpreted as orbits in time).
+                
+            marker_coords : bool (optional)
+                Whether the marker coordinates are logical or physical.
 
-        save_dir : string (optional)
+            save_dir : string (optional)
                 If given, the figure is saved according the given directory.
         """
 
         import matplotlib.pyplot as plt
-
-        e1 = np.linspace(0., 1., 101)
-        e2 = np.linspace(0., 1., 101)
         
-        X = self(e1, e2, 0.)
+        # plot given markers
+        if markers is not None:
+            
+            assert not (logical and marker_coords != 'logical')
+            
+            # no time series: plot all markers with the same color
+            if markers.ndim == 2:
+                
+                if not logical and marker_coords == 'logical':
+                    X = self.evaluate(markers[:, 0].copy(),
+                                      markers[:, 1].copy(), 
+                                      markers[:, 2].copy()*0,
+                                      'x', 'flat')
+                    
+                    Y = self.evaluate(markers[:, 0].copy(), 
+                                      markers[:, 1].copy(), 
+                                      markers[:, 2].copy()*0, 
+                                      'y', 'flat')   
+                else:
+                    X = markers[:, 0].copy()
+                    Y = markers[:, 1].copy()
+                
+                plt.scatter(X, Y, s=1, color='b')
+                
+            # time series: plot markers with different colors
+            elif markers.ndim == 3:
+                
+                for i in range(markers.shape[1]):
+                    
+                    if not logical and marker_coords == 'logical':
+                        X = self.evaluate(markers[:, i, 0].copy(), 
+                                          markers[:, i, 1].copy(), 
+                                          markers[:, i, 2].copy()*0, 
+                                          'x', 'flat')
+                        
+                        Y = self.evaluate(markers[:, i, 0].copy(), 
+                                          markers[:, i, 1].copy(), 
+                                          markers[:, i, 2].copy()*0, 
+                                          'y', 'flat')
+                    else:
+                        X = markers[:, i, 0].copy()
+                        Y = markers[:, i, 1].copy()
+                        
+                    plt.scatter(X, Y, s=1)    
+            
+        # plot domain without MPI decomposition and high resolution
+        if grid_info is None:
+
+            e1 = np.linspace(0., 1., 101)
+            e2 = np.linspace(0., 1., 101)
+
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                X = np.stack((E1, E2), axis=0)
+            else:
+                X = self(e1, e2, 0.)
+
+            # eta1-isolines
+            for i in range(e1.size//5 + 1):
+                plt.plot(X[0, i*5, :], X[1, i*5, :], 'tab:blue', alpha=.5)
+
+            # eta2-isolines
+            for j in range(e2.size//5 + 1):
+                plt.plot(X[0, :, j*5], X[1, :, j*5], 'tab:blue', alpha=.5)
+                
+        # plot domain according to given grid [nel1, nel2, (nel3)]
+        elif isinstance(grid_info, list):
+            
+            assert len(grid_info) > 1
+            
+            e1 = np.linspace(0., 1., grid_info[0] + 1)
+            e2 = np.linspace(0., 1., grid_info[1] + 1)
+            
+            if logical:
+                E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                X = np.stack((E1, E2), axis=0)
+            else:
+                X = self(e1, e2, 0.)
+
+            # eta1-isolines
+            for i in range(e1.size):
+                plt.plot(X[0, i, :], X[1, i, :], 'tab:blue', alpha=.5)
+
+            # eta2-isolines
+            for j in range(e2.size):
+                plt.plot(X[0, :, j], X[1, :, j], 'tab:blue', alpha=.5)
         
-        # eta1-isolines
-        for i in range(e1.size//5 + 1):
-            plt.plot(X[0, i*5, :], X[1, i*5, :], 'k')
+        # plot domain with MPI decomposition
+        elif isinstance(grid_info, np.ndarray):
+            
+            assert grid_info.ndim == 2
+            assert grid_info.shape[1] > 5
+            
+            for i in range(grid_info.shape[0]):
+                
+                e1 = np.linspace(grid_info[i, 0], grid_info[i, 1], int(
+                    grid_info[i, 2]) + 1)
+                e2 = np.linspace(grid_info[i, 3], grid_info[i, 4], int(
+                    grid_info[i, 5]) + 1)
 
-        # eta2-isolines
-        for j in range(e2.size//5 + 1):
-            plt.plot(X[0, :, j*5], X[1, :, j*5], 'r')
+                if logical:
+                    E1, E2 = np.meshgrid(e1, e2, indexing='ij')
+                    X = np.stack((E1, E2), axis=0)
+                else:
+                    X = self(e1, e2, 0.)
 
-        # control points in case of IGA mappings
-        if self.kind_map < 10:
+                # eta1-isolines
+                first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i))
+
+                for j in range(e1.size):
+                    plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)
+
+                # eta2-isolines
+                for k in range(e2.size):
+                    plt.plot(X[0, :, k], X[1, :, k], color=first_line[0].get_color(), alpha=.5)
+                    
+        else:
+            raise ValueError('given grid_info is not supported!')
+            
+
+        # plot control points in case of IGA mappings
+        if not logical and self.kind_map < 10:
             plt.scatter(self.cx[:, :, 0].flatten(),
-                        self.cy[:, :, 0].flatten(), s=3, color='b')
-
-        plt.xlabel('x')
-        plt.ylabel('y')
+                        self.cy[:, :, 0].flatten(),
+                        s=3, color='b')
 
         plt.axis('square')
+        
+        if isinstance(grid_info, np.ndarray): plt.legend()
+        
+        plt.xlabel('x')
+        plt.ylabel('y')
 
         if save_dir is not None:
             plt.savefig(save_dir)

@@ -22,7 +22,7 @@ loading_type = 'pseudo_random'
 loading_params = {'type': loading_type, 'seed': 1234,
                   'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-marker_params = {'ppc': 10, 'loading': loading_params}
+marker_params = {'ppc': 10, 'eps': .25, 'bc_type' : ['periodic', 'periodic', 'periodic'], 'loading': loading_params}
 
 # create domain
 dom_type = 'ShafranovShiftCylinder'
@@ -45,17 +45,17 @@ comm.Barrier()
 print('Number of particles w/wo holes on each process before sorting : ')
 print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-particles.show_physical()
+domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
 
 # sort particles according to domain decomposition
 comm.Barrier()
-particles.send_recv_markers()
+particles.mpi_sort_markers()
 
 comm.Barrier()
 print('Number of particles w/wo holes on each process after sorting : ')
 print('Rank', rank, ':', particles.n_mks_loc, particles.markers.shape[0])
 
-particles.show_physical()
+domain.show(grid_info=derham.domain_array, markers=particles.markers_wo_holes)
 
 # are all markers in the correct domain?
 conds = np.logical_and(

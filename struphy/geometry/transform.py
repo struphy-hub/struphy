@@ -50,7 +50,6 @@ def transform_norm_vector_to_vector(norm_a: 'float[:]', eta1: float, eta2: float
     else:
         print('Error: component does not exist')
 
-
 @stack_array('tmp', 'df_out', 'g_out')
 def transform_norm_vector_to_1_form(norm_a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
@@ -86,7 +85,6 @@ def transform_norm_vector_to_1_form(norm_a: 'float[:]', eta1: float, eta2: float
     else:
         print('Error: component does not exist')
 
-
 @stack_array('df_out')
 def transform_norm_vector_to_2_form(norm_a: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
@@ -112,8 +110,6 @@ def transform_norm_vector_to_2_form(norm_a: 'float[:]', eta1: float, eta2: float
     else:
         print('Error: component does not exist')
 
-
-@pure
 def transform_0_form_to_3_form(a0: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     scalar
@@ -127,7 +123,6 @@ def transform_0_form_to_3_form(a0: float, eta1: float, eta2: float, eta3: float,
     a3 = a0 * abs(detdf)
 
     return a3
-
 
 @stack_array('tmp', 'ginv_out')
 def transform_1_form_to_2_form(a1: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
@@ -156,7 +151,6 @@ def transform_1_form_to_2_form(a1: 'float[:]', eta1: float, eta2: float, eta3: f
     else:
         print('Error: component does not exist')
 
-
 @stack_array('tmp', 'g_out')
 def transform_2_form_to_1_form(a2: 'float[:]', eta1: float, eta2: float, eta3: float, component: int, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
@@ -184,8 +178,6 @@ def transform_2_form_to_1_form(a2: 'float[:]', eta1: float, eta2: float, eta3: f
     else:
         print('Error: component does not exist')
 
-
-@pure
 def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float, kind_map: int, params_map: 'float[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', pn: 'int[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]') -> float:
     '''
     scalar
@@ -199,7 +191,6 @@ def transform_3_form_to_0_form(a3: float, eta1: float, eta2: float, eta3: float,
     a0 = a3 / abs(detdf)
 
     return a0
-
 
 def kernel_evaluate(a: 'float[:,:,:,:]', eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', eta3: 'float[:,:,:]', kind_fun: int, kind_map: int, params_map: 'float[:]', pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]', ind_n1: 'int[:,:]', ind_n2: 'int[:,:]', ind_n3: 'int[:,:]', cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]', values: 'float[:,:,:]', is_sparse_meshgrid: bool):
 

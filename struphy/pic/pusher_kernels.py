@@ -11,7 +11,7 @@ from numpy import zeros, empty, shape, sqrt, cos, sin
 
 
 @stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_v_with_efield(markers: 'float[:,:]', dt: 'float',
+def push_v_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                        kind_map: 'int', params_map: 'float[:]',
@@ -89,11 +89,11 @@ def push_v_with_efield(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # electric field: 1-form components
-        e_form[0] = eval_3d.eval_spline_mpi_3d(
+        e_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, e1_1, starts1[0])
-        e_form[1] = eval_3d.eval_spline_mpi_3d(
+        e_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, e1_2, starts1[1])
-        e_form[2] = eval_3d.eval_spline_mpi_3d(
+        e_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, e1_3, starts1[2])
 
         # electric field: Cartesian components
@@ -106,7 +106,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('df', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_vxb_analytic(markers: 'float[:,:]', dt: 'float',
+def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                       kind_map: 'int', params_map: 'float[:]',
@@ -188,11 +188,11 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_3d(
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_3d(
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_3d(
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
 
         # magnetic field: Cartesian components
@@ -224,7 +224,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 @stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
+def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                   kind_map: 'int', params_map: 'float[:]',
@@ -308,11 +308,11 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_3d(
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_3d(
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_3d(
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
         
         # magnetic field: Cartesian components
@@ -320,11 +320,11 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
         b_cart[:] = b_cart/det_df
 
         # velocity field: 2-form components
-        u_form[0] = eval_3d.eval_spline_mpi_3d(
+        u_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts2[0])
-        u_form[1] = eval_3d.eval_spline_mpi_3d(
+        u_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
-        u_form[2] = eval_3d.eval_spline_mpi_3d(
+        u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
         
         linalg.matrix_vector(df, u_form, u_cart)
@@ -340,7 +340,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
+def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                    kind_map: 'int', params_map: 'float[:]',
@@ -428,11 +428,11 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_3d(
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_3d(
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_3d(
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
         
         # magnetic field: Cartesian components
@@ -440,11 +440,11 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
         b_cart[:] = b_cart/det_df
 
         # velocity field: 1-form components
-        u_form[0] = eval_3d.eval_spline_mpi_3d(
+        u_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u1_1, starts1[0])
-        u_form[1] = eval_3d.eval_spline_mpi_3d(
+        u_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u1_2, starts1[1])
-        u_form[2] = eval_3d.eval_spline_mpi_3d(
+        u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u1_3, starts1[2])
 
         # velocity field: Cartesian components
@@ -460,7 +460,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
+def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                    kind_map: 'int', params_map: 'float[:]',
@@ -544,11 +544,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_3d(
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_3d(
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_3d(
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
         
         # magnetic field: Cartesian components
@@ -556,11 +556,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
         b_cart[:] = b_cart/det_df
 
         # velocity field: vector field components
-        u_form[0] = eval_3d.eval_spline_mpi_3d(
+        u_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_1, starts0)
-        u_form[1] = eval_3d.eval_spline_mpi_3d(
+        u_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_2, starts0)
-        u_form[2] = eval_3d.eval_spline_mpi_3d(
+        u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, uv_3, starts0)
         
         # velocity field: Cartesian components
@@ -576,7 +576,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
-def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
+def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float', step: 'int',
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                         kind_map: 'int', params_map: 'float[:]',
@@ -682,11 +682,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
         bsp.d_splines_slim(tn3, pn[2], eta3, span3, bd3)
 
         # magnetic field: 2-form components
-        b_form[0] = eval_3d.eval_spline_mpi_3d(
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b_form[1] = eval_3d.eval_spline_mpi_3d(
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b_form[2] = eval_3d.eval_spline_mpi_3d(
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
         
         # magnetic field: Cartesian components
@@ -694,22 +694,22 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
         b_cart[:] = b_cart/det_df
         
         # magnetic field: evaluation of gradient (1-form)
-        b_diff[0] = eval_3d.eval_spline_mpi_3d(
+        b_diff[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], der1, bn2, bn3, span1, span2, span3, b0, starts1[0])
-        b_diff[1] = eval_3d.eval_spline_mpi_3d(
+        b_diff[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, der2, bn3, span1, span2, span3, b0, starts1[1])
-        b_diff[2] = eval_3d.eval_spline_mpi_3d(
+        b_diff[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1], pn[2], bn1, bn2, der3, span1, span2, span3, b0, starts1[2])
         
         # magnetic field: evaluation of gradient (Cartesian components)
         linalg.matrix_vector(dfinv_t, b_diff, b_grad)
 
         # velocity field: 2-form components
-        u_form[0] = eval_3d.eval_spline_mpi_3d(
+        u_form[0] = eval_3d.eval_spline_mpi_kernel(
             pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u2_1, starts2[0])
-        u_form[1] = eval_3d.eval_spline_mpi_3d(
+        u_form[1] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u2_2, starts2[1])
-        u_form[2] = eval_3d.eval_spline_mpi_3d(
+        u_form[2] = eval_3d.eval_spline_mpi_kernel(
             pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u2_3, starts2[2])
         
         linalg.matrix_vector(df, u_form, u_cart)
@@ -728,16 +728,16 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                    kind_map: 'int', params_map: 'float[:]',
-                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    grad_Xu_11: 'float[:,:,:]', grad_Xu_12: 'float[:,:,:]', grad_Xu_13: 'float[:,:,:]',
-                    grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
-                    grad_Xu_31: 'float[:,:,:]', grad_Xu_32: 'float[:,:,:]', grad_Xu_33: 'float[:,:,:]'):
+def push_pc_GXu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+                     pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                     starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                     kind_map: 'int', params_map: 'float[:]',
+                     p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                     ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                     cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                     GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+                     GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+                     GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
     r'''Updates
 
     .. math::
@@ -776,12 +776,12 @@ def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float',
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, v, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, e, e_cart)
-    #$ omp for
     for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
 
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
@@ -810,39 +810,32 @@ def push_pc_Xu_full(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
         # Evaluate grad(X(u, v)) at the particle positions
-        e[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_Xu_11 * v[0] + grad_Xu_21 * v[1] + grad_Xu_31 * v[2], starts1[0])
-        e[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_Xu_12 * v[0] + grad_Xu_22 * v[1] + grad_Xu_32 * v[2], starts1[1])
-        e[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_Xu_13 * v[0] + grad_Xu_23 * v[1] + grad_Xu_33 * v[2], starts1[2])
+        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1] + GXu_31 * v[2], starts1[0])
+        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1] + GXu_32 * v[2], starts1[1])
+        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1] + GXu_33 * v[2], starts1[2])
 
         # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt*e_cart
+        markers[ip, 3:6] -= dt*e_cart[:]/2.
 
-    #$ omp end parallel
-
-
-@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'b', 'b_cart', 'b0', 'v', 'vperp', 'vxb0', 'b0xvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
-                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                    kind_map: 'int', params_map: 'float[:]',
-                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                    grad_Xu_11: 'float[:,:,:]', grad_Xu_12: 'float[:,:,:]', grad_Xu_13: 'float[:,:,:]',
-                    grad_Xu_21: 'float[:,:,:]', grad_Xu_22: 'float[:,:,:]', grad_Xu_23: 'float[:,:,:]',
-                    grad_Xu_31: 'float[:,:,:]', grad_Xu_32: 'float[:,:,:]', grad_Xu_33: 'float[:,:,:]',
-                    b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
+@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_GXu(markers: 'float[:,:]', dt: 'float', step: 'int',
+                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                kind_map: 'int', params_map: 'float[:]',
+                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                GXu_11: 'float[:,:,:]', GXu_12: 'float[:,:,:]', GXu_13: 'float[:,:,:]',
+                GXu_21: 'float[:,:,:]', GXu_22: 'float[:,:,:]', GXu_23: 'float[:,:,:]',
+                GXu_31: 'float[:,:,:]', GXu_32: 'float[:,:,:]', GXu_33: 'float[:,:,:]'):
     r'''Updates
 
     .. math::
 
-        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v_\perp)  \right)^n_p
+        \frac{\mathbf v^{n+1}_p - \mathbf v^n_p}{\Delta t} = - DF^{-\top} \left(  \boldsymbol \Lambda^1 \mathbb G \mathcal X(\mathbf u, \mathbf v)  \right)^n_p
 
     for each marker :math:`p` in markers array, where :math:`\mathbf u` 
     are the coefficients of the mhd velocity field (either 1-form or 2-form) and :math:`\mathcal X`
@@ -853,9 +846,6 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
     ----------
         grad_Xu_ij: array[float]
             3d array of FE coeffs of :math:`\nabla_j(\mathcal X \cdot \mathbf u)_i`. i,j=1,2,3.
-
-        b2_1, b2_2, b2_3: array[float]
-            3d array of FE coeffs of B-field as 2-form.
     '''
 
     # allocate metric coeffs
@@ -866,15 +856,9 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
     # allocate for field evaluations
     e = empty(3, dtype=float)
     e_cart = empty(3, dtype=float)
-    b = empty(3, dtype=float)
-    b_cart = empty(3, dtype=float)
-    b0 = empty(3, dtype=float)
 
-    # particle velocity (cartesian, perpendicular, v x b0, b0 x vperp)
+    # particle velocity
     v = empty(3, dtype=float)
-    vperp = empty(3, dtype=float)
-    vxb0 = empty(3, dtype=float)
-    b0xvperp = empty(3, dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -885,17 +869,17 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
     bd2 = empty(pn[1], dtype=float)
     bd3 = empty(pn[2], dtype=float)
 
-    # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta1, eta2, eta3, v, df, dfinv, dfinv_t, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_cart, b0, vxb0, vperp, e, e_cart)
-    #$ omp for
     for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
 
-        eta1 = markers[0, ip]
-        eta2 = markers[1, ip]
-        eta3 = markers[2, ip]
-        v[:] = markers[3:6, ip]
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in df
         map_eval.df(eta1, eta2, eta3,
@@ -906,7 +890,6 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
                     df)
 
         # metric coeffs
-        det_df = linalg.det(df)
         linalg.matrix_inv(df, dfinv)
         linalg.transpose(dfinv, dfinv_t)
 
@@ -919,45 +902,20 @@ def push_pc_Xu_perp(markers: 'float[:,:]', dt: 'float',
         bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
         bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
 
-        # B-field
-        b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
-        b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
-        b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
-
-        # push-forward to physical domain
-        linalg.matrix_vector(df, b, b_cart)
-        b_cart[:] = b_cart/det_df
-
-        # normalized magnetic field direction
-        b_norm = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
-        b0[:] = b_cart/b_norm
-
-        # perpendicular velocity
-        linalg.cross(v, b0, vxb0)
-        linalg.cross(b0, vxb0, vperp)
-
-        # Evaluate grad(X(u, v_perp)) at the particle positions
-        e[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_Xu_11 * vperp[0] + grad_Xu_21 * vperp[1] + grad_Xu_31 * vperp[2], starts1[0])
-        e[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_Xu_12 * vperp[0] + grad_Xu_22 * vperp[1] + grad_Xu_32 * vperp[2], starts1[1])
-        e[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_Xu_13 * vperp[0] + grad_Xu_23 * vperp[1] + grad_Xu_33 * vperp[2], starts1[2])
+        # Evaluate grad(X(u, v)) at the particle positions
+        e[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, GXu_11 * v[0] + GXu_21 * v[1], starts1[0])
+        e[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, GXu_12 * v[0] + GXu_22 * v[1], starts1[1])
+        e[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, GXu_13 * v[0] + GXu_23 * v[1], starts1[2])
 
         # electric field in Cartesian coordinates
         linalg.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
-        markers[3:6, ip] -= dt*e_cart
-
-    #$ omp end parallel
+        markers[ip, 3:6] -= dt*e_cart/2.
 
 
 @stack_array('df', 'dfinv', 'eta', 'v', 'k1', 'k2', 'k3', 'k4')
-def push_eta_rk4(markers: 'float[:,:]', dt: 'float',
+def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
                  pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                  starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                  kind_map: 'int', params_map: 'float[:]',
@@ -1083,16 +1041,15 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float',
     #$ omp end parallel
 
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k1', 'k2', 'k3', 'k4', 'k1_v', 'k2_v', 'k3_v', 'k4_v', 'k1_u', 'k2_u', 'k3_u', 'k4_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
-                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                         kind_map: 'int', params_map: 'float[:]',
-                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
-                         u_basis: 'int'):
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               kind_map: 'int', params_map: 'float[:]',
+                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
@@ -1128,18 +1085,9 @@ def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
     u = empty(3, dtype=float)
 
     # intermediate steps in RK4
-    k1 = empty(3, dtype=float)
-    k2 = empty(3, dtype=float)
-    k3 = empty(3, dtype=float)
-    k4 = empty(3, dtype=float)
-    k1_v = empty(3, dtype=float)
-    k2_v = empty(3, dtype=float)
-    k3_v = empty(3, dtype=float)
-    k4_v = empty(3, dtype=float)
-    k1_u = empty(3, dtype=float)
-    k2_u = empty(3, dtype=float)
-    k3_u = empty(3, dtype=float)
-    k4_u = empty(3, dtype=float)
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1153,77 +1101,34 @@ def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta, v, eta1, eta2, eta3, df, dfinv, dfinv_t, ginv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_v, k2_v, k3_v, k4_v, k1_u, k2_u, k3_u, k4_u)
-    #$ omp for
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
     for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
 
-        eta[:] = markers[ip, :3]
-        v[:] = markers[ip, 3:6]
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
 
-        # ----------------- step 1 in Runge-Kutta method -------------------
-        eta1 = eta[0]
-        eta2 = eta[1]
-        eta3 = eta[2]
-
+        # ----------------- step n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # metric coeffs
-        det_df = linalg.det(df)
-        linalg.matrix_inv(df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k1_v)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
-
-        # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
-
-            # transform to vector field
-            linalg.matrix_vector(ginv, u, k1_u)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
-
-            # transform to vector field
-            k1_u[:] = u/det_df
-
-        # sum contribs
-        k1[:] = k1_v + k1_u
-
-        # ----------------- step 2 in Runge-Kutta method -------------------
-        eta1 = (eta[0] + dt*k1[0]/2) % 1.
-        eta2 = (eta[1] + dt*k1[1]/2) % 1.
-        eta3 = (eta[2] + dt*k1[2]/2) % 1.
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -1236,177 +1141,48 @@ def push_pc_eta_rk4_full(markers: 'float[:,:]', dt: 'float',
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k2_v)
+        linalg.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
-
-        # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
-
-            # transform to vector field
-            linalg.matrix_vector(ginv, u, k2_u)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
-
-            # transform to vector field
-            k2_u[:] = u/det_df
-
-        # sum contribs
-        k2[:] = k2_v + k2_u
-
-        # ------------------ step 3 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k2[0]/2) % 1.
-        eta2 = (eta[1] + dt*k2[1]/2) % 1.
-        eta3 = (eta[2] + dt*k2[2]/2) % 1.
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # metric coeffs
-        linalg.matrix_inv(df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k3_v)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
+        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
 
-            # transform to vector field
-            linalg.matrix_vector(ginv, u, k3_u)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
-
-            # transform to vector field
-            k3_u[:] = u/det_df
+        # transform to vector field
+        linalg.matrix_vector(ginv, u, k_u)
 
         # sum contribs
-        k3[:] = k3_v + k3_u
+        k[:] = k_v + k_u
 
-        # ------------------ step 4 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k3[0]) % 1.
-        eta2 = (eta[1] + dt*k3[1]) % 1.
-        eta3 = (eta[2] + dt*k3[2]) % 1.
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # metric coeffs
-        linalg.matrix_inv(df, dfinv)
-        linalg.transpose(dfinv, dfinv_t)
-        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k4_v)
-
-        # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
-
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
-
-        # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts1[2])
-
-            # transform to vector field
-            linalg.matrix_vector(ginv, u, k4_u)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
-
-            # transform to vector field
-            k4_u[:] = u/det_df
-
-        # sum contribs
-        k4[:] = k4_v + k4_u
-
-        #  ---------------- update logical coordinates ---------------------
-        markers[ip, :3] = (eta + dt*(k1 + 2*k2 + 2*k3 + k4)/6) % 1.0
-
-    #$ omp end parallel
-
-
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'u_cart', 'b', 'b_cart', 'b0', 'uperp', 'uxb0', 'k1', 'k2', 'k3', 'k4', 'k1_v', 'k2_v', 'k3_v', 'k4_v', 'k1_u', 'k2_u', 'k3_u', 'k4_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
-                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                         starts0: 'int[:]', starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',
-                         kind_map: 'int', params_map: 'float[:]',
-                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                         u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]',
-                         u_basis: 'int',
-                         b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              kind_map: 'int', params_map: 'float[:]',
+                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})_\perp
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
 
@@ -1435,26 +1211,11 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
 
     # U-fiels
     u = empty(3, dtype=float)
-    u_cart = empty(3, dtype=float)
-    b = empty(3, dtype=float)
-    b_cart = empty(3, dtype=float)
-    b0 = empty(3, dtype=float)
-    uperp = empty(3, dtype=float)
-    uxb0 = empty(3, dtype=float)
 
     # intermediate steps in RK4
-    k1 = empty(3, dtype=float)
-    k2 = empty(3, dtype=float)
-    k3 = empty(3, dtype=float)
-    k4 = empty(3, dtype=float)
-    k1_v = empty(3, dtype=float)
-    k2_v = empty(3, dtype=float)
-    k3_v = empty(3, dtype=float)
-    k4_v = empty(3, dtype=float)
-    k1_u = empty(3, dtype=float)
-    k2_u = empty(3, dtype=float)
-    k3_u = empty(3, dtype=float)
-    k4_u = empty(3, dtype=float)
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
 
     # allocate spline values
     bn1 = empty(pn[0] + 1, dtype=float)
@@ -1468,20 +1229,32 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private(ip, eta, v, eta1, eta2, eta3, df, dfinv, dfinv_t, ginv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, u, k1, k2, k3, k4, k1_v, k2_v, k3_v, k4_v, k1_u, k2_u, k3_u, k4_u)
-    #$ omp for
-    for ip in range(n_markers):
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else:
+        nk = 2.
 
-        eta[:] = markers[ip, :3]
+    # is it the last step?
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    else:
+        last = 0.
+        cont  = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # ----------------- step 1 in Runge-Kutta method -------------------
-        eta1 = eta[0]
-        eta2 = eta[1]
-        eta3 = eta[2]
-
+        # ----------------- step n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -1495,74 +1268,121 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k1_v)
+        linalg.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts3)
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
+        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts2[2])
 
-            # push-forward
-            linalg.matrix_vector(dfinv_t, u, u_cart)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(df, u, u_cart)
-            u_cart[:] = u_cart/det_df
-
-        # B-field (2-form)
-        b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts1)
-        b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2)
-        b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts3)
-
-        # push-forward
-        linalg.matrix_vector(df, b, b_cart)
-        b_cart[:] = b_cart/det_df
-
-        # normalized magnetic field direction
-        b_norm = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
-        b0[:] = b_cart/b_norm
-
-        # perpendicular momentum
-        linalg.cross(u_cart, b0, uxb0)
-        linalg.cross(b0, uxb0, uperp)
-
-        # pullback as vector field
-        linalg.matrix_vector(dfinv, uperp, k1_u)
+        # transform to vector field
+        k_u[:] = u/det_df
 
         # sum contribs
-        k1[:] = k1_v + k1_u
+        k[:] = k_v + k_u
 
-        # ----------------- step 2 in Runge-Kutta method -------------------
-        eta1 = (eta[0] + dt*k1[0]/2) % 1.
-        eta2 = (eta[1] + dt*k1[1]/2) % 1.
-        eta3 = (eta[2] + dt*k1[2]/2) % 1.
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                               kind_map: 'int', params_map: 'float[:]',
+                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                               u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -1575,74 +1395,119 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k2_v)
+        linalg.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(dfinv_t, u, u_cart)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(df, u, u_cart)
-            u_cart[:] = u_cart/det_df
-
-        # B-field (2-form)
-        b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts1)
-        b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2)
-        b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts3)
-
-        # push-forward
-        linalg.matrix_vector(df, b, b_cart)
-        b_cart[:] = b_cart/det_df
-
-        # normalized magnetic field direction
-        b_norm = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
-        b0[:] = b_cart/b_norm
-
-        # perpendicular momentum
-        linalg.cross(u_cart, b0, uxb0)
-        linalg.cross(b0, uxb0, uperp)
-
-        # pullback as vector field
-        linalg.matrix_vector(dfinv, uperp, k2_u)
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
+        u[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_3, starts0)
 
         # sum contribs
-        k2[:] = k2_v + k2_u
+        k[:] = k_v + u
 
-        # ------------------ step 3 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k2[0]/2) % 1.
-        eta2 = (eta[1] + dt*k2[1]/2) % 1.
-        eta3 = (eta[2] + dt*k2[2]/2) % 1.
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -1655,74 +1520,248 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k3_v)
+        linalg.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts3)
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts1[1])
+        u[2] = 0.
 
-            # push-forward
-            linalg.matrix_vector(dfinv_t, u, u_cart)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(df, u, u_cart)
-            u_cart[:] = u_cart/det_df
-
-        # B-field (2-form)
-        b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts1)
-        b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2)
-        b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts3)
-
-        # push-forward
-        linalg.matrix_vector(df, b, b_cart)
-        b_cart[:] = b_cart/det_df
-
-        # normalized magnetic field direction
-        b_norm = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
-        b0[:] = b_cart/b_norm
-
-        # perpendicular momentum
-        linalg.cross(u_cart, b0, uxb0)
-        linalg.cross(b0, uxb0, uperp)
-
-        # pullback as vector field
-        linalg.matrix_vector(dfinv, uperp, k3_u)
+        # transform to vector field
+        linalg.matrix_vector(ginv, u, k_u)
 
         # sum contribs
-        k3[:] = k3_v + k3_u
+        k[:] = k_v + k_u
 
-        # ------------------ step 4 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k3[0]) % 1.
-        eta2 = (eta[1] + dt*k3[1]) % 1.
-        eta3 = (eta[2] + dt*k3[2]) % 1.
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
+                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                              kind_map: 'int', params_map: 'float[:]',
+                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+    k_u = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else:
+        nk = 2.
+
+    # is it the last step?
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    else:
+        last = 0.
+        cont  = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(eta[0], eta[1], eta[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+        linalg.matrix_inv(df, dfinv)
+        linalg.transpose(dfinv, dfinv_t)
+        linalg.matrix_matrix(dfinv, dfinv_t, ginv)
+
+        # pull-back of velocity
+        linalg.matrix_vector(dfinv, v, k_v)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
+
+        # U-field
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts2[0])
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2[1])
+        u[2] = 0.
+
+        # transform to vector field
+        k_u[:] = u/det_df
+
+        # sum contribs
+        k[:] = k_v + k_u
+
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
+
+@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
+                          pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                          starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                          kind_map: 'int', params_map: 'float[:]',
+                          p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                          ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                          cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+    r'''Fourth order Runge-Kutta solve of 
+
+    .. math::
+
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
+
+    .. math::
+
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+
+    Parameters
+    ----------
+        u_1, u_2, u_3: array[float]
+            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
+
+        u_basis : int
+            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    dfinv = empty((3, 3), dtype=float)
+    dfinv_t = empty((3, 3), dtype=float)
+    ginv = empty((3, 3), dtype=float)
+
+    # marker position and velocity
+    eta = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+
+    # U-fiels
+    u = empty(3, dtype=float)
+
+    # intermediate steps in RK4
+    k = empty(3, dtype=float)
+    k_v = empty(3, dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    # assign factor of k for each step
+    if step == 0 or step == 3:
+        nk = 1.
+    else: nk = 2.
+
+    # which step
+    if step == 3:
+        last = 1.
+        cont  = 0.
+    elif step == 2:
+        last = 0.
+        cont  = 2.
+    else:
+        last = 0.
+        cont = 1.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        eta[:] = markers[ip, 0:3]
+        v[:]   = markers[ip, 3:6]
+
+        # ----------------- step n in Runge-Kutta method -------------------
+        # evaluate Jacobian, result in df
+        map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -1735,75 +1774,33 @@ def push_pc_eta_rk4_perp(markers: 'float[:,:]', dt: 'float',
         linalg.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k4_v)
+        linalg.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], eta[0])
+        span2 = bsp.find_span(tn2, pn[1], eta[1])
+        span3 = bsp.find_span(tn3, pn[2], eta[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], eta[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], eta[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], eta[2], span3, bn3, bd3)
 
         # U-field
-        if u_basis == 1:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(dfinv_t, u, u_cart)
-
-        elif u_basis == 2:
-            u[0] = eval_3d.eval_spline_mpi_3d(
-                pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, u_1, starts1)
-            u[1] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, u_2, starts2)
-            u[2] = eval_3d.eval_spline_mpi_3d(
-                pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, u_3, starts3)
-
-            # push-forward
-            linalg.matrix_vector(df, u, u_cart)
-            u_cart[:] = u_cart/det_df
-
-        # B-field (2-form)
-        b[0] = eval_3d.eval_spline_mpi_3d(
-            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts1)
-        b[1] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2)
-        b[2] = eval_3d.eval_spline_mpi_3d(
-            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts3)
-
-        # push-forward
-        linalg.matrix_vector(df, b, b_cart)
-        b_cart[:] = b_cart/det_df
-
-        # normalized magnetic field direction
-        b_norm = sqrt(b_cart[0]**2 + b_cart[1]**2 + b_cart[2]**2)
-        b0[:] = b_cart/b_norm
-
-        # perpendicular momentum
-        linalg.cross(u_cart, b0, uxb0)
-        linalg.cross(b0, uxb0, uperp)
-
-        # pullback as vector field
-        linalg.matrix_vector(dfinv, uperp, k4_u)
+        u[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_1, starts0)
+        u[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, u_2, starts0)
+        u[2] = 0.
 
         # sum contribs
-        k4[:] = k4_v + k4_u
+        k[:] = k_v + u
 
-        #  ---------------- update logical coordinates ---------------------
-        markers[ip, :3] = (eta + dt*(k1 + 2*k2 + 2*k3 + k4)/6) % 1.0
-
-    #$ omp end parallel
-
+        # accum k
+        markers[ip, 12:15] += k*nk/6.
+        
+        # update markers for the next step
+        markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
-def push_weights_with_efield(markers: 'float[:,:]', dt: 'float',
+def push_weights_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                              kind_map: 'int', params_map: 'float[:]',
@@ -1892,11 +1889,11 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: 'float',
         temp3 = 0.
 
         # E-field (1-form)
-        temp1 = eval_3d.eval_spline_mpi_3d(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
+        temp1 = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3,
                                            span1, span2, span3, e1_1, starts1[0])
-        temp2 = eval_3d.eval_spline_mpi_3d(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
+        temp2 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3,
                                            span1, span2, span3, e1_2, starts1[1])
-        temp3 = eval_3d.eval_spline_mpi_3d(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
+        temp3 = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3,
                                            span1, span2, span3, e1_3, starts1[2])
 
         prod1 = df_inv[0, 0] * v1 + df_inv[0, 1] * v2 + df_inv[0, 2] * v3
@@ -1911,7 +1908,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: 'float',
 
 
 @stack_array('particle')
-def push_x_v_static_efield(markers: 'float[:,:]', dt: 'float',
+def push_x_v_static_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
                            kind_map: 'int', params_map: 'float[:]',

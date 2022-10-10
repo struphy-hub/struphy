@@ -41,7 +41,7 @@ BATCH_SCRIPT=
 BATCH_SCRIPT_ABS=         
 RESTART_DIR=          
 MPI_SIZE=1
-PPCELL=1
+CELLDIVIDE=1
 RUN_CMD=$PYTHON
 EXAMPLE=
 SERIAL=true
@@ -121,13 +121,13 @@ function profile_help {
 
 function pproc_help {
     echo
-    echo "Usage: struphy pproc [--ppcell N] DIR_1 [DIR_2 ...]"
+    echo "Usage: struphy pproc [--celldivide N] DIR_1 [DIR_2 ...]"
     echo
     echo "Post process data from finished struphy run."
     echo "See https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#post-processing for details."
     echo
     echo "Options:"
-    echo "  --ppcell    Use N points per cell for field evaluation, default=1."
+    echo "  --celldivide    Divide each grid cell by N for field evaluation, default is N=1."
 }
 
 function example_help {
@@ -137,9 +137,10 @@ function example_help {
     echo "Run complete struphy example with post processing and plotting."
     echo
     echo "Cases:"
-    echo "  maxwell       1d Maxwell equations in vacuum, dispersion relation."
-    echo "  maxwell_mpi   maxwell with 3 mpi processes."
-    echo "  linearmhd     1d linear MHD equations, dispersion relation, 4 mpi processes."
+    echo "  maxwell         1d Maxwell equations in vacuum, dispersion relation."
+    echo "  maxwell_mpi     maxwell with 3 mpi processes."
+    echo "  linearmhd       1d linear MHD equations, dispersion relation, 4 mpi processes."
+    echo "  orbits_tokamak  full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
 }
 
 function test_help {
@@ -308,8 +309,8 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
-    --ppcell)
-      PPCELL="$2"
+    --celldivide)
+      CELLDIVIDE="$2"
       shift
       shift
       ;;
@@ -485,10 +486,10 @@ if [ "$PPROC" = true ]; then
 
     # Print parameters
     echo "Executing $STRUPHY/post_processing/pproc_struphy.py"
-    echo "PPCELL = $PPCELL"
+    echo "CELLDIVIDE = $CELLDIVIDE"
     echo "folders  = ${folders[*]}"
 
-    $PYTHON $STRUPHY/post_processing/pproc_struphy.py $PPCELL ${folders[@]}
+    $PYTHON $STRUPHY/post_processing/pproc_struphy.py $CELLDIVIDE ${folders[@]}
 
   fi
 
@@ -503,6 +504,8 @@ if [ $EXAMPLE ]; then
     example_maxwell_mpi_3
   elif [ "$EXAMPLE" == linearmhd ]; then
     example_linearmhd_mpi_4
+  elif [ "$EXAMPLE" == orbits_tokamak ]; then
+    example_orbits_tokamak_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi

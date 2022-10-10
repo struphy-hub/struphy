@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[2, 3, 4]])
+@pytest.mark.parametrize('p', [[1, 2, 3]])
 @pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
 @pytest.mark.parametrize('mapping', [
     ['Cuboid', {
@@ -12,7 +12,7 @@ import pytest
         'x0': 1., 'y0': 2., 'z0': 3., 'R0': 4., 'Lz': 5., 'delta_x': 0.06, 'delta_y': 0.07, 'delta_gs': 0.08, 'epsilon_gs': 9., 'kappa_gs': 10.}]
 ])
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
-    '''Asserts whether all particles are on the correct process after `particles.send_recv_markers()`.'''
+    '''Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`.'''
 
     from mpi4py import MPI
     import numpy as np
@@ -31,7 +31,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     loading_params = {'type': 'pseudo_random', 'seed': seed,
                       'moms_params': [1., 0., 0., 0., 1., 1., 1.]}
 
-    marker_params = {'ppc': ppc, 'loading': loading_params}
+    marker_params = {'ppc': ppc, 'eps': .25, 'loading': loading_params, 'bc_type' : ['periodic', 'periodic', 'periodic']}
 
     # Domain object
     domain_class = getattr(domains, mapping[0])
@@ -56,7 +56,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
 
     # sort particles according to domain decomposition
     comm.Barrier()
-    particles.send_recv_markers(do_test=True)
+    particles.mpi_sort_markers(do_test=True)
 
     comm.Barrier()
     print('Number of particles w/wo holes on each process after sorting : ')

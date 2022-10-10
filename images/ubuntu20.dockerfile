@@ -19,7 +19,7 @@ RUN curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab
 # install psydac from submodule
 RUN git clone https://github.com/pyccel/psydac.git \
     && cd psydac \
-    && git checkout 0be048d57040dc6b62b5d901f9805bcd30e35537 \
+    && git checkout struphy-branch \
     && python3 -m pip install -r requirements.txt \
     && python3 -m pip install -r requirements_extra.txt --no-build-isolation \
     && pip install . \

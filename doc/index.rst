@@ -19,8 +19,10 @@ Indices and tables
    sections/install
    sections/quickstart
    sections/intro
+   sections/discretization
    sections/userguide
    sections/models
+   sections/propagators
    sections/domains
    sections/backgrounds
    sections/inits
@@ -28,7 +30,6 @@ Indices and tables
    sections/developers
    sections/toolkit
    sections/notebooks
-   sections/discretization
    sections/examples
    
 

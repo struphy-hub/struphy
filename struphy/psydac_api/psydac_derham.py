@@ -137,8 +137,8 @@ class Derham:
         self._indD = [(np.indices((space.ncells, space.degree + 1))[1] + np.arange(space.ncells)[:, None])%space.nbasis for space in self._V3.spaces]
 
         # Distribute info on domain decomposition
+        self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
         if comm is not None:
-            self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
             self._neighbours = self._get_neighbours()
             
 
@@ -283,7 +283,10 @@ class Derham:
         """
 
         # mpi info
-        nproc = self.comm.Get_size()
+        if self.comm is not None:
+            nproc = self.comm.Get_size()
+        else:
+            nproc = 1
         #rank = self.comm.Get_rank()
 
         # Send buffer
@@ -322,9 +325,14 @@ class Derham:
             ind_arr_3_loc[2*n + 1] = gl_end
 
         # Distribute
-        self.comm.Allgather(dom_arr_loc, dom_arr)
-        self.comm.Allgather(ind_arr_0_loc, ind_arr_0)
-        self.comm.Allgather(ind_arr_3_loc, ind_arr_3)
+        if self.comm is not None:
+            self.comm.Allgather(dom_arr_loc, dom_arr)
+            self.comm.Allgather(ind_arr_0_loc, ind_arr_0)
+            self.comm.Allgather(ind_arr_3_loc, ind_arr_3)
+        else:
+            dom_arr = dom_arr_loc
+            ind_arr_0 = ind_arr_0_loc
+            ind_arr_3 = ind_arr_3_loc
 
         return dom_arr.reshape(nproc, 9), ind_arr_0.reshape(nproc, 6), ind_arr_3.reshape(nproc, 6)
 
