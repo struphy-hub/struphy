@@ -38,15 +38,16 @@ Profile the runs::
 
     struphy profile sim_1 sim_2
 
-Run Maxwell tests including post-processing and simple diagnostics in serial::
+Check out available examples including post-processing and diagnostics::
+
+    struphy example --help
+
+Run Maxwell example (serial)::
 
     struphy example maxwell
 
-Same with three mpi processes::
+Simulate particle orbits in a tokamak::
 
-    struphy example maxwell_mpi
-
-The source of the routines used in these post-processing examples is in ``<install_path>/examples/example_diagnostics_1dfft.py`` 
-
+    struphy example orbits_tokamak
 
             

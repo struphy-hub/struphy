@@ -101,9 +101,7 @@ class StepMaxwell(Propagator):
 
 
 class StepOhmCold(Propagator):
-    r'''Analytical step
-
-    Discrete solution:
+    r'''Analytic solution
 
     .. math::
 
@@ -118,27 +116,34 @@ class StepOhmCold(Propagator):
         \begin{bmatrix}
             \mathbf j^n \\
             \mathbf e^n
-        \end{bmatrix}\,,
+        \end{bmatrix}
 
-    which is derived from problem:
+    of the rotation problem
 
     .. math::
 
-    \partial_{t}
-    \begin{bmatrix}
-        \mathbf j \\
-        \mathbf e
-    \end{bmatrix}
-        = \begin{bmatrix}
-        0 & \alpha\mathbb M_1^{-1} \\
-        -\alpha\mathbb M_1^{-1} & 0
-    \end{bmatrix}
-    \begin{bmatrix}
-        \mathbb M_1 \mathbf j \\
-        \mathbb M_1 \mathbf e
-    \end{bmatrix}\,,
+        \frac{\partial}{\partial t}
+        \begin{bmatrix}
+            \mathbf j \\
+            \mathbf e
+        \end{bmatrix}
+            = \begin{bmatrix}
+            0 & \alpha \mathbb M_1^{-1} \\
+            -\alpha \mathbb M_1^{-1} & 0
+        \end{bmatrix}
+        \begin{bmatrix}
+            \mathbb M_1 \mathbf j \\
+            \mathbb M_1 \mathbf e
+        \end{bmatrix}\,, \qquad \begin{bmatrix}
+            \mathbf j \\
+            \mathbf e
+        \end{bmatrix}(0) = 
+        \begin{bmatrix}
+            \mathbf j^n \\
+            \mathbf e^n
+        \end{bmatrix}\,,
 
-    where :math:`\alpha = \Omega_{pe} / \Omega_{ce}`, :math:`\Omega_{pe}` is the plasma frequency and :math:`\Omega_{ce}` is the electron cyclotron frequency.
+    where :math:`\alpha \in \mathbb R` denotes the angular frequency of the rotation.
 
     Parameters
     ----------

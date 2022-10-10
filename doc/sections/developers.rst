@@ -3,20 +3,25 @@
 Developer's guide
 =================
 
+
+.. _git_workflow:
+
+Git workflow
+------------
+
 .. _repo:
 
 Git repository
---------------
+^^^^^^^^^^^^^^
 
 The struphy repository is on `gitlab.mpcdf.mpg.de <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_.
-
 For access please contact `stefan.possanner@ipp.mpg.de <stefan.possanner@ipp.mpg.de>`_.
 
 
 .. _open_dev:
 
 Open development
-----------------
+^^^^^^^^^^^^^^^^
 
 When adding code to struphy it is important that other developers can follow your plans.
 For this we use the ``Issue`` tracker on the left panel of the `repo webpage <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues>`_.
@@ -34,7 +39,7 @@ This helps to keep a better overview for other developers.
 .. _main_branches:
 
 Main branches 
--------------
+^^^^^^^^^^^^^
 
 There are two main branches, ``master`` and ``devel``. Nobody can push directly to these branches. 
 The master branch holds the current release of the code. 
@@ -43,7 +48,7 @@ The master branch holds the current release of the code.
 .. _feature_branches:
 
 Feature branch 
---------------
+^^^^^^^^^^^^^^
 
 When implementing changes to ``devel`` you must do this via a **feature branch** in the following way::
 
@@ -82,7 +87,7 @@ You can continue working locally on your feature, then use ``git push`` to updat
 .. _merge_requests:
 
 Merge requests 
---------------
+^^^^^^^^^^^^^^
 
 Once you are done working on the new feature, you must create a **merge request** (MR, called pull request on Github). 
 There are several ways to do this, one of which is as follows: 
@@ -102,7 +107,7 @@ In order to mention the merge request in issues/comments, go to its page and cop
 .. _rebasing:
 
 Rebasing
---------
+^^^^^^^^
 
 In a team of multiple developers it often happens that the main branch ``devel`` changes while
 you are working on your feature branch. In other words, **main and feature branches have diverged**. 
@@ -147,7 +152,7 @@ In case that you made an error during the rebase process you can always go back 
 .. _merging:
 
 Merging
--------
+^^^^^^^
 
 Merging must be done instead of rebasing if
 
@@ -168,7 +173,7 @@ Merging will create a meaningless merge commit in your ``git log``.
 .. _ci:
 
 Continuous integration 
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
 
 `Continuous integration (CI) <https://gitlab.mpcdf.mpg.de/help/ci/index.md>`_ stands for the automatic building and testing of the code.
 On gitlab this is done through the ``.gitlab-ci.yml`` file in the repository (see `quickstart ci guide <https://gitlab.mpcdf.mpg.de/help/ci/quick_start/index.md>`_).
@@ -182,30 +187,10 @@ In this way they are recognized by ``pytest`` in ``.gitlab-ci.yml``:
 Please consult existing tests as templates.
 
 
-.. _change_doc:
-
-Changing the documentation 
---------------------------
-
-The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. 
-If you make changes to these files, you can review them in your browser (e.g. firefox)::
-
-    cd doc
-    make html
-    firefox _build/html/index.html
-
-When making further changes, just do ``make html`` and refresh the window in your browser.
-
-
-.. _how_to_add:
-
-How to add ... 
---------------
-
 .. _add_model:
 
-Model equations
-^^^^^^^^^^^^^^^
+How to add a new model
+----------------------
 
 Struphy models can be composed of **fluid/field variables** (3D in space) and **kinetic variables** (5D or 6D in phase space).
 
@@ -224,58 +209,83 @@ Once you added a model to ``struphy/models/models.py`` and re-installed struphy 
 you can run the model with ``struphy run YOUR_MODEL``, where ``YOUR_MODEL`` is the name you gave to 
 the model class (it must start with a capital letter).
 
-Let us look at the example of the model ``Maxwell`` (:ref:`models`):
 
-.. literalinclude:: ../../struphy/models/models.py
-    :language: python
-    :linenos: 
-    :lineno-start: 6
-    :lines: 6-77
+.. _add_field:
 
-The class ``Maxwell`` inherits all members of the base class :ref:`model_base_class`. 
-Hence, in lines 66-77 the abstract properties  ``propagators``, ``scalar_quantities`` as well as the abstract method  
-``update_scalar_quantities`` have been implemented.
-Otherwise, an error message would occur.
+Adding field variables
+^^^^^^^^^^^^^^^^^^^^^^
 
-Moreover, we note that the docstring contains the model equations 
-and their normalization (in latex format). This is necessary for the correct documentation of the model.
+.. highlight:: python
 
-The ``__init__`` function of the base class is called via ``super().__init__``.
-The Maxwell model has two field variables ``e_field='Hcurl'`` and ``b_field='Hdiv'``; 
-the keys ``e_field`` and ``b_field`` are the variable names used for saving and the values ``'Hcurl'`` and ``'Hdiv'``
-define the respective space in which the variable's FE coefficients are initialized.
-The FE coefficients :math:`\mathbf e \in \mathbb R^{N_1}` and :math:`\mathbf b \in \mathbb R^{N_2}` 
-are stored in Psydac's ``Stencil-/BlockVectors`` format and are MPI distributed, see :ref:`derham` for detials.
-They can be retrieved from the ``fields`` property defined in the base class (see lines 51-52).
+Each instance of a model class gets initialized with a parameter dictionary ``params`` and the MPI communicator ``comm``::
 
-Mass matrices have to be assembled model-specific via the class :ref:`weighted_mass`. 
-In the Maxwell case we only need :math:`\mathbb M_1` and :math:`\mathbb M_2`.
+    def __init__(self, params, comm):
 
-The FE coefficients are updated with a single :ref:`propagator <add_propagator>`
-derived from a Crank-Nicolson discretization (see below):
+In the scope of this ``__init__`` function, field variables are added by calling upon the base class::
 
-    .. math::
-        \begin{bmatrix}
-        \mathbf e^{n+1} - \mathbf e^n \\[2mm] \mathbf b^{n+1} - \mathbf b^n
-       \end{bmatrix} = 
-       \frac{\Delta t}{2} 
-       \begin{bmatrix}
-        0 & \mathbb{M}_1^{-1}\mathbb{C}^\top 
-        \\[2mm] 
-        - \mathbb{C}\mathbb{M}_1^{-1}  & 0
-       \end{bmatrix}
-       \begin{bmatrix}
-        \mathbb{M}_1 (\mathbf e^{n+1} + \mathbf e^n) \\[2mm] \mathbb M^2 (\mathbf b^{n+1} + \mathbf b^n)
-       \end{bmatrix} \,.
+    super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
+
+The above example stems from the model ``Maxwell``, where two fields are implemented:
+the electric field ``e_field`` in the space :math:`H(\textnormal{curl},\Omega)`
+and the magnetic field ``b_field`` in the space :math:`H(\textnormal{div},\Omega)`.
+The base class then creates two instances of the :ref:`struphy_field`. 
+It is convenient to create pointers to the actual ``StencilVectors`` (or in this case
+``BlockVectors``, which are 3-lists of ``StencilVectors``)::
+
+    self._e = self.fields[0].vector
+    self._b = self.fields[1].vector
+
+``StencilVectors`` are the basic `psydac <https://github.com/pyccel/psydac>`_ objects in which distributed vectors are stored. 
+These pointers can then be passed to one or more propagators (in this case just one)::
+
+    self._propagators = []
+    self._propagators += [StepMaxwell(self._e, self._b, self.derham, self._mass_ops, solver_params)]
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+Here, the abstract method ``propagators`` has been defined as a list of all propagator of the model;
+this is demanded by the ``StruphyModel`` base class.
+
+
+.. _add_particles:
+
+Adding kinetic species
+^^^^^^^^^^^^^^^^^^^^^^
+
+Similar to field variables, kinetic variables are added within the scope of a models's ``__init__`` function,
+by calling upon the base class::
+
+    super().__init__(params, comm, ions='Particles6D')
+
+Here, a species named ``ions`` is added; this automaticall creates an instance of the :ref:`Particles6D <particles>` class.
+The kinetic objects are stored as a list in ``self.kinetic_species``. 
+It is convenient to define a pointer to each species (just one species in this case)::
+
+    self._ions = self.kinetic_species[0]
+
+These pointers can then be passed to one or more propagators::
+
+    self._propagators = []
+    self._propagators += [StepPushVxB(self._ions, self.derham, self._b)]
+    self._propagators += [StepPushEtaRk4(self._ions, self.derham)]
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+Here, the abstract method ``propagators`` has been defined as a list of all propagator of the model;
+this is demanded by the ``StruphyModel`` base class.
 
 
 .. _add_propagator:
 
-Propagators
-^^^^^^^^^^^
+How to add a new propagator
+---------------------------
 
 Struphy :ref:`propagators` refer to the splitting steps of time marching algorithms.
-They are at the heart of all :ref:`struphy models <models>`.
+They are the basic building blocks of all :ref:`struphy models <models>`.
 
 Propagators must be added to the module ``struphy.propagators.propagators.py``.
 They inherit the :ref:`prop_base_class` and must define the abstract property
@@ -293,8 +303,8 @@ The one propagator used in the model ``Maxwell`` is called ``StepMaxwell``:
 .. literalinclude:: ../../struphy/propagators/propagators.py
     :language: python
     :linenos: 
-    :lineno-start: 15
-    :lines: 15-92
+    :lineno-start: 23
+    :lines: 23-100
 
 The propagator ``StepMaxwell`` inherits all members of the base class :ref:`prop_base_class`.
 Hence, in lines 70-92 the abstract objects ``variables`` and ``__call__`` are defined.
@@ -311,24 +321,27 @@ Moreover, we note that the docstring contains the
 propagator equations (in latex format). This is necessary for the correct documentation of the propagator.
 
 
+.. _how_to_add:
+
+How to add ... 
+--------------
+
 .. _add_mapping:
 
 Mapped domains 
 ^^^^^^^^^^^^^^^
 
-Implemented domains are listed in :ref:`avail_mappings`. 
+New domains have to be added to ``struphy/geometry/domains.py`` and are sub-classes of the :ref:`domain_base`.
+You are advised to use existing domains as templates. 
 
-New domains have to be added to ``struphy/geometry/domains.py`` and are sub-classes of the ``Domain`` base class:
-
-.. autoclass:: struphy.geometry.base.Domain
-    :members:
-
-Please use existing domains as templates. The actual formulas defining the mapping and its Jacobian matrix
+The actual formulas defining the mapping and its Jacobian matrix
 must be implemented in ``struphy/geometry/mappings_fast.py``, which gets pyccelized (compiled).
 These accelerated functions get called in ``struphy.geometry.map_eval.f`` and ``struphy.geometry.map_eval.df``, respectively.
 The ``kind_map`` attribute (``int``) of the domain class serves as the identifier of the mapping in ``f`` and ``df``.
 Note that ``kind_map < 10`` must be used for spline mappings, and ``kind_map >= 10`` must be used
 for analytical mappings. Make sure that your identifier is not already used by another mapping. 
+
+Implemented domains are listed in :ref:`avail_mappings`. 
 
 
 .. _add_equil:
@@ -337,6 +350,7 @@ Backgrounds
 ^^^^^^^^^^^^
 
 Implemented backgrounds listed in :ref:`backgrounds`. 
+You are advised to use existing backgrounds as templates.
 
 
 .. _add_dispersion:
@@ -344,24 +358,16 @@ Implemented backgrounds listed in :ref:`backgrounds`.
 Dispersion relations 
 ^^^^^^^^^^^^^^^^^^^^^
 
-Implemented dispersion relations that inherit the base class are listed in :ref:`dispersions`. 
-
-.. autoclass:: struphy.dispersion_relations.base.DispersionRelations1D
+Implemented dispersion relations that inherit the base class are listed in :ref:`dispersion_base`. 
+You are advised to use existing dispersion relations as templates.
 
 As an example, consider the dispersion relation for light waves in vacuum:
 
 .. literalinclude:: ../../struphy/dispersion_relations/analytic.py
     :language: python
     :linenos: 
-    :lineno-start: 7
-    :lines: 7-35  
-
-The ``__init__`` is done via the base class by calling ``super().__init__``. 
-One has to provide a name for each branch of the spectrum (here just the ``light wave``) and all parameters necessary for
-computing the dispersion relation (here just the speed of light ``c``, which is 1 in struphy normalization, see :ref:`models`).
-
-The abstract method ``spectrum`` must be defined; the only really model-specific part is the definition 
-of the computation of each branch. Here, there is just one branch, namely the light wave in vacuum which propagates at the speed ``c``.
+    :lineno-start: 8
+    :lines: 8-36  
 
 
 .. _add_pusher:
@@ -369,7 +375,8 @@ of the computation of each branch. Here, there is just one branch, namely the li
 Particle pushers
 ^^^^^^^^^^^^^^^^^
 
-Coming soon !
+Implemented pusher routines are listed in :ref:`pushers`. 
+You are advised to use existing pushers as templates.
 
 
 .. _add_accum:
@@ -378,10 +385,16 @@ PIC accumulation routines
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Implemented accumulation functions are listed in :ref:`accumulators`. 
+You are advised to use existing accumulation as templates.
 
-.. autoclass:: struphy.pic.particles_to_grid.Accumulator
+Accumulation matrices/vectors are usually defined within a propagator, 
+for instance in ``StepEfieldWeights``::
 
-.. autofunction:: struphy.pic.accum_kernels._docstring
+    self._accum = Accumulator(domain, derham, 'Hcurl', 'linear_vlasov_maxwell',
+                                self.f0_spec, array(self.moms_spec), array(self.f0_params), do_vector=True)
+
+Each accumulator is an instance of the :ref:`accumulator_class`. The name of the accumulation function
+has to be passed as the fourth argument (here ``linear_vlasov_maxwell``).
 
 
 .. _weighted_mass:
@@ -389,16 +402,32 @@ Implemented accumulation functions are listed in :ref:`accumulators`.
 Weighted mass matrices 
 ^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: struphy.psydac_api.mass_psydac
-    :members:
+Weighted mass matrices are methods of :ref:`weighted_mass_class`.
+You are advised to use existing mass matrices as templates.
 
 
 .. _add_mhd_ops:
 
-MHD operators 
-^^^^^^^^^^^^^^^
+Basis projection operators 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Implemented MHD operators are listed in :ref:`mhd_ops`.
+Implemented basis projection operators are listed in :ref:`mhd_ops`.
+You are advised to use existing basis projection operators as templates.
+
+
+.. _change_doc:
+
+Changing the documentation 
+--------------------------
+
+The source files (``.rst``) for the documentation are in ``/doc/sections`` in the repository. 
+If you make changes to these files, you can review them in your browser (e.g. firefox)::
+
+    cd doc
+    make html
+    firefox _build/html/index.html
+
+When making further changes, just do ``make html`` and refresh the window in your browser.
 
 
 
