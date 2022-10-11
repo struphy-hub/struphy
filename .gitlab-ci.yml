@@ -387,10 +387,6 @@ pages:
   artifacts:
     paths:
       - public/
-  release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
-    tag_name: 'v0.$CI_PIPELINE_IID'                # The version is incremented per pipeline.
-    description: 'v0.$CI_PIPELINE_IID'
-    ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
 
 # Cleanup
 cleanup:
