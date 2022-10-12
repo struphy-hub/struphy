@@ -792,13 +792,13 @@ class Vlasov(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.propagators.propagators import StepPushVxB, StepPushEtaRk4
+        from struphy.propagators.propagators import StepPushVxB, StepPushEta
         from struphy.fields_background.mhd_equil import analytical
 
         super().__init__(params, comm, ions='Particles6D')
 
         print(
-            f'rank : {self.derham.comm.Get_rank()}, Np : {self.kinetic_species[0].n_mks}, markers shape : {self.kinetic_species[0].markers.shape}')
+            f'Total number of markers : {self.kinetic_species[0].n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self.kinetic_species[0].markers.shape}')
 
         # Load and project magnetic field
         equil_params = params['fields']['mhd_equilibrium']
@@ -819,8 +819,11 @@ class Vlasov(StruphyModel):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [StepPushVxB(self._ions, self.derham, self._b)]
-        self._propagators += [StepPushEtaRk4(self._ions, self.derham)]
+        self._propagators += [StepPushVxB(self._ions, self.derham, 
+                                          self.kinetic_params[0]['push_algos']['vxb'], self._b)]
+        self._propagators += [StepPushEta(self._ions, self.derham, 
+                                          self.kinetic_params[0]['push_algos']['eta'], 
+                                          self.kinetic_params[0]['markers']['bc_type'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)

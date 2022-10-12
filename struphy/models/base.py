@@ -115,6 +115,9 @@ class StruphyModel(metaclass=ABCMeta):
             # markers
             if 'n_markers' in k_params['save_data']:
                 n_markers = k_params['save_data']['n_markers']
+                
+                assert n_markers <= species.n_mks
+                
                 if n_markers > 0:
                     self._kinetic_data[-1]['markers'] = np.zeros((n_markers, species.markers.shape[1]), dtype=float)
                 
@@ -295,15 +298,6 @@ class StruphyModel(metaclass=ABCMeta):
         if len(self._kinetic_species) > 0:
             
             for species, params in zip(self._kinetic_species, self._kinetic_params):
-
-                # set specific initial condition for some particles
-                if 'initial' in params['markers']['loading']:
-                    specific_markers = params['markers']['loading']['initial']
-
-                    for i in range(len(specific_markers)):
-                        for j in range(6):
-                            if specific_markers[i][j] is not None:
-                                self._kinetic_species[-1]._markers[i, j] = specific_markers[i][j]
                 
                 # do MPI sort
                 species.mpi_sort_markers(do_test=True)

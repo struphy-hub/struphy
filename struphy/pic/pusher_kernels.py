@@ -11,10 +11,10 @@ from numpy import zeros, empty, shape, sqrt, cos, sin
 
 
 @stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_v_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                       kind_map: 'int', params_map: 'float[:]',
+                       kind_map: int, params_map: 'float[:]',
                        p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                        ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                        cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -104,12 +104,11 @@ def push_v_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
-
-@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
+@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                      kind_map: 'int', params_map: 'float[:]',
+                      kind_map: int, params_map: 'float[:]',
                       p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                       ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                       cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -136,8 +135,11 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
     b_cart = empty(3, dtype=float)
     b_norm = empty(3, dtype=float)
 
-    # particle velocity (Cartesian, perpendicular, v x b_norm, b_norm x vperp)
+    # particle position and velocity
+    e = empty(3, dtype=float)
     v = empty(3, dtype=float)
+    
+    # perpendicular velocity, v x b_norm and b_norm x vperp
     vperp = empty(3, dtype=float)
     vxb_norm = empty(3, dtype=float)
     b_normxvperp = empty(3, dtype=float)
@@ -154,21 +156,19 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, b_abs, b_norm, v, vpar, vxb_norm, vperp, b_normxvperp)
+    #$ omp parallel private (ip, e, v, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, b_abs, b_norm, vpar, vxb_norm, vperp, b_normxvperp)
     #$ omp for
     for ip in range(n_markers):
 
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.:
             continue
-
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
+            
+        e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -179,13 +179,13 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
         det_df = linalg.det(df)
 
         # spline evaluation
-        span1 = bsp.find_span(tn1, pn[0], eta1)
-        span2 = bsp.find_span(tn2, pn[1], eta2)
-        span3 = bsp.find_span(tn3, pn[2], eta3)
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
 
-        bsp.b_d_splines_slim(tn1, pn[0], eta1, span1, bn1, bd1)
-        bsp.b_d_splines_slim(tn2, pn[1], eta2, span2, bn2, bd2)
-        bsp.b_d_splines_slim(tn3, pn[2], eta3, span3, bn3, bd3)
+        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
 
         # magnetic field: 2-form components
         b_form[0] = eval_3d.eval_spline_mpi_kernel(
@@ -223,11 +223,140 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
+@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
+def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
+                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                      kind_map: int, params_map: 'float[:]',
+                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                      b2_1: 'float[:,:,:]', b2_2: 'float[:,:,:]', b2_3: 'float[:,:,:]'):
+    r'''Solves the rotation
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
+
+    with the Crank-Nicolson method for each marker :math:`p` in markers array, with fixed rotation vector.
+
+    Parameters
+    ----------
+        b2_1, b2_2, b2_3: array[float]
+            3d array of FE coeffs of B-field as 2-form.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+
+    # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
+    b_form = empty(3, dtype=float)
+    b_cart = empty(3, dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+
+    # particle position and velocity
+    e = empty(3, dtype=float)
+    v = empty(3, dtype=float)
+    
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # identity matrix
+    identity = zeros((3, 3), dtype=float)
+    
+    identity[0, 0] = 1.
+    identity[1, 1] = 1.
+    identity[2, 2] = 1.
+
+    # right-hand side and left-hand side of Crank-Nicolson scheme
+    rhs = empty((3, 3), dtype=float)
+    lhs = empty((3, 3), dtype=float)
+    
+    lhs_inv = empty((3, 3), dtype=float)
+    
+    vec = empty(3, dtype=float)
+    res = empty(3, dtype=float)
+    
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    #$ omp parallel firstprivate(b_prod) private (ip, e, v, df, det_df, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
+    #$ omp for
+    for ip in range(n_markers):
+
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        v[:] = markers[ip, 3:6]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(e[0], e[1], e[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+
+        # magnetic field: 2-form components
+        b_form[0] = eval_3d.eval_spline_mpi_kernel(
+            pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b2_1, starts2[0])
+        b_form[1] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2_2, starts2[1])
+        b_form[2] = eval_3d.eval_spline_mpi_kernel(
+            pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b2_3, starts2[2])
+
+        # magnetic field: Cartesian components
+        linalg.matrix_vector(df, b_form, b_cart)
+        b_cart[:] = b_cart/det_df
+
+        # magnetic field: rotation matrix
+        b_prod[0, 1] =  b_cart[2]
+        b_prod[0, 2] = -b_cart[1]
+
+        b_prod[1, 0] = -b_cart[2]
+        b_prod[1, 2] =  b_cart[0]
+
+        b_prod[2, 0] =  b_cart[1]
+        b_prod[2, 1] = -b_cart[0]
+
+        # solve 3x3 system
+        rhs[:, :] = identity + dt/2*b_prod
+        lhs[:, :] = identity - dt/2*b_prod
+        
+        linalg.matrix_inv(lhs, lhs_inv)
+        
+        linalg.matrix_vector(rhs, v, vec)
+        linalg.matrix_vector(lhs_inv, vec, res)
+        
+        markers[ip, 3:6] = res
+
+    #$ omp end parallel
+
 @stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                  kind_map: 'int', params_map: 'float[:]',
+                  kind_map: int, params_map: 'float[:]',
                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -338,12 +467,11 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
-
 @stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                   kind_map: 'int', params_map: 'float[:]',
+                   kind_map: int, params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -458,12 +586,11 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
-
 @stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                   kind_map: 'int', params_map: 'float[:]',
+                   kind_map: int, params_map: 'float[:]',
                    p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                    ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                    cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -574,12 +701,11 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
-
 @stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
-def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                        kind_map: 'int', params_map: 'float[:]',
+                        kind_map: int, params_map: 'float[:]',
                         p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                         ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                         cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -726,12 +852,11 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: 'float', step: 'int',
 
     #$ omp end parallel
 
-
 @stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_GXu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                     kind_map: 'int', params_map: 'float[:]',
+                     kind_map: int, params_map: 'float[:]',
                      p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                      ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                      cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -821,10 +946,10 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         markers[ip, 3:6] -= dt*e_cart[:]/2.
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_GXu(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                kind_map: 'int', params_map: 'float[:]',
+                kind_map: int, params_map: 'float[:]',
                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -913,16 +1038,16 @@ def push_pc_GXu(markers: 'float[:,:]', dt: 'float', step: 'int',
         # update velocities
         markers[ip, 3:6] -= dt*e_cart/2.
 
-
-@stack_array('df', 'dfinv', 'eta', 'v', 'k1', 'k2', 'k3', 'k4')
-def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
-                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
-                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                 kind_map: 'int', params_map: 'float[:]',
-                 p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
-                 ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
-                 cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]'):
-    r'''Fourth order Runge-Kutta solve of 
+@stack_array('df', 'dfinv', 'e', 'v', 'k')
+def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
+                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                   kind_map: int, params_map: 'float[:]',
+                   p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                   ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                   cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                   a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage Runge-Kutta solve of 
 
     .. math::
 
@@ -935,20 +1060,25 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
     df = empty((3, 3), dtype=float)
     dfinv = empty((3, 3), dtype=float)
 
-    # marker position and velocity
-    eta = empty(3, dtype=float)
+    # marker position e and velocity v
+    e = empty(3, dtype=float)
     v = empty(3, dtype=float)
 
-    # intermediate steps in RK4
-    k1 = empty(3, dtype=float)
-    k2 = empty(3, dtype=float)
-    k3 = empty(3, dtype=float)
-    k4 = empty(3, dtype=float)
+    # intermediate k-vector
+    k = empty(3, dtype=float)
     
     # get number of markers
     n_markers = shape(markers)[0]
+    
+    # get number of stages
+    n_stages = shape(b)[0]
+    
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
 
-    #$ omp parallel private(ip, eta, v, eta1, eta2, eta3, df, dfinv, k1, k2, k3, k4)
+    #$ omp parallel private(ip, e, v, df, dfinv, k)
     #$ omp for
     for ip in range(n_markers):
         
@@ -956,16 +1086,11 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
         if markers[ip, 0] == -1.:
             continue
 
-        eta[:] = markers[ip, :3]
+        e[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # ----------------- step 1 in Runge-Kutta method -------------------
-        eta1 = eta[0]
-        eta2 = eta[1]
-        eta3 = eta[2]
-
         # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
+        map_eval.df(e[0], e[1], e[2],
                     kind_map, params_map,
                     t1_map, t2_map, t3_map, p_map,
                     ind1_map, ind2_map, ind3_map,
@@ -976,76 +1101,21 @@ def push_eta_rk4(markers: 'float[:,:]', dt: 'float', step: 'int',
         linalg.matrix_inv(df, dfinv)
 
         # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k1)
+        linalg.matrix_vector(dfinv, v, k)
+        
+        # accumulation for last stage
+        markers[ip, 12:15] += dt*b[stage]*k
 
-        # ----------------- step 2 in Runge-Kutta method -------------------
-        eta1 = (eta[0] + dt*k1[0]/2) % 1.
-        eta2 = (eta[1] + dt*k1[1]/2) % 1.
-        eta3 = (eta[2] + dt*k1[2]/2) % 1.
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(df, dfinv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k2)
-
-        # ------------------ step 3 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k2[0]/2) % 1.
-        eta2 = (eta[1] + dt*k2[1]/2) % 1.
-        eta3 = (eta[2] + dt*k2[2]/2) % 1.
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(df, dfinv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k3)
-
-        # ------------------ step 4 in Runge-Kutta method ------------------
-        eta1 = (eta[0] + dt*k3[0]) % 1.
-        eta2 = (eta[1] + dt*k3[1]) % 1.
-        eta3 = (eta[2] + dt*k3[2]) % 1.
-
-        # evaluate Jacobian, result in df
-        map_eval.df(eta1, eta2, eta3,
-                    kind_map, params_map,
-                    t1_map, t2_map, t3_map, p_map,
-                    ind1_map, ind2_map, ind3_map,
-                    cx, cy, cz,
-                    df)
-
-        # evaluate inverse Jacobian matrix
-        linalg.matrix_inv(df, dfinv)
-
-        # pull-back of velocity
-        linalg.matrix_vector(dfinv, v, k4)
-
-        #  ---------------- update logical coordinates ---------------------
-        markers[ip, :3] = (eta + dt*(k1 + 2*k2 + 2*k3 + k4)/6) % 1.0
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 12:15]
 
     #$ omp end parallel
 
-
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                               kind_map: 'int', params_map: 'float[:]',
+                               kind_map: int, params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1084,7 +1154,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
@@ -1101,16 +1171,16 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else: nk = 2.
 
-    # which step
-    if step == 3:
+    # which stage
+    if stage == 3:
         last = 1.
         cont  = 0.
-    elif step == 2:
+    elif stage == 2:
         last = 0.
         cont  = 2.
     else:
@@ -1126,7 +1196,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:]   = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1166,14 +1236,14 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                              kind_map: 'int', params_map: 'float[:]',
+                              kind_map: int, params_map: 'float[:]',
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1212,7 +1282,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
@@ -1229,14 +1299,14 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else:
         nk = 2.
 
-    # is it the last step?
-    if step == 3:
+    # is it the last stage?
+    if stage == 3:
         last = 1.
         cont  = 0.
     else:
@@ -1252,7 +1322,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1293,14 +1363,14 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                               kind_map: 'int', params_map: 'float[:]',
+                               kind_map: int, params_map: 'float[:]',
                                p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                                ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                                cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1339,7 +1409,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
 
@@ -1355,16 +1425,16 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else: nk = 2.
 
-    # which step
-    if step == 3:
+    # which stage
+    if stage == 3:
         last = 1.
         cont  = 0.
-    elif step == 2:
+    elif stage == 2:
         last = 0.
         cont  = 2.
     else:
@@ -1380,7 +1450,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:]   = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1417,14 +1487,14 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                          kind_map: 'int', params_map: 'float[:]',
+                          kind_map: int, params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1463,7 +1533,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
@@ -1480,16 +1550,16 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else: nk = 2.
 
-    # which step
-    if step == 3:
+    # which stage
+    if stage == 3:
         last = 1.
         cont  = 0.
-    elif step == 2:
+    elif stage == 2:
         last = 0.
         cont  = 2.
     else:
@@ -1505,7 +1575,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:]   = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1545,14 +1615,14 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                              kind_map: 'int', params_map: 'float[:]',
+                              kind_map: int, params_map: 'float[:]',
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1591,7 +1661,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
     k_u = empty(3, dtype=float)
@@ -1608,14 +1678,14 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else:
         nk = 2.
 
-    # is it the last step?
-    if step == 3:
+    # is it the last stage?
+    if stage == 3:
         last = 1.
         cont  = 0.
     else:
@@ -1631,7 +1701,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1672,14 +1742,14 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
 @stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
-def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                          kind_map: 'int', params_map: 'float[:]',
+                          kind_map: int, params_map: 'float[:]',
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
@@ -1718,7 +1788,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
     # U-fiels
     u = empty(3, dtype=float)
 
-    # intermediate steps in RK4
+    # intermediate stages in RK4
     k = empty(3, dtype=float)
     k_v = empty(3, dtype=float)
 
@@ -1734,16 +1804,16 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
     # get number of markers
     n_markers = shape(markers)[0]
 
-    # assign factor of k for each step
-    if step == 0 or step == 3:
+    # assign factor of k for each stage
+    if stage == 0 or stage == 3:
         nk = 1.
     else: nk = 2.
 
-    # which step
-    if step == 3:
+    # which stage
+    if stage == 3:
         last = 1.
         cont  = 0.
-    elif step == 2:
+    elif stage == 2:
         last = 0.
         cont  = 2.
     else:
@@ -1759,7 +1829,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
         eta[:] = markers[ip, 0:3]
         v[:]   = markers[ip, 3:6]
 
-        # ----------------- step n in Runge-Kutta method -------------------
+        # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in df
         map_eval.df(eta[0], eta[1], eta[2],
                     kind_map, params_map,
@@ -1796,19 +1866,19 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: 'float', step: 'int',
         # accum k
         markers[ip, 12:15] += k*nk/6.
         
-        # update markers for the next step
+        # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
-def push_weights_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                             kind_map: 'int', params_map: 'float[:]',
+                             kind_map: int, params_map: 'float[:]',
                              p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                              ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                              cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                              e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                             f0_spec: 'int', moms_spec: 'int[:]', f0_params: 'float[:]'):
+                             f0_spec: int, moms_spec: 'int[:]', f0_params: 'float[:]'):
     r'''
     updates the single weights in the e_W substep of the linearized Vlasov Maxwell system;
     c.f. struphy.propagators.propagators.StepEfieldWeights
@@ -1908,17 +1978,17 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
 
 
 @stack_array('particle')
-def push_x_v_static_efield(markers: 'float[:,:]', dt: 'float', step: 'int',
+def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
-                           kind_map: 'int', params_map: 'float[:]',
+                           kind_map: int, params_map: 'float[:]',
                            p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                            ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                            cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
                            loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
                            weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
                            e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-                           eps: 'float[:]', maxiter: 'int'):
+                           eps: 'float[:]', maxiter: int):
     r"""
     particle pusher for ODE
     

@@ -478,6 +478,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pusher import Pusher as Pusher_psy
     from struphy.psydac_api.utilities import create_equal_random_arrays
     from struphy.tests_mpi.test_pic_legacy_files.pusher import Pusher as Pusher_str
+    from struphy.pic.pusher import ButcherTableau
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -518,7 +519,13 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     
     # create legacy struphy pusher and psydac based pusher 
     pusher_str = Pusher_str(domain, space, space.extract_0(b0_eq_str), space.extract_2(b2_eq_str), basis_u=0, bc_pos=0)
-    pusher_psy = Pusher_psy(derham, domain, 'push_eta_rk4')
+    
+    a = [1/2, 1/2, 1.]
+    b = [1/6, 1/3, 1/3, 1/6]
+    c = [0., 1/2, 1/2, 1.]
+    butcher = ButcherTableau(a, b, c)
+    
+    pusher_psy = Pusher_psy(derham, domain, 'push_eta_stage', butcher.n_stages)
     
     # compare if markers are the same BEFORE push
     assert np.allclose(particles.markers, markers_str.T)
@@ -527,7 +534,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     dt = 0.1
     
     pusher_str.push_step4(markers_str, dt)
-    pusher_psy(particles, dt)
+    pusher_psy(particles, dt,
+               butcher.a, butcher.b, butcher.c,
+               bc=['periodic', 'periodic', 'periodic'])
     
     # compare if markers are the same AFTER push
     assert np.allclose(particles.markers, markers_str.T)
