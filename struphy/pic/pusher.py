@@ -1,4 +1,5 @@
 import struphy.pic.pusher_kernels as pushers
+from struphy.pic.particles import apply_kinetic_bc
 
 import numpy as np
 
@@ -16,14 +17,16 @@ class Pusher:
             
         pusher_name : str
             The name of the pusher in the file struphy.pic.pusher_kernels.
+            
+        n_stages : int
+            Number of stages of the pusher (e.g. 4 for RK4)
     """
     
-    def __init__(self, derham, domain, pusher_name, stage_num = 1):
+    def __init__(self, derham, domain, pusher_name, n_stages=1):
         
         self._derham = derham
         self._domain = domain
-        self._stage_num = stage_num
-        self._rank = derham.comm.Get_rank()
+        self._n_stages = n_stages
         
         # get FEM information
         self._args_fem = (np.array(derham.p), 
@@ -33,14 +36,14 @@ class Pusher:
                           np.array(derham.V2.vector_space.starts),
                           np.array(derham.V3.vector_space.starts))
         
-        # select pusher
+        # select pusher kernel
         self._pusher_name = pusher_name
         self._pusher = getattr(pushers, self._pusher_name) 
           
         
-    def __call__(self, particles, dt, *args_opt, do_mpi_sort=False, verbose=False):
+    def __call__(self, particles, dt, *args_opt, bc=None, mpi_sort=None, verbose=False):
         """
-        Applies the chosen particle pusher by a time step dt.
+        Applies the chosen pusher kernel by a time step dt, applies kinetic boundary conditions and performs MPI sorting.
         
         Parameters
         ----------
@@ -52,43 +55,139 @@ class Pusher:
                 
             args_opt : tuple
                 Optional arguments needed for the pushing (typically spline coefficients for field evaluation).
+
+            bc : list[str]
+                Kinetic boundary conditions in each direction (periodic, reflect or remove).
                 
-            do_mpi_sort : bool
-                Whether to do a marker sorting according to the MPI decomposition (needed when marker positions change during push).
+            mpi_sort : str
+                When to do MPI sorting:
+                    * None : no sorting at all.
+                    * each : sort markers after each stage.
+                    * last : sort markers after last stage.
+                
+            verbose : bool
+                Whether to print some info or not.
         """
-        # save eta
-        if self._stage_num > 1:
-            particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
+        # save initial etas in columns 9-11
+        particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
 
-        for step in range(self._stage_num):
-            self._pusher(particles.markers, dt, step, *self.args_fem, *self.domain.args_map, *args_opt)
+        for stage in range(self._n_stages):
+            self._pusher(particles.markers, dt, stage, *self.args_fem, *self.domain.args_map, *args_opt)
 
-            if do_mpi_sort: 
-                self._derham.comm.Barrier()
+            # apply boundary conditions to markers
+            if bc is not None: 
+                apply_kinetic_bc(particles.markers, particles.holes, self.domain, bc)
+
+            # sort markers according to domain decomposition
+            if mpi_sort == 'each': 
                 particles.mpi_sort_markers()
-                self._derham.comm.Barrier()
-                
-            if self._rank == 0 and verbose: print(self._pusher_name, 'done. (stage :', step+1, ')')
-        
-        if self._rank == 0 and verbose: print()
 
-        # clear the markers
-        if self._stage_num > 1:
-            particles.markers[~particles.holes, 9:15] = 0.
+            # print stage info
+            if self._derham.comm.Get_rank() == 0 and verbose: 
+                print(self._pusher_name, 'done. (stage :', step + 1, ')')
+
+        # sort markers according to domain decomposition
+        if mpi_sort == 'last': 
+            particles.mpi_sort_markers()
+                
+        # clear buffer columns 9-14 for multi-stage pushers
+        particles.markers[~particles.holes, 9:15] = 0.
         
         
     @property
     def derham(self):
+        """ Discrete derham sequence.
+        """
         return self._derham
     
     @property
     def domain(self):
+        """ Mapping from logical unit cube to physical domain.
+        """
         return self._domain
     
     @property
-    def pusher_name(self):
-        return self._pusher_name
+    def n_stages(self):
+        """ Number of stages of the pusher.
+        """
+        return self._n_stages
     
     @property
     def args_fem(self):
+        """ FEM and MPI related arguments taken by all pushers.
+        """
         return self._args_fem
+    
+    @property
+    def pusher_name(self):
+        """ The name of the pyccelized pusher kernel.
+        """
+        return self._pusher_name
+    
+    
+
+class ButcherTableau:
+    """
+    Butcher tableau for explicit s-stage Runge-Kutta methods of the form
+
+      c_0   | 
+      c_1   | a_10
+      c_2   |   0  a_21
+      c_3   |   0    0  a_32
+       .    |   .    .    .
+       .    |   .    .    .
+    c_(n-1) |   0   ...   0  a_(n-1,n-2)
+    --------------------------------------------
+            |  b_0  b_1  b_2    ...       b_(n-1)
+
+    Parameters
+    ----------
+        a : array-like
+            Characteristic coefficients of the method (see tableau above). Only first lower diagonal is non-zero.
+
+        b : array-like
+            Characteristic coefficients of the method (see tableau above).
+
+        c : array-like
+            Characteristic coefficients of the method (see tableau above).
+    """
+
+    def __init__(self, a, b, c):
+
+        self._b = np.array(b)
+        self._c = np.array(c)
+        assert self._b.size == self._c.size
+
+        self._n_stages = self._b.size        
+        
+        self._a = np.array(a)
+
+        # size is the number of elements in the lower triangular part of A 
+        assert self._a.size == self._n_stages - 1
+
+        # add zero for last stage
+        self._a = np.array(list(self._a) + [0])
+
+    @property
+    def a(self):
+        """ Characteristic coefficients of the method (see tableau in class docstring).
+        """
+        return self._a
+
+    @property
+    def b(self):
+        """ Characteristic coefficients of the method (see tableau in class docstring).
+        """
+        return self._b
+
+    @property
+    def c(self):
+        """ Characteristic coefficients of the method (see tableau in class docstring).
+        """
+        return self._c
+
+    @property
+    def n_stages(self):
+        """ Number of stages of the s-stage Runge-Kutta method.
+        """
+        return self._n_stages

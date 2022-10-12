@@ -40,29 +40,37 @@ class Particles6D:
         self._mpi_size = comm.Get_size()
         self._mpi_rank = comm.Get_rank()
 
-        # number of markers to load on each process (depending on relative size)
-        n_mks_load = np.zeros(self.mpi_size, dtype=int)
-        
         # number of cells on current process
-        n_cells_loc = [int(self.domain_array[self.mpi_rank, 3*i + 2]) for i in range(3)]
-
-        # gather n_mks_load info in order to load same markers for arbitrary number of processes (see below)
-        self.comm.Allgather(
-            np.array(int(params_markers['ppc']*n_cells_loc[0]*n_cells_loc[1]*n_cells_loc[2])), n_mks_load)
+        n_cells_loc = np.prod(self._domain_array[self._mpi_rank, 2::3], dtype=int)
         
-        # total number of cells and markers
-        n_cells = 0
-
-        for i in range(self.mpi_size):
-            n_cells_loc = [int(self.domain_array[i, 3*j + 2]) for j in range(3)]
+        # total number of cells
+        n_cells = np.sum(np.prod(self._domain_array[:, 2::3], axis=1, dtype=int))
+        
+        # number of markers to load on each process (depending on relative domain size)
+        if params_markers['ppc'] is None:
+            Np = params_markers['Np']
+            assert isinstance(Np, int)
+            ppc = Np/n_cells
+        else:
+            ppc = params_markers['ppc']
+            assert isinstance(ppc, int)
+            Np = ppc*n_cells
             
-            n_cells += n_cells_loc[0]*n_cells_loc[1]*n_cells_loc[2]
-
-        self._n_mks = int(params_markers['ppc']*n_cells)
-
-        # initialize particle array (3 x positions, 3 x velocities and weight) with 25% send/receive buffer
-        n_mks_load_loc = n_mks_load[self.mpi_rank]
+        assert Np >= self._mpi_size
         
+        n_mks_load = np.zeros(self._mpi_size, dtype=int)
+        self._mpi_comm.Allgather(np.array([int(ppc*n_cells_loc)]), n_mks_load)
+        
+        # add deviation from Np to rank 0
+        n_mks_load[0] += Np - np.sum(n_mks_load)
+        
+        # check if all markers are there
+        assert np.sum(n_mks_load) == Np
+        self._n_mks = Np
+
+        # initialize markers array (3 x positions, 3 x velocities, weight, ...) with eps send/receive buffer
+        n_mks_load_loc = n_mks_load[self._mpi_rank]
+
         markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params_markers['eps']))
 
         self._markers = np.zeros((markers_size, 16), dtype=float)
@@ -72,20 +80,20 @@ class Particles6D:
         # load markers from external .hdf5 file
         if params_markers['loading']['type'] == 'external':
 
-            if self.mpi_rank == 0:
+            if self._mpi_rank == 0:
                 file = h5py.File(params_markers['loading']['dir_markers'], 'r')
 
                 self._markers[:n_mks_load_cum_sum[0], :
                               ] = file['markers'][:n_mks_load_cum_sum[0], :]
 
-                for i in range(1, self.mpi_size):
-                    self.comm.Send(
+                for i in range(1, self._mpi_size):
+                    self._mpi_comm.Send(
                         file['markers'][n_mks_load_cum_sum[i - 1]:n_mks_load_cum_sum[i], :], dest=i, tag=123)
 
                 file.close()
             else:
                 recvbuf = np.zeros((n_mks_load_loc, self._markers.shape[1]), dtype=float)
-                self.comm.Recv(recvbuf, source=0, tag=123)
+                self._mpi_comm.Recv(recvbuf, source=0, tag=123)
                 self._markers[:n_mks_load_loc, :] = recvbuf
 
         # load fresh markers
@@ -96,10 +104,10 @@ class Particles6D:
 
                 np.random.seed(params_markers['loading']['seed'])
 
-                for i in range(self.mpi_size):
+                for i in range(self._mpi_size):
                     temp = np.random.rand(n_mks_load[i], 6)
 
-                    if i == self.mpi_rank:
+                    if i == self._mpi_rank:
                         self._markers[:n_mks_load_loc, :6] = temp
                         break
 
@@ -109,13 +117,13 @@ class Particles6D:
             elif params_markers['loading']['type'] == 'sobol_standard':
 
                 self._markers[:n_mks_load_loc, :6] = sobol_seq.i4_sobol_generate(
-                    6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self.mpi_rank])
+                    6, n_mks_load_loc, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank])
 
             # 3. symmetric sobol numbers in all 6 dimensions with skip of first 1000 numbers
             elif params_markers['loading']['type'] == 'sobol_antithetic':
 
                 temp_markers = sobol_seq.i4_sobol_generate(
-                    6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self.mpi_rank]//64)
+                    6, n_mks_load_loc//64, 1000 + (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank]//64)
 
                 sampling.set_particles_symmetric_3d_3v(temp_markers, self._markers)
 
@@ -129,28 +137,42 @@ class Particles6D:
                 self._markers[:n_mks_load_loc, i + 3] = sp.erfinv(
                 2*self._markers[:n_mks_load_loc, i + 3] - 1)*params_markers['loading']['moms_params'][i + 4] + params_markers['loading']['moms_params'][i + 1]
             
-        # compute initial sampling density s0 at particle positions
-        self._markers[:n_mks_load_loc, 7] = self.s0(
-            self._markers[:n_mks_load_loc, 0],
-            self._markers[:n_mks_load_loc, 1],
-            self._markers[:n_mks_load_loc, 2],
-            self._markers[:n_mks_load_loc, 3], 
-            self._markers[:n_mks_load_loc, 4],
-            self._markers[:n_mks_load_loc, 5])
-        
-        # set markers ID
-        self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - n_mks_load)[self.mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
-
-        # fill buffer in markers array with -1
+        # fill holes in markers array with -1
         self._markers[n_mks_load_loc:] = -1.
-        self._holes = self._markers[:, 0] == -1.
         
+        # set markers ID in last column
+        self._markers[:n_mks_load_loc, -1] = (n_mks_load_cum_sum - n_mks_load)[self._mpi_rank] + np.arange(n_mks_load_loc, dtype=float)
+        
+        # set specific initial condition for some particles
+        if 'initial' in params_markers['loading']:
+            specific_markers = params_markers['loading']['initial']
+
+            counter = 0
+            for i in range(len(specific_markers)):
+                if i == int(self._markers[counter, -1]):
+                    
+                    for j in range(6):
+                        if specific_markers[i][j] is not None:
+                            self._markers[counter, j] = specific_markers[i][j]
+                            
+                    counter += 1
+                            
+        # compute initial sampling density s0 at particle positions
+        self._markers[:n_mks_load_loc, 7] = self.s0(self._markers[:n_mks_load_loc, 0],
+                                                    self._markers[:n_mks_load_loc, 1],
+                                                    self._markers[:n_mks_load_loc, 2],
+                                                    self._markers[:n_mks_load_loc, 3], 
+                                                    self._markers[:n_mks_load_loc, 4],
+                                                    self._markers[:n_mks_load_loc, 5])
+
         # number of holes and markers on process
+        self._holes = self._markers[:, 0] == -1.
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
 
         # check if all particle positions are inside the unit cube [0, 1]^3
-        assert not (np.any(self._markers[:n_mks_load_loc, :3] >= 1.) or np.any(self._markers[:n_mks_load_loc, :3] <= 0.))
+        assert not (np.any(self._markers[:n_mks_load_loc, :3] >= 1.) or 
+                    np.any(self._markers[:n_mks_load_loc, :3] <= 0.))
         
 
     @property
@@ -161,48 +183,10 @@ class Particles6D:
 
     @property
     def params(self):
-        """ Parameters for particle loading.
+        """ Parameters for markers.
         """
         return self._params
-
-    @property
-    def n_mks_loc(self):
-        """ Number of markers on process (without holes).
-        """
-        return self._n_mks_loc
     
-    @property
-    def n_mks(self):
-        """ Total number of markers at loading stage.
-        """
-        return self._n_mks
-
-    @property
-    def n_holes_loc(self):
-        """ Number of holes on process (= marker.shape[0] - n_mks_loc).
-        """
-        return self._n_holes_loc
-
-    @property
-    def markers(self):
-        """ Numpy array of particle information, including holes. The i-th row holds the i-th marker's info:
-            3 x positions, 3 x velocities, weights, s0, w0 and ID.
-        """
-        return self._markers
-    
-    @property
-    def holes(self):
-        """ Array of booleans stating if an entry in the markers array is a hole or not. 
-        """
-        return self._holes
-    
-    @property
-    def markers_wo_holes(self):
-        """ Numpy array of particle information, excluding holes. The i-th row holds the i-th marker's info:
-            3 x positions, 3 x velocities, weights, s0, w0 and ID.
-        """
-        return self._markers[~self._holes]
-
     @property
     def domain(self):
         """ Mapping from logical to physical space.
@@ -214,7 +198,7 @@ class Particles6D:
         """ Array containing domain decomposition information.
         """
         return self._domain_array
-
+    
     @property
     def comm(self):
         """ MPI communicator.
@@ -222,19 +206,65 @@ class Particles6D:
         return self._mpi_comm
 
     @property
+    def mpi_size(self):
+        """ Number of MPI processes.
+        """
+        return self._mpi_size
+    
+    @property
     def mpi_rank(self):
         """ Rank of current process.
         """
         return self._mpi_rank
 
     @property
-    def mpi_size(self):
-        """ Number of MPI processes.
+    def n_mks(self):
+        """ Total number of markers at loading stage.
         """
-        return self._mpi_size
+        return self._n_mks
+
+    @property
+    def n_mks_loc(self):
+        """ Number of markers on process (without holes).
+        """
+        return self._n_mks_loc
+    
+    @property
+    def markers(self):
+        """ Array holding the marker information, including holes. The i-th row holds the i-th marker info.
+        """
+        return self._markers
+
+    @property
+    def holes(self):
+        """ Array of booleans stating if an entry in the markers array is a hole or not. 
+        """
+        return self._holes
+    
+    @property
+    def n_holes_loc(self):
+        """ Number of holes on process (= marker.shape[0] - n_mks_loc).
+        """
+        return self._n_holes_loc
+
+    @property
+    def markers_wo_holes(self):
+        """ Array holding the marker information, excluding holes. The i-th row holds the i-th marker info.
+        """
+        return self._markers[~self._holes]
+    
 
     def s3(self, eta1, eta2, eta3, vx, vy, vz):
-        """ Gaussian velocity distribution for sampling markers (normalized to 1, constant moments). 
+        """ 
+        Gaussian velocity distribution for sampling markers (3-form, normalized to 1, constant moments).
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : float
+                Logical coordinates.
+                
+            vx, vy, vz : float
+                Cartesian velocity components.
         """
 
         vthx = self.params['loading']['moms_params'][4]
@@ -248,7 +278,16 @@ class Particles6D:
         return Gx*Gy*Gz
 
     def s0(self, eta1, eta2, eta3, vx, vy, vz):
-        """ Sampling distribution trasformed to 0-form.
+        """ 
+        Sampling distribution trasformed to 0-form.
+        
+        Parameters
+        ----------
+            eta1, eta2, eta3 : float
+                Logical coordinates.
+                
+            vx, vy, vz : float
+                Cartesian velocity components.
         """
 
         s3_markers = self.s3(eta1, eta2, eta3, vx, vy, vz)
@@ -262,10 +301,8 @@ class Particles6D:
         Parameters
         ----------
             do_test : bool
-                Check if all markers are on the right process after send and recieve.
+                Check if all markers are on the right process after sorting.
         """
-        # sorting out particles outside of the logical cube
-        apply_kinetic_bc(self._markers, self._holes, self._domain, self._params['bc_type'])
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         markers_to_be_sent, hole_inds_after_send = sendrecv_determine_mtbs(
@@ -284,11 +321,10 @@ class Particles6D:
 
         # new holes and new number of holes and markers on process
         self._holes = self._markers[:, 0] == -1.
-        
         self._n_holes_loc = np.count_nonzero(self._holes)
         self._n_mks_loc = self._markers.shape[0] - self._n_holes_loc
 
-        # test
+        # check if all markers are on the right process after sorting 
         if do_test:
             assert np.all(np.logical_and(
                 self.markers[~self._holes, :3] > self.domain_array[self.mpi_rank, 0::3], 
@@ -296,11 +332,15 @@ class Particles6D:
 
     def initialize_weights(self, background_params, perturb_params):
         """
-        Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial conditions.
+        Computes w0=f0(t=0, eta(t=0), v(t=0))/s0(t=0, eta(t=0), v(t=0)) from the initial distribution function.
 
         Parameters
         ----------
-            TODO
+            background_params : dict
+                Parameters for background distribution function used as initial condition.
+
+            perturb_params : dict
+                Parameters for perturbation of background distribution function used as initial condition.
         """
 
         f_init = KineticPerturbation(background_params, perturb_params)
@@ -410,7 +450,6 @@ class Particles6D:
             
         plt.show()
         
-
 
 class Particles5D:
     """
@@ -621,17 +660,37 @@ def sendrecv_markers(send_list, recv_info, hole_inds_after_send, markers, comm):
 
 
 def apply_kinetic_bc(markers, holes, domain, bc_type):
+    """
+    Apply boundary conditions to markers that are outside of the logical unit cube.
+    
+    Parameters
+    ----------
+        markers : array[float]
+            The markers array to which the boundary conditions shall be applied. Positions are the first three columns.
+            
+        holes : array[float]
+            1d array of same length as number of rows of markers stating whether a row in markers is a hole or not.
+            
+        domain : struphy.geometry.domains
+            All things mapping.
+            
+        bc_type : list[str]
+            Kinetic boundary conditions in each direction.
+    """
 
     for axis, bc in enumerate(bc_type):
-        # sorting out particles outside of the logical cube
+        
+        # sorting out particles outside of the logical unit cube
         is_outside_cube = np.logical_or(markers[:, axis] > 1., 
-                                    markers[:, axis] < 0.)
+                                        markers[:, axis] < 0.)
 
-        # Exclude holes
+        # exclude holes
         is_outside_cube[holes] = False
 
+        # indices or particles that are outside of the logical unit cube
         outside_inds = np.nonzero(is_outside_cube)[0]
 
+        # apply boundary conditions
         if bc == 'remove':
             markers[outside_inds, :-1] = -1.
 
@@ -641,4 +700,5 @@ def apply_kinetic_bc(markers, holes, domain, bc_type):
         elif bc == 'reflect':
             reflect(markers, *domain.args_map, outside_inds, axis)
 
-        else: print('invalid bc_type')
+        else: 
+            raise NotImplementedError('Given bc_type is not implemented!')

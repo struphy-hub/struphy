@@ -259,7 +259,7 @@ by calling upon the base class::
 
     super().__init__(params, comm, ions='Particles6D')
 
-Here, a species named ``ions`` is added; this automaticall creates an instance of the :ref:`Particles6D <particles>` class.
+Here, a species named ``ions`` is added; this automatically creates an instance of the :ref:`Particles6D <particles>` class.
 The kinetic objects are stored as a list in ``self.kinetic_species``. 
 It is convenient to define a pointer to each species (just one species in this case)::
 
@@ -268,8 +268,8 @@ It is convenient to define a pointer to each species (just one species in this c
 These pointers can then be passed to one or more propagators::
 
     self._propagators = []
-    self._propagators += [StepPushVxB(self._ions, self.derham, self._b)]
-    self._propagators += [StepPushEtaRk4(self._ions, self.derham)]
+    self._propagators += [StepPushVxB(self._ions, self.derham, 'analytic', self._b)]
+    self._propagators += [StepPushEta(self._ions, self.derham, 'rk4')]
 
     @property
     def propagators(self):

@@ -1132,7 +1132,7 @@ class Domain(metaclass=ABCMeta):
                     X = self(e1, e2, 0.)
 
                 # eta1-isolines
-                first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i))
+                first_line = plt.plot(X[0, 0, :], X[1, 0, :], label='rank=' + str(i), alpha=.5)
 
                 for j in range(e1.size):
                     plt.plot(X[0, j, :], X[1, j, :], color=first_line[0].get_color(), alpha=.5)

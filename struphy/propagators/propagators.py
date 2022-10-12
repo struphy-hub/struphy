@@ -2330,8 +2330,11 @@ class StepPushEtaFullPC(Propagator):
 
         u_space : dic
             params['fields']['mhd_u_space']
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
     '''
-    def __init__(self, u, particles, derham, domain, u_space):
+    def __init__(self, u, particles, derham, domain, u_space, bc):
 
         assert isinstance(u, BlockVector)
 
@@ -2340,16 +2343,17 @@ class StepPushEtaFullPC(Propagator):
         self._u = u
         self._particles = particles
         self._u_space = u_space
+        self._bc = bc
 
         # call Pusher class
         if self._u_space == 'Hcurl':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', n_stages=4)
 
         elif self._u_space == 'Hdiv':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv_full', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv_full', n_stages=4)
 
         else:
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec_full', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec_full', n_stages=4)
 
     @property
     def variables(self):
@@ -2365,7 +2369,7 @@ class StepPushEtaFullPC(Propagator):
 
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
-                     do_mpi_sort=True)
+                     bc=self._bc, mpi_sort='each')
 
 
 class StepPushEtaPC(Propagator):
@@ -2392,8 +2396,11 @@ class StepPushEtaPC(Propagator):
 
         u_space : dic
             params['fields']['mhd_u_space']
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
     '''
-    def __init__(self, u, particles, derham, domain, u_space):
+    def __init__(self, u, particles, derham, domain, u_space, bc):
 
         assert isinstance(u, BlockVector)
 
@@ -2402,16 +2409,17 @@ class StepPushEtaPC(Propagator):
         self._u = u
         self._particles = particles
         self._u_space = u_space
+        self._bc = bc
 
         # call Pusher class
         if self._u_space == 'Hcurl':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', n_stages=4)
 
         elif self._u_space == 'Hdiv':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', n_stages=4)
 
         else:
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec', stage_num=4)
+            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec', n_stages=4)
 
     @property
     def variables(self):
@@ -2427,17 +2435,19 @@ class StepPushEtaPC(Propagator):
 
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data,
-                     do_mpi_sort=True)
+                     bc=self._bc, mpi_sort='each')
 
 
 class StepPushVxB(Propagator):
-    r"""Solves exactly the rotation
+    r"""Solves
 
     .. math::
 
         \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \mathbf v_p(t) \times \frac{DF\, \hat{\mathbf B}^2}{\sqrt g}
 
-    for each marker :math:`p` in markers array, with fixed rotation vector.
+    for each marker :math:`p` in markers array, with fixed rotation vector. Available algorithms: 
+        * analytic
+        * implicit
     
     Parameters
     ----------
@@ -2446,6 +2456,9 @@ class StepPushVxB(Propagator):
             
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
+
+        algo : str
+            The used algorithm.
             
         b : psydac.linalg.block.BlockVector
             FE coefficients of a dynamical magnetic field (2-form).
@@ -2454,14 +2467,16 @@ class StepPushVxB(Propagator):
             FE coefficients of a static (background) magnetic field (2-form).
     """
     
-    def __init__(self, particles, derham, b, b_static=None):
+    def __init__(self, particles, derham, algo, b, b_static=None):
         
         self._particles = particles
         
         # load pusher
         from struphy.pic.pusher import Pusher
         
-        self._pusher = Pusher(derham, particles.domain, 'push_vxb_analytic')
+        kernel_name = 'push_vxb_' + algo
+        
+        self._pusher = Pusher(derham, particles.domain, kernel_name)
         
         assert isinstance(b, BlockVector)
         
@@ -2473,7 +2488,6 @@ class StepPushVxB(Propagator):
             assert isinstance(b_static, BlockVector)
             self._b_static = b_static
         
-    
     @property
     def variables(self):
         return self._particles
@@ -2494,15 +2508,20 @@ class StepPushVxB(Propagator):
                      self._b_static[1]._data + self._b[1]._data,
                      self._b_static[2]._data + self._b[2]._data)
         
-        
-class StepPushEtaRk4(Propagator):
-    r"""Fourth order Runge-Kutta solve of 
+
+class StepPushEta(Propagator):
+    r"""Solves  
 
     .. math::
 
         \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v
 
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms: 
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
     
     Parameters
     ----------
@@ -2511,20 +2530,54 @@ class StepPushEtaRk4(Propagator):
             
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
+
+        algo : str
+            The used algorithm.
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
     """
     
-    def __init__(self, particles, derham):
+    def __init__(self, particles, derham, algo, bc):
         
         self._particles = particles
+        self._bc = bc
         
-        # load pusher
+        # load butcher tableau and pusher
         from struphy.pic.pusher import Pusher
+        from struphy.pic.pusher import ButcherTableau
         
-        self._pusher = Pusher(derham, particles.domain, 'push_eta_rk4')
+        if algo == 'forward_euler':
+            a = []
+            b = [1.]
+            c = [0.]
+        elif algo == 'heun2':
+            a = [1.]
+            b = [1/2, 1/2]
+            c = [0., 1.]
+        elif algo == 'rk2':
+            a = [1/2]
+            b = [0., 1.]
+            c = [0., 1/2]
+        elif algo == 'heun3':
+            a = [1/3, 2/3]
+            b = [1/4, 0., 3/4]
+            c = [0., 1/3, 2/3]
+        elif algo == 'rk4':
+            a = [1/2, 1/2, 1.]
+            b = [1/6, 1/3, 1/3, 1/6]
+            c = [0., 1/2, 1/2, 1.]
+        else:
+            raise NotImplementedError('Chosen algorithm is not implemented.')
+        
+        self._butcher = ButcherTableau(a, b, c)
+        self._pusher = Pusher(derham, particles.domain, 'push_eta_stage', self._butcher.n_stages)
         
     @property
     def variables(self):
         return self._particles
 
     def __call__(self, dt):
-        self._pusher(self._particles, dt, do_mpi_sort=True)
+        self._pusher(self._particles, dt, 
+                     self._butcher.a, self._butcher.b, self._butcher.c, 
+                     bc=self._bc, mpi_sort='last')
