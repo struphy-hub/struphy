@@ -100,6 +100,8 @@ class Derham:
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,
                              degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
+        
+        self._forms_dict = {'H1' : '0_form', 'Hcurl' : '1_form', 'Hdiv' : '2_form', 'L2' : '3_form', 'H1vec' : 'vector'}
 
         # Psydac spline spaces
         self._spaces_dict = {'H1' : 'V0', 'Hcurl' : 'V1', 'Hdiv' : 'V2', 'L2' : 'V3', 'H1vec' : 'V0vec'}
@@ -109,8 +111,20 @@ class Derham:
         self._V2 = _derham.V2
         self._V3 = _derham.V3
         
+        # number of basis functions in scalar spaces
+        self._nbasis_v0 = [space.nbasis for space in self._V0.spaces]
+        self._nbasis_v3 = [space.nbasis for space in self._V3.spaces]
+        
+        # number of basis functions in vector-valued spaces
+        self._nbasis_v1 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V1.spaces]
+        self._nbasis_v2 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V2.spaces]
+        
         # H1xH1xH1=H1vec space (needed in pressure coupling for instance)
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
+        self._nbasis_v0vec = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V0vec.spaces]
+        
+        # Psydac projectors
+        self._projectors_dict = {'H1' : 'P0', 'Hcurl' : 'P1', 'Hdiv' : 'P2', 'L2' : 'P3', 'H1vec' : 'P0vec'}
         
         self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
             nquads=self.nq_pr)
@@ -176,7 +190,7 @@ class Derham:
     def nq_pr(self):
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
-        return self._nq_pr
+        return self._nq_pr      
     
     @property
     def der_as_mat(self):
@@ -460,6 +474,12 @@ class Derham:
         return res
     
     @property
+    def forms_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding names of differential forms.
+        """
+        return self._forms_dict
+    
+    @property
     def spaces_dict(self):
         """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
         """
@@ -495,6 +515,42 @@ class Derham:
         """
         return self._V0vec
 
+    @property
+    def nbasis_v0(self):
+        """ List of number of basis functions in space V0 in each direction.
+        """
+        return self._nbasis_v0
+    
+    @property
+    def nbasis_v1(self):
+        """ List of number of basis functions in space V1 in each direction.
+        """
+        return self._nbasis_v1
+    
+    @property
+    def nbasis_v2(self):
+        """ List of number of basis functions in space V2 in each direction.
+        """
+        return self._nbasis_v2
+    
+    @property
+    def nbasis_v3(self):
+        """ List of number of basis functions in space V3 in each direction.
+        """
+        return self._nbasis_v3
+    
+    @property
+    def nbasis_v0vec(self):
+        """ List of number of basis functions in space V0vec in each direction.
+        """
+        return self._nbasis_v0vec
+    
+    @property
+    def projectors_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding commuting projectors.
+        """
+        return self._projectors_dict
+    
     @property
     def P0(self):
         """ Interpolation into discrete H1 space.

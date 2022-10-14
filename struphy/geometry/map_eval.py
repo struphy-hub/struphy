@@ -93,6 +93,9 @@ def f(eta1: float, eta2: float, eta3: float,  # evaluation point
     elif kind_map == 21:
         maps.shafranov_eta3dep(eta1, eta2, eta3, params[0], params[1], params[2], params[3], params[4],
                                params[5], params[6], params[7], params[8], params[9], params[10], f_out)
+    elif kind_map == 22:
+        maps.hollow_torus_straight_field_line(eta1, eta2, eta3,
+                          params[0], params[1], params[2], f_out)
 
 def df(eta1: float, eta2: float, eta3: float,  # evaluation point
        kind_map: int, params: 'float[:]',  # mapping parameters
@@ -177,6 +180,9 @@ def df(eta1: float, eta2: float, eta3: float,  # evaluation point
     elif kind_map == 21:
         maps.shafranov_eta3dep_df(
             eta1, eta2, eta3, params[3], params[4], params[5], params[6], params[7], params[8], params[9], params[10], df_out)
+    elif kind_map == 22:
+        maps.hollow_torus_straight_field_line_df(
+            eta1, eta2, eta3, params[0], params[1], params[2], df_out)
 
 @stack_array('df_mat')
 def det_df(eta1: float, eta2: float, eta3: float,  # evaluation point
