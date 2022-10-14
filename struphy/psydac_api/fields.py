@@ -6,6 +6,7 @@ from psydac.fem.tensor import FemField
 
 from struphy.initial import perturbations
 from struphy.initial import analytic
+from struphy.initial import eigenfunctions
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
 from struphy.geometry.base import Domain
@@ -151,32 +152,36 @@ class Field:
 
         Parameters
         ----------
-            comps: list
+            comps : list
                 Booleans that specify whether field component has non-zero initial conditions (True).
 
-            init_params: dict
+            init_params : dict
                 Parameters of initial condition, see from :ref:`params_yml`.
 
-            domain: struphy.geometry.domains
+            domain : struphy.geometry.domains
                 Optional: all things mapping. Needed when init_params['coords'] == 'physical'.
         """
 
-        rank = self._derham.comm.Get_rank()
+        if self._derham.comm is not None:
+            rank = self._derham.comm.Get_rank()
+        else:
+            rank = 0
         
         if rank == 0: print(f'Setting initial conditions for {self.name} in {self.space_id} ...')
 
-        # Set initial conditions for each component
+        # set initial conditions for each component
         assert isinstance(comps, list)
 
+        init_type = init_params['type']
         init_coords = init_params['coords']
-        if init_coords == 'physical':
-            assert domain is not None
+        fun_params = init_params[init_type]
+        
+        if init_coords == 'physical': assert domain is not None
 
-        fun_params = init_params[init_params['type']]
+        # white noise
+        if init_type == 'noise':
 
-        if init_params['type'] == 'noise':
-
-            # Set white noise FE coefficients
+            # set white noise FE coefficients
             if self.space_id in {'H1', 'L2'}:
                 if comps[0]:
                     self._add_noise(fun_params)
@@ -186,94 +191,108 @@ class Field:
                     if comp:
                         self._add_noise(fun_params, n=n)
 
-        elif 'ModesSin' in init_params['type'] or 'ModesCos' in init_params['type']:
+        # Fourier modes
+        elif 'ModesSin' in init_type or 'ModesCos' in init_type:
 
-            # Get callable(s) for specified init type
-            _fun_tmp = [None] * len(comps)
+            # get callable(s) for specified init type
+            fun_tmp = [None] * len(comps)
             for n, comp in enumerate(comps):
                 assert isinstance(comp, bool)
                 if comp:
-                    fun_class = getattr(perturbations, init_params['type'])
-                    _fun_tmp[n] = fun_class(*list(fun_params.values()))
+                    fun_class = getattr(perturbations, init_type)
+                    fun_tmp[n] = fun_class(*list(fun_params.values()))
 
-            # Pullback callable and project
-            self._fun = []
-            if self.space_id == 'H1':
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '0_form')]
-                self._vector[:] = self.derham.P0(self._fun[0]).coeffs[:]
+            # pullback callable and project
+            pro = getattr(self.derham, self.derham.projectors_dict[self.space_id])
+            form_name = self.derham.forms_dict[self.space_id]
 
-            elif self.space_id == 'Hcurl':
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '1_form_1')]
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '1_form_2')]
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '1_form_3')]
-                _coeffs = self.derham.P1(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
+            if self.space_id in {'H1', 'L2'}:
+                self._fun = PulledPform(init_coords, 
+                                        fun_tmp, domain, form_name)
+                
+                coeffs = pro(self._fun).coeffs
+                self._vector[:] = coeffs[:]
+                
+            elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                self._fun = []
 
-            elif self.space_id == 'Hdiv':
                 self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '2_form_1')]
+                                          fun_tmp, domain, form_name + '_1')]
                 self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '2_form_2')]
+                                          fun_tmp, domain, form_name + '_2')]
                 self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '2_form_3')]
-                _coeffs = self.derham.P2(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
+                                          fun_tmp, domain, form_name + '_3')]
+                
+                coeffs = pro(self._fun).coeffs
+                print(coeffs[0].shape)
+                self._vector[0][:] = coeffs[0][:]
+                self._vector[1][:] = coeffs[1][:]
+                self._vector[2][:] = coeffs[2][:]
 
-            elif self.space_id == 'L2':
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, '3_form')]
-                self._vector[:] = self.derham.P3(self._fun[0]).coeffs[:]
+        # loading of eigenfunction
+        elif init_type[-6:] == 'EigFun':
+            
+            # select class      
+            fun_class = getattr(eigenfunctions, init_type)
+            funs = fun_class(fun_params, self.derham)
+            
+            s1, s2, s3 = self.starts
+            e1, e2, e3 = self.ends
+            
+            if hasattr(funs, self.name):
+                
+                eig_vec = getattr(funs, self.name)
 
-            elif self.space_id == 'H1vec':
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, 'vector_1')]
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, 'vector_2')]
-                self._fun += [PulledPform(init_coords,
-                                          _fun_tmp, domain, 'vector_3')]
-                _coeffs = self.derham.P0vec(self._fun).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
-
+                if self.space_id in {'H1', 'L2'}:
+                    
+                    self._vector[s1:e1 + 1,
+                                 s2:e2 + 1,
+                                 s3:e3 + 1] = eig_vec[s1:e1 + 1,
+                                                      s2:e2 + 1,
+                                                      s3:e3 + 1]
+                    
+                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    
+                    self._vector[0][s1[0]:e1[0] + 1,
+                                    s1[1]:e1[1] + 1,
+                                    s1[2]:e1[2] + 1] = eig_vec[0][s1[0]:e1[0] + 1,
+                                                                  s1[1]:e1[1] + 1,
+                                                                  s1[2]:e1[2] + 1]
+                    
+                    self._vector[1][s2[0]:e2[0] + 1,
+                                    s2[1]:e2[1] + 1,
+                                    s2[2]:e2[2] + 1] = eig_vec[1][s2[0]:e2[0] + 1,
+                                                                  s2[1]:e2[1] + 1,
+                                                                  s2[2]:e2[2] + 1]
+                   
+                    self._vector[2][s3[0]:e3[0] + 1,
+                                    s3[1]:e3[1] + 1,
+                                    s3[2]:e3[2] + 1] = eig_vec[2][s3[0]:e3[0] + 1,
+                                                                  s3[1]:e3[1] + 1,
+                                                                  s3[2]:e3[2] + 1]
+        
+        # projection of analytical function
         else:
+            
+            # select class
+            fun_class = getattr(analytic, init_type)
+            funs = fun_class(fun_params, domain)
+            
+            # select function to project
+            if hasattr(funs, self.name):
+            
+                fun = getattr(funs, self.name)
 
-            fun_class = getattr(analytic, init_params['type'])
-            funs = fun_class(self.init_params, domain)
+                # select projector and project function
+                pro = getattr(self.derham, self.derham.projectors_dict[self.space_id])
+                coeffs = pro(fun).coeffs
 
-            if self.space_id == 'H1':
-                self._vector[:] = self.derham.P0(
-                    getattr(funs, self.name)).coeffs[:]
-
-            elif self.space_id == 'Hcurl':
-                _coeffs = self.derham.P1(getattr(funs, self.name)).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
-
-            elif self.space_id == 'Hdiv':
-                _coeffs = self.derham.P2(getattr(funs, self.name)).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
-
-            elif self.space_id == 'L2':
-                self._vector[:] = self.derham.P3(
-                    getattr(funs, self.name)).coeffs[:]
-
-            elif self.space_id == 'H1vec':
-                _coeffs = self.derham.P0vec(getattr(funs, self.name)).coeffs
-                self._vector[0][:] = _coeffs[0][:]
-                self._vector[1][:] = _coeffs[1][:]
-                self._vector[2][:] = _coeffs[2][:]
+                if self.space_id in {'H1', 'L2'}:
+                    self._vector[:] = coeffs[:]
+                elif self.space_id in {'Hcurl', 'Hdiv', 'H1vec'}:
+                    self._vector[0][:] = coeffs[0][:]
+                    self._vector[1][:] = coeffs[1][:]
+                    self._vector[2][:] = coeffs[2][:]
 
         # apply boundary conditions
         apply_essential_bc_to_array(
@@ -281,9 +300,9 @@ class Field:
 
         self._vector.update_ghost_regions()
 
-        if rank == 0:
-            print('Done.')
+        if rank == 0: print('Done.')
 
+    
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """
         Evaluates the spline function on the local domain.

@@ -40,6 +40,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
         if given, directory to save the full spectrum as .npy
     """
     
+    print('Start of eigenspectrum calculation for MHD equilibrium and domain : ', eq_mhd, eq_mhd.domain)
+    
     # extract numerical parameters
     Nel      = num_params['Nel']
     p        = num_params['p']
@@ -134,12 +136,88 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor='i', dir_out=No
     print('Eigenstates calculated')
     
     # save spectrum as .npy 
-    if dir_out != None:
-        
-        np.save(dir_out, np.hstack((omega2.reshape(omega2.size, 1), U2_eig)))
-        
-        return 0.
+    if dir_out != None: 
+       
+        if n_tor < 0:
+            n_tor_str = str(n_tor)
+        else:
+            n_tor_str = '+' + str(n_tor)
+            
+        if polar_ck < 0:
+            polar_ck_str = str(polar_ck)
+        else:
+            polar_ck_str = '+' + str(polar_ck)
+            
+        np.save(dir_out + '_n_' + n_tor_str + '_pol_' + polar_ck_str + '.npy', np.hstack((omega2.reshape(omega2.size, 1), U2_eig)))
     
     # or return eigenfrequencies, eigenvectors and system matrix
     else:
         return omega2, U2_eig, MAT
+    
+
+    
+# command line interface
+if __name__ == '__main__':
+    
+    import sys, os, yaml, shutil
+    import argparse
+
+    # parse arguments
+    parser = argparse.ArgumentParser(description='Computes the complete eigenspectrum of a given axisymmetric MHD equilibrium.')
+    
+    parser.add_argument('n_tor', type=int, help='the toroidal mode number')
+    parser.add_argument('polar_ck', type=int, help='the C^k continuity at s=0 (-1 --> standard tensor-product case, 0 or 1 --> polar splines)')
+    parser.add_argument('path_in', type=str, help='the path of the input .yml file (relative to the working directory)')
+    parser.add_argument('path_out', type=str, help='the path of the output folder (relative to the working directory)')
+    parser.add_argument('name_spectrum', type=str, help='the full name of the spectrum (must end without .npy) that will be saved in the given ouput folder')
+
+    args = parser.parse_args()
+    args_dict = vars(args)
+    
+    # relative path to yaml file for which the MHD eigenspectrum shall be computed (relative to working directory)
+    inp_path = os.path.abspath(os.getcwd()) + '/' +  args_dict['path_in']
+    
+    # read in domain, grid and MHD equilibrium parameters
+    with open(inp_path) as file:
+        params = yaml.load(file, Loader=yaml.FullLoader)
+       
+    # create domain (mapping from logical unit cube to physical domain)
+    from struphy.geometry import domains
+    
+    dom_type = params['geometry']['type']
+    dom_params = params['geometry'][dom_type]
+
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
+    
+    # load appropriate MHD equilibrium
+    from struphy.fields_background.mhd_equil import analytical
+    
+    equil_params = params['fields']['mhd_equilibrium']
+    
+    mhd_equil_class = getattr(analytical, equil_params['type'])
+    mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
+    
+    # load grid parameters
+    num_params = {'Nel'     : params['grid']['Nel'][:2],
+                  'p'       : params['grid']['p'][:2],
+                  'spl_kind': params['grid']['spl_kind'][:2],
+                  'nq_el'   : params['grid']['nq_el'][:2],
+                  'nq_pr'   : params['grid']['nq_pr'][:2],
+                  'bc'      : params['grid']['bc'][:2],
+                  'polar_ck': args_dict['polar_ck']
+                 }
+    
+    # create output folder if it does not already exist
+    out_path = os.path.abspath(os.getcwd()) + '/' +  args_dict['path_out']
+    
+    try:
+        os.mkdir(out_path)
+    except:
+        pass
+    
+    # calculate eigenspectrum for given toroidal mode number and save result
+    solve_mhd_ev_problem_2d(num_params, mhd_equil, n_tor=args_dict['n_tor'], basis_tor='i', dir_out=out_path + args_dict['name_spectrum'])
+    
+    # save parameter file
+    shutil.copy2(inp_path, out_path + 'parameters.yml')

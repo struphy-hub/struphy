@@ -1,7 +1,7 @@
 from pyccel.decorators import pure, stack_array
 
 from numpy import zeros
-from numpy import sin, cos, pi, sqrt, arctan2, arcsin
+from numpy import sin, cos, tan, pi, sqrt, arctan2, arcsin, arctan
 
 import struphy.feec.bsplines_kernels as bsp
 
@@ -666,6 +666,92 @@ def hollow_torus_df(eta1: float, eta2: float, eta3: float,
     df_out[2, 0] = da * cos(2*pi*eta2) * sin(2*pi*eta3)
     df_out[2, 1] = -2*pi * (a1 + eta1 * da) * sin(2*pi*eta2) * sin(2*pi*eta3)
     df_out[2, 2] = ((a1 + eta1 * da) * cos(2*pi*eta2) + r0) * cos(2*pi*eta3) * 2*pi
+    
+    
+@pure
+def hollow_torus_straight_field_line(eta1: float, eta2: float, eta3: float,
+                 a1: 'float', a2: 'float', r0: 'float',
+                 f_out: 'float[:]'):
+    '''
+    Point-wise evaluation of
+
+    .. math::
+
+        F_x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\cos(2\pi\,\eta_3)\,, 
+
+        F_y &=  \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\sin(\theta(\eta_1,\eta_2))\,, 
+
+        F_z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\\right]\cos(\theta(\eta_1,\eta_2))+R_0\\rbrace\sin(2\pi\,\eta_3)\,,
+
+    Note
+    ----
+        No example plot yet.
+
+    Parameters
+    ----------
+        eta1, eta2, eta3 : float
+            Logical coordinate in [0, 1].
+
+        a1 : float
+            Inner radius.
+
+        a2 : float
+            Outer radius.
+
+        r0 : float
+            Major radius.
+
+        f_out : array[float]
+            Output: (x, y, z) = F(eta1, eta2, eta3).
+    '''
+
+    da = a2 - a1
+    
+    r = (a1 + eta1 * da)
+    theta = 2*arctan( sqrt( (1 + r/r0) / (1 - r/r0) ) * tan(pi*eta2))
+
+    f_out[0] = (r * cos(theta) + r0) * cos(2*pi*eta3)
+    f_out[1] =  r * sin(theta)
+    f_out[2] = (r * cos(theta) + r0) * sin(2*pi*eta3)
+    
+    
+@pure
+def hollow_torus_straight_field_line_df(eta1: float, eta2: float, eta3: float,
+                    a1: 'float', a2: 'float', r0: 'float',
+                    df_out: 'float[:,:]'):
+    """
+    Jacobian matrix for :meth:`struphy.geometry.mappings_fast.hollow_torus_straight_field_line`.
+    """
+
+    da = a2 - a1
+    
+    r = (a1 + da*eta1)
+    
+    eps = r/r0
+    eps_p = da/r0
+    
+    tpe = tan(pi*eta2)
+    tpe_p = pi/cos(pi*eta2)**2
+    
+    g = sqrt((1 + eps)/(1 - eps))
+    g_p = 1/(2*g) * (eps_p*(1 - eps) + (1 + eps)*eps_p)/(1 - eps)**2
+    
+    theta = 2*arctan(g*tpe)
+    
+    dtheta_deta1 = 2/(1 + (g*tpe)**2)*g_p*tpe
+    dtheta_deta2 = 2/(1 + (g*tpe)**2)*g*tpe_p
+
+    df_out[0, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * cos(2*pi*eta3)
+    df_out[0, 1] = -r * sin(theta) * dtheta_deta2 * cos(2*pi*eta3)
+    df_out[0, 2] = -2*pi * (r * cos(theta) + r0) * sin(2*pi*eta3)
+    
+    df_out[1, 0] = da * sin(theta) + r * cos(theta) * dtheta_deta1
+    df_out[1, 1] = r * cos(theta) * dtheta_deta2
+    df_out[1, 2] = 0.
+    
+    df_out[2, 0] = (da * cos(theta) - r * sin(theta) * dtheta_deta1) * sin(2*pi*eta3)
+    df_out[2, 1] = -r * sin(theta) * dtheta_deta2 * sin(2*pi*eta3)
+    df_out[2, 2] = 2*pi * (r * cos(theta) + r0) * cos(2*pi*eta3)
 
 
 @pure
