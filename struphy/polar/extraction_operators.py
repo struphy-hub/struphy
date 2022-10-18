@@ -4,6 +4,227 @@ import scipy.sparse as spa
 import struphy.feec.derivatives.derivatives as der
 
 
+# ============================= 2D polar splines (C1) ===================================
+class PolarExtractionBlocksC1:
+    """
+    Class for C1 global extraction operators.
+    
+    Parameters
+    ----------
+        cx : array-like
+            Control points defining the x-component of a 2D B-spline mapping.
+            
+        cy : array-like
+            Control points defining the y-component of a 2D B-spline mapping.
+    """
+    
+    def __init__(self, cx, cy):
+        
+        self._cx = cx
+        self._cy = cy
+        
+        self._pole = (cx[0, 0], cy[0, 0])
+        
+        assert np.all(cx[0] == self.pole[0])
+        assert np.all(cy[0] == self.pole[1])
+        
+        self._n0 = cx.shape[0]
+        self._n1 = cx.shape[1]
+        
+        self._d0 = self.n0 - 1
+        self._d1 = self.n1 - 0
+        
+        self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
+        self._n_polar = [(3,), (0, 2), (2, 0), (0,)]
+        
+        # number of polar basis functions in V0 (NN)
+        self._nbasis0 = (self.n0 - self.n_rings[0][0])*self.n1 + self.n_polar[0][0]
+        
+        # number of polar basis functions in V1_curl (DN ND) (1st and 2nd component)
+        self._nbasis1c_1 = (self.d0 - self.n_rings[1][0])*self.n1 + self.n_polar[1][0]
+        self._nbasis1c_2 = (self.n0 - self.n_rings[1][1])*self.d1 + self.n_polar[1][1]
+        
+        self._nbasis1c = self.nbasis1c_1 + self.nbasis1c_2
+        
+        # number of polar basis functions in V1_div (ND DN) (1st and 2nd component)
+        self._nbasis1d_1 = (self.n0 - self.n_rings[2][0])*self.d1 + self.n_polar[2][0]
+        self._nbasis1d_2 = (self.d0 - self.n_rings[2][1])*self.n1 + self.n_polar[2][1]
+        
+        self._nbasis1d = self.nbasis1d_1 + self.nbasis1d_2
+        
+        # number of polar basis functions in V2 (DD)
+        self._nbasis2 = (self.d0 - self.n_rings[3][0])*self.d1 + self.n_polar[3][0]
+        
+        # size of control triangle
+        self._tau  = max([((self.cx[1] - self.pole[0])*(-2)).max(), 
+                          ((self.cx[1] - self.pole[0]) - np.sqrt(3)*(self.cy[1] - self.pole[1])).max(), 
+                          ((self.cx[1] - self.pole[0]) + np.sqrt(3)*(self.cy[1] - self.pole[1])).max()])
+
+        
+        # barycentric coordinates
+        self._xi_0 = np.zeros((3, self.n1), dtype=float)
+        self._xi_1 = np.zeros((3, self.n1), dtype=float)
+
+        self._xi_0[:, :] = 1/3
+
+        self._xi_1[0, :] = 1/3 + 2/(3*self.tau)*(self.cx[1] - self.pole[0])
+        self._xi_1[1, :] = 1/3 - 1/(3*self.tau)*(self.cx[1] - self.pole[0]) + np.sqrt(3)/(3*self.tau)*(self.cy[1] - self.pole[1])
+        self._xi_1[2, :] = 1/3 - 1/(3*self.tau)*(self.cx[1] - self.pole[0]) - np.sqrt(3)/(3*self.tau)*(self.cy[1] - self.pole[1])
+        
+        # remove small values
+        self._xi_1[abs(self._xi_1) < 1e-14] = 0.
+        
+        # basis extraction operator for discrete 0-forms
+        self._e0 = [[np.hstack((self.xi_0, self.xi_1))]]
+        
+        # basis extraction operator for discrete 1-forms (Hcurl)
+        e1_11 = np.zeros((self.n_polar[1][0], 2*self.n1), dtype=float)
+        e1_12 = np.zeros((self.n_polar[1][0], 2*self.d1), dtype=float)
+        
+        e1_21 = np.zeros((self.n_polar[1][1], 2*self.n1), dtype=float)
+        e1_22 = np.zeros((self.n_polar[1][1], 2*self.d1), dtype=float)
+        
+        e1_33 = np.zeros((self.n_polar[0][0], 2*self.n1), dtype=float)
+        
+        # 1st component
+        for l in range(2):
+            for j in range(self.n1):
+                e1_21[l, j] = self.xi_1[l + 1, j] - self.xi_0[l + 1, j]
+        
+        # 2nd component
+        for l in range(2):
+            for j in range(1*self.d1, 2*self.d1):
+                e1_22[l, j] = self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1]
+                
+        # 3rd component
+        e1_33[:, :] = self.e0[0][0]
+        
+        self._e1 = [[e1_11, e1_12, None ],
+                    [e1_21, e1_22, None ],
+                    [None , None , e1_33]]
+        
+        # basis extraction operator for discrete 1-forms (Hdiv)
+        e2_33 = np.zeros((self.n_polar[3][0], 2*self.d1), dtype=float)
+        
+        self._e2 = [[e1_21, -e1_22, None ],
+                    [e1_11,  e1_12, None ],
+                    [None ,  None , e2_33]]
+        
+        # basis extraction operator for discrete 2-forms
+        self._e3 = [[e2_33.copy()]]
+        
+        # projection extraction operator for discrete 0-forms
+        p0 = np.zeros((self.n_polar[0][0], 2*self.n1), dtype=float)
+        
+        p0[0, self.n1 + 0*self.n1//3] = 1.
+        p0[1, self.n1 + 1*self.n1//3] = 1.
+        p0[2, self.n1 + 2*self.n1//3] = 1.
+        
+        self._p0 = [[p0]]
+        
+        
+    @property
+    def cx(self):
+        return self._cx
+    
+    @property
+    def cy(self):
+        return self._cy
+    
+    @property
+    def pole(self):
+        return self._pole
+    
+    @property
+    def n0(self):
+        return self._n0
+    
+    @property
+    def n1(self):
+        return self._n1
+    
+    @property
+    def d0(self):
+        return self._d0
+    
+    @property
+    def d1(self):
+        return self._d1
+    
+    @property
+    def n_rings(self):
+        return self._n_rings
+    
+    @property
+    def n_polar(self):
+        return self._n_polar
+    
+    @property
+    def nbasis0(self):
+        return self._nbasis0
+    
+    @property
+    def nbasis1c_1(self):
+        return self._nbasis1c_1
+    
+    @property
+    def nbasis1c_2(self):
+        return self._nbasis1c_2
+    
+    @property
+    def nbasis1c(self):
+        return self._nbasis1c
+    
+    @property
+    def nbasis1d_1(self):
+        return self._nbasis1d_1
+    
+    @property
+    def nbasis1d_2(self):
+        return self._nbasis1d_2
+    
+    @property
+    def nbasis1d(self):
+        return self._nbasis1d
+    
+    @property
+    def nbasis2(self):
+        return self._nbasis2
+    
+    @property
+    def tau(self):
+        return self._tau
+    
+    @property
+    def xi_0(self):
+        return self._xi_0
+    
+    @property
+    def xi_1(self):
+        return self._xi_1
+    
+    @property
+    def e0(self):
+        return self._e0 
+    
+    @property
+    def e1(self):
+        return self._e1 
+    
+    @property
+    def e2(self):
+        return self._e2 
+    
+    @property
+    def e3(self):
+        return self._e3
+    
+    @property
+    def p0(self):
+        return self._p0
+    
+
+
 # ============================= 2D polar splines (C0) ===================================
 class polar_splines_C0_2D:
     

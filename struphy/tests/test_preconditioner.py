@@ -16,7 +16,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.mass import WeightedMass
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     from struphy.psydac_api.linear_operators import InverseLinearOperator
 

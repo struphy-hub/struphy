@@ -2,7 +2,7 @@
 
 from xml import dom
 from psydac.linalg.stencil import StencilVector
-from psydac.fem.tensor import FemField
+from psydac.linalg.block import BlockVector
 
 from struphy.initial import perturbations
 from struphy.initial import analytic
@@ -40,9 +40,11 @@ class Field:
 
         # Initialize field in memory
         self._space = getattr(derham, derham.spaces_dict[space_id])
-
-        self._field = FemField(self._space)
-        self._vector = self._field.coeffs
+        
+        if self._space_id in {'H1', 'L2'}:
+            self._vector = StencilVector(self._space.vector_space)
+        else:
+            self._vector = BlockVector(self._space.vector_space)
 
         # Global indices of each process, and paddings
         if isinstance(self._vector, StencilVector):
@@ -93,12 +95,6 @@ class Field:
         """ 3d Derham complex struphy.psydac_api.psydac_derham.Derham.
         """
         return self._derham
-
-    @property
-    def field(self):
-        """ psydac.fem.tensor.FemField.
-        """
-        return self._field
 
     @property
     def vector(self):

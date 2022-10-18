@@ -6,7 +6,7 @@ from psydac.fem.vector import ProductFemSpace
 from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
-from struphy.psydac_api.H1vec_psydac import Projector_H1vec
+from struphy.psydac_api.H1vec import Projector_H1vec
 from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
 
 import numpy as np

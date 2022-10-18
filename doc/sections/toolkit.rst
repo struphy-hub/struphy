@@ -130,7 +130,7 @@ See :ref:`add_accum` for how to use these acumulation functions.
 Weighted mass matrix class
 --------------------------
 
-.. automodule:: struphy.psydac_api.mass_psydac
+.. automodule:: struphy.psydac_api.mass
     :members:
 
 
@@ -166,7 +166,7 @@ Preconditioner
 Basis projection operators
 --------------------------
 
-.. automodule:: struphy.psydac_api.mhd_ops_pure_psydac
+.. automodule:: struphy.psydac_api.basis_projection_ops
     :members: 
     :undoc-members:
 

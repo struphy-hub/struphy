@@ -39,8 +39,8 @@ F0K  := ${path_lib}kinetic_background/f0_kernels
 BEVA := ${path_lib}kinetic_background/background_eval
 
 # FEM kernels
-PLP  := ${path_lib}psydac_api/mhd_ops_kernels_pure_psydac
-PLM  := ${path_lib}psydac_api/mass_kernels_psydac
+PLP  := ${path_lib}psydac_api/basis_projection_kernels
+PLM  := ${path_lib}psydac_api/mass_kernels
 BTS  := ${path_lib}psydac_api/banded_to_stencil_kernels
 
 # PIC

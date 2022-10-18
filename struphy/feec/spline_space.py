@@ -28,7 +28,7 @@ import struphy.feec.projectors.pro_global.projectors_global as pro
 
 import struphy.feec.derivatives.derivatives as der
 
-import struphy.geometry.polar_splines as pol
+import struphy.polar.extraction_operators as pol
 
 
 # =============== 1d B-spline space ======================

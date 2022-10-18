@@ -219,11 +219,11 @@ class StepShearAlfvénHcurl(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -307,11 +307,11 @@ class StepShearAlfvénHdiv(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -395,11 +395,11 @@ class StepShearAlfvénH1vec(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -495,11 +495,11 @@ class StepMagnetosonicHcurl(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -608,11 +608,11 @@ class StepMagnetosonicHdiv(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -721,11 +721,11 @@ class StepMagnetosonicH1vec(Propagator):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params : dict
             Solver parameters for this splitting step. 
@@ -837,8 +837,8 @@ class StepEfieldWeights(Propagator):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict
             Solver parameters for this splitting step.
@@ -970,8 +970,8 @@ class StepStaticEfield(Propagator):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict
             Solver parameters for this splitting step.
@@ -1037,8 +1037,8 @@ class StepStaticBfield(Propagator):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict
             Solver parameters for this splitting step.
@@ -1083,11 +1083,11 @@ class StepFullPressurecouplingHcurl(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.
@@ -1288,11 +1288,11 @@ class StepFullPressurecouplingHdiv(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.
@@ -1498,11 +1498,11 @@ class StepFullPressurecouplingH1vec(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.
@@ -1705,11 +1705,11 @@ class StepPressurecouplingHcurl(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.
@@ -1910,11 +1910,11 @@ class StepPressurecouplingHdiv(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.
@@ -2120,11 +2120,11 @@ class StepPressurecouplingH1vec(Propagator):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass_psydac.WeightedMass
-            Weighted mass matrices from struphy.psydac_api.mass_psydac.
+        mass_ops : struphy.psydac_api.mass.WeightedMass
+            Weighted mass matrices from struphy.psydac_api.mass.
             
-        mhd_ops : struphy.psydac_api.mhd_ops_pure_psydac.MHDOperators
-            Linear MHD operators from struphy.psydac_api.mhd_ops_pure_psydac.
+        mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
+            Linear MHD operators from struphy.psydac_api.basis_projection_ops.
 
         params: dict
             Solver parameters for this splitting step.

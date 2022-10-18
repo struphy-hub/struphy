@@ -30,7 +30,7 @@ class Maxwell(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass_psydac import WeightedMass
+        from struphy.psydac_api.mass import WeightedMass
         from struphy.propagators.propagators import StepMaxwell
 
         super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
@@ -108,8 +108,8 @@ class LinearMHD(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass_psydac import WeightedMass
-        from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
+        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.basis_projection_ops import MHDOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators
 
@@ -268,7 +268,7 @@ class LinearVlasovMaxwell(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass_psydac import WeightedMass
+        from struphy.psydac_api.mass import WeightedMass
         from struphy.propagators.propagators import StepStaticEfield, StepStaticBfield, StepEfieldWeights, StepMaxwell
         from struphy.psydac_api.fields import Field
         from struphy.fields_background.mhd_equil import analytical
@@ -419,8 +419,8 @@ class PC_LinearMHD_Vlasov_full(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass_psydac import WeightedMass
-        from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
+        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.basis_projection_ops import MHDOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators
 
@@ -626,8 +626,8 @@ class PC_LinearMHD_Vlasov(StruphyModel):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass_psydac import WeightedMass
-        from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
+        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.basis_projection_ops import MHDOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators
 

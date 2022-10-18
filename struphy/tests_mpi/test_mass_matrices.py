@@ -22,7 +22,7 @@ def test_mass(Nel, p, spl_kind, mapping, show_plots=False):
     
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.mass import WeightedMass
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
     
     from mpi4py import MPI
