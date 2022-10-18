@@ -26,7 +26,7 @@ def test_mhd_ops(Nel, p, spl_kind, mapping, show_plots=False):
     import struphy.feec.projectors.pro_global.mhd_operators_MF as mhd_ops_str2
     
     from struphy.psydac_api.psydac_derham import Derham
-    import struphy.psydac_api.mhd_ops_pure_psydac as mhd_ops_psy
+    import struphy.psydac_api.basis_projection_ops as mhd_ops_psy
     
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     

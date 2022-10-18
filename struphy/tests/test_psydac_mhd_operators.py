@@ -22,7 +22,7 @@ def test_some_mhd_ops(Nel, p, spl_kind, mapping):
     from struphy.feec.projectors.pro_global.mhd_operators_MF import projectors_dot_x
     
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mhd_ops_pure_psydac import MHDOperators
+    from struphy.psydac_api.basis_projection_ops import MHDOperators
 
     from psydac.api.discretization import discretize
     from psydac.linalg.stencil import StencilVector

@@ -9,7 +9,7 @@ from psydac.fem.vector import ProductFemSpace
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api.mass_kernels_psydac import kernel_1d, kernel_2d, kernel_3d
+from struphy.psydac_api.mass_kernels import kernel_1d, kernel_2d, kernel_3d
 from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
 
 

@@ -13,7 +13,7 @@ from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
-from struphy.psydac_api.mass_psydac import get_mass
+from struphy.psydac_api.mass import get_mass
 
 from scipy.linalg import solve_circulant
 
@@ -35,7 +35,7 @@ class MassMatrixPreconditioner(LinearSolver):
             The space corresponding to the mass matrix (V0, V1, V2, V3 or V0vec).
             
         weight : list[callables]
-            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass_psydac.WeightedMass.
+            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass.WeightedMass.
     """
     
     def __init__(self, derham, space, weight=None):
