@@ -52,6 +52,10 @@ class CompositeLinearOperator(LinOpWithTransp):
     def dtype( self ):
         return self._dtype
 
+    @property
+    def otype(self):
+        return [type(op) for op in self._operators] 
+
     def dot( self, v , out=None ):
         assert isinstance(v, (StencilVector, BlockVector))
         assert v.space == self.domain
@@ -104,6 +108,10 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
     def dtype( self ):
         return self._dtype
 
+    @property
+    def otype(self):
+        return type(self._operator)
+
     def dot( self, v , out=None ):
         assert isinstance(v, (StencilVector, BlockVector))
         assert v.space == self.domain
@@ -152,6 +160,10 @@ class SumLinearOperator(LinOpWithTransp):
     @property
     def dtype( self ):
         return self._dtype
+
+    @property
+    def otype(self):
+        return [type(op) for op in self._operators]
 
     def dot( self, v , out=None ):
         assert isinstance(v, (StencilVector, BlockVector))
@@ -224,6 +236,10 @@ class InverseLinearOperator(LinOpWithTransp):
         return self._dtype
 
     @property
+    def otype(self):
+        return type(self._operator)
+
+    @property
     def info( self ):
         return self._info
 
@@ -288,6 +304,10 @@ class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
     @property
     def dtype(self):
         return self._dtype
+
+    @property
+    def otype(self):
+        return type(self._operator)
 
     def dot(self, v, out=None):
         assert isinstance(v, (StencilVector, BlockVector))

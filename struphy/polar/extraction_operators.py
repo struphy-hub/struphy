@@ -1,13 +1,27 @@
 import numpy as np
-import scipy.sparse as spa
-
-import struphy.feec.derivatives.derivatives as der
-
 
 # ============================= 2D polar splines (C1) ===================================
 class PolarExtractionBlocksC1:
     """
-    Class for C1 global extraction operators.
+    Class for operator blocks defining C1 basis extraction operators and DOF extraction operators. 
+
+                     /       /       /               /               /
+             k = 1  /       /       /               /               /
+           k = 0   /       /       /               /               /
+                  ------------------------------- -----------------
+          j = 0   |       |       |               |               |
+          j = 1   |       |       |               |               |     
+                  |       |       |               |               |
+                  | i = 0 |  ...  |  i = n_rings  |  i > n_rings  |    
+                  |       |       |               |               |   /
+                  |       |       |               |               |  /
+        j = n2-1  |       |       |               |               | /
+                  -------------------------------------------------
+                  |  polar rings  | first tp ring | outer tp zone |
+
+    Fig. : Indexing of 3d spline tensor-product (tp) basis functions/DOFs. 
+           A linear combination of n_rings rings is used to construct n_polar polar basis functions/DOFs 
+           and "first tp ring" basis functions/DOFs.
     
     Parameters
     ----------
@@ -19,6 +33,8 @@ class PolarExtractionBlocksC1:
     """
     
     def __init__(self, cx, cy):
+        
+        from scipy.sparse import csr_matrix, identity, bmat
         
         self._cx = cx
         self._cy = cy
@@ -37,28 +53,10 @@ class PolarExtractionBlocksC1:
         self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
         self._n_polar = [(3,), (0, 2), (2, 0), (0,)]
         
-        # number of polar basis functions in V0 (NN)
-        self._nbasis0 = (self.n0 - self.n_rings[0][0])*self.n1 + self.n_polar[0][0]
-        
-        # number of polar basis functions in V1_curl (DN ND) (1st and 2nd component)
-        self._nbasis1c_1 = (self.d0 - self.n_rings[1][0])*self.n1 + self.n_polar[1][0]
-        self._nbasis1c_2 = (self.n0 - self.n_rings[1][1])*self.d1 + self.n_polar[1][1]
-        
-        self._nbasis1c = self.nbasis1c_1 + self.nbasis1c_2
-        
-        # number of polar basis functions in V1_div (ND DN) (1st and 2nd component)
-        self._nbasis1d_1 = (self.n0 - self.n_rings[2][0])*self.d1 + self.n_polar[2][0]
-        self._nbasis1d_2 = (self.d0 - self.n_rings[2][1])*self.n1 + self.n_polar[2][1]
-        
-        self._nbasis1d = self.nbasis1d_1 + self.nbasis1d_2
-        
-        # number of polar basis functions in V2 (DD)
-        self._nbasis2 = (self.d0 - self.n_rings[3][0])*self.d1 + self.n_polar[3][0]
-        
         # size of control triangle
-        self._tau  = max([((self.cx[1] - self.pole[0])*(-2)).max(), 
-                          ((self.cx[1] - self.pole[0]) - np.sqrt(3)*(self.cy[1] - self.pole[1])).max(), 
-                          ((self.cx[1] - self.pole[0]) + np.sqrt(3)*(self.cy[1] - self.pole[1])).max()])
+        self._tau = max([((self.cx[1] - self.pole[0])*(-2)).max(), 
+                         ((self.cx[1] - self.pole[0]) - np.sqrt(3)*(self.cy[1] - self.pole[1])).max(), 
+                         ((self.cx[1] - self.pole[0]) + np.sqrt(3)*(self.cy[1] - self.pole[1])).max()])
 
         
         # barycentric coordinates
@@ -74,53 +72,181 @@ class PolarExtractionBlocksC1:
         # remove small values
         self._xi_1[abs(self._xi_1) < 1e-14] = 0.
         
-        # basis extraction operator for discrete 0-forms
-        self._e0 = [[np.hstack((self.xi_0, self.xi_1))]]
+        # ============= basis extraction operator for discrete 0-forms ================
         
-        # basis extraction operator for discrete 1-forms (Hcurl)
-        e1_11 = np.zeros((self.n_polar[1][0], 2*self.n1), dtype=float)
-        e1_12 = np.zeros((self.n_polar[1][0], 2*self.d1), dtype=float)
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        e0_pol_blocks = np.hstack((self.xi_0, self.xi_1, np.zeros_like(self.xi_1)))
+        self._e0_pol_blocks = [[e0_pol_blocks]]
         
-        e1_21 = np.zeros((self.n_polar[1][1], 2*self.n1), dtype=float)
-        e1_22 = np.zeros((self.n_polar[1][1], 2*self.d1), dtype=float)
+        # first n_rings + 1 tp rings --> "first tp ring"
+        e0_tp_blocks = []
+        for i in range(self.n_rings[0][0]):
+            e0_tp_blocks += [identity(self.n1)*0]
+            
+        e0_tp_blocks += [identity(self.n1)]
+        e0_tp_blocks = bmat([e0_tp_blocks], format='csr')
         
-        e1_33 = np.zeros((self.n_polar[0][0], 2*self.n1), dtype=float)
+        self._e0_tp_blocks = [[e0_tp_blocks]]
+        
+        # ============ basis extraction operator for discrete 1-forms (Hcurl) =========
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        e1_11_pol_blocks = np.zeros((self.n_polar[1][0], (self.n_rings[1][0] + 1)*self.n1), dtype=float)
+        e1_12_pol_blocks = np.zeros((self.n_polar[1][0], (self.n_rings[1][1] + 1)*self.d1), dtype=float)
+        
+        e1_21_pol_blocks = np.zeros((self.n_polar[1][1], (self.n_rings[1][0] + 1)*self.n1), dtype=float)
+        e1_22_pol_blocks = np.zeros((self.n_polar[1][1], (self.n_rings[1][1] + 1)*self.d1), dtype=float)
         
         # 1st component
         for l in range(2):
             for j in range(self.n1):
-                e1_21[l, j] = self.xi_1[l + 1, j] - self.xi_0[l + 1, j]
+                e1_21_pol_blocks[l, j] = self.xi_1[l + 1, j] - self.xi_0[l + 1, j]
         
         # 2nd component
         for l in range(2):
             for j in range(1*self.d1, 2*self.d1):
-                e1_22[l, j] = self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1]
-                
-        # 3rd component
-        e1_33[:, :] = self.e0[0][0]
+                e1_22_pol_blocks[l, j] = self.xi_1[l + 1, (j - self.d1 + 1)%self.d1] - self.xi_1[l + 1, j - self.d1]
         
-        self._e1 = [[e1_11, e1_12, None ],
-                    [e1_21, e1_22, None ],
-                    [None , None , e1_33]]
+        self._e1_pol_blocks = [[e1_11_pol_blocks, e1_12_pol_blocks, None],
+                               [e1_21_pol_blocks, e1_22_pol_blocks, None],
+                               [None, None, e0_pol_blocks]]
         
-        # basis extraction operator for discrete 1-forms (Hdiv)
-        e2_33 = np.zeros((self.n_polar[3][0], 2*self.d1), dtype=float)
+        # first n_rings + 1 tp rings --> "first tp ring"
+        e1_11_tp_blocks = []
+        for i in range(self.n_rings[1][0]):
+            e1_11_tp_blocks += [identity(self.n1)*0]
+            
+        e1_11_tp_blocks += [identity(self.n1)]
         
-        self._e2 = [[e1_21, -e1_22, None ],
-                    [e1_11,  e1_12, None ],
-                    [None ,  None , e2_33]]
+        e1_22_tp_blocks = []
+        for i in range(self.n_rings[1][1]):
+            e1_22_tp_blocks += [identity(self.d1)*0]
+            
+        e1_22_tp_blocks += [identity(self.d1)]
         
-        # basis extraction operator for discrete 2-forms
-        self._e3 = [[e2_33.copy()]]
+        e1_11_tp_blocks = bmat([e1_11_tp_blocks], format='csr')
+        e1_22_tp_blocks = bmat([e1_22_tp_blocks], format='csr')
         
-        # projection extraction operator for discrete 0-forms
-        p0 = np.zeros((self.n_polar[0][0], 2*self.n1), dtype=float)
+        e1_12_tp_blocks = csr_matrix((self.d1, (self.n_rings[1][1] + 1)*self.d1), dtype=float)
+        e1_21_tp_blocks = csr_matrix((self.n1, (self.n_rings[1][0] + 1)*self.n1), dtype=float)
         
-        p0[0, self.n1 + 0*self.n1//3] = 1.
-        p0[1, self.n1 + 1*self.n1//3] = 1.
-        p0[2, self.n1 + 2*self.n1//3] = 1.
+        self._e1_tp_blocks = [[e1_11_tp_blocks, e1_12_tp_blocks, None],
+                              [e1_21_tp_blocks, e1_22_tp_blocks, None],
+                              [None, None, e0_tp_blocks]]
         
-        self._p0 = [[p0]]
+        # =============== basis extraction operator for discrete 1-forms (Hdiv) =========
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        e3_pol_blocks = np.zeros((self.n_polar[3][0], (self.n_rings[3][0] + 1)*self.d1), dtype=float)
+        
+        self._e2_pol_blocks = [[e1_22_pol_blocks, -e1_21_pol_blocks, None],
+                               [e1_12_pol_blocks,  e1_11_pol_blocks, None],
+                               [None, None, e3_pol_blocks]]
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        e3_tp_blocks = []
+        for i in range(self.n_rings[3][0]):
+            e3_tp_blocks += [identity(self.d1)*0]
+            
+        e3_tp_blocks += [identity(self.d1)]
+        
+        e3_tp_blocks = bmat([e3_tp_blocks], format='csr')
+        
+        self._e2_tp_blocks = [[e1_22_tp_blocks, e1_21_tp_blocks, None],
+                              [e1_12_tp_blocks, e1_11_tp_blocks, None],
+                              [None, None, e3_tp_blocks]]
+        
+        # ================== basis extraction operator for discrete 2-forms =============
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        self._e3_pol_blocks = [[e3_pol_blocks]]
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        self._e3_tp_blocks = [[e3_tp_blocks]]
+        
+        
+        # ======= projection extraction operator for discrete 0-forms ====================
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        p0_pol_blocks = np.zeros((self.n_polar[0][0], (self.n_rings[0][0] + 1)*self.n1), dtype=float)
+        
+        p0_pol_blocks[0, self.n1 + 0*self.n1//3] = 1.
+        p0_pol_blocks[1, self.n1 + 1*self.n1//3] = 1.
+        p0_pol_blocks[2, self.n1 + 2*self.n1//3] = 1.
+        
+        self._p0_pol_blocks = [[csr_matrix(p0_pol_blocks)]]
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        p0_tp_blocks = np.zeros((self.n1, (self.n_rings[0][0] + 1)*self.n1), dtype=float)
+        self._p0_tp_blocks = [[csr_matrix(p0_tp_blocks)]]
+        
+        # =========== projection extraction operator for discrete 1-forms (Hcurl) ========
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        p1_11_pol_blocks = np.zeros((self.n_polar[1][0], (self.n_rings[1][0] + 1)*self.n1), dtype=float)
+        p1_22_pol_blocks = np.zeros((self.n_polar[1][1], (self.n_rings[1][1] + 1)*self.d1), dtype=float)
+        
+        # sum up dofs from bar(t)_0 to bar(t)_1 at s_1
+        p1_22_pol_blocks[0, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
+        
+        # sum up dofs from bar(t)_0 to bar(t)_2 at s_1
+        p1_22_pol_blocks[1, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
+        p1_22_pol_blocks[1, (self.d1 + 1*self.d1//3):(self.d1 + 2*self.d1//3)] = 1.
+        
+        self._p1_pol_blocks = [[csr_matrix(p1_11_pol_blocks), None, None],
+                              [None, csr_matrix(p1_22_pol_blocks), None],
+                              [None, None,    csr_matrix(p0_pol_blocks)]]
+        
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        p1_11_tp_blocks = np.zeros((self.n1, self.n1), dtype=float)
+        
+        p1_11_tp_blocks[:, 0*self.n1//3]  = -self.xi_1[0]
+        p1_11_tp_blocks[:, 1*self.n1//3]  = -self.xi_1[1]
+        p1_11_tp_blocks[:, 2*self.n1//3]  = -self.xi_1[2]
+        p1_11_tp_blocks                  += np.identity(self.n1)
+        
+        p1_11_tp_blocks = bmat([[csr_matrix(p1_11_tp_blocks), identity(self.n1)]], format='csr')
+        
+        p1_22_tp_blocks = np.zeros((self.n1, (self.n_rings[1][1] + 1)*self.n1), dtype=float)
+        
+        self._p1_tp_blocks = [[p1_11_tp_blocks, None, None], 
+                             [None, csr_matrix(p1_22_tp_blocks), None],
+                             [None, None, csr_matrix(p0_tp_blocks)]]
+        
+        # ========== projection extraction operator for discrete 1-forms (Hdiv) ==========
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        p3_pol_blocks = np.zeros((self.n_polar[3][0], (self.n_rings[3][0] + 1)*self.d1), dtype=float)
+        
+        self._p2_pol_blocks = [[csr_matrix(p1_22_pol_blocks), None, None],
+                              [None, csr_matrix(p1_11_pol_blocks), None],
+                              [None, None,    csr_matrix(p3_pol_blocks)]]
+        
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        p3_tp_blocks = np.zeros((self.d1, self.d1), dtype=float)
+        
+        for i in range(self.d1):
+            
+            p3_tp_blocks[i, 0*self.n1//3:1*self.n1//3] = -(self.xi_1[1, (i + 1)%self.n1] - self.xi_1[1, i]) - (self.xi_1[2, (i + 1)%self.n1] - self.xi_1[2, i])
+            p3_tp_blocks[i, 1*self.n1//3:2*self.n1//3] = -(self.xi_1[2, (i + 1)%self.n1] - self.xi_1[2, i])
+            
+        p3_tp_blocks += np.identity(self.d1)
+        
+        p3_tp_blocks = bmat([[csr_matrix(p3_tp_blocks), identity(self.d1), None]], format='csr')
+        
+        self._p2_tp_blocks = [[csr_matrix(p1_22_tp_blocks), None, None], 
+                             [None, p1_11_tp_blocks, None],
+                             [None, None, p3_tp_blocks]]
+        
+        # =============== projection extraction operator for discrete 2-forms ============
+        
+        # first n_rings + 1 tp rings --> "polar coeffs"
+        self._p3_pol_blocks = [[csr_matrix(p3_pol_blocks)]]
+        
+        # first n_rings + 1 tp rings --> "first tp ring"
+        self._p3_tp_blocks = [[p3_tp_blocks]]
         
         
     @property
@@ -160,38 +286,6 @@ class PolarExtractionBlocksC1:
         return self._n_polar
     
     @property
-    def nbasis0(self):
-        return self._nbasis0
-    
-    @property
-    def nbasis1c_1(self):
-        return self._nbasis1c_1
-    
-    @property
-    def nbasis1c_2(self):
-        return self._nbasis1c_2
-    
-    @property
-    def nbasis1c(self):
-        return self._nbasis1c
-    
-    @property
-    def nbasis1d_1(self):
-        return self._nbasis1d_1
-    
-    @property
-    def nbasis1d_2(self):
-        return self._nbasis1d_2
-    
-    @property
-    def nbasis1d(self):
-        return self._nbasis1d
-    
-    @property
-    def nbasis2(self):
-        return self._nbasis2
-    
-    @property
     def tau(self):
         return self._tau
     
@@ -204,24 +298,68 @@ class PolarExtractionBlocksC1:
         return self._xi_1
     
     @property
-    def e0(self):
-        return self._e0 
+    def e0_pol_blocks(self):
+        return self._e0_pol_blocks
     
     @property
-    def e1(self):
-        return self._e1 
+    def e1_pol_blocks(self):
+        return self._e1_pol_blocks 
     
     @property
-    def e2(self):
-        return self._e2 
+    def e2_pol_blocks(self):
+        return self._e2_pol_blocks 
     
     @property
-    def e3(self):
-        return self._e3
+    def e3_pol_blocks(self):
+        return self._e3_pol_blocks
     
     @property
-    def p0(self):
-        return self._p0
+    def e0_tp_blocks(self):
+        return self._e0_tp_blocks
+    
+    @property
+    def e1_tp_blocks(self):
+        return self._e1_tp_blocks
+    
+    @property
+    def e2_tp_blocks(self):
+        return self._e2_tp_blocks
+    
+    @property
+    def e3_tp_blocks(self):
+        return self._e3_tp_blocks
+    
+    @property
+    def p0_pol_blocks(self):
+        return self._p0_pol_blocks
+    
+    @property
+    def p1_pol_blocks(self):
+        return self._p1_pol_blocks
+    
+    @property
+    def p2_pol_blocks(self):
+        return self._p2_pol_blocks
+    
+    @property
+    def p3_pol_blocks(self):
+        return self._p3_pol_blocks
+    
+    @property
+    def p0_tp_blocks(self):
+        return self._p0_tp_blocks
+    
+    @property
+    def p1_tp_blocks(self):
+        return self._p1_tp_blocks
+    
+    @property
+    def p2_tp_blocks(self):
+        return self._p2_tp_blocks
+    
+    @property
+    def p3_tp_blocks(self):
+        return self._p3_tp_blocks
     
 
 
@@ -229,6 +367,9 @@ class PolarExtractionBlocksC1:
 class polar_splines_C0_2D:
     
     def __init__(self, n0, n1):
+        
+        import scipy.sparse as spa
+        from struphy.feec.derivatives.derivatives import grad_1d_matrix
         
         d0 = n0 - 1
         d1 = n1 - 0
@@ -310,8 +451,8 @@ class polar_splines_C0_2D:
         
         
         # ========================= 1D discrete derivatives ======================
-        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(False, n0))
-        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(True , n1))
+        grad_1d_1 = spa.csc_matrix(grad_1d_matrix(False, n0))
+        grad_1d_2 = spa.csc_matrix(grad_1d_matrix(True , n1))
         # ========================================================================
         
         
@@ -380,6 +521,9 @@ class polar_splines_C0_2D:
 class polar_splines_C1_2D:
     
     def __init__(self, cx, cy):
+        
+        import scipy.sparse as spa
+        from struphy.feec.derivatives.derivatives import grad_1d_matrix
         
         n0, n1 = cx.shape
         
@@ -564,8 +708,8 @@ class polar_splines_C1_2D:
         
         
         # ========================= 1D discrete derivatives =======================
-        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(False, n0))
-        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(True , n1))
+        grad_1d_1 = spa.csc_matrix(grad_1d_matrix(False, n0))
+        grad_1d_2 = spa.csc_matrix(grad_1d_matrix(True , n1))
         # =========================================================================
         
         
@@ -659,6 +803,9 @@ class polar_splines_C1_2D:
 class polar_splines:
     
     def __init__(self, tensor_space, cx, cy):
+        
+        import scipy.sparse as spa
+        from struphy.feec.derivatives.derivatives import grad_1d_matrix
         
         n0, n1, n2 = tensor_space.NbaseN
         d0, d1, d2 = tensor_space.NbaseD
@@ -844,9 +991,9 @@ class polar_splines:
         
         
         # ========================= 1D discrete derivatives =======================
-        grad_1d_1 = spa.csc_matrix(der.grad_1d_matrix(tensor_space.spaces[0]))
-        grad_1d_2 = spa.csc_matrix(der.grad_1d_matrix(tensor_space.spaces[1]))
-        grad_1d_3 = spa.csc_matrix(der.grad_1d_matrix(tensor_space.spaces[2]))
+        grad_1d_1 = spa.csc_matrix(grad_1d_matrix(tensor_space.spaces[0]))
+        grad_1d_2 = spa.csc_matrix(grad_1d_matrix(tensor_space.spaces[1]))
+        grad_1d_3 = spa.csc_matrix(grad_1d_matrix(tensor_space.spaces[2]))
         # =========================================================================
         
         

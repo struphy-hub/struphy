@@ -78,12 +78,10 @@ class Derham:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
         
-
         assert isinstance(der_as_mat, bool)
         self._der_as_mat= der_as_mat
 
         self._comm = comm
-        
         
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
@@ -123,6 +121,22 @@ class Derham:
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
         self._nbasis_v0vec = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V0vec.spaces]
         
+        # 1d spline types in each direction ('B' or 'M' resp. 0 or 1)
+        self._spline_types = {}
+        self._spline_types_pyccel = {}
+
+        for name in self.spaces_dict.values():
+            _space = getattr(self, name)
+
+            if isinstance(_space, ProductFemSpace):
+                self._spline_types[name] = [[space.basis for space in tensor_femspace.spaces]
+                                    for tensor_femspace in _space._spaces]
+                self._spline_types_pyccel[name] = [
+                    np.array([int(space.basis == 'M') for space in tensor_femspace.spaces]) for tensor_femspace in _space._spaces]
+            else:
+                self._spline_types[name] = [space.basis for space in _space.spaces]
+                self._spline_types_pyccel[name] = np.array([int(space.basis == 'M') for space in _space.spaces])
+
         # Psydac projectors
         self._projectors_dict = {'H1' : 'P0', 'Hcurl' : 'P1', 'Hdiv' : 'P2', 'L2' : 'P3', 'H1vec' : 'P0vec'}
         
@@ -265,6 +279,144 @@ class Derham:
         For more detail see _get_neighbours().
         """
         return self._neighbours
+
+    @property
+    def forms_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding names of differential forms.
+        """
+        return self._forms_dict
+    
+    @property
+    def spaces_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
+        """
+        return self._spaces_dict
+    
+    @property
+    def V0(self):
+        """ Discrete H1 space.
+        """
+        return self._V0
+
+    @property
+    def V1(self):
+        """ Discrete H(curl) space.
+        """
+        return self._V1
+
+    @property
+    def V2(self):
+        """ Discrete H(div) space.
+        """
+        return self._V2
+
+    @property
+    def V3(self):
+        """ Discrete L2 space.
+        """
+        return self._V3
+
+    @property
+    def V0vec(self):
+        """ Discrete H1 x H1 x H1 space.
+        """
+        return self._V0vec
+
+    @property
+    def nbasis_v0(self):
+        """ List of number of basis functions in space V0 in each direction.
+        """
+        return self._nbasis_v0
+    
+    @property
+    def nbasis_v1(self):
+        """ List of number of basis functions in space V1 in each direction.
+        """
+        return self._nbasis_v1
+    
+    @property
+    def nbasis_v2(self):
+        """ List of number of basis functions in space V2 in each direction.
+        """
+        return self._nbasis_v2
+    
+    @property
+    def nbasis_v3(self):
+        """ List of number of basis functions in space V3 in each direction.
+        """
+        return self._nbasis_v3
+    
+    @property
+    def nbasis_v0vec(self):
+        """ List of number of basis functions in space V0vec in each direction.
+        """
+        return self._nbasis_v0vec
+
+    @property
+    def spline_types(self):
+        """ List holding holding 1d spline types in each direction, entries either 'B' or 'M'.
+        """
+        return self._spline_types
+
+    @property
+    def spline_types_pyccel(self):
+        """ List holding holding 1d spline types in each direction, entries either 0 (='B') or 1 (='M').
+        """
+        return self._spline_types_pyccel
+
+    @property
+    def projectors_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding commuting projectors.
+        """
+        return self._projectors_dict
+    
+    @property
+    def P0(self):
+        """ Interpolation into discrete H1 space.
+        """
+        return self._P0
+
+    @property
+    def P1(self):
+        """ Inter-/histopolation into discrete H(curl) space.
+        """
+        return self._P1
+
+    @property
+    def P2(self):
+        """ Inter-/histopolation into discrete H(div) space.
+        """
+        return self._P2
+
+    @property
+    def P3(self):
+        """ Histopolation into discrete L2 space.
+        """
+        return self._P3
+
+    @property
+    def P0vec(self):
+        """ Interpolation into discrete H1 x H1 x H1 space.
+        """
+        return self._P0vec
+
+    @property
+    def grad(self):
+        """ Discrete gradient H1 -> H(curl).
+        """
+        return self._grad
+
+    @property
+    def curl(self):
+        """ Discrete curl H(curl) -> H(div).
+        """
+        return self._curl
+
+    @property
+    def div(self):
+        """ Discrete divergence H(div) -> L2.
+        """
+        return self._div
 
         
     def _get_decomp_arrays(self):
@@ -473,131 +625,7 @@ class Derham:
         
         return res
     
-    @property
-    def forms_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding names of differential forms.
-        """
-        return self._forms_dict
     
-    @property
-    def spaces_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
-        """
-        return self._spaces_dict
-    
-    @property
-    def V0(self):
-        """ Discrete H1 space.
-        """
-        return self._V0
-
-    @property
-    def V1(self):
-        """ Discrete H(curl) space.
-        """
-        return self._V1
-
-    @property
-    def V2(self):
-        """ Discrete H(div) space.
-        """
-        return self._V2
-
-    @property
-    def V3(self):
-        """ Discrete L2 space.
-        """
-        return self._V3
-
-    @property
-    def V0vec(self):
-        """ Discrete H1 x H1 x H1 space.
-        """
-        return self._V0vec
-
-    @property
-    def nbasis_v0(self):
-        """ List of number of basis functions in space V0 in each direction.
-        """
-        return self._nbasis_v0
-    
-    @property
-    def nbasis_v1(self):
-        """ List of number of basis functions in space V1 in each direction.
-        """
-        return self._nbasis_v1
-    
-    @property
-    def nbasis_v2(self):
-        """ List of number of basis functions in space V2 in each direction.
-        """
-        return self._nbasis_v2
-    
-    @property
-    def nbasis_v3(self):
-        """ List of number of basis functions in space V3 in each direction.
-        """
-        return self._nbasis_v3
-    
-    @property
-    def nbasis_v0vec(self):
-        """ List of number of basis functions in space V0vec in each direction.
-        """
-        return self._nbasis_v0vec
-    
-    @property
-    def projectors_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding commuting projectors.
-        """
-        return self._projectors_dict
-    
-    @property
-    def P0(self):
-        """ Interpolation into discrete H1 space.
-        """
-        return self._P0
-
-    @property
-    def P1(self):
-        """ Inter-/histopolation into discrete H(curl) space.
-        """
-        return self._P1
-
-    @property
-    def P2(self):
-        """ Inter-/histopolation into discrete H(div) space.
-        """
-        return self._P2
-
-    @property
-    def P3(self):
-        """ Histopolation into discrete L2 space.
-        """
-        return self._P3
-
-    @property
-    def P0vec(self):
-        """ Interpolation into discrete H1 x H1 x H1 space.
-        """
-        return self._P0vec
-
-    @property
-    def grad(self):
-        """ Discrete gradient H1 -> H(curl).
-        """
-        return self._grad
-
-    @property
-    def curl(self):
-        """ Discrete curl H(curl) -> H(div).
-        """
-        return self._curl
-
-    @property
-    def div(self):
-        """ Discrete divergence H(div) -> L2.
-        """
-        return self._div
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):
