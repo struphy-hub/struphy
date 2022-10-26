@@ -8,7 +8,7 @@ from struphy.psydac_api.fields import Field
 from struphy.pic import particles
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModel( metaclass=ABCMeta ):
     '''Base class for all Struphy models.
 
     Parameters

@@ -11,7 +11,47 @@ Available models
     stands for the unit of the magnetic field.
 
 
-.. automodule:: struphy.models.models
+Fluid models
+------------
+
+.. autoclass:: struphy.models.models.LinearMHD
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+Fluid-kinetic hybrid models
+---------------------------
+
+.. autoclass:: struphy.models.models.PC_LinearMHD_Vlasov
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.PC_LinearMHD_Vlasov_full
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+Kinetic models
+--------------
+
+.. autoclass:: struphy.models.models.LinearVlasovMaxwell
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+
+Toy models
+----------
+
+.. autoclass:: struphy.models.models.Maxwell
+    :members:
+    :undoc-members:
+    :exclude-members: propagators, scalar_quantities, update_scalar_quantities
+
+.. autoclass:: struphy.models.models.Vlasov
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities

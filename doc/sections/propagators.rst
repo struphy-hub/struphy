@@ -17,7 +17,29 @@ calligaphic       :math:`\mathcal T,\,\mathcal U,\,\mathcal K` Basis projection 
 
 See :ref:`gempic` for more details on the used symbols.
 
-.. automodule:: struphy.propagators.propagators
+
+Particle propagators
+--------------------
+
+.. automodule:: struphy.propagators.propagators_markers
     :members:
     :undoc-members:
-    :exclude-members: push, variables
+    :exclude-members: variables
+
+
+Field propagators
+-----------------
+
+.. automodule:: struphy.propagators.propagators_fields
+    :members:
+    :undoc-members:
+    :exclude-members: variables
+
+
+Particle-field propagators
+--------------------------
+
+.. automodule:: struphy.propagators.propagators_coupling
+    :members:
+    :undoc-members:
+    :exclude-members: variables

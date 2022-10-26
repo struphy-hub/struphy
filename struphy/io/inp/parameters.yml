@@ -216,6 +216,11 @@ fields :
                   p1     : .1 # shape factor for ad hoc pressure profile
                   p2     : .1 # shape factor for ad hoc pressure profile
                   beta : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+      phi_equilibrium :
+            type : HomogenSlab # (possible choices seen below)
+            HomogenSlab :
+                  phi0  : 1. # constant electric potential
+
 
 
 kinetic :
