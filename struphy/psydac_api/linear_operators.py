@@ -18,16 +18,17 @@ class LinOpWithTransp(LinearOperator):
 class CompositeLinearOperator(LinOpWithTransp):
     r"""
     Composition of n linear operators: :math:`A(\mathbf v)=L_n(L_{n-1}(...L_2(L_1(\mathbf v))...)`.
+    A 'None' operator is treated as identity.
     
     Parameters
     ----------
-        operators: LinOpWithTransp | StencilMatrix | BlockMatrix
-            The sequence of n linear operators.
+        operators: LinOpWithTransp | StencilMatrix | BlockMatrix | None
+            The sequence of n linear operators (None is treated as identity).
     """
 
     def __init__(self, *operators):
 
-        self._operators = list(operators)[::-1]
+        self._operators = [op for op in list(operators)[::-1] if op is not None]
 
         assert len(self._operators) > 1
 
@@ -36,9 +37,9 @@ class CompositeLinearOperator(LinOpWithTransp):
             assert isinstance(op2, (LinOpWithTransp, StencilMatrix, BlockMatrix))
             assert op2.domain == op1.codomain
 
-        self._domain = operators[-1].domain
-        self._codomain = operators[0].codomain
-        self._dtype = operators[-1].dtype
+        self._domain = self._operators[0].domain
+        self._codomain = self._operators[-1].codomain
+        self._dtype = self._operators[-1].dtype
 
     @property
     def domain( self ):

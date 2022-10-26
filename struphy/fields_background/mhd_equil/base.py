@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-class EquilibriumMHD(metaclass=ABCMeta):
+
+class EquilibriumMHD( metaclass=ABCMeta ):
     """
     Base class for MHD equilibria in Struphy.
     
