@@ -6,6 +6,8 @@ from psydac.linalg.block import BlockVector, BlockMatrix
 from psydac.linalg.iterative_solvers import pcg
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
+from struphy.polar.basic import PolarVector
+from struphy.linear_algebra.iterative_solvers import pbicgstab
 
 
 class LinOpWithTransp(LinearOperator):
@@ -58,7 +60,7 @@ class CompositeLinearOperator(LinOpWithTransp):
         return [type(op) for op in self._operators] 
 
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         tmp = v
@@ -114,7 +116,7 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
         return type(self._operator)
 
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         return self._operator.dot(self._a * v)
@@ -167,7 +169,7 @@ class SumLinearOperator(LinOpWithTransp):
         return [type(op) for op in self._operators]
 
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         tmp = self._operators[0].codomain.zeros()
@@ -208,16 +210,19 @@ class InverseLinearOperator(LinOpWithTransp):
             If True, L2-norm of residual r is printed at each iteration. 
     """
 
-    def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, verbose=False, solver_name='pcg'):
 
         assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
         assert operator.domain.dimension == operator.codomain.dimension
+        assert solver_name in {'pcg', 'pbicgstab'}
 
         self._operator = operator
         self._pc = pc
         self._tol = tol
         self._maxiter = maxiter
         self._verbose = verbose
+        self._solver_name = solver_name
+        self._solver = globals()[solver_name]
 
         self._domain = operator.domain
         self._codomain = operator.codomain
@@ -245,13 +250,13 @@ class InverseLinearOperator(LinOpWithTransp):
         return self._info
 
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.codomain
 
-        x, self._info = pcg(self._operator, v, self._pc, tol=self._tol,
+        x, self._info = self._solver(self._operator, v, self._pc, tol=self._tol,
                       maxiter=self._maxiter, verbose=self._verbose)
 
-        assert isinstance(x, (StencilVector, BlockVector))
+        assert isinstance(x, (StencilVector, BlockVector, PolarVector))
 
         return x
 

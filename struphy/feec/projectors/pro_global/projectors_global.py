@@ -1436,18 +1436,32 @@ class ProjectorsGlobal3D:
         # ---------------------------------------------------------------------------------     
             
 
-        # 3D operators: with boundary dofs (3rd dimension MUST be periodic)
-        self.P0 =            self.P0_pol.copy()
-        self.P1 = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
-        self.P2 = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
-        self.P3 =            self.P3_pol.copy()
+        # 3D operators: with boundary dofs
+        if tensor_space.dim == 2:
         
-        self.P0 = spa.kron(self.P0, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P1 = spa.kron(self.P1, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P2 = spa.kron(self.P2, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P3 = spa.kron(self.P3, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P0 =            self.P0_pol.copy()
+            self.P1 = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
+            self.P2 = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
+            self.P3 =            self.P3_pol.copy()
+
+            self.P0 = spa.kron(self.P0, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P1 = spa.kron(self.P1, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P2 = spa.kron(self.P2, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P3 = spa.kron(self.P3, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            
+        else:
+            
+            n3 = tensor_space.NbaseN[2]
+            d3 = tensor_space.NbaseD[2]
+            
+            self.P0 = spa.kron(self.P0_pol, spa.identity(n3), format='csr')
+            self.P1 = spa.bmat([[spa.kron(self.P1_pol, spa.identity(n3)), None], 
+                                [None, spa.kron(self.P0_pol, spa.identity(d3))]], format='csr')
+            self.P2 = spa.bmat([[spa.kron(self.P2_pol, spa.identity(d3)), None], 
+                                [None, spa.kron(self.P3_pol, spa.identity(n3))]], format='csr')
+            self.P3 = spa.kron(self.P3_pol, spa.identity(d3), format='csr')
         
-        # 3D operators: without boundary dofs (3rd dimension MUST be periodic)
+        # 3D operators: without boundary dofs
         self.P0_0 = tensor_space.B0.dot(self.P0).tocsr()
         self.P1_0 = tensor_space.B1.dot(self.P1).tocsr()
         self.P2_0 = tensor_space.B2.dot(self.P2).tocsr()

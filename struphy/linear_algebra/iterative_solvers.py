@@ -128,7 +128,7 @@ def bicgstab(A, b, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         
 
         if verbose:
-            print( template.format(m, sqrt(res_sqr)) )
+            print( template.format(j, sqrt(res_sqr)) )
 
     if verbose:
         print( "+---------+---------------------+")
@@ -287,7 +287,7 @@ def pbicgstab(A, b, pc, x0=None, tol=1e-6, maxiter=1000, verbose=False):
         
 
         if verbose:
-            print( template.format(m, sqrt(res_sqr)) )
+            print( template.format(j, sqrt(res_sqr)) )
 
     if verbose:
         print( "+---------+---------------------+")
