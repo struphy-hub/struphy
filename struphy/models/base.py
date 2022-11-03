@@ -77,7 +77,7 @@ class StruphyModel( metaclass=ABCMeta ):
                 self._field_ids += [val]
 
             # kinetic variables
-            elif val in {'Particles6D'}:
+            elif val in {'Particles6D', 'Particles5D'}:
                 self._kinetic_names += [key]
                 self._kinetic_ids += [val]
                 self._kinetic_params += [params['kinetic'][key]]
@@ -297,13 +297,18 @@ class StruphyModel( metaclass=ABCMeta ):
         # initialize particles
         if len(self._kinetic_species) > 0:
             
-            for species, params in zip(self._kinetic_species, self._kinetic_params):
+            for n, (species, params) in enumerate(zip(self._kinetic_species, self._kinetic_params)):
                 
                 # do MPI sort
                 species.mpi_sort_markers(do_test=True)
                 
                 # compute weights
                 species.initialize_weights(params['background'], params['perturbations'])
+
+                # initialize magnetic momentum
+                if self._kinetic_ids[n] == 'Particles5D':
+                    species.initialize_magnetic_moments(self.derham, params, self._field_params['mhd_equilibrium'])
+
                 
         # initialize scalar quantities
         self.update_scalar_quantities(0.)

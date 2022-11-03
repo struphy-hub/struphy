@@ -416,3 +416,332 @@ class StepPushEta( Propagator ):
         self._pusher(self._particles, dt, 
                      self._butcher.a, self._butcher.b, self._butcher.c, 
                      bc=self._bc, mpi_sort='last')
+
+class StepPushGuidingCenter1( Propagator ):
+    r"""Solves  
+
+    .. math::
+
+        \left\{
+        \begin{align}
+            \dot{\mathbf X} &= \frac{\epsilon \mu}{|B^*_\parallel|}  G^{-1} \mathbb{b}_{0, \otimes}G^{-1} \hat \nabla |\hat B^0_0| \,,
+            \\
+            \dot v_\parallel &= 0 \,.
+        \end{align}
+        \right.
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms: 
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles5D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        algo : str
+            The used algorithm.
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
+    """
+    
+    def __init__(self, particles, epsilon, b, norm_b1, norm_b2, abs_b, derham, algo, integrator, bc):
+        
+        self._particles = particles
+        self._epsilon = epsilon
+        self._bc = bc
+        self._b = b
+        self._norm_b1 = norm_b1
+        self._norm_b2 = norm_b2
+        self._abs_b = abs_b
+        self._derham = derham
+
+        self._curl_norm_b = derham.curl.dot(norm_b1)
+        self._grad_abs_b = derham.grad.dot(abs_b)
+
+        if not self._curl_norm_b[0].ghost_regions_in_sync: self._curl_norm_b[0].update_ghost_regions()
+        if not self._curl_norm_b[1].ghost_regions_in_sync: self._curl_norm_b[1].update_ghost_regions()
+        if not self._curl_norm_b[2].ghost_regions_in_sync: self._curl_norm_b[2].update_ghost_regions()
+        if not self._grad_abs_b[0].ghost_regions_in_sync: self._grad_abs_b[0].update_ghost_regions()
+        if not self._grad_abs_b[1].ghost_regions_in_sync: self._grad_abs_b[1].update_ghost_regions()
+        if not self._grad_abs_b[2].ghost_regions_in_sync: self._grad_abs_b[2].update_ghost_regions()
+        
+        # load butcher tableau and pusher
+        from struphy.pic.pusher import Pusher
+        from struphy.pic.pusher import ButcherTableau
+
+        if integrator == 'explicit':
+            if algo == 'forward_euler':
+                a = []
+                b = [1.]
+                c = [0.]
+            elif algo == 'heun2':
+                a = [1.]
+                b = [1/2, 1/2]
+                c = [0., 1.]
+            elif algo == 'rk2':
+                a = [1/2]
+                b = [0., 1.]
+                c = [0., 1/2]
+            elif algo == 'heun3':
+                a = [1/3, 2/3]
+                b = [1/4, 0., 3/4]
+                c = [0., 1/3, 2/3]
+            elif algo == 'rk4':
+                a = [1/2, 1/2, 1.]
+                b = [1/6, 1/3, 1/3, 1/6]
+                c = [0., 1/2, 1/2, 1.]
+            else:
+                raise NotImplementedError('Chosen algorithm is not implemented.')
+
+            self._butcher = ButcherTableau(a, b, c)
+            self._pusher = Pusher(derham, particles.domain, 'push_gc1_explicit_stage', self._butcher.n_stages)
+
+        # elif integrator == 'implicit':
+            # if algo == 'discrete_gradients':
+
+            # self._pusher = PUsher(derham, particles.domain, 'push_gc_discrete_gradients_stage')
+        
+        else:
+            raise NotImplementedError('Chosen integrator is not implemented.')
+        
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+
+        self._pusher(self._particles, dt, self._epsilon,
+                     self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                     self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                     self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                     self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                     self._butcher.a, self._butcher.b, self._butcher.c, 
+                     bc=self._bc, mpi_sort='each', verbose=False)
+
+
+class StepPushGuidingCenter2( Propagator ):
+    r"""Solves  
+
+    .. math::
+
+        \left\{
+        \begin{align}
+            \dot{\mathbf X} &= \frac{1}{|B^*_\parallel|} \mathbf{B}^* v_\parallel \,,
+            \\
+            \dot v_\parallel &= - \mu \frac{1}{|B^*_\parallel|} \mathbf{B}^* \cdot \nabla |B_0| \,.
+        \end{align}
+        \right.
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms: 
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles5D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        algo : str
+            The used algorithm.
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
+    """
+    
+    def __init__(self, particles, b, norm_b1, abs_b, derham, algo, integrator, bc):
+        
+        self._particles = particles
+        self._bc = bc
+        self._b = b
+        self._norm_b1 = norm_b1
+        self._abs_b = abs_b
+        self._derham = derham
+        self._curl_norm_b = derham.curl.dot(norm_b1)
+        self._grad_abs_b = derham.grad.dot(abs_b)
+
+        if not self._curl_norm_b[0].ghost_regions_in_sync: self._curl_norm_b[0].update_ghost_regions()
+        if not self._curl_norm_b[1].ghost_regions_in_sync: self._curl_norm_b[1].update_ghost_regions()
+        if not self._curl_norm_b[2].ghost_regions_in_sync: self._curl_norm_b[2].update_ghost_regions()
+        if not self._grad_abs_b[0].ghost_regions_in_sync: self._grad_abs_b[0].update_ghost_regions()
+        if not self._grad_abs_b[1].ghost_regions_in_sync: self._grad_abs_b[1].update_ghost_regions()
+        if not self._grad_abs_b[2].ghost_regions_in_sync: self._grad_abs_b[2].update_ghost_regions()
+        
+        # load butcher tableau and pusher
+        from struphy.pic.pusher import Pusher
+        from struphy.pic.pusher import ButcherTableau
+        
+
+        if integrator == 'explicit':
+            if algo == 'forward_euler':
+                a = []
+                b = [1.]
+                c = [0.]
+            elif algo == 'heun2':
+                a = [1.]
+                b = [1/2, 1/2]
+                c = [0., 1.]
+            elif algo == 'rk2':
+                a = [1/2]
+                b = [0., 1.]
+                c = [0., 1/2]
+            elif algo == 'heun3':
+                a = [1/3, 2/3]
+                b = [1/4, 0., 3/4]
+                c = [0., 1/3, 2/3]
+            elif algo == 'rk4':
+                a = [1/2, 1/2, 1.]
+                b = [1/6, 1/3, 1/3, 1/6]
+                c = [0., 1/2, 1/2, 1.]
+            else:
+                raise NotImplementedError('Chosen algorithm is not implemented.')
+
+            self._butcher = ButcherTableau(a, b, c)
+            self._pusher = Pusher(derham, particles.domain, 'push_gc2_explicit_stage', self._butcher.n_stages)
+
+        # elif integrator == 'implicit':
+            # if algo == 'discrete_gradients':
+
+            # self._pusher = PUsher(derham, particles.domain, 'push_gc_discrete_gradients_stage')
+        
+        else:
+            raise NotImplementedError('Chosen integrator is not implemented.')
+        
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+
+        self._pusher(self._particles, dt,
+                     self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                     self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                     self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                     self._butcher.a, self._butcher.b, self._butcher.c, 
+                     bc=self._bc, mpi_sort='each', verbose=False)
+
+
+class StepPushGuidingCenter( Propagator ):
+    r"""Solves  
+
+    .. math::
+
+        \left\{
+        \begin{align}
+            \dot{\mathbf X} &= \frac{\epsilon \mu}{|B^*_\parallel|}  G^{-1} \mathbb{b}_{0, \otimes}G^{-1} \hat \nabla |\hat B^0_0| + \frac{1}{|B^*_\parallel|} \mathbf{B}^* v_\parallel \,,
+            \\
+            \dot v_\parallel &= - \mu \frac{1}{|B^*_\parallel|} \mathbf{B}^* \cdot \nabla |B_0| \,.
+        \end{align}
+        \right.
+
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant. Available algorithms: 
+        * forward_euler (1st order)
+        * heun2 (2nd order)
+        * rk2 (2nd order)
+        * heun3 (3rd order)
+        * rk4 (4th order)
+    
+    Parameters
+    ----------
+        particles : struphy.pic.particles.Particles5D
+            Holdes the markers to push.
+            
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete Derham complex.
+
+        algo : str
+            The used algorithm.
+            
+        bc : list[str]
+            Kinetic boundary conditions in each direction.
+    """
+    
+    def __init__(self, particles, epsilon, b, norm_b1, norm_b2, abs_b, derham, algo, integrator, bc):
+        
+        self._particles = particles
+        self._epsilon = epsilon
+        self._bc = bc
+        self._b = b
+        self._norm_b1 = norm_b1
+        self._norm_b2 = norm_b2
+        self._abs_b = abs_b
+        self._derham = derham
+
+        self._curl_norm_b = derham.curl.dot(norm_b1)
+        self._grad_abs_b = derham.grad.dot(abs_b)
+
+        if not self._curl_norm_b[0].ghost_regions_in_sync: self._curl_norm_b[0].update_ghost_regions()
+        if not self._curl_norm_b[1].ghost_regions_in_sync: self._curl_norm_b[1].update_ghost_regions()
+        if not self._curl_norm_b[2].ghost_regions_in_sync: self._curl_norm_b[2].update_ghost_regions()
+        if not self._grad_abs_b[0].ghost_regions_in_sync: self._grad_abs_b[0].update_ghost_regions()
+        if not self._grad_abs_b[1].ghost_regions_in_sync: self._grad_abs_b[1].update_ghost_regions()
+        if not self._grad_abs_b[2].ghost_regions_in_sync: self._grad_abs_b[2].update_ghost_regions()
+        
+        # load butcher tableau and pusher
+        from struphy.pic.pusher import Pusher
+        from struphy.pic.pusher import ButcherTableau
+
+        if integrator == 'explicit':
+            if algo == 'forward_euler':
+                a = []
+                b = [1.]
+                c = [0.]
+            elif algo == 'heun2':
+                a = [1.]
+                b = [1/2, 1/2]
+                c = [0., 1.]
+            elif algo == 'rk2':
+                a = [1/2]
+                b = [0., 1.]
+                c = [0., 1/2]
+            elif algo == 'heun3':
+                a = [1/3, 2/3]
+                b = [1/4, 0., 3/4]
+                c = [0., 1/3, 2/3]
+            elif algo == 'rk4':
+                a = [1/2, 1/2, 1.]
+                b = [1/6, 1/3, 1/3, 1/6]
+                c = [0., 1/2, 1/2, 1.]
+            else:
+                raise NotImplementedError('Chosen algorithm is not implemented.')
+
+            self._butcher = ButcherTableau(a, b, c)
+            self._pusher = Pusher(derham, particles.domain, 'push_gc_explicit_stage', self._butcher.n_stages)
+
+        # elif integrator == 'implicit':
+            # if algo == 'discrete_gradients':
+
+            # self._pusher = PUsher(derham, particles.domain, 'push_gc_discrete_gradients_stage')
+        
+        else:
+            raise NotImplementedError('Chosen integrator is not implemented.')
+        
+    @property
+    def variables(self):
+        return self._particles
+
+    def __call__(self, dt):
+
+        self._pusher(self._particles, dt, self._epsilon,
+                     self._b[0]._data, self._b[1]._data, self._b[2]._data,
+                     self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
+                     self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
+                     self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
+                     self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                     self._butcher.a, self._butcher.b, self._butcher.c, 
+                     bc=self._bc, mpi_sort='each', verbose=False)

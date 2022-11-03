@@ -771,3 +771,92 @@ class Vlasov( StruphyModel ):
 
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
+
+class GuidingCenter( StruphyModel ):
+    r'''
+    Simplified guiding center equations (drift-kinetic without field perturbation).
+    Equations of motion for guiding center position (3D) (:math:`\mathbf{X} \in \mathbb{R}^3`) and parallel velocity of the guiding center (1D) (:math:`v_\parallel = \mathbf{p} \cdot \dot{\mathbf{X}}`) under the unperturbed equilibrium magnetic field.
+
+    ..math::
+
+        \left\{
+        \begin{align}
+            \dot \mathbf{X} = \frac{1}{|B^*_\parallel|} \mathbf{B}^* v_\parallel + \frac{\epsilon}{|B^*_\parallel|} \mathbf{E}^* \times \mahtbf{b}_0 \,,
+            \\
+            \dot v_\parallel = \frac{1}{|B^*_\parallel|} \mathbf{B}^* \cdot \mathbf{E}^* \,.
+        \end{align}
+        \right.
+
+    where :math:`\mathbf{E}^* = - \mu \nabla |B_0|, \mathbf{B}^* = \mathbf{B}_0 + v_\parallel \nabla \times \mathbf{b}_0` and :math:`\mathbf{b}_0 = \frac{\mathbf{B}_0}{|B_0|}`
+    '''
+
+    def __init__(self, params, comm):
+
+        from struphy.propagators import propagators_markers
+        from struphy.fields_background.mhd_equil import analytical
+
+        super().__init__(params, comm, ions='Particles5D') #TODO:particles.Particles5D
+
+        print(
+            f'Total number of markers : {self.kinetic_species[0].n_mks}, shape of markers array on rank {self.derham.comm.Get_rank()} : {self.kinetic_species[0].markers.shape}')
+
+        # Load and project magnetic field
+        equil_params = params['fields']['mhd_equilibrium']
+        mhd_equil_class = getattr(analytical, equil_params['type'])
+        self._mhd_equil = mhd_equil_class(
+            equil_params[equil_params['type']], self.domain)
+
+        if self.derham.comm.Get_rank() == 0:
+            print('Start of background magnetic field projection ...')
+        self._b = self.derham.P2([self._mhd_equil.b2_1,
+                                  self._mhd_equil.b2_2,
+                                  self._mhd_equil.b2_3]).coeffs
+
+        self._abs_b = self.derham.P0(self._mhd_equil.b0)._coeffs
+
+        self._norm_b1 = self.derham.P1([self._mhd_equil.norm_b1_1,
+                                        self._mhd_equil.norm_b1_2,
+                                        self._mhd_equil.norm_b1_3]).coeffs
+
+        self._norm_b2 = self.derham.P2([self._mhd_equil.norm_b2_1,
+                                        self._mhd_equil.norm_b2_2,
+                                        self._mhd_equil.norm_b2_3]).coeffs
+        if self.derham.comm.Get_rank() == 0:
+            print('Background magnetic field projection done ...')
+
+        # Pointer to ions
+        self._ions = self.kinetic_species[0]
+
+        # guiding center scale factor
+        self._epsilon = self.kinetic_params[0]['attributes']['epsilon']
+
+        # Initialize propagators/integrators used in splitting substeps
+        self._propagators = []
+        self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self._epsilon,
+                                                                        self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+                                                                        self.derham, 
+                                                                        self.kinetic_params[0]['push_algos']['eta'], 
+                                                                        self.kinetic_params[0]['push_algos']['integrator'],
+                                                                        self.kinetic_params[0]['markers']['bc_type'])]
+        # self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self._epsilon,
+        #                                                                  self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+        #                                                                  self.derham, 
+        #                                                                  self.kinetic_params[0]['push_algos']['eta'], 
+        #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
+        #                                                                  self.kinetic_params[0]['markers']['bc_type'])]
+        # self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions,
+        #                                                                  self._b, self._norm_b1, self._abs_b, 
+        #                                                                  self.derham, 
+        #                                                                  self.kinetic_params[0]['push_algos']['eta'], 
+        #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
+        #                                                                  self.kinetic_params[0]['markers']['bc_type'])]
+
+        # Scalar variables to be saved during simulation
+        self._scalar_quantities['time'] = np.empty(1, dtype=float)
+
+    @property
+    def propagators(self):
+        return self._propagators
+
+    def update_scalar_quantities(self, time):
+        self._scalar_quantities['time'][0] = time
