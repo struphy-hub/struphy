@@ -2184,7 +2184,6 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-        abs_b_star_para = sqrt(abs_b_star_para**2)
 
         # calculate norm_b X grad_abs_b
         linalg.matrix_vector(g_inv, grad_abs_b, temp1)
@@ -2314,10 +2313,160 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
-        abs_b_star_para = sqrt(abs_b_star_para**2)
 
         # calculate k for X
         k[:] = b_star/abs_b_star_para*v
+
+        # calculate k_v for v
+        temp = linalg.scalar_dot(b_star, grad_abs_b)
+        k_v = -1*mu/abs_b_star_para*temp
+        
+        # accumulation for last stage
+        markers[ip, 13:16] += dt*b[stage]*k
+        markers[ip, 16] += dt*b[stage]*k_v
+
+        # update positions for intermediate stages or last stage
+        markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
+        markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
+
+
+@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
+def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
+                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
+                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
+                           kind_map: int, params_map: 'float[:]',
+                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
+                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
+                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
+                           epsilon: float, 
+                           b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
+                           norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
+                           norm_b21: 'float[:,:,:]', norm_b22: 'float[:,:,:]', norm_b23: 'float[:,:,:]',
+                           curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
+                           grad_abs_b1: 'float[:,:,:]', grad_abs_b2: 'float[:,:,:]', grad_abs_b3: 'float[:,:,:]',
+                           a: 'float[:]', b: 'float[:]', c: 'float[:]'):
+    r'''Single stage of a s-stage Runge-Kutta solve of 
+
+    .. math::
+
+        \dot{\mathbf H}_p = \frac{\epsilon \mu_p}{|B^*_{p,\parallel}|}  G_p^{-1} \mathbb{b}_{p,0, \otimes}G_p^{-1} \hat \nabla |\hat B^0_{p,0}| + \frac{1}{|B^*_{p,\parallel}|} \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) v_{p, \parallel}\,,
+        \\
+        \dot v_{p, \parallel} &= -\frac{\mu}{|B^*_{p,\parallel}|}  \left( \frac{1}{\sqrt{g}} \hat{\mathbf B}^{*2}_p \right) \cdot \hat \nabla |\hat B^0_0|_p \,.
+        
+    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant.
+    '''
+
+    # allocate metric coeffs
+    df = empty((3, 3), dtype=float)
+    df_t = empty((3, 3), dtype=float)
+    g = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate spline values
+    bn1 = empty(pn[0] + 1, dtype=float)
+    bn2 = empty(pn[1] + 1, dtype=float)
+    bn3 = empty(pn[2] + 1, dtype=float)
+
+    bd1 = empty(pn[0], dtype=float)
+    bd2 = empty(pn[1], dtype=float)
+    bd3 = empty(pn[2], dtype=float)
+
+    # containers for fields
+    grad_abs_b = empty(3, dtype=float)
+    temp1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
+    temp2 = empty(3, dtype=float)
+    b_star = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+
+    # marker position e
+    e = empty(3, dtype=float)
+
+    # intermediate k-vector
+    k = empty(3, dtype=float)
+    
+    # get number of markers
+    n_markers = shape(markers)[0]
+    
+    # get number of stages
+    n_stages = shape(b)[0]
+    
+    if stage == n_stages - 1:
+        last = 1.
+    else:
+        last = 0.
+
+    for ip in range(n_markers):
+        
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.:
+            continue
+
+        e[:] = markers[ip, 0:3]
+        v = markers[ip, 3]
+        mu = markers[ip, 4]
+
+        # evaluate Jacobian, result in df
+        map_eval.df(e[0], e[1], e[2],
+                    kind_map, params_map,
+                    t1_map, t2_map, t3_map, p_map,
+                    ind1_map, ind2_map, ind3_map,
+                    cx, cy, cz,
+                    df)
+
+        # evaluate inverse of G
+        linalg.transpose(df, df_t)
+        linalg.matrix_matrix(df_t, df, g)
+        linalg.matrix_inv(g, g_inv)
+
+        # metric coeffs
+        det_df = linalg.det(df)
+
+        # spline evaluation
+        span1 = bsp.find_span(tn1, pn[0], e[0])
+        span2 = bsp.find_span(tn2, pn[1], e[1])
+        span3 = bsp.find_span(tn3, pn[2], e[2])
+
+        bsp.b_d_splines_slim(tn1, pn[0], e[0], span1, bn1, bd1)
+        bsp.b_d_splines_slim(tn2, pn[1], e[1], span2, bn2, bd2)
+        bsp.b_d_splines_slim(tn3, pn[2], e[2], span3, bn3, bd3)
+
+        # eval all the needed field
+        # grad_abs_b; 1form
+        grad_abs_b[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, grad_abs_b1, starts1[0])
+        grad_abs_b[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, grad_abs_b2, starts1[1])
+        grad_abs_b[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, grad_abs_b3, starts1[2])
+
+        # norm_b1; 1form
+        norm_b1[0] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2], bd1, bn2, bn3, span1, span2, span3, norm_b11, starts1[0])
+        norm_b1[1] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2], bn1, bd2, bn3, span1, span2, span3, norm_b12, starts1[1])
+        norm_b1[2] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1], pn[2] - 1, bn1, bn2, bd3, span1, span2, span3, norm_b13, starts1[2])
+
+        # norm_b2; 2form
+        norm_b2[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, norm_b21, starts2[0])
+        norm_b2[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, norm_b22, starts2[1])
+        norm_b2[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, norm_b23, starts2[2])
+
+        # b_star; 2form
+        b_star[0] = eval_3d.eval_spline_mpi_kernel(pn[0], pn[1] - 1, pn[2] - 1, bn1, bd2, bd3, span1, span2, span3, b1 + v*curl_norm_b1, starts2[0])
+        b_star[1] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1], pn[2] - 1, bd1, bn2, bd3, span1, span2, span3, b2 + v*curl_norm_b2, starts2[1])
+        b_star[2] = eval_3d.eval_spline_mpi_kernel(pn[0] - 1, pn[1] - 1, pn[2], bd1, bd2, bn3, span1, span2, span3, b3 + v*curl_norm_b3, starts2[2])
+
+        # transform to H1vec
+        b_star[:] = b_star/det_df
+
+        # calculate abs_b_star_para
+        abs_b_star_para = linalg.scalar_dot(norm_b1, b_star)
+
+        # calculate norm_b X grad_abs_b
+        linalg.matrix_vector(g_inv, grad_abs_b, temp1)
+
+        linalg.cross(norm_b2, temp1, temp2)
+
+        linalg.matrix_vector(g_inv, temp2, temp1)
+
+        # calculate k
+        k[:] = (epsilon*mu*temp1 + b_star*v)/abs_b_star_para
 
         # calculate k_v for v
         temp = linalg.scalar_dot(b_star, grad_abs_b)
