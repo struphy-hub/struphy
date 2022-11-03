@@ -71,6 +71,10 @@ class Pusher:
         # save initial etas in columns 9-11
         particles.markers[~particles.holes, 9:12] = particles.markers[~particles.holes, 0:3]
 
+        # in case of Particles5D, save initial v in columns 12
+        if particles.kinds == 'Particle5D':
+            particles.markers[~particles.holes, 12] = particles.markers[~particles.holes, 3]
+
         for stage in range(self._n_stages):
             self._pusher(particles.markers, dt, stage, *self.args_fem, *self.domain.args_map, *args_opt)
 
@@ -84,7 +88,7 @@ class Pusher:
 
             # print stage info
             if self._derham.comm.Get_rank() == 0 and verbose: 
-                print(self._pusher_name, 'done. (stage :', step + 1, ')')
+                print(self._pusher_name, 'done. (stage :', stage + 1, ')')
 
         # sort markers according to domain decomposition
         if mpi_sort == 'last': 
@@ -92,6 +96,9 @@ class Pusher:
                 
         # clear buffer columns 9-14 for multi-stage pushers
         particles.markers[~particles.holes, 9:15] = 0.
+
+        if particles.kinds == 'Particle5D':
+            particles.markers[~particles.holes, 9:17] = 0.
         
         
     @property

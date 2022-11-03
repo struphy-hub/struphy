@@ -137,10 +137,12 @@ function example_help {
     echo "Run complete struphy example with post processing and plotting."
     echo
     echo "Cases:"
-    echo "  maxwell         1d Maxwell equations in vacuum, dispersion relation."
-    echo "  maxwell_mpi     maxwell with 3 mpi processes."
-    echo "  linearmhd       1d linear MHD equations, dispersion relation, 4 mpi processes."
-    echo "  orbits_tokamak  full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  maxwell            1d Maxwell equations in vacuum, dispersion relation."
+    echo "  maxwell_mpi        maxwell with 3 mpi processes."
+    echo "  linearmhd          1d linear MHD equations, dispersion relation, 4 mpi processes."
+    echo "  orbits_tokamak     full-orbit particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+    echo "  gc_orbits_tokamak  guiding center particle trajectories in a tokamak-like static magnetic field, 2 mpi processes."
+
 }
 
 function test_help {
@@ -506,6 +508,8 @@ if [ $EXAMPLE ]; then
     example_linearmhd_mpi_4
   elif [ "$EXAMPLE" == orbits_tokamak ]; then
     example_orbits_tokamak_mpi_2
+  elif [ "$EXAMPLE" == gc_orbits_tokamak ]; then
+    example_gc_orbits_tokamak_mpi_2
   else
     echo "Example $EXAMPLE not implemented."
   fi
