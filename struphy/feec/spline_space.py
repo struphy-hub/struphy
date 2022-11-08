@@ -779,8 +779,8 @@ class Tensor_spline_space:
             self.B2 = spa.bmat([[spa.kron(self.B2_pol, self.spaces[2].B1), None], 
                                 [None, spa.kron(self.B3_pol, self.spaces[2].B0)]], format='csr')
             self.B3 = spa.kron(self.B3_pol, self.spaces[2].B1, format='csr')
-            self.Bv = spa.bmat([[spa.kron(self.Bv_pol, self.spaces[2].B0), None], 
-                                [None, spa.kron(self.B0_pol, self.spaces[2].B0)]], format='csr')
+            self.Bv = spa.bmat([[spa.kron(self.Bv_pol, self.spaces[2].E0), None], 
+                                [None, spa.kron(Bv3, self.spaces[2].B0)]], format='csr')
         
         # extraction operators for 3D diagram: with boundary conditions
         self.E0_0 = self.B0.dot(self.E0).tocsr()

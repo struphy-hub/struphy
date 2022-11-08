@@ -31,7 +31,7 @@ class PolarDerhamSpace(VectorSpace):
 
         # other properties
         self._dtype = float
-        self._derham = derham
+        self._comm = derham.comm
         self._space_id = space_id
 
         # dimensions of 1d spaces
@@ -52,7 +52,7 @@ class PolarDerhamSpace(VectorSpace):
                 (self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]
             self._n2 = (self.n[1],)
             self._n3 = (self.n[2],)
-            self._type_of_basis_3 = (self.derham.spline_types['V0'][2],)
+            self._type_of_basis_3 = (derham.spline_types['V0'][2],)
         elif space_id == 'Hcurl':
             self._n_polar = (0, 2, 3)
             self._n_rings = (1, 2, 2)
@@ -65,9 +65,9 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.n[1], self.d[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.d[2])
-            self._type_of_basis_3 = (self.derham.spline_types['V1'][0][2],
-                                     self.derham.spline_types['V1'][1][2],
-                                     self.derham.spline_types['V1'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['V1'][0][2],
+                                     derham.spline_types['V1'][1][2],
+                                     derham.spline_types['V1'][2][2])
         elif space_id == 'Hdiv':
             self._n_polar = (2, 0, 0)
             self._n_rings = (2, 1, 1)
@@ -80,9 +80,9 @@ class PolarDerhamSpace(VectorSpace):
             self._dimension = dim1 + dim2 + dim3
             self._n2 = (self.d[1], self.n[1], self.d[1])
             self._n3 = (self.d[2], self.d[2], self.n[2])
-            self._type_of_basis_3 = (self.derham.spline_types['V2'][0][2],
-                                     self.derham.spline_types['V2'][1][2],
-                                     self.derham.spline_types['V2'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['V2'][0][2],
+                                     derham.spline_types['V2'][1][2],
+                                     derham.spline_types['V2'][2][2])
         elif space_id == 'L2':
             self._n_polar = (0,)
             self._n_rings = (1,)
@@ -90,7 +90,7 @@ class PolarDerhamSpace(VectorSpace):
                 (self.d[0] - self.n_rings[0])*self.d[1] + self.n_polar[0])*self.d[2]
             self._n2 = (self.d[1],)
             self._n3 = (self.d[2],)
-            self._type_of_basis_3 = (self.derham.spline_types['V3'][2],)
+            self._type_of_basis_3 = (derham.spline_types['V3'][2],)
         elif space_id == 'H1vec':
             self._n_polar = (3, 3, 3)
             self._n_rings = (2, 2, 2)
@@ -98,9 +98,9 @@ class PolarDerhamSpace(VectorSpace):
                 ((self.n[0] - self.n_rings[0])*self.n[1] + self.n_polar[0])*self.n[2]) * 3
             self._n2 = (self.n[1], self.n[1], self.n[1])
             self._n3 = (self.n[2], self.n[2], self.n[2])
-            self._type_of_basis_3 = (self.derham.spline_types['V0vec'][0][2],
-                                     self.derham.spline_types['V0vec'][1][2],
-                                     self.derham.spline_types['V0vec'][2][2])
+            self._type_of_basis_3 = (derham.spline_types['V0vec'][0][2],
+                                     derham.spline_types['V0vec'][1][2],
+                                     derham.spline_types['V0vec'][2][2])
         else:
             raise ValueError('Space not supported.')
 
@@ -121,10 +121,10 @@ class PolarDerhamSpace(VectorSpace):
         return self._dtype
 
     @property
-    def derham(self):
+    def comm(self):
         """ TODO 
         """
-        return self._derham
+        return self._comm
 
     @property
     def space_id(self):
@@ -325,8 +325,8 @@ class PolarVector(Vector):
                                     self.space.n[1]*self.space.n3[0]:]
             
             # allreduce tensor-product part
-            if self.space.derham.comm is not None and allreduce:
-                self.space.derham.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
+            if self.space.comm is not None and allreduce:
+                self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
             
             out = np.concatenate((self.pol[0].flatten(), out))
 
@@ -339,10 +339,10 @@ class PolarVector(Vector):
                                         self.space.n[1]*self.space.n3[2]:]
             
             # allreduce tensor-product part
-            if self.space.derham.comm is not None and allreduce:
-                self.space.derham.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
-                self.space.derham.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
-                self.space.derham.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
+            if self.space.comm is not None and allreduce:
+                self.space.comm.Allreduce(MPI.IN_PLACE, out1, op=MPI.SUM)
+                self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
+                self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
 
             out = np.concatenate((self.pol[0].flatten(), out1,
                                   self.pol[1].flatten(), out2,

@@ -34,29 +34,34 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             The distributed psydac array.
     '''
 
+    assert isinstance(V, (TensorFemSpace, ProductFemSpace))
+    
     np.random.seed(seed)
 
     arr = []
+    
+    if hasattr(V.symbolic_space, 'name'):
+        V_name = V.symbolic_space.name
+    else:
+        V_name = 'H1vec' 
 
-    if isinstance(V, TensorFemSpace):
+    if V_name in {'H1', 'L2'}:
+        
+        arr_psy = StencilVector(V.vector_space)
 
         dims = V.vector_space.npts
         
         arr += [np.random.rand(*dims)]
-
-        arr_psy = StencilVector(V.vector_space)
 
         s = arr_psy.starts
         e = arr_psy.ends
 
         arr_psy[s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
 
-        arr_psy.update_ghost_regions()
-
         if flattened:
             arr = arr[-1].flatten()
 
-    elif isinstance(V, ProductFemSpace):
+    else:
 
         arr_psy = BlockVector(V.vector_space)
 
@@ -71,13 +76,10 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
 
             arr_psy[d][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1] = arr[-1][s[0]:e[0] + 1, s[1]:e[1] + 1, s[2]:e[2] + 1]
 
-            arr_psy[d].update_ghost_regions()
-
-            if flattened:
-                arr[-1] = arr[-1].flatten()
-
         if flattened:
-            arr = np.concatenate((arr[0], arr[1], arr[2]))
+            arr = np.concatenate((arr[0].flatten(), arr[1].flatten(), arr[2].flatten()))
+    
+    arr_psy.update_ghost_regions()
 
     return arr, arr_psy
 
@@ -186,6 +188,20 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         
         
 def apply_essential_bc_to_array(space_id, vector, bc):
+    """
+    Sets entries corresponding to boundary B-splines to zero.
+    
+    Parameters
+    ----------
+        space_id : str
+            The name of the continuous functions space the given vector belongs to (H1, Hcurl, Hdiv, L2 or H1vec).
+            
+        vector : StencilVector | BlockVector
+            The vector whose boundary values shall be set to zero.
+            
+        bc : list
+            List containing boundary conditions in each direction of the form [[eta1_0, eta1_1], [eta2_0, eta2_1], [eta3_0, eta3_1]]).
+    """
     
     if space_id == 'H1':
         
@@ -280,3 +296,35 @@ def apply_essential_bc_to_array(space_id, vector, bc):
             apply_essential_bc_stencil(vector[2], axis=2, ext=-1, order=0)
         if bc[2][1] == 'd': 
             apply_essential_bc_stencil(vector[2], axis=2, ext=+1, order=0)
+            
+def apply_essential_bc_to_pol(space_id, pol, bc):
+    
+    if space_id == 'H1':
+        
+        if bc[0] == 'd': 
+            pol[0][:,  0] = 0.
+        if bc[1] == 'd': 
+            pol[0][:, -1] = 0.
+            
+    elif space_id == 'Hcurl':
+        
+        if bc[0] == 'd': 
+            pol[0][:,  0] = 0.
+            pol[1][:,  0] = 0.
+        if bc[1] == 'd': 
+            pol[0][:, -1] = 0.
+            pol[1][:, -1] = 0.
+            
+    elif space_id == 'Hdiv':
+        
+        if bc[0] == 'd': 
+            pol[2][:,  0] = 0.
+        if bc[1] == 'd': 
+            pol[2][:, -1] = 0.
+            
+    elif space_id == 'H1vec':
+        
+        if bc[0] == 'd': 
+            pol[2][:,  0] = 0.
+        if bc[1] == 'd': 
+            pol[2][:, -1] = 0.

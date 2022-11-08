@@ -673,8 +673,8 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
                     res += kron_matvec_2d([block_e1_e2, block_e3], tmp.reshape(n_rings_in[n]*n2, n3_in[n]))     
                     
         # sum up local dot products
-        if polar_space.derham.comm is not None:
-            polar_space.derham.comm.Allreduce(
+        if polar_space.comm is not None:
+            polar_space.comm.Allreduce(
                 MPI.IN_PLACE, res, op=MPI.SUM)
 
         # write result to output polar vector (in-place)
@@ -795,8 +795,8 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
                     res += kron_matvec_2d([block_e1_e2, block_e3], v.pol[n]).reshape(n_rings_out[m], n2, n3_out[m])
 
         if map_from_tp:
-            if polar_space.derham.comm is not None:
-                polar_space.derham.comm.Allreduce(
+            if polar_space.comm is not None:
+                polar_space.comm.Allreduce(
                 MPI.IN_PLACE, res, op=MPI.SUM)
 
         if out_starts[m][0] == 0:
@@ -921,26 +921,30 @@ class PolarProjectionPreconditioner(LinearSolver):
     Parameters
     ----------
         P : PolarExtractionOperator
-            The DOF extraction operator.
+            The polar DOF extraction operator.
             
         I_solver : KroneckerLinearSolver | BlockDiagonalSolver
             The pure tensor-product solver that exactly solves Ix = b for x.
             
-        ET : PolarExtractionOperatpr
-            The transposed basis extraction operator
+        ET : PolarExtractionOperator
+            The transposed polar basis extraction operator.
+            
+        transposed : bool
+            Wether to solve (P * I * E^T)^(-T) with the approximation (P * I(-T) * E^T).
     """
     
-    def __init__(self, P, I_solver, ET):
+    def __init__(self, P, I_solver, ET, transposed=False):
         
         self._P = P
         self._I_solver = I_solver
         self._ET = ET
+        self._transposed = transposed
     
     @property
     def space(self):
         return self._P.codomain
     
-    def solve(self, rhs, out=None, transposed=False):
+    def solve(self, rhs, out=None):
         """
         Solves approximately the system (P * I * ET) x = rhs or (P * I * ET)^T x = rhs for x.
         """
@@ -948,5 +952,11 @@ class PolarProjectionPreconditioner(LinearSolver):
         assert isinstance(rhs, PolarVector)
         assert rhs.space == self.space
         
-        return self._P.dot(self._I_solver.solve(self._ET.dot(rhs), transposed=transposed))
+        return self._P.dot(self._I_solver.solve(self._ET.dot(rhs), transposed=self._transposed))
+    
+    def transpose(self):
+        """
+        Returns a preconditioner for inverting the transposed polar inter/-histopolation matrix.
+        """
+        return PolarProjectionPreconditioner(self._P, self._I_solver, self._ET, not self._transposed)
         

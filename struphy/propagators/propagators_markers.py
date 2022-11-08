@@ -49,7 +49,7 @@ class StepStaticEfield( Propagator ):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict
@@ -116,7 +116,7 @@ class StepStaticBfield( Propagator ):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict

@@ -32,10 +32,14 @@ class PolarExtractionBlocksC1:
             Control points defining the y-component of a 2D B-spline mapping.
     """
     
-    def __init__(self, cx, cy, spl_kind_eta_3, n_eta_3):
+    def __init__(self, domain, derham):
         
         from scipy.sparse import csr_matrix as csr
         from struphy.feec.derivatives.derivatives import grad_1d_matrix
+        
+        # get control points
+        cx = domain.cx[:, :, 0]
+        cy = domain.cy[:, :, 0]
         
         self._cx = cx
         self._cy = cy
@@ -47,11 +51,11 @@ class PolarExtractionBlocksC1:
         
         self._n0 = cx.shape[0]
         self._n1 = cx.shape[1]
-        self._n2 = n_eta_3
+        self._n2 = derham.nbasis_v0[2]
         
         self._d0 = self.n0 - 1
         self._d1 = self.n1 - 0
-        self._d2 = self.n2 - 1 + spl_kind_eta_3
+        self._d2 = derham.nbasis_v3[2]
         
         self._n_rings = [(2,), (1, 2), (2, 1), (1,)]
         self._n_polar = [(3,), (0, 2), (2, 0), (0,)]
@@ -149,9 +153,15 @@ class PolarExtractionBlocksC1:
         # first n_rings tp rings --> "polar coeffs"
         p0_blocks_ten_to_pol = np.zeros((self.n_polar[0][0], self.n_rings[0][0]*self.n1), dtype=float)
         
-        p0_blocks_ten_to_pol[0, self.n1 + 0*self.n1//3] = 1.
-        p0_blocks_ten_to_pol[1, self.n1 + 1*self.n1//3] = 1.
-        p0_blocks_ten_to_pol[2, self.n1 + 2*self.n1//3] = 1.
+        # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
+        if domain.p[1]%2 != 0 and not (abs(derham.V0.spaces[1].interpolation_grid[0]) < 1e-14):
+            p0_blocks_ten_to_pol[0, self.n1 + 3*self.n1//3 - 1] = 1.
+            p0_blocks_ten_to_pol[1, self.n1 + 1*self.n1//3 - 1] = 1.
+            p0_blocks_ten_to_pol[2, self.n1 + 2*self.n1//3 - 1] = 1.
+        else:
+            p0_blocks_ten_to_pol[0, self.n1 + 0*self.n1//3] = 1.
+            p0_blocks_ten_to_pol[1, self.n1 + 1*self.n1//3] = 1.
+            p0_blocks_ten_to_pol[2, self.n1 + 2*self.n1//3] = 1.
         
         self._p0_blocks_ten_to_pol = [[csr(p0_blocks_ten_to_pol)]]
         
@@ -166,9 +176,15 @@ class PolarExtractionBlocksC1:
         p1_11_blocks_ten_to_pol = np.zeros((self.n_polar[1][0], self.n_rings[1][0]*self.n1), dtype=float)
         p1_22_blocks_ten_to_pol = np.zeros((self.n_polar[1][1], self.n_rings[1][1]*self.d1), dtype=float)
         
-        p1_22_blocks_ten_to_pol[0, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
-        p1_22_blocks_ten_to_pol[1, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
-        p1_22_blocks_ten_to_pol[1, (self.d1 + 1*self.d1//3):(self.d1 + 2*self.d1//3)] = 1.
+        # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
+        if derham.V3.spaces[1].histopolation_grid[0] < -1e-14:
+            p1_22_blocks_ten_to_pol[0, (self.d1 + 0*self.d1//3 + 1):(self.d1 + 1*self.d1//3 + 1)] = 1.
+            p1_22_blocks_ten_to_pol[1, (self.d1 + 0*self.d1//3 + 1):(self.d1 + 1*self.d1//3 + 1)] = 1.
+            p1_22_blocks_ten_to_pol[1, (self.d1 + 1*self.d1//3 + 1):(self.d1 + 2*self.d1//3 + 1)] = 1.
+        else:
+            p1_22_blocks_ten_to_pol[0, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
+            p1_22_blocks_ten_to_pol[1, (self.d1 + 0*self.d1//3):(self.d1 + 1*self.d1//3)] = 1.
+            p1_22_blocks_ten_to_pol[1, (self.d1 + 1*self.d1//3):(self.d1 + 2*self.d1//3)] = 1.
         
         p1_12_blocks_ten_to_pol = np.zeros((self.n_polar[1][0], self.n_rings[1][1]*self.d1), dtype=float)
         p1_21_blocks_ten_to_pol = np.zeros((self.n_polar[1][1], self.n_rings[1][0]*self.d1), dtype=float)
@@ -181,10 +197,17 @@ class PolarExtractionBlocksC1:
         # first n_rings + 1 tp rings --> "first tp ring"
         p1_11_blocks_ten_to_ten = np.zeros((self.n1, self.n1), dtype=float)
         
-        p1_11_blocks_ten_to_ten[:, 0*self.n1//3]  = -self.xi_1[0]
-        p1_11_blocks_ten_to_ten[:, 1*self.n1//3]  = -self.xi_1[1]
-        p1_11_blocks_ten_to_ten[:, 2*self.n1//3]  = -self.xi_1[2]
-        p1_11_blocks_ten_to_ten                  += np.identity(self.n1)
+        # !! NOTE: for odd spline degrees and periodic splines the first Greville point sometimes does NOT start at zero!!
+        if domain.p[1]%2 != 0 and not (abs(derham.V0.spaces[1].interpolation_grid[0]) < 1e-14):
+            p1_11_blocks_ten_to_ten[:, 3*self.n1//3 - 1] = -np.roll(self.xi_1[0], -1)
+            p1_11_blocks_ten_to_ten[:, 1*self.n1//3 - 1] = -np.roll(self.xi_1[1], -1)
+            p1_11_blocks_ten_to_ten[:, 2*self.n1//3 - 1] = -np.roll(self.xi_1[2], -1)
+        else:
+            p1_11_blocks_ten_to_ten[:, 0*self.n1//3] = -self.xi_1[0]
+            p1_11_blocks_ten_to_ten[:, 1*self.n1//3] = -self.xi_1[1]
+            p1_11_blocks_ten_to_ten[:, 2*self.n1//3] = -self.xi_1[2]
+            
+        p1_11_blocks_ten_to_ten += np.identity(self.n1)
         
         p1_11_blocks_ten_to_ten = np.block([p1_11_blocks_ten_to_ten, np.identity(self.n1)])
         
@@ -210,10 +233,16 @@ class PolarExtractionBlocksC1:
         # first n_rings + 1 tp rings --> "first tp ring"
         p3_blocks_ten_to_ten = np.zeros((self.d1, self.d1), dtype=float)
         
-        for i in range(self.d1):
-            
-            p3_blocks_ten_to_ten[i, 0*self.n1//3:1*self.n1//3] = -(self.xi_1[1, (i + 1)%self.n1] - self.xi_1[1, i]) - (self.xi_1[2, (i + 1)%self.n1] - self.xi_1[2, i])
-            p3_blocks_ten_to_ten[i, 1*self.n1//3:2*self.n1//3] = -(self.xi_1[2, (i + 1)%self.n1] - self.xi_1[2, i])
+        a0 = np.diff(self.xi_1[1], append=self.xi_1[1, 0])
+        a1 = np.diff(self.xi_1[2], append=self.xi_1[2, 0])
+        
+         # !! NOTE: PSYDAC's first integration interval sometimes start at < 0 !!
+        if derham.V3.spaces[1].histopolation_grid[0] < -1e-14:
+            p3_blocks_ten_to_ten[:, (0*self.n1//3 + 1):(1*self.n1//3 + 1)] = -np.roll(a0, +1)[:, None] - np.roll(a1, +1)[:, None]
+            p3_blocks_ten_to_ten[:, (1*self.n1//3 + 1):(2*self.n1//3 + 1)] = -np.roll(a1, +1)[:, None]
+        else:
+            p3_blocks_ten_to_ten[:, 0*self.n1//3:1*self.n1//3] = -a0[:, None] - a1[:, None]
+            p3_blocks_ten_to_ten[:, 1*self.n1//3:2*self.n1//3] = -a1[:, None]
             
         p3_blocks_ten_to_ten += np.identity(self.d1)
         
@@ -257,7 +286,7 @@ class PolarExtractionBlocksC1:
         # eta_3 direction
         grad_blocks_e3_1 = np.identity(self.n2, dtype=float)
         grad_blocks_e3_2 = np.identity(self.n2, dtype=float)
-        grad_blocks_e3_3 = grad_1d_matrix(spl_kind_eta_3, self.n2)
+        grad_blocks_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         
         self._grad_blocks_e3 = [[csr(grad_blocks_e3_1)], 
                                 [csr(grad_blocks_e3_2)], 
@@ -300,10 +329,10 @@ class PolarExtractionBlocksC1:
                                         [csr(-curl_blocks_pol_to_ten_31), csr(curl_blocks_pol_to_ten_32), None]]
         
         # eta_3 direction
-        curl_blocks_e3_12 = grad_1d_matrix(spl_kind_eta_3, self.n2)
+        curl_blocks_e3_12 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         curl_blocks_e3_13 = np.identity(self.d2)
      
-        curl_blocks_e3_21 = grad_1d_matrix(spl_kind_eta_3, self.n2)
+        curl_blocks_e3_21 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         curl_blocks_e3_23 = np.identity(self.d2)
 
         curl_blocks_e3_31 = np.identity(self.n2)
@@ -340,7 +369,7 @@ class PolarExtractionBlocksC1:
         # eta_3 direction
         div_blocks_e3_1 = np.identity(self.d2, dtype=float)
         div_blocks_e3_2 = np.identity(self.d2, dtype=float)
-        div_blocks_e3_3 = grad_1d_matrix(spl_kind_eta_3, self.n2)
+        div_blocks_e3_3 = grad_1d_matrix(derham.spl_kind[2], self.n2)
         
         self._div_blocks_e3 = [[csr(div_blocks_e3_1), 
                                 csr(div_blocks_e3_2), 

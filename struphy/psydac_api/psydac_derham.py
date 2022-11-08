@@ -2,12 +2,16 @@
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import ProductFemSpace
+from psydac.feec.global_projectors import Projector_H1vec
 
 from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
-from struphy.psydac_api.H1vec import Projector_H1vec
 from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
+
+from struphy.polar.basic import PolarDerhamSpace
+from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
 import numpy as np
 
@@ -43,7 +47,7 @@ class Derham:
             MPI communicator.
     """
 
-    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, der_as_mat=True, comm=None):
+    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, der_as_mat=True, comm=None, polar_ck=-1, domain=None):
  
         # Input parameters:
         assert len(Nel) == 3
@@ -82,6 +86,11 @@ class Derham:
         self._der_as_mat= der_as_mat
 
         self._comm = comm
+        
+        # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
+        assert polar_ck in {-1, 1}
+        
+        self._polar_ck = polar_ck
         
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
@@ -169,6 +178,36 @@ class Derham:
         if comm is not None:
             self._neighbours = self._get_neighbours()
             
+        # set polar sub-spaces and polar extraction operators
+        if self.polar_ck == -1:
+            
+            self._V0_pol = None
+            self._V1_pol = None
+            self._V2_pol = None
+            self._V3_pol = None
+            self._Vv_pol = None
+            
+            self._E0 = None
+            self._E1 = None
+            self._E2 = None
+            self._E3 = None
+            self._Ev = None
+            
+        else:
+            c1_blocks = PolarExtractionBlocksC1(domain, self)
+            
+            self._V0_pol = PolarDerhamSpace(self, 'H1')
+            self._V1_pol = PolarDerhamSpace(self, 'Hcurl')
+            self._V2_pol = PolarDerhamSpace(self, 'Hdiv')
+            self._V3_pol = PolarDerhamSpace(self, 'L2')
+            self._Vv_pol = PolarDerhamSpace(self, 'H1vec')
+            
+            self._E0 = PolarExtractionOperator(self.V0.vector_space, self.V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
+            self._E1 = PolarExtractionOperator(self.V1.vector_space, self.V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
+            self._E2 = PolarExtractionOperator(self.V2.vector_space, self.V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
+            self._E3 = PolarExtractionOperator(self.V3.vector_space, self.V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
+            # TODO: extraction operator Ev
+            
 
     @property
     def Nel(self):
@@ -217,6 +256,12 @@ class Derham:
         """ MPI communicator.
         """
         return self._comm
+    
+    @property
+    def polar_ck(self):
+        """ MPI communicator.
+        """
+        return self._polar_ck
 
     @property
     def breaks(self):
@@ -321,6 +366,66 @@ class Derham:
         """ Discrete H1 x H1 x H1 space.
         """
         return self._V0vec
+    
+    @property
+    def E0(self):
+        """ Discrete polar extraction operator V0 --> V0_pol
+        """
+        return self._E0
+
+    @property
+    def E1(self):
+        """ Discrete polar extraction operator V1 --> V1_pol
+        """
+        return self._E1
+
+    @property
+    def E2(self):
+        """ Discrete polar extraction operator V2 --> V2_pol
+        """
+        return self._E2
+
+    @property
+    def E3(self):
+        """ Discrete polar extraction operator V3 --> V3_pol
+        """
+        return self._E3
+
+    @property
+    def Ev(self):
+        """ Discrete polar extraction operator Vv --> Vv_pol
+        """
+        return self._Ev
+    
+    @property
+    def V0_pol(self):
+        """ Discrete polar H1 space.
+        """
+        return self._V0_pol
+
+    @property
+    def V1_pol(self):
+        """ Discrete polar H(curl) space.
+        """
+        return self._V1_pol
+
+    @property
+    def V2_pol(self):
+        """ Discrete polar H(div) space.
+        """
+        return self._V2_pol
+
+    @property
+    def V3_pol(self):
+        """ Discrete polar L2 space.
+        """
+        return self._V3_pol
+
+    @property
+    def Vv_pol(self):
+        """ Discrete polar H1 x H1 x H1 space.
+        """
+        return self._Vv_pol
 
     @property
     def nbasis_v0(self):

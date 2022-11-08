@@ -58,7 +58,7 @@ class StepEfieldWeights( Propagator ):
         particles : struphy.pic.particles.Particles6D
             Particles object.
 
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
 
         params : dict
@@ -183,7 +183,7 @@ class StepFullPressurecouplingHcurl( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -388,7 +388,7 @@ class StepFullPressurecouplingHdiv( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -598,7 +598,7 @@ class StepFullPressurecouplingH1vec( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -805,7 +805,7 @@ class StepPressurecouplingHcurl( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -1010,7 +1010,7 @@ class StepPressurecouplingHdiv( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -1220,7 +1220,7 @@ class StepPressurecouplingH1vec( Propagator ):
         domain : struphy.geometry.base.Domain
             Infos regarding mapping.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators

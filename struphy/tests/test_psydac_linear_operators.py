@@ -21,7 +21,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
 
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass import WeightedMass
+    from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.psydac_api.linear_operators import LinOpWithTransp
     from struphy.psydac_api.linear_operators import CompositeLinearOperator as Compose
     from struphy.psydac_api.linear_operators import SumLinearOperator as Sum
@@ -39,10 +39,7 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
 
     derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
 
-    mass = WeightedMass(derham, domain)
-    
-    mass.assemble_M0()
-    mass.assemble_M1()
+    mass = WeightedMassOperators(derham, domain)
 
     print(f'type M0: {type(mass.M0)}')
     print(f'shape M0: {mass.M0.shape}')
@@ -80,14 +77,14 @@ def test_composite_sum_scalar_inverse(Nel, p, spl_kind, mapping):
     CT = C.transpose()
     assert np.allclose(CT.dot(v0).toarray(), np.zeros(*v0.toarray().shape))
 
-    D = Compose(Invert(mass.M0, pc=None, tol=1e-9, maxiter=30000, verbose=False), mass.M0)
+    D = Compose(Invert(mass.M0, pc=None, tol=1e-9, maxiter=30000), mass.M0)
     assert np.allclose(D.dot(v0).toarray(), v0.toarray(), atol=1e-5)
 
     DT = D.transpose()
     assert np.allclose(DT.dot(v0).toarray(), v0.toarray(), atol=1e-5)
 
     # Need smaller tolerance 1e-9 to pass assert with 1e-5 here:
-    E = Compose(Invert(mass.M1, pc=None, tol=1e-9, maxiter=30000, verbose=False), mass.M1)
+    E = Compose(Invert(mass.M1, pc=None, tol=1e-9, maxiter=30000), mass.M1)
     print(f'type E: {type(E)}')
     print(f'shape E: {E.shape}')
     res = E.dot(v1)

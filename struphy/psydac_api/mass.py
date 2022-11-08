@@ -9,11 +9,14 @@ from psydac.fem.vector import ProductFemSpace
 
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api.mass_kernels import kernel_1d, kernel_2d, kernel_3d
-from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
+from struphy.psydac_api import mass_kernels
+from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
+from struphy.psydac_api.utilities import apply_essential_bc_to_array, apply_essential_bc_to_pol
+
+from struphy.polar.basic import PolarVector
 
 
-class WeightedMass:
+class WeightedMassOperators:
     """
     Class for assembling weighted mass matrices in 3d.
     
@@ -135,7 +138,6 @@ class WeightedMass:
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
     
-    
     @property
     def derham(self):
         return self._derham
@@ -143,294 +145,357 @@ class WeightedMass:
     @property
     def domain(self):
         return self._domain
-    
-    
-    def assemble_M0(self):
-        """  Assemble mass matrix for L2-scalar product in V0.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M0 ...')
-        self._M0 = ApplyHomogeneousDirichletToOperator('H1', 'H1', self.derham.bc, get_mass(self.derham.V0, self.derham.V0, self._fun_M0))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
         
-    def assemble_M1(self):
-        """  Assemble mass matrix for L2-scalar product in V1.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M1 ...')
-        self._M1 = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V1, self._fun_M1))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_M2(self):
-        """  Assemble mass matrix for L2-scalar product in V2.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M2 ...')
-        self._M2 = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_M3(self):
-        """  Assemble mass matrix for L2-scalar product in V3.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M3 ...')
-        self._M3 = ApplyHomogeneousDirichletToOperator('L2', 'L2', self.derham.bc, get_mass(self.derham.V3, self.derham.V3, self._fun_M3))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_Mv(self):
-        """  Assemble mass matrix for L2-scalar product in V0vec.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling Mv ...')
-        self._Mv = ApplyHomogeneousDirichletToOperator('H1vec', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mv))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-              
-    def assemble_M1n(self):
-        """  Assemble mass matrix for L2-scalar product in V1 weighted with MHD number density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M1n ...')
-        self._M1n = ApplyHomogeneousDirichletToOperator('Hcurl', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V1, self._fun_M1n))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_M2n(self):
-        """  Assemble mass matrix for L2-scalar product in V2 weighted with MHD number density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M2n ...')
-        self._M2n = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2n))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_Mvn(self):
-        """  Assemble mass matrix for L2-scalar product in V0vec weighted with MHD number density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling Mvn ...')
-        self._Mvn = ApplyHomogeneousDirichletToOperator('H1vec', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V0vec, self._fun_Mvn))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-            
-    def assemble_M1J(self):
-        """  Assembles mass matrix for L2-scalar product in V1 weighted with cross product of MHD equilibrium current density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M1J ...')
-        self._M1J = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hcurl', self.derham.bc, get_mass(self.derham.V1, self.derham.V2, self._fun_M1J))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_M2J(self):
-        """  Assembles mass matrix for L2-scalar product in V2 weighted with cross product of MHD equilibrium current density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling M2J ...')
-        self._M2J = ApplyHomogeneousDirichletToOperator('Hdiv', 'Hdiv', self.derham.bc, get_mass(self.derham.V2, self.derham.V2, self._fun_M2J))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-    def assemble_MvJ(self):
-        """  Assembles mass matrix for L2-scalar product in V0vec weighted with cross product of MHD equilibrium current density.
-        """
-        if self.derham.comm.Get_rank() == 0: print('Assembling MvJ ...')
-        self._MvJ = ApplyHomogeneousDirichletToOperator('Hdiv', 'H1vec', self.derham.bc, get_mass(self.derham.V0vec, self.derham.V2, self._fun_MvJ))
-        if self.derham.comm.Get_rank() == 0: print('Done.')
-        
-        
+    #######################################################################
+    # Mass matrices related to L2-scalar products in all 3d derham spaces #
+    #######################################################################
     @property
     def M0(self):
         """ Mass matrix M0_(ijk lmn) = integral( Lambda^0_(ijk) * Lambda^0_(lmn) * sqrt(g) ). 
         """
+        
+        if not hasattr(self, '_M0'):
+            self._M0 = WeightedMassOperator(self.derham.V0, self.derham.V0, V_extraction_op=self.derham.E0, W_extraction_op=self.derham.E0, weight=self._fun_M0, transposed=False, bc=self.derham.bc)
+        
         return self._M0
     
     @property
     def M1(self):
         """ Mass matrix M1_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * G_inv_ab * Lambda^1_(b,lmn) * sqrt(g) ). 
         """
+        
+        if not hasattr(self, '_M1'):
+            self._M1 = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, weight=self._fun_M1, transposed=False, bc=self.derham.bc)
+        
         return self._M1
     
     @property
     def M2(self):
         """ Mass matrix M2_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * G_ab * Lambda^2_(b,lmn) / sqrt(g) ). 
         """
+        
+        if not hasattr(self, '_M2'):
+            self._M2 = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2, transposed=False, bc=self.derham.bc)
+        
         return self._M2
     
     @property
     def M3(self):
         """ Mass matrix M3_(ijk lmn) = integral( Lambda^3_(ijk) * Lambda^3_(lmn) / sqrt(g) ). 
         """
+        
+        if not hasattr(self, '_M3'):
+            self._M3 = WeightedMassOperator(self.derham.V3, self.derham.V3, V_extraction_op=self.derham.E3, W_extraction_op=self.derham.E3, weight=self._fun_M3, transposed=False, bc=self.derham.bc)
+        
         return self._M3
     
     @property
     def Mv(self):
         """ Mass matrix Mv_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * G_ab * Lambda^v_(b,lmn) * sqrt(g) ). 
         """
+        
+        if not hasattr(self, '_Mv'):
+            self._Mv = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.Ev, W_extraction_op=self.derham.Ev, weight=self._fun_Mv, transposed=False, bc=self.derham.bc)
+        
         return self._Mv
     
+    ########################################################################
+    # Mass matrices in several spaces weighted with MHD equilibrium fields #
+    ########################################################################
     @property
     def M1n(self):
         """ Mass matrix Mn1_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^1_(b,lmn) * sqrt(g) * n^0_eq * G_inv_ab ).
         """
+        
+        assert hasattr(self, '_fun_M1n'), 'MHD equilibrium has not been set!'
+        
+        if not hasattr(self, '_M1n'):
+            self._M1n = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, weight=self._fun_M1n, transposed=False, bc=self.derham.bc)
+        
         return self._M1n
     
     @property
     def M2n(self):
         """ Mass matrix M2n_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * n^0_eq * G_ab ).
         """
+        
+        if not hasattr(self, '_M2n'):
+            self._M2n = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2n, transposed=False, bc=self.derham.bc)
+        
         return self._M2n
     
     @property
     def Mvn(self):
         """ Mass matrix Mvn_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^v_(b,lmn) * sqrt(g) * n^0_eq * G_ab ).
         """
+        
+        if not hasattr(self, '_Mvn'):
+            self._Mvn = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.Ev, W_extraction_op=self.derham.Ev, weight=self._fun_Mvn, transposed=False, bc=self.derham.bc)
+        
         return self._Mvn
     
     @property
     def M1J(self):
         """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^1_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c * G_inv_ab ).
         """
+        
+        if not hasattr(self, '_M1J'):
+            self._M1J = WeightedMassOperator(self.derham.V2, self.derham.V1, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E1, weight=self._fun_M1J, transposed=False, bc=self.derham.bc)
+        
         return self._M1J
     
     @property
     def M2J(self):
         """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^2_(a,ijk) * Lambda^2_(b,lmn) / sqrt(g) * epsilon_(acb) * J^2_eq_c).
         """
+        
+        if not hasattr(self, '_M2J'):
+            self._M2J = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2J, transposed=False, bc=self.derham.bc)
+        
         return self._M2J
     
     @property
     def MvJ(self):
         """ Mass matrix MJ_(ab, ijk lmn) = integral( Lambda^v_(a,ijk) * Lambda^2_(b,lmn) * epsilon_(acb) * J^2_eq_c ).
         """
+        
+        if not hasattr(self, '_MvJ'):
+            self._MvJ = WeightedMassOperator(self.derham.V2, self.derham.V0vec, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.Ev, weight=self._fun_MvJ, transposed=False, bc=self.derham.bc)
+        
         return self._MvJ
+
     
-
-
-def get_mass(V, W, weight=None):
+    
+class WeightedMassOperator( LinOpWithTransp ):
     """
-    Assembles the weighted mass matrix basis(V) * weight * basis(W). Works in 1d, 2d and 3d.
+    Weighted mass matrix in the full tensor-product space (i.e. without polar extraction operators and/or boundary operators).
     
     Parameters
     ----------
         V : TensorFemSpace or ProductFemSpace
-            tensor product spline space from psydac.fem.tensor (output space).
+            Tensor product spline space from psydac.fem.tensor (domain, input space).
             
         W : TensorFemSpace or ProductFemSpace
-            tensor product spline space from psydac.fem.tensor (input space).
+            Tensor product spline space from psydac.fem.tensor (codomain, output space).
             
-        weight : list[callable], optional
-            weight function(s) in a 2d list of shape corresponding to number of components of input/output space.
-
-    Returns
-    -------
-        M : StencilMatrix of BlockMatrix
-            weighted mass matrix.
+        V_extraction_op : PolarExtractionOperator | NoneType
+            Extraction operator to polar sub-space of V.
+            
+        W_extraction_op : PolarExtractionOperator | NoneType
+            Extraction operator to polar sub-space of W.
+            
+        weight : list | NoneType
+            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+            
+        transposed : bool
+            Whether to assemble the transposed operator.
+            
+        bc : list | NoneType
+            Boundary conditions in each direction in format [[e1(0), e1(1)], [e2(0), e2(1)], [e3(0), e3(1)]].
     """
     
-    assert isinstance(V, FemSpace)
-    assert isinstance(W, FemSpace)
+    def __init__(self, V, W, V_extraction_op=None, W_extraction_op=None, weight=None, transposed=False, bc=None):
+        
+        # only for M1 Mac users
+        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+        
+        assert isinstance(V, FemSpace)
+        assert isinstance(W, FemSpace)
+        
+        self._V = V
+        self._W = W
+        
+        if V_extraction_op is not None:
+            assert V_extraction_op.domain == V.vector_space
+            
+        if W_extraction_op is not None:
+            assert W_extraction_op.domain == W.vector_space
+        
+        self._V_extraction_op = V_extraction_op
+        self._W_extraction_op = W_extraction_op
+        
+        self._weight = weight
+        self._transposed = transposed
+        self._bc = bc
+        
+        self._dtype = V.vector_space.dtype
+        
+        # set domain and codomain symbolic names
+        if hasattr(V.symbolic_space, 'name'):
+            V_name = V.symbolic_space.name
+        else:
+            V_name = 'H1vec'
+
+        if hasattr(W.symbolic_space, 'name'):
+            W_name = W.symbolic_space.name
+        else:
+            W_name = 'H1vec'
+        
+        if transposed:
+            self._domain_symbolic_name = W_name
+            self._codomain_symbolic_name = V_name
+        else:
+            self._domain_symbolic_name = V_name
+            self._codomain_symbolic_name = W_name
+        
+        # ====== assemble tensor-product mass matrix ====
+        self._mat = WeightedMassOperator.assemble_mat(V, W, weight)
+        # ===============================================
+        
+        # build composite linear operator E * M * E^T with basis extraction operators
+        if V_extraction_op is None:
+            self._operator = CompositeLinearOperator(W_extraction_op, self._mat)
+        else:
+            self._operator = CompositeLinearOperator(W_extraction_op, self._mat, V_extraction_op.transpose())
+        
+        if transposed:
+            self._operator = self.operator.transpose()
+            
+        # set domain and codomain
+        self._domain = self.operator.domain
+        self._codomain = self.operator.codomain
     
-    # Output space: collect tensor fem spaces in a tuple
-    if hasattr(V.symbolic_space, 'name'):
-        if V.symbolic_space.name in {'H1', 'L2'}:
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+    
+    @property
+    def transposed(self):
+        return self._transposed
+    
+    @property
+    def operator(self):
+        return self._operator
+    
+    def dot(self, v, out=None, apply_bc=True):
+        """
+        Applies the basis projection operator to the FE coefficients v belonging to V.
+
+        Parameters
+        ----------
+            v : StencilVector or BlockVector
+                Input FE coefficients from V.vector_space.
+
+        Returns
+        -------
+            A StencilVector or BlockVector from W.vector_space.
+        """
+
+        assert v.space == self.domain
+        
+        out = self.operator.dot(v)
+        
+        # apply boundary conditions to output vector
+        if apply_bc and self._bc is not None:
+            if isinstance(out, PolarVector):
+                apply_essential_bc_to_array(self._codomain_symbolic_name, out.tp, self._bc)
+                apply_essential_bc_to_pol(self._codomain_symbolic_name, out.pol, self._bc[2])
+            else:
+                apply_essential_bc_to_array(self._codomain_symbolic_name, out, self._bc)
+        
+        assert out.space == self.codomain
+        
+        return out
+    
+    def transpose(self):
+        """
+        Returns the transposed operator.
+        """
+        return WeightedMassOperator(self._V, self._W, self._V_extraction_op, self._W_extraction_op, self._weight, not self.transposed, self._bc)
+    
+    @staticmethod
+    def assemble_mat(V, W, weight=None):
+        """
+        TODO
+        """
+        
+        # identify space IDs
+        if hasattr(V.symbolic_space, 'name'):
+            V_name = V.symbolic_space.name
+        else:
+            V_name = 'H1vec'
+
+        if hasattr(W.symbolic_space, 'name'):
+            W_name = W.symbolic_space.name
+        else:
+            W_name = 'H1vec'
+        
+        # collect TensorFemSpaces in tuple
+        if V_name in {'H1', 'L2'}:
             Vspaces = (V,)
         else:
             Vspaces = V.spaces
-        #print(f'to {V.symbolic_space.name} ...')
-    else:
-        Vspaces = V.spaces
-        #print(f'to H1vec ...')
-
-    # Input space: collect tensor fem spaces in a tuple
-    if hasattr(W.symbolic_space, 'name'):
-        if W.symbolic_space.name in {'H1', 'L2'}:
+            
+        if W_name in {'H1', 'L2'}:
             Wspaces = (W,)
         else:
             Wspaces = W.spaces
-        #print(f'... from {W.symbolic_space.name}.')
-    else:
-        Wspaces = W.spaces
-        #print(f'... from H1vec.')
+        
+        blocks = []
     
-    blocks = []
-    
-    for a, vspace in enumerate(Vspaces):
-        blocks += [[]]
-        
-        # periodicity: True (1) or False (0)
-        periodic = [int(periodic) for periodic in vspace.periodic]
+        # loop over codomain spaces (rows)
+        for a, wspace in enumerate(Wspaces):
+            blocks += [[]]
 
-        # global element indices on process over which integration is performed
-        el_loc_indices = [quad_grid.indices for quad_grid in vspace.quad_grids]
+            # periodicity: True (1) or False (0)
+            periodic = [int(periodic) for periodic in wspace.periodic]
 
-        # global start spline index on process
-        starts_out = vspace.vector_space.starts
+            # global element indices on process over which integration is performed
+            el_loc_indices = [quad_grid.indices for quad_grid in wspace.quad_grids]
 
-        # pads (ghost regions)
-        pads_out = vspace.vector_space.pads
+            # global start spline index on process
+            starts_out = [int(start) for start in wspace.vector_space.starts]
 
-        # global quadrature points and weights in format (local element, local quad_point/weight)
-        nq  = [quad_grid.num_quad_pts for quad_grid in vspace.quad_grids]
-        pts = [quad_grid.points for quad_grid in vspace.quad_grids]
-        wts = [quad_grid.weights for quad_grid in vspace.quad_grids]
+            # pads (ghost regions)
+            pads_out = wspace.vector_space.pads
 
-        # evaluated basis functions at quadrature points
-        basis_o = [quad_grid.basis for quad_grid in vspace.quad_grids]
-            
-        for b, wspace in enumerate(Wspaces):
-                 
-            # evaluation of weight function at quadrature points (optional)
-            if V.ldim == 1:
-                
+            # global quadrature points (flattened) and weights in format (local element, local weight)
+            nqs = [quad_grid.num_quad_pts     for quad_grid in wspace.quad_grids]
+            pts = [quad_grid.points.flatten() for quad_grid in wspace.quad_grids]
+            wts = [quad_grid.weights          for quad_grid in wspace.quad_grids]
+
+            # evaluated basis functions at quadrature points of codomain space
+            basis_o = [quad_grid.basis for quad_grid in wspace.quad_grids]
+
+            # loop over domain spaces (columns)
+            for b, vspace in enumerate(Vspaces):
+
+                # evaluation of weight function at quadrature points (optional)
                 if weight is not None:
                     if weight[a][b] is not None:
-                        PTS1, = np.meshgrid(pts[0].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1).copy()
-                        mat_w = mat_w.reshape(pts[0].shape[0], nq[0])
+                        PTS = np.meshgrid(*pts, indexing='ij')
+                        mat_w = weight[a][b](*PTS).copy()
                     else:
-                        mat_w = np.ones((pts[0].shape[0], nq[0]), dtype=float)
+                        mat_w = np.ones_like([pt.size for pt in pts], dtype=float)
                 else:
-                    mat_w = np.ones((pts[0].shape[0], nq[0]), dtype=float)
-                
-            elif V.ldim == 2:
-                
-                if weight is not None:
-                    if weight[a][b] is not None:
-                        PTS1, PTS2 = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1, PTS2).copy()
-                        mat_w = mat_w.reshape(pts[0].shape[0], nq[0], pts[1].shape[0], nq[1])
-                    else:
-                        mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1]), dtype=float)
+                    mat_w = np.ones([pt.size for pt in pts], dtype=float)
+
+                # evaluated basis functions at quadrature points of output space
+                basis_i = [quad_grid.basis for quad_grid in vspace.quad_grids]
+
+                # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
+                if np.any(mat_w):
+                    M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
+                    
+                    kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
+                    
+                    kernel(*el_loc_indices, *wspace.degree, *vspace.degree, *periodic, *starts_out, *pads_out,
+                           *nqs, *wts, *basis_o, *basis_i, mat_w, M._data)
+
+                    blocks[-1] += [M]
+
                 else:
-                    mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1]), dtype=float)
-                
-            elif V.ldim == 3:
-        
-                if weight is not None:
-                    if weight[a][b] is not None:
-                        PTS1, PTS2, PTS3 = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing='ij')
-                        mat_w = weight[a][b](PTS1, PTS2, PTS3).copy()
-                        mat_w = mat_w.reshape(pts[0].shape[0], nq[0], pts[1].shape[0], nq[1], pts[2].shape[0], nq[2])
-                    else:
-                        mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1], pts[2].shape[0], nq[2]), dtype=float)
-                else:
-                    mat_w = np.ones((pts[0].shape[0], nq[0], pts[1].shape[0], nq[1], pts[2].shape[0], nq[2]), dtype=float)
+                    blocks[-1] += [None]
 
-            basis_i = [quad_grid.basis for quad_grid in wspace.quad_grids]
-
-            # assemble matrix if weight is not zero
-            if np.any(mat_w):
-                M = StencilMatrix(wspace.vector_space, vspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
-                
-                if V.ldim == 1:
-                    
-                    kernel_1d(el_loc_indices[0], vspace.degree[0], wspace.degree[0], periodic[0], int(starts_out[0]), pads_out[0], nq[0], wts[0], basis_o[0], basis_i[0], mat_w, M._data)
-                    
-                elif V.ldim == 2:
-                    
-                    kernel_2d(el_loc_indices[0], el_loc_indices[1], vspace.degree[0], vspace.degree[1], wspace.degree[0], wspace.degree[1], periodic[0], periodic[1], int(starts_out[0]), int(starts_out[1]), pads_out[0], pads_out[1], nq[0], nq[1], wts[0], wts[1], basis_o[0], basis_o[1], basis_i[0], basis_i[1], mat_w, M._data)
-                
-                elif V.ldim == 3:
-
-                    kernel_3d(el_loc_indices[0], el_loc_indices[1], el_loc_indices[2], vspace.degree[0], vspace.degree[1], vspace.degree[2], wspace.degree[0], wspace.degree[1], wspace.degree[2], periodic[0], periodic[1], periodic[2], int(starts_out[0]), int(starts_out[1]), int(starts_out[2]), pads_out[0], pads_out[1], pads_out[2], nq[0], nq[1], nq[2], wts[0], wts[1], wts[2], basis_o[0], basis_o[1], basis_o[2], basis_i[0], basis_i[1], basis_i[2], mat_w, M._data)
-
-                
-                blocks[-1] += [M]
-                
-            else:
-                blocks[-1] += [None]
-                
-    if len(blocks) == len(blocks[0]) == 1:
-        M = blocks[0][0] 
-    else:
-        M = BlockMatrix(W.vector_space, V.vector_space, blocks)
-        
-    #M.update_ghost_regions()
-    #M.remove_spurious_entries()
-                
-    return M
+        if len(blocks) == len(blocks[0]) == 1:
+            return blocks[0][0] 
+        else:
+            return BlockMatrix(V.vector_space, W.vector_space, blocks)
