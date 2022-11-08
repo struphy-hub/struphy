@@ -223,7 +223,7 @@ class ShearAlfvén( Propagator ):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators
@@ -344,7 +344,7 @@ class Magnetosonic( Propagator ):
         derham : struphy.psydac_api.psydac_derham.Derham
             Discrete Derham complex.
             
-        mass_ops : struphy.psydac_api.mass.WeightedMass
+        mass_ops : struphy.psydac_api.mass.WeightedMassOperators
             Weighted mass matrices from struphy.psydac_api.mass.
             
         mhd_ops : struphy.psydac_api.basis_projection_ops.MHDOperators

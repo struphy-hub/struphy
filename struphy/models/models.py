@@ -44,7 +44,7 @@ class LinearMHD( StruphyModel ):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_fields
@@ -76,18 +76,7 @@ class LinearMHD( StruphyModel ):
         self._ones[:] = 1.
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(
-            self.derham, self.domain, eq_mhd=mhd_equil)
-
-        self._mass_ops.assemble_M2()
-        self._mass_ops.assemble_M3()
-
-        if self._u_space == 'Hdiv':
-            self._mass_ops.assemble_M2n()
-            self._mass_ops.assemble_M2J()
-        elif self._u_space == 'H1vec':
-            self._mass_ops.assemble_Mvn()
-            self._mass_ops.assemble_MvJ()
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=mhd_equil)
 
         # Assemble necessary linear basis projection operators
         self._basis_ops = BasisProjectionOperators(self.derham, self.domain, mhd_equil)
@@ -200,7 +189,7 @@ class PC_LinearMHD_Vlasov_full( StruphyModel ):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_markers, propagators_fields, propagators_coupling
@@ -227,22 +216,7 @@ class PC_LinearMHD_Vlasov_full( StruphyModel ):
             [mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(
-            self.derham, self.domain, eq_mhd=mhd_equil)
-
-        self._mass_ops.assemble_M1()
-        self._mass_ops.assemble_M2()
-        self._mass_ops.assemble_M3()
-
-        if self._u_space == 'Hcurl':
-            self._mass_ops.assemble_M1n()
-            self._mass_ops.assemble_M1J()
-        elif self._u_space == 'Hdiv':
-            self._mass_ops.assemble_M2n()
-            self._mass_ops.assemble_M2J()
-        else:
-            self._mass_ops.assemble_Mvn()
-            self._mass_ops.assemble_MvJ()
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=mhd_equil)
 
         # Assemble necessary linear basis projection operators
         self._basis_ops = BasisProjectionOperators(self.derham, self.domain, mhd_equil)
@@ -377,7 +351,7 @@ class PC_LinearMHD_Vlasov( StruphyModel ):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.psydac_api.basis_projection_ops import BasisProjectionOperators
         from struphy.fields_background.mhd_equil import analytical
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
@@ -404,22 +378,7 @@ class PC_LinearMHD_Vlasov( StruphyModel ):
             [mhd_equil.b2_1, mhd_equil.b2_2, mhd_equil.b2_3]).coeffs
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(
-            self.derham, self.domain, eq_mhd=mhd_equil)
-
-        self._mass_ops.assemble_M1()
-        self._mass_ops.assemble_M2()
-        self._mass_ops.assemble_M3()
-
-        if self._u_space == 'Hcurl':
-            self._mass_ops.assemble_M1n()
-            self._mass_ops.assemble_M1J()
-        elif self._u_space == 'Hdiv':
-            self._mass_ops.assemble_M2n()
-            self._mass_ops.assemble_M2J()
-        else:
-            self._mass_ops.assemble_Mvn()
-            self._mass_ops.assemble_MvJ()
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=mhd_equil)
 
         # Assemble necessary linear basis projection operators
         self._basis_ops = BasisProjectionOperators(self.derham, self.domain, mhd_equil)
@@ -550,7 +509,7 @@ class LinearVlasovMaxwell( StruphyModel ):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.propagators import propagators_fields, propagators_markers, propagators_coupling
         from struphy.psydac_api.fields import Field
         from struphy.fields_background.mhd_equil import analytical
@@ -562,9 +521,7 @@ class LinearVlasovMaxwell( StruphyModel ):
         solver_params = params['solvers']['solver_1']
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(self.derham, self.domain)
-        self._mass_ops.assemble_M1()
-        self._mass_ops.assemble_M2()
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain)
 
         # Pointers to Stencil-/Blockvectors
         self._e = self.fields[0].vector
@@ -682,7 +639,7 @@ class Maxwell( StruphyModel ):
 
     def __init__(self, params, comm):
 
-        from struphy.psydac_api.mass import WeightedMass
+        from struphy.psydac_api.mass import WeightedMassOperators
         from struphy.propagators import propagators_fields
 
         super().__init__(params, comm, e_field='Hcurl', b_field='Hdiv')
@@ -691,9 +648,7 @@ class Maxwell( StruphyModel ):
         solver_params = params['solvers']['solver_1']
 
         # Assemble necessary mass matrices
-        self._mass_ops = WeightedMass(self.derham, self.domain)
-        self._mass_ops.assemble_M1()
-        self._mass_ops.assemble_M2()
+        self._mass_ops = WeightedMassOperators(self.derham, self.domain)
 
         # Pointers to Stencil-/Blockvectors
         self._e = self.fields[0].vector

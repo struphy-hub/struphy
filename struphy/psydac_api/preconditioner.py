@@ -13,7 +13,7 @@ from psydac.api.discretization import discretize
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
-from struphy.psydac_api.mass import get_mass
+from struphy.psydac_api.mass import WeightedMassOperator
 
 from scipy.linalg import solve_circulant
 
@@ -35,7 +35,7 @@ class MassMatrixPreconditioner(LinearSolver):
             The space corresponding to the mass matrix (V0, V1, V2, V3 or V0vec).
             
         weight : list[callables]
-            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass.WeightedMass.
+            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass.WeightedMassOperators.
     """
     
     def __init__(self, derham, space, weight=None):
@@ -91,19 +91,19 @@ class MassMatrixPreconditioner(LinearSolver):
                 
                 # 1d mass matrix with weight in first direction
                 if d == 0 and weight is not None:
-                    fun = [[lambda e1 : weight[c][c](e1[:, None, None], np.array([0.5])[:, None, None], np.array([0.5])[:, None, None])]]
+                    fun = [[lambda e1 : weight[c][c](e1, 0.5, 0.5).squeeze()]]
                 else:
                     fun = None
                 
                 if basis == 'B':
-                    M = get_mass(derham_1d.V0, derham_1d.V0, fun)
+                    M = WeightedMassOperator.assemble_mat(derham_1d.V0, derham_1d.V0, fun)
                     
                     # apply boundary conditions!
                     if derham.bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=d, ext=-1, order=0, identity=True)
                     if derham.bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=d, ext=+1, order=0, identity=True)
                     
                 else:
-                    M = get_mass(derham_1d.V1, derham_1d.V1, fun)
+                    M = WeightedMassOperator.assemble_mat(derham_1d.V1, derham_1d.V1, fun)
 
                 self._matrices[-1] += [M]
                 
