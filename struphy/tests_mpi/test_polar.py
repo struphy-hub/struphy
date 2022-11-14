@@ -461,10 +461,10 @@ def test_projectors(Nel, p, spl_kind):
     #I3_pol = CompositeLinearOperator(P3, derham.P3.imat_stencil, E3T)
 
     # preconditioners for projections
-    PC0 = PolarProjectionPreconditioner(P0, derham.P0.solver, E0T)
-    PC1 = PolarProjectionPreconditioner(P1, derham.P1.solver, E1T)
-    PC2 = PolarProjectionPreconditioner(P2, derham.P2.solver, E2T)
-    PC3 = PolarProjectionPreconditioner(P3, derham.P3.solver, E3T)
+    PC0 = PolarProjectionPreconditioner(P0, derham.P0, E0T)
+    PC1 = PolarProjectionPreconditioner(P1, derham.P1, E1T)
+    PC2 = PolarProjectionPreconditioner(P2, derham.P2, E2T)
+    PC3 = PolarProjectionPreconditioner(P3, derham.P3, E3T)
 
     # inverse polar inter-/histopolation matrices for projectors
     I0inv = InverseLinearOperator(I0_pol, pc=PC0, solver_name='pbicgstab', tol=1e-14)

@@ -9,7 +9,7 @@ from struphy.polar.basic import PolarVector, PolarDerhamSpace
 
 from mpi4py import MPI
 
-from scipy.sparse import csr_matrix, identity
+from scipy.sparse import csr_matrix, identity, kron
 
 import numpy as np
 
@@ -923,8 +923,8 @@ class PolarProjectionPreconditioner(LinearSolver):
         P : PolarExtractionOperator
             The polar DOF extraction operator.
             
-        I_solver : KroneckerLinearSolver | BlockDiagonalSolver
-            The pure tensor-product solver that exactly solves Ix = b for x.
+        P_ten : GlobalProjector
+            The pure tensor-product global projector that solves exactly solves Ix = b for x.
             
         ET : PolarExtractionOperator
             The transposed polar basis extraction operator.
@@ -933,12 +933,14 @@ class PolarProjectionPreconditioner(LinearSolver):
             Wether to solve (P * I * E^T)^(-T) with the approximation (P * I(-T) * E^T).
     """
     
-    def __init__(self, P, I_solver, ET, transposed=False):
+    def __init__(self, P, P_ten, ET, transposed=False):
         
         self._P = P
-        self._I_solver = I_solver
+        self._P_ten = P_ten
         self._ET = ET
         self._transposed = transposed
+        
+        #self._mat_pol = P.blocks_ten_to_pol[0][0].dot(kron(csr_matrix(P_ten.space.spaces[0].imat[:2, :2]), csr_matrix(P_ten.space.spaces[1].imat))).dot(ET.blocks_ten_to_pol[0][0]).toarray()
     
     @property
     def space(self):
@@ -952,11 +954,17 @@ class PolarProjectionPreconditioner(LinearSolver):
         assert isinstance(rhs, PolarVector)
         assert rhs.space == self.space
         
-        return self._P.dot(self._I_solver.solve(self._ET.dot(rhs), transposed=self._transposed))
+        #out = PolarVector(rhs.space)
+        #out.tp = self._P_ten.solver.solve(rhs.tp, transposed=self._transposed)
+        #out.pol = [self._P_ten.solver.solvers[2].solve(np.linalg.solve(self._mat_pol, rhs.pol[0]))]
+        
+        out = self._P.dot(self._P_ten.solver.solve(self._ET.dot(rhs), transposed=self._transposed))
+        
+        return out
     
     def transpose(self):
         """
         Returns a preconditioner for inverting the transposed polar inter/-histopolation matrix.
         """
-        return PolarProjectionPreconditioner(self._P, self._I_solver, self._ET, not self._transposed)
+        return PolarProjectionPreconditioner(self._P, self._P_ten.solver, self._ET, not self._transposed)
         

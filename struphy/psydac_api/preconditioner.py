@@ -2,7 +2,7 @@ from sympde.topology import Line, Derham
 
 from psydac.linalg.basic import LinearSolver
 from psydac.linalg.direct_solvers import DirectSolver, SparseSolver
-from psydac.linalg.stencil import StencilVector
+from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 from psydac.linalg.block import BlockVector, BlockMatrix, BlockDiagonalSolver
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 
@@ -14,6 +14,7 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
 from struphy.psydac_api.mass import WeightedMassOperator
+from struphy.polar.basic import PolarVector
 
 from scipy.linalg import solve_circulant
 
@@ -142,6 +143,168 @@ class MassMatrixPreconditioner(LinearSolver):
         assert isinstance(rhs, (StencilVector, BlockVector))
         assert rhs.space == self.space
         return self._solver.solve(rhs)
+    
+    
+class MassMatrixPreconditionerNew(LinearSolver):
+    """
+    Preconditioner for inverting 3d weighted mass matrices. 
+    
+    The mass matrix is approximated by a Kronecker product of 1d mass matrices in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces). In this process, the 3d weight function is appoximated by a 1d counterpart in the FIRST (eta_1) direction at the fixed point (eta_2=0.5, eta_3=0.5). The inversion is then performed with a Kronecker solver.
+    
+    Parameters
+    ----------
+        derham : struphy.psydac_api.psydac_derham.Derham
+            Discrete de Rham sequence on the logical unit cube.
+            
+        space : str
+            The space corresponding to the mass matrix (V0, V1, V2, V3 or V0vec).
+            
+        weight : list[callables]
+            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass.WeightedMassOperators.
+    """
+    
+    def __init__(self, mass_operator):
+        
+        assert isinstance(mass_operator, WeightedMassOperator)
+        assert mass_operator.domain == mass_operator.codomain, 'Only square mass marices can be inverted!'
+        
+        self._femspace = mass_operator.domain_femspace
+        self._space = mass_operator.domain
+        
+        # 3d Kronecker stencil matrices and solvers
+        solverblocks = []
+        matrixblocks = []
+        
+        # collect TensorFemSpaces in a tuple
+        if isinstance(self._femspace, TensorFemSpace):
+            femspaces = (self._femspace,)
+        else:
+            femspaces = self._femspace.spaces
+            
+        n_comps = len(femspaces)
+        n_dims = self._femspace.ldim
+
+        # loop over components
+        for c in range(n_comps):
+            
+            # 1d mass matrices and solvers
+            solvercells = []
+            matrixcells = []
+            
+            # loop over spatial directions
+            for d in range(n_dims):
+                
+                # weight function only along in first direction
+                if d == 0 and mass_operator._weight is not None:
+                    pts = [0.5] * (n_dims - 1)
+                    fun = [[lambda e1 : mass_operator._weight[c][c](e1, *pts).squeeze()]]
+                else:
+                    fun = None
+                    
+                # get 1D FEM space (serial, not distributed)
+                femspace_1d = femspaces[c].spaces[d]
+                quad_order_1d = femspaces[c].quad_order[d]
+                    
+                # assemble 1d mass matrix
+                M = WeightedMassOperator.assemble_mat(TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]), TensorFemSpace(femspace_1d, quad_order=[quad_order_1d]), fun)
+                
+                # apply boundary conditions
+                if mass_operator._domain_symbolic_name != 'H1vec':
+                    if femspace_1d.basis == 'B':
+                        if mass_operator._bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
+                        if mass_operator._bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
+                else:
+                    if c == d:
+                        if mass_operator._bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
+                        if mass_operator._bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
+                        
+                M_arr = M.toarray()
+                
+                # create 1d solver for mass matrix
+                if is_circulant(M_arr):
+                    solvercells += [FFTSolver(M_arr)]
+                else:
+                    solvercells += [SparseSolver(M.tosparse())]
+                    
+                # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
+                periodic = femspaces[c].vector_space.periods[d]
+                
+                n = femspaces[c].vector_space.npts[d]
+                p = femspaces[c].vector_space.pads[d]
+                s = femspaces[c].vector_space.starts[d]
+                e = femspaces[c].vector_space.ends[d]
+                
+                V_local = StencilVectorSpace([n], [p], [periodic], starts=[s], ends=[e])
+                M_local = StencilMatrix(V_local, V_local)
+                
+                row_indices, col_indices = np.nonzero(M_arr)
+
+                for row_i, col_i in zip(row_indices, col_indices):
+
+                    # only consider row indices on process
+                    if row_i in range(V_local.starts[0], V_local.ends[0] + 1):
+                        row_i_loc = row_i - s
+
+                        M_local._data[row_i_loc + p, (col_i + p - row_i)%M_arr.shape[1]] = M_arr[row_i, col_i]
+
+                # check if stencil matrix was built correctly
+                assert np.allclose(M_local.toarray()[s:e + 1], M_arr[s:e + 1])
+                
+                matrixcells += [M_local.copy()]
+                # =======================================================================================================
+            
+            if isinstance(self._femspace, TensorFemSpace):
+                matrixblocks += [KroneckerStencilMatrix(self._femspace.vector_space, self._femspace.vector_space, *matrixcells)]
+                solverblocks += [KroneckerLinearSolver(self._femspace.vector_space, solvercells)]
+            else:
+                matrixblocks += [KroneckerStencilMatrix(self._femspace.vector_space[c], self._femspace.vector_space[c], *matrixcells)]
+                solverblocks += [KroneckerLinearSolver(self._femspace.vector_space[c], solvercells)]
+                
+        # build final matrix and solver
+        if isinstance(self._femspace, TensorFemSpace):
+            self._matrix = matrixblocks[0]
+            self._solver = solverblocks[0]
+        else:
+            
+            blocks = [[matrixblocks[0], None, None],
+                      [None, matrixblocks[1], None],
+                      [None, None, matrixblocks[2]]]
+            
+            self._matrix = BlockMatrix(self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
+            self._solver = BlockDiagonalSolver(self._femspace.vector_space, solverblocks)
+            
+        # extraction oparators
+        if len(mass_operator.operator._operators) > 1:
+            self._extraction_op_l = mass_operator.operator._operators[2]
+            self._extraction_op_r = mass_operator.operator._operators[0]
+        else:
+            self._extraction_op_l = None
+            self._extraction_op_r = None
+        
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def matrix(self):
+        return self._matrix
+    
+    @property
+    def solver(self):
+        return self._solver
+    
+    def solve(self, rhs, out=None):
+        """
+        TODO
+        """
+        
+        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
+        assert rhs.space == self.space
+        
+        if self._extraction_op_l is None:
+            return self.solver.solve(rhs)
+        else:
+            return self._extraction_op_l.dot(self.solver.solve(self._extraction_op_r.dot(rhs)))
 
 
 class FFTSolver(DirectSolver):

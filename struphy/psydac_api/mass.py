@@ -11,7 +11,7 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api import mass_kernels
 from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
-from struphy.psydac_api.utilities import apply_essential_bc_to_array, apply_essential_bc_to_pol
+from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 from struphy.polar.basic import PolarVector
 
@@ -332,10 +332,16 @@ class WeightedMassOperator( LinOpWithTransp ):
             W_name = 'H1vec'
         
         if transposed:
+            self._domain_femspace = W
             self._domain_symbolic_name = W_name
+            
+            self._codomain_femspace = V
             self._codomain_symbolic_name = V_name
         else:
+            self._domain_femspace = V
             self._domain_symbolic_name = V_name
+            
+            self._codomain_femspace = W
             self._codomain_symbolic_name = W_name
         
         # ====== assemble tensor-product mass matrix ====
@@ -362,6 +368,14 @@ class WeightedMassOperator( LinOpWithTransp ):
     @property
     def codomain(self):
         return self._codomain
+    
+    @property
+    def domain_femspace(self):
+        return self._domain_femspace
+
+    @property
+    def codomain_femspace(self):
+        return self._codomain_femspace
 
     @property
     def dtype(self):
@@ -395,11 +409,7 @@ class WeightedMassOperator( LinOpWithTransp ):
         
         # apply boundary conditions to output vector
         if apply_bc and self._bc is not None:
-            if isinstance(out, PolarVector):
-                apply_essential_bc_to_array(self._codomain_symbolic_name, out.tp, self._bc)
-                apply_essential_bc_to_pol(self._codomain_symbolic_name, out.pol, self._bc[2])
-            else:
-                apply_essential_bc_to_array(self._codomain_symbolic_name, out, self._bc)
+            apply_essential_bc_to_array(self._codomain_symbolic_name, out, self._bc)
         
         assert out.space == self.codomain
         
@@ -417,24 +427,13 @@ class WeightedMassOperator( LinOpWithTransp ):
         TODO
         """
         
-        # identify space IDs
-        if hasattr(V.symbolic_space, 'name'):
-            V_name = V.symbolic_space.name
-        else:
-            V_name = 'H1vec'
-
-        if hasattr(W.symbolic_space, 'name'):
-            W_name = W.symbolic_space.name
-        else:
-            W_name = 'H1vec'
-        
-        # collect TensorFemSpaces in tuple
-        if V_name in {'H1', 'L2'}:
+        # collect TensorFemSpaces for each component in tuple
+        if isinstance(V, TensorFemSpace):
             Vspaces = (V,)
         else:
             Vspaces = V.spaces
             
-        if W_name in {'H1', 'L2'}:
+        if isinstance(W, TensorFemSpace):
             Wspaces = (W,)
         else:
             Wspaces = W.spaces
@@ -482,7 +481,7 @@ class WeightedMassOperator( LinOpWithTransp ):
                 basis_i = [quad_grid.basis for quad_grid in vspace.quad_grids]
 
                 # assemble matrix (if weight is not zero) by calling the appropriate kernel (1d, 2d or 3d)
-                if np.any(mat_w):
+                if np.any(np.abs(mat_w) > 1e-14):
                     M = StencilMatrix(vspace.vector_space, wspace.vector_space, backend=PSYDAC_BACKEND_GPYCCEL)
                     
                     kernel = getattr(mass_kernels, 'kernel_' + str(V.ldim) + 'd')
