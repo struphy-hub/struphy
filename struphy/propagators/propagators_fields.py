@@ -101,7 +101,7 @@ class Maxwell( Propagator ):
 
 
 class OhmCold( Propagator ):
-    r'''Analytic solution
+    r'''Analytical solution
 
     .. math::
 
@@ -155,15 +155,9 @@ class OhmCold( Propagator ):
 
         a : float
             plasma frequency measured in unit of electron cyclotron frequency
-
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete Derham complex.
-
-        params : dict
-            Solver parameters for this splitting step.
     '''
 
-    def __init__(self, j, e, a, derham, params):
+    def __init__(self, j, e, a):
 
         assert isinstance(j, BlockVector)
         assert isinstance(e, BlockVector)
@@ -172,7 +166,6 @@ class OhmCold( Propagator ):
         self._j = j
         self._e = e
         self._a = a
-        self._info = params['info']
 
     @property
     def variables(self):
@@ -191,10 +184,9 @@ class OhmCold( Propagator ):
         # write new coeffs into Propagator.variables
         dj, de = self.in_place_update(_j, _e)
 
-        if self._info:
-            print('Maxdiff j1 for OhmCold:', max(dj))
-            print('Maxdiff e2 for OhmCold:', max(de))
-            print()
+        print('Maxdiff j1 for OhmCold:', max(dj))
+        print('Maxdiff e2 for OhmCold:', max(de))
+        print()
 
         
 class ShearAlfvén( Propagator ):

@@ -220,6 +220,8 @@ fields :
             type : HomogenSlab # (possible choices seen below)
             HomogenSlab :
                   phi0  : 1. # constant electric potential
+      plasma_params : 
+            alpha : 1. # plasma frequency measured in unit of electron cyclotron frequency
 
 
 
