@@ -10,7 +10,7 @@ from struphy.pic.pusher_utilities import aux_fun_x_v_stat_e
 from numpy import zeros, empty, shape, sqrt, cos, sin
 
 
-@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'df_inv', 'df_inv_t', 'e_form', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -104,7 +104,7 @@ def push_v_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'b_form', 'b_cart', 'b_norm', 'e', 'v', 'vperp', 'vxb_norm', 'b_normxvperp', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -223,7 +223,7 @@ def push_vxb_analytic(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
+#@stack_array('df', 'b_form', 'b_cart', 'b_prod', 'e', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'identity', 'rhs', 'lhs', 'lhs_inv', 'vec', 'res')
 def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                       starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -352,7 +352,7 @@ def push_vxb_implicit(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                   pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                   starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -467,7 +467,7 @@ def push_bxu_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -586,7 +586,7 @@ def push_bxu_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'b_form', 'u_form', 'b_cart', 'u_cart', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -701,7 +701,7 @@ def push_bxu_H1vec(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'b_form', 'u_form', 'b_diff', 'b_cart', 'u_cart', 'b_grad', 'e_cart', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'der1', 'der2', 'der3')
 def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
                         pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                         starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -852,7 +852,7 @@ def push_bxu_Hdiv_pauli(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
                      pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                      starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -945,7 +945,7 @@ def push_pc_GXu_full(markers: 'float[:,:]', dt: float, stage: int,
         # update velocities
         markers[ip, 3:6] -= dt*e_cart[:]/2.
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'e', 'e_cart', 'v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
                 pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                 starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1038,7 +1038,7 @@ def push_pc_GXu(markers: 'float[:,:]', dt: float, stage: int,
         # update velocities
         markers[ip, 3:6] -= dt*e_cart/2.
 
-@stack_array('df', 'dfinv', 'e', 'v', 'k')
+#@stack_array('df', 'dfinv', 'e', 'v', 'k')
 def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
                    pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                    starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1111,7 +1111,7 @@ def push_eta_stage(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1239,7 +1239,7 @@ def push_pc_eta_rk4_Hcurl_full(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1366,7 +1366,7 @@ def push_pc_eta_rk4_Hdiv_full(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
                                pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                                starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1490,7 +1490,7 @@ def push_pc_eta_rk4_H1vec_full(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1618,7 +1618,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'k_u', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                               pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                               starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1745,7 +1745,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)
 
-@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'dfinv', 'dfinv_t', 'ginv', 'eta', 'v', 'u', 'k', 'k_v', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1869,7 +1869,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
         # update markers for the next stage
         markers[ip, 0:3] = (markers[ip, 9:12] + dt*k/2 * cont + dt*markers[ip, 12:15]* last)       
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
+#@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'df', 'df_inv', 'x', 'v')
 def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
                              pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                              starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -1976,8 +1976,7 @@ def push_weights_with_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-
-@stack_array('particle')
+#@stack_array('particle')
 def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2058,8 +2057,7 @@ def push_x_v_static_efield(markers: 'float[:,:]', dt: float, stage: int,
 
     #$ omp end parallel
 
-
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
+#@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2201,8 +2199,7 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
 
-
-@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
+#@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2329,8 +2326,7 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
         markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
 
-
-@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
+#@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',

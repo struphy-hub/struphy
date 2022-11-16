@@ -22,7 +22,7 @@
 #SBATCH --time=00:10:00
 
 module purge
-module load gcc openmpi anaconda/3/2020.02 mpi4py 
+module load gcc openmpi anaconda/3/2021.11 mpi4py 
 
 # Set the number of OMP threads *per process* to avoid overloading of the node!
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK

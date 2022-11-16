@@ -6,23 +6,6 @@ PYTHON=python3
 # Struphy installation path
 cd ~
 STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
-# STRUPHY=
-# li=$(pip show struphy)
-# #echo $li
-# take=false
-# for i in $li; do
-
-#     if [ "$take" = "true" ]; then
-#         #echo $take
-#         STRUPHY=$i/struphy
-#         break
-#     fi
-#     #echo "$i"
-#     if [ "$i" = "Location:" ]; then
-#         #echo "$i"
-#         take=true
-#     fi
-# done
 
 # Defaults
 RUN=false
@@ -30,6 +13,7 @@ COMPILE=false
 PROFILE=false
 PPROC=false
 PROFILE_ALL=false    
+FLAGS=
 CFLAGS=--openmp    
 CODE=                                 
 INPUT=parameters.yml            
@@ -41,6 +25,7 @@ BATCH_SCRIPT=
 BATCH_SCRIPT_ABS=         
 RESTART_DIR=          
 MPI_SIZE=1
+DEBUG=
 CELLDIVIDE=1
 RUN_CMD=$PYTHON
 EXAMPLE=
@@ -78,6 +63,7 @@ function compile_help {
     echo "Options:"
     echo "  --no-openmp   Compile without OpenMP"
     echo "  --delete      Remove .f90 and .so files (for running pure Python code)"
+    echo "  --verbose     Call pyccel with --verbose compiler option"
 }
 
 function run_help {
@@ -105,6 +91,7 @@ function run_help {
     echo "  --batch-abs     Batch script FILE, absolute path"
     echo "  --restart       Run with restart, give absolute path to restart DIR"
     echo "  --mpi           Use 'mpirun -n N' to launch struphy"
+    echo "  --debug         Launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs"
 }
 
 function profile_help {
@@ -258,6 +245,10 @@ while [[ $# -gt 0 ]]; do
       CLEAN=true
       shift 
       ;;
+    --verbose)
+      FLAGS=--verbose
+      shift 
+      ;;
     --serial)
       MPI_SIZE=
       shift 
@@ -311,6 +302,10 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    --debug)
+      DEBUG=true
+      shift
+      ;;
     --celldivide)
       CELLDIVIDE="$2"
       shift
@@ -335,6 +330,7 @@ if [ "$COMPILE" = true ]; then
   # Print parameters
   echo "Makefile: $STRUPHY/compile_struphy.mk"
   echo "COMPILE = ${COMPILE}"
+  echo "FLAGS  = ${FLAGS}"
   echo "CFLAGS  = ${CFLAGS}"
   echo "CLEAN   = ${CLEAN}"
 
@@ -346,7 +342,7 @@ if [ "$COMPILE" = true ]; then
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
-    command make -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY flags_openmp_pic=$CFLAGS
+    command make -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi
 
@@ -388,6 +384,11 @@ if [ "$RUN" = true ] ; then
   # MPI mode
   if [ "$MPI_SIZE" ]; then
     RUN_CMD="mpirun -n $MPI_SIZE $PYTHON $CPROFILE $ARGS"
+  fi
+
+  # Debug run on Cobra (overwrite run command from MPI mode)
+  if [ "$DEBUG" ]; then
+    RUN_CMD="srun -n $MPI_SIZE -p interactive --time=119 --mem=2000 $PYTHON $CPROFILE $ARGS"
   fi
 
   # Batch mode
