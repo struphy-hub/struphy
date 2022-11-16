@@ -616,11 +616,11 @@ def eval_spline_mpi_sparse_meshgrid(eta1: 'float[:,:,:]', eta2: 'float[:,:,:]', 
             Return array for spline values S_ijk = S(eta1[i,0,0], eta2[0,j,0], eta3[0,0,k]).
     """
 
-    from numpy import size
+    from numpy import shape
 
-    n1 = size(eta1)
-    n2 = size(eta2)
-    n3 = size(eta3)
+    n1 = shape(eta1)[0]
+    n2 = shape(eta2)[1]
+    n3 = shape(eta3)[2]
 
     for i in range(n1):
         if eta1[i, 0, 0] == -1.: continue # point not in process domain

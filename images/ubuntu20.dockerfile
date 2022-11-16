@@ -29,6 +29,7 @@ RUN git clone https://github.com/pyccel/psydac.git \
 
 # compile psydac kernels 
 RUN PSYDAC=$(python3 -c "import psydac as _; print(_.__path__[0])") \
+    && pip install -U pyccel \
     && pyccel $PSYDAC/core/kernels.py \
     && pyccel $PSYDAC/core/bsplines_pyccel.py 
 

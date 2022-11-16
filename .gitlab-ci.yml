@@ -8,10 +8,18 @@
 default:
   before_script:
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     - module list
     - source ${GLOBAL_CACHE_PATH}/env/bin/activate
-    - ENV_PATH=$(python3 -c 'import sysconfig; print(sysconfig.get_path("platlib"))')
+    - ENV_PATH=$(python3 -c "import sysconfig; print(sysconfig.get_path('platlib'))")
+    #- ENV_PATH=$(python3 -m site --user-site)
+    - LIBDIR=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
+    - echo $ENV_PATH
+    - echo $LIBDIR
+    #- export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)"
+    - echo $PYTHONPATH 
+    - echo $PATH
+
   tags:
     - ipp_vm_linux_struphy
   
@@ -48,7 +56,7 @@ default_venv:
     - echo "Hello ${GITLAB_USER_NAME} !"
     - echo "This is job ${CI_JOB_ID}"
     - module purge
-    - module load gcc openmpi anaconda/3/2021.11 mpi4py
+    - module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     - module list
   script:
     - echo "Creating virtual environment..."
@@ -318,12 +326,13 @@ default_install:
     - pip show struphy
     - struphy
     - pyccel --version
-    - struphy compile
+    - struphy compile --delete
+    - struphy compile --verbose
     - ./struphy/verify_compilation.sh
     - pip list
     - cd ${ENV_PATH}/psydac/core
-    - pyccel kernels.py --language fortran
-    - pyccel bsplines_pyccel.py --language fortran
+    - pyccel kernels.py --libdir $LIBDIR 
+    - pyccel bsplines_pyccel.py --libdir $LIBDIR
 
 # default tests (always)
 default_unit_tests:
@@ -334,6 +343,8 @@ default_unit_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
+    - pwd
+    - ls -1
     - struphy test --mpi 2
     # run unit tests with coverage
     - cd ${ENV_PATH}/struphy/tests/
@@ -352,6 +363,8 @@ default_code_tests:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
   script:
+    - pwd
+    - ls -1
     - struphy test --codes
 
 # release
