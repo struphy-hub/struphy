@@ -461,8 +461,8 @@ class Particles5D:
     """
     A class for initializing particles in guiding-center, drift-kinetic or gyro-kinetic models that use the 5D phase space.
 
-    |     0     1     2     |        3        |       4       |  5  | ...
-    |guiding center position|parallel velocity|magnetic moment|     | 
+         0     1     2                3                  4       
+    guiding center position   parallel velocity   magnetic moment           
 
     Parameters
     ----------
@@ -526,7 +526,7 @@ class Particles5D:
 
         markers_size = round(n_mks_load_loc*(1 + 1/np.sqrt(n_mks_load_loc) + params_markers['eps']))
 
-        self._markers = np.zeros((markers_size, 18), dtype=float)
+        self._markers = np.zeros((markers_size, 24), dtype=float)
         
         n_mks_load_cum_sum = np.cumsum(n_mks_load)
 

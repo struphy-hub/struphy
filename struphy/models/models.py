@@ -679,7 +679,26 @@ class Maxwell( StruphyModel ):
 
 
 class Vlasov( StruphyModel ):
-    r'''TODO
+    r'''Vlasov equation in static background magnetic field. 
+
+    Normalization:
+
+    .. math::
+
+        &\hat \omega = \frac{q \hat B}{m} = \hat \Omega_{c} \,,
+        
+        &\hat v = \frac{\hat \omega}{\hat k} = \frac{\hat \Omega_{c}}{\hat k} \,.
+
+    where :math:`\Omega_{c}` is cyclotron frequency. Implemented equations:
+
+    .. math::
+
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \frac{\partial f}{\partial \mathbf{x}} + \left[\frac{q_h}{m_h}\mathbf{v}\times\mathbf{B}_0 \right] \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
     '''
 
     def __init__(self, params, comm):
@@ -727,22 +746,36 @@ class Vlasov( StruphyModel ):
     def update_scalar_quantities(self, time):
         self._scalar_quantities['time'][0] = time
 
-class GuidingCenter( StruphyModel ):
-    r'''
-    Simplified guiding center equations (drift-kinetic without field perturbation).
-    Equations of motion for guiding center position (3D) (:math:`\mathbf{X} \in \mathbb{R}^3`) and parallel velocity of the guiding center (1D) (:math:`v_\parallel = \mathbf{p} \cdot \dot{\mathbf{X}}`) under the unperturbed equilibrium magnetic field.
 
-    ..math::
+class DriftKinetic( StruphyModel ):
+    r'''DriftKinetic equation in static background magnetic field. 
 
-        \left\{
-        \begin{align}
-            \dot \mathbf{X} = \frac{1}{|B^*_\parallel|} \mathbf{B}^* v_\parallel + \frac{\epsilon}{|B^*_\parallel|} \mathbf{E}^* \times \mahtbf{b}_0 \,,
-            \\
-            \dot v_\parallel = \frac{1}{|B^*_\parallel|} \mathbf{B}^* \cdot \mathbf{E}^* \,.
-        \end{align}
-        \right.
+    Normalization:
 
-    where :math:`\mathbf{E}^* = - \mu \nabla |B_0|, \mathbf{B}^* = \mathbf{B}_0 + v_\parallel \nabla \times \mathbf{b}_0` and :math:`\mathbf{b}_0 = \frac{\mathbf{B}_0}{|B_0|}`
+    .. math::
+
+        &\hat \omega = \hat v_{th} * \hat k = \hat \Omega_{th} = \epsilon \hat \Omega_c \,,
+        
+        &\hat v = \hat v_{th} = \frac{\hat \Omega_{th}}{\hat k} = \epsilon \frac{\hat \Omega_c}{\hat k} \,.
+
+    where :math:`\Omega_{c}` is cyclotron frequency and :math:`\epsilon = \frac{\hat \Omega_{th}}{\hat \Omega_c} = \hat k \rho_L \ll 1` is a drift time scale. Implemented equations:
+    
+    .. math::
+
+        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \epsilon \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{x}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+
+    where :math:`f(\mathbf{X}, v_\parallel, t)` is the guiding center distribution and 
+
+    .. math::
+
+        &\mathbf{E}^* = - \mu \nabla |B_0| \,,  
+        
+        &\mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0  \,.
+    
+    Parameters
+    ----------
+        params : dict
+            Simulation parameters, see from :ref:`params_yml`.
     '''
 
     def __init__(self, params, comm):
@@ -767,15 +800,24 @@ class GuidingCenter( StruphyModel ):
                                   self._mhd_equil.b2_2,
                                   self._mhd_equil.b2_3]).coeffs
 
+        # print(self.derham.comm.Get_rank(), self._b._data)
+
         self._abs_b = self.derham.P0(self._mhd_equil.b0)._coeffs
+
+        # print(self.derham.comm.Get_rank(), self._abs_b._data)
 
         self._norm_b1 = self.derham.P1([self._mhd_equil.norm_b1_1,
                                         self._mhd_equil.norm_b1_2,
                                         self._mhd_equil.norm_b1_3]).coeffs
+                                        
+        # print(self.derham.comm.Get_rank(), self._norm_b1[0]._data)
 
         self._norm_b2 = self.derham.P2([self._mhd_equil.norm_b2_1,
                                         self._mhd_equil.norm_b2_2,
                                         self._mhd_equil.norm_b2_3]).coeffs
+
+        # print(self.derham.comm.Get_rank(), self._norm_b2[0]._data)
+
         if self.derham.comm.Get_rank() == 0:
             print('Background magnetic field projection done ...')
 
@@ -787,24 +829,30 @@ class GuidingCenter( StruphyModel ):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self._epsilon,
-                                                                        self._b, self._norm_b1, self._norm_b2, self._abs_b, 
-                                                                        self.derham, 
-                                                                        self.kinetic_params[0]['push_algos']['eta'], 
-                                                                        self.kinetic_params[0]['push_algos']['integrator'],
-                                                                        self.kinetic_params[0]['markers']['bc_type'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self._epsilon,
-        #                                                                  self._b, self._norm_b1, self._norm_b2, self._abs_b, 
-        #                                                                  self.derham, 
-        #                                                                  self.kinetic_params[0]['push_algos']['eta'], 
+        self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self._epsilon,
+                                                                         self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+                                                                         self.derham, 
+                                                                         self.kinetic_params[0]['push_algos']['method'], 
+                                                                         self.kinetic_params[0]['push_algos']['integrator'],
+                                                                         self.kinetic_params[0]['markers']['bc_type'],
+                                                                         self.kinetic_params[0]['push_algos']['maxiter'],
+                                                                         self.kinetic_params[0]['push_algos']['tol'])]
+        self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions, self._epsilon,
+                                                                         self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+                                                                         self.derham, 
+                                                                         self.kinetic_params[0]['push_algos']['method'], 
+                                                                         self.kinetic_params[0]['push_algos']['integrator'],
+                                                                         self.kinetic_params[0]['markers']['bc_type'],
+                                                                         self.kinetic_params[0]['push_algos']['maxiter'],
+                                                                         self.kinetic_params[0]['push_algos']['tol'])]
+        # self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self._epsilon,
+        #                                                                 self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+        #                                                                 self.derham, 
+        #                                                                 self.kinetic_params[0]['push_algos']['method'], 
         #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
-        #                                                                  self.kinetic_params[0]['markers']['bc_type'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions,
-        #                                                                  self._b, self._norm_b1, self._abs_b, 
-        #                                                                  self.derham, 
-        #                                                                  self.kinetic_params[0]['push_algos']['eta'], 
-        #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
-        #                                                                  self.kinetic_params[0]['markers']['bc_type'])]
+        #                                                                  self.kinetic_params[0]['markers']['bc_type'],
+        #                                                                  self.kinetic_params[0]['push_algos']['maxiter'],
+        #                                                                  self.kinetic_params[0]['push_algos']['tol'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)
