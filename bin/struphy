@@ -3,16 +3,19 @@
 # Python interpreter
 PYTHON=python3
 
-# Struphy installation path
+# Struphy ans Psydac installation paths
 cd ~
 STRUPHY=$($PYTHON -c "import struphy as _; print(_.__path__[0])")
+PSYDAC=$($PYTHON -c "import psydac as _; print(_.__path__[0])")
 
 # Defaults
 RUN=false
 COMPILE=false 
 PROFILE=false
 PPROC=false
-PROFILE_ALL=false    
+PROFILE_ALL=false 
+REPLACE=false 
+N_LINES=6     
 FLAGS=
 CFLAGS=--openmp    
 CODE=                                 
@@ -103,7 +106,9 @@ function profile_help {
     echo "containing struphy simulation data obtained from the same (!) model."
     echo
     echo "Options:"
-    echo "  -a, --all   Profile all functions called in struphy. The default strings are stated in https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#code-profiling"
+    echo "  -a, --all         Profile all functions called in struphy. The default strings are stated in https://struphy.pages.mpcdf.de/struphy/sections/userguide.html#code-profiling"
+    echo "  --replace         Replace propagator keys from Cprofile with class names for nicer output."
+    echo "  --n-lines <int>   Plot <int> most time consuming calls in profiling analysis (default=6)."
 }
 
 function pproc_help {
@@ -237,6 +242,15 @@ while [[ $# -gt 0 ]]; do
       PROFILE_ALL=true
       shift 
       ;;
+    --replace)
+      REPLACE=true
+      shift 
+      ;;
+    --n-lines)
+      N_LINES="$2"
+      shift
+      shift
+      ;;
     --no-openmp)
       CFLAGS=
       shift 
@@ -337,12 +351,12 @@ if [ "$COMPILE" = true ]; then
   if [ "$CLEAN" = true ]; then
     echo "Start cleaning up struphy..."
     cd .. # change dir not be in source path
-    command make clean -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY 
+    command make clean -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC 
     exit 0
   else
     echo "Start compiling struphy..."
     cd .. # change dir not be in source path
-    command make -f $STRUPHY/compile_struphy.mk flag_path=$STRUPHY flags_openmp_pic=$CFLAGS flags=$FLAGS
+    command make -f $STRUPHY/compile_struphy.mk struphy_path=$STRUPHY psydac_path=$PSYDAC flags_openmp_pic=$CFLAGS flags=$FLAGS
     exit 0
   fi
 
@@ -464,9 +478,11 @@ if [ "$PROFILE" = true ]; then
     # Print parameters
     echo "Executing $STRUPHY/post_processing/profile_struphy.py"
     echo "PROFILE_ALL = $PROFILE_ALL"
+    echo "REPLACE = $REPLACE"
+    echo "N_LINES = $N_LINES"
     echo "folders  = ${folders[*]}"
 
-    $PYTHON $STRUPHY/post_processing/profile_struphy.py $PROFILE_ALL ${folders[@]}
+    $PYTHON $STRUPHY/post_processing/profile_struphy.py $PROFILE_ALL $REPLACE $N_LINES ${folders[@]}
 
   fi
 

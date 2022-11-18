@@ -748,29 +748,32 @@ class Vlasov( StruphyModel ):
 
 
 class DriftKinetic( StruphyModel ):
-    r'''DriftKinetic equation in static background magnetic field. 
+    r'''Drift-kinetic equation in static background magnetic field (guiding-center motion). 
 
     Normalization:
 
     .. math::
 
-        &\hat \omega = \hat v_{th} * \hat k = \hat \Omega_{th} = \epsilon \hat \Omega_c \,,
-        
-        &\hat v = \hat v_{th} = \frac{\hat \Omega_{th}}{\hat k} = \epsilon \frac{\hat \Omega_c}{\hat k} \,.
+        \hat v = v_{\textnormal{th}}\,,\qquad \hat \omega = v_{\textnormal{th}} \hat k = \Omega_{\textnormal{th}} = \varepsilon\, \Omega_\textnormal{c} \,,
 
-    where :math:`\Omega_{c}` is cyclotron frequency and :math:`\epsilon = \frac{\hat \Omega_{th}}{\hat \Omega_c} = \hat k \rho_L \ll 1` is a drift time scale. Implemented equations:
+    where :math:`v_{\textnormal{th}} = \sqrt{k_\textnormal{B} T/m}` denotes the thermal velocity, :math:`\Omega_{c}` is the cyclotron frequency and 
+    
+    .. math::
+    
+        \varepsilon := \frac{\Omega_{\textnormal{th}}}{\Omega_\textnormal{c}} = \hat k \rho_\textnormal{L} \ll 1\,, 
+
+    must be small for the model's validity; :math:`\rho_\textnormal{L} = v_\textnormal{th}/\Omega_\textnormal{c}` stands for the Larmor radius.
+    Implemented equations:
     
     .. math::
 
-        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \epsilon \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{x}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \varepsilon \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[ \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
 
     where :math:`f(\mathbf{X}, v_\parallel, t)` is the guiding center distribution and 
 
     .. math::
 
-        &\mathbf{E}^* = - \mu \nabla |B_0| \,,  
-        
-        &\mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0  \,.
+        \mathbf{E}^* = - \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \varepsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
     
     Parameters
     ----------

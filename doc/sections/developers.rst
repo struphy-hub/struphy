@@ -300,7 +300,7 @@ Names should start with ``Step``.
 
 The one propagator used in the model ``Maxwell`` is called ``StepMaxwell``:
 
-.. literalinclude:: ../../struphy/propagators/propagators.py
+.. literalinclude:: ../../struphy/propagators/propagators_fields.py
     :language: python
     :linenos: 
     :lineno-start: 23

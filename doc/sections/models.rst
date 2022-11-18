@@ -56,7 +56,7 @@ Toy models
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities
 
-.. autoclass:: struphy.models.models.Driftkinetic
+.. autoclass:: struphy.models.models.DriftKinetic
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities

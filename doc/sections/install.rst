@@ -47,13 +47,17 @@ If you are uncomfortable with running `sudo`, you can `run docker in "rootless" 
 
     docker login gitlab-registry.mpcdf.mpg.de -u struphy_group_api -p glpat-JW4kjd_YMvRinSzKxSxs
 
-3. Run the latest release of struphy in a container (about 2 GB in size)::
+3. Pull the latest release of struphy (about 2 GB in size)::
 
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/release:latest
+
+4. Run the latest release of struphy in a container::
+
+    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/release:latest
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal. Test the container by typing ``struphy``,
 which should display the struphy help. ``struphy compile`` will show that all kernels are already compiled. 
-Type ``exit`` to exit and close the container.
+``struphy -p`` gives you the installation paths. Type ``exit`` to exit and close the container.
 
 
 Important docker commands
@@ -78,21 +82,24 @@ Docker for devs
 
 Docker is well-suited for developers on any kind of platform. 
 After installing and launching docker desktop (1. from above) and logging in to the registry (2. from above),
-the relevant docker image to run is ``gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20``.
-It initializes the recommended dev environment for struphy (``Ubuntu 20.04``) 
+the relevant docker image to pull is:: 
+    
+    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
+
+It contains the recommended dev environment for struphy (``Ubuntu 20.04``) 
 with all dependencies installed and compiled. 
 
 In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
 
-    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20
+    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu20:latest
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
 You can now install struphy in developer mode::
 
-    git clone git@gitlab.mpcdf.mpg.de:struphy/struphy.git
-    cd struphy
+    git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
+    cd <name>
     pip install -e .
     struphy
 
@@ -135,7 +142,13 @@ Two dependencies have to be installed "by hand":
     curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab.mpcdf.mpg.de/api/v4/projects/5368/jobs/1679220/artifacts/dist/gvec_to_python-0.1.2-py3-none-any.whl"
     pip install gvec_to_python-0.1.2-py3-none-any.whl
 
-2. Install ``psydac`` by following :ref:`install_psydac`. 
+2. Install ``psydac`` package::
+
+    git clone https://github.com/pyccel/psydac.git
+    cd psydac
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
+    pip install .
 
 3. Install ``struphy``::
 
@@ -167,14 +180,20 @@ and name the repo ``<name>`` via::
     git clone --recurse-submodules git@gitlab.mpcdf.mpg.de:struphy/struphy.git <name>
     cd <name>
 
-2. Install the submodule in ``<name>/gvec_to_python`` according to::
+2. Install the submodule in ``<name>/gvec_to_python``::
 
     cd gvec_to_python
     python3 -m pip install . -r requirements.txt
     pip install sympy==1.6.1 
     cd ..
 
-3. Install the submodule in ``<name>/psydac`` according to :ref:`install_psydac`.
+3. Install the submodule in ``<name>/psydac``::
+
+    cd psydac
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install -r requirements_extra.txt --no-build-isolation
+    pip install .
+    cd ..
 
 4. Install ``struphy`` via::
 
@@ -190,57 +209,33 @@ where ``<option>`` is either empty (for Python environment installation), ``--us
 MPCDF computing clusters
 ------------------------
 
-Specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_::
+Some specifics for the HPC systems ``cobra`` and ``draco`` at `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
+
+1. Load necessary modules::
 
     module purge
-    module load gcc openmpi anaconda/3/2020.02 mpi4py
+    module load gcc/9 openmpi anaconda/3/2021.11 mpi4py
     module list
 
-Continue with one of the three install methods from above.
+2. Create a Python virtual environment::
 
-Extend the ``PYTHONPATH``::
+    pip install -U virtualenv
+    python3 -m venv <some_name>
+    source <some_name>/bin/activate
+    python3 -m pip install --upgrade pip
 
-    export PYTHONPATH="${PYTHONPATH}:$(python3 -m site --user-site)" 
+3. Continue with one of the three install methods from above.
 
-In order to suppress fork warnings in the slurm output::
+4. Test your installation with a debug run using up to 8 mpi processes (only on nodes ``cobra03-cobra06``)::
+
+    struphy run Maxwell --mpi 8 --debug
+
+5. When using slurm, include the following lines in your BATCH script::
+
+    source <some_name>/bin/activate
 
     OMPI_MCA_mpi_warn_on_fork=0
-    export OMPI_MCA_mpi_warn_on_fork 
-
-
-.. _install_psydac:
-
-Psydac installation instructions
---------------------------------
-
-In the psydac repository type::
-
-    git checkout struphy-branch
-    python3 -m pip install -r requirements.txt
-    python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    pip install .
-
-Find out where psydac is installed::
-
-    pip show psydac
-
-which yields something like::
-
-    Name: psydac
-    Version: 0.1
-    Summary: Python package for BSplines/NURBS
-    Home-page: http://www.ahmed.ratnani.org
-    Author: Ahmed Ratnani, Jalal Lakhlili, Yaman Güçlü, Said Hadjout
-    Author-email: ratnaniahmed@gmail.com
-    License: LICENSE.txt
-    Location: $HOME/git_repos/struphy/env/lib/python3.8/site-packages
-    Requires: gelato, pyyaml, tblib, sympy, sympde, igakit, pytest, numpy, pyevtk, scipy, pyccel, packaging, matplotlib, numba, h5py, mpi4py
-    Required-by:
-
-The ``<path>`` under ``Location:`` is what we are looking for. Compile psydac kernels via::
-
-    pyccel <path>/psydac/core/kernels.py
-    pyccel <path>/psydac/core/bsplines_pyccel.py
+    export OMPI_MCA_mpi_warn_on_fork  
 
 
 .. _multipass:

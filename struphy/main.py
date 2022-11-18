@@ -20,7 +20,6 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-
 # get arguments
 model_name = sys.argv[1]
 file_in = sys.argv[2]
@@ -68,6 +67,8 @@ if rank == 0:
     print(f'bc         : {model.derham.bc}')
     print(f'quad_order : {model.derham.quad_order}')
     print(f'nq_pr      : {model.derham.nq_pr}\n')
+    print('MPI indices for N-splines on rank 0:')
+    print(model.derham.index_array_N[0])
     print()
 
 # set initial condition
@@ -80,8 +81,12 @@ data = DataContainer(path_out, comm=comm)
 for key, val in model.scalar_quantities.items():
     key_scalar = 'scalar/' + key
     data.add_data({key_scalar : val})
-    
-data.file['scalar'].attrs['grid_info'] = model.derham.domain_array
+
+# store grid_info only for runs with 512 ranks or smaller
+if comm.Get_size() <= 512:
+    data.file['scalar'].attrs['grid_info'] = model.derham.domain_array
+else:
+    data.file['scalar'].attrs['grid_info'] = model.derham.domain_array[0]
 
 # save fields in group 'fields/'
 for field in model.fields:
