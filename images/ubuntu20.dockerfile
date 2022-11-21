@@ -20,6 +20,7 @@ RUN curl -O --header "PRIVATE-TOKEN: glpat-5QH11Kx-65GGiykzR5xo" "https://gitlab
 RUN git clone https://github.com/pyccel/psydac.git \
     && cd psydac \
     && git checkout struphy-branch \
+    && git pull \
     && python3 -m pip install -r requirements.txt \
     && python3 -m pip install -r requirements_extra.txt --no-build-isolation \
     && pip install . \
@@ -28,6 +29,7 @@ RUN git clone https://github.com/pyccel/psydac.git \
 
 # compile psydac kernels 
 RUN PSYDAC=$(python3 -c "import psydac as _; print(_.__path__[0])") \
+    && pip install -U pyccel \
     && pyccel $PSYDAC/core/kernels.py \
     && pyccel $PSYDAC/core/bsplines_pyccel.py 
 

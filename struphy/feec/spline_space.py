@@ -28,7 +28,7 @@ import struphy.feec.projectors.pro_global.projectors_global as pro
 
 import struphy.feec.derivatives.derivatives as der
 
-import struphy.geometry.polar_splines as pol
+import struphy.polar.extraction_operators as pol
 
 
 # =============== 1d B-spline space ======================
@@ -510,10 +510,6 @@ class Tensor_spline_space:
             
                 assert basis_tor == 'r' or basis_tor == 'i'
                 self.basis_tor = basis_tor
-                
-        # make sure that space in third direction is periodic!
-        else:
-            assert spline_spaces[2].spl_kind
         
         # C^k smoothness constraint at eta_1 = 0 
         assert ck == -1 or ck == 0 or ck == 1 
@@ -733,33 +729,60 @@ class Tensor_spline_space:
             self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
             
 
-        # extraction operators for 3D diagram (3rd dimension MUST be periodic): without boundary conditions
-        self.E0 =            self.E0_pol.copy()
-        self.E1 = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-        self.E2 = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-        self.E3 =            self.E3_pol.copy()
-        self.Ev = spa.bmat([[self.Ev_pol, None], [None, self.E0_pol]], format='csr')
+        # extraction operators for 3D diagram: without boundary conditions
+        if self.dim == 2:
         
-        self.E0 = spa.kron(self.E0, spa.identity(self.NbaseN[2]), format='csr')
-        self.E1 = spa.kron(self.E1, spa.identity(self.NbaseN[2]), format='csr')
-        self.E2 = spa.kron(self.E2, spa.identity(self.NbaseN[2]), format='csr')
-        self.E3 = spa.kron(self.E3, spa.identity(self.NbaseN[2]), format='csr')
-        self.Ev = spa.kron(self.Ev, spa.identity(self.NbaseN[2]), format='csr')
+            self.E0 =            self.E0_pol.copy()
+            self.E1 = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
+            self.E2 = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
+            self.E3 =            self.E3_pol.copy()
+            self.Ev = spa.bmat([[self.Ev_pol, None], [None, self.E0_pol]], format='csr')
+
+            self.E0 = spa.kron(self.E0, spa.identity(self.NbaseN[2]), format='csr')
+            self.E1 = spa.kron(self.E1, spa.identity(self.NbaseN[2]), format='csr')
+            self.E2 = spa.kron(self.E2, spa.identity(self.NbaseN[2]), format='csr')
+            self.E3 = spa.kron(self.E3, spa.identity(self.NbaseN[2]), format='csr')
+            self.Ev = spa.kron(self.Ev, spa.identity(self.NbaseN[2]), format='csr')
+            
+        else:
+            
+            self.E0 = spa.kron(self.E0_pol, self.spaces[2].E0, format='csr')
+            self.E1 = spa.bmat([[spa.kron(self.E1_pol, self.spaces[2].E0), None], 
+                                [None, spa.kron(self.E0_pol, self.spaces[2].E1)]], format='csr')
+            self.E2 = spa.bmat([[spa.kron(self.E2_pol, self.spaces[2].E1), None], 
+                                [None, spa.kron(self.E3_pol, self.spaces[2].E0)]], format='csr')
+            self.E3 = spa.kron(self.E3_pol, self.spaces[2].E1, format='csr')
+            self.Ev = spa.bmat([[spa.kron(self.Ev_pol, self.spaces[2].E0), None], 
+                                [None, spa.kron(self.E0_pol, self.spaces[2].E0)]], format='csr')
+            
         
-        # boundary operators for 3D diagram (3rd dimension MUST be periodic)
-        self.B0 =            self.B0_pol.copy()
-        self.B1 = spa.bmat([[self.B1_pol, None], [None, self.B0_pol]], format='csr')
-        self.B2 = spa.bmat([[self.B2_pol, None], [None, self.B3_pol]], format='csr')
-        self.B3 =            self.B3_pol.copy()
-        self.Bv = spa.bmat([[self.Bv_pol, None], [None,         Bv3]], format='csr')
+        # boundary operators for 3D diagram
+        if self.dim == 2:
         
-        self.B0 = spa.kron(self.B0, spa.identity(self.NbaseN[2]), format='csr')
-        self.B1 = spa.kron(self.B1, spa.identity(self.NbaseN[2]), format='csr')
-        self.B2 = spa.kron(self.B2, spa.identity(self.NbaseN[2]), format='csr')
-        self.B3 = spa.kron(self.B3, spa.identity(self.NbaseN[2]), format='csr')
-        self.Bv = spa.kron(self.Bv, spa.identity(self.NbaseN[2]), format='csr')
+            self.B0 =            self.B0_pol.copy()
+            self.B1 = spa.bmat([[self.B1_pol, None], [None, self.B0_pol]], format='csr')
+            self.B2 = spa.bmat([[self.B2_pol, None], [None, self.B3_pol]], format='csr')
+            self.B3 =            self.B3_pol.copy()
+            self.Bv = spa.bmat([[self.Bv_pol, None], [None,         Bv3]], format='csr')
+
+            self.B0 = spa.kron(self.B0, spa.identity(self.NbaseN[2]), format='csr')
+            self.B1 = spa.kron(self.B1, spa.identity(self.NbaseN[2]), format='csr')
+            self.B2 = spa.kron(self.B2, spa.identity(self.NbaseN[2]), format='csr')
+            self.B3 = spa.kron(self.B3, spa.identity(self.NbaseN[2]), format='csr')
+            self.Bv = spa.kron(self.Bv, spa.identity(self.NbaseN[2]), format='csr')
+            
+        else:
+            
+            self.B0 = spa.kron(self.B0_pol, self.spaces[2].B0, format='csr')
+            self.B1 = spa.bmat([[spa.kron(self.B1_pol, self.spaces[2].B0), None], 
+                                [None, spa.kron(self.B0_pol, self.spaces[2].B1)]], format='csr')
+            self.B2 = spa.bmat([[spa.kron(self.B2_pol, self.spaces[2].B1), None], 
+                                [None, spa.kron(self.B3_pol, self.spaces[2].B0)]], format='csr')
+            self.B3 = spa.kron(self.B3_pol, self.spaces[2].B1, format='csr')
+            self.Bv = spa.bmat([[spa.kron(self.Bv_pol, self.spaces[2].E0), None], 
+                                [None, spa.kron(Bv3, self.spaces[2].B0)]], format='csr')
         
-        # extraction operators for 3D diagram: (3rd dimension MUST be periodic) with boundary conditions
+        # extraction operators for 3D diagram: with boundary conditions
         self.E0_0 = self.B0.dot(self.E0).tocsr()
         self.E1_0 = self.B1.dot(self.E1).tocsr()
         self.E2_0 = self.B2.dot(self.E2).tocsr()

@@ -12,26 +12,26 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     space : struphy object
         2d finite element B-spline space.
         
-    domain : struphy object
-        the domain in which the eigenvalue problem has been solved.
+    domain : struphy.geometry.base.Domain
+        The domain in which the eigenvalue problem has been solved.
         
-    omega2 : 1d array
-        eigenfrequencies obtained from eigenvalue solver.
+    omega2 : array-like
+        Eigenfrequencies obtained from eigenvalue solver.
         
-    U_eig : 2d array
-        eigenvectors obtained from eigenvalue solver.
+    U_eig : array-like
+        Eigenvectors obtained from eigenvalue solver.
         
     m_range : list
-        the range of poloidal mode numbers that shall be identified.
+        Range of poloidal mode numbers that shall be identified.
         
     omega_A : float 
-        Alfvén frequency B0/R0.
+        On-axis Alfvén frequency B0/R0.
     
     div_tol : float
-        threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode.
+        Threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode.
         
     comp_sound : int
-        the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : third component).
+        The component that is used for the slow sound mode analysis (2 : 2nd component or 3 : third component).
         
     Returns
     -------
@@ -42,11 +42,11 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             the radial location s_spec[m][0], squared eigenfrequencis s_spec[m][1] and global mode index s_spec[m][2] corresponding to slow sound modes for each poloidal mode number m in m_range.
     """
     
-    # greville points in radial direction
+    # greville points in radial direction (s)
     gN_1 = bsp.greville(space.T[0], space.p[0]    , space.spl_kind[0])
     gD_1 = bsp.greville(space.t[0], space.p[0] - 1, space.spl_kind[0])
     
-    # greville points in angular direction
+    # greville points in angular direction (chi)
     gN_2 = bsp.greville(space.T[1], space.p[1]    , space.spl_kind[1])
     gD_2 = bsp.greville(space.t[1], space.p[1] - 1, space.spl_kind[1])
     
@@ -90,14 +90,14 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
                 U2_1_coeff = (U2_1_coeff[:, :, 0] - 1j*U2_1_coeff[:, :, 1])/2
         
             # determine radial location of singularity by looking for a peak in eigenfunction U2_1
-            r_ind = np.unravel_index(np.argmax(abs(U2_1_coeff)), U2_1_coeff.shape)[0]
-            r = gN_1[r_ind]
+            s_ind = np.unravel_index(np.argmax(abs(U2_1_coeff)), U2_1_coeff.shape)[0]
+            s = gN_1[s_ind]
             
             # perform fft to determine m
             U2_1_fft = np.fft.fft(U2_1_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_1_fft[r_ind]))
+            m = np.argmax(abs(U2_1_fft[s_ind]))
             
             # perform shift for negative m
             if m >= (space.Nel[1] + 1)//2:
@@ -106,7 +106,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):
                 if ms[j] == m:
-                    a_spec[j][0].append(r)
+                    a_spec[j][0].append(s)
                     a_spec[j][1].append(np.real(omega2[modes_ind[i]]))
                     a_spec[j][2].append(modes_ind[i])
         
@@ -122,14 +122,14 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
                 U2_coeff = (U2_coeff[:, :, 0] - 1j*U2_coeff[:, :, 1])/2
             
             # determine radial location of singularity by looking for a peak in eigenfunction (U2_2 or U2_3)
-            r_ind = np.unravel_index(np.argmax(abs(U2_coeff)), U2_coeff.shape)[0]
-            r = gD_1[r_ind]
+            s_ind = np.unravel_index(np.argmax(abs(U2_coeff)), U2_coeff.shape)[0]
+            s = gD_1[s_ind]
             
             # perform fft to determine m
             U2_fft = np.fft.fft(U2_coeff)
             
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = np.argmax(abs(U2_fft[r_ind]))
+            m = np.argmax(abs(U2_fft[s_ind]))
             
             # perform shift for negative m
             if m >= (space.Nel[1] + 1)//2:
@@ -138,7 +138,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             # add to spectrum if found m is inside m_range
             for j in range(ms.size):
                 if ms[j] == m:
-                    s_spec[j][0].append(r)
+                    s_spec[j][0].append(s)
                     s_spec[j][1].append(np.real(omega2[modes_ind[i]]))
                     s_spec[j][2].append(modes_ind[i])
                  
@@ -149,3 +149,151 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
         s_spec[j] = np.array(s_spec[j])
     
     return a_spec, s_spec
+
+
+# command line interface
+if __name__ == '__main__':
+    
+    import sys, os, yaml, shutil, glob
+    import argparse
+    
+    # parse arguments
+    parser = argparse.ArgumentParser(description='Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate).')
+    
+    parser.add_argument('path', type=str, help='the path/folder (relative to the working directory) containing the parameter .yml file and a single .npy eigenspectrum')
+    parser.add_argument('m_l_alfvén', type=int, help='the lower bound of poloidal mode numbers that shall be identified for Alfvénic modes')
+    parser.add_argument('m_u_alfvén', type=int, help='the upper bound of poloidal mode numbers that shall be identified for Alfvénic modes')
+    parser.add_argument('m_l_sound', type=int, help='the lower bound of poloidal mode numbers that shall be identified for slow sound modes')
+    parser.add_argument('m_u_sound', type=int, help='the upper bound of poloidal mode numbers that shall be identified for slow sound modes')
+    parser.add_argument('div_tol', type=float, help='threshold for the maximum divergence of an eigenmode below which it is considered to be an Alfvénic mode (typically < 0.1)')
+    parser.add_argument('comp_sound', type=int, help='the component that is used for the slow sound mode analysis (2 : 2nd component or 3 : 3rd component)')
+
+    args = parser.parse_args()
+    args_dict = vars(args)
+    
+    # ansolute path to yaml file and eigenspectrum
+    inp_path = os.path.abspath(os.getcwd()) + '/' +  args_dict['path']
+    
+    # read in parameters file
+    with open(inp_path + 'parameters.yml') as file:
+        params = yaml.load(file, Loader=yaml.FullLoader)
+       
+    # create domain (mapping from logical unit cube to physical domain)
+    from struphy.geometry import domains
+    
+    dom_type = params['geometry']['type']
+    dom_params = params['geometry'][dom_type]
+
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(dom_params)
+    
+    # load appropriate MHD equilibrium
+    from struphy.fields_background.mhd_equil import analytical
+    
+    equil_params = params['fields']['mhd_equilibrium']
+    params_mhd = equil_params[equil_params['type']]
+    
+    mhd_equil_class = getattr(analytical, equil_params['type'])
+    mhd_equil = mhd_equil_class(params_mhd, domain)
+    
+    # set up spline spaces
+    from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
+    
+    spec_path = glob.glob(inp_path + '*.npy')[0]
+    n_tor = int(spec_path[-13:-11])
+    polar_ck = int(spec_path[-6:-4])
+    
+    print(n_tor, polar_ck)
+    
+    Nel = params['grid']['Nel']
+    p = params['grid']['p']
+    spl_kind = params['grid']['spl_kind']
+    nq_el = params['grid']['nq_el']
+    bc = params['grid']['bc']
+    
+    fem_1d_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], bc[0])
+    fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], bc[1])
+
+    fem_2d = Tensor_spline_space([fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor='i')
+    
+    # load and analyze spectrum
+    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=1)
+    omega2 = omega2.flatten()
+    
+    m_range_alfven = [args_dict['m_l_alfvén'], args_dict['m_u_alfvén']]
+    m_range_sound = [args_dict['m_l_sound'], args_dict['m_u_sound']]
+    
+    omegaA = params_mhd['B0']/params_mhd['R0']
+    A, S = get_mhd_continua_2d(fem_2d, domain, omega2, U2_eig, [min(m_range_alfven[0], m_range_sound[0]), max(m_range_alfven[1], m_range_sound[1])], omegaA, args_dict['div_tol'], args_dict['comp_sound'])
+    
+    # plot results
+    import matplotlib.pyplot as plt
+    
+    fig, ax = plt.subplots(2, 3)
+    fig.set_figheight(12)
+    fig.set_figwidth(14)
+    
+    etaplot = [np.linspace(0., 1., 201), np.linspace(0., 1., 101)]
+
+    xplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'x')
+    yplot = domain.evaluate(etaplot[0], etaplot[1], 0., 'y')
+    
+    # plot equilibrium profiles for (s, chi=0)
+    ax[0, 0].plot(etaplot[0], mhd_equil.b2_3(etaplot[0], 0., 0.)/mhd_equil.b2_2(etaplot[0], 0., 0.))
+    ax[0, 1].plot(etaplot[0], mhd_equil.p(xplot[:, 0], 0., 0.))
+    ax[0, 2].plot(etaplot[0], mhd_equil.n(xplot[:, 0], 0., 0.))
+
+    ax[0, 0].set_xlabel('$s$')
+    ax[0, 1].set_xlabel('$s$')
+    ax[0, 2].set_xlabel('$s$')
+
+    ax[0, 0].set_ylabel('$q$')
+    ax[0, 1].set_ylabel('$p$')
+    ax[0, 2].set_ylabel('$n$')
+
+    ax[0, 0].set_title('Safety factor')
+    ax[0, 1].set_title('Pressure')
+    ax[0, 2].set_title('Number density')
+
+    # plot grid
+    xgrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'x')
+    ygrid = domain.evaluate(fem_2d.el_b[0], fem_2d.el_b[1], 0., 'y')
+
+    for i in range(xgrid.shape[0]):
+        ax[1, 0].plot(xgrid[i, :], ygrid[i, :], 'tab:blue', alpha=0.5)
+
+    for i in range(xgrid.shape[1]):
+        ax[1, 0].plot(xgrid[:, i], ygrid[:, i], 'tab:blue', alpha=0.5)
+
+    ax[1, 0].set_xlabel('x [m]')
+    ax[1, 0].set_ylabel('y [m]')
+    ax[1, 0].set_title(r'Grid : $N_\mathrm{el}=$' + str(fem_2d.Nel[:2]), pad=10)
+
+    # plot shear Alfvén continuum in range omega^2 = [0, omega_A^2]
+    for m in range(m_range_alfven[0], m_range_alfven[1] + 1):  
+        ax[1, 1].plot(A[m][0], A[m][1], '+', label='m = ' + str(m))
+
+    ax[1, 1].set_xlabel('$s$')
+    ax[1, 1].set_ylabel('$\omega^2$')
+    ax[1, 1].set_xlim((0., 1.))
+    ax[1, 1].set_ylim((0., omegaA**2 + 0.02*omegaA**2))
+    ax[1, 1].legend(fontsize=8)
+    ax[1, 1].set_title('Shear Alfvén continuum', pad=10)
+    ax[1, 1].set_xticks([0., 0.5, 1.])
+
+    # plot shear Alfvén continuum in given range % of omega_A
+    for m in range(m_range_sound[0], m_range_sound[1] + 1): 
+        ax[1, 2].plot(S[m][0], S[m][1], '+', label='m = ' + str(m))
+
+    ax[1, 2].set_xlabel('$s$')
+    ax[1, 2].set_ylabel('$\omega^2$')
+    ax[1, 2].set_xlim((0., 1.))
+    ax[1, 2].set_ylim((0., 0.1*omegaA**2))
+    ax[1, 2].legend(fontsize=8)
+    ax[1, 2].set_title('Slow sound continuum', pad=10)
+    ax[1, 2].set_xticks([0., 0.5, 1.])
+    # =========================================================================
+
+    plt.subplots_adjust(wspace=0.4)
+    plt.subplots_adjust(hspace=0.5)
+    plt.show()

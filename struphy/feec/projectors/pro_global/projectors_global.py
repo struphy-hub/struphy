@@ -96,6 +96,10 @@ class Projectors_global_1d:
     Q : sparse csr matrix
         Quadrature matrix that performs quadrature integrations as matrix-vector product
         
+    QG : sparse csr matrix
+        Quadrature matrix that performs quadrature integrations as matrix-vector product,
+        ignoring subs (less accurate integration for even degree)
+        
     N_int : sparse csr matrix
         Collocation matrix for B-splines at interpolation points
         
@@ -244,6 +248,14 @@ class Projectors_global_1d:
                 self.Q[i, self.n_quad*ie:self.n_quad*(ie + 1)] = self.wts[ie]
                 
         self.Q = spa.csr_matrix(self.Q)
+        
+        # quadrature matrix for performing integrations as matrix-vector products, ignoring subs (less accurate integration for even degree)
+        self.QG = np.zeros((spline_space.NbaseD, self.wtsG.shape[0]*self.n_quad), dtype=float)
+        
+        for i in range(spline_space.NbaseD):
+            self.QG[i, self.n_quad*i:self.n_quad*(i + 1)] = self.wtsG[i]
+                
+        self.QG = spa.csr_matrix(self.QG)
 
         # collocation matrices for B-/M-splines at interpolation/quadrature points
         BM_splines = [False, True]
@@ -290,12 +302,15 @@ class Projectors_global_1d:
         return dofs
     
     # degrees of freedom: V_1 --> R^n 
-    def dofs_1(self, fun):
+    def dofs_1(self, fun, with_subs=True):
         """
         Returns the degrees of freedom for functions in V_1: dofs_1[i] = int_(eta_i)^(eta_i + 1) fun(eta) deta.
         """
         
-        dofs = self.Q.dot(fun(self.pts.flatten()))
+        if with_subs:
+            dofs = self.Q.dot(fun(self.pts.flatten()))
+        else:
+            dofs = self.QG.dot(fun(self.ptsG.flatten()))
                 
         return dofs
     
@@ -310,12 +325,12 @@ class Projectors_global_1d:
         return coeffs
     
     # projector pi_1: V_1 --> R^n (callable in V_1 as input)
-    def pi_1(self, fun):
+    def pi_1(self, fun, with_subs=True):
         """
         Returns the solution of the interpolation problem H.coeffs = dofs_1 (spline coefficients).
         """
         
-        coeffs = self.H_LU.solve(self.dofs_1(fun))
+        coeffs = self.H_LU.solve(self.dofs_1(fun, with_subs))
         
         return coeffs
 
@@ -1436,18 +1451,32 @@ class ProjectorsGlobal3D:
         # ---------------------------------------------------------------------------------     
             
 
-        # 3D operators: with boundary dofs (3rd dimension MUST be periodic)
-        self.P0 =            self.P0_pol.copy()
-        self.P1 = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
-        self.P2 = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
-        self.P3 =            self.P3_pol.copy()
+        # 3D operators: with boundary dofs
+        if tensor_space.dim == 2:
         
-        self.P0 = spa.kron(self.P0, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P1 = spa.kron(self.P1, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P2 = spa.kron(self.P2, spa.identity(tensor_space.NbaseN[2]), format='csr')
-        self.P3 = spa.kron(self.P3, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P0 =            self.P0_pol.copy()
+            self.P1 = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format='csr')
+            self.P2 = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format='csr')
+            self.P3 =            self.P3_pol.copy()
+
+            self.P0 = spa.kron(self.P0, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P1 = spa.kron(self.P1, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P2 = spa.kron(self.P2, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            self.P3 = spa.kron(self.P3, spa.identity(tensor_space.NbaseN[2]), format='csr')
+            
+        else:
+            
+            n3 = tensor_space.NbaseN[2]
+            d3 = tensor_space.NbaseD[2]
+            
+            self.P0 = spa.kron(self.P0_pol, spa.identity(n3), format='csr')
+            self.P1 = spa.bmat([[spa.kron(self.P1_pol, spa.identity(n3)), None], 
+                                [None, spa.kron(self.P0_pol, spa.identity(d3))]], format='csr')
+            self.P2 = spa.bmat([[spa.kron(self.P2_pol, spa.identity(d3)), None], 
+                                [None, spa.kron(self.P3_pol, spa.identity(n3))]], format='csr')
+            self.P3 = spa.kron(self.P3_pol, spa.identity(d3), format='csr')
         
-        # 3D operators: without boundary dofs (3rd dimension MUST be periodic)
+        # 3D operators: without boundary dofs
         self.P0_0 = tensor_space.B0.dot(self.P0).tocsr()
         self.P1_0 = tensor_space.B1.dot(self.P1).tocsr()
         self.P2_0 = tensor_space.B2.dot(self.P2).tocsr()
@@ -1519,17 +1548,25 @@ class ProjectorsGlobal3D:
         x_q1 = tensor_space.spaces[0].projectors.pts.flatten()
         x_q2 = tensor_space.spaces[1].projectors.pts.flatten()
         
+        x_q1G = tensor_space.spaces[0].projectors.ptsG.flatten()
+        x_q2G = tensor_space.spaces[1].projectors.ptsG.flatten()
+        
         # get 1D quadrature weight matrices
         self.Q1 = tensor_space.spaces[0].projectors.Q
         self.Q2 = tensor_space.spaces[1].projectors.Q
+        
+        self.Q1G = tensor_space.spaces[0].projectors.QG
+        self.Q2G = tensor_space.spaces[1].projectors.QG
         
         # 1D interpolation/histopolation points and matrices in third direction
         if tensor_space.dim == 3:
             
             x_i3 = tensor_space.spaces[2].projectors.x_int
             x_q3 = tensor_space.spaces[2].projectors.pts.flatten()
+            x_q3G = tensor_space.spaces[2].projectors.ptsG.flatten()
             
             self.Q3 = tensor_space.spaces[2].projectors.Q
+            self.Q3G = tensor_space.spaces[2].projectors.QG
             
             self.I_tor = tensor_space.spaces[2].projectors.I
             self.H_tor = tensor_space.spaces[2].projectors.H
@@ -1546,6 +1583,7 @@ class ProjectorsGlobal3D:
                 
                 x_i3 = np.array([0.])
                 x_q3 = np.array([0.])
+                x_q3G = np.array([0.])
                 
             else:
                 
@@ -1555,19 +1593,23 @@ class ProjectorsGlobal3D:
                         
                         x_i3 = np.array([1., 0.25/tensor_space.n_tor])
                         x_q3 = np.array([1., 0.25/tensor_space.n_tor])
+                        x_q3G = np.array([1., 0.25/tensor_space.n_tor])
                         
                     else:
                         
                         x_i3 = np.array([1., 0.75/(-tensor_space.n_tor)])
                         x_q3 = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        x_q3G = np.array([1., 0.75/(-tensor_space.n_tor)])
                         
                 else:
                     
                     x_i3 = np.array([0.])
                     x_q3 = np.array([0.])
+                    x_q3G = np.array([0.])
             
             
             self.Q3 = spa.identity(tensor_space.NbaseN[2], format='csr')
+            self.Q3G = spa.identity(tensor_space.NbaseN[2], format='csr')
             
             self.I_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
             self.H_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
@@ -1592,10 +1634,23 @@ class ProjectorsGlobal3D:
         
         self.pts_PI_3  = [x_q1, x_q2, x_q3]
         
+        # without subs
+        self.pts_PI_0G  = [x_i1, x_i2, x_i3]
+        
+        self.pts_PI_11G = [x_q1G, x_i2, x_i3]
+        self.pts_PI_12G = [x_i1, x_q2G, x_i3]
+        self.pts_PI_13G = [x_i1, x_i2, x_q3G]
+        
+        self.pts_PI_21G = [x_i1, x_q2G, x_q3G]
+        self.pts_PI_22G = [x_q1G, x_i2, x_q3G]
+        self.pts_PI_23G = [x_q1G, x_q2G, x_i3]
+        
+        self.pts_PI_3G  = [x_q1G, x_q2G, x_q3G]
+        
     
     
     # ========================================    
-    def getpts_for_PI(self, comp):
+    def getpts_for_PI(self, comp, with_subs=True):
         """
         Get the needed point sets for a given projector.
         
@@ -1610,34 +1665,61 @@ class ProjectorsGlobal3D:
             the 1D point sets.
         """
         
-        if   comp == 0:
-            pts_PI = self.pts_PI_0
+        if with_subs:
         
-        elif comp == 11:
-            pts_PI = self.pts_PI_11 
-        elif comp == 12:
-            pts_PI = self.pts_PI_12
-        elif comp == 13:
-            pts_PI = self.pts_PI_13
-            
-        elif comp == 21:
-            pts_PI = self.pts_PI_21 
-        elif comp == 22:
-            pts_PI = self.pts_PI_22
-        elif comp == 23:
-            pts_PI = self.pts_PI_23
-        
-        elif comp == 3:
-            pts_PI = self.pts_PI_3
-            
+            if   comp == 0:
+                pts_PI = self.pts_PI_0
+
+            elif comp == 11:
+                pts_PI = self.pts_PI_11 
+            elif comp == 12:
+                pts_PI = self.pts_PI_12
+            elif comp == 13:
+                pts_PI = self.pts_PI_13
+
+            elif comp == 21:
+                pts_PI = self.pts_PI_21 
+            elif comp == 22:
+                pts_PI = self.pts_PI_22
+            elif comp == 23:
+                pts_PI = self.pts_PI_23
+
+            elif comp == 3:
+                pts_PI = self.pts_PI_3
+
+            else:
+                raise ValueError ("wrong projector specified")
+                
         else:
-            raise ValueError ("wrong projector specified")
+            
+            if   comp == 0:
+                pts_PI = self.pts_PI_0G
+
+            elif comp == 11:
+                pts_PI = self.pts_PI_11G
+            elif comp == 12:
+                pts_PI = self.pts_PI_12G
+            elif comp == 13:
+                pts_PI = self.pts_PI_13G
+
+            elif comp == 21:
+                pts_PI = self.pts_PI_21G 
+            elif comp == 22:
+                pts_PI = self.pts_PI_22G
+            elif comp == 23:
+                pts_PI = self.pts_PI_23G
+
+            elif comp == 3:
+                pts_PI = self.pts_PI_3G
+
+            else:
+                raise ValueError ("wrong projector specified")
 
         return pts_PI
     
     
     # ======================================        
-    def eval_for_PI(self, comp, fun, eval_kind):
+    def eval_for_PI(self, comp, fun, eval_kind, with_subs=True):
         """
         Evaluates the callable "fun" at the points corresponding to the projector, and returns the result as 3d array "mat_f".
             
@@ -1661,7 +1743,7 @@ class ProjectorsGlobal3D:
         assert callable(fun)
         
         # get intepolation and quadrature points
-        pts_PI = self.getpts_for_PI(comp)
+        pts_PI = self.getpts_for_PI(comp, with_subs)
         
         # array of evaluated function
         mat_f = np.empty((pts_PI[0].size, pts_PI[1].size, pts_PI[2].size), dtype=float)
@@ -1917,21 +1999,30 @@ class ProjectorsGlobal3D:
         return dofs
     
     # ======================================        
-    def dofs_1(self, fun, include_bc=True, eval_kind='meshgrid'):
+    def dofs_1(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
         
         # get function values at point sets
-        dofs_1 = self.eval_for_PI(11, fun[0], eval_kind)
-        dofs_2 = self.eval_for_PI(12, fun[1], eval_kind)
-        dofs_3 = self.eval_for_PI(13, fun[2], eval_kind)
+        dofs_1 = self.eval_for_PI(11, fun[0], eval_kind, with_subs)
+        dofs_2 = self.eval_for_PI(12, fun[1], eval_kind, with_subs)
+        dofs_3 = self.eval_for_PI(13, fun[2], eval_kind, with_subs)
         
         # get dofs_1 on tensor-product grid: integrate along 1-direction
-        dofs_1 = kron_matvec_3d([self.Q1, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
+        if with_subs:
+            dofs_1 = kron_matvec_3d([self.Q1, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
+        else:
+            dofs_1 = kron_matvec_3d([self.Q1G, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
 
         # get dofs_2 on tensor-product grid: integrate along 2-direction
-        dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2, spa.identity(dofs_2.shape[2])], dofs_2)
+        if with_subs:
+            dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2, spa.identity(dofs_2.shape[2])], dofs_2)
+        else:
+            dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2G, spa.identity(dofs_2.shape[2])], dofs_2)
         
         # get dofs_3 on tensor-product grid: integrate along 3-direction
-        dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3], dofs_3)
+        if with_subs:
+            dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3], dofs_3)
+        else:
+            dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3G], dofs_3)
         
         # apply extraction operator for dofs
         if include_bc:
@@ -1942,21 +2033,30 @@ class ProjectorsGlobal3D:
         return dofs
     
     # ======================================        
-    def dofs_2(self, fun, include_bc=True, eval_kind='meshgrid'):
+    def dofs_2(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
         
         # get function values at point sets
-        dofs_1 = self.eval_for_PI(21, fun[0], eval_kind)
-        dofs_2 = self.eval_for_PI(22, fun[1], eval_kind)
-        dofs_3 = self.eval_for_PI(23, fun[2], eval_kind)
+        dofs_1 = self.eval_for_PI(21, fun[0], eval_kind, with_subs)
+        dofs_2 = self.eval_for_PI(22, fun[1], eval_kind, with_subs)
+        dofs_3 = self.eval_for_PI(23, fun[2], eval_kind, with_subs)
         
         # get dofs_1 on tensor-product grid: integrate in 2-3-plane
-        dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2, self.Q3], dofs_1)
+        if with_subs:
+            dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2, self.Q3], dofs_1)
+        else:
+            dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2G, self.Q3G], dofs_1)
 
         # get dofs_2 on tensor-product grid: integrate in 1-3-plane
-        dofs_2 = kron_matvec_3d([self.Q1, spa.identity(dofs_2.shape[1]), self.Q3], dofs_2)
+        if with_subs:
+            dofs_2 = kron_matvec_3d([self.Q1, spa.identity(dofs_2.shape[1]), self.Q3], dofs_2)
+        else:
+            dofs_2 = kron_matvec_3d([self.Q1G, spa.identity(dofs_2.shape[1]), self.Q3G], dofs_2)
             
         # get dofs_3 on tensor-product grid: integrate in 1-2-plane
-        dofs_3 = kron_matvec_3d([self.Q1, self.Q2, spa.identity(dofs_3.shape[2])], dofs_3)
+        if with_subs:
+            dofs_3 = kron_matvec_3d([self.Q1, self.Q2, spa.identity(dofs_3.shape[2])], dofs_3)
+        else:
+            dofs_3 = kron_matvec_3d([self.Q1G, self.Q2G, spa.identity(dofs_3.shape[2])], dofs_3)
         
         # apply extraction operator for dofs
         if include_bc:
@@ -1967,13 +2067,16 @@ class ProjectorsGlobal3D:
         return dofs
     
     # ======================================        
-    def dofs_3(self, fun, include_bc=True, eval_kind='meshgrid'):
+    def dofs_3(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
         
         # get function values at point sets
-        dofs = self.eval_for_PI(3, fun, eval_kind)
+        dofs = self.eval_for_PI(3, fun, eval_kind, with_subs)
         
         # get dofs on tensor-product grid: integrate in 1-2-3-cell
-        dofs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], dofs)
+        if with_subs:
+            dofs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], dofs)
+        else:
+            dofs = kron_matvec_3d([self.Q1G, self.Q2G, self.Q3G], dofs)
             
         # apply extraction operator for dofs
         if include_bc:
@@ -1989,16 +2092,16 @@ class ProjectorsGlobal3D:
         return self.solve_V0(self.dofs_0(fun, include_bc, eval_kind), include_bc)
     
     # ======================================        
-    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid'):
-        return self.solve_V1(self.dofs_1(fun, include_bc, eval_kind), include_bc)
+    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+        return self.solve_V1(self.dofs_1(fun, include_bc, eval_kind, with_subs), include_bc)
             
     # ======================================        
-    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid'):
-        return self.solve_V2(self.dofs_2(fun, include_bc, eval_kind), include_bc)
+    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+        return self.solve_V2(self.dofs_2(fun, include_bc, eval_kind, with_subs), include_bc)
     
     # ======================================        
-    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid'):
-        return self.solve_V3(self.dofs_3(fun, include_bc, eval_kind), include_bc)
+    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+        return self.solve_V3(self.dofs_3(fun, include_bc, eval_kind, with_subs), include_bc)
     
     
     # ========================================

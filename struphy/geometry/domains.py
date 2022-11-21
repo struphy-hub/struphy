@@ -1,5 +1,4 @@
 from struphy.geometry.base import Domain, interp_mapping
-from struphy.geometry.angular_coordinates_torus import theta
 
 import numpy as np
 import h5py
@@ -145,8 +144,8 @@ class Colella(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
-                                            'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
-                                            'z': 'Lz*x3'}
+                                           'y': 'Ly*(x2 + alpha*sin(2*pi*x1)*sin(2*pi*x2))',
+                                           'z': 'Lz*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -200,8 +199,8 @@ class Orthogonal(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'Lx*(x1 + alpha*sin(2*pi*x1))',
-                                            'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
-                                            'z': 'Lz*x3'}
+                                           'y': 'Ly*(x2 + alpha*sin(2*pi*x2))',
+                                           'z': 'Lz*x3'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -255,9 +254,72 @@ class HollowTorus(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * cos(2*pi*x3)',
-                                            'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
-                                            'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
+                                           'y': '( a1 + (a2 - a1)*x1)*sin(2*pi*x2)',
+                                           'z': '((a1 + (a2 - a1)*x1)*cos(2*pi*x2) + R0) * sin(2*pi*x3)'}
         self._F_psy = self.PsydacMapping('F', **params)
+
+        self._params_map = np.array(list(params.values()))
+        self._periodic_eta3 = True
+        if self.params_map[0] == 0.:
+            self._pole = True
+        else:
+            self._pole = False
+
+        super().__init__()
+
+    @property
+    def kind_map(self):
+        return self._kind_map
+
+    @property
+    def params_map(self):
+        return self._params_map
+
+    @property
+    def F_psy(self):
+        return self._F_psy
+
+    @property
+    def pole(self):
+        return self._pole
+
+    @property
+    def periodic_eta3(self):
+        return self._periodic_eta3
+    
+    
+class HollowTorusStraightFieldLine(Domain):
+    r'''
+    .. math:: 
+
+        &F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
+        x &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\cos(2\pi\,\eta_3)\,, 
+
+        y &=  \,\,\,\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin\left[\theta(\eta_1,\eta_2)\right]\,, 
+
+        z &= \lbrace\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos\left[\theta(\eta_1,\eta_2)\right]+R_0\rbrace\sin(2\pi\,\eta_3)\,,
+        \end{aligned}\right.
+        
+        &\theta(\eta_1,\eta_2) = 2\arctan\left[\sqrt{\frac{1 + \epsilon(\eta_1)}{1 - \epsilon(\eta_1)}}\,\tan\left(\pi\,\eta_2\right)\right]\,,
+        
+        &\epsilon(\eta_1) = \frac{a_1 + (a_2-a_1)\,\eta_1}{R_0}\,.
+
+    .. image:: ../pics/mappings/xxx.png'''
+
+    def __init__(self, params_map=None):
+
+        self._kind_map = 22
+
+        if params_map is None:
+            params = {'a1': 0.2, 'a2': 1., 'R0': 3.}
+        else:
+            params = params_map
+
+        #self.PsydacMapping._expressions = {'x': '((a1 + (a2 - a1)*x1)*cos(2*arctan(sqrt((1 + (a1 + (a2 - a1)*x1/R0))/(1 - (a1 + (a2 - a1)*x1/R0)))*tan(pi*x2))) + R0) * cos(2*pi*x3)',
+        #                                   'y': '( a1 + (a2 - a1)*x1)*sin(2*arctan(sqrt((1 + (a1 + (a2 - a1)*x1/R0))/(1 - (a1 + (a2 - a1)*x1/R0)))*tan(pi*x2)))',
+        #                                   'z': '((a1 + (a2 - a1)*x1)*cos(2*arctan(sqrt((1 + (a1 + (a2 - a1)*x1/R0))/(1 - (a1 + (a2 - a1)*x1/R0)))*tan(pi*x2))) + R0) * sin(2*pi*x3)'}
+        #
+        #self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
         self._periodic_eta3 = True
@@ -314,8 +376,8 @@ class EllipticCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2)',
-                                            'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -370,8 +432,8 @@ class RotatedEllipticCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + (x1*r1) * cos(2*pi*th) * cos(2*pi*x2) - (x1*r2) * sin(2*pi*th) * sin(2*pi*x2)',
-                                            'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + (x1*r1) * sin(2*pi*th) * cos(2*pi*x2) + (x1*r2) * cos(2*pi*th) * sin(2*pi*x2)',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -426,8 +488,8 @@ class PoweredEllipticCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + (x1**s) * rx * cos(2*pi*x2)',
-                                            'y': 'y0 + (x1**s) * ry * sin(2*pi*x2)',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + (x1**s) * ry * sin(2*pi*x2)',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -481,8 +543,8 @@ class ShafranovShiftCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-x1**2) * rx * delta',
-                                            'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -537,8 +599,8 @@ class ShafranovSqrtCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + (x1*rx) * cos(2*pi*x2) + (1-sqrt(x1)) * rx * delta',
-                                            'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + (x1*ry) * sin(2*pi*x2)',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -593,8 +655,8 @@ class ShafranovDshapedCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + R0 * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
-                                            'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + R0 * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -649,8 +711,8 @@ class ShafranovNonAxisSymmCylinder(Domain):
             params = params_map
 
         self.PsydacMapping._expressions = {'x': 'x0 + R0 * (1 + xi * cos(2*pi*x3)) * ( 1 + (1 - x1**2) * delta_x + x1 * epsilon_gs * cos(2*pi*x2 + asin(delta_gs)*x1*sin(2*pi*x2)) )',
-                                            'y': 'y0 + R0 * (1 - xi * cos(2*pi*x3)) * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
-                                            'z': 'z0 + (x3*Lz)'}
+                                           'y': 'y0 + R0 * (1 - xi * cos(2*pi*x3)) * (     (1 - x1**2) * delta_y + x1 * epsilon_gs * kappa_gs * sin(2*pi*x2) )',
+                                           'z': 'z0 + (x3*Lz)'}
         self._F_psy = self.PsydacMapping('F', **params)
 
         self._params_map = np.array(list(params.values()))
@@ -986,10 +1048,21 @@ class PoloidalSplineTorus(Domain):
 
         self._periodic_eta3 = True
 
-        def R(s, chi): return self._params_map['a']*s*np.cos(theta(
-            s, chi, self._params_map['a'], self._params_map['R0'], self._params_map['coordinates'])) + self._params_map['R0']
-        def Y(s, chi): return self._params_map['a']*s*np.sin(theta(
-            s, chi, self._params_map['a'], self._params_map['R0'], self._params_map['coordinates']))
+        if self._params_map['coordinates'] == 'straight':
+            
+            def theta(s, chi):
+                return 2*np.arctan(np.sqrt((1 + self._params_map['a']*s/self._params_map['R0'])/(1 - self._params_map['a']*s/self._params_map['R0'])) * np.tan(np.pi*chi))
+            
+        elif self._params_map['coordinates'] == 'equal_arc':
+            
+            def theta(s, chi):
+                return 2*np.pi*chi
+            
+        else:
+            raise NotImplementedError('Given coordinates are not implemented!')
+        
+        def R(s, chi): return self._params_map['a']*s*np.cos(theta(s, chi)) + self._params_map['R0']
+        def Y(s, chi): return self._params_map['a']*s*np.sin(theta(s, chi))
 
         self._cx, self._cy = interp_mapping(
             self._params_map['Nel'], self._params_map['p'], self._params_map['spl_kind'], R, Y)

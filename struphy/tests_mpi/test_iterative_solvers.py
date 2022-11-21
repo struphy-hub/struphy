@@ -18,7 +18,7 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     
     from struphy.psydac_api.psydac_derham import Derham
     from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
     
     from struphy.linear_algebra.iterative_solvers import bicgstab, pbicgstab
@@ -56,11 +56,7 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
     derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm)
     
     # mass object
-    mass_mats = WeightedMass(derham, domain, eq_mhd=eq_mhd)
-    
-    # assemble mass matrices
-    mass_mats.assemble_M0()
-    mass_mats.assemble_M1()
+    mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
     # assemble preconditioners
     pc0 = MassMatrixPreconditioner(derham, 'V0', mass_mats._fun_M0)

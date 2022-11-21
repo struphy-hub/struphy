@@ -1,26 +1,47 @@
 import sys
 import pickle
 import yaml
-from struphy.post_processing import Cprofile_analyser
+import numpy as np
+from matplotlib import pyplot as plt
+from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
+print(sys.argv)
 
+# check --all option
 if sys.argv[1] == 'true':
     list_of_funcs = None
 else:
-    list_of_funcs = ['assemble_', 'propagator', 'accumulate', '_fill', 'pusher', 'update_ghost_regions', 'schur', 'pcg', 'bicgstab', 'pbicgstab']
+    list_of_funcs = ['assemble_', 
+                     'propagator', 
+                     'accumulate', 
+                     '_fill', 
+                     'pusher', 
+                     'update_ghost_regions', 
+                     'solver', 
+                     'class ',
+                     'stencil',
+                     'block',
+                     'integrate_in_time']
     print('\nKeyword search enabled:')
     print(list_of_funcs)
 
-dicts = []
+# replace propagator keys or not
+do_replace_keys = sys.argv[2] == 'true'
+
+# plot n_lines most time consuming calls in profiling analysis
+n_lines = int(sys.argv[3])
+
+# load data
+dicts_pre = []
 nproc = []
 Nel = []
-for path in sys.argv[2:]:
+for path in sys.argv[4:]:
 
     print('')
-    Cprofile_analyser.get_cprofile_data(path)
+    get_cprofile_data(path)
     
     with open(path + 'profile_dict.sav', 'rb') as f:
-        dicts += [pickle.load(f)]
+        dicts_pre += [pickle.load(f)]
 
     with open(path + 'meta.txt', 'r') as f:
         lines = f.readlines()
@@ -32,23 +53,72 @@ for path in sys.argv[2:]:
 
     Nel += [params['grid']['Nel']]
 
-# loop over keys (should be same in each dict)
-count = 0
-for key in dicts[0].keys():
+# Nicer key names for output:
+dicts = []
+for d in dicts_pre:
 
-    count += 1
+    tmp = {}
+    for key, val in d.items():
+        tmp[key] = float(val['cumtime'])
+
+    if do_replace_keys:
+        tmp2 = replace_keys(tmp)
+    else:
+        tmp2 = tmp
+
+    dicts += [tmp2]
+
+# loop over keys (should be same in each dict)
+d_saved = {}
+for count, key in enumerate(dicts[0].keys()):
 
     if list_of_funcs == None:
 
-        for dict, path, n, dim in zip(dicts, sys.argv[1:], nproc, Nel):
-            print(f'# processes: {n:4d}, count: {count:2d}  ', key.ljust(60), dict[key]['cumtime'])
+        for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
+            print(f'# processes: {n:4d}, count: {count:2d}  ', key.ljust(60), dict[key])
         
-        if count == 60: break
+        if count == 60: exit()
 
-    elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key:
+    elif any(func in key for func in list_of_funcs) and 'dependencies_' not in key and '_dot' not in key:
         
+        d_saved[key] = {'mpi_size': [], 'Nel': [], 'time': []}
+
         print('')
-        
-        for dict, path, n, dim in zip(dicts, sys.argv[1:], nproc, Nel):
-            print(f'# processes: {n:4d}, Nel: {dim}  ', key.ljust(60), dict[key]['cumtime'])
-            
+
+        for dict, path, n, dim in zip(dicts, sys.argv[4:], nproc, Nel):
+            d_saved[key]['mpi_size'] += [n]
+            d_saved[key]['Nel'] += [dim]
+            d_saved[key]['time'] += [dict[key]]
+            print(f'# processes: {n:4d}, Nel: {dim}  ', key.ljust(60), dict[key])
+
+# save profiling date in each sim path
+for path in sys.argv[4:]:            
+    with open(path + 'comparison_dict.sav', 'w+b') as f:       
+        pickle.dump(d_saved, f)
+
+# plot results
+fig = plt.figure(figsize=(10, 10))
+for n, (key, val) in enumerate(d_saved.items()):
+    if n < n_lines and '__init__' not in key and 'mass' not in key and 'set_backend' not in key:
+        #print(key, val)
+
+        # strong scaling plot
+        if all([Nel == val['Nel'][0] for Nel in val['Nel']]):
+            plt.loglog(val['mpi_size'], val['time'], label=key)
+            plt.xlabel('mpi_size')
+            plt.ylabel('time [s]')
+            plt.title('Strong scaling for Nel=' + str(val['Nel'][0]) + ' cells')
+            plt.legend(loc='lower left')
+            plt.loglog(val['mpi_size'], val['time'][0]/2**np.arange(len(val['time'])), 'k--', alpha=0.3)
+        # weak scaling plot
+        else:
+            plt.plot(val['mpi_size'], val['time'], label=key)
+            plt.xlabel('mpi_size')
+            plt.ylabel('time [s]')
+            plt.title('Weak scaling for cells/mpi_size=' + str(np.prod(val['Nel'][0])/val['mpi_size'][0]) + '=const.')
+            plt.legend(loc='upper left')
+            #plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+            plt.xscale('log')
+
+plt.show()
+

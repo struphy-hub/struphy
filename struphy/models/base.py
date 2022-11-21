@@ -8,7 +8,7 @@ from struphy.psydac_api.fields import Field
 from struphy.pic import particles
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModel( metaclass=ABCMeta ):
     '''Base class for all Struphy models.
 
     Parameters
@@ -77,7 +77,7 @@ class StruphyModel(metaclass=ABCMeta):
                 self._field_ids += [val]
 
             # kinetic variables
-            elif val in {'Particles6D'}:
+            elif val in {'Particles6D', 'Particles5D'}:
                 self._kinetic_names += [key]
                 self._kinetic_ids += [val]
                 self._kinetic_params += [params['kinetic'][key]]
@@ -115,6 +115,9 @@ class StruphyModel(metaclass=ABCMeta):
             # markers
             if 'n_markers' in k_params['save_data']:
                 n_markers = k_params['save_data']['n_markers']
+                
+                assert n_markers <= species.n_mks
+                
                 if n_markers > 0:
                     self._kinetic_data[-1]['markers'] = np.zeros((n_markers, species.markers.shape[1]), dtype=float)
                 
@@ -294,22 +297,18 @@ class StruphyModel(metaclass=ABCMeta):
         # initialize particles
         if len(self._kinetic_species) > 0:
             
-            for species, params in zip(self._kinetic_species, self._kinetic_params):
-
-                # set specific initial condition for some particles
-                if 'initial' in params['markers']['loading']:
-                    specific_markers = params['markers']['loading']['initial']
-
-                    for i in range(len(specific_markers)):
-                        for j in range(6):
-                            if specific_markers[i][j] is not None:
-                                self._kinetic_species[-1]._markers[i, j] = specific_markers[i][j]
+            for n, (species, params) in enumerate(zip(self._kinetic_species, self._kinetic_params)):
                 
                 # do MPI sort
                 species.mpi_sort_markers(do_test=True)
                 
                 # compute weights
                 species.initialize_weights(params['background'], params['perturbations'])
+
+                # initialize magnetic momentum
+                if self._kinetic_ids[n] == 'Particles5D':
+                    species.initialize_magnetic_moments(self.derham, params, self._field_params['mhd_equilibrium'])
+
                 
         # initialize scalar quantities
         self.update_scalar_quantities(0.)

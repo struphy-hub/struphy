@@ -38,7 +38,7 @@ import struphy.linear_algebra.core as linalg
 #     linalg.matrix_vector(basis, vg, v)
 
 
-@stack_array('df', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
+#@stack_array('df', 'dfinv', 'dfinv_T', 'basis_normal', 'basis_normal_inv', 'norm_df', 'norm_dfinv_T', 'eta', 'eta_old', 'eta_boundary', 'v', 'v_logical', 'v_normal', 't')
 def reflect(markers: 'float[:,:]',
             kind_map: 'int', params_map: 'float[:]',
             p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
@@ -250,7 +250,7 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
         print('ValueError, uniform must be 1 or 0 !')
 
 
-@stack_array('df', 'df_inv', 'Nel', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
+#@stack_array('df', 'df_inv', 'Nel', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3')
 def aux_fun_x_v_stat_e(particle: 'float[:]',
                        pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                        starts1: 'int[:]', starts2: 'int[:]', starts3: 'int[:]',

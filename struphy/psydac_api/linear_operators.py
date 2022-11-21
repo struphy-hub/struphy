@@ -3,9 +3,12 @@ from abc import abstractmethod
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.stencil import StencilVector, StencilMatrix
 from psydac.linalg.block import BlockVector, BlockMatrix
+from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.iterative_solvers import pcg
 
 from struphy.psydac_api.utilities import apply_essential_bc_to_array
+from struphy.polar.basic import PolarVector
+from struphy.linear_algebra.iterative_solvers import pbicgstab
 
 
 class LinOpWithTransp(LinearOperator):
@@ -18,27 +21,28 @@ class LinOpWithTransp(LinearOperator):
 class CompositeLinearOperator(LinOpWithTransp):
     r"""
     Composition of n linear operators: :math:`A(\mathbf v)=L_n(L_{n-1}(...L_2(L_1(\mathbf v))...)`.
+    A 'None' operator is treated as identity.
     
     Parameters
     ----------
-        operators: LinOpWithTransp | StencilMatrix | BlockMatrix
-            The sequence of n linear operators.
+        operators: LinOpWithTransp | StencilMatrix | BlockMatrix | None
+            The sequence of n linear operators (None is treated as identity).
     """
 
     def __init__(self, *operators):
 
-        self._operators = list(operators)[::-1]
+        self._operators = [op for op in list(operators)[::-1] if op is not None]
 
-        assert len(self._operators) > 1
+        if len(self._operators) > 1:
 
-        for op2, op1 in zip(self._operators[1:], self._operators[:-1]):
-            assert isinstance(op1, (LinOpWithTransp, StencilMatrix, BlockMatrix))
-            assert isinstance(op2, (LinOpWithTransp, StencilMatrix, BlockMatrix))
-            assert op2.domain == op1.codomain
+            for op2, op1 in zip(self._operators[1:], self._operators[:-1]):
+                assert isinstance(op1, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
+                assert isinstance(op2, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
+                assert op2.domain == op1.codomain
 
-        self._domain = operators[-1].domain
-        self._codomain = operators[0].codomain
-        self._dtype = operators[-1].dtype
+        self._domain = self._operators[0].domain
+        self._codomain = self._operators[-1].codomain
+        self._dtype = self._operators[-1].dtype
 
     @property
     def domain( self ):
@@ -52,8 +56,12 @@ class CompositeLinearOperator(LinOpWithTransp):
     def dtype( self ):
         return self._dtype
 
+    @property
+    def otype(self):
+        return [type(op) for op in self._operators] 
+
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         tmp = v
@@ -83,7 +91,7 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
     def __init__(self, a, operator):
 
         assert isinstance(a, (int, float, complex))
-        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
+        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
 
         self._a = a
         self._operator = operator
@@ -104,8 +112,12 @@ class ScalarTimesLinearOperator(LinOpWithTransp):
     def dtype( self ):
         return self._dtype
 
+    @property
+    def otype(self):
+        return type(self._operator)
+
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         return self._operator.dot(self._a * v)
@@ -132,8 +144,8 @@ class SumLinearOperator(LinOpWithTransp):
         assert len(self._operators) > 1
 
         for op2, op1 in zip(self._operators[::-1][1:], self._operators[::-1][:-1]):
-            assert isinstance(op1, (LinOpWithTransp, StencilMatrix, BlockMatrix))
-            assert isinstance(op2, (LinOpWithTransp, StencilMatrix, BlockMatrix))
+            assert isinstance(op1, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
+            assert isinstance(op2, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
             assert op2.domain == op1.domain
             assert op2.codomain == op1.codomain
 
@@ -153,8 +165,12 @@ class SumLinearOperator(LinOpWithTransp):
     def dtype( self ):
         return self._dtype
 
+    @property
+    def otype(self):
+        return [type(op) for op in self._operators]
+
     def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         tmp = self._operators[0].codomain.zeros()
@@ -174,38 +190,42 @@ class InverseLinearOperator(LinOpWithTransp):
     
     Parameters
     ----------
-        operator: LinOpWithTransp | StencilMatrix | BlockMatrix
+        operator : LinOpWithTransp | StencilMatrix | BlockMatrix
             Should be symmetric, positive semi-definite.
 
-        pc: NoneType | str | psydac.linalg.basic.LinearSolver | Callable
-            Preconditioner for "operator", it should approximate the inverse of "operator".
-            Can either be:
-            * None, i.e. not pre-conditioning (this calls the standard `cg` method)
-            * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
-            * A LinearSolver object (in which case the out parameter is used)
-            * A callable with two parameters ("operator", r), where r is the residual.
+        pc : NoneType | str | psydac.linalg.basic.LinearSolver | Callable
+             Preconditioner for "operator", it should approximate the inverse of "operator".
+             Can either be:
+             * None, i.e. not pre-conditioning (this calls the standard `cg` method)
+             * The strings 'jacobi' or 'weighted_jacobi'. (rather obsolete, supply a callable instead, if possible)
+             * A LinearSolver object (in which case the out parameter is used)
+             * A callable with two parameters ("operator", r), where r is the residual.
 
         tol : float
             Absolute tolerance for L2-norm of residual r = A*x - b.
 
-        maxiter: int
+        maxiter : int
             Maximum number of iterations.
 
-        verbose : bool
-            If True, L2-norm of residual r is printed at each iteration. 
+        solver_name : str
+            The name of the iterative solver to be used for matrix inversion. Can either be:
+            * pcg (default)
+            * pbicgstab
     """
 
-    def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, verbose=False):
+    def __init__(self, operator, pc=None, tol=1e-6, maxiter=1000, solver_name='pcg'):
 
-        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
+        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
         assert operator.domain.dimension == operator.codomain.dimension
+        assert solver_name in {'pcg', 'pbicgstab'}
 
         self._operator = operator
         self._pc = pc
         self._tol = tol
         self._maxiter = maxiter
-        self._verbose = verbose
-
+        self._solver_name = solver_name
+        
+        self._solver = globals()[solver_name]
         self._domain = operator.domain
         self._codomain = operator.codomain
         self._dtype = operator.dtype
@@ -224,23 +244,30 @@ class InverseLinearOperator(LinOpWithTransp):
         return self._dtype
 
     @property
+    def otype(self):
+        return type(self._operator)
+
+    @property
     def info( self ):
         return self._info
 
-    def dot( self, v , out=None ):
-        assert isinstance(v, (StencilVector, BlockVector))
+    def dot( self, v , out=None, x0=None, verbose=False):
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.codomain
 
-        x, self._info = pcg(self._operator, v, self._pc, tol=self._tol,
-                      maxiter=self._maxiter, verbose=self._verbose)
+        x, self._info = self._solver(self._operator, v, self._pc, x0=x0, tol=self._tol,
+                      maxiter=self._maxiter, verbose=verbose)
 
-        assert isinstance(x, (StencilVector, BlockVector))
+        assert isinstance(x, (StencilVector, BlockVector, PolarVector))
 
         return x
 
-    def transpose(self):
+    def transpose(self, new_pc=None):
         # NOTE: we re-allocate all temporary vectors here... Maybe re-use instead?
-        return InverseLinearOperator(self._operator.transpose(), pc=self._pc, tol=self._tol, maxiter=self._maxiter, verbose=self._verbose)
+        if new_pc is None:
+            return InverseLinearOperator(self._operator.transpose(), pc=self._pc, tol=self._tol, maxiter=self._maxiter, solver_name=self._solver_name)
+        else:
+            return InverseLinearOperator(self._operator.transpose(), pc=new_pc, tol=self._tol, maxiter=self._maxiter, solver_name=self._solver_name)
     
     
 class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
@@ -265,7 +292,7 @@ class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
     def __init__(self, space_id_i, space_id_o, bc, operator):
         
         assert isinstance(bc, list)
-        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix))
+        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
 
         self._space_id_i = space_id_i
         self._space_id_o = space_id_o
@@ -289,15 +316,22 @@ class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
+    @property
+    def otype(self):
+        return type(self._operator)
+
     def dot(self, v, out=None):
-        assert isinstance(v, (StencilVector, BlockVector))
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
 
         # perform matrix-vector product
         tmp = self._operator.dot(v)
         
         # apply boundary conditions to output vector
-        apply_essential_bc_to_array(self._space_id_o, tmp, self._bc)
+        if isinstance(v, PolarVector):
+            apply_essential_bc_to_array(self._space_id_o, tmp.tp, self._bc)
+        else:
+            apply_essential_bc_to_array(self._space_id_o, tmp, self._bc)
         
         return tmp
 
