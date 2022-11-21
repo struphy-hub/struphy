@@ -39,11 +39,11 @@ def get_cprofile_data(path, n_stats=None):
                 if len(li)==0: 
                     search = False            
                     continue
-                #print(name_li[0], li[0])
-                #print(name_li[1], li[1])
-                #print(name_li[2], li[2])
-                #print(name_li[3], li[3])
-                #print(name_li[4], li[4])
+                # print(name_li[0], li[0])
+                # print(name_li[1], li[1])
+                # print(name_li[2], li[2])
+                # print(name_li[3], li[3])
+                # print(name_li[4], li[4])
                 data_cprofile[li[-1]] = {name_li[0]: li[0],
                                          name_li[1]: li[1],
                                          name_li[2]: li[2],
@@ -59,8 +59,6 @@ def get_cprofile_data(path, n_stats=None):
 
     with open(path + 'profile_dict.sav', 'w+b') as f:       
         pickle.dump(data_cprofile, f)
-
-
 
 def compare_cprofile_data(path, list_of_funcs=None):
     '''Print Cprofile data from "profile_dict.sav" to screen (see get_cprofile_data).
@@ -100,4 +98,80 @@ def compare_cprofile_data(path, list_of_funcs=None):
         elif any(func in k for func in list_of_funcs) and 'dependencies_' not in k:
             print(k.ljust(60), v['cumtime'])
 
+def replace_keys(d):
+    '''Replace keys from cprofile data with corresponding class names.
+    
+    Parameters
+    ----------
+        d : dict
+            Dictionary with keys from cprofile_analyser.get_cprofile_data().
 
+        list_of_funcs : list[str]
+            Names for keyword search.
+    '''
+
+    import os
+    import struphy, psydac
+    
+    struphy_path = struphy.__path__[0]
+    psydac_path = psydac.__path__[0]
+
+    key_list = []
+    for key in d.keys():
+        key_list += [key]
+
+    for key in key_list:
+
+        if 'propagators' in key or 'stencil' in key or 'block' in key:
+        
+            p1 = key.find(':')
+            p2 = key.find('(')
+            f_name = key[:p1]
+            l_nr = int(key[p1 + 1:p2])
+            new_routine = key[p2:] 
+
+            #print(key, p1, f_name, l_nr, new_routine)
+
+            found = False
+            for root, dirs, files in os.walk(struphy_path):
+                for name in files:
+                    if name == f_name:
+                        f_path = os.path.abspath(os.path.join(root, name))
+                        #print(f_path)
+
+                        li = []
+                        with open(f_path, "r") as fp:
+                            for n, line in enumerate(fp):
+                                if line[0] == 'c':
+                                    li += [line[:line.find(':')]]
+                                if n == l_nr - 1 and len(li) > 0:
+                                    new_key = li[-1] + new_routine
+                                    found = True
+                                    #print(new_key)
+                                    #print('xxx')
+                                    break 
+
+            if not found:
+                for root, dirs, files in os.walk(psydac_path):
+                    for name in files:
+                        if name == f_name:
+                            f_path = os.path.abspath(os.path.join(root, name))
+                            #print(f_path)
+
+                            li = []
+                            with open(f_path, "r") as fp:
+                                for n, line in enumerate(fp):
+                                    if line[0] == 'c':
+                                        li += [line[:line.find(':')]]
+                                    if n == l_nr - 1 and len(li) > 0:
+                                        new_key = li[-1] + new_routine
+                                        found = True
+                                        #print(new_key)
+                                        #print('xxx')
+                                        break 
+
+            if found:
+                d[new_key] = d.pop(key)
+
+    # sort dictionary by cumulative time
+    return dict(sorted(d.items(), key=lambda item: item[1], reverse=True))

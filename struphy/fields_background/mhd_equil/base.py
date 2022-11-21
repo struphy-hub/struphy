@@ -1,7 +1,8 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
-class EquilibriumMHD(metaclass=ABCMeta):
+
+class EquilibriumMHD( metaclass=ABCMeta ):
     """
     Base class for MHD equilibria in Struphy.
     
@@ -57,7 +58,7 @@ class EquilibriumMHD(metaclass=ABCMeta):
     def b_z(self, x, y, z):
         """ Equilibrium magnetic field (z-component) in physical space.
         """
-        return
+        return 
     
     @abstractmethod
     def b(self, x, y, z):
@@ -103,6 +104,21 @@ class EquilibriumMHD(metaclass=ABCMeta):
         bz = self.b_z(x, y, z)
         
         return np.sqrt(bx**2 + by**2 + bz**2)
+
+    def norm_b_x(self, x, y, z):
+        """ Normalized equilibrium magnetic field (x-component) in physical space.
+        """
+        return self.b_x(x, y, z) / self.b(x, y, z)   
+    
+    def norm_b_y(self, x, y, z):
+        """ Normalized equilibrium magnetic field (y-component) in physical space.
+        """
+        return self.b_y(x, y, z) / self.b(x, y, z)
+ 
+    def norm_b_z(self, x, y, z):
+        """ Normalized equilibrium magnetic field (z-component) in physical space.
+        """
+        return self.b_z(x, y, z) / self.b(x, y, z)
     
     def b0(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ 0-form absolute value of equilibrium magnetic field in logical space.
@@ -145,6 +161,42 @@ class EquilibriumMHD(metaclass=ABCMeta):
         """
         assert hasattr(self, 'domain')
         return self.domain.pull([self.b_x, self.b_y, self.b_z], s, chi, phi, '2_form_3', flat_eval, squeeze_output)
+
+    def norm_b1_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 1-form equilibrium magnetic field (1-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '1_form_1', flat_eval, squeeze_output)
+        
+    def norm_b1_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 1-form equilibrium magnetic field (2-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '1_form_2', flat_eval, squeeze_output)
+
+    def norm_b1_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 1-form equilibrium magnetic field (3-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '1_form_3', flat_eval, squeeze_output)
+    
+    def norm_b2_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 2-form equilibrium magnetic field (1-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '2_form_1', flat_eval, squeeze_output)
+    
+    def norm_b2_2(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 2-form equilibrium magnetic field (2-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '2_form_2', flat_eval, squeeze_output)
+        
+    def norm_b2_3(self, s, chi, phi, flat_eval=False, squeeze_output=True):
+        """ 2-form equilibrium magnetic field (3-component) in logical space.
+        """
+        assert hasattr(self, 'domain')
+        return self.domain.pull([self.norm_b_x, self.norm_b_y, self.norm_b_z], s, chi, phi, '2_form_3', flat_eval, squeeze_output)
 
     def bv_1(self, s, chi, phi, flat_eval=False, squeeze_output=True):
         """ Vector equilibrium magnetic field (1-component) in logical space.

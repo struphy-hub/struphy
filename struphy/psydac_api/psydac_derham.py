@@ -2,12 +2,16 @@
 
 from psydac.api.discretization import discretize
 from psydac.fem.vector import ProductFemSpace
+from psydac.feec.global_projectors import Projector_H1vec
 
 from sympde.topology import Cube
 from sympde.topology import Derham as Derham_psy
 
-from struphy.psydac_api.H1vec_psydac import Projector_H1vec
 from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
+
+from struphy.polar.basic import PolarDerhamSpace
+from struphy.polar.extraction_operators import PolarExtractionBlocksC1
+from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 
 import numpy as np
 
@@ -43,7 +47,7 @@ class Derham:
             MPI communicator.
     """
 
-    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, der_as_mat=True, comm=None):
+    def __init__(self, Nel, p, spl_kind, bc=None, quad_order=None, nq_pr=None, der_as_mat=True, comm=None, polar_ck=-1, domain=None):
  
         # Input parameters:
         assert len(Nel) == 3
@@ -78,12 +82,15 @@ class Derham:
             assert len(nq_pr) == 3
             self._nq_pr = nq_pr
         
-
         assert isinstance(der_as_mat, bool)
         self._der_as_mat= der_as_mat
 
         self._comm = comm
         
+        # set polar splines (currently standard tensor-product (-1) and C^1 polar splines (+1) are supported)
+        assert polar_ck in {-1, 1}
+        
+        self._polar_ck = polar_ck
         
         # Psydac symbolic logical domain
         self._domain_log = Cube('C', bounds1=(
@@ -100,6 +107,8 @@ class Derham:
         # Discrete De Rham
         _derham = discretize(self._derham_symb, self._domain_log_h,
                              degree=self.p, periodic=self.spl_kind, quad_order=self.quad_order)
+        
+        self._forms_dict = {'H1' : '0_form', 'Hcurl' : '1_form', 'Hdiv' : '2_form', 'L2' : '3_form', 'H1vec' : 'vector'}
 
         # Psydac spline spaces
         self._spaces_dict = {'H1' : 'V0', 'Hcurl' : 'V1', 'Hdiv' : 'V2', 'L2' : 'V3', 'H1vec' : 'V0vec'}
@@ -109,8 +118,36 @@ class Derham:
         self._V2 = _derham.V2
         self._V3 = _derham.V3
         
+        # number of basis functions in scalar spaces
+        self._nbasis_v0 = [space.nbasis for space in self._V0.spaces]
+        self._nbasis_v3 = [space.nbasis for space in self._V3.spaces]
+        
+        # number of basis functions in vector-valued spaces
+        self._nbasis_v1 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V1.spaces]
+        self._nbasis_v2 = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V2.spaces]
+        
         # H1xH1xH1=H1vec space (needed in pressure coupling for instance)
         self._V0vec = ProductFemSpace(self._V0, self._V0, self._V0)
+        self._nbasis_v0vec = [[space.nbasis for space in comp_space.spaces] for comp_space in self._V0vec.spaces]
+        
+        # 1d spline types in each direction ('B' or 'M' resp. 0 or 1)
+        self._spline_types = {}
+        self._spline_types_pyccel = {}
+
+        for name in self.spaces_dict.values():
+            _space = getattr(self, name)
+
+            if isinstance(_space, ProductFemSpace):
+                self._spline_types[name] = [[space.basis for space in tensor_femspace.spaces]
+                                    for tensor_femspace in _space._spaces]
+                self._spline_types_pyccel[name] = [
+                    np.array([int(space.basis == 'M') for space in tensor_femspace.spaces]) for tensor_femspace in _space._spaces]
+            else:
+                self._spline_types[name] = [space.basis for space in _space.spaces]
+                self._spline_types_pyccel[name] = np.array([int(space.basis == 'M') for space in _space.spaces])
+
+        # Psydac projectors
+        self._projectors_dict = {'H1' : 'P0', 'Hcurl' : 'P1', 'Hdiv' : 'P2', 'L2' : 'P3', 'H1vec' : 'P0vec'}
         
         self._P0, self._P1, self._P2, self._P3 = _derham.projectors(
             nquads=self.nq_pr)
@@ -140,6 +177,36 @@ class Derham:
         self._domain_array, self._index_array_N, self._index_array_D = self._get_decomp_arrays()
         if comm is not None:
             self._neighbours = self._get_neighbours()
+            
+        # set polar sub-spaces and polar extraction operators
+        if self.polar_ck == -1:
+            
+            self._V0_pol = None
+            self._V1_pol = None
+            self._V2_pol = None
+            self._V3_pol = None
+            self._Vv_pol = None
+            
+            self._E0 = None
+            self._E1 = None
+            self._E2 = None
+            self._E3 = None
+            self._Ev = None
+            
+        else:
+            c1_blocks = PolarExtractionBlocksC1(domain, self)
+            
+            self._V0_pol = PolarDerhamSpace(self, 'H1')
+            self._V1_pol = PolarDerhamSpace(self, 'Hcurl')
+            self._V2_pol = PolarDerhamSpace(self, 'Hdiv')
+            self._V3_pol = PolarDerhamSpace(self, 'L2')
+            self._Vv_pol = PolarDerhamSpace(self, 'H1vec')
+            
+            self._E0 = PolarExtractionOperator(self.V0.vector_space, self.V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
+            self._E1 = PolarExtractionOperator(self.V1.vector_space, self.V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
+            self._E2 = PolarExtractionOperator(self.V2.vector_space, self.V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
+            self._E3 = PolarExtractionOperator(self.V3.vector_space, self.V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
+            # TODO: extraction operator Ev
             
 
     @property
@@ -176,7 +243,7 @@ class Derham:
     def nq_pr(self):
         """ List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction.
         """
-        return self._nq_pr
+        return self._nq_pr      
     
     @property
     def der_as_mat(self):
@@ -189,6 +256,12 @@ class Derham:
         """ MPI communicator.
         """
         return self._comm
+    
+    @property
+    def polar_ck(self):
+        """ MPI communicator.
+        """
+        return self._polar_ck
 
     @property
     def breaks(self):
@@ -251,6 +324,204 @@ class Derham:
         For more detail see _get_neighbours().
         """
         return self._neighbours
+
+    @property
+    def forms_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding names of differential forms.
+        """
+        return self._forms_dict
+    
+    @property
+    def spaces_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
+        """
+        return self._spaces_dict
+    
+    @property
+    def V0(self):
+        """ Discrete H1 space.
+        """
+        return self._V0
+
+    @property
+    def V1(self):
+        """ Discrete H(curl) space.
+        """
+        return self._V1
+
+    @property
+    def V2(self):
+        """ Discrete H(div) space.
+        """
+        return self._V2
+
+    @property
+    def V3(self):
+        """ Discrete L2 space.
+        """
+        return self._V3
+
+    @property
+    def V0vec(self):
+        """ Discrete H1 x H1 x H1 space.
+        """
+        return self._V0vec
+    
+    @property
+    def E0(self):
+        """ Discrete polar extraction operator V0 --> V0_pol
+        """
+        return self._E0
+
+    @property
+    def E1(self):
+        """ Discrete polar extraction operator V1 --> V1_pol
+        """
+        return self._E1
+
+    @property
+    def E2(self):
+        """ Discrete polar extraction operator V2 --> V2_pol
+        """
+        return self._E2
+
+    @property
+    def E3(self):
+        """ Discrete polar extraction operator V3 --> V3_pol
+        """
+        return self._E3
+
+    @property
+    def Ev(self):
+        """ Discrete polar extraction operator Vv --> Vv_pol
+        """
+        return self._Ev
+    
+    @property
+    def V0_pol(self):
+        """ Discrete polar H1 space.
+        """
+        return self._V0_pol
+
+    @property
+    def V1_pol(self):
+        """ Discrete polar H(curl) space.
+        """
+        return self._V1_pol
+
+    @property
+    def V2_pol(self):
+        """ Discrete polar H(div) space.
+        """
+        return self._V2_pol
+
+    @property
+    def V3_pol(self):
+        """ Discrete polar L2 space.
+        """
+        return self._V3_pol
+
+    @property
+    def Vv_pol(self):
+        """ Discrete polar H1 x H1 x H1 space.
+        """
+        return self._Vv_pol
+
+    @property
+    def nbasis_v0(self):
+        """ List of number of basis functions in space V0 in each direction.
+        """
+        return self._nbasis_v0
+    
+    @property
+    def nbasis_v1(self):
+        """ List of number of basis functions in space V1 in each direction.
+        """
+        return self._nbasis_v1
+    
+    @property
+    def nbasis_v2(self):
+        """ List of number of basis functions in space V2 in each direction.
+        """
+        return self._nbasis_v2
+    
+    @property
+    def nbasis_v3(self):
+        """ List of number of basis functions in space V3 in each direction.
+        """
+        return self._nbasis_v3
+    
+    @property
+    def nbasis_v0vec(self):
+        """ List of number of basis functions in space V0vec in each direction.
+        """
+        return self._nbasis_v0vec
+
+    @property
+    def spline_types(self):
+        """ List holding holding 1d spline types in each direction, entries either 'B' or 'M'.
+        """
+        return self._spline_types
+
+    @property
+    def spline_types_pyccel(self):
+        """ List holding holding 1d spline types in each direction, entries either 0 (='B') or 1 (='M').
+        """
+        return self._spline_types_pyccel
+
+    @property
+    def projectors_dict(self):
+        """ Dictionary containing the names of the continuous spaces and corresponding commuting projectors.
+        """
+        return self._projectors_dict
+    
+    @property
+    def P0(self):
+        """ Interpolation into discrete H1 space.
+        """
+        return self._P0
+
+    @property
+    def P1(self):
+        """ Inter-/histopolation into discrete H(curl) space.
+        """
+        return self._P1
+
+    @property
+    def P2(self):
+        """ Inter-/histopolation into discrete H(div) space.
+        """
+        return self._P2
+
+    @property
+    def P3(self):
+        """ Histopolation into discrete L2 space.
+        """
+        return self._P3
+
+    @property
+    def P0vec(self):
+        """ Interpolation into discrete H1 x H1 x H1 space.
+        """
+        return self._P0vec
+
+    @property
+    def grad(self):
+        """ Discrete gradient H1 -> H(curl).
+        """
+        return self._grad
+
+    @property
+    def curl(self):
+        """ Discrete curl H(curl) -> H(div).
+        """
+        return self._curl
+
+    @property
+    def div(self):
+        """ Discrete divergence H(div) -> L2.
+        """
+        return self._div
 
         
     def _get_decomp_arrays(self):
@@ -459,89 +730,7 @@ class Derham:
         
         return res
     
-    @property
-    def spaces_dict(self):
-        """ Dictionary containing the names of the continuous spaces and corresponding discrete spaces.
-        """
-        return self._spaces_dict
     
-    @property
-    def V0(self):
-        """ Discrete H1 space.
-        """
-        return self._V0
-
-    @property
-    def V1(self):
-        """ Discrete H(curl) space.
-        """
-        return self._V1
-
-    @property
-    def V2(self):
-        """ Discrete H(div) space.
-        """
-        return self._V2
-
-    @property
-    def V3(self):
-        """ Discrete L2 space.
-        """
-        return self._V3
-
-    @property
-    def V0vec(self):
-        """ Discrete H1 x H1 x H1 space.
-        """
-        return self._V0vec
-
-    @property
-    def P0(self):
-        """ Interpolation into discrete H1 space.
-        """
-        return self._P0
-
-    @property
-    def P1(self):
-        """ Inter-/histopolation into discrete H(curl) space.
-        """
-        return self._P1
-
-    @property
-    def P2(self):
-        """ Inter-/histopolation into discrete H(div) space.
-        """
-        return self._P2
-
-    @property
-    def P3(self):
-        """ Histopolation into discrete L2 space.
-        """
-        return self._P3
-
-    @property
-    def P0vec(self):
-        """ Interpolation into discrete H1 x H1 x H1 space.
-        """
-        return self._P0vec
-
-    @property
-    def grad(self):
-        """ Discrete gradient H1 -> H(curl).
-        """
-        return self._grad
-
-    @property
-    def curl(self):
-        """ Discrete curl H(curl) -> H(div).
-        """
-        return self._curl
-
-    @property
-    def div(self):
-        """ Discrete divergence H(div) -> L2.
-        """
-        return self._div
 
 
 def index_to_domain(gl_start, gl_end, pad, ind_mat, breaks):

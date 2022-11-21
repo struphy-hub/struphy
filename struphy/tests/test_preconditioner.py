@@ -16,7 +16,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
 
     from struphy.geometry import domains
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.mass_psydac import WeightedMass
+    from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     from struphy.psydac_api.linear_operators import InverseLinearOperator
 
@@ -32,14 +32,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     derham_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
     
     # assemble mass matrices in V0, V1, V2 and V3
-    mass = WeightedMass(derham, domain)
+    mass = WeightedMassOperators(derham, domain)
 
-    mass.assemble_M0()
-    mass.assemble_M1()
-    mass.assemble_M2()
-    mass.assemble_M3()
-    mass.assemble_Mv()
-    
     derham_M = [mass.M0, mass.M1, mass.M2, mass.M3, mass.Mv]
 
     # create random vectors
@@ -77,7 +71,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
         if n == 4: n = 'v'
 
         if domain.kind_map == 10 or domain.kind_map == 11:
-            assert np.allclose(M._operator.toarray(), M_p.matrix.toarray())
+            assert np.allclose(M._mat.toarray(), M_p.matrix.toarray())
             print(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A = InverseLinearOperator(M, pc=M_p, tol=1e-8, maxiter=5000)

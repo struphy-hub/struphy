@@ -145,8 +145,8 @@ def discrete_derivatives_3d(space):
         G   = spa.bmat(G, format='csr')
         
         # discrete curl (full space)
-        C12 = spa.kron(space.polar_splines.VC.copy(), spa.identity(grad_1d_3.shape[1]))
-        C21 = spa.kron(space.polar_splines.SC.copy(), spa.identity(grad_1d_3.shape[0]))
+        C12 = spa.kron(space.polar_splines.VC.copy(), spa.identity(grad_1d_3.shape[0]))
+        C21 = spa.kron(space.polar_splines.SC.copy(), spa.identity(grad_1d_3.shape[1]))
         
         C11_12 = -spa.kron(spa.identity(space.polar_splines.Nbase1C_2), grad_1d_3)
         C11_21 =  spa.kron(spa.identity(space.polar_splines.Nbase1C_1), grad_1d_3)
@@ -157,8 +157,8 @@ def discrete_derivatives_3d(space):
         C   = spa.bmat(C, format='csr')
         
         # discrete div (full space)
-        D1  = spa.kron(space.polar_splines.D1.copy(), spa.identity(grad_1d_3.shape[1]))
-        D2  = spa.kron(space.polar_splines.D2.copy(), spa.identity(grad_1d_3.shape[1]))
+        D1  = spa.kron(space.polar_splines.D1.copy(), spa.identity(grad_1d_3.shape[0]))
+        D2  = spa.kron(space.polar_splines.D2.copy(), spa.identity(grad_1d_3.shape[0]))
         D3  = spa.kron(spa.identity(space.polar_splines.Nbase2), grad_1d_3)
         
         D   = [[D1, D2, D3]]

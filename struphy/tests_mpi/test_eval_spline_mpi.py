@@ -171,13 +171,15 @@ def test_eval_field(Nel, p, spl_kind):
     uv = Field('velocity', 'H1vec', derham)
 
     # initialize fields with sin/cos
-    init_params = {'type': 'ModesCos', 'coords': 'logical',
+    comps = [[True], [True, True, True], [True, True, True], [True], [True, True, True]]
+    
+    init_params = {'type': 'ModesCos', 'coords': 'logical', 'comps' : comps,
                    'ModesCos': {'ls': [0], 'ms': [0], 'ns': [1], 'amp': [5.]}}
-    p0.initialize_coeffs([True], init_params)
-    E1.initialize_coeffs([True, True, True], init_params)
-    B2.initialize_coeffs([True, True, True], init_params)
-    n3.initialize_coeffs([True], init_params)
-    uv.initialize_coeffs([True, True, True], init_params)
+    p0.initialize_coeffs(comps[0], init_params)
+    E1.initialize_coeffs(comps[1], init_params)
+    B2.initialize_coeffs(comps[2], init_params)
+    n3.initialize_coeffs(comps[3], init_params)
+    uv.initialize_coeffs(comps[4], init_params)
 
     # evaluation points
     eta1 = np.linspace(0, 1, 11)
