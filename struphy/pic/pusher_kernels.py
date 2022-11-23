@@ -2199,7 +2199,6 @@ def push_gc1_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         # update positions for intermediate stages or last stage
         markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
 
-#@stack_array('df', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2326,7 +2325,6 @@ def push_gc2_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 0:3] = markers[ip, 9:12] + dt*a[stage]*k + last*markers[ip, 13:16]
         markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
 
-#@stack_array('df', 'dfinv', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'v', 'k')
 def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
                            pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                            starts0: 'int[:]', starts1: 'int[:,:]', starts2: 'int[:,:]', starts3: 'int[:]',
@@ -2460,10 +2458,10 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
 
         linalg.cross(norm_b2, temp1, temp2)
 
-        linalg.matrix_vector(g_inv, temp2, temp1)
+        linalg.matrix_vector(g_inv, temp2, temp3)
 
         # calculate k
-        k[:] = (epsilon*mu*temp1 + b_star*v)/abs_b_star_para
+        k[:] = (epsilon*mu*temp3 + b_star*v)/abs_b_star_para
 
         # calculate k_v for v
         temp = linalg.scalar_dot(b_star, grad_abs_b)
@@ -2479,7 +2477,6 @@ def push_gc_explicit_stage(markers: 'float[:,:]', dt: float, stage: int,
         markers[ip, 3] = markers[ip, 12] + dt*a[stage]*k_v + last*markers[ip, 16]
 
 
-@stack_array('d', 'df', 'g', 'g_inv', 'bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_mid', 'e_diff')
 def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: int, tol: float,
                                       domain_array: 'float[:]',
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2553,9 +2550,9 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 21] == -1.:
             continue
 
-        e = markers[ip, 0:3]
-        e_mid = (e[:] + markers[ip, 9:12])/2.
-        e_diff = e[:] - markers[ip, 9:12]
+        e[:] = markers[ip, 0:3]
+        e_mid[:] = (e[:] + markers[ip, 9:12])/2.
+        e_diff[:] = e[:] - markers[ip, 9:12]
         v = markers[ip, 3]
         mu = markers[ip, 4]
 
@@ -2654,7 +2651,7 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip,20:23])
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2 
 
-        grad_I = markers[ip,20:23] + e_diff[:]*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
+        grad_I[:] = markers[ip,20:23] + e_diff[:]*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
         
         linalg.matrix_vector(S, grad_I, temp)
         
@@ -2666,11 +2663,10 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
             markers[ip, 21] = -1.
             markers[ip, 22] = stage
 
-            print(ip, ' is converged at ',stage)
             continue
 
         # mid-point eval for the next iteration
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2
 
         # check whether the mid position is already outside of the proc domain
         if (e_mid[0] < domain_array[0]) or (e_mid[0] > domain_array[1]):
@@ -2745,7 +2741,7 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -2754,7 +2750,6 @@ def push_gc1_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         markers[ip, 20:23] = mu*grad_abs_b[:]
 
 
-@stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_mid', 'e_diff')
 def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: int, tol: float,
                                       domain_array: 'float[:]',
                                       pn: 'int[:]', tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
@@ -2813,9 +2808,9 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         if markers[ip, 21] == -1.:
             continue
 
-        e = markers[ip, 0:3]
-        e_mid = (e[:] + markers[ip, 9:12])/2.
-        e_diff = e[:] - markers[ip, 9:12]
+        e[:] = markers[ip, 0:3]
+        e_mid[:] = (e[:] + markers[ip, 9:12])/2.
+        e_diff[:] = e[:] - markers[ip, 9:12]
         v = markers[ip, 3]
         v_old = markers[ip,12]
         v_mid = (markers[ip, 3] + markers[ip, 12])/2.
@@ -2887,8 +2882,8 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         temp_scalar = linalg.scalar_dot(e_diff[:], markers[ip,20:23])
         temp_scalar2 = e_diff[0]**2 + e_diff[1]**2 + e_diff[2]**2 + (v - v_old)**2
 
-        grad_I = markers[ip,20:23] + e_diff[:]*(abs_b0*mu - markers[ip,19] + v**2/2 - temp_scalar)/temp_scalar2
-        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu - markers[ip,19])/temp_scalar2
+        grad_I[:] = markers[ip,20:23] + e_diff*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
+        grad_Iv = v_mid + (v - v_old)*(abs_b0*mu - markers[ip,19] - temp_scalar)/temp_scalar2
 
         temp_scalar3 = linalg.scalar_dot(markers[ip, 13:16], grad_I)
         
@@ -2896,15 +2891,15 @@ def push_gc2_discrete_gradients_stage(markers: 'float[:,:]', dt: float, stage: i
         markers[ip, 3] = markers[ip,12] - dt*temp_scalar3
 
         diff = sqrt((e[0] - markers[ip, 0])**2 + (e[1] - markers[ip, 1])**2 + (e[2] - markers[ip, 2])**2)
+        vdiff = sqrt((v - markers[ip, 3])**2)
 
-        if diff < tol:
+        if diff < tol and vdiff < tol:
             markers[ip, 21] = -1.
             markers[ip, 22] = stage
-            print(ip, ' is converged at ',stage)
             continue
 
         # mid-point eval for the next iteration
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2
         v_mid = (markers[ip, 3] + markers[ip, 12])/2
 
         # check whether the mid position is already outside of the proc domain

@@ -803,23 +803,15 @@ class DriftKinetic( StruphyModel ):
                                   self._mhd_equil.b2_2,
                                   self._mhd_equil.b2_3]).coeffs
 
-        # print(self.derham.comm.Get_rank(), self._b._data)
-
         self._abs_b = self.derham.P0(self._mhd_equil.b0)._coeffs
-
-        # print(self.derham.comm.Get_rank(), self._abs_b._data)
 
         self._norm_b1 = self.derham.P1([self._mhd_equil.norm_b1_1,
                                         self._mhd_equil.norm_b1_2,
                                         self._mhd_equil.norm_b1_3]).coeffs
-                                        
-        # print(self.derham.comm.Get_rank(), self._norm_b1[0]._data)
 
         self._norm_b2 = self.derham.P2([self._mhd_equil.norm_b2_1,
                                         self._mhd_equil.norm_b2_2,
                                         self._mhd_equil.norm_b2_3]).coeffs
-
-        # print(self.derham.comm.Get_rank(), self._norm_b2[0]._data)
 
         if self.derham.comm.Get_rank() == 0:
             print('Background magnetic field projection done ...')
@@ -832,30 +824,30 @@ class DriftKinetic( StruphyModel ):
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
-        self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self._epsilon,
-                                                                         self._b, self._norm_b1, self._norm_b2, self._abs_b, 
-                                                                         self.derham, 
-                                                                         self.kinetic_params[0]['push_algos']['method'], 
-                                                                         self.kinetic_params[0]['push_algos']['integrator'],
-                                                                         self.kinetic_params[0]['markers']['bc_type'],
-                                                                         self.kinetic_params[0]['push_algos']['maxiter'],
-                                                                         self.kinetic_params[0]['push_algos']['tol'])]
-        self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions, self._epsilon,
-                                                                         self._b, self._norm_b1, self._norm_b2, self._abs_b, 
-                                                                         self.derham, 
-                                                                         self.kinetic_params[0]['push_algos']['method'], 
-                                                                         self.kinetic_params[0]['push_algos']['integrator'],
-                                                                         self.kinetic_params[0]['markers']['bc_type'],
-                                                                         self.kinetic_params[0]['push_algos']['maxiter'],
-                                                                         self.kinetic_params[0]['push_algos']['tol'])]
-        # self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self._epsilon,
-        #                                                                 self._b, self._norm_b1, self._norm_b2, self._abs_b, 
-        #                                                                 self.derham, 
-        #                                                                 self.kinetic_params[0]['push_algos']['method'], 
+        # self._propagators += [propagators_markers.StepPushGuidingCenter1(self._ions, self._epsilon,
+        #                                                                  self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+        #                                                                  self.derham, 
+        #                                                                  self.kinetic_params[0]['push_algos']['method'], 
         #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
         #                                                                  self.kinetic_params[0]['markers']['bc_type'],
         #                                                                  self.kinetic_params[0]['push_algos']['maxiter'],
         #                                                                  self.kinetic_params[0]['push_algos']['tol'])]
+        # self._propagators += [propagators_markers.StepPushGuidingCenter2(self._ions, self._epsilon,
+        #                                                                  self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+        #                                                                  self.derham, 
+        #                                                                  self.kinetic_params[0]['push_algos']['method'], 
+        #                                                                  self.kinetic_params[0]['push_algos']['integrator'],
+        #                                                                  self.kinetic_params[0]['markers']['bc_type'],
+        #                                                                  self.kinetic_params[0]['push_algos']['maxiter'],
+        #                                                                  self.kinetic_params[0]['push_algos']['tol'])]
+        self._propagators += [propagators_markers.StepPushGuidingCenter(self._ions, self._epsilon,
+                                                                        self._b, self._norm_b1, self._norm_b2, self._abs_b, 
+                                                                        self.derham, 
+                                                                        self.kinetic_params[0]['push_algos']['method'], 
+                                                                        self.kinetic_params[0]['push_algos']['integrator'],
+                                                                        self.kinetic_params[0]['markers']['bc_type'],
+                                                                        self.kinetic_params[0]['push_algos']['maxiter'],
+                                                                        self.kinetic_params[0]['push_algos']['tol'])]
 
         # Scalar variables to be saved during simulation
         self._scalar_quantities['time'] = np.empty(1, dtype=float)

@@ -8,7 +8,7 @@ grid :
       
       
 time : 
-      dt         : 0.002  # time step
+      dt         : 0.01  # time step
       Tend       : 40. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
@@ -28,7 +28,7 @@ fields :
             AdhocTorus :
                   a      : 1. # minor radius (radius of cylinder)
                   R0     : 4. # major radius (Lz = 2*pi*R0)
-                  B0     : 1. # on-axis toroidal magnetic field
+                  B0     : 3. # on-axis toroidal magnetic field
                   q0     : 1.71 # safety factor at r=0
                   q1     : 1.87 # safety factor at r=a
                   n1     : 0. # shape factor for number density profile 
@@ -50,9 +50,9 @@ kinetic :
                         type        : pseudo_random # particle loading mechanism 
                         seed        : 1608 # seed for random number generator
                         moms_params : [1., 0., 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-                        initial     : [[.501, 0.001, 0.001,  4.5 , 0.06, 0.],
-                                       [.501, 0.001, 0.001, -4.5 , 0.06, 0.],
-                                       [.501, 0.001, 0.001, -2.25, 0.06, 0.]]
+                        initial     : [[.501, 0.001, 0.001,  4.5 , 6., 0.],
+                                       [.501, 0.001, 0.001, -4.5 , 6., 0.],
+                                       [.501, 0.001, 0.001, -2.25, 6., 0.]]
             attributes :
                   epsilon         : 0.01
                   particle_charge : 1. # in units of elementary charge
@@ -68,5 +68,5 @@ kinetic :
             push_algos :
                   integrator : explicit # explicit or implicit
                   method : rk4 # possible choices: discrete_gradients, forward_euler, heun2, rk2, heun3, rk4
-                  maxiter : 100
+                  maxiter : 10
                   tol : 1.e-15
