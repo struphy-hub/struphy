@@ -148,7 +148,7 @@ Two dependencies have to be installed "by hand":
     cd psydac
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    pip install .
+    pip install --no-build-isolation .
 
 3. Install ``struphy``::
 
@@ -192,7 +192,7 @@ and name the repo ``<name>`` via::
     cd psydac
     python3 -m pip install -r requirements.txt
     python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    pip install .
+    pip install --no-build-isolation .
     cd ..
 
 4. Install ``struphy`` via::

@@ -23,7 +23,7 @@ RUN git clone https://github.com/pyccel/psydac.git \
     && git pull \
     && python3 -m pip install -r requirements.txt \
     && python3 -m pip install -r requirements_extra.txt --no-build-isolation \
-    && pip install . \
+    && pip install --no-build-isolation . \
     && cd .. \
     && rm -rf psydac/ 
 
