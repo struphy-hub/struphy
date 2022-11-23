@@ -392,7 +392,7 @@ class StepPushGuidingCenter1( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
         elif integrator == 'implicit':
@@ -408,7 +408,7 @@ class StepPushGuidingCenter1( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data)
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
         
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -517,7 +517,7 @@ class StepPushGuidingCenter2( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
         elif integrator == 'implicit':
@@ -533,7 +533,7 @@ class StepPushGuidingCenter2( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data)
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
         
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')
@@ -601,9 +601,6 @@ class StepPushGuidingCenter( Propagator ):
         if not self._grad_abs_b[0].ghost_regions_in_sync: self._grad_abs_b[0].update_ghost_regions()
         if not self._grad_abs_b[1].ghost_regions_in_sync: self._grad_abs_b[1].update_ghost_regions()
         if not self._grad_abs_b[2].ghost_regions_in_sync: self._grad_abs_b[2].update_ghost_regions()
-
-        # print(self._curl_norm_b[0]._data)
-        # print(self._grad_abs_b[0]._data)
         
         # load butcher tableau and pusher
         from struphy.pic.pusher import Pusher, Pusher_iteration
@@ -640,13 +637,13 @@ class StepPushGuidingCenter( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data,
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data,
                                    self._butcher.a, self._butcher.b, self._butcher.c)
 
         elif integrator == 'implicit':
 
             if algo == 'discrete_gradients':
-                self._pusher = Pusher_iteration(derham, particles.domain, 'push_gc2_discrete_gradients_stage', maxiter, tol)
+                self._pusher = Pusher_iteration(derham, particles.domain, 'push_gc_discrete_gradients_stage', maxiter, tol)
             
             else:
                 raise NotImplementedError('Chosen implicit method is not implemented.')
@@ -656,7 +653,7 @@ class StepPushGuidingCenter( Propagator ):
                                    self._norm_b1[0]._data, self._norm_b1[1]._data, self._norm_b1[2]._data,
                                    self._norm_b2[0]._data, self._norm_b2[1]._data, self._norm_b2[2]._data,
                                    self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-                                   self._grad_abs_b[0]._data, self._grad_abs_b[0]._data, self._grad_abs_b[0]._data)
+                                   self._grad_abs_b[0]._data, self._grad_abs_b[1]._data, self._grad_abs_b[2]._data)
         
         else:
             raise NotImplementedError('Chosen integrator is not implemented.')

@@ -490,9 +490,9 @@ def push_gc1_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
         linalg.matrix_vector(S, mu*grad_abs_b, temp)
 
         # save at the markers
-        markers[ip, 0:3] = markers[ip, 9:12] + dt*temp[:]
+        markers[ip, 0:3] = markers[ip, 0:3] + dt*temp[:]
 
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2
 
         # check whether the mid position is already outside of the proc domain
         if (e_mid[0] < domain_array[0]) or (e_mid[0] > domain_array[1]):
@@ -567,7 +567,7 @@ def push_gc1_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -715,7 +715,7 @@ def push_gc1_discrete_gradients_stage_eval_S_and_I(markers: 'float[:,:]',
         linalg.matrix_matrix(g_inv, temp1, temp2)
 
         # calculate S
-        S = (epsilon*temp2)/abs_b_star_para
+        S[:,:] = (epsilon*temp2)/abs_b_star_para
 
         # save at the markers
         markers[ip, 13:16] = S[0,:]
@@ -830,9 +830,9 @@ def push_gc2_discrete_gradients_stage_initial_guess(markers: 'float[:,:]', dt: f
 
         # save at the markers
         markers[ip, 0:3] = markers[ip, 9:12] + dt*b_star[:]/abs_b_star_para*v
-        markers[ip, 4] = markers[ip, 12] - dt*b_star_dot_grad_abs_b/abs_b_star_para
+        markers[ip, 3] = markers[ip, 12] - dt*b_star_dot_grad_abs_b/abs_b_star_para
 
-        e_mid = (markers[ip, 0:3] + markers[ip, 9:12])/2.
+        e_mid[:] = (markers[ip, 0:3] + markers[ip, 9:12])/2.
         v_mid = (markers[ip, 3] + markers[ip, 12])/2.
 
         # check whether the mid position is already outside of the proc domain
@@ -987,4 +987,4 @@ def push_gc2_discrete_gradients_stage_eval_S_and_I(markers: 'float[:,:]',
 
         # save at the markers
         markers[ip, 13:16] = b_star[:]/abs_b_star_para
-        markers[ip, 19] = mu*abs_b0 + 1/2*v**2
+        markers[ip, 19] = mu*abs_b0
