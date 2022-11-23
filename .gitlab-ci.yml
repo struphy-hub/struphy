@@ -232,7 +232,7 @@ default_build:
     - git pull # go to latest commit in our own branch (why is this needed?)  
     - python3 -m pip install -r requirements.txt
     - python3 -m pip install -r requirements_extra.txt --no-build-isolation
-    - pip install .
+    - pip install --no-build-isolation .
     - cd ..
     - cd gvec_to_python
     - python3 -m pip install . -r requirements.txt
