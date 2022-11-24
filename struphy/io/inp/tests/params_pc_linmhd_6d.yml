@@ -56,7 +56,7 @@ fields :
                   n  : 1  # toroidal (z) mode number
                   U  : 0.1 # amplitude of Ux/Uy
                   A  : 0. # amplitude of Uz     
-      mhd_u_space : Hcurl # H1vec, Hcurl or Hdiv
+      mhd_u_space : Hdiv # H1vec, Hcurl or Hdiv
       mhd_equilibrium : 
             type : HomogenSlab # (possible choices seen below)
             HomogenSlab :
@@ -65,6 +65,16 @@ fields :
                   B0z  : 1. # magnetic field in z
                   beta : 100. # plasma beta = 2*p*mu_0/B^2
                   n0   : 1. # number density
+
+coupling :
+      scheme : pressure_full # pressure, pressure_full or current
+      solver :
+            type : pcg
+            pc : MassMatrixPreconditioner # null or fft
+            tol : 1.e-12
+            maxiter : 3000
+            info : False
+            verbose : False
 
 kinetic :
       energetic_ions :
@@ -106,6 +116,9 @@ kinetic :
                         slices : [vz]
                         n_bins : [[32]]
                         ranges : [[[-3., 3.]]]
+            push_algos :
+                  vxb : analytic # possible choices: analytic, implicit
+                  eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
             
 
 solvers :

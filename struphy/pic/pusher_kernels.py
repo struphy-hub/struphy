@@ -1498,7 +1498,7 @@ def push_pc_eta_rk4_Hcurl(markers: 'float[:,:]', dt: float, stage: int,
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
@@ -1626,7 +1626,7 @@ def push_pc_eta_rk4_Hdiv(markers: 'float[:,:]', dt: float, stage: int,
                               p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                               ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                               cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+                              u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::
@@ -1753,7 +1753,7 @@ def push_pc_eta_rk4_H1vec(markers: 'float[:,:]', dt: float, stage: int,
                           p_map: 'int[:]', t1_map: 'float[:]', t2_map: 'float[:]', t3_map: 'float[:]',
                           ind1_map: 'int[:,:]', ind2_map: 'int[:,:]', ind3_map: 'int[:,:]',
                           cx: 'float[:,:,:]', cy: 'float[:,:,:]', cz: 'float[:,:,:]',
-                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]'):
+                          u_1: 'float[:,:,:]', u_2: 'float[:,:,:]', u_3: 'float[:,:,:]'):
     r'''Fourth order Runge-Kutta solve of 
 
     .. math::

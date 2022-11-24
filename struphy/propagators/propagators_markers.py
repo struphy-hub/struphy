@@ -167,35 +167,36 @@ class StepPushVxB( Propagator ):
                      self._b_static[2]._data + self._b[2]._data)
 
 
-class StepPushEtaFullPC( Propagator ):
+class StepPushEtaPC( Propagator ):
     r'''Step for the update of particles' positions with the RK4 method which solves
 
     .. math::
 
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
+        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}})
 
     for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
 
     .. math::
 
-        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
+        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,, \qquad \textnormal{vec}( \hat{\mathbf U}) = \hat{\mathbf U}\,.
 
     Parameters
     ----------
         u : psydac.linalg.block.BlockVector
             FE coefficients of a discrete 0-form, 1-form or 2-form.
 
-        particles : struphy.pic.particles.Particles6D
-        domain : struphy.geometry.base.Domain
-            Infos regarding mapping.
-
         u_space : dic
             params['fields']['mhd_u_space']
+
+        particles : struphy.pic.particles.Particles6D
+
+        domain : struphy.geometry.base.Domain
+            Infos regarding mapping.
             
         bc : list[str]
             Kinetic boundary conditions in each direction.
     '''
-    def __init__(self, u, particles, derham, domain, u_space, bc):
+    def __init__(self, u, u_space, coupling, particles, derham, domain, bc):
 
         assert isinstance(u, BlockVector)
 
@@ -207,14 +208,31 @@ class StepPushEtaFullPC( Propagator ):
         self._bc = bc
 
         # call Pusher class
-        if self._u_space == 'Hcurl':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', n_stages=4)
+        if coupling == 'pressure_full':
+            if self._u_space == 'Hcurl':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', n_stages=4)
 
-        elif self._u_space == 'Hdiv':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv_full', n_stages=4)
+            elif self._u_space == 'Hdiv':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv_full', n_stages=4)
 
-        else:
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec_full', n_stages=4)
+            elif self._u_space == 'H1vec':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec_full', n_stages=4)
+
+            else: raise ValueError('Given u_space does not exist!')
+
+        elif coupling == 'pressure':
+            if self._u_space == 'Hcurl':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', n_stages=4)
+    
+            elif self._u_space == 'Hdiv':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', n_stages=4)
+    
+            elif self._u_space == 'H1vec':
+                self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec', n_stages=4)
+
+            else: raise ValueError('Given u_space does not exist!')
+
+        else : raise NotImplementedError('Given coupling scheme is not implemented!')
 
     @property
     def variables(self):
@@ -230,73 +248,7 @@ class StepPushEtaFullPC( Propagator ):
 
         self._pusher(self._particles, dt,
                      self._u[0]._data, self._u[1]._data, self._u[2]._data,
-                     bc=self._bc, mpi_sort='each')
-
-
-class StepPushEtaPC( Propagator ):
-    r'''Step for the update of particles' positions with the RK4 method which solves
-
-    .. math::
-
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and 
-
-    .. math::
-
-        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-        u : psydac.linalg.block.BlockVector
-            FE coefficients of a discrete 0-form, 1-form or 2-form.
-
-        particles : struphy.pic.particles.Particles6D
-        domain : struphy.geometry.base.Domain
-            Infos regarding mapping.
-
-        u_space : dic
-            params['fields']['mhd_u_space']
-            
-        bc : list[str]
-            Kinetic boundary conditions in each direction.
-    '''
-    def __init__(self, u, particles, derham, domain, u_space, bc):
-
-        assert isinstance(u, BlockVector)
-
-        self._derham = derham
-        self._domain = domain
-        self._u = u
-        self._particles = particles
-        self._u_space = u_space
-        self._bc = bc
-
-        # call Pusher class
-        if self._u_space == 'Hcurl':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', n_stages=4)
-
-        elif self._u_space == 'Hdiv':
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hdiv', n_stages=4)
-
-        else:
-            self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_H1vec', n_stages=4)
-
-    @property
-    def variables(self):
-        return
-
-    def __call__(self, dt):
-
-        # push particles
-        # check if ghost regions are synchronized
-        if not self._u[0].ghost_regions_in_sync: self._u[0].update_ghost_regions()
-        if not self._u[1].ghost_regions_in_sync: self._u[1].update_ghost_regions()
-        if not self._u[2].ghost_regions_in_sync: self._u[2].update_ghost_regions()
-
-        self._pusher(self._particles, dt,
-                     self._u[0]._data, self._u[1]._data,
-                     bc=self._bc, mpi_sort='each')
+                     bc=self._bc, mpi_sort='last')
 
 
 class StepPushGuidingCenter1( Propagator ):
