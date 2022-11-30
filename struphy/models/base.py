@@ -6,6 +6,8 @@ from struphy.geometry import domains
 from struphy.psydac_api.psydac_derham import Derham
 from struphy.psydac_api.fields import Field
 from struphy.pic import particles
+from struphy.models.pre_processing import plasma_params
+from struphy.fields_background.mhd_equil import analytical
 
 
 class StruphyModel( metaclass=ABCMeta ):
@@ -21,8 +23,9 @@ class StruphyModel( metaclass=ABCMeta ):
 
         kwargs : dict
             The dynamical fields and kinetic species of the model. Keys are either 
-                * a) the field names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
-                * b) the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
+                * a) the electromagnetic field/potential names, then values are the space IDs ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
+                * b) the fluid species names, then the value is a dict with key=var_name (n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"), OR
+                * c) the names of the kinetic species, then values are the type of particles ("Particles6D", "Particles5D", ...).
 
     Note
     ----
@@ -31,24 +34,32 @@ class StruphyModel( metaclass=ABCMeta ):
 
     def __init__(self, params, mpi_comm=None, **kwargs):
 
-        # create domain (mapping from logical unit cube to physical domain)
+        # domain (mapping from logical unit cube to physical domain)
         dom_type = params['geometry']['type']
         dom_params = params['geometry'][dom_type]
 
         domain_class = getattr(domains, dom_type)
         self._domain = domain_class(dom_params)
 
-        # create 3d derham sequence
-        Nel = params['grid']['Nel']             # Number of grid cells
-        p = params['grid']['p']                 # spline degrees
-        # Spline types (clamped vs. periodic)
-        spl_kind = params['grid']['spl_kind']
-        # Boundary conditions (Homogeneous Dirichlet or None)
-        bc = params['grid']['bc']
-        # Number of quadrature points per histopolation cell
-        nq_pr = params['grid']['nq_pr']
-        # Number of quadrature points per grid cell
-        nq_el = params['grid']['nq_el']
+        # plasma size
+        self._size_params = {}
+        h = 1/100
+        eta1 = np.linspace(h/2., 1.-h/2., 100)
+        eta2 = np.linspace(h/2., 1.-h/2., 100)
+        eta3 = np.linspace(h/2., 1.-h/2., 100)
+        self._size_params['plasma volume [m^3]'] = np.mean(np.abs(self.domain.jacobian_det(eta1, eta2, eta3)))
+        self._size_params['minor radius [m]'] = 'No minor radius.'
+        self._size_params['transit length [m]'] = self.size_params['plasma volume [m^3]']**(1/3)
+        self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
+        self._size_params['eps_key'] = 'rho*k'
+
+        # 3d Derham sequence
+        Nel = params['grid']['Nel'] # Number of grid cells
+        p = params['grid']['p'] # spline degrees
+        spl_kind = params['grid']['spl_kind'] # spline types (clamped vs. periodic)
+        bc = params['grid']['bc'] # boundary conditions (Homogeneous Dirichlet or None)
+        nq_pr = params['grid']['nq_pr'] # Number of quadrature points per histopolation cell
+        nq_el = params['grid']['nq_el'] # Number of quadrature points per grid cell for L^2
 
         quad_order = [nq_el[0] - 1,
                       nq_el[1] - 1,
@@ -59,92 +70,200 @@ class StruphyModel( metaclass=ABCMeta ):
                               nq_pr=nq_pr,
                               comm=mpi_comm)
 
-        
-        # create fields and kinetic species
-        self._field_names = []
-        self._field_ids = []
-        self._field_params = params['fields']
+        # mhd equilibrium
+        if 'mhd_equilibrium' in params: 
+            equil_params = params['mhd_equilibrium']
+            mhd_equil_class = getattr(analytical, equil_params['type'])
+            self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
 
-        self._kinetic_names = []
-        self._kinetic_ids = []
-        self._kinetic_params = []
+            # minor radius 
+            if 'a' in self.mhd_equil.params:
+                self._size_params['minor radius [m]'] = self.mhd_equil.params['a']
+                self._size_params['transit length [m]'] = self._size_params['minor radius [m]']
+                self._size_params['transit k [1/m]'] = 2*np.pi / self._size_params['transit length [m]']
+                self._size_params['eps_key'] = 'rhostar'
 
+            # average B-field strength (Tesla)
+            eta1 = np.linspace(0., 1., 100)
+            eta2 = np.linspace(0., 1., 100)    
+            eta3 = np.linspace(0., 1., 100)
+            self._size_params['B_abs [T]'] = np.mean(self.mhd_equil.b0(eta1, eta2, eta3))
+        else:
+            self._mhd_equil = None
+
+        # electromagnetic fields, fluid and/or kinetic species
+        self._em_fields = {}
+        self._fluid = {}
+        self._kinetic = {}
+
+        nem = 0 # number of electromagnetic fields/potentials
+        nf = [] # numbers of variables for each fluid species
+        nk = 0 # number of kinetic species
         for key, val in kwargs.items():
 
-            # field variables
-            if val in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}:
-                self._field_names += [key]
-                self._field_ids += [val]
+            if isinstance(val, str):
 
-            # kinetic variables
-            elif val in {'Particles6D', 'Particles5D'}:
-                self._kinetic_names += [key]
-                self._kinetic_ids += [val]
-                self._kinetic_params += [params['kinetic'][key]]
-  
+                if val in {'H1', 'Hcurl', 'Hdiv', 'L2', 'H1vec'}:
+
+                    assert 'em_fields' in params, 'Top-level key "em_fields" is missing in parameter file.'
+                    self._em_fields[key] = {}
+                    self._em_fields[key]['space'] = val
+                    nem += 1
+
+                elif val in {'Particles6D', 'Particles5D'}:
+
+                    assert 'kinetic' in params, 'Top-level key "kinetic" is missing in parameter file.'
+                    self._kinetic[key] = {}
+                    self._kinetic[key]['space'] = val
+                    nk += 1
+
+                else:
+                    raise ValueError('The given value string ' + str(val) + ' is not supported!')
+
+            elif isinstance(val, dict):
+
+                assert 'fluid' in params, 'Top-level key "fluid" is missing in parameter file.'
+                self._fluid[key] = {}
+                nf += [0]
+                for variable, space in val.items():
+                    self._fluid[key][variable] = {}
+                    self._fluid[key][variable]['space'] = space
+                    nf[-1] += 1
+
             else:
-                raise ValueError('The given value string ' + str(val) + ' is not supported!')
+                raise ValueError(f'Type {type(val)} not supported as value.')
                 
-        # create fields
-        self._fields = []
-        for name, ID in zip(self._field_names, self._field_ids):
-            self._fields += [Field(name, ID, self._derham)]
+        # FE coeffs of electromagnetic fields/potentials
+        if 'em_fields' in params:
 
-        # create kinetic species
-        self._kinetic_species = []
-        for name, ID, k_params in zip(self._kinetic_names, self._kinetic_ids, self._kinetic_params):
-            kinetic_class = getattr(particles, ID)
+            self._em_fields['params'] = params['em_fields']
 
-            self._kinetic_species += [kinetic_class(
-                name, k_params['markers'], self._domain, self._derham.domain_array, self._derham.comm)]
+            comps = params['em_fields']['init']['comps']
+            assert len(comps) == nem, 'Lengths of ["em_fields"]["init"]["comps"] lists do not correspond to number of fields.'
+            
+            for n, (key, val) in enumerate(self.em_fields.items()):
+
+                if 'params' not in key:
+                    field = Field(key, val['space'], self.derham)
+                    val['obj'] = field
+
+                    assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {key}.'
+                    val['init_comps'] = comps[n]
+
+        # FE coeffs and plasma parameters of fluid variables
+        if 'fluid' in params:
+
+            for nfi, (species, val) in zip(nf, self.fluid.items()):
+
+                assert species in params['fluid']
+                val['params'] = params['fluid'][species]
+
+                Z, M, kBT, beta = params['fluid'][species]['attributes'].values()
+                comps = params['fluid'][species]['init']['comps']
+                assert len(comps) == nfi, f'Lengths of ["fluid"]["species"]["attributes"] lists do not correspond to number of fluid variables of species {species}.'
+                val['plasma_params'] = plasma_params(Z, M, kBT, beta, self.size_params)
+
+                for n, (variable, subval) in enumerate(val.items()):
+
+                    if 'params' not in variable:
+                        field = Field(variable, subval['space'], self.derham)
+                        subval['obj'] = field
+                        
+                        assert len(comps[n]) == isinstance(field.nbasis, tuple)*1 + isinstance(field.nbasis, list)*3, f'Wrong length of ["init"]["comps"] list for {variable}.'
+                        subval['init_comps'] = comps[n]
+
+        # marker arrays and plasma parameters of kinetic species
+        if 'kinetic' in params:
+
+            for species, val in self.kinetic.items():
+
+                assert species in params['kinetic']
+                val['params'] = params['kinetic'][species]
+
+                kinetic_class = getattr(particles, val['space'])
+                val['obj'] = kinetic_class(species, val['params']['markers'], self.domain, self.derham.domain_array, self.derham.comm)
+                
+                Z, M, kBT, beta = val['params']['attributes'].values()
+                val['plasma_params'] = plasma_params(Z, M, kBT, beta, self.size_params)
+
+                # for storing markers
+                n_markers = val['params']['save_data']['n_markers']  
+                assert n_markers <= val['obj'].n_mks
+                if n_markers > 0:
+                    val['kinetic_data'] = {}
+                    val['kinetic_data']['markers'] = np.zeros((n_markers, val['obj'].markers.shape[1]), dtype=float)
+                    
+                # for storing the distribution function
+                if 'f' in val['params']['save_data']:
+                    slices = val['params']['save_data']['f']['slices']
+                    n_bins = val['params']['save_data']['f']['n_bins']
+                    ranges = val['params']['save_data']['f']['ranges']
+                    
+                    val['kinetic_data']['f'] = {}
+                    val['bin_edges'] = {}
+                    if len(slices) > 0:
+                        for i, sli in enumerate(slices):
+                            
+                            assert ((len(sli) - 2)/3).is_integer()
+                            val['bin_edges'][sli] = []
+                            dims = (len(sli) - 2)//3 + 1
+                            for j in range(dims):
+                                val['bin_edges'][sli] += [np.linspace(ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
+                            val['kinetic_data']['f'][sli] = np.zeros(n_bins[i], dtype=float)
+                
+                # other data (wave-particle power exchange, etc.)
+                # TODO
                             
         # create time propagators list
         self._propagators = []
         
         # create dictionary for scalar quantities
         self._scalar_quantities = {}
-        
-        # create list for markers, distribution function and other kinetic data dicts
-        self._kinetic_data = []
-        self._bin_edges = []
-        
-        for species, k_params in zip(self._kinetic_species, self._kinetic_params):
-            self._kinetic_data += [{}]
-            self._bin_edges += [{}]
-            
-            # markers
-            if 'n_markers' in k_params['save_data']:
-                n_markers = k_params['save_data']['n_markers']
-                
-                assert n_markers <= species.n_mks
-                
-                if n_markers > 0:
-                    self._kinetic_data[-1]['markers'] = np.zeros((n_markers, species.markers.shape[1]), dtype=float)
-                
-            # distribution function
-            if 'f' in k_params['save_data']:
-                slices = k_params['save_data']['f']['slices']
-                n_bins = k_params['save_data']['f']['n_bins']
-                ranges = k_params['save_data']['f']['ranges']
-                
-                if len(slices) > 0:
-                    self.kinetic_data[-1]['f'] = {}
-                    for i, key in enumerate(slices):
-                        
-                        assert ((len(key) - 2)/3).is_integer()
     
-                        self._bin_edges[-1][key] = []
-    
-                        dims = (len(key) - 2)//3 + 1
-    
-                        for j in range(dims):
-                            self._bin_edges[-1][key] += [np.linspace(ranges[i][j][0], ranges[i][j][1], n_bins[i][j] + 1)]
-        
-                        self._kinetic_data[-1]['f'][key] = np.zeros(n_bins[i], dtype=float)
-            
-            # other data (wave-particle power exchange, etc.)
-            # TODO
-                
+        # print info to screen 
+        if mpi_comm.Get_rank() == 0:
+            print('GRID parameters:')
+            print(f'number of elements : {self.derham.Nel}')
+            print(f'spline degrees     : {self.derham.p}')
+            print(f'periodic bcs       : {self.derham.spl_kind}')
+            print(f'hom. Dirichlet bc  : {self.derham.bc}')
+            print(f'GL quad pts (L2)   : {self.derham.quad_order}')
+            print(f'GL quad pts (hist) : {self.derham.nq_pr}')
+            print(f'MPI indices for N-splines on rank 0: {self.derham.index_array_N[0]}\n')
+
+            print('DOMAIN parameters:')
+            print(f'domain type: {dom_type}')
+            print(f'domain parameters: {dom_params}\n')
+
+            print('PLASMA parameters:')
+            print('size:')
+            print('-----')
+            for key, val in self.size_params.items():
+                if key != 'eps_key':
+                    print(key + ': ', val)
+            print('\nelectromagnetic fields/potentials:')
+            print('----------------------------------')
+            for key, val in self.em_fields.items():
+                if 'params' not in key:
+                    print(key  + ': ' + val['space'])
+            print('\nfluid species:')
+            print('--------------')
+            for species, val in self.fluid.items():
+                print(species  + ':')
+                for variable, subval in val.items():
+                    if 'params' not in variable:
+                        print(variable  + ': ' + subval['space']) 
+                for p, pv in val['plasma_params'].items():
+                        print(p + ': ', pv)   
+            print('\nkinetic species:')
+            print('----------------')
+            for species, val in self.kinetic.items():
+                print(species  + ': ' + val['space'] + ' with ' 
+                        + str(val['obj'].n_mks) + ' markers initialized, shape=' 
+                        + str(val['obj'].markers.shape) + ' on rank 0.')
+                for p, pv in val['plasma_params'].items():
+                    print(p + ': ', pv) 
+            print('')
 
     @property
     def derham(self):
@@ -157,44 +276,29 @@ class StruphyModel( metaclass=ABCMeta ):
         return self._domain
 
     @property
-    def field_names(self):
-        '''List of FE variable names (str).'''
-        return self._field_names
+    def mhd_equil(self):
+        '''MHD equilibrium object, see :ref:`mhd_equil`.'''
+        return self._mhd_equil
 
     @property
-    def field_ids(self):
-        '''List of 3d Derham space identifiers (str) corresponding to names.'''
-        return self._field_ids
+    def em_fields(self):
+        '''Dictionary of electromagnetic field/potential variables.'''
+        return self._em_fields
 
     @property
-    def field_params(self):
-        '''Field simulation parameters (dict), see section "fields" from :ref:`params_yml`.'''
-        return self._field_params
+    def fluid(self):
+        '''Dictionary of fluid species.'''
+        return self._fluid
 
     @property
-    def fields(self):
-        '''List of Struphy fields, see :ref:`fields`.'''
-        return self._fields
+    def kinetic(self):
+        '''Dictionary of kinetic species.'''
+        return self._kinetic
 
     @property
-    def kinetic_names(self):
-        '''List of kinetic species names (str).'''
-        return self._kinetic_names
-
-    @property
-    def kinetic_ids(self):
-        '''List of kinetic identifiers (str) corresponding to classes in struphy.pic.particles.py'''
-        return self._kinetic_ids
-
-    @property
-    def kinetic_params(self):
-        '''List of parameters (dict) for each kinetic species, see section "kinetic" from :ref:`params_yml`.'''
-        return self._kinetic_params
-
-    @property
-    def kinetic_species(self):
-        '''List of Struphy kinetic species, see :ref:`particles`.'''
-        return self._kinetic_species
+    def size_params(self):
+        '''Dictionary of plasma size and magnetic field strength.'''
+        return self._size_params
 
     @property
     @abstractmethod
@@ -209,11 +313,6 @@ class StruphyModel( metaclass=ABCMeta ):
 
             self._scalar_quantities['time'] = np.empty(1, dtype=float)'''
         return self._scalar_quantities
-    
-    @property
-    def kinetic_data(self):
-        '''Dictionary of kinetic data to be saved during simulation. Must contain numpy arrays as values.'''
-        return self._kinetic_data
     
     @abstractmethod
     def update_scalar_quantities(self, time):
@@ -232,19 +331,14 @@ class StruphyModel( metaclass=ABCMeta ):
         Writes markers with IDs that are supposed to be saved into corresponding array.
         '''
         
-        for n, (species, k_params) in enumerate(zip(self._kinetic_species, self._kinetic_params)):
+        for val in self.kinetic.values():
             
-            if 'n_markers' in k_params['save_data']:
-                n_mks_save = k_params['save_data']['n_markers']
-                if n_mks_save > 0:
-            
-                    markers_on_proc = np.logical_and(species.markers[:, -1] >= 0., 
-                                                     species.markers[:, -1] < n_mks_save)
-
-                    n_markers_on_proc = np.count_nonzero(markers_on_proc)
-
-                    self._kinetic_data[n]['markers'][:] = -1.
-                    self._kinetic_data[n]['markers'][:n_markers_on_proc] = species.markers[markers_on_proc]
+            n_mks_save = val['params']['save_data']['n_markers'] 
+            if n_mks_save > 0:
+                markers_on_proc = np.logical_and(val['obj'].markers[:, -1] >= 0., val['obj'].markers[:, -1] < n_mks_save)
+                n_markers_on_proc = np.count_nonzero(markers_on_proc)
+                val['kinetic_data']['markers'][:] = -1.
+                val['kinetic_data']['markers'][:n_markers_on_proc] = val['obj'].markers[markers_on_proc]
             
     def update_distr_function(self):
         '''
@@ -253,19 +347,19 @@ class StruphyModel( metaclass=ABCMeta ):
         
         dim_to_int = {'e1' : 0, 'e2' : 1, 'e3' : 2, 'vx' : 3, 'vy' : 4, 'vz' : 5}
         
-        for n, species in enumerate(self._kinetic_species):
+        for val in self.kinetic.values():
             
-            for slic, edges in self._bin_edges[n].items():
-                
-                dims = (len(slic) - 2)//3 + 1
-                comps = [slic[3*i:3*i + 2] for i in range(dims)]
-                
-                components = [False]*6
-                
-                for comp in comps:
-                    components[dim_to_int[comp]] = True
-                
-                self._kinetic_data[n]['f'][slic][:] = species.binning(components, edges)
+            if 'f' in val['params']['save_data']:
+                for slic, edges in val['bin_edges'].items():
+                    
+                    dims = (len(slic) - 2)//3 + 1
+                    comps = [slic[3*i:3*i + 2] for i in range(dims)]
+                    components = [False]*6
+                    
+                    for comp in comps:
+                        components[dim_to_int[comp]] = True
+                    
+                    val['kinetic_data']['f'][slic][:] = val['obj'].binning(components, edges)
         
     def print_scalar_quantities(self):
         '''
@@ -281,40 +375,42 @@ class StruphyModel( metaclass=ABCMeta ):
         Set initial conditions for FE coefficients and marker weights.
         '''
 
-        # initialize fields
-        if len(self._fields) > 0:
+        # initialize em fields
+        if len(self.em_fields) > 0:
 
-            comps_li = self._field_params['init']['comps']
-
-            if self._field_params['init']['coords'] == 'physical':
-                dom_arg = self._domain
+            if self.em_fields['params']['init']['coords'] == 'physical':
+                dom_arg = self.domain
             else:
                 dom_arg = None
 
-            for field, comps in zip(self._fields, comps_li):
-                field.initialize_coeffs(comps, self._field_params['init'], domain=dom_arg)
+            for key, val in self.em_fields.items():
+                if 'params' not in key:
+                    val['obj'].initialize_coeffs(val['init_comps'], self.em_fields['params']['init'], domain=dom_arg)
+
+        # initialize fields
+        if len(self.fluid) > 0:
+
+            for val in self.fluid.values():
+
+                if val['params']['init']['coords'] == 'physical':
+                    dom_arg = self.domain
+                else:
+                    dom_arg = None
+
+                for variable, subval in val.items():
+                    if 'params' not in variable:
+                        subval['obj'].initialize_coeffs(subval['init_comps'], val['params']['init'], domain=dom_arg)
 
         # initialize particles
-        if len(self._kinetic_species) > 0:
+        if len(self.kinetic) > 0:
             
-            for n, (species, params) in enumerate(zip(self._kinetic_species, self._kinetic_params)):
-                
-                # do MPI sort
-                species.mpi_sort_markers(do_test=True)
-                
-                # compute weights
-                species.initialize_weights(params['background'], params['perturbations'])
+            for val in self.kinetic.values():
+                val['obj'].mpi_sort_markers(do_test=True)
+                val['obj'].initialize_weights(val['params']['background'], val['params']['perturbations'])
+                if val['space'] == 'Particles5D':
+                    val['obj'].initialize_magnetic_moments(self.derham, self.mhd_equil)
 
-                # initialize magnetic momentum
-                if self._kinetic_ids[n] == 'Particles5D':
-                    species.initialize_magnetic_moments(self.derham, params, self._field_params['mhd_equilibrium'])
+            self.update_markers_to_be_saved()
+            self.update_distr_function()
 
-                
-        # initialize scalar quantities
         self.update_scalar_quantities(0.)
-        
-        # initialize markers to be saved
-        self.update_markers_to_be_saved()
-        
-        # initialize binned distribution function
-        self.update_distr_function()

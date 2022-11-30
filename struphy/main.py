@@ -52,26 +52,6 @@ with open(file_in) as file:
 # load STRUPHY model
 model_class = getattr(models, model_name)
 model = model_class(params, comm)
-
-dom_type = params['geometry']['type']
-dom_params = params['geometry'][dom_type]
-
-if rank == 0:
-    print(f'domain type: {dom_type}')
-    print(f'domain parameters: {dom_params}\n')
-
-    print('GRID parameters:')
-    print(f'Nel        : {model.derham.Nel}')
-    print(f'p          : {model.derham.p}')
-    print(f'spl_kind   : {model.derham.spl_kind}')
-    print(f'bc         : {model.derham.bc}')
-    print(f'quad_order : {model.derham.quad_order}')
-    print(f'nq_pr      : {model.derham.nq_pr}\n')
-    print('MPI indices for N-splines on rank 0:')
-    print(model.derham.index_array_N[0])
-    print()
-
-# set initial condition
 model.set_initial_conditions()
 
 # data object for saving
@@ -88,32 +68,56 @@ if comm.Get_size() <= 512:
 else:
     data.file['scalar'].attrs['grid_info'] = model.derham.domain_array[0]
 
-# save fields in group 'fields/'
-for field in model.fields:
-    key_field = 'fields/' + field.name
-    
-    # save numpy array to be updated each time step.
-    if isinstance(field.vector, StencilVector):    
-        data.add_data({key_field : field.vector._data})
-    else:
-        for n in range(3):
-            key_component = key_field + '/' + str(n + 1)
-            data.add_data({key_component : field.vector[n]._data})
+# save electromagentic fields/potentials data in group 'feec/'
+for key, val in model.em_fields.items():
+    if 'params' not in key:
+        key_field = 'feec/' + key
+        
+        # save numpy array to be updated each time step.
+        if isinstance(val['obj'].vector, StencilVector):    
+            data.add_data({key_field : val['obj'].vector._data})
+        else:
+            for n in range(3):
+                key_component = key_field + '/' + str(n + 1)
+                data.add_data({key_component : val['obj'].vector[n]._data})
+                
+        # save field meta data
+        data.file[key_field].attrs['space_id'] = val['obj'].space_id
+        data.file[key_field].attrs['starts'] = val['obj'].starts
+        data.file[key_field].attrs['ends'] = val['obj'].ends
+        data.file[key_field].attrs['pads'] = val['obj'].pads
+
+# save fluid data in group 'feec/'
+for species, val in model.fluid.items():
+
+    species_path = 'feec/' + species + '_'
+
+    for variable, subval in val.items():
+        if 'params' not in variable:
+            key_field = species_path + variable
             
-    # save field meta data
-    data.file[key_field].attrs['space_id'] = field.space_id
-    data.file[key_field].attrs['starts'] = field.starts
-    data.file[key_field].attrs['ends'] = field.ends
-    data.file[key_field].attrs['pads'] = field.pads
+            # save numpy array to be updated each time step.
+            if isinstance(subval['obj'].vector, StencilVector):    
+                data.add_data({key_field : subval['obj'].vector._data})
+            else:
+                for n in range(3):
+                    key_component = key_field + '/' + str(n + 1)
+                    data.add_data({key_component : subval['obj'].vector[n]._data})
+                    
+            # save field meta data
+            data.file[key_field].attrs['space_id'] = subval['obj'].space_id
+            data.file[key_field].attrs['starts'] = subval['obj'].starts
+            data.file[key_field].attrs['ends'] = subval['obj'].ends
+            data.file[key_field].attrs['pads'] = subval['obj'].pads
     
 # save kinetic data in group 'kinetic/'
 n_mks_to_be_saved = []
 markers_to_be_saved = []
 
-for ns, (species, k_data) in enumerate(zip(model.kinetic_species, model.kinetic_data)):
-    key_spec = 'kinetic/' + species.name
+for key, val in model.kinetic.items():
+    key_spec = 'kinetic/' + key
     
-    for key1, val1 in k_data.items():
+    for key1, val1 in val['kinetic_data'].items():
         key_dat = key_spec + '/' + key1
         
         if isinstance(val1, dict):
@@ -123,14 +127,14 @@ for ns, (species, k_data) in enumerate(zip(model.kinetic_species, model.kinetic_
                 
                 dims = (len(key2) - 2)//3 + 1
                 for dim in range(dims):
-                    data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = model._bin_edges[ns][key2][dim][:-1] + (model._bin_edges[ns][key2][dim][1] - model._bin_edges[ns][key2][dim][0])/2
+                    data.file[key_f].attrs['bin_centers' + '_' + str(dim + 1)] = val['bin_edges'][key2][dim][:-1] + (val['bin_edges'][key2][dim][1] - val['bin_edges'][key2][dim][0])/2
             
         else:
             data.add_data({key_dat : val1})
             
 
 if rank == 0:
-    print(f'\nRank: {rank} | Initial time series saved.\n')
+    print(f'\nRank: {rank} | Initial time series saved.')
     model.print_scalar_quantities()
 
 # define stepping scheme
@@ -164,7 +168,7 @@ def integrate_in_time():
 
 # start time integration
 if rank == 0:
-    print('Start time integration: ' + split_algo)
+    print('\nStart time integration: ' + split_algo)
     print()
 
 start_simulation = time.time()
@@ -188,8 +192,7 @@ while True:
         # om.export_space_info() TODO: Psydac Derham functionaltiy not yet implemented.
         end_simulation = time.time()
         if rank == 0:
-            print()
-            print('time of simulation [sec]: ',
+            print('wall-clock time of simulation [sec]: ',
                   end_simulation - start_simulation)
             print()
         break

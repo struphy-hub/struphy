@@ -344,7 +344,7 @@ def eval_magnetic_moments(markers: 'float[:,:]',
                           pn: 'int[:]',
                           tn1: 'float[:]', tn2: 'float[:]', tn3: 'float[:]',
                           starts0: 'int[:]',
-                          b0: 'float[:,:,:]', mh: 'float'):
+                          b0: 'float[:,:,:]'):
     """
     Evaluate magnetic moments of each particles
 
@@ -395,7 +395,7 @@ def eval_magnetic_moments(markers: 'float[:,:]',
 
         b = eval_spline_mpi_kernel(pn[0], pn[1], pn[2], bn1, bn2, bn3, span1, span2, span3, b0, starts0)
 
-        markers[ip,4] = mh/2 * vperp_square / b
+        markers[ip,4] = 1/2 * vperp_square / b
 
 
 @stack_array('bn1', 'bn2', 'bn3', 'bd1', 'bd2', 'bd3', 'e', 'e_mid')

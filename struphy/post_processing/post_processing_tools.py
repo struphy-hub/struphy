@@ -57,13 +57,14 @@ def create_femfields(path, snapshots=None):
     space_ids = []
     spaces = []
     
-    for name, dset in file['fields'].items():
-        
+    assert 'feec' in file, 'No fields saved under feec/ in .hdf5 output.' 
+
+    for name, dset in file['feec'].items():
+
         names += [name]
         space_ids += [dset.attrs['space_id']]
         spaces += [getattr(derham, derham.spaces_dict[space_ids[-1]])]
     
-
     # create FemFields
     dt = params['time']['dt']
     nt = int(params['time']['Tend']/dt)
@@ -87,7 +88,7 @@ def create_femfields(path, snapshots=None):
         # open file (0-th rank file is already open!)
         if rank > 0: file = h5py.File(path + 'data_proc' + str(rank) + '.hdf5', 'r')
 
-        for field_name, dset in tqdm(file['fields'].items()):
+        for field_name, dset in tqdm(file['feec'].items()):
 
             # get global start indices, end indices and pads
             gl_s = dset.attrs['starts']
@@ -350,7 +351,6 @@ def post_process_markers(path, species):
     for file in files:
         file.close()
         
-
 def post_process_f(path, species):
     """
     Computes and saved distribution function of saved binning data during a simulation (saved as f_<slice>.npy in a directory "kinetic_data/<name_of_species>/distribution_function/").
@@ -401,9 +401,6 @@ def post_process_f(path, species):
         file.close()
     
             
-        
-    
-
 if __name__ == '__main__':
     path = 'struphy/io/out/sim_1/'
     fields, space_ids, code = create_femfields(path)

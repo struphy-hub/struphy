@@ -6,14 +6,12 @@ grid :
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
       
-
 time : 
       dt         : 0.01 # time step
-      Tend       : 1 # simulation time interval is [0, Tend]
+      Tend       : 0.05 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
-
 geometry : 
       type : Cuboid # mapping F (possible types seen below)  
       Cuboid : 
@@ -23,13 +21,21 @@ geometry :
             r2 : 1. # end of interval in eta2, r2>l2
             l3 : 0. # start of interval in eta3
             r3 : 7.85398163397 # end of interval in eta3, r3>l3
-            
-      
-fields : 
+
+mhd_equilibrium : 
+      type : HomogenSlab # (possible choices seen below)
+      HomogenSlab :
+            B0x  : 0. # magnetic field in x
+            B0y  : 0. # magnetic field in y
+            B0z  : 1. # magnetic field in z
+            beta : 100. # plasma beta = 2*p*mu_0/B^2
+            n0   : 1. # number density
+
+em_fields :
       init :
             type   : ModesCos # initial conditions (possible types seen below)
             coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[False], [True, False, False], [False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            comps  : [[False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
@@ -55,29 +61,54 @@ fields :
                   m  : 0  # poloidal (y) mode number
                   n  : 1  # toroidal (z) mode number
                   U  : 0.1 # amplitude of Ux/Uy
-                  A  : 0. # amplitude of Uz     
-      mhd_u_space : Hdiv # H1vec, Hcurl or Hdiv
-      mhd_equilibrium : 
-            type : HomogenSlab # (possible choices seen below)
-            HomogenSlab :
-                  B0x  : 0. # magnetic field in x
-                  B0y  : 0. # magnetic field in y
-                  B0z  : 1. # magnetic field in z
-                  beta : 100. # plasma beta = 2*p*mu_0/B^2
-                  n0   : 1. # number density
-
-coupling :
-      scheme : pressure_full # pressure, pressure_full or current
-      solver :
-            type : pcg
-            pc : MassMatrixPreconditioner # null or fft
-            tol : 1.e-12
-            maxiter : 3000
-            info : False
-            verbose : False
+                  A  : 0. # amplitude of Uz 
+      
+fluid :
+      mhd :
+            attributes :                           # one entry for each field; put null EM fields (no plasma species)
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 1. # thermal energy in units keV 
+                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            init :
+                  type   : ModesCos # initial conditions (possible types seen below)
+                  coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+                  comps  : [[False], [True, False, False], [False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+                  noise : 
+                        direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                        amp : 0.1   # noise amplitude
+                  ModesSin : 
+                        ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                        ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                        ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                        amp : [0.001] # amplitudes of each mode
+                  ModesCos : 
+                        ls : [0] # Integer mode numbers in x or eta_1 (depending on coords)
+                        ms : [0] # Integer mode numbers in y or eta_2 (depending on coords)
+                        ns : [1] # Integer mode numbers in z or eta_3 (depending on coords)
+                        amp : [0.001] # amplitudes of each mode
+                  TorusModesSin : 
+                        ms : [1] # poloidal mode numbers
+                        ns : [0] # toroidal mode numbers
+                        amp : [0.001] # amplitudes of each mode
+                        pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
+                        pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
+                  InitialMHDSlab :
+                        a  : 1. # minor radius (Lx=a, Ly=2*pi*a)
+                        R0 : 3. # major radius (Lz=2*pi*R0)
+                        m  : 0  # poloidal (y) mode number
+                        n  : 1  # toroidal (z) mode number
+                        U  : 0.1 # amplitude of Ux/Uy
+                        A  : 0. # amplitude of Uz     
+            mhd_u_space : Hdiv # H1vec, Hcurl or Hdiv
 
 kinetic :
       energetic_ions :
+            attributes :
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 100. # thermal energy in units keV 
+                  beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   ppc         : 1000  # particles per 3d grid cell
                   eps         : .25 # MPI send/receive buffer (0.1 <= eps <= 1.0)
@@ -88,11 +119,6 @@ kinetic :
                         seed          : 1234 # seed for random number generator
                         dir_particles : path_to_particles # directory of particles if loaded externally
                         moms_params   : [1., 0., 0., 2.5, 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
-            attributes :
-                  nuh             : 0.05 # ratio hot/bulk number densities (nuh<=0.0 is a run without particles)
-                  particle_charge : 1. # in units of elementary charge
-                  particle_mass   : 1. # in units of proton mass
-                  alpha           : 1. # coupling parameter alpha = Omega_{cp0}/Omega_{A0} 
             background :
                   type        : 0 # 0: Maxwellian in 6d
                   moms_spec   : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
@@ -119,6 +145,7 @@ kinetic :
             push_algos :
                   vxb : analytic # possible choices: analytic, implicit
                   eta : rk4 # possible choices: forward_euler, heun2, rk2, heun3, rk4
+            pc : full # for pressure coupling: full or perp
             
 
 solvers :
@@ -136,4 +163,12 @@ solvers :
             maxiter : 3000
             info : False
             verbose : False
+      solver_3 :
+            type : pcg
+            pc : MassMatrixPreconditioner # null or fft
+            tol : 1.e-12
+            maxiter : 3000
+            info : False
+            verbose : False
+
                 

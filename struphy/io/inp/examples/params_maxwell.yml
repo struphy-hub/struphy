@@ -6,14 +6,12 @@ grid :
       nq_el    : [2, 2, 2] # quadrature points per grid cell
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
 
-
 time : 
       dt         : 0.05 # time step
       Tend       : 100 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
-
 geometry : 
       type : Cuboid # mapping F (possible types seen below)  
       Cuboid : 
@@ -23,9 +21,8 @@ geometry :
             r2 : 1. # end of interval in eta2, r2>l2
             l3 : 0. # start of interval in eta3
             r3 : 20. # end of interval in eta3, r3>l3
-            
-      
-fields : 
+                
+em_fields : 
       init :
             type   : noise # initial conditions (possible types seen below)
             coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
@@ -33,8 +30,7 @@ fields :
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1 # noise amplitude
-
-            
+        
 solvers :
       solver_1 : 
             type : pcg

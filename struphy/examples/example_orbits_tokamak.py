@@ -21,7 +21,7 @@ domain_class = getattr(domains, dom_type)
 domain = domain_class(dom_params)
 
 # load MHD equilibrium
-equil_params = params['fields']['mhd_equilibrium']
+equil_params = params['mhd_equilibrium']
 mhd_equil_class = getattr(analytical, equil_params['type'])
 mhd_equil = mhd_equil_class(equil_params[equil_params['type']], domain)
 

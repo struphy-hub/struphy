@@ -5,15 +5,13 @@ grid :
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
-      
-      
+       
 time : 
-      dt         : 0.01  # time step
+      dt         : 0.2  # time step
       Tend       : 40. # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
-
 geometry : 
       type : HollowTorus # mapping F (possible types seen below)  
       HollowTorus :
@@ -21,26 +19,29 @@ geometry :
             a2 : 1. # minor radius
             R0 : 4. # major radius
             
-            
-fields : 
-      mhd_equilibrium : 
-            type : AdhocTorus # (possible choices seen below)
-            AdhocTorus :
-                  a      : 1. # minor radius (radius of cylinder)
-                  R0     : 4. # major radius (Lz = 2*pi*R0)
-                  B0     : 3. # on-axis toroidal magnetic field
-                  q0     : 1.71 # safety factor at r=0
-                  q1     : 1.87 # safety factor at r=a
-                  n1     : 0. # shape factor for number density profile 
-                  n2     : 0. # shape factor for number density profile 
-                  na     : 1. # number density at r=a
-                  p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
-                  p1     : .1 # shape factor for ad hoc pressure profile
-                  p2     : .1 # shape factor for ad hoc pressure profile
-                  beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
-                  
+mhd_equilibrium : 
+      type : AdhocTorus # (possible choices seen below)
+      AdhocTorus :
+            a      : 1. # minor radius (radius of cylinder)
+            R0     : 4. # major radius (Lz = 2*pi*R0)
+            B0     : 3. # on-axis toroidal magnetic field
+            q0     : 1.71 # safety factor at r=0
+            q1     : 1.87 # safety factor at r=a
+            n1     : 0. # shape factor for number density profile 
+            n2     : 0. # shape factor for number density profile 
+            na     : 1. # number density at r=a
+            p_kind : 1 # kind of pressure profile (0 : cylindrical limit, 1 : ad hoc)
+            p1     : .1 # shape factor for ad hoc pressure profile
+            p2     : .1 # shape factor for ad hoc pressure profile
+            beta   : .01 # plasma beta in % for flat safety factor (ratio of kinetic pressure to magnetic pressure)
+
 kinetic :
       ions :
+            attributes :
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 1. # thermal energy in units keV 
+                  beta : 0.01 # plasma beta = p*2*mu_0/|B|^2
             markers :
                   ppc     : null  # number of markers per 3d grid cell
                   Np      : 3 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
@@ -53,10 +54,6 @@ kinetic :
                         initial     : [[.501, 0.001, 0.001,  4.5 , 6., 0.],
                                        [.501, 0.001, 0.001, -4.5 , 6., 0.],
                                        [.501, 0.001, 0.001, -2.25, 6., 0.]]
-            attributes :
-                  epsilon         : 0.01
-                  particle_charge : 1. # in units of elementary charge
-                  particle_mass   : 1. # in units of proton mass
             background :
                   type        : 0 # 0: Maxwellian in 6d
                   moms_spec   : [0, 0, 0, 0, 0, 0, 0] # Specifier for the moments n0, u0x, u0y, u0z, vth0x, vth0y, vth0z. 0 means constant
@@ -70,3 +67,4 @@ kinetic :
                   method : rk4 # possible choices: discrete_gradients, forward_euler, heun2, rk2, heun3, rk4
                   maxiter : 10
                   tol : 1.e-15
+            pc : full # for pressure coupling: full or perp

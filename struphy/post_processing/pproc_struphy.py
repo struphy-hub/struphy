@@ -15,7 +15,7 @@ for path in sys.argv[2:]:
     # check for fields and kinetic data in hdf5 file that need post processing
     file = h5py.File(path + '/data_proc0.hdf5', 'r')
     
-    if 'fields' in file.keys():
+    if 'feec' in file.keys():
         exist_fields = True
     else:
         exist_fields = False
