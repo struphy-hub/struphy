@@ -18,7 +18,7 @@ REPLACE=false
 N_LINES=6     
 FLAGS=
 CFLAGS=--openmp    
-CODE=                                 
+MODEL=                                 
 INPUT=parameters.yml            
 INPUT_ABS=        
 OUTPUT=sim_1           
@@ -183,7 +183,7 @@ while [[ $# -gt 0 ]]; do
           exit 0
           ;;
       esac
-      CODE="$2"
+      MODEL="$2"
       shift
       shift
       ;;
@@ -390,7 +390,7 @@ if [ "$RUN" = true ] ; then
 
   # Run flags
   CPROFILE="-m cProfile -o $OUTPUT_ABS/profile_tmp -s time $STRUPHY/main.py"
-  ARGS="$CODE $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
+  ARGS="$MODEL $INPUT_ABS $OUTPUT_ABS/ None $METAFILE $RESTART_DIR"
 
   # Normal run  
   RUN_CMD="$PYTHON $CPROFILE $ARGS"  
@@ -435,7 +435,7 @@ if [ "$RUN" = true ] ; then
   # Print parameters
   echo "STRUPHY          = ${STRUPHY}"
   echo "RUN              = ${RUN}"
-  echo "CODE             = ${CODE}"
+  echo "MODEL            = ${MODEL}"
   echo "RESTART_DIR      = ${RESTART_DIR}"
   echo "MPI_SIZE         = ${MPI_SIZE}"
   echo "INPUT_ABS        = ${INPUT_ABS}"
@@ -446,8 +446,8 @@ if [ "$RUN" = true ] ; then
 
   # Write to meta.txt
   echo "STRUPHY          = ${STRUPHY}" >> $METAFILE
-  echo "CODE             = ${CODE}" >> $METAFILE
-  echo "RESTART_DIR   = ${RESTART_DIR}" >> $METAFILE
+  echo "MODEL            = ${MODEL}" >> $METAFILE
+  echo "RESTART_DIR      = ${RESTART_DIR}" >> $METAFILE
   echo "MPI_SIZE         = ${MPI_SIZE}" >> $METAFILE
   echo "INPUT_ABS        = ${INPUT_ABS}" >> $METAFILE
   echo "OUTPUT_ABS       = ${OUTPUT_ABS}" >> $METAFILE

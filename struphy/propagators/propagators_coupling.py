@@ -237,11 +237,11 @@ class StepPressurecoupling( Propagator ):
         # Call the accumulation and Pusher class
         args = []
 
-        if coupling == 'pressure' : 
+        if coupling == 'perp' : 
             self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d', *args, do_vector = True, symmetry = 'pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu')
 
-        elif coupling == 'pressure_full' :
+        elif coupling == 'full' :
             self._ACC = Accumulator(self._domain, self._derham, 'Hcurl', 'pc_lin_mhd_6d_full', *args, do_vector = True, symmetry = 'pressure')
             self._pusher = Pusher(self._derham, self._domain, 'push_pc_GXu_full')
 

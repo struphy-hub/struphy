@@ -14,7 +14,7 @@ code = lines[-2].split()[-1]
 
 # field names
 file = h5py.File(path + '/data_proc0.hdf5', 'r')
-names = list(file['fields'].keys())
+names = list(file['feec'].keys())
 file.close()
 
 # load data dicts for e_field

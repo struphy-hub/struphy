@@ -6,23 +6,20 @@ grid :
       nq_el    : [2, 2, 2] # quadrature points per grid cell
       nq_pr    : [2, 2, 2] # quadrature points per histopolation cell (for commuting projectors)
 
-
 time : 
       dt         : 0.05 # time step
       Tend       : .5 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
-
 geometry : 
       type : HollowTorus # mapping F (possible types seen below)  
       HollowTorus :
             a1 : .1 # inner radius
             a2 : 1. # minor radius
             R0 : 4. # major radius
-            
-      
-fields : 
+                
+em_fields : 
       init :
             type   : TorusModesSin # initial conditions (possible types seen below)
             coords : logical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
@@ -33,7 +30,6 @@ fields :
                   amp : [0.001] # amplitudes
                   pfuns : ['sin'] # profile function in eta1-direction ('sin' or 'exp')
                   pfun_params : [null] # Provides [r_0, sigma] parameters for each "exp" profile fucntion, and null for "sin"
-
 
 solvers :
       solver_1 : 

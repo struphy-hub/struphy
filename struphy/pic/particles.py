@@ -910,7 +910,7 @@ class Particles5D:
         plt.show()
 
 
-    def initialize_magnetic_moments(self, derham, kinetic_params, equil_params):
+    def initialize_magnetic_moments(self, derham, mhd_equil):
         r"""
         
         Calculate magnetic moments of each particles :math:`\mu = \frac{m v_\perp^2}{2B}` and asign it into markers[:,4].
@@ -921,17 +921,14 @@ class Particles5D:
         from struphy.fields_background.mhd_equil import analytical
         from struphy.pic.utilities_kernels import eval_magnetic_moments
 
-        mhd_equil_class = getattr(analytical, equil_params['type'])
-        self._mhd_equil = mhd_equil_class(equil_params[equil_params['type']], self.domain)
-
-        abs_b = derham.P0(self._mhd_equil.b0).coeffs
+        abs_b = derham.P0(mhd_equil.b0).coeffs
 
         # save the calculated magnetic moments in markers[:,4]
         eval_magnetic_moments(self.markers[~self.holes, 0:6], 
                               np.array(derham.p),
                               derham.V0.knots[0], derham.V0.knots[1], derham.V0.knots[2],
                               np.array(derham.V0.vector_space.starts),
-                              abs_b._data, kinetic_params['attributes']['particle_mass'])
+                              abs_b._data)
 
         # clear markers[:,5]
         self.markers[~self.holes, 5] = 0.

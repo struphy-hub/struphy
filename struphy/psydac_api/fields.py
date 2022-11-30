@@ -157,8 +157,6 @@ class Field:
         else:
             rank = 0
         
-        if rank == 0: print(f'Setting initial conditions for {self.name} in {self.space_id} ...')
-
         # set initial conditions for each component
         init_type = init_params['type']
         init_coords = init_params['coords']
@@ -247,8 +245,6 @@ class Field:
             self.space_id, self._vector, self.derham.bc)
 
         self._vector.update_ghost_regions()
-
-        if rank == 0: print('Done.')
 
     def __call__(self, eta1, eta2, eta3, squeeze_output=False):
         """

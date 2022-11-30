@@ -11,4 +11,6 @@ struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_4
 struphy run LinearMHD -i tests/params_linearmhd.yml -o sim_5 --mpi 2
 struphy profile sim_4 sim_5
 struphy pproc sim_4 sim_5
+# Test PC_LinearMHD_Vlasov
+struphy run PC_LinearMHD_Vlasov -i tests/params_pc_linmhd_6d.yml -o sim_6
 # Add Test for each model

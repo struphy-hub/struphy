@@ -208,7 +208,7 @@ class StepPushEtaPC( Propagator ):
         self._bc = bc
 
         # call Pusher class
-        if coupling == 'pressure_full':
+        if coupling == 'full':
             if self._u_space == 'Hcurl':
                 self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl_full', n_stages=4)
 
@@ -220,7 +220,7 @@ class StepPushEtaPC( Propagator ):
 
             else: raise ValueError('Given u_space does not exist!')
 
-        elif coupling == 'pressure':
+        elif coupling == 'perp':
             if self._u_space == 'Hcurl':
                 self._pusher = Pusher(self._derham, self._domain, 'push_pc_eta_rk4_Hcurl', n_stages=4)
     

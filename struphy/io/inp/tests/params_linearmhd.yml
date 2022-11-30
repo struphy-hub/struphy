@@ -5,15 +5,13 @@ grid :
       bc       : [[null, null], [null, null], [null, null]] # boundary conditions for N-splines (homogeneous Dirichlet='d')
       nq_el    : [6, 6, 6] # quadrature points per grid cell
       nq_pr    : [4, 4, 4] # quadrature points per histopolation cell (for commuting projectors)
-      
-      
+          
 time : 
       dt         : 0.15 # time step
       Tend       : 1.5 # simulation time interval is [0, Tend]
       max_time   : 300. # maximum runtime of program in minutes
       split_algo : LieTrotter # LieTrotter | Strang
       
-
 geometry : 
       type : Cuboid # mapping F (possible types seen below)  
       Cuboid : 
@@ -24,26 +22,40 @@ geometry :
             l3 : 0. # start of interval in eta3
             r3 : 60. # end of interval in eta3, r3>l3
             
-            
-fields : 
+mhd_equilibrium : 
+      type : HomogenSlab # (possible choices seen below)
+      HomogenSlab :
+            B0x  : 0. # magnetic field in x
+            B0y  : 1. # magnetic field in y
+            B0z  : 1. # magnetic field in z
+            beta : 100. # plasma beta = 2*p*mu_0/B^2
+            n0   : 1. # number density
+
+em_fields : 
       init :
             type   : noise # initial conditions (possible types seen below)
             coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
-            comps  : [[False], [True, True, True], [False], [False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+            comps  : [[False, False, False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
             noise : 
                   direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
                   amp : 0.1   # noise amplitude
-      mhd_u_space : H1vec # Hdiv | H1vec
-      mhd_equilibrium : 
-            type : HomogenSlab # (possible choices seen below)
-            HomogenSlab :
-                  B0x  : 0. # magnetic field in x
-                  B0y  : 1. # magnetic field in y
-                  B0z  : 1. # magnetic field in z
-                  beta : 100. # plasma beta = 2*p*mu_0/B^2
-                  n0   : 1. # number density
 
-
+fluid :
+      mhd :
+            attributes :                           # one entry for each field; put null EM fields (no plasma species)
+                  Z    : 1. # charge number Z = q/e, in units of elementary charge, can have a sign
+                  M    : 1. # mass ratio m/m_p, in units of proton mass
+                  kBT  : 1. # thermal energy in units keV 
+                  beta : .01 # plasma beta = p*2*mu_0/|B|^2
+            init :
+                  type   : noise # initial conditions (possible types seen below)
+                  coords : physical # where init conds are prescribed: physical, logical or norm_logical (=normed vector fields) domain
+                  comps  : [[False], [True, True, True], [False]] # default: all, otherwise list of lists: init_comps[i][j]=True means initialize component j of field i.
+                  noise : 
+                        direction : z # x, y, z (for 1d) or xy, xz, yz (for 2d), referring to eta-domain if coords=logical (x -> eta_1 etc.)
+                        amp : 0.1   # noise amplitude
+            mhd_u_space : H1vec # Hdiv | H1vec
+      
 solvers :
       solver_1 : 
             type : pcg
