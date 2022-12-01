@@ -587,11 +587,8 @@ class Tensor_spline_space:
                 
             else:
                 
-                self.M0_tor = np.identity(2)/2
-                self.M1_tor = np.identity(2)/2
-                    
-                self.M0_tor = spa.csr_matrix(self.M0_tor)
-                self.M1_tor = spa.csr_matrix(self.M1_tor)
+                self.M0_tor = spa.csr_matrix(np.identity(2)/2)
+                self.M1_tor = spa.csr_matrix(np.identity(2)/2)
                 
         else:
             self.M0_tor = mass_1d.get_M(self.spaces[2], 0, 0)
@@ -674,14 +671,6 @@ class Tensor_spline_space:
             
             self.Bv_pol = spa.bmat([[Bv1, None], [None, Bv2]], format='csr')
             
-            # extraction operators with boundary conditions
-            self.E0_pol_0 = self.B0_pol.dot(self.E0_pol).tocsr()
-            self.E1_pol_0 = self.B1_pol.dot(self.E1_pol).tocsr()
-            self.E2_pol_0 = self.B2_pol.dot(self.E2_pol).tocsr()
-            self.E3_pol_0 = self.B3_pol.dot(self.E3_pol).tocsr()
-            self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
-            
-        
         # C^k polar splines in eta_1-eta_2 plane
         else:
             
@@ -721,66 +710,52 @@ class Tensor_spline_space:
             
             self.Bv_pol = spa.bmat([[Bv1, None], [None, Bv2]], format='csr')
             
-            # extraction operators with boundary conditions
-            self.E0_pol_0 = self.B0_pol.dot(self.E0_pol).tocsr()
-            self.E1_pol_0 = self.B1_pol.dot(self.E1_pol).tocsr()
-            self.E2_pol_0 = self.B2_pol.dot(self.E2_pol).tocsr()
-            self.E3_pol_0 = self.B3_pol.dot(self.E3_pol).tocsr()
-            self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
-            
-
-        # extraction operators for 3D diagram: without boundary conditions
-        if self.dim == 2:
+        # extraction operators with boundary conditions
+        self.E0_pol_0 = self.B0_pol.dot(self.E0_pol).tocsr()
+        self.E1_pol_0 = self.B1_pol.dot(self.E1_pol).tocsr()
+        self.E2_pol_0 = self.B2_pol.dot(self.E2_pol).tocsr()
+        self.E3_pol_0 = self.B3_pol.dot(self.E3_pol).tocsr()
+        self.Ev_pol_0 = self.Bv_pol.dot(self.Ev_pol).tocsr()
         
-            self.E0 =            self.E0_pol.copy()
-            self.E1 = spa.bmat([[self.E1_pol, None], [None, self.E0_pol]], format='csr')
-            self.E2 = spa.bmat([[self.E2_pol, None], [None, self.E3_pol]], format='csr')
-            self.E3 =            self.E3_pol.copy()
-            self.Ev = spa.bmat([[self.Ev_pol, None], [None, self.E0_pol]], format='csr')
-
-            self.E0 = spa.kron(self.E0, spa.identity(self.NbaseN[2]), format='csr')
-            self.E1 = spa.kron(self.E1, spa.identity(self.NbaseN[2]), format='csr')
-            self.E2 = spa.kron(self.E2, spa.identity(self.NbaseN[2]), format='csr')
-            self.E3 = spa.kron(self.E3, spa.identity(self.NbaseN[2]), format='csr')
-            self.Ev = spa.kron(self.Ev, spa.identity(self.NbaseN[2]), format='csr')
+        # toroidal eta_3 direction
+        if self.dim == 2:
             
+            self.E0_tor = spa.identity(self.NbaseN[2])
+            self.E1_tor = spa.identity(self.NbaseD[2])
+            
+            self.B0_tor = spa.identity(self.NbaseN[2])
+            self.B1_tor = spa.identity(self.NbaseD[2])
+        
         else:
             
-            self.E0 = spa.kron(self.E0_pol, self.spaces[2].E0, format='csr')
-            self.E1 = spa.bmat([[spa.kron(self.E1_pol, self.spaces[2].E0), None], 
-                                [None, spa.kron(self.E0_pol, self.spaces[2].E1)]], format='csr')
-            self.E2 = spa.bmat([[spa.kron(self.E2_pol, self.spaces[2].E1), None], 
-                                [None, spa.kron(self.E3_pol, self.spaces[2].E0)]], format='csr')
-            self.E3 = spa.kron(self.E3_pol, self.spaces[2].E1, format='csr')
-            self.Ev = spa.bmat([[spa.kron(self.Ev_pol, self.spaces[2].E0), None], 
-                                [None, spa.kron(self.E0_pol, self.spaces[2].E0)]], format='csr')
+            self.E0_tor = self.spaces[2].E0
+            self.E1_tor = self.spaces[2].E1
             
-        
+            self.B0_tor = self.spaces[2].B0
+            self.B1_tor = self.spaces[2].B1
+            
+        self.E0_tor_0 = self.B0_tor.dot(self.E0_tor).tocsr()
+        self.E1_tor_0 = self.B1_tor.dot(self.E1_tor).tocsr()  
+
+        # extraction operators for 3D diagram: without boundary conditions 
+        self.E0 = spa.kron(self.E0_pol, self.E0_tor, format='csr')
+        self.E1 = spa.bmat([[spa.kron(self.E1_pol, self.E0_tor), None], 
+                            [None, spa.kron(self.E0_pol, self.E1_tor)]], format='csr')
+        self.E2 = spa.bmat([[spa.kron(self.E2_pol, self.E1_tor), None], 
+                            [None, spa.kron(self.E3_pol, self.E0_tor)]], format='csr')
+        self.E3 = spa.kron(self.E3_pol, self.E1_tor, format='csr')
+        self.Ev = spa.bmat([[spa.kron(self.Ev_pol, self.E0_tor), None], 
+                            [None, spa.kron(self.E0_pol, self.E0_tor)]], format='csr')
+            
         # boundary operators for 3D diagram
-        if self.dim == 2:
-        
-            self.B0 =            self.B0_pol.copy()
-            self.B1 = spa.bmat([[self.B1_pol, None], [None, self.B0_pol]], format='csr')
-            self.B2 = spa.bmat([[self.B2_pol, None], [None, self.B3_pol]], format='csr')
-            self.B3 =            self.B3_pol.copy()
-            self.Bv = spa.bmat([[self.Bv_pol, None], [None,         Bv3]], format='csr')
-
-            self.B0 = spa.kron(self.B0, spa.identity(self.NbaseN[2]), format='csr')
-            self.B1 = spa.kron(self.B1, spa.identity(self.NbaseN[2]), format='csr')
-            self.B2 = spa.kron(self.B2, spa.identity(self.NbaseN[2]), format='csr')
-            self.B3 = spa.kron(self.B3, spa.identity(self.NbaseN[2]), format='csr')
-            self.Bv = spa.kron(self.Bv, spa.identity(self.NbaseN[2]), format='csr')
-            
-        else:
-            
-            self.B0 = spa.kron(self.B0_pol, self.spaces[2].B0, format='csr')
-            self.B1 = spa.bmat([[spa.kron(self.B1_pol, self.spaces[2].B0), None], 
-                                [None, spa.kron(self.B0_pol, self.spaces[2].B1)]], format='csr')
-            self.B2 = spa.bmat([[spa.kron(self.B2_pol, self.spaces[2].B1), None], 
-                                [None, spa.kron(self.B3_pol, self.spaces[2].B0)]], format='csr')
-            self.B3 = spa.kron(self.B3_pol, self.spaces[2].B1, format='csr')
-            self.Bv = spa.bmat([[spa.kron(self.Bv_pol, self.spaces[2].E0), None], 
-                                [None, spa.kron(Bv3, self.spaces[2].B0)]], format='csr')
+        self.B0 = spa.kron(self.B0_pol, self.B0_tor, format='csr')
+        self.B1 = spa.bmat([[spa.kron(self.B1_pol, self.B0_tor), None], 
+                            [None, spa.kron(self.B0_pol, self.B1_tor)]], format='csr')
+        self.B2 = spa.bmat([[spa.kron(self.B2_pol, self.B1_tor), None], 
+                            [None, spa.kron(self.B3_pol, self.B0_tor)]], format='csr')
+        self.B3 = spa.kron(self.B3_pol, self.B1_tor, format='csr')
+        self.Bv = spa.bmat([[spa.kron(self.Bv_pol, self.E0_tor), None], 
+                            [None, spa.kron(Bv3, self.B0_tor)]], format='csr')
         
         # extraction operators for 3D diagram: with boundary conditions
         self.E0_0 = self.B0.dot(self.E0).tocsr()
@@ -789,14 +764,10 @@ class Tensor_spline_space:
         self.E3_0 = self.B3.dot(self.E3).tocsr()
         self.Ev_0 = self.Bv.dot(self.Ev).tocsr()
             
-            
         # -------------------------------------------------
         # Set discrete derivatives:
         # -------------------------------------------------
         self.G, self.G0, self.C, self.C0, self.D, self.D0 = der.discrete_derivatives_3d(self)
-                
-        # print('Set extraction operators for boundary conditions ({}d) done.'.format(self.dim))
-
     
     
     # function for setting projectors:        
@@ -816,9 +787,6 @@ class Tensor_spline_space:
         # general projectors (polar splines possible)
         elif which == 'general':
             self.projectors = pro.ProjectorsGlobal3D(self)
-
-        # print('Set projectors ({}d) done.'.format(self.dim))
-
 
 
     # ============== mass matrices =======================
@@ -887,7 +855,7 @@ class Tensor_spline_space:
                 
         x = self.reshape_pol_0(x)
 
-        out = mats[1].dot(self.B0_pol.dot(mats[0].dot(self.B0_pol.T.dot(x))).T).T
+        out = self.B0_tor.dot(mats[1].dot(self.B0_tor.T.dot(self.B0_pol.dot(mats[0].dot(self.B0_pol.T.dot(x))).T))).T
 
         return out.flatten()
     
@@ -898,8 +866,8 @@ class Tensor_spline_space:
         
         x1, x2 = self.reshape_pol_1(x)
 
-        out1 = mats[0][1].dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T).T
-        out2 = mats[1][1].dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T).T
+        out1 = self.B0_tor.dot(mats[0][1].dot(self.B0_tor.T.dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T))).T
+        out2 = self.B1_tor.dot(mats[1][1].dot(self.B1_tor.T.dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T))).T
 
         return np.concatenate((out1.flatten(), out2.flatten()))
     
@@ -910,8 +878,8 @@ class Tensor_spline_space:
                 
         x1, x2 = self.reshape_pol_2(x)
 
-        out1 = mats[0][1].dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T).T
-        out2 = mats[1][1].dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T).T
+        out1 = self.B1_tor.dot(mats[0][1].dot(self.B1_tor.T.dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T))).T
+        out2 = self.B0_tor.dot(mats[1][1].dot(self.B0_tor.T.dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T))).T
 
         return np.concatenate((out1.flatten(), out2.flatten()))
     
@@ -922,7 +890,7 @@ class Tensor_spline_space:
                 
         x = self.reshape_pol_3(x)
 
-        out = mats[1].dot(self.B3_pol.dot(mats[0].dot(self.B3_pol.T.dot(x))).T).T
+        out = self.B1_tor.dot(mats[1].dot(self.B1_tor.T.dot(self.B3_pol.dot(mats[0].dot(self.B3_pol.T.dot(x))).T))).T
 
         return out.flatten()
     
@@ -934,7 +902,7 @@ class Tensor_spline_space:
         x1, x2 = self.reshape_pol_v(x)
 
         out1 = mats[0][1].dot(self.Bv_pol.dot(mats[0][0].dot(self.Bv_pol.T.dot(x1))).T).T
-        out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
+        out2 = self.B0_tor.dot(mats[1][1].dot(self.B0_tor.T.dot(mats[1][0].dot(x2).T))).T
 
         return np.concatenate((out1.flatten(), out2.flatten()))
     
@@ -1117,74 +1085,89 @@ class Tensor_spline_space:
    
     # == reshape of flattened 3D coefficients to structure (2D poloidal x 1D toroidal) ===
     def reshape_pol_0(self, coeff):
+        """
+        TODO
+        """
 
         c_size = coeff.size
         
         assert c_size == self.E0.shape[0] or c_size == self.E0_0.shape[0]
         
         if c_size == self.E0.shape[0]:
-            coeff0_pol = coeff.reshape(self.E0_pol.shape[0], self.NbaseN[2])
+            coeff0_pol = coeff.reshape(self.E0_pol.shape[0], self.E0_tor.shape[0])
         else:
-            coeff0_pol = coeff.reshape(self.E0_pol_0.shape[0], self.NbaseN[2])
+            coeff0_pol = coeff.reshape(self.E0_pol_0.shape[0], self.E0_tor_0.shape[0])
         
         return coeff0_pol
     
     def reshape_pol_1(self, coeff):
+        """
+        TODO
+        """
 
         c_size = coeff.size
         
         assert c_size == self.E1.shape[0] or c_size == self.E1_0.shape[0]
 
         if c_size == self.E1.shape[0]:
-            coeff1_pol_1 = coeff[:self.E1_pol.shape[0]*self.NbaseN[2] ].reshape(self.E1_pol.shape[0], self.NbaseN[2])
-            coeff1_pol_3 = coeff[ self.E1_pol.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0], self.NbaseD[2])
+            coeff1_pol_1 = coeff[:self.E1_pol.shape[0]*self.E0_tor.shape[0] ].reshape(self.E1_pol.shape[0], self.E0_tor.shape[0])
+            coeff1_pol_3 = coeff[ self.E1_pol.shape[0]*self.E0_tor.shape[0]:].reshape(self.E0_pol.shape[0], self.E1_tor.shape[0])
         else:
-            coeff1_pol_1 = coeff[:self.E1_pol_0.shape[0]*self.NbaseN[2] ].reshape(self.E1_pol_0.shape[0], self.NbaseN[2])
-            coeff1_pol_3 = coeff[ self.E1_pol_0.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol_0.shape[0], self.NbaseD[2])
+            coeff1_pol_1 = coeff[:self.E1_pol_0.shape[0]*self.E0_tor_0.shape[0] ].reshape(self.E1_pol_0.shape[0], self.E0_tor_0.shape[0])
+            coeff1_pol_3 = coeff[ self.E1_pol_0.shape[0]*self.E0_tor_0.shape[0]:].reshape(self.E0_pol_0.shape[0], self.E1_tor_0.shape[0])
         
         return coeff1_pol_1, coeff1_pol_3
     
     def reshape_pol_2(self, coeff):
+        """
+        TODO
+        """
 
         c_size = coeff.size
         
         assert c_size == self.E2.shape[0] or c_size == self.E2_0.shape[0]
 
         if c_size == self.E2.shape[0]:
-            coeff2_pol_1 = coeff[:self.E2_pol.shape[0]*self.NbaseD[2] ].reshape(self.E2_pol.shape[0], self.NbaseD[2])
-            coeff2_pol_3 = coeff[ self.E2_pol.shape[0]*self.NbaseD[2]:].reshape(self.E3_pol.shape[0], self.NbaseN[2])
+            coeff2_pol_1 = coeff[:self.E2_pol.shape[0]*self.E1_tor.shape[0] ].reshape(self.E2_pol.shape[0], self.E1_tor.shape[0])
+            coeff2_pol_3 = coeff[ self.E2_pol.shape[0]*self.E1_tor.shape[0]:].reshape(self.E3_pol.shape[0], self.E0_tor.shape[0])
         else:
-            coeff2_pol_1 = coeff[:self.E2_pol_0.shape[0]*self.NbaseD[2] ].reshape(self.E2_pol_0.shape[0], self.NbaseD[2])
-            coeff2_pol_3 = coeff[ self.E2_pol_0.shape[0]*self.NbaseD[2]:].reshape(self.E3_pol_0.shape[0], self.NbaseN[2])
+            coeff2_pol_1 = coeff[:self.E2_pol_0.shape[0]*self.E1_tor_0.shape[0] ].reshape(self.E2_pol_0.shape[0], self.E1_tor_0.shape[0])
+            coeff2_pol_3 = coeff[ self.E2_pol_0.shape[0]*self.E1_tor_0.shape[0]:].reshape(self.E3_pol_0.shape[0], self.E0_tor_0.shape[0])
         
         return coeff2_pol_1, coeff2_pol_3
     
     def reshape_pol_3(self, coeff):
+        """
+        TODO
+        """
 
         c_size = coeff.size
         
         assert c_size == self.E3.shape[0] or c_size == self.E3_0.shape[0]
 
         if c_size == self.E3.shape[0]:
-            coeff3_pol = coeff.reshape(self.E3_pol.shape[0], self.NbaseD[2])
+            coeff3_pol = coeff.reshape(self.E3_pol.shape[0], self.E1_tor.shape[0])
         else:
-            coeff3_pol = coeff.reshape(self.E3_pol_0.shape[0], self.NbaseD[2])
+            coeff3_pol = coeff.reshape(self.E3_pol_0.shape[0], self.E1_tor_0.shape[0])
         
         return coeff3_pol
     
     def reshape_pol_v(self, coeff):
+        """
+        TODO
+        """
 
         c_size = coeff.size
         
         assert c_size == self.Ev.shape[0] or c_size == self.Ev_0.shape[0]
 
         if c_size == self.Ev.shape[0]:
-            coeffv_pol_1 = coeff[:self.Ev_pol.shape[0]*self.NbaseN[2] ].reshape(self.Ev_pol.shape[0], self.NbaseN[2])
-            coeffv_pol_3 = coeff[ self.Ev_pol.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0], self.NbaseN[2])
+            coeffv_pol_1 = coeff[:self.Ev_pol.shape[0]*self.E0_tor.shape[0] ].reshape(self.Ev_pol.shape[0], self.E0_tor.shape[0])
+            coeffv_pol_3 = coeff[ self.Ev_pol.shape[0]*self.E0_tor.shape[0]:].reshape(self.E0_pol.shape[0], self.E0_tor.shape[0])
         
         else:
-            coeffv_pol_1 = coeff[:self.Ev_pol_0.shape[0]*self.NbaseN[2] ].reshape(self.Ev_pol_0.shape[0], self.NbaseN[2])
-            coeffv_pol_3 = coeff[ self.Ev_pol_0.shape[0]*self.NbaseN[2]:].reshape(self.E0_pol.shape[0]  , self.NbaseN[2])
+            coeffv_pol_1 = coeff[:self.Ev_pol_0.shape[0]*self.E0_tor.shape[0] ].reshape(self.Ev_pol_0.shape[0], self.E0_tor.shape[0])
+            coeffv_pol_3 = coeff[ self.Ev_pol_0.shape[0]*self.E0_tor.shape[0]:].reshape(self.E0_pol.shape[0], self.E0_tor_0.shape[0])
         
         return coeffv_pol_1, coeffv_pol_3
 

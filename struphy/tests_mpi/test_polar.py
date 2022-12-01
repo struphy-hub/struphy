@@ -330,31 +330,21 @@ def test_projectors(Nel, p, spl_kind):
 
     from struphy.geometry.domains import PoloidalSplineCylinder
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
-    from struphy.psydac_api.linear_operators import InverseLinearOperator, CompositeLinearOperator
     
-    from struphy.polar.extraction_operators import PolarExtractionBlocksC1
-    from struphy.polar.basic import PolarDerhamSpace, PolarVector
-    from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator, PolarProjectionPreconditioner
-
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
     
-    from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from psydac.linalg.stencil import StencilVector, StencilMatrix
-    from psydac.linalg.block import BlockVector, BlockMatrix
-
     from mpi4py import MPI
     
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # create de Rham sequence
-    derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6])
-
     # create control points
     params_map = {'Nel' : Nel[:2], 'p' : p[:2], 'spl_kind' : spl_kind[:2], 'a' : 1., 'R0' : 3.}
     domain = PoloidalSplineCylinder(params_map)
+    
+    # create polar de Rham sequence
+    derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
 
     # create legacy FEM spaces
     spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
@@ -372,177 +362,86 @@ def test_projectors(Nel, p, spl_kind):
 
     comm.Barrier()
 
-    # create polar FEM spaces
-    V0_pol = PolarDerhamSpace(derham, 'H1')
-    V1_pol = PolarDerhamSpace(derham, 'Hcurl')
-    V2_pol = PolarDerhamSpace(derham, 'Hdiv')
-    V3_pol = PolarDerhamSpace(derham, 'L2')
+    # function to project on physical domain
+    fun_scalar = lambda x, y, z : np.sin(2*np.pi*x)*np.cos(2*np.pi*y)*np.sin(z/3)
 
-    f0_pol = PolarVector(V0_pol)
-    e1_pol = PolarVector(V1_pol)
-    b2_pol = PolarVector(V2_pol)
-    p3_pol = PolarVector(V3_pol)
+    fun_vector = [fun_scalar, fun_scalar, fun_scalar]
 
-    # create pure tensor-product and polar vectors (legacy and distributed)
-    f0_tp_leg, f0_tp = create_equal_random_arrays(derham.V0, flattened=True)
-    e1_tp_leg, e1_tp = create_equal_random_arrays(derham.V1, flattened=True)
-    b2_tp_leg, b2_tp = create_equal_random_arrays(derham.V2, flattened=True)
-    p3_tp_leg, p3_tp = create_equal_random_arrays(derham.V3, flattened=True)
+    # pull-back to logical domain
+    fun0 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, '0_form')
 
-    f0_pol.tp = f0_tp
-    e1_pol.tp = e1_tp
-    b2_pol.tp = b2_tp
-    p3_pol.tp = p3_tp
+    fun1 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_1'),
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_2'),
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '1_form_3')]
 
-    np.random.seed(1607)
-    f0_pol.pol = [np.random.rand(f0_pol.pol[0].shape[0], f0_pol.pol[0].shape[1])]
-    e1_pol.pol = [np.random.rand(e1_pol.pol[n].shape[0], e1_pol.pol[n].shape[1]) for n in range(3)]
-    b2_pol.pol = [np.random.rand(b2_pol.pol[n].shape[0], b2_pol.pol[n].shape[1]) for n in range(3)]
-    p3_pol.pol = [np.random.rand(p3_pol.pol[0].shape[0], p3_pol.pol[0].shape[1])]
+    fun2 = [lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_1'),
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_2'),
+            lambda e1, e2, e3 : domain.pull(fun_vector, e1, e2, e3, '2_form_3')]
 
-    f0_pol_leg = f0_pol.toarray(True)
-    e1_pol_leg = e1_pol.toarray(True)
-    b2_pol_leg = b2_pol.toarray(True)
-    p3_pol_leg = p3_pol.toarray(True)
-
-    # create polar extraction blocks
-    c1_blocks = PolarExtractionBlocksC1(domain, derham)
+    fun3 =  lambda e1, e2, e3 : domain.pull(fun_scalar, e1, e2, e3, '3_form')
     
-    # basis extraction operators
-    E0 = PolarExtractionOperator(derham.V0.vector_space, V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
-    E1 = PolarExtractionOperator(derham.V1.vector_space, V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
-    E2 = PolarExtractionOperator(derham.V2.vector_space, V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
-    E3 = PolarExtractionOperator(derham.V3.vector_space, V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
-
-    E0T = E0.transpose()
-    E1T = E1.transpose()
-    E2T = E2.transpose()
-    E3T = E3.transpose()
-    
-    # DOF extraction operators
-    P0 = PolarExtractionOperator(derham.V0.vector_space, V0_pol, c1_blocks.p0_blocks_ten_to_pol, c1_blocks.p0_blocks_ten_to_ten)
-    P1 = PolarExtractionOperator(derham.V1.vector_space, V1_pol, c1_blocks.p1_blocks_ten_to_pol, c1_blocks.p1_blocks_ten_to_ten)
-    P2 = PolarExtractionOperator(derham.V2.vector_space, V2_pol, c1_blocks.p2_blocks_ten_to_pol, c1_blocks.p2_blocks_ten_to_ten)
-    P3 = PolarExtractionOperator(derham.V3.vector_space, V3_pol, c1_blocks.p3_blocks_ten_to_pol, c1_blocks.p3_blocks_ten_to_ten)
-    
-    # tensor-product inter-/histopolation matrices for projectors
-    print('assemble tensor-product inter/-histopolation matrices')
-    
-    I0 = derham.P0.imat_stencil.tostencil()
-    
-    I1 = BlockMatrix(derham.V1.vector_space, derham.V1.vector_space,
-                     [[derham.P1.imat_stencil[0, 0].tostencil(), None, None], 
-                      [None, derham.P1.imat_stencil[1, 1].tostencil(), None], 
-                      [None, None, derham.P1.imat_stencil[2, 2].tostencil()]])
-    
-    I2 = BlockMatrix(derham.V2.vector_space, derham.V2.vector_space, 
-                     [[derham.P2.imat_stencil[0, 0].tostencil(), None, None], 
-                      [None, derham.P2.imat_stencil[1, 1].tostencil(), None], 
-                      [None, None, derham.P2.imat_stencil[2, 2].tostencil()]])
-    
-    I3 = derham.P3.imat_stencil.tostencil()
-    print('done')
-    print()
-
-    I0.set_backend(PSYDAC_BACKEND_GPYCCEL)
-    I1.set_backend(PSYDAC_BACKEND_GPYCCEL)
-    I2.set_backend(PSYDAC_BACKEND_GPYCCEL)
-    I3.set_backend(PSYDAC_BACKEND_GPYCCEL)
-
-    # restriction I_pol = P *  I * ET to polar space/DOFs
-    I0_pol = CompositeLinearOperator(P0, I0, E0T)
-    I1_pol = CompositeLinearOperator(P1, I1, E1T)
-    I2_pol = CompositeLinearOperator(P2, I2, E2T)
-    I3_pol = CompositeLinearOperator(P3, I3, E3T)
-    
-    #I0_pol = CompositeLinearOperator(P0, derham.P0.imat_stencil, E0T)
-    #I1_pol = CompositeLinearOperator(P1, derham.P1.imat_stencil, E1T)
-    #I2_pol = CompositeLinearOperator(P2, derham.P2.imat_stencil, E2T)
-    #I3_pol = CompositeLinearOperator(P3, derham.P3.imat_stencil, E3T)
-
-    # preconditioners for projections
-    PC0 = PolarProjectionPreconditioner(P0, derham.P0, E0T)
-    PC1 = PolarProjectionPreconditioner(P1, derham.P1, E1T)
-    PC2 = PolarProjectionPreconditioner(P2, derham.P2, E2T)
-    PC3 = PolarProjectionPreconditioner(P3, derham.P3, E3T)
-
-    # inverse polar inter-/histopolation matrices for projectors
-    I0inv = InverseLinearOperator(I0_pol, pc=PC0, solver_name='pbicgstab', tol=1e-14)
-    I1inv = InverseLinearOperator(I1_pol, pc=PC1, solver_name='pbicgstab', tol=1e-14)
-    I2inv = InverseLinearOperator(I2_pol, pc=PC2, solver_name='pbicgstab', tol=1e-14)
-    I3inv = InverseLinearOperator(I3_pol, pc=PC3, solver_name='pbicgstab', tol=1e-14)
-    
-    # function to project
-    fun = lambda e1, e2, e3 : (1 - e1)**2*np.sin(2*np.pi*e1)*np.sin(e1*np.sin(4*np.pi*e2))*np.cos(2*np.pi*e3)
-    
-    print('start computation of DOFs')
-    
-    # legacy projections
-    dofs0_pol_leg = space.projectors.dofs_0(fun)
-    dofs1_pol_leg = space.projectors.dofs_1([fun, fun, fun], with_subs=False)
-    dofs2_pol_leg = space.projectors.dofs_2([fun, fun, fun], with_subs=False)
-    dofs3_pol_leg = space.projectors.dofs_3(fun, with_subs=False)
-
-    r0_pol_leg = space.projectors.solve_V0(dofs0_pol_leg, include_bc=True)
-    r1_pol_leg = space.projectors.solve_V1(dofs1_pol_leg, include_bc=True)
-    r2_pol_leg = space.projectors.solve_V2(dofs2_pol_leg, include_bc=True)
-    r3_pol_leg = space.projectors.solve_V3(dofs3_pol_leg, include_bc=True)
-    
-    # new polar DOFs
-    dofs0_pol = P0.dot(derham.P0(fun, dofs_only=True))
-    dofs1_pol = P1.dot(derham.P1([fun, fun, fun], dofs_only=True))
-    dofs2_pol = P2.dot(derham.P2([fun, fun, fun], dofs_only=True))
-    dofs3_pol = P3.dot(derham.P3(fun, dofs_only=True))
-    
-    
-    # ============ project to V0 =========================
+    # ============ project on V0 =========================
     if rank == 0:
-        r0_pol = I0inv.dot(dofs0_pol, verbose=True)
+        r0_pol = derham.P0(fun0, tol=1e-10, verbose=True)
     else:
-        r0_pol = I0inv.dot(dofs0_pol, verbose=False)
+        r0_pol = derham.P0(fun0, tol=1e-10, verbose=False)
+        
+    r0_pol_leg = space.projectors.pi_0(fun0)
+    
+    assert np.allclose(r0_pol.toarray(True), r0_pol_leg)
     
     if rank == 0: 
         print('Test passed for PI_0 polar projector')
         print()
         
-    # ============ project to V1 =========================
-    if rank == 0:
-        r1_pol = I1inv.dot(dofs1_pol, verbose=True)
-    else:
-        r1_pol = I1inv.dot(dofs1_pol, verbose=False)
+    comm.Barrier()
         
+    # ============ project on V1 =========================
+    if rank == 0:
+        r1_pol = derham.P1(fun1, tol=1e-10, verbose=True)
+    else:
+        r1_pol = derham.P1(fun1, tol=1e-10, verbose=False)
+        
+    r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
+    
     assert np.allclose(r1_pol.toarray(True), r1_pol_leg)
     
     if rank == 0: 
         print('Test passed for PI_1 polar projector')
         print()
-        
-    # ============ project to V2 =========================
+    
+    comm.Barrier()
+    
+    # ============ project on V2 =========================
     if rank == 0:
-        r2_pol = I2inv.dot(dofs2_pol, verbose=True)
+        r2_pol = derham.P2(fun2, tol=1e-10, verbose=True)
     else:
-        r2_pol = I2inv.dot(dofs2_pol, verbose=False)
+        r2_pol = derham.P2(fun2, tol=1e-10, verbose=False)
         
+    r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
+    
     assert np.allclose(r2_pol.toarray(True), r2_pol_leg)
     
     if rank == 0: 
         print('Test passed for PI_2 polar projector')
         print()
-        
-    # ============ project to V3 =========================
+    
+    comm.Barrier()
+    
+    # ============ project on V3 =========================
     if rank == 0:
-        r3_pol = I3inv.dot(dofs3_pol, verbose=True)
+        r3_pol = derham.P3(fun3, tol=1e-10, verbose=True)
     else:
-        r3_pol = I3inv.dot(dofs3_pol, verbose=False)
+        r3_pol = derham.P3(fun3, tol=1e-10, verbose=False)
         
+    r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
+    
     assert np.allclose(r3_pol.toarray(True), r3_pol_leg)
     
     if rank == 0: 
         print('Test passed for PI_3 polar projector')
         print()
-    
-    
-    
+        
 if __name__ == '__main__':
     #test_spaces([6, 9, 4], [2, 2, 2], [False, True, False])
     #test_extraction_ops_and_derivatives([8, 12, 6], [2, 2, 3], [False, True, False])

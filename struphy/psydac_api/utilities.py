@@ -188,7 +188,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         
         
         
-def apply_essential_bc_to_array(space_id, vector, bc):
+def apply_essential_bc_to_array(space_id, vector, bc=None):
     """
     Sets entries corresponding to boundary B-splines to zero.
     
@@ -205,6 +205,9 @@ def apply_essential_bc_to_array(space_id, vector, bc):
     """
     
     assert isinstance(vector, (StencilVector, BlockVector, PolarVector))
+    
+    if bc is None:
+        return
     
     if isinstance(vector, PolarVector):
         vec_tp = vector.tp

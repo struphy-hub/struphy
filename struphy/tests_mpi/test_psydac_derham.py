@@ -201,7 +201,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     if rank == 0:
         print('\nCompare P0:')
-    compare_arrays(fh0_PSY.coeffs, fh0_STR, rank)
+    compare_arrays(fh0_PSY, fh0_STR, rank)
     comm.Barrier()
 
     fh11_STR = PI('11', f)
@@ -212,7 +212,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     if rank == 0:
         print('\nCompare P1:')
-    compare_arrays(fh1_PSY.coeffs, fh1_STR, rank, atol=1e-5)
+    compare_arrays(fh1_PSY, fh1_STR, rank, atol=1e-5)
     comm.Barrier()
 
     fh21_STR = PI('21', f)
@@ -223,7 +223,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     if rank == 0:
         print('\nCompare P2:')
-    compare_arrays(fh2_PSY.coeffs, fh2_STR, rank, atol=1e-5)
+    compare_arrays(fh2_PSY, fh2_STR, rank, atol=1e-5)
     comm.Barrier()
 
     fh3_STR = PI('3', f)
@@ -231,7 +231,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     
     if rank == 0:
         print('\nCompare P3:')
-    compare_arrays(fh3_PSY.coeffs, fh3_STR, rank, atol=1e-5)
+    compare_arrays(fh3_PSY, fh3_STR, rank, atol=1e-5)
     comm.Barrier()
 
 

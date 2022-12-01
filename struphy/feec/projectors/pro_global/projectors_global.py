@@ -117,24 +117,42 @@ class Projectors_global_1d:
         
     ID : sparse csr matrix
         Interpolation-like matrix D_j(x_i)
+        
+    I0 : sparse csr matrix
+        Interpolation matrix B0 * I * B0^T including boundary operators.
 
     H : sparse csr matrix
         Histopolation matrix int_(x_i)^(x_i + 1) D_j dx.
         
     HN : sparse csr matrix
         Histopolation-like matrix int_(x_i)^(x_i + 1) N_j dx.
+        
+    H0 : sparse csr matrix
+        Histopolation matrix B1 * H * B1^T including boundary operators.
 
     I_LU : Super LU
         LU decompositions of I.
 
     H_LU : Super LU
         LU decompositions of H.
+        
+    I0_LU : Super LU
+        LU decompositions of I0.
+
+    H0_LU : Super LU
+        LU decompositions of H0.
 
     I_T_LU : Super LU
         LU decompositions of transpose I.
 
     H_T_LU : Super LU
         LU decompositions of transpose H.
+        
+    I0_T_LU : Super LU
+        LU decompositions of transpose I0.
+
+    H0_T_LU : Super LU
+        LU decompositions of transpose H0.
     """
     
     def __init__(self, spline_space, n_quad=6):
@@ -278,17 +296,25 @@ class Projectors_global_1d:
         # interpolation matrices
         self.I  = self.N_int.copy()
         self.ID = self.D_int.copy()
+        self.I0 = self.space.B0.dot(self.I.dot(self.space.B0.T)).tocsr()
         
         # histopolation matrices
         self.H  = self.Q.dot(self.D_pts)
         self.HN = self.Q.dot(self.N_pts)
+        self.H0 = self.space.B1.dot(self.H.dot(self.space.B1.T)).tocsr()
         
         # LU decompositions
         self.I_LU = spa.linalg.splu(self.I.tocsc())
         self.H_LU = spa.linalg.splu(self.H.tocsc())
         
+        self.I0_LU = spa.linalg.splu(self.I0.tocsc())
+        self.H0_LU = spa.linalg.splu(self.H0.tocsc())
+        
         self.I_T_LU = spa.linalg.splu(self.I.T.tocsc())
         self.H_T_LU = spa.linalg.splu(self.H.T.tocsc())
+        
+        self.I0_T_LU = spa.linalg.splu(self.I0.T.tocsc())
+        self.H0_T_LU = spa.linalg.splu(self.H0.T.tocsc())
         
     
     # degrees of freedoms: V_0 --> R^n   
@@ -1561,28 +1587,34 @@ class ProjectorsGlobal3D:
         # 1D interpolation/histopolation points and matrices in third direction
         if tensor_space.dim == 3:
             
-            x_i3 = tensor_space.spaces[2].projectors.x_int
-            x_q3 = tensor_space.spaces[2].projectors.pts.flatten()
+            x_i3  = tensor_space.spaces[2].projectors.x_int
+            x_q3  = tensor_space.spaces[2].projectors.pts.flatten()
             x_q3G = tensor_space.spaces[2].projectors.ptsG.flatten()
             
-            self.Q3 = tensor_space.spaces[2].projectors.Q
+            self.Q3  = tensor_space.spaces[2].projectors.Q
             self.Q3G = tensor_space.spaces[2].projectors.QG
             
             self.I_tor = tensor_space.spaces[2].projectors.I
             self.H_tor = tensor_space.spaces[2].projectors.H
             
+            self.I0_tor = tensor_space.spaces[2].projectors.I0
+            self.H0_tor = tensor_space.spaces[2].projectors.H0
+            
             self.I_tor_LU = tensor_space.spaces[2].projectors.I_LU
             self.H_tor_LU = tensor_space.spaces[2].projectors.H_LU
             
-            self.I_tor_T_LU = tensor_space.spaces[2].projectors.I_T_LU
-            self.H_tor_T_LU = tensor_space.spaces[2].projectors.H_T_LU
+            self.I0_tor_LU = tensor_space.spaces[2].projectors.I0_LU
+            self.H0_tor_LU = tensor_space.spaces[2].projectors.H0_LU
+            
+            self.I0_tor_T_LU = tensor_space.spaces[2].projectors.I0_T_LU
+            self.H0_tor_T_LU = tensor_space.spaces[2].projectors.H0_T_LU
             
         else:
             
             if tensor_space.n_tor == 0:
                 
-                x_i3 = np.array([0.])
-                x_q3 = np.array([0.])
+                x_i3  = np.array([0.])
+                x_q3  = np.array([0.])
                 x_q3G = np.array([0.])
                 
             else:
@@ -1591,34 +1623,40 @@ class ProjectorsGlobal3D:
                     
                     if tensor_space.n_tor > 0:
                         
-                        x_i3 = np.array([1., 0.25/tensor_space.n_tor])
-                        x_q3 = np.array([1., 0.25/tensor_space.n_tor])
+                        x_i3  = np.array([1., 0.25/tensor_space.n_tor])
+                        x_q3  = np.array([1., 0.25/tensor_space.n_tor])
                         x_q3G = np.array([1., 0.25/tensor_space.n_tor])
                         
                     else:
                         
-                        x_i3 = np.array([1., 0.75/(-tensor_space.n_tor)])
-                        x_q3 = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        x_i3  = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        x_q3  = np.array([1., 0.75/(-tensor_space.n_tor)])
                         x_q3G = np.array([1., 0.75/(-tensor_space.n_tor)])
                         
                 else:
                     
-                    x_i3 = np.array([0.])
-                    x_q3 = np.array([0.])
+                    x_i3  = np.array([0.])
+                    x_q3  = np.array([0.])
                     x_q3G = np.array([0.])
             
             
-            self.Q3 = spa.identity(tensor_space.NbaseN[2], format='csr')
+            self.Q3  = spa.identity(tensor_space.NbaseN[2], format='csr')
             self.Q3G = spa.identity(tensor_space.NbaseN[2], format='csr')
             
             self.I_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
             self.H_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
             
+            self.I0_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
+            self.H0_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
+            
             self.I_tor_LU = spa.linalg.splu(self.I_tor.tocsc())
             self.H_tor_LU = spa.linalg.splu(self.H_tor.tocsc())
             
-            self.I_tor_T_LU = spa.linalg.splu(self.I_tor.T.tocsc())
-            self.H_tor_T_LU = spa.linalg.splu(self.H_tor.T.tocsc())
+            self.I0_tor_LU = spa.linalg.splu(self.I0_tor.tocsc())
+            self.H0_tor_LU = spa.linalg.splu(self.H0_tor.tocsc())
+            
+            self.I0_tor_T_LU = spa.linalg.splu(self.I0_tor.T.tocsc())
+            self.H0_tor_T_LU = spa.linalg.splu(self.H0_tor.T.tocsc())
             
         
         # collection of the point sets for different projectors in poloidal plane
@@ -1819,8 +1857,8 @@ class ProjectorsGlobal3D:
         
         # without boundary splines
         else:
-            dofs_0 = dofs_0.reshape(self.P0_pol_0.shape[0], self.I_tor.shape[0])
-            coeffs = self.I_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_0).T).T
+            dofs_0 = dofs_0.reshape(self.P0_pol_0.shape[0], self.I0_tor.shape[0])
+            coeffs = self.I0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_0).T).T
             
         return coeffs.flatten()
     
@@ -1837,11 +1875,11 @@ class ProjectorsGlobal3D:
         
         # without boundary splines
         else:
-            dofs_11 = dofs_1[:self.P1_pol_0.shape[0]*self.I_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I_tor.shape[0])
-            dofs_12 = dofs_1[ self.P1_pol_0.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H_tor.shape[0])
+            dofs_11 = dofs_1[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
+            dofs_12 = dofs_1[ self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
 
-            coeffs1 = self.I_tor_LU.solve(self.I1_pol_0_LU.solve(dofs_11).T).T
-            coeffs2 = self.H_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_12).T).T
+            coeffs1 = self.I0_tor_LU.solve(self.I1_pol_0_LU.solve(dofs_11).T).T
+            coeffs2 = self.H0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_12).T).T
         
         return np.concatenate((coeffs1.flatten(), coeffs2.flatten()))
     
@@ -1858,11 +1896,11 @@ class ProjectorsGlobal3D:
         
         # without boundary splines
         else:
-            dofs_21 = dofs_2[:self.P2_pol_0.shape[0]*self.H_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H_tor.shape[0])
-            dofs_22 = dofs_2[ self.P2_pol_0.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I_tor.shape[0])
+            dofs_21 = dofs_2[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
+            dofs_22 = dofs_2[ self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
 
-            coeffs1 = self.H_tor_LU.solve(self.I2_pol_0_LU.solve(dofs_21).T).T
-            coeffs2 = self.I_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_22).T).T
+            coeffs1 = self.H0_tor_LU.solve(self.I2_pol_0_LU.solve(dofs_21).T).T
+            coeffs2 = self.I0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_22).T).T
         
         return np.concatenate((coeffs1.flatten(), coeffs2.flatten()))
         
@@ -1876,8 +1914,8 @@ class ProjectorsGlobal3D:
         
         # without boundary splines
         else:
-            dofs_3 = dofs_3.reshape(self.P3_pol_0.shape[0], self.H_tor.shape[0])
-            coeffs = self.H_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_3).T).T
+            dofs_3 = dofs_3.reshape(self.P3_pol_0.shape[0], self.H0_tor.shape[0])
+            coeffs = self.H0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_3).T).T
             
         return coeffs.flatten()
     
@@ -1897,8 +1935,8 @@ class ProjectorsGlobal3D:
         
         # without boundary splines
         else:
-            rhs = rhs.reshape(self.P0_pol_0.shape[0], self.I_tor.shape[0])
-            rhs = self.I0_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs.T).T)
+            rhs = rhs.reshape(self.P0_pol_0.shape[0], self.I0_tor.shape[0])
+            rhs = self.I0_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs.T).T)
           
         return rhs.flatten()
         
@@ -1923,11 +1961,11 @@ class ProjectorsGlobal3D:
         # without boundary splines
         else:
         
-            rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I_tor.shape[0])
-            rhs2 = rhs[ self.P1_pol_0.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H_tor.shape[0])
+            rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0] ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
+            rhs2 = rhs[ self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
 
-            rhs1 = self.I1_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs1.T).T)
-            rhs2 = self.I0_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs2.T).T)
+            rhs1 = self.I1_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I0_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs2.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs2.flatten()))
     
@@ -1952,11 +1990,11 @@ class ProjectorsGlobal3D:
         # without boundary splines
         else:
                 
-            rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H_tor.shape[0])
-            rhs2 = rhs[ self.P2_pol_0.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I_tor.shape[0])
+            rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0] ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
+            rhs2 = rhs[ self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
 
-            rhs1 = self.I2_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs1.T).T)
-            rhs2 = self.I3_pol_0_T_LU.solve(self.I_tor_T_LU.solve(rhs2.T).T)
+            rhs1 = self.I2_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs1.T).T)
+            rhs2 = self.I3_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs2.T).T)
         
         return np.concatenate((rhs1.flatten(), rhs2.flatten()))
     
@@ -1975,8 +2013,8 @@ class ProjectorsGlobal3D:
         # without boundary splines
         else:
         
-            rhs = rhs.reshape(self.P3_pol_0.shape[0], self.H_tor.shape[0])
-            rhs = self.I3_pol_0_T_LU.solve(self.H_tor_T_LU.solve(rhs.T).T)
+            rhs = rhs.reshape(self.P3_pol_0.shape[0], self.H0_tor.shape[0])
+            rhs = self.I3_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs.T).T)
         
         return rhs.flatten()
     

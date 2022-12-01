@@ -58,7 +58,11 @@ class CompositeLinearOperator(LinOpWithTransp):
 
     @property
     def otype(self):
-        return [type(op) for op in self._operators] 
+        return [type(op) for op in self._operators]
+    
+    @property
+    def operators(self):
+        return self._operators
 
     def dot( self, v , out=None ):
         assert isinstance(v, (StencilVector, BlockVector, PolarVector))
@@ -268,41 +272,92 @@ class InverseLinearOperator(LinOpWithTransp):
             return InverseLinearOperator(self._operator.transpose(), pc=self._pc, tol=self._tol, maxiter=self._maxiter, solver_name=self._solver_name)
         else:
             return InverseLinearOperator(self._operator.transpose(), pc=new_pc, tol=self._tol, maxiter=self._maxiter, solver_name=self._solver_name)
+        
     
-    
-class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
+class BoundaryOperator(LinOpWithTransp):
     r"""
-    Apply homogeneous Dirichlet boundary conditions to operator (assuming that the input vector already satisfies homogeneous Dirichlet boundary conditions).
+    Applies homogeneous Dirichlet boundary conditions to a vector.
     
     Parameters
     ----------
-        space_id_i : str
-            Space ID of input space (H1, Hcurl, Hdiv, L2 or H1vec).
+        vector_space : StencilVectorSpace | BlockVectorSpace | PolarDerhamSpace
+            The vector space associated to the operator.
             
-        space_id_o : str
-            Space ID of output space (H1, Hcurl, Hdiv, L2 or H1vec).
+        space_id : str
+            Symbolic space ID of vector_space (H1, Hcurl, Hdiv, L2 or H1vec).
             
         bc : list
-            Boundary conditions in each direction in format [[bc_eta1=0, bc_eta1=1], [bc_eta2=0, bc_eta2=1], [bc_eta3=0, bc_eta3=1]].
-            
-        operator : LinOpWithTransp | StencilMatrix | BlockMatrix
-            The operator to which the boundary condition shall be applied.
+            Boundary conditions in each direction in format [[bc_e1=0, bc_e1=1], [bc_e2=0, bc_e2=1], [bc_e3=0, bc_e3=1]].
     """
     
-    def __init__(self, space_id_i, space_id_o, bc, operator):
-        
-        assert isinstance(bc, list)
-        assert isinstance(operator, (LinOpWithTransp, StencilMatrix, BlockMatrix, KroneckerStencilMatrix))
+    def __init__(self, vector_space, space_id, bc):
 
-        self._space_id_i = space_id_i
-        self._space_id_o = space_id_o
+        self._domain = vector_space
+        self._codomain = vector_space
+        self._dtype = vector_space.dtype
+        
+        self._space_id = space_id
         self._bc = bc
-        self._operator = operator
-
-        self._domain = operator.domain
-        self._codomain = operator.codomain
-        self._dtype = operator.dtype
         
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def codomain(self):
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+    
+    @property
+    def bc(self):
+        return self._bc
+
+    def dot(self, v, out=None):
+        """
+        TODO
+        """
+        
+        assert isinstance(v, (StencilVector, BlockVector, PolarVector))
+        assert v.space == self.domain
+        
+        if out is None:
+            out = v.copy()
+            return_flag = True
+        else:
+            assert type(out) == type(v)
+            return_flag = False
+        
+        # apply boundary conditions to output vector
+        apply_essential_bc_to_array(self._space_id, out, self._bc)
+        
+        if return_flag:
+            return out
+
+    def transpose(self):
+        """
+        Returns the transposed operator.
+        """
+        return BoundaryOperator(self._domain, self._space_id, self._bc)
+    
+    
+class IdentityOperator(LinOpWithTransp):
+    r"""
+    Identity operation applied to a vector in a certain vector space.
+    
+    Parameters
+    ----------
+        vector_space : StencilVectorSpace | BlockVectorSpace | PolarDerhamSpace
+            The vector space associated to the operator.
+    """
+    
+    def __init__(self, vector_space):
+
+        self._domain = vector_space
+        self._codomain = vector_space
+        self._dtype = vector_space.dtype
         
     @property
     def domain(self):
@@ -316,25 +371,22 @@ class ApplyHomogeneousDirichletToOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
-    def otype(self):
-        return type(self._operator)
-
     def dot(self, v, out=None):
+        """
+        TODO
+        """
+        
         assert isinstance(v, (StencilVector, BlockVector, PolarVector))
         assert v.space == self.domain
-
-        # perform matrix-vector product
-        tmp = self._operator.dot(v)
         
-        # apply boundary conditions to output vector
-        if isinstance(v, PolarVector):
-            apply_essential_bc_to_array(self._space_id_o, tmp.tp, self._bc)
+        if out is None:
+            out = v.copy()
+            return out
         else:
-            apply_essential_bc_to_array(self._space_id_o, tmp, self._bc)
-        
-        return tmp
+            assert type(out) == type(v)
 
     def transpose(self):
-        # NOTE: we re-allocate all temporary vectors here... Maybe re-use instead?
-        return ApplyHomogeneousDirichletToOperator(self._space_id_o, self._space_id_i, self._bc, self._operator.transpose())
+        """
+        Returns the transposed operator.
+        """
+        return IdentityOperator(self._domain)

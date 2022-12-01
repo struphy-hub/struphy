@@ -19,7 +19,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.feec.projectors.pro_global.mhd_operators_cc_lin_6d import MHDOperators
     
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays, apply_essential_bc_to_array
+    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
     
@@ -89,7 +89,7 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
         
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
     
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
@@ -124,11 +124,11 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     x3_str, x3_psy = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)
     xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, seed=2038, flattened=True)
     
-    apply_essential_bc_to_array('H1'   , x0_psy, derham.bc)
-    apply_essential_bc_to_array('Hcurl', x1_psy, derham.bc)
-    apply_essential_bc_to_array('Hdiv' , x2_psy, derham.bc)
-    apply_essential_bc_to_array('L2'   , x3_psy, derham.bc)
-    apply_essential_bc_to_array('H1vec', xv_psy, derham.bc)
+    derham.B0.dot(x0_psy, out=x0_psy)
+    derham.B1.dot(x1_psy, out=x1_psy)
+    derham.B2.dot(x2_psy, out=x2_psy)
+    derham.B3.dot(x3_psy, out=x3_psy)
+    derham.B0vec.dot(xv_psy, out=xv_psy)
     
     x0_str = space.B0.dot(x0_str)
     x1_str = space.B1.dot(x1_str)
@@ -184,7 +184,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.feec.projectors.pro_global.mhd_operators_cc_lin_6d import MHDOperators
     
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays, apply_essential_bc_to_array
+    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
     from struphy.fields_background.mhd_equil.analytical import ScrewPinch
     
@@ -233,7 +233,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
             
     
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm, bc=bc_compatible, polar_ck=1, domain=domain)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible, with_projectors=False, polar_ck=1, domain=domain)
     
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
@@ -260,18 +260,18 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     mhd_ops_str.set_operators()
     
-    # create random input arrays and set boundary conditions
+    # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
     x1_str, x1_psy = create_equal_random_arrays(derham.V1, seed=1568, flattened=True)
     x2_str, x2_psy = create_equal_random_arrays(derham.V2, seed=8945, flattened=True)
     x3_str, x3_psy = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)
     
+    # set polar vectors
     x0_pol_psy = PolarVector(derham.V0_pol)
     x1_pol_psy = PolarVector(derham.V1_pol)
     x2_pol_psy = PolarVector(derham.V2_pol)
     x3_pol_psy = PolarVector(derham.V3_pol)
 
-    # set polar vectors
     x0_pol_psy.tp = x0_psy
     x1_pol_psy.tp = x1_psy
     x2_pol_psy.tp = x2_psy
@@ -284,15 +284,10 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     x3_pol_psy.pol = [np.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
     
     # apply boundary conditions
-    apply_essential_bc_to_array('H1'   , x0_psy, derham.bc)
-    apply_essential_bc_to_array('Hcurl', x1_psy, derham.bc)
-    apply_essential_bc_to_array('Hdiv' , x2_psy, derham.bc)
-    apply_essential_bc_to_array('L2'   , x3_psy, derham.bc)
-    
-    apply_essential_bc_to_array('H1'   , x0_pol_psy, derham.bc)
-    apply_essential_bc_to_array('Hcurl', x1_pol_psy, derham.bc)
-    apply_essential_bc_to_array('Hdiv' , x2_pol_psy, derham.bc)
-    apply_essential_bc_to_array('L2'   , x3_pol_psy, derham.bc)
+    derham.B0.dot(x0_pol_psy, out=x0_pol_psy)
+    derham.B1.dot(x1_pol_psy, out=x1_pol_psy)
+    derham.B2.dot(x2_pol_psy, out=x2_pol_psy)
+    derham.B3.dot(x3_pol_psy, out=x3_pol_psy)
 
     x0_pol_str = space.B0.dot(x0_pol_psy.toarray(True))
     x1_pol_str = space.B1.dot(x1_pol_psy.toarray(True))
@@ -342,9 +337,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     from struphy.feec.projectors.pro_global.mhd_operators_cc_lin_6d import MHDOperators
     
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays, apply_essential_bc_to_array
+    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditionerNew
+    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     from struphy.psydac_api.linear_operators import InverseLinearOperator
     
     from struphy.fields_background.mhd_equil.analytical import ShearedSlab, ScrewPinch
@@ -414,7 +409,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
             bc_compatible += [bc_i]
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm, bc=bc_compatible)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
     
     if mpi_rank == 0:
         print()
@@ -425,15 +420,15 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     # preconditioners
     if mpi_rank == 0: print('Start assembling preconditioners')
-    M0pre = MassMatrixPreconditionerNew(mass_mats.M0)
-    M1pre = MassMatrixPreconditionerNew(mass_mats.M1)
-    M2pre = MassMatrixPreconditionerNew(mass_mats.M2)
-    M3pre = MassMatrixPreconditionerNew(mass_mats.M3)
-    Mvpre = MassMatrixPreconditionerNew(mass_mats.Mv)
+    M0pre = MassMatrixPreconditioner(mass_mats.M0)
+    M1pre = MassMatrixPreconditioner(mass_mats.M1)
+    M2pre = MassMatrixPreconditioner(mass_mats.M2)
+    M3pre = MassMatrixPreconditioner(mass_mats.M3)
+    Mvpre = MassMatrixPreconditioner(mass_mats.Mv)
     
-    M1npre = MassMatrixPreconditionerNew(mass_mats.M1n)
-    M2npre = MassMatrixPreconditionerNew(mass_mats.M2n)
-    Mvnpre = MassMatrixPreconditionerNew(mass_mats.Mvn)
+    M1npre = MassMatrixPreconditioner(mass_mats.M1n)
+    M2npre = MassMatrixPreconditioner(mass_mats.M2n)
+    Mvnpre = MassMatrixPreconditioner(mass_mats.Mvn)
     if mpi_rank == 0: print('Done')
     
     # create random input arrays with correct boundary conditions
@@ -443,11 +438,11 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     x3 = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)[1]
     xv = create_equal_random_arrays(derham.V0vec, seed=2038, flattened=True)[1]
     
-    apply_essential_bc_to_array('H1'   , x0, derham.bc)
-    apply_essential_bc_to_array('Hcurl', x1, derham.bc)
-    apply_essential_bc_to_array('Hdiv' , x2, derham.bc)
-    apply_essential_bc_to_array('L2'   , x3, derham.bc)
-    apply_essential_bc_to_array('H1vec', xv, derham.bc)
+    derham.B0.dot(x0, out=x0)
+    derham.B1.dot(x1, out=x1)
+    derham.B2.dot(x2, out=x2)
+    derham.B3.dot(x3, out=x3)
+    derham.B0vec.dot(xv, out=xv)
     
     # compare mass matrix-vector products with Kronecker products of preconditioner
     if (mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder') and False:
@@ -588,9 +583,9 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     from struphy.feec.projectors.pro_global.mhd_operators_cc_lin_6d import MHDOperators
     
     from struphy.psydac_api.psydac_derham import Derham
-    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays, apply_essential_bc_to_array
+    from struphy.psydac_api.utilities import create_equal_random_arrays, compare_arrays
     from struphy.psydac_api.mass import WeightedMassOperators
-    from struphy.psydac_api.preconditioner import MassMatrixPreconditionerNew
+    from struphy.psydac_api.preconditioner import MassMatrixPreconditioner
     from struphy.psydac_api.linear_operators import InverseLinearOperator
     
     from struphy.polar.basic import PolarVector
@@ -638,7 +633,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
             bc_compatible += [bc_i]
             
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm, bc=bc_compatible, polar_ck=1, domain=domain)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible, with_projectors=False, polar_ck=1, domain=domain)
     
     if mpi_rank == 0:
         print()
@@ -649,13 +644,13 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     
     # preconditioners
     if mpi_rank == 0: print('Start assembling preconditioners')
-    M0pre = MassMatrixPreconditionerNew(mass_mats.M0)
-    M1pre = MassMatrixPreconditionerNew(mass_mats.M1)
-    M2pre = MassMatrixPreconditionerNew(mass_mats.M2)
-    M3pre = MassMatrixPreconditionerNew(mass_mats.M3)
+    M0pre = MassMatrixPreconditioner(mass_mats.M0)
+    M1pre = MassMatrixPreconditioner(mass_mats.M1)
+    M2pre = MassMatrixPreconditioner(mass_mats.M2)
+    M3pre = MassMatrixPreconditioner(mass_mats.M3)
     
-    M1npre = MassMatrixPreconditionerNew(mass_mats.M1n)
-    M2npre = MassMatrixPreconditionerNew(mass_mats.M2n)
+    M1npre = MassMatrixPreconditioner(mass_mats.M1n)
+    M2npre = MassMatrixPreconditioner(mass_mats.M2n)
     if mpi_rank == 0: print('Done')
     
     # create random input arrays
@@ -682,10 +677,10 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     x3_pol.pol = [np.random.rand(x3_pol.pol[0].shape[0], x3_pol.pol[0].shape[1])]
     
     # apply boundary conditions to vectors
-    apply_essential_bc_to_array('H1'   , x0_pol, derham.bc)
-    apply_essential_bc_to_array('Hcurl', x1_pol, derham.bc)
-    apply_essential_bc_to_array('Hdiv' , x2_pol, derham.bc)
-    apply_essential_bc_to_array('L2'   , x3_pol, derham.bc)
+    derham.B0.dot(x0_pol, out=x0_pol)
+    derham.B1.dot(x1_pol, out=x1_pol)
+    derham.B2.dot(x2_pol, out=x2_pol)
+    derham.B3.dot(x3_pol, out=x3_pol)
     
     # test preconditioner in iterative solver and compare to case without preconditioner
     M0inv = InverseLinearOperator(mass_mats.M0, pc=M0pre, tol=1e-8, maxiter=500)
@@ -841,10 +836,10 @@ if __name__ == '__main__':
     #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], True)
     #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 10.}], True)
     
-    #test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
     
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
     #test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'R0' : 3., 'Lz' : 18.84955592153876}], False)
     
-    test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    #test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)

@@ -1,23 +1,15 @@
 import numpy as np
 
-import psydac.core.bsplines as bsp
-
-from psydac.linalg.basic import LinearOperator
-from psydac.fem.basic import FemSpace
 from psydac.linalg.stencil import StencilMatrix
 from psydac.linalg.block import BlockMatrix
+from psydac.fem.basic import FemSpace
+from psydac.fem.tensor import TensorFemSpace
 from psydac.feec.global_projectors import GlobalProjector
-
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
-from struphy.psydac_api.linear_operators import LinOpWithTransp
-from struphy.psydac_api.linear_operators import ApplyHomogeneousDirichletToOperator
-
-from struphy.psydac_api.basis_projection_kernels import assemble_dofs_for_weighted_basisfuns_1d as assemble_1d
-from struphy.psydac_api.basis_projection_kernels import assemble_dofs_for_weighted_basisfuns_2d as assemble_2d
-from struphy.psydac_api.basis_projection_kernels import assemble_dofs_for_weighted_basisfuns_3d as assemble_3d
-
-from struphy.psydac_api.prepare_projection import evaluate_fun_weights_1d, evaluate_fun_weights_2d, evaluate_fun_weights_3d
+from struphy.psydac_api.projectors import Projector
+from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
+from struphy.psydac_api import basis_projection_kernels
 
 
 class BasisProjectionOperators:
@@ -37,8 +29,8 @@ class BasisProjectionOperators:
 
     Notes
     -----
-    The `X0`, `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
-    In order not to modify the `MHDOperator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
+        The `X0`, `X1`, `X2` operators are handled differently, because it outputs 3 scalar spaces instead of a pure scalar or vector space.
+        In order not to modify the `MHDOperator` class, we give a set of three functions, each accessing each row of the input matrix-valued function.
     """
 
     def __init__(self, derham, domain, eq_mhd):
@@ -49,45 +41,35 @@ class BasisProjectionOperators:
         self._derham = derham
         self._domain = domain
 
-        # Psydac spline spaces
-        self._V0 = derham.V0
-        self._V1 = derham.V1
-        self._V2 = derham.V2
-        self._V3 = derham.V3
-        self._V0vec = derham.V0vec
-
-        # Psydac projectors
-        self._P0 = derham.P0
-        self._P1 = derham.P1
-        self._P2 = derham.P2
-        self._P3 = derham.P3
-        self._P0vec = derham.P0vec
-
-        # Wrapper functions for metric coefficients
+        # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
+        flat_eval = False
+        squeeze_output = False
+        change_out_order = True
+        
         def DF(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, False, False, True, False)
+            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
 
         def DFT(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, False, False, True, True)
-
+            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
+            
         def DFinv(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, False, False, True, False)
+            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
 
         def DFinvT(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, False, False, True, True)
+            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
 
         def G(e1, e2, e3):
-            return domain.metric(e1, e2, e3, False, False, True)
-
+            return domain.metric(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
+            
         def Ginv(e1, e2, e3):
-            return domain.metric_inv(e1, e2, e3, False, False, True)
-
+            return domain.metric_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
+            
         def sqrt_g(e1, e2, e3):
-            return abs(domain.jacobian_det(e1, e2, e3, False, False))
-
+            return abs(domain.jacobian_det(e1, e2, e3, flat_eval, squeeze_output))
+        
         # Cross product matrices and evaluation of cross products
-        cross_mask = [[1, -1,  1],
-                      [1,  1, -1],
+        cross_mask = [[ 1, -1,  1], 
+                      [ 1,  1, -1], 
                       [-1,  1,  1]]
 
         def eval_cross(e1, e2, e3, fun_list):
@@ -118,28 +100,11 @@ class BasisProjectionOperators:
         fun_Y20 = [[lambda e1, e2, e3: sqrt_g(e1, e2, e3)]]
 
         # 'Matrix' functions
-        fun_Q0 = []
-        fun_Tv = []
-        fun_S0 = []
-        fun_Uv = []
-        fun_X0 = []
+        fun_Q0, fun_Tv, fun_S0, fun_Uv, fun_X0 = [], [], [], [], []
 
-        fun_Q1 = []
-        fun_W1 = []
-        fun_U1 = []
-        fun_R1 = []
-        fun_S1 = []
-        fun_T1 = []
-        fun_X1 = []
-        fun_S10 = []
-
-        fun_Q2 = []
-        fun_T2 = []
-        fun_R2 = []
-        fun_S2 = []
-        fun_X2 = []
-        fun_Z20 = []
-        fun_S20 = []
+        fun_Q1, fun_W1, fun_U1, fun_R1, fun_S1, fun_T1, fun_X1, fun_S10 = [], [], [], [], [], [], [], []
+        
+        fun_Q2, fun_T2, fun_R2, fun_S2, fun_X2, fun_Z20, fun_S20 = [], [], [], [], [], [], []
 
         for m in range(3):
             fun_Q0 += [[]]
@@ -243,15 +208,16 @@ class BasisProjectionOperators:
         self._fun_Z20 = fun_Z20
         self._fun_S20 = fun_S20
 
-        # only for M1 Mac users
-        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
-
     @property
     def derham(self):
+        """ Discrete de Rham sequence on the logical unit cube. 
+        """
         return self._derham
 
     @property
     def domain(self):
+        """ Mapping from the logical unit cube to the physical domain with corresponding metric coefficients.
+        """
         return self._domain
 
     ###################################################
@@ -269,8 +235,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K0'):
-            self._K0 = ApplyHomogeneousDirichletToOperator(
-                'L2', 'L2', self.derham.bc, BasisProjectionOp(self._P3, self._V3, self._fun_K0))
+            self._K0 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K0, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
 
         return self._K0
 
@@ -286,8 +251,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q0'):
-            self._Q0 = ApplyHomogeneousDirichletToOperator(
-                'H1vec', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V0vec, self._fun_Q0))
+            self._Q0 = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_Q0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
 
         return self._Q0
 
@@ -303,8 +267,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Tv'):
-            self._Tv = ApplyHomogeneousDirichletToOperator(
-                'H1vec', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V0vec, self._fun_Tv))
+            self._Tv = BasisProjectionOperator(self.derham.P1, self.derham.V0vec, self._fun_Tv, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
 
         return self._Tv
 
@@ -320,8 +283,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S0'):
-            self._S0 = ApplyHomogeneousDirichletToOperator(
-                'H1vec', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V0vec, self._fun_S0))
+            self._S0 = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_S0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
 
         return self._S0
 
@@ -337,9 +299,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Uv'):
-            self._Uv = ApplyHomogeneousDirichletToOperator(
-                'H1vec', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V0vec, self._fun_Uv))
-
+            self._Uv = BasisProjectionOperator(self.derham.P2, self.derham.V0vec, self._fun_Uv, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
+            
         return self._Uv
 
     @property
@@ -354,8 +315,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X0'):
-            self._X0 = ApplyHomogeneousDirichletToOperator(
-                'H1vec', 'H1vec', self.derham.bc, BasisProjectionOp(self._P0vec, self._V0vec, self._fun_X0))
+            self._X0 = BasisProjectionOperator(self.derham.P0vec, self.derham.V0vec, self._fun_X0, self.derham.E0vec, self.derham.B0vec, transposed=False, polar_shift=self.domain.pole)
 
         return self._X0
 
@@ -374,8 +334,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K1'):
-            self._K1 = ApplyHomogeneousDirichletToOperator(
-                'L2', 'L2', self.derham.bc, BasisProjectionOp(self._P3, self._V3, self._fun_K1))
+            self._K1 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K1, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
 
         return self._K1
 
@@ -390,8 +349,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q1'):
-            self._Q1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V1, self._fun_Q1))
+            self._Q1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_Q1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
 
         return self._Q1
 
@@ -406,8 +364,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_W1'):
-            self._W1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V1, self._fun_W1))
+            self._W1 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_W1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
 
         return self._W1
 
@@ -422,9 +379,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_U1'):
-            self._U1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V1, self._fun_U1))
-
+            self._U1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_U1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            
         return self._U1
 
     @property
@@ -438,8 +394,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_R1'):
-            self._R1 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V2, self._fun_R1))
+            self._R1 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_R1, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._R1
 
@@ -454,9 +409,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S1'):
-            self._S1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V1, self._fun_S1))
-
+            self._S1 = BasisProjectionOperator(self.derham.P2, self.derham.V1, self._fun_S1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            
         return self._S1
 
     @property
@@ -470,8 +424,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_T1'):
-            self._T1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V1, self._fun_T1))
+            self._T1 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_T1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
 
         return self._T1
 
@@ -486,9 +439,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X1'):
-            self._X1 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'H1vec', self.derham.bc, BasisProjectionOp(self._P0vec, self._V1, self._fun_X1))
-
+            self._X1 = BasisProjectionOperator(self.derham.P0vec, self.derham.V1, self._fun_X1, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
+            
         return self._X1
 
     @property
@@ -502,8 +454,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K10'):
-            self._K10 = ApplyHomogeneousDirichletToOperator(
-                'H1', 'H1', self.derham.bc, BasisProjectionOp(self._P0, self._V0, self._fun_K10))
+            self._K10 = BasisProjectionOperator(self.derham.P0, self.derham.V0, self._fun_K10, self.derham.E0, self.derham.B0, transposed=False, polar_shift=self.domain.pole)
 
         return self._K10
 
@@ -518,8 +469,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S10'):
-            self._S10 = ApplyHomogeneousDirichletToOperator(
-                'Hcurl', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V1, self._fun_S10))
+            self._S10 = BasisProjectionOperator(self.derham.P1, self.derham.V1, self._fun_S10, self.derham.E1, self.derham.B1, transposed=False, polar_shift=self.domain.pole)
 
         return self._S10
 
@@ -538,9 +488,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_K2'):
-            self._K2 = ApplyHomogeneousDirichletToOperator(
-                'L2', 'L2', self.derham.bc, BasisProjectionOp(self._P3, self._V3, self._fun_K2))
-
+            self._K2 = BasisProjectionOperator(self.derham.P3, self.derham.V3, self._fun_K2, self.derham.E3, self.derham.B3, transposed=False, polar_shift=self.domain.pole)
+            
         return self._K2
 
     @property
@@ -554,8 +503,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Q2'):
-            self._Q2 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V2, self._fun_Q2))
+            self._Q2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_Q2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._Q2
 
@@ -570,8 +518,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_T2'):
-            self._T2 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V2, self._fun_T2))
+            self._T2 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_T2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._T2
 
@@ -586,9 +533,8 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_R2'):
-            self._R2 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V2, self._fun_R2))
-
+            self._R2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_R2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
+            
         return self._R2
 
     @property
@@ -602,8 +548,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S2'):
-            self._S2 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hdiv', self.derham.bc, BasisProjectionOp(self._P2, self._V2, self._fun_S2))
+            self._S2 = BasisProjectionOperator(self.derham.P2, self.derham.V2, self._fun_S2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._S2
 
@@ -618,8 +563,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_X2'):
-            self._X2 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'H1vec', self.derham.bc, BasisProjectionOp(self._P0vec, self._V2, self._fun_X2))
+            self._X2 = BasisProjectionOperator(self.derham.P0vec, self.derham.V2, self._fun_X2, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._X2
 
@@ -634,8 +578,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Y20'):
-            self._Y20 = ApplyHomogeneousDirichletToOperator(
-                'H1', 'L2', self.derham.bc, BasisProjectionOp(self._P3, self._V0, self._fun_Y20))
+            self._Y20 = BasisProjectionOperator(self.derham.P3, self.derham.V0, self._fun_Y20, self.derham.E0, self.derham.B0, transposed=False, polar_shift=self.domain.pole)
 
         return self._Y20
 
@@ -650,8 +593,7 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_Z20'):
-            self._Z20 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V2, self._fun_Z20))
+            self._Z20 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_Z20, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._Z20
 
@@ -666,285 +608,296 @@ class BasisProjectionOperators:
 
         '''
         if not hasattr(self, '_S20'):
-            self._S20 = ApplyHomogeneousDirichletToOperator(
-                'Hdiv', 'Hcurl', self.derham.bc, BasisProjectionOp(self._P1, self._V2, self._fun_S20))
+            self._S20 = BasisProjectionOperator(self.derham.P1, self.derham.V2, self._fun_S20, self.derham.E2, self.derham.B2, transposed=False, polar_shift=self.domain.pole)
 
         return self._S20
 
 
-class BasisProjectionOp( LinOpWithTransp ):
-    '''
+class BasisProjectionOperator( LinOpWithTransp ):
+    """
     Class for "basis projection operators" PI_ijk(fun Lambda_mno).
 
     Parameters
     ----------
-        P : GlobalProjector
-            Psydac de Rham projector into space W = P.space (codomain of operator), henceforth called "output space".
+        P : Projector
+            Global commuting projector mapping into TensorFemSpace/ProductFemSpace W = P.space (codomain of operator).
 
-        V : TensorFemSpace or ProductFemSpace
-            Domain of the operator, henceforth called "input space".
+        V : TensorFemSpace | ProductFemSpace
+            Tensor product spline space from psydac.fem.tensor (domain, input space).
 
         fun : list
-            List of functions of (eta1, eta2, eta3) that multiply the basis functions of the input space V.
-            3x3 matrix-valued (nested list [[f11, f12, f13], [f21, f22, f23], [f31, f32, f33]]) if V is ProductFemSPace, 
-            scalar-valued [f] list otherwise.
+            Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+            
+        V_extraction_op : PolarExtractionOperator | NoneType
+            Extraction operator to polar sub-space of V.
+            
+        V_boundary_op : BoundaryOperator | NoneType
+            Boundary operator that sets essential boundary conditions.
 
-        with_transposed : boolean
-            False: map V -> W or True: map W -> V.
-    '''
+        transposed : bool
+            Whether to assemble the transposed operator.
+            
+        polar_shift : bool
+                Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+    """
 
-    def __init__(self, P, V, fun, transposed=False):
-
-        assert isinstance(P, GlobalProjector)
-        assert isinstance(V, FemSpace)
+    def __init__(self, P, V, fun, V_extraction_op=None, V_boundary_op=None, transposed=False, polar_shift=False):
 
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
+        
+        assert isinstance(P, Projector)
+        assert isinstance(V, FemSpace)
 
         self._P = P
         self._V = V
+        
+        # set extraction operators
+        if V_extraction_op is not None:
+            assert V_extraction_op.domain == V.vector_space
+            
+        self._P_extraction_op = P.dofs_extraction_op
+        self._V_extraction_op = V_extraction_op
+        
+        # set boundary operators
+        self._P_boundary_op = P.boundary_op
+        self._V_boundary_op = V_boundary_op
+        
         self._fun = fun
         self._transposed = transposed
-
-        if transposed:
-            self._domain = P.space.vector_space
-            self._codomain = V.vector_space
-        else:
-            self._domain = V.vector_space
-            self._codomain = P.space.vector_space
-
-        # Retrieve solver
-        self._solver = P.solver
-
-        # Input space: Stencil vector spaces and 1d spaces
-        if hasattr(V.symbolic_space, 'name'):
-            if V.symbolic_space.name in {'H1', 'L2'}:
-                _Vspaces = [V.vector_space]
-                _V1ds = [V.spaces]
-            else:
-                _Vspaces = V.vector_space
-                _V1ds = [comp.spaces for comp in V.spaces]
-            #print(f'From {V.symbolic_space.name} ...')
-        else:
-            _Vspaces = V.vector_space
-            _V1ds = [comp.spaces for comp in V.spaces]
-            #print(f'From H1vec ...')
-
-        # Output space: Stencil vector spaces and 1d spaces
+        self._polar_shift = polar_shift
+        self._dtype = V.vector_space.dtype
+        
+        # set domain and codomain symbolic names
         if hasattr(P.space.symbolic_space, 'name'):
-            if P.space.symbolic_space.name in {'H1', 'L2'}:
-                _Wspaces = [P.space.vector_space]
-                _W1ds = [P.space.spaces]
-            else:
-                _Wspaces = P.space.vector_space
-                _W1ds = [comp.spaces for comp in P.space.spaces]
-            #print(f'... to {P.space.symbolic_space.name}.')
+            P_name = P.space.symbolic_space.name
         else:
-            _Wspaces = P.space.vector_space
-            _W1ds = [comp.spaces for comp in P.space.spaces]
-            #print(f'... to H1vec.')
+            P_name = 'H1vec'
 
-        # Retrieve number of quadrature points
-        _nqs = []
-
-        for d in range(P.dim):
-            if hasattr(P.space.symbolic_space, 'name'):
-                if P.space.symbolic_space.name == 'Hcurl':
-                    _nqs += [P.grid_x[d][d].shape[1]]
-
-                elif P.space.symbolic_space.name == 'Hdiv':
-
-                    if P.dim == 2:
-                        if d == 0:
-                            _nqs += [P.grid_x[1][0].shape[1]]
-                        elif d == 1:
-                            _nqs += [P.grid_x[0][1].shape[1]]
-                    else:
-                        if d == 0:
-                            _nqs += [P.grid_x[2][0].shape[1]]
-                        elif d == 1:
-                            _nqs += [P.grid_x[0][1].shape[1]]
-                        elif d == 2:
-                            _nqs += [P.grid_x[1][2].shape[1]]
-
-                elif P.space.symbolic_space.name == 'L2':
-                    _nqs += [P.grid_x[0][d].shape[1]]
-                else:
-                    _nqs += [1]
-            else:
-                _nqs += [1]
-
-        # Block matrix for dofs
-        _blocks = []
-        # Ouptut vector space (codomain), row of block
-        for Wspace, W1d, fun_line in zip(_Wspaces, _W1ds, fun):
-            _blocks += [[]]
-            # Input vector space (domain), column of block
-            for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
-
-                # Initiate cell of block matrix
-                _dofs_mat = StencilMatrix(
-                    Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
-
-                _starts_in = _dofs_mat.domain.starts
-                _ends_in = _dofs_mat.domain.ends
-                _pads_in = _dofs_mat.domain.pads
-                _starts_out = _dofs_mat.codomain.starts
-                _ends_out = _dofs_mat.codomain.ends
-                _pads_out = _dofs_mat.codomain.pads
-
-                _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
-                    V1d, W1d, _starts_out, _ends_out, _nqs)
-
-                # Evaluate weight function times quadrature weights
-                if V.ldim == 1:
-                    #_fun_w = evaluate_fun_weights_1d(_ptsG, _wtsG, f)
-                    pts1, = np.meshgrid(_ptsG[0].flatten(), indexing='ij')
-                    _fun_q = f(pts1).copy().reshape(
-                        _ptsG[0].shape[0], _ptsG[0].shape[1])
-
-                elif V.ldim == 2:
-                    #_fun_w = evaluate_fun_weights_2d(_ptsG, _wtsG, f)
-                    pts1, pts2 = np.meshgrid(
-                        _ptsG[0].flatten(), _ptsG[1].flatten(), indexing='ij')
-                    _fun_q = f(pts1, pts2).copy().reshape(
-                        _ptsG[0].shape[0], _ptsG[0].shape[1], _ptsG[1].shape[0], _ptsG[1].shape[1])
-
-                elif V.ldim == 3:
-                    #_fun_w = evaluate_fun_weights_3d(_ptsG, _wtsG, f)
-                    pts1, pts2, pts3 = np.meshgrid(
-                        _ptsG[0].flatten(), _ptsG[1].flatten(), _ptsG[2].flatten(), indexing='ij')
-                    _fun_q = f(pts1, pts2, pts3).copy().reshape(
-                        _ptsG[0].shape[0], _ptsG[0].shape[1], _ptsG[1].shape[0], _ptsG[1].shape[1], _ptsG[2].shape[0], _ptsG[2].shape[1])
-
-                # Call the kernel if weight function is not zero
-                if np.any(_fun_q):
-                    if V.ldim == 1:
-
-                        assemble_1d(_dofs_mat._data,
-                                    np.array(_starts_in), np.array(
-                                        _ends_in), np.array(_pads_in),
-                                    np.array(_starts_out), np.array(
-                                        _ends_out), np.array(_pads_out),
-                                    _fun_q, _wtsG[0],
-                                    _spans[0],
-                                    _bases[0],
-                                    _subs[0],
-                                    V1d[0].nbasis,
-                                    W1d[0].degree)
-
-                    elif V.ldim == 2:
-
-                        assemble_2d(_dofs_mat._data,
-                                    np.array(_starts_in), np.array(
-                                        _ends_in), np.array(_pads_in),
-                                    np.array(_starts_out), np.array(
-                                        _ends_out), np.array(_pads_out),
-                                    _fun_q, _wtsG[0], _wtsG[1],
-                                    _spans[0], _spans[1],
-                                    _bases[0], _bases[1],
-                                    _subs[0], _subs[1],
-                                    V1d[0].nbasis, V1d[1].nbasis,
-                                    W1d[0].degree, W1d[1].degree)
-
-                    elif V.ldim == 3:
-
-                        assemble_3d(_dofs_mat._data,
-                                    np.array(_starts_in), np.array(
-                                        _ends_in), np.array(_pads_in),
-                                    np.array(_starts_out), np.array(
-                                        _ends_out), np.array(_pads_out),
-                                    _fun_q, _wtsG[0], _wtsG[1], _wtsG[2],
-                                    _spans[0], _spans[1], _spans[2],
-                                    _bases[0], _bases[1], _bases[2],
-                                    _subs[0], _subs[1], _subs[2],
-                                    V1d[0].nbasis, V1d[1].nbasis, V1d[2].nbasis,
-                                    W1d[0].degree, W1d[1].degree, W1d[2].degree)
-
-                    _blocks[-1] += [_dofs_mat]
-
-                else:
-                    _blocks[-1] += [None]
-
-        _len = sum([len(li) for li in _blocks])
-
-        if _len > 1:
-            self._dofs_mat = BlockMatrix(
-                V.vector_space, P.space.vector_space, _blocks)
+        if hasattr(V.symbolic_space, 'name'):
+            V_name = V.symbolic_space.name
         else:
-            if _blocks[0][0] is not None:
-                self._dofs_mat = _blocks[0][0]
-            else:
-                self._dofs_mat = _dofs_mat
+            V_name = 'H1vec'
 
         if transposed:
-            self._dofs_mat = self._dofs_mat.transpose()
+            self._domain_symbolic_name = P_name
+            self._codomain_symbolic_name = V_name
+        else:
+            self._domain_symbolic_name = V_name
+            self._codomain_symbolic_name = P_name
+            
+        # ============= assemble tensor-product dof matrix =======
+        if transposed:
+            self._dof_mat = BasisProjectionOperator.assemble_mat(P.projector_tensor, V, fun, polar_shift).transpose()
+        else:
+            self._dof_mat = BasisProjectionOperator.assemble_mat(P.projector_tensor, V, fun, polar_shift)
+        # ========================================================
+        
+        # build composite linear operator BP * P * DOF * EV^T * BV^T, resp. BV * EV * DOF^T * P^T * BP^T if transposed=True
+        if P.dofs_extraction_op is None:
+            P_extraction_opT = None
+        else:
+            P_extraction_opT = P.dofs_extraction_op.transpose()
+
+        if V_extraction_op is None:
+            V_extraction_opT = None
+        else:
+            V_extraction_opT = V_extraction_op.transpose()
+            
+        if P.boundary_op is None:
+            P_boundary_opT = None
+        else:
+            P_boundary_opT = P.boundary_op.transpose()
+            
+        if V_boundary_op is None:
+            V_boundary_opT = None
+        else:
+            V_boundary_opT = V_boundary_op.transpose()
+            
+        if transposed:
+            self._dof_operator = CompositeLinearOperator(V_boundary_op, V_extraction_op, self._dof_mat, P_extraction_opT, P_boundary_opT)
+        else:
+            self._dof_operator = CompositeLinearOperator(P.boundary_op, P.dofs_extraction_op, self._dof_mat, V_extraction_opT, V_boundary_opT)
+            
+        # set domain and codomain
+        self._domain = self.dof_operator.domain
+        self._codomain = self.dof_operator.codomain
 
     @property
     def domain(self):
+        """ Domain vector space (input) of the operator.
+        """
         return self._domain
 
     @property
     def codomain(self):
+        """ Codomain vector space (input) of the operator.
+        """
         return self._codomain
 
     @property
     def dtype(self):
-        return self._V.vector_space.dtype
+        """ Datatype of the operator.
+        """
+        return self._dtype
 
     @property
     def transposed(self):
+        """ If the transposed operator is in play.
+        """
         return self._transposed
+    
+    @property
+    def dof_operator(self):
+        """ The degrees of freedom operator as composite linear operator containing polar extraction and boundary operators. 
+        """
+        return self._dof_operator
 
-    def transpose(self):
-        return BasisProjectionOp(self._P, self._V, self._fun, True)
-
-    def dot(self, v, out=None):
-        '''Applies the basis projection operator to the FE coefficients v belonging to V.
+    def dot(self, v, out=None, tol=1e-14, maxiter=1000, verbose=False):
+        """
+        Applies the basis projection operator to the FE coefficients v.
 
         Parameters
         ----------
-            v : StencilVector or BlockVector
-                Input FE coefficients from V.vector_space.
+            v : StencilVector | BlockVector | PolarVector
+                Vector the operator shall be applied to.
+                
+            tol : float
+                Stop tolerance in iterative solve (only used in polar case).
+                
+            maxiter : int
+                Maximum number of iterations in iterative solve (only used in polar case).
+                
+            verbose : bool
+                Whether to print some information in each iteration in iterative solve (only used in polar case).
 
         Returns
         -------
-            A StencilVector or BlockVector from W.vector_space.'''
+            out : StencilVector | BlockVector | PolarVector
+                The result of the dot product.
+        """
 
+        assert v.space == self.domain
+        
         if self.transposed:
-
-            assert v.space == self.domain
-
-            tmp = self._solver.solve(v, transposed=True)
-            # tmp.update_ghost_regions()
-
-            assert tmp.space == self.domain
-
-            tmp2 = self._dofs_mat.dot(tmp)
-            # tmp2.update_ghost_regions()
-
-            assert tmp2.space == self.codomain
-
-            return tmp2
-
+            # 1. apply inverse transposed inter-/histopolation matrix, 2. apply transposed dof operator
+            out = self.dof_operator.dot(self._P.solve(v, True, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose))
         else:
+            # 1. apply dof operator, 2. apply inverse inter-/histopolation matrix
+            out = self._P.solve(self.dof_operator.dot(v), False, apply_bc=True, tol=tol, maxiter=maxiter, verbose=verbose)
 
-            assert v.space == self.domain
+        assert out.space == self.codomain
 
-            dofs = self._dofs_mat.dot(v)
-            # dofs.update_ghost_regions()
+        return out
+        
+    def transpose(self):
+        """
+        Returns the transposed operator.
+        """
+        return BasisProjectionOperator(self._P, self._V, self._fun, 
+                                       self._V_extraction_op, self._V_boundary_op,
+                                       not self.transposed, self._polar_shift)
+    
+    @staticmethod
+    def assemble_mat(P, V, fun, polar_shift=False):
+        """
+        Assembles the tensor-product DOF matrix sigma_i(fun*Lambda_j), where i=(i1, i2, ...) and j=(j1, j2, ...) depending on the number of spatial dimensions (1d, 2d or 3d).
+        
+        Parameters
+        ----------
+            P : GlobalProjector
+                The psydac global tensor product projector defining the space onto which the input shall be projected.
+                
+            V : TensorFemSpace | ProductFemSpace
+                The spline space which shall be projected.
+                
+            fun : list
+                Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+                
+            polar_shift : bool
+                Whether there are metric coefficients contained in "fun" which are singular at eta1=0. If True, interpolation points at eta1=0 are shifted away from the singularity by 1e-5.
+                
+        Returns
+        -------
+            dof_mat : StencilMatrix | BlockMatrix
+                Degrees of freedom matrix in the full tensor product setting.
+        """
+        
+        # input space: 3d StencilVectorSpaces and 1d SplineSpaces of each component 
+        if isinstance(V, TensorFemSpace):
+            _Vspaces = [V.vector_space]
+            _V1ds = [V.spaces]
+        else:
+            _Vspaces = V.vector_space
+            _V1ds = [comp.spaces for comp in V.spaces]
 
-            assert dofs.space == self.codomain
+        # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
+        if isinstance(P.space, TensorFemSpace):
+            _Wspaces = [P.space.vector_space]
+            _W1ds = [P.space.spaces]
+        else:
+            _Wspaces = P.space.vector_space
+            _W1ds = [comp.spaces for comp in P.space.spaces]
+            
+        # retrieve number of quadrature points of each component (=1 for interpolation)
+        _nqs = [[P.grid_x[comp][direction].shape[1] for direction in range(V.ldim)] for comp in range(len(_W1ds))]
 
-            coeffs = self._solver.solve(dofs)
-            # coeffs.update_ghost_regions()
+        # blocks of dof matrix
+        blocks = []
+        
+        # ouptut vector space (codomain), row of block
+        for Wspace, W1d, nq, fun_line in zip(_Wspaces, _W1ds, _nqs, fun):
+            blocks += [[]]
+            _Wdegrees = [space.degree for space in W1d]
+            
+            # input vector space (domain), column of block
+            for Vspace, V1d, f in zip(_Vspaces, _V1ds, fun_line):
 
-            assert coeffs.space == self.codomain
+                # instantiate cell of block matrix
+                dofs_mat = StencilMatrix(Vspace, Wspace, backend=PSYDAC_BACKEND_GPYCCEL)
 
-            return coeffs
+                _starts_in = np.array(dofs_mat.domain.starts)
+                _ends_in = np.array(dofs_mat.domain.ends)
+                _pads_in = np.array(dofs_mat.domain.pads)
+                
+                _starts_out = np.array(dofs_mat.codomain.starts)
+                _ends_out = np.array(dofs_mat.codomain.ends)
+                _pads_out = np.array(dofs_mat.codomain.pads)
+
+                _ptsG, _wtsG, _spans, _bases, _subs = prepare_projection_of_basis(
+                    V1d, W1d, _starts_out, _ends_out, nq, polar_shift)
+                
+                _ptsG = [pts.flatten() for pts in _ptsG]
+                
+                _Vnbases = [space.nbasis for space in V1d]
+
+                # Evaluate weight function at quadrature points
+                pts = np.meshgrid(*_ptsG, indexing='ij')
+                _fun_q = f(*pts).copy()
+
+                # Call the kernel if weight function is not zero
+                if np.any(np.abs(_fun_q) > 1e-14):
+                    
+                    kernel = getattr(basis_projection_kernels, 'assemble_dofs_for_weighted_basisfuns_' + str(V.ldim) + 'd')
+                    
+                    kernel(dofs_mat._data, _starts_in, _ends_in, _pads_in, _starts_out, _ends_out, _pads_out, _fun_q, *_wtsG, *_spans, *_bases, *_subs, *_Vnbases, *_Wdegrees)
+
+                    blocks[-1] += [dofs_mat]
+
+                else:
+                    blocks[-1] += [None]
+        
+        # build BlockMatrix (if necessary) and return
+        if len(blocks) == len(blocks[0]) == 1:
+            if blocks[0][0] is not None:
+                return blocks[0][0]
+            else:
+                return dofs_mat
+        else:
+            return BlockMatrix(V.vector_space, P.space.vector_space, blocks)
 
 
-def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
+def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None, polar_shift=False):
     '''Obtain knot span indices and basis functions evaluated at projection point sets of a given space.
 
     Parameters
@@ -986,8 +939,8 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
     direction = 0
     for space_in, space_out, s, e in zip(V1d, W1d, starts_out, ends_out):
 
-        greville_loc = space_out.greville[s: e + 1]
-        histopol_loc = space_out.histopolation_grid[s: e + 2]
+        greville_loc = space_out.greville[s: e + 1].copy()
+        histopol_loc = space_out.histopolation_grid[s: e + 2].copy()
 
         # make sure that greville points used for interpolation are in [0, 1]
         assert np.all(np.logical_and(greville_loc >= 0., greville_loc <= 1.))
@@ -1014,6 +967,10 @@ def prepare_projection_of_basis(V1d, W1d, starts_out, ends_out, n_quad=None):
 
             # sub-interval index is always 0 for interpolation.
             subs += [np.zeros(pts[-1].shape[0], dtype=int)]
+            
+            # !! shift away first interpolation point in eta_1 direction for polar domains !!
+            if direction == 0 and pts[0][0] == 0. and polar_shift:
+                pts[0][0] += 0.00001
 
         # histopolation
         elif space_out.basis == 'M':
