@@ -16,6 +16,7 @@ FLAGS_openmp_pic := $(flags_openmp_pic)
 
 PSY1  := $(psydac_path)/core/kernels
 PSY2  := $(psydac_path)/core/bsplines_pyccel
+PSY3  := $(psydac_path)/feec/dof_kernels
 
 #--------------------------------------
 # SOURCE FILES STRUPHY
@@ -65,7 +66,7 @@ KM3  := $(struphy_path)/feec/basics/kernels_3d
 KPG  := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global
 KPGM := $(struphy_path)/feec/projectors/pro_global/kernels_projectors_global_mhd
 
-SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py
+SOURCES := $(LAC).py $(BK).py $(BEV1).py $(BEV2).py $(BEV3).py $(MAFA).py $(MEVA).py $(PB3).py $(PF3).py $(TR3).py $(MOMK).py $(F0K).py $(BEVA).py $(PLP).py $(PLM).py $(BTS).py $(UTL).py $(FK).py $(MVF).py $(ACC).py $(PUTL).py $(PUSH).py $(PS).py $(KM2).py $(KM3).py $(KPG).py $(KPGM).py $(PSY1).py $(PSY2).py $(PSY3).py
 
 OUTPUTS := $(SOURCES:.py=$(SO_EXT))
 
@@ -82,6 +83,9 @@ $(PSY1)$(SO_EXT) : $(PSY1).py
 	pyccel $< $(FLAGS)
 
 $(PSY2)$(SO_EXT) : $(PSY2).py
+	pyccel $< $(FLAGS)
+    
+$(PSY3)$(SO_EXT) : $(PSY3).py
 	pyccel $< $(FLAGS)
 
 # Struphy:
@@ -177,6 +181,7 @@ clean:
 
 	rm -rf $(psydac_path)/__pyccel__ $(psydac_path)/__pycache__
 	rm -rf $(psydac_path)/core/__pyccel__ $(psydac_path)/core/__pycache__ $(psydac_path)/core/.lock_acquisition.lock
+	rm -rf $(psydac_path)/feec/__pyccel__ $(psydac_path)/feec/__pycache__ $(psydac_path)/feec/.lock_acquisition.lock
 	
 	rm -rf $(struphy_path)/__pyccel__ $(struphy_path)/__pycache__
 	rm -rf $(struphy_path)/linear_algebra/__pyccel__ $(struphy_path)/linear_algebra/__pycache__ $(struphy_path)/linear_algebra/.lock_acquisition.lock

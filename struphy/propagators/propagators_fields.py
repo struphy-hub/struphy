@@ -17,8 +17,6 @@ from struphy.psydac_api.linear_operators import InverseLinearOperator as Invert
 from struphy.psydac_api import preconditioner
 from struphy.psydac_api.linear_operators import LinOpWithTransp
 
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
-    
 
 class Maxwell( Propagator ):
     r'''Crank-Nicolson step
@@ -66,7 +64,7 @@ class Maxwell( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, 'V1', mass_ops._fun_M1)
+            pc = pc_class(mass_ops.M1)
 
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -261,7 +259,7 @@ class ShearAlfvén( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, derham.spaces_dict[u_space], _pc_fun)
+            pc = pc_class(getattr(mass_ops, id_Mn))
         
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)
@@ -406,7 +404,7 @@ class Magnetosonic( Propagator ):
             pc = None
         else:
             pc_class = getattr(preconditioner, params['pc'])
-            pc = pc_class(derham, derham.spaces_dict[u_space], _pc_fun)
+            pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Instantiate Schur solver (constant in this case)
         _BC = Compose(self._B, self._C)

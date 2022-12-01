@@ -46,11 +46,14 @@ class MHDOperators:
             self.his_D3 = spa.identity(space.NbaseN[2], format='csr')
         
         else:
-            self.int_N3 = space.spaces[2].projectors.I
-            self.int_D3 = space.spaces[2].projectors.ID
+            B0 = space.spaces[2].B0
+            B1 = space.spaces[2].B1
             
-            self.his_N3 = space.spaces[2].projectors.HN
-            self.his_D3 = space.spaces[2].projectors.H
+            self.int_N3 = B0.dot(space.spaces[2].projectors.I.dot(B0.T))
+            self.int_D3 = B0.dot(space.spaces[2].projectors.ID.dot(B1.T))
+            
+            self.his_N3 = B1.dot(space.spaces[2].projectors.HN.dot(B0.T))
+            self.his_D3 = B1.dot(space.spaces[2].projectors.H.dot(B1.T))
             
     
     # =================================================================
@@ -663,7 +666,7 @@ class MHDOperators:
         if self.PR_as_tensor:
             
             d   = self.core.space.reshape_pol_3(d)
-            out = self.his_D3.dot(self.dofs_PF.dot(d).T).T.flatten()
+            out = self.his_D3.dot(self.dofs_PR.dot(d).T).T.flatten()
             
         else:
             out = self.dofs_PR.dot(d)
@@ -682,7 +685,7 @@ class MHDOperators:
         if self.PR_as_tensor:
             
             d   = self.core.space.reshape_pol_3(d)
-            out = self.his_D3.T.dot(self.dofs_PF.T.dot(d).T).T.flatten()
+            out = self.his_D3.T.dot(self.dofs_PR.T.dot(d).T).T.flatten()
             
         else:
             out = self.dofs_PR.T.dot(d)

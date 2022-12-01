@@ -1,7 +1,7 @@
 import numpy as np
 
-from psydac.linalg.stencil import StencilMatrix
-from psydac.linalg.block import BlockMatrix
+from psydac.linalg.stencil import StencilVector, StencilMatrix
+from psydac.linalg.block import BlockVector, BlockMatrix
 
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
@@ -11,7 +11,6 @@ from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api import mass_kernels
 from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
-from struphy.psydac_api.utilities import apply_essential_bc_to_array
 
 from struphy.polar.basic import PolarVector
 
@@ -28,8 +27,8 @@ class WeightedMassOperators:
         domain : struphy.geometry.domains
             All things mapping.
             
-        weights : obj
-            A general object that provides access to callables that serve as weight functions (e.g. instance of a subclass of struphy.fields_background.mhd_equil.base.EquilibriumMHD).
+        **weights
+            A general object providing access to callables that serve as weight functions (will be called with weights['keyword'].fun).
     """
     
     def __init__(self, derham, domain, **weights):
@@ -37,27 +36,31 @@ class WeightedMassOperators:
         self._derham = derham
         self._domain = domain
         
-        # Wrapper functions for metric coefficients
+        # Wrapper functions for evaluating metric coefficients in right order (3x3 entries are last two axes!!)
+        flat_eval = False
+        squeeze_output = False
+        change_out_order = True
+        
         def DF(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, False, False, True, False)
+            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
 
         def DFT(e1, e2, e3):
-            return domain.jacobian(e1, e2, e3, False, False, True, True)
+            return domain.jacobian(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
             
         def DFinv(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, False, False, True, False)
+            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=False)
 
         def DFinvT(e1, e2, e3):
-            return domain.jacobian_inv(e1, e2, e3, False, False, True, True)
+            return domain.jacobian_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order, transposed=True)
 
         def G(e1, e2, e3):
-            return domain.metric(e1, e2, e3, False, False, True)
+            return domain.metric(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
             
         def Ginv(e1, e2, e3):
-            return domain.metric_inv(e1, e2, e3, False, False, True)
+            return domain.metric_inv(e1, e2, e3, flat_eval, squeeze_output, change_out_order)
             
         def sqrt_g(e1, e2, e3):
-            return abs(domain.jacobian_det(e1, e2, e3, False, False))
+            return abs(domain.jacobian_det(e1, e2, e3, flat_eval, squeeze_output))
         
         # Cross product matrices and evaluation of cross products
         cross_mask = [[ 1, -1,  1], 
@@ -155,7 +158,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M0'):
-            self._M0 = WeightedMassOperator(self.derham.V0, self.derham.V0, V_extraction_op=self.derham.E0, W_extraction_op=self.derham.E0, weight=self._fun_M0, transposed=False, bc=self.derham.bc)
+            self._M0 = WeightedMassOperator(self.derham.V0, self.derham.V0, V_extraction_op=self.derham.E0, W_extraction_op=self.derham.E0, V_boundary_op=self.derham.B0, W_boundary_op=self.derham.B0, weight=self._fun_M0, transposed=False)
         
         return self._M0
     
@@ -165,7 +168,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M1'):
-            self._M1 = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, weight=self._fun_M1, transposed=False, bc=self.derham.bc)
+            self._M1 = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B1, W_boundary_op=self.derham.B1, weight=self._fun_M1, transposed=False)
         
         return self._M1
     
@@ -175,7 +178,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2'):
-            self._M2 = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2, transposed=False, bc=self.derham.bc)
+            self._M2 = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2, transposed=False)
         
         return self._M2
     
@@ -185,7 +188,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M3'):
-            self._M3 = WeightedMassOperator(self.derham.V3, self.derham.V3, V_extraction_op=self.derham.E3, W_extraction_op=self.derham.E3, weight=self._fun_M3, transposed=False, bc=self.derham.bc)
+            self._M3 = WeightedMassOperator(self.derham.V3, self.derham.V3, V_extraction_op=self.derham.E3, W_extraction_op=self.derham.E3, V_boundary_op=self.derham.B3, W_boundary_op=self.derham.B3, weight=self._fun_M3, transposed=False)
         
         return self._M3
     
@@ -195,7 +198,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_Mv'):
-            self._Mv = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.Ev, W_extraction_op=self.derham.Ev, weight=self._fun_Mv, transposed=False, bc=self.derham.bc)
+            self._Mv = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.E0vec, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B0vec, W_boundary_op=self.derham.B0vec, weight=self._fun_Mv, transposed=False)
         
         return self._Mv
     
@@ -210,7 +213,7 @@ class WeightedMassOperators:
         assert hasattr(self, '_fun_M1n'), 'MHD equilibrium has not been set!'
         
         if not hasattr(self, '_M1n'):
-            self._M1n = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, weight=self._fun_M1n, transposed=False, bc=self.derham.bc)
+            self._M1n = WeightedMassOperator(self.derham.V1, self.derham.V1, V_extraction_op=self.derham.E1, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B1, W_boundary_op=self.derham.B1, weight=self._fun_M1n, transposed=False)
         
         return self._M1n
     
@@ -220,7 +223,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2n'):
-            self._M2n = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2n, transposed=False, bc=self.derham.bc)
+            self._M2n = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2n, transposed=False)
         
         return self._M2n
     
@@ -230,7 +233,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_Mvn'):
-            self._Mvn = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.Ev, W_extraction_op=self.derham.Ev, weight=self._fun_Mvn, transposed=False, bc=self.derham.bc)
+            self._Mvn = WeightedMassOperator(self.derham.V0vec, self.derham.V0vec, V_extraction_op=self.derham.E0vec, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B0vec, W_boundary_op=self.derham.B0vec, weight=self._fun_Mvn, transposed=False)
         
         return self._Mvn
     
@@ -240,7 +243,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M1J'):
-            self._M1J = WeightedMassOperator(self.derham.V2, self.derham.V1, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E1, weight=self._fun_M1J, transposed=False, bc=self.derham.bc)
+            self._M1J = WeightedMassOperator(self.derham.V2, self.derham.V1, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E1, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B1, weight=self._fun_M1J, transposed=False)
         
         return self._M1J
     
@@ -250,7 +253,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_M2J'):
-            self._M2J = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, weight=self._fun_M2J, transposed=False, bc=self.derham.bc)
+            self._M2J = WeightedMassOperator(self.derham.V2, self.derham.V2, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E2, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B2, weight=self._fun_M2J, transposed=False)
         
         return self._M2J
     
@@ -260,7 +263,7 @@ class WeightedMassOperators:
         """
         
         if not hasattr(self, '_MvJ'):
-            self._MvJ = WeightedMassOperator(self.derham.V2, self.derham.V0vec, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.Ev, weight=self._fun_MvJ, transposed=False, bc=self.derham.bc)
+            self._MvJ = WeightedMassOperator(self.derham.V2, self.derham.V0vec, V_extraction_op=self.derham.E2, W_extraction_op=self.derham.E0vec, V_boundary_op=self.derham.B2, W_boundary_op=self.derham.B0vec, weight=self._fun_MvJ, transposed=False)
         
         return self._MvJ
 
@@ -268,14 +271,14 @@ class WeightedMassOperators:
     
 class WeightedMassOperator( LinOpWithTransp ):
     """
-    Weighted mass matrix in the full tensor-product space (i.e. without polar extraction operators and/or boundary operators).
+    Weighted mass matrix of the form B * E * M * E^T * B^T, with E and B being basis extraction and boundary operators, respectively.
     
     Parameters
     ----------
-        V : TensorFemSpace or ProductFemSpace
+        V : TensorFemSpace | ProductFemSpace
             Tensor product spline space from psydac.fem.tensor (domain, input space).
             
-        W : TensorFemSpace or ProductFemSpace
+        W : TensorFemSpace | ProductFemSpace
             Tensor product spline space from psydac.fem.tensor (codomain, output space).
             
         V_extraction_op : PolarExtractionOperator | NoneType
@@ -284,17 +287,20 @@ class WeightedMassOperator( LinOpWithTransp ):
         W_extraction_op : PolarExtractionOperator | NoneType
             Extraction operator to polar sub-space of W.
             
+        V_boundary_op : BoundaryOperator | NoneType
+            Boundary operator that sets essential boundary conditions.
+            
+        W_boundary_op : BoundaryOperator | NoneType
+            Boundary operator that sets essential boundary conditions.
+            
         weight : list | NoneType
             Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
             
         transposed : bool
             Whether to assemble the transposed operator.
-            
-        bc : list | NoneType
-            Boundary conditions in each direction in format [[e1(0), e1(1)], [e2(0), e2(1)], [e3(0), e3(1)]].
     """
     
-    def __init__(self, V, W, V_extraction_op=None, W_extraction_op=None, weight=None, transposed=False, bc=None):
+    def __init__(self, V, W, V_extraction_op=None, W_extraction_op=None, V_boundary_op=None, W_boundary_op=None, weight=None, transposed=False):
         
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
@@ -305,6 +311,7 @@ class WeightedMassOperator( LinOpWithTransp ):
         self._V = V
         self._W = W
         
+        # set basis extraction operators and boundary operators
         if V_extraction_op is not None:
             assert V_extraction_op.domain == V.vector_space
             
@@ -313,10 +320,18 @@ class WeightedMassOperator( LinOpWithTransp ):
         
         self._V_extraction_op = V_extraction_op
         self._W_extraction_op = W_extraction_op
+            
+        # set boundary operators
+        if V_boundary_op is None:
+            self._bc = [[None, None], [None, None], [None, None]]
+        else:
+            self._bc = V_boundary_op.bc
+        
+        self._V_boundary_op = V_boundary_op
+        self._W_boundary_op = W_boundary_op
         
         self._weight = weight
         self._transposed = transposed
-        self._bc = bc
         
         self._dtype = V.vector_space.dtype
         
@@ -345,18 +360,38 @@ class WeightedMassOperator( LinOpWithTransp ):
             self._codomain_symbolic_name = W_name
         
         # ====== assemble tensor-product mass matrix ====
-        self._mat = WeightedMassOperator.assemble_mat(V, W, weight)
+        if transposed:
+            self._mat = WeightedMassOperator.assemble_mat(V, W, weight).transpose()
+        else:
+            self._mat = WeightedMassOperator.assemble_mat(V, W, weight)
         # ===============================================
         
-        # build composite linear operator E * M * E^T with basis extraction operators
+        # build composite linear operator BW * EW * M * EV^T * BV^T, resp. BV * EV * M^T * EW^T * BW^T if transpsed=True
         if V_extraction_op is None:
-            self._operator = CompositeLinearOperator(W_extraction_op, self._mat)
+            V_extraction_opT = None
         else:
-            self._operator = CompositeLinearOperator(W_extraction_op, self._mat, V_extraction_op.transpose())
+            V_extraction_opT = V_extraction_op.transpose()
+            
+        if W_extraction_op is None:
+            W_extraction_opT = None
+        else:
+            W_extraction_opT = W_extraction_op.transpose()
+            
+        if V_boundary_op is None:
+            V_boundary_opT = None
+        else:
+            V_boundary_opT = V_boundary_op.transpose()
+            
+        if W_boundary_op is None:
+            W_boundary_opT = None
+        else:
+            W_boundary_opT = W_boundary_op.transpose()
         
         if transposed:
-            self._operator = self.operator.transpose()
-            
+            self._operator = CompositeLinearOperator(V_boundary_op, V_extraction_op, self._mat, W_extraction_opT, W_boundary_opT)
+        else:
+            self._operator = CompositeLinearOperator(W_boundary_op, W_extraction_op, self._mat, V_extraction_opT, V_boundary_opT)
+
         # set domain and codomain
         self._domain = self.operator.domain
         self._codomain = self.operator.codomain
@@ -389,27 +424,45 @@ class WeightedMassOperator( LinOpWithTransp ):
     def operator(self):
         return self._operator
     
-    def dot(self, v, out=None, apply_bc=True):
+    @property
+    def bc(self):
+        return self._bc
+    
+    def dot(self, v, out=None):
         """
-        Applies the basis projection operator to the FE coefficients v belonging to V.
+        Applies the weighted mass operator to the FE coefficients v.
 
         Parameters
         ----------
-            v : StencilVector or BlockVector
-                Input FE coefficients from V.vector_space.
+            v : StencilVector | BlockVector | PolarVector
+                Input FE coefficients the mass operator is applied to.
 
         Returns
         -------
-            A StencilVector or BlockVector from W.vector_space.
+            out : StencilVector | BlockVector | PolarVector
+                Output FE coefficients.
         """
 
         assert v.space == self.domain
         
-        out = self.operator.dot(v)
+        # newly created output vector
+        if out is None:
+            out = self.operator.dot(v)
         
-        # apply boundary conditions to output vector
-        if apply_bc and self._bc is not None:
-            apply_essential_bc_to_array(self._codomain_symbolic_name, out, self._bc)
+        # in-place dot-product (result is written to out)
+        else:
+            
+            tmp = self.operator.dot(v)
+            
+            if isinstance(tmp, PolarVector):
+                out.pol = tmp.pol
+                out.tp  = tmp.tp
+            elif isinstance(tmp, StencilVector):
+                out[:] = tmp[:]
+            elif isinstance(tmp, BlockVector):
+                out[0][:] = tmp[0][:]
+                out[1][:] = tmp[1][:]
+                out[2][:] = tmp[2][:]
         
         assert out.space == self.codomain
         
@@ -419,12 +472,31 @@ class WeightedMassOperator( LinOpWithTransp ):
         """
         Returns the transposed operator.
         """
-        return WeightedMassOperator(self._V, self._W, self._V_extraction_op, self._W_extraction_op, self._weight, not self.transposed, self._bc)
+        return WeightedMassOperator(self._V, self._W, 
+                                    self._V_extraction_op, self._W_extraction_op, 
+                                    self._V_boundary_op, self._W_boundary_op, 
+                                    self._weight, not self.transposed)
     
     @staticmethod
     def assemble_mat(V, W, weight=None):
         """
-        TODO
+        Assembles weighted mass matrix as StencilMatrix/BlockMatrix corresponding to given domain/codomain spline spaces.
+        
+        Parameters
+        ----------
+            V : TensorFemSpace or ProductFemSpace
+                Tensor product spline space from psydac.fem.tensor (domain, input space).
+            
+            W : TensorFemSpace or ProductFemSpace
+                Tensor product spline space from psydac.fem.tensor (codomain, output space).
+                
+            weight : list | NoneType
+                Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
+                
+        Returns
+        -------
+            mat : StencilMatrix | BlockMatrix
+                Weighted mass matrix in the full tensor product FEM space.
         """
         
         # collect TensorFemSpaces for each component in tuple

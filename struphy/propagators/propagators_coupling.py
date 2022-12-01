@@ -97,7 +97,7 @@ class StepEfieldWeights( Propagator ):
             self._pc = None
         else:
             pc_class = getattr(preconditioner, params_solver["pc"])
-            self._pc = pc_class(derham, 'V1', mass_ops._fun_M1)
+            self._pc = pc_class(mass_ops.M1)
 
         r'''
         .. math::
@@ -232,7 +232,7 @@ class StepPressurecoupling( Propagator ):
             self._pc = None
         else:
             pc_class = getattr(preconditioner, coupling_solver['pc'])
-            self._pc = pc_class(derham, derham.spaces_dict[u_space], _pc_fun)
+            self._pc = pc_class(getattr(mass_ops, id_Mn))
 
         # Call the accumulation and Pusher class
         args = []

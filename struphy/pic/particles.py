@@ -921,7 +921,7 @@ class Particles5D:
         from struphy.fields_background.mhd_equil import analytical
         from struphy.pic.utilities_kernels import eval_magnetic_moments
 
-        abs_b = derham.P0(mhd_equil.b0).coeffs
+        abs_b = derham.P0(mhd_equil.b0)
 
         # save the calculated magnetic moments in markers[:,4]
         eval_magnetic_moments(self.markers[~self.holes, 0:6], 

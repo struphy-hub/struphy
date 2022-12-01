@@ -53,14 +53,14 @@ def test_solvers(Nel, p, spl_kind, mapping, show_plots=False, verbose=False):
             eq_mhd.plot_profiles()
 
     # derham object
-    derham = Derham(Nel, p, spl_kind, der_as_mat=True, comm=mpi_comm)
+    derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
     
     # mass object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
     # assemble preconditioners
-    pc0 = MassMatrixPreconditioner(derham, 'V0', mass_mats._fun_M0)
-    pc1 = MassMatrixPreconditioner(derham, 'V1', mass_mats._fun_M1)
+    pc0 = MassMatrixPreconditioner(mass_mats.M0)
+    pc1 = MassMatrixPreconditioner(mass_mats.M1)
     
     # create random right-hand side vectors
     b0_str, b0 = create_equal_random_arrays(derham.V0, 1234)

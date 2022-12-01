@@ -60,11 +60,8 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     # assemble preconditioners
     M_pre = []
     
-    M_pre += [MassMatrixPreconditioner(derham, 'V0', mass._fun_M0)]
-    M_pre += [MassMatrixPreconditioner(derham, 'V1', mass._fun_M1)]
-    M_pre += [MassMatrixPreconditioner(derham, 'V2', mass._fun_M2)]
-    M_pre += [MassMatrixPreconditioner(derham, 'V3', mass._fun_M3)]
-    M_pre += [MassMatrixPreconditioner(derham, 'V0vec', mass._fun_Mv)]
+    for mass_op in derham_M:
+        M_pre += [MassMatrixPreconditioner(mass_op)]
 
     for n, (M, M_p, vn) in enumerate(zip(derham_M, M_pre, v)):
         

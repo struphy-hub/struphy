@@ -74,8 +74,9 @@ class LinearMHD( StruphyModel ):
 
         # project magnetic field and pressure
         self._b_eq = self.derham.P2(
-            [self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3]).coeffs
-        self._p_eq = self.derham.P3(self.mhd_equil.p3).coeffs
+            [self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
+        
+        self._p_eq = self.derham.P3(self.mhd_equil.p3)
 
         self._ones = self.derham.V3.vector_space.zeros()
         self._ones[:] = 1.
@@ -256,7 +257,7 @@ class PC_LinearMHD_Vlasov( StruphyModel ):
         print('Coupling parameter nu_h = n_h/n = ' + str(self._nuh) + '\n')
 
         # Project magnetic field
-        self._b_eq = self.derham.P2([self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3]).coeffs
+        self._b_eq = self.derham.P2([self.mhd_equil.b2_1, self.mhd_equil.b2_2, self.mhd_equil.b2_3])
 
         # Assemble necessary mass matrices
         self._mass_ops = WeightedMassOperators(self.derham, self.domain, eq_mhd=self.mhd_equil)
@@ -396,7 +397,7 @@ class LinearVlasovMaxwell( StruphyModel ):
 
         # self._b_background[0] =
         self._b_background = self.derham.P2(
-            [self.mhd_equil.b_x, self.mhd_equil.b_y, self.mhd_equil.b_z]).coeffs
+            [self.mhd_equil.b_x, self.mhd_equil.b_y, self.mhd_equil.b_z])
         # ====================================================================================
 
         # Initialize propagators/integrators used in splitting substeps
@@ -557,7 +558,7 @@ class Vlasov( StruphyModel ):
         # project magnetic background
         self._b = self.derham.P2([self.mhd_equil.b2_1,
                                   self.mhd_equil.b2_2,
-                                  self.mhd_equil.b2_3]).coeffs
+                                  self.mhd_equil.b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []
@@ -624,18 +625,18 @@ class DriftKinetic( StruphyModel ):
 
         # project magnetic background
         b = self.derham.P2([self.mhd_equil.b2_1,
-                                  self.mhd_equil.b2_2,
-                                  self.mhd_equil.b2_3]).coeffs
+                            self.mhd_equil.b2_2,
+                            self.mhd_equil.b2_3])
 
-        abs_b = self.derham.P0(self.mhd_equil.b0)._coeffs
+        abs_b = self.derham.P0(self.mhd_equil.b0)
 
         norm_b1 = self.derham.P1([self.mhd_equil.norm_b1_1,
-                                        self.mhd_equil.norm_b1_2,
-                                        self.mhd_equil.norm_b1_3]).coeffs
+                                  self.mhd_equil.norm_b1_2,
+                                  self.mhd_equil.norm_b1_3])
 
         norm_b2 = self.derham.P2([self.mhd_equil.norm_b2_1,
-                                        self.mhd_equil.norm_b2_2,
-                                        self.mhd_equil.norm_b2_3]).coeffs
+                                  self.mhd_equil.norm_b2_2,
+                                  self.mhd_equil.norm_b2_3])
 
         # Initialize propagators/integrators used in splitting substeps
         self._propagators = []

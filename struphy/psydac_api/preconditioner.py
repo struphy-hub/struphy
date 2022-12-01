@@ -9,11 +9,11 @@ from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import ProductFemSpace
 
-from psydac.api.discretization import discretize
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.api.essential_bc import apply_essential_bc_stencil
 
+from struphy.psydac_api.linear_operators import CompositeLinearOperator
 from struphy.psydac_api.mass import WeightedMassOperator
+
 from struphy.polar.basic import PolarVector
 
 from scipy.linalg import solve_circulant
@@ -22,130 +22,6 @@ import numpy as np
 
 
 class MassMatrixPreconditioner(LinearSolver):
-    """
-    Preconditioner for inverting 3d weighted mass matrices. 
-    
-    The mass matrix is approximated by a Kronecker product of 1d mass matrices in each direction with correct boundary conditions (block diagonal in case of vector-valued spaces). In this process, the 3d weight function is appoximated by a 1d counterpart in the FIRST (eta_1) direction at the fixed point (eta_2=0.5, eta_3=0.5). The inversion is then performed with a Kronecker solver.
-    
-    Parameters
-    ----------
-        derham : struphy.psydac_api.psydac_derham.Derham
-            Discrete de Rham sequence on the logical unit cube.
-            
-        space : str
-            The space corresponding to the mass matrix (V0, V1, V2, V3 or V0vec).
-            
-        weight : list[callables]
-            A 2d list containing optional weight functions. Usually obtained from struphy.psydac_api.mass.WeightedMassOperators.
-    """
-    
-    def __init__(self, derham, space, weight=None):
-        
-        self._femspace = getattr(derham, space)
-
-        # get 1d space infos:
-        # number of elements and quadrature order
-        Nel = derham.Nel
-        nqs = derham.quad_order
-        
-        # degrees and periodicity
-        degs = self._femspace.degree
-        pers = self._femspace.periodic
-        
-        if isinstance(self._femspace, TensorFemSpace):
-            degs = [degs]
-            pers = [pers]
-            
-        # type of basis
-        if isinstance(self._femspace, TensorFemSpace):
-            bases = [[space.basis for space in self._femspace.spaces]]
-        else:
-            bases = [[space.basis for space in space.spaces] for space in self._femspace.spaces]
-        
-        # only for M1 Mac users
-        PSYDAC_BACKEND_GPYCCEL['flags'] = '-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none'
-
-        # Psydac symbolic logical domain
-        domain_log = Line('L', bounds=(0, 1))
-        
-        # Psydac symbolic Derham
-        derham_symb = Derham(domain_log)
-        
-        # assemble 1d mass matrices and solvers
-        self._matrices = []
-        self._solvers = []
-        
-        # loop over components
-        for c, (ps_comp, periodics_comp, bases_comp) in enumerate(zip(degs, pers, bases)):
-            self._solvers += [[]]
-            self._matrices += [[]]
-            
-            # loop over directions
-            for d, (p, periodic, basis) in enumerate(zip(ps_comp, periodics_comp, bases_comp)):
-
-                # discrete logical domain, no mpi communicator passed, hence not distributed
-                domain_log_h = discretize(domain_log, ncells=[Nel[d]])
- 
-                # discrete De Rham sequence
-                if basis == 'M': p += 1
-                derham_1d = discretize(derham_symb, domain_log_h, degree=[p], periodic=[periodic], quad_order=[nqs[d]])
-                
-                # 1d mass matrix with weight in first direction
-                if d == 0 and weight is not None:
-                    fun = [[lambda e1 : weight[c][c](e1, 0.5, 0.5).squeeze()]]
-                else:
-                    fun = None
-                
-                if basis == 'B':
-                    M = WeightedMassOperator.assemble_mat(derham_1d.V0, derham_1d.V0, fun)
-                    
-                    # apply boundary conditions!
-                    if derham.bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=d, ext=-1, order=0, identity=True)
-                    if derham.bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=d, ext=+1, order=0, identity=True)
-                    
-                else:
-                    M = WeightedMassOperator.assemble_mat(derham_1d.V1, derham_1d.V1, fun)
-
-                self._matrices[-1] += [M]
-                
-                if is_circulant(M.toarray()):
-                    self._solvers[-1] += [FFTSolver(M.toarray())]
-                else:
-                    self._solvers[-1] += [SparseSolver(M.tosparse())]
-                    
-        if len(self._solvers) == 1:
-
-            self._matrix = KroneckerStencilMatrix(self.space, self.space, *self._matrices[0])
-            self._solver = KroneckerLinearSolver(self.space, self._solvers[0])
-
-        else:
-
-            blocks_list = [KroneckerStencilMatrix(space, space, *self._matrices[n]) for n, space in enumerate(self.space.spaces)]
-            blocks = {}
-            
-            for n in range(3):
-                blocks[(n, n)] = blocks_list[n]
-                
-            self._matrix = BlockMatrix(self.space, self.space, blocks)
-
-            solver_blocks = [KroneckerLinearSolver(space, self._solvers[n]) for n, space in enumerate(self.space.spaces)]
-            self._solver = BlockDiagonalSolver(self.space, solver_blocks)
-        
-    @property
-    def space(self):
-        return self._femspace.vector_space
-
-    @property
-    def matrix(self):
-        return self._matrix
-    
-    def solve(self, rhs, out=None, transposed=False):
-        assert isinstance(rhs, (StencilVector, BlockVector))
-        assert rhs.space == self.space
-        return self._solver.solve(rhs)
-    
-    
-class MassMatrixPreconditionerNew(LinearSolver):
     """
     Preconditioner for inverting 3d weighted mass matrices. 
     
@@ -211,12 +87,12 @@ class MassMatrixPreconditionerNew(LinearSolver):
                 # apply boundary conditions
                 if mass_operator._domain_symbolic_name != 'H1vec':
                     if femspace_1d.basis == 'B':
-                        if mass_operator._bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
-                        if mass_operator._bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
+                        if mass_operator.bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
+                        if mass_operator.bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
                 else:
                     if c == d:
-                        if mass_operator._bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
-                        if mass_operator._bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
+                        if mass_operator.bc[d][0] == 'd': apply_essential_bc_stencil(M, axis=0, ext=-1, order=0, identity=True)
+                        if mass_operator.bc[d][1] == 'd': apply_essential_bc_stencil(M, axis=0, ext=+1, order=0, identity=True)
                         
                 M_arr = M.toarray()
                 
@@ -273,13 +149,8 @@ class MassMatrixPreconditionerNew(LinearSolver):
             self._matrix = BlockMatrix(self._femspace.vector_space, self._femspace.vector_space, blocks=blocks)
             self._solver = BlockDiagonalSolver(self._femspace.vector_space, solverblocks)
             
-        # extraction oparators
-        if len(mass_operator.operator._operators) > 1:
-            self._extraction_op_l = mass_operator.operator._operators[2]
-            self._extraction_op_r = mass_operator.operator._operators[0]
-        else:
-            self._extraction_op_l = None
-            self._extraction_op_r = None
+        # save mass operator (needed in solve method)
+        self._mass_operator = mass_operator
         
     @property
     def space(self):
@@ -301,12 +172,102 @@ class MassMatrixPreconditionerNew(LinearSolver):
         assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
         assert rhs.space == self.space
         
-        if self._extraction_op_l is None:
-            return self.solver.solve(rhs)
+        out = rhs.copy()
+        
+        # apply operators in mass_operator.operator.operators and replace StencilMatrix/BlockMatrix dot with self.solver.solve
+        for op in self._mass_operator.operator.operators:
+            if isinstance(op, (StencilMatrix, BlockMatrix)):
+                out = self.solver.solve(out)
+            else:
+                out = op.dot(out)
+        
+        return out
+    
+    
+class ProjectorPreconditioner(LinearSolver):
+    """
+    Preconditioner for inverting (polar) 3d inter-/histopolation matrices of the form (B * P * I * E^T * B^T)^(-1) via the approximation B * P * I^(-1) * E^T * B^T. In case that P and E are identity operators, the solution is exact (pure tensor product case).
+    
+    Parameters
+    ----------
+        projector : Projector
+            The global commuting projector for which the inter-/histopolation matrix shall be inverted. 
+            
+        transposed : bool
+            Whether to invert the transposed inter-/histopolation matrix.
+    """
+    
+    def __init__(self, projector, transposed=False):
+        
+        # vector space in tensor product case/polar case
+        if projector.I is None:
+            self._space = projector.space.vector_space
         else:
-            return self._extraction_op_l.dot(self.solver.solve(self._extraction_op_r.dot(rhs)))
+            self._space = projector.dofs_extraction_op.codomain
+        
+        # save Kronecker solver (needed in solve method)
+        self._solver = projector.projector_tensor.solver
+        
+        self._transposed = transposed
+        
+        # save inter-/histopolation matrix to be inverted (None in tensor product case, CompositeLinearOperator in polar case)
+        self._I = projector.I
+        
+        # save boundary operator (either None or BoundaryOperator)
+        self._B = projector.boundary_op
+        
+        if self._B is None:
+            self._BT = None
+        else:
+            self._BT = projector.boundary_op.transpose()
+        
+    @property
+    def space(self):
+        return self._space
+    
+    @property
+    def solver(self):
+        return self._solver
+    
+    @property
+    def transposed(self):
+        return self._transposed
+    
+    def solve(self, rhs, out=None):
+        """
+        Solves approximately the system (B * P * I * ET * BT).dot(x) = rhs or (B * P * I * ET * BT)^T.dot(x) = rhs for x.
+        """
+        
+        assert isinstance(rhs, (StencilVector, BlockVector, PolarVector))
+        assert rhs.space == self.space
+        
+        if self._BT is not None:
+            out = self._BT.dot(rhs)
+        else:
+            out = rhs.copy()
+        
+        # polar case
+        if isinstance(self._I, CompositeLinearOperator):
 
-
+            # apply operators in self._I.operators and replace StencilMatrix/BlockMatrix dot with tensor product self.solver
+            for op in self._I.operators:
+                if isinstance(op, (StencilMatrix, BlockMatrix)):
+                    out = self.solver.solve(out, transposed=self.transposed)
+                else:
+                    out = op.dot(out)
+                    
+        # tensor product case            
+        else:
+            out = self.solver.solve(out, transposed=self.transposed)
+            
+        if self._B is not None:
+            out = self._B.dot(out)
+        else:
+            out = out.copy()
+        
+        return out
+    
+    
 class FFTSolver(DirectSolver):
     """
     Solve the equation Ax = b for x, assuming A is a circulant matrix.
