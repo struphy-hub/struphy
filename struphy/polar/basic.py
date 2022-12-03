@@ -306,6 +306,18 @@ class PolarVector(Vector):
         
         return out
 
+    def set_vector(self, v):
+        """
+        In-place setter for polar + tensor product coeffiecients.
+        """
+        assert isinstance(v, PolarVector)
+        
+        # tensor-product part
+        self.tp = v.tp
+        
+        # polar part
+        self.pol = v.pol
+    
     def set_tp_coeffs_to_zero(self):
         """
         Sets inner tensor-product rings that make up the polar splines to zero.

@@ -8,8 +8,10 @@ from psydac.feec.global_projectors import GlobalProjector
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api.projectors import Projector
-from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
+from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
 from struphy.psydac_api import basis_projection_kernels
+
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class BasisProjectionOperators:
@@ -615,7 +617,7 @@ class BasisProjectionOperators:
 
 class BasisProjectionOperator( LinOpWithTransp ):
     """
-    Class for "basis projection operators" PI_ijk(fun Lambda_mno).
+    Class for "basis projection operators" PI_ijk(fun Lambda_mno) in the general form BP * P * DOF * EV^T * BV^T.
 
     Parameters
     ----------
@@ -628,10 +630,10 @@ class BasisProjectionOperator( LinOpWithTransp ):
         fun : list
             Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
             
-        V_extraction_op : PolarExtractionOperator | NoneType
+        V_extraction_op : PolarExtractionOperator | IdentityOperator
             Extraction operator to polar sub-space of V.
             
-        V_boundary_op : BoundaryOperator | NoneType
+        V_boundary_op : BoundaryOperator | IdentityOperator
             Boundary operator that sets essential boundary conditions.
 
         transposed : bool
@@ -653,15 +655,22 @@ class BasisProjectionOperator( LinOpWithTransp ):
         self._V = V
         
         # set extraction operators
-        if V_extraction_op is not None:
-            assert V_extraction_op.domain == V.vector_space
-            
         self._P_extraction_op = P.dofs_extraction_op
-        self._V_extraction_op = V_extraction_op
+        
+        if V_extraction_op is not None:
+            assert isinstance(V_extraction_op, (PolarExtractionOperator, IdentityOperator))
+            self._V_extraction_op = V_extraction_op
+        else:
+            self._V_extraction_op = IdentityOperator(V.vector_space)
         
         # set boundary operators
         self._P_boundary_op = P.boundary_op
-        self._V_boundary_op = V_boundary_op
+        
+        if V_boundary_op is not None:
+            assert isinstance(V_boundary_op, (BoundaryOperator, IdentityOperator))
+            self._V_boundary_op = V_boundary_op
+        else:
+            self._V_boundary_op = IdentityOperator(V.vector_space)
         
         self._fun = fun
         self._transposed = transposed
@@ -687,37 +696,14 @@ class BasisProjectionOperator( LinOpWithTransp ):
             self._codomain_symbolic_name = P_name
             
         # ============= assemble tensor-product dof matrix =======
-        if transposed:
-            self._dof_mat = BasisProjectionOperator.assemble_mat(P.projector_tensor, V, fun, polar_shift).transpose()
-        else:
-            self._dof_mat = BasisProjectionOperator.assemble_mat(P.projector_tensor, V, fun, polar_shift)
+        dof_mat = BasisProjectionOperator.assemble_mat(P.projector_tensor, V, fun, polar_shift)
         # ========================================================
         
-        # build composite linear operator BP * P * DOF * EV^T * BV^T, resp. BV * EV * DOF^T * P^T * BP^T if transposed=True
-        if P.dofs_extraction_op is None:
-            P_extraction_opT = None
-        else:
-            P_extraction_opT = P.dofs_extraction_op.transpose()
-
-        if V_extraction_op is None:
-            V_extraction_opT = None
-        else:
-            V_extraction_opT = V_extraction_op.transpose()
-            
-        if P.boundary_op is None:
-            P_boundary_opT = None
-        else:
-            P_boundary_opT = P.boundary_op.transpose()
-            
-        if V_boundary_op is None:
-            V_boundary_opT = None
-        else:
-            V_boundary_opT = V_boundary_op.transpose()
-            
+        # build composite linear operator BP * P * DOF * EV^T * BV^T
+        self._dof_operator = CompositeLinearOperator(self._P_boundary_op, self._P_extraction_op, dof_mat, self._V_extraction_op.transpose(), self._V_boundary_op.transpose())
+        
         if transposed:
-            self._dof_operator = CompositeLinearOperator(V_boundary_op, V_extraction_op, self._dof_mat, P_extraction_opT, P_boundary_opT)
-        else:
-            self._dof_operator = CompositeLinearOperator(P.boundary_op, P.dofs_extraction_op, self._dof_mat, V_extraction_opT, V_boundary_opT)
+            self._dof_operator = self._dof_operator.transpose()
             
         # set domain and codomain
         self._domain = self.dof_operator.domain

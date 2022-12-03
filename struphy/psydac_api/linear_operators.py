@@ -290,14 +290,22 @@ class BoundaryOperator(LinOpWithTransp):
             Boundary conditions in each direction in format [[bc_e1=0, bc_e1=1], [bc_e2=0, bc_e2=1], [bc_e3=0, bc_e3=1]].
     """
     
-    def __init__(self, vector_space, space_id, bc):
+    def __init__(self, vector_space, space_id, bc=None):
 
         self._domain = vector_space
         self._codomain = vector_space
         self._dtype = vector_space.dtype
         
         self._space_id = space_id
-        self._bc = bc
+        
+        if bc is None:
+            self._bc = [[None, None], 
+                        [None, None], 
+                        [None, None]]
+        else:
+            assert isinstance(bc, list)
+            assert len(bc) == 3
+            self._bc = bc
         
     @property
     def domain(self):
@@ -325,16 +333,13 @@ class BoundaryOperator(LinOpWithTransp):
         
         if out is None:
             out = v.copy()
-            return_flag = True
         else:
             assert type(out) == type(v)
-            return_flag = False
         
         # apply boundary conditions to output vector
         apply_essential_bc_to_array(self._space_id, out, self._bc)
         
-        if return_flag:
-            return out
+        return out
 
     def transpose(self):
         """
@@ -380,10 +385,11 @@ class IdentityOperator(LinOpWithTransp):
         assert v.space == self.domain
         
         if out is None:
-            out = v.copy()
-            return out
+            out = v.copy() 
         else:
             assert type(out) == type(v)
+            
+        return out
 
     def transpose(self):
         """
