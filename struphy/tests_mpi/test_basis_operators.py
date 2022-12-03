@@ -460,7 +460,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
                          'R0'  : mapping[1]['R0'], 
                          'B0'  : 1.0, 
                          'q0'  : 1.05, 
-                         'q1'  : 1.8, 
+                         'q1'  : 1.80, 
                          'n1'  : 3.0, 
                          'n2'  : 4.0, 
                          'na'  : 0.0, 
@@ -565,6 +565,19 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
     
+    mpi_comm.Barrier()
+    
+    if mpi_rank == 0:
+        r_psy = mhd_ops_psy.K2.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
+    else:
+        r_psy = mhd_ops_psy.K2.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
+        
+    r_str = mhd_ops_str.PR.T(x3_pol_str)
+    
+    print(f'Rank {mpi_rank} | Asserting transpose MHD operator K2.T.')
+    np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
+    print(f'Rank {mpi_rank} | Assertion passed.')
+    
     # ===== operator Q2 (V2 --> V2) ============
     mpi_comm.Barrier()
     
@@ -579,6 +592,19 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     r_str = mhd_ops_str.MF(x2_pol_str)
     
     print(f'Rank {mpi_rank} | Asserting MHD operator Q2.')
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    print(f'Rank {mpi_rank} | Assertion passed.')
+    
+    mpi_comm.Barrier()
+    
+    if mpi_rank == 0:
+        r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
+    else:
+        r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
+        
+    r_str = mhd_ops_str.MF.T(x2_pol_str)
+    
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator Q2.T.')
     np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
     
@@ -599,11 +625,24 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     np.allclose(space.B1.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
     
+    mpi_comm.Barrier()
+    
+    if mpi_rank == 0:
+        r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=True)
+    else:
+        r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=False)
+        
+    r_str = mhd_ops_str.EF.T(x1_pol_str)
+    
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator T2.T.')
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    print(f'Rank {mpi_rank} | Assertion passed.')
+    
     # ===== operator S2 (V2 --> V2) ============
     mpi_comm.Barrier()
     
     if mpi_rank == 0:
-        print('\nOperator S2 (V2 --> V2"):')
+        print('\nOperator S2 (V2 --> V2):')
     
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=True)
@@ -613,6 +652,19 @@ def test_basis_ops_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     r_str = mhd_ops_str.PF(x2_pol_str)
     
     print(f'Rank {mpi_rank} | Asserting MHD operator S2.')
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    print(f'Rank {mpi_rank} | Assertion passed.')
+    
+    mpi_comm.Barrier()
+    
+    if mpi_rank == 0:
+        r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
+    else:
+        r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
+        
+    r_str = mhd_ops_str.PF.T(x2_pol_str)
+    
+    print(f'Rank {mpi_rank} | Asserting transposed MHD operator S2.T.')
     np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f'Rank {mpi_rank} | Assertion passed.')
     

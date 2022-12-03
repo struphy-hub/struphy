@@ -29,7 +29,12 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
     
-    print('number of processes : ', mpi_size)
+    if mpi_rank == 0:
+        print()
+        
+    mpi_comm.Barrier()
+    
+    print(f'Rank {mpi_rank} | Start test_mass with ' + str(mpi_size) + ' MPI processes!')
     
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -78,24 +83,29 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
             
     eq_mhd.domain = domain
     
-    # make sure that boundary conditions are compatible with spline space
+    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
     bc_compatible = []
     
     for spl_i, bc_i in zip(spl_kind, bc):
         if spl_i:
             bc_compatible += [[None, None]]
         else:
-            bc_compatible += [bc_i]
-        
+            bc_compatible += [bc_i]  
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
+    
+    print(f'Rank {mpi_rank} | Local domain : ' + str(derham.domain_array[mpi_rank]))
+    
+    fem_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
     
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel, p, spl, nq_el, bc) for Nel, p, spl, nq_el, bc in zip(Nel, p, spl_kind, [p[0] + 1, p[1] + 1, p[2] + 1], bc_compatible)]
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+              Spline_space_1d(Nel[1], p[1], spl_kind[1], p[1] + 1, bc_compatible[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])] 
     
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -117,43 +127,37 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     mhd_ops_str.set_operators()
     
-    # create random input arrays and set boundary conditions
-    x0_str, x0_psy = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)
-    x1_str, x1_psy = create_equal_random_arrays(derham.V1, seed=1568, flattened=True)
-    x2_str, x2_psy = create_equal_random_arrays(derham.V2, seed=8945, flattened=True)
-    x3_str, x3_psy = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)
-    xv_str, xv_psy = create_equal_random_arrays(derham.V0vec, seed=2038, flattened=True)
+    # create random input arrays
+    x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
+    x1_str, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
+    x2_str, x2_psy = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)
+    x3_str, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
+    xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
     
-    derham.B0.dot(x0_psy, out=x0_psy)
-    derham.B1.dot(x1_psy, out=x1_psy)
-    derham.B2.dot(x2_psy, out=x2_psy)
-    derham.B3.dot(x3_psy, out=x3_psy)
-    derham.B0vec.dot(xv_psy, out=xv_psy)
+    x0_str0 = space.B0.dot(x0_str)
+    x1_str0 = space.B1.dot(x1_str)
+    x2_str0 = space.B2.dot(x2_str)
+    x3_str0 = space.B3.dot(x3_str)
+    xv_str0 = space.Bv.dot(xv_str)
     
-    x0_str = space.B0.dot(x0_str)
-    x1_str = space.B1.dot(x1_str)
-    x2_str = space.B2.dot(x2_str)
-    x3_str = space.B3.dot(x3_str)
-    xv_str = space.Bv.dot(xv_str)
+    # perfrom matrix-vector products (with boundary conditions)
+    r0_str = space.B0.T.dot(space.M0_0(x0_str0))
+    r1_str = space.B1.T.dot(space.M1_0(x1_str0))
+    r2_str = space.B2.T.dot(space.M2_0(x2_str0))
+    r3_str = space.B3.T.dot(space.M3_0(x3_str0))
+    rv_str = space.Bv.T.dot(space.Mv_0(xv_str0))
     
-    # perfrom matrix-vector products
-    r0_str = space.B0.T.dot(space.M0_0(x0_str))
-    r1_str = space.B1.T.dot(space.M1_0(x1_str))
-    r2_str = space.B2.T.dot(space.M2_0(x2_str))
-    r3_str = space.B3.T.dot(space.M3_0(x3_str))
-    rv_str = space.Bv.T.dot(space.Mv_0(xv_str))
+    rn_str = space.B2.T.dot(mhd_ops_str.Mn(x2_str0))
+    rJ_str = space.B2.T.dot(mhd_ops_str.MJ(x2_str0))
     
-    rn_str = space.B2.T.dot(mhd_ops_str.Mn(x2_str))
-    rJ_str = space.B2.T.dot(mhd_ops_str.MJ(x2_str))
+    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=True)
+    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=True)
+    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=True)
+    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=True)
+    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=True)
     
-    r0_psy = mass_mats.M0.dot(x0_psy)
-    r1_psy = mass_mats.M1.dot(x1_psy)
-    r2_psy = mass_mats.M2.dot(x2_psy)
-    r3_psy = mass_mats.M3.dot(x3_psy)
-    rv_psy = mass_mats.Mv.dot(xv_psy)
-    
-    rn_psy = mass_mats.M2n.dot(x2_psy)
-    rJ_psy = mass_mats.M2J.dot(x2_psy)
+    rn_psy = mass_mats.M2n.dot(x2_psy, apply_bc=True)
+    rJ_psy = mass_mats.M2J.dot(x2_psy, apply_bc=True)
     
     # compare output arrays
     compare_arrays(r0_psy, r0_str, mpi_rank, atol=1e-14)
@@ -164,6 +168,28 @@ def test_mass(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     compare_arrays(rn_psy, rn_str, mpi_rank, atol=1e-14)
     compare_arrays(rJ_psy, rJ_str, mpi_rank, atol=1e-14)
+    
+    # perfrom matrix-vector products (without boundary conditions)
+    r0_str = space.M0(x0_str)
+    r1_str = space.M1(x1_str)
+    r2_str = space.M2(x2_str)
+    r3_str = space.M3(x3_str)
+    rv_str = space.Mv(xv_str)
+    
+    r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=False)
+    r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=False)
+    r2_psy = mass_mats.M2.dot(x2_psy, apply_bc=False)
+    r3_psy = mass_mats.M3.dot(x3_psy, apply_bc=False)
+    rv_psy = mass_mats.Mv.dot(xv_psy, apply_bc=False)
+    
+    # compare output arrays
+    compare_arrays(r0_psy, r0_str, mpi_rank, atol=1e-14)
+    compare_arrays(r1_psy, r1_str, mpi_rank, atol=1e-14)
+    compare_arrays(r2_psy, r2_str, mpi_rank, atol=1e-14)
+    compare_arrays(r3_psy, r3_str, mpi_rank, atol=1e-14)
+    compare_arrays(rv_psy, rv_str, mpi_rank, atol=1e-14)
+    
+    print(f'Rank {mpi_rank} | All tests passed!')
     
     
 @pytest.mark.mpi(min_size=2)
@@ -196,7 +222,12 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
     
-    print('number of processes : ', mpi_size)
+    if mpi_rank == 0:
+        print()
+        
+    mpi_comm.Barrier()
+    
+    print(f'Rank {mpi_rank} | Start test_mass_polar with ' + str(mpi_size) + ' MPI processes!')
     
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -222,7 +253,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
             
     eq_mhd.domain = domain
     
-    # make sure that boundary conditions are compatible with spline space
+    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
     bc_compatible = []
     
     for spl_i, bc_i in zip(spl_kind, bc):
@@ -231,15 +262,18 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
         else:
             bc_compatible += [bc_i]
             
-    
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible, with_projectors=False, polar_ck=1, domain=domain)
+    
+    print(f'Rank {mpi_rank} | Local domain : ' + str(derham.domain_array[mpi_rank]))
     
     # mass matrices object
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
     # compare to old STRUPHY
-    spaces = [Spline_space_1d(Nel, p, spl, nq_el, bc) for Nel, p, spl, nq_el, bc in zip(Nel, p, spl_kind, [p[0] + 1, p[1] + 1, p[2] + 1], bc_compatible)]
+    spaces = [Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_compatible[0]),
+              Spline_space_1d(Nel[1], p[1], spl_kind[1], p[1] + 1, bc_compatible[1]),
+              Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_compatible[2])] 
     
     spaces[0].set_projectors()
     spaces[1].set_projectors()
@@ -283,33 +317,33 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     x2_pol_psy.pol = [np.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
     x3_pol_psy.pol = [np.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
     
-    # apply boundary conditions
-    derham.B0.dot(x0_pol_psy, out=x0_pol_psy)
-    derham.B1.dot(x1_pol_psy, out=x1_pol_psy)
-    derham.B2.dot(x2_pol_psy, out=x2_pol_psy)
-    derham.B3.dot(x3_pol_psy, out=x3_pol_psy)
-
-    x0_pol_str = space.B0.dot(x0_pol_psy.toarray(True))
-    x1_pol_str = space.B1.dot(x1_pol_psy.toarray(True))
-    x2_pol_str = space.B2.dot(x2_pol_psy.toarray(True))
-    x3_pol_str = space.B3.dot(x3_pol_psy.toarray(True))
+    # apply boundary conditions to old STRUPHY
+    x0_pol_str = x0_pol_psy.toarray(True)
+    x1_pol_str = x1_pol_psy.toarray(True)
+    x2_pol_str = x2_pol_psy.toarray(True)
+    x3_pol_str = x3_pol_psy.toarray(True)
     
-    # perfrom matrix-vector products
-    r0_pol_str = space.B0.T.dot(space.M0_0(x0_pol_str))
-    r1_pol_str = space.B1.T.dot(space.M1_0(x1_pol_str))
-    r2_pol_str = space.B2.T.dot(space.M2_0(x2_pol_str))
-    r3_pol_str = space.B3.T.dot(space.M3_0(x3_pol_str))
+    x0_pol_str0 = space.B0.dot(x0_pol_str)
+    x1_pol_str0 = space.B1.dot(x1_pol_str)
+    x2_pol_str0 = space.B2.dot(x2_pol_str)
+    x3_pol_str0 = space.B3.dot(x3_pol_str)
     
-    rn_pol_str = space.B2.T.dot(mhd_ops_str.Mn(x2_pol_str))
-    rJ_pol_str = space.B2.T.dot(mhd_ops_str.MJ(x2_pol_str))
+    # perfrom matrix-vector products (with boundary conditions)
+    r0_pol_str = space.B0.T.dot(space.M0_0(x0_pol_str0))
+    r1_pol_str = space.B1.T.dot(space.M1_0(x1_pol_str0))
+    r2_pol_str = space.B2.T.dot(space.M2_0(x2_pol_str0))
+    r3_pol_str = space.B3.T.dot(space.M3_0(x3_pol_str0))
     
-    r0_pol_psy = mass_mats.M0.dot(x0_pol_psy)
-    r1_pol_psy = mass_mats.M1.dot(x1_pol_psy)
-    r2_pol_psy = mass_mats.M2.dot(x2_pol_psy)
-    r3_pol_psy = mass_mats.M3.dot(x3_pol_psy)
+    rn_pol_str = space.B2.T.dot(mhd_ops_str.Mn(x2_pol_str0))
+    rJ_pol_str = space.B2.T.dot(mhd_ops_str.MJ(x2_pol_str0))
     
-    rn_pol_psy = mass_mats.M2n.dot(x2_pol_psy)
-    rJ_pol_psy = mass_mats.M2J.dot(x2_pol_psy)
+    r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=True)
+    r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=True)
+    r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=True)
+    r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=True)
+    
+    rn_pol_psy = mass_mats.M2n.dot(x2_pol_psy, apply_bc=True)
+    rJ_pol_psy = mass_mats.M2J.dot(x2_pol_psy, apply_bc=True)
 
     assert np.allclose(r0_pol_str, r0_pol_psy.toarray(True))
     assert np.allclose(r1_pol_str, r1_pol_psy.toarray(True))
@@ -317,6 +351,26 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     assert np.allclose(r3_pol_str, r3_pol_psy.toarray(True))
     assert np.allclose(rn_pol_str, rn_pol_psy.toarray(True))
     assert np.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
+    
+    # perfrom matrix-vector products (without boundary conditions)
+    r0_pol_str = space.M0(x0_pol_str)
+    r1_pol_str = space.M1(x1_pol_str)
+    r2_pol_str = space.M2(x2_pol_str)
+    r3_pol_str = space.M3(x3_pol_str)
+    
+    r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=False)
+    r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=False)
+    r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=False)
+    r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=False)
+
+    assert np.allclose(r0_pol_str, r0_pol_psy.toarray(True))
+    assert np.allclose(r1_pol_str, r1_pol_psy.toarray(True))
+    assert np.allclose(r2_pol_str, r2_pol_psy.toarray(True))
+    assert np.allclose(r3_pol_str, r3_pol_psy.toarray(True))
+    assert np.allclose(rn_pol_str, rn_pol_psy.toarray(True))
+    assert np.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
+    
+    print(f'Rank {mpi_rank} | All tests passed!')
     
     
 @pytest.mark.mpi(min_size=2)
@@ -331,6 +385,7 @@ def test_mass_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
 def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
+    import time
     
     from struphy.geometry import domains
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
@@ -350,7 +405,12 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
     
-    print('number of processes : ', mpi_size)
+    if mpi_rank == 0:
+        print()
+        
+    mpi_comm.Barrier()
+    
+    print(f'Rank {mpi_rank} | Start test_mass_preconditioner with ' + str(mpi_size) + ' MPI processes!')
     
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -399,7 +459,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
             
     eq_mhd.domain = domain
     
-    # make sure that boundary conditions are compatible with spline space
+    # make sure that boundary conditions are compatible with spline space (periodic only allows for None)
     bc_compatible = []
     
     for spl_i, bc_i in zip(spl_kind, bc):
@@ -411,15 +471,17 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible)
     
-    if mpi_rank == 0:
-        print()
-        print(derham.domain_array)
+    fem_spaces = [derham.V0, derham.V1, derham.V2, derham.V3, derham.V0vec]
+    
+    print(f'Rank {mpi_rank} | Local domain : ' + str(derham.domain_array[mpi_rank]))
     
     # exact mass matrices
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
-    # preconditioners
-    if mpi_rank == 0: print('Start assembling preconditioners')
+    # assemble preconditioners
+    if mpi_rank == 0: 
+        print('Start assembling preconditioners')
+        
     M0pre = MassMatrixPreconditioner(mass_mats.M0)
     M1pre = MassMatrixPreconditioner(mass_mats.M1)
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
@@ -429,24 +491,25 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     M1npre = MassMatrixPreconditioner(mass_mats.M1n)
     M2npre = MassMatrixPreconditioner(mass_mats.M2n)
     Mvnpre = MassMatrixPreconditioner(mass_mats.Mvn)
-    if mpi_rank == 0: print('Done')
     
-    # create random input arrays with correct boundary conditions
-    x0 = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)[1]
-    x1 = create_equal_random_arrays(derham.V1, seed=1568, flattened=True)[1]
-    x2 = create_equal_random_arrays(derham.V2, seed=8945, flattened=True)[1]
-    x3 = create_equal_random_arrays(derham.V3, seed=8196, flattened=True)[1]
-    xv = create_equal_random_arrays(derham.V0vec, seed=2038, flattened=True)[1]
+    if mpi_rank == 0: 
+        print('Done')
     
-    derham.B0.dot(x0, out=x0)
-    derham.B1.dot(x1, out=x1)
-    derham.B2.dot(x2, out=x2)
-    derham.B3.dot(x3, out=x3)
-    derham.B0vec.dot(xv, out=xv)
+    # create random input arrays
+    x0 = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)[1]
+    x1 = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)[1]
+    x2 = create_equal_random_arrays(fem_spaces[2], seed=8945, flattened=True)[1]
+    x3 = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)[1]
+    xv = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)[1]
     
     # compare mass matrix-vector products with Kronecker products of preconditioner
-    if (mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder') and False:
-        if mpi_rank == 0: print('Start matrix-vector products in stencil format for mapping Cuboid/HollowCylinder')
+    do_this_test = False
+    
+    if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder' and do_this_test:
+        
+        if mpi_rank == 0: 
+            print('Start matrix-vector products in stencil format for mapping Cuboid/HollowCylinder')
+            
         r0 = mass_mats.M0.dot(x0)
         r1 = mass_mats.M1.dot(x1)
         r2 = mass_mats.M2.dot(x2)
@@ -456,9 +519,13 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r1n = mass_mats.M1n.dot(x1)
         r2n = mass_mats.M2n.dot(x2)
         rvn = mass_mats.Mvn.dot(xv)
-        if mpi_rank == 0: print('Done')
         
-        if mpi_rank == 0: print('Start matrix-vector products in KroneckerStencil format for mapping Cuboid/HollowCylinder')
+        if mpi_rank == 0:
+            print('Done')
+        
+        if mpi_rank == 0: 
+            print('Start matrix-vector products in KroneckerStencil format for mapping Cuboid/HollowCylinder')
+            
         r0_pre = M0pre.matrix.dot(x0)
         r1_pre = M1pre.matrix.dot(x1)
         r2_pre = M2pre.matrix.dot(x2)
@@ -468,7 +535,9 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         r1n_pre = M1npre.matrix.dot(x1)
         r2n_pre = M2npre.matrix.dot(x2)
         rvn_pre = Mvnpre.matrix.dot(xv)
-        if mpi_rank == 0: print('Done')
+        
+        if mpi_rank == 0: 
+            print('Done')
     
         # compare output arrays
         assert np.allclose(r0.toarray(), r0_pre.toarray())
@@ -480,6 +549,16 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
         assert np.allclose(r1n.toarray(), r1n_pre.toarray())
         assert np.allclose(r2n.toarray(), r2n_pre.toarray())
         assert np.allclose(rvn.toarray(), rvn_pre.toarray())
+    
+    
+    # test if preconditioner satisfies PC * M = Identity
+    if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder':
+        
+        assert np.allclose(mass_mats.M0.dot(M0pre.solve(x0)).toarray(), derham.B0.dot(x0).toarray())
+        assert np.allclose(mass_mats.M1.dot(M1pre.solve(x1)).toarray(), derham.B1.dot(x1).toarray())
+        assert np.allclose(mass_mats.M2.dot(M2pre.solve(x2)).toarray(), derham.B2.dot(x2).toarray())
+        assert np.allclose(mass_mats.M3.dot(M3pre.solve(x3)).toarray(), derham.B3.dot(x3).toarray())
+        assert np.allclose(mass_mats.Mv.dot(Mvpre.solve(xv)).toarray(), derham.B0vec.dot(xv).toarray())
     
     # test preconditioner in iterative solver
     M0inv = InverseLinearOperator(mass_mats.M0, pc=M0pre, tol=1e-8, maxiter=1000)
@@ -495,74 +574,77 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(x0, verbose=True)
+        r0 = M0inv.dot(derham.B0.dot(x0), verbose=True)
     else:
-        r0 = M0inv.dot(x0, verbose=False)
+        r0 = M0inv.dot(derham.B0.dot(x0), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M0inv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(x1, verbose=True)
+        r1 = M1inv.dot(derham.B1.dot(x1), verbose=True)
     else:
-        r1 = M1inv.dot(x1, verbose=False)
+        r1 = M1inv.dot(derham.B1.dot(x1), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M1inv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(x2, verbose=True)
+        r2 = M2inv.dot(derham.B2.dot(x2), verbose=True)
     else:
-        r2 = M2inv.dot(x2, verbose=False)
+        r2 = M2inv.dot(derham.B2.dot(x2), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M2inv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(x3, verbose=True)
+        r3 = M3inv.dot(derham.B3.dot(x3), verbose=True)
     else:
-        r3 = M3inv.dot(x3, verbose=False)
+        r3 = M3inv.dot(derham.B3.dot(x3), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M3inv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Invert Mv with preconditioner')
-        rv = Mvinv.dot(xv, verbose=True)
+        rv = Mvinv.dot(derham.B0vec.dot(xv), verbose=True)
     else:
-        rv = Mvinv.dot(xv, verbose=False)
+        rv = Mvinv.dot(derham.B0vec.dot(xv), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert Mvinv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Apply M1n with preconditioner')
-        r1n = M1ninv.dot(x1, verbose=True)
+        r1n = M1ninv.dot(derham.B1.dot(x1), verbose=True)
     else:
-        r1n = M1ninv.dot(x1, verbose=False)
+        r1n = M1ninv.dot(derham.B1.dot(x1), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M1ninv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply M2n with preconditioner')
-        r2n = M2ninv.dot(x2, verbose=True)
+        r2n = M2ninv.dot(derham.B2.dot(x2), verbose=True)
     else:
-        r2n = M2ninv.dot(x2, verbose=False)
+        r2n = M2ninv.dot(derham.B2.dot(x2), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert M2ninv.info['niter'] == 2
         
     mpi_comm.Barrier()
     if mpi_rank == 0:
         print('Apply Mvn with preconditioner')
-        rvn = Mvninv.dot(xv, verbose=True)
+        rvn = Mvninv.dot(derham.B0vec.dot(xv), verbose=True)
     else:
-        rvn = Mvninv.dot(xv, verbose=False)
+        rvn = Mvninv.dot(derham.B0vec.dot(xv), verbose=False)
         
     if mapping[0] == 'Cuboid' or mapping[0] == 'HollowCylinder': assert Mvninv.info['niter'] == 2
+        
+    time.sleep(2)
+    print(f'Rank {mpi_rank} | All tests passed!')
         
         
 @pytest.mark.mpi(min_size=2)
@@ -577,6 +659,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, bc, mapping, show_plots=False):
 def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=False):
     
     import numpy as np
+    import time
     
     from struphy.geometry import domains
     from struphy.feec.spline_space import Spline_space_1d, Tensor_spline_space
@@ -597,7 +680,12 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
     
-    print('number of processes : ', mpi_size)
+    if mpi_rank == 0:
+        print()
+        
+    mpi_comm.Barrier()
+    
+    print(f'Rank {mpi_rank} | Start test_mass_preconditioner_polar with ' + str(mpi_size) + ' MPI processes!')
     
     # mapping
     domain_class = getattr(domains, mapping[0])
@@ -635,15 +723,15 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, bc=bc_compatible, with_projectors=False, polar_ck=1, domain=domain)
     
-    if mpi_rank == 0:
-        print()
-        print(derham.domain_array)
+    print(f'Rank {mpi_rank} | Local domain : ' + str(derham.domain_array[mpi_rank]))
     
     # exact mass matrices
     mass_mats = WeightedMassOperators(derham, domain, eq_mhd=eq_mhd)
     
     # preconditioners
-    if mpi_rank == 0: print('Start assembling preconditioners')
+    if mpi_rank == 0: 
+        print('Start assembling preconditioners')
+        
     M0pre = MassMatrixPreconditioner(mass_mats.M0)
     M1pre = MassMatrixPreconditioner(mass_mats.M1)
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
@@ -651,7 +739,9 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     
     M1npre = MassMatrixPreconditioner(mass_mats.M1n)
     M2npre = MassMatrixPreconditioner(mass_mats.M2n)
-    if mpi_rank == 0: print('Done')
+    
+    if mpi_rank == 0: 
+        print('Done')
     
     # create random input arrays
     x0 = create_equal_random_arrays(derham.V0, seed=1234, flattened=True)[1]
@@ -676,12 +766,6 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     x2_pol.pol = [np.random.rand(x2_pol.pol[n].shape[0], x2_pol.pol[n].shape[1]) for n in range(3)]
     x3_pol.pol = [np.random.rand(x3_pol.pol[0].shape[0], x3_pol.pol[0].shape[1])]
     
-    # apply boundary conditions to vectors
-    derham.B0.dot(x0_pol, out=x0_pol)
-    derham.B1.dot(x1_pol, out=x1_pol)
-    derham.B2.dot(x2_pol, out=x2_pol)
-    derham.B3.dot(x3_pol, out=x3_pol)
-    
     # test preconditioner in iterative solver and compare to case without preconditioner
     M0inv = InverseLinearOperator(mass_mats.M0, pc=M0pre, tol=1e-8, maxiter=500)
     M1inv = InverseLinearOperator(mass_mats.M1, pc=M1pre, tol=1e-8, maxiter=500)
@@ -703,20 +787,20 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M0 with preconditioner')
-        r0 = M0inv.dot(x0_pol, verbose=True)
+        r0 = M0inv.dot(derham.B0.dot(x0_pol), verbose=True)
         print('Number of iterations : ', M0inv.info['niter'])
     else:
-        r0 = M0inv.dot(x0_pol, verbose=False)
+        r0 = M0inv.dot(derham.B0.dot(x0_pol), verbose=False)
         
     assert M0inv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M0 without preconditioner')
-        r0 = M0inv_nopc.dot(x0_pol, verbose=False)
+        r0 = M0inv_nopc.dot(derham.B0.dot(x0_pol), verbose=False)
         print('Number of iterations : ', M0inv_nopc.info['niter'])
     else:
-        r0 = M0inv_nopc.dot(x0_pol, verbose=False)
+        r0 = M0inv_nopc.dot(derham.B0.dot(x0_pol), verbose=False)
         
     assert M0inv.info['niter'] < M0inv_nopc.info['niter']
     # =======================================================
@@ -725,20 +809,20 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M1 with preconditioner')
-        r1 = M1inv.dot(x1_pol, verbose=True)
+        r1 = M1inv.dot(derham.B1.dot(x1_pol), verbose=True)
         print('Number of iterations : ', M1inv.info['niter'])
     else:
-        r1 = M1inv.dot(x1_pol, verbose=False)
+        r1 = M1inv.dot(derham.B1.dot(x1_pol), verbose=False)
         
     assert M1inv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M1 without preconditioner')
-        r1 = M1inv_nopc.dot(x1_pol, verbose=False)
+        r1 = M1inv_nopc.dot(derham.B1.dot(x1_pol), verbose=False)
         print('Number of iterations : ', M1inv_nopc.info['niter'])
     else:
-        r1 = M1inv_nopc.dot(x1_pol, verbose=False)
+        r1 = M1inv_nopc.dot(derham.B1.dot(x1_pol), verbose=False)
         
     assert M1inv.info['niter'] < M1inv_nopc.info['niter']
     # =======================================================
@@ -747,20 +831,20 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M2 with preconditioner')
-        r2 = M2inv.dot(x2_pol, verbose=True)
+        r2 = M2inv.dot(derham.B2.dot(x2_pol), verbose=True)
         print('Number of iterations : ', M2inv.info['niter'])
     else:
-        r2 = M2inv.dot(x2_pol, verbose=False)
+        r2 = M2inv.dot(derham.B2.dot(x2_pol), verbose=False)
         
     assert M2inv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M2 without preconditioner')
-        r2 = M2inv_nopc.dot(x2_pol, verbose=False)
+        r2 = M2inv_nopc.dot(derham.B2.dot(x2_pol), verbose=False)
         print('Number of iterations : ', M2inv_nopc.info['niter'])
     else:
-        r2 = M2inv_nopc.dot(x2_pol, verbose=False)
+        r2 = M2inv_nopc.dot(derham.B2.dot(x2_pol), verbose=False)
         
     assert M2inv.info['niter'] < M2inv_nopc.info['niter']
     # =======================================================
@@ -769,20 +853,20 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M3 with preconditioner')
-        r3 = M3inv.dot(x3_pol, verbose=True)
+        r3 = M3inv.dot(derham.B3.dot(x3_pol), verbose=True)
         print('Number of iterations : ', M3inv.info['niter'])
     else:
-        r3 = M3inv.dot(x3_pol, verbose=False)
+        r3 = M3inv.dot(derham.B3.dot(x3_pol), verbose=False)
         
     assert M3inv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M3 without preconditioner')
-        r3 = M3inv_nopc.dot(x3_pol, verbose=False)
+        r3 = M3inv_nopc.dot(derham.B3.dot(x3_pol), verbose=False)
         print('Number of iterations : ', M3inv_nopc.info['niter'])
     else:
-        r3 = M3inv_nopc.dot(x3_pol, verbose=False)
+        r3 = M3inv_nopc.dot(derham.B3.dot(x3_pol), verbose=False)
         
     assert M3inv.info['niter'] < M3inv_nopc.info['niter']
     # =======================================================
@@ -791,20 +875,20 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M1n with preconditioner')
-        r1 = M1ninv.dot(x1_pol, verbose=True)
+        r1 = M1ninv.dot(derham.B1.dot(x1_pol), verbose=True)
         print('Number of iterations : ', M1ninv.info['niter'])
     else:
-        r1 = M1ninv.dot(x1_pol, verbose=False)
+        r1 = M1ninv.dot(derham.B1.dot(x1_pol), verbose=False)
         
     assert M1ninv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M1n without preconditioner')
-        r1 = M1ninv_nopc.dot(x1_pol, verbose=False)
+        r1 = M1ninv_nopc.dot(derham.B1.dot(x1_pol), verbose=False)
         print('Number of iterations : ', M1ninv_nopc.info['niter'])
     else:
-        r1 = M1ninv_nopc.dot(x1_pol, verbose=False)
+        r1 = M1ninv_nopc.dot(derham.B1.dot(x1_pol), verbose=False)
         
     assert M1ninv.info['niter'] < M1ninv_nopc.info['niter']
     # =======================================================
@@ -813,33 +897,36 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, bc, mapping, show_plots=Fal
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M2n with preconditioner')
-        r2 = M2ninv.dot(x2_pol, verbose=True)
+        r2 = M2ninv.dot(derham.B2.dot(x2_pol), verbose=True)
         print('Number of iterations : ', M2ninv.info['niter'])
     else:
-        r2 = M2ninv.dot(x2_pol, verbose=False)
+        r2 = M2ninv.dot(derham.B2.dot(x2_pol), verbose=False)
         
     assert M2ninv.info['success']
         
     mpi_comm.Barrier()
     if mpi_rank == 0: 
         print('Invert M2n without preconditioner')
-        r2 = M2ninv_nopc.dot(x2_pol, verbose=False)
+        r2 = M2ninv_nopc.dot(derham.B2.dot(x2_pol), verbose=False)
         print('Number of iterations : ', M2ninv_nopc.info['niter'])
     else:
-        r2 = M2ninv_nopc.dot(x2_pol, verbose=False)
+        r2 = M2ninv_nopc.dot(derham.B2.dot(x2_pol), verbose=False)
         
     assert M2ninv.info['niter'] < M2ninv_nopc.info['niter']
     # =======================================================
     
-if __name__ == '__main__':
-    #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], True)
-    #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], True)
-    #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 10.}], True)
+    time.sleep(2)
+    print(f'Rank {mpi_rank} | All tests passed!')
     
-    test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+if __name__ == '__main__':
+    #test_mass([8, 6, 8], [2, 2, 2], [False, True, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
+    #test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
+    #test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'R0': 3., 'Lz': 10.}], False)
+    
+    #test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
     
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Cuboid', {'l1': 0., 'r1': 1., 'l2': 0., 'r2': 6., 'l3': 0., 'r3': 10.}], False)
     #test_mass_preconditioner([8, 6, 4], [2, 2, 2], [False, False, False], [['d', 'd'], [None, None], [None, None]], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .05, 'Lz' : 10.}], False)
     #test_mass_preconditioner([6, 9, 4], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['HollowCylinder', {'a1' : .1, 'a2' : 1., 'R0' : 3., 'Lz' : 18.84955592153876}], False)
     
-    #test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)
+    test_mass_preconditioner_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[None, 'd'], [None, None], ['d', None]], ['PoloidalSplineCylinder', {'a': 1., 'R0': 3.}], False)

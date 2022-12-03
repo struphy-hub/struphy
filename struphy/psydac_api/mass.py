@@ -10,9 +10,10 @@ from psydac.fem.vector import ProductFemSpace
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 
 from struphy.psydac_api import mass_kernels
-from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator
+from struphy.psydac_api.linear_operators import LinOpWithTransp, CompositeLinearOperator, IdentityOperator, BoundaryOperator
 
 from struphy.polar.basic import PolarVector
+from struphy.polar.linear_operators import PolarExtractionOperator
 
 
 class WeightedMassOperators:
@@ -281,19 +282,19 @@ class WeightedMassOperator( LinOpWithTransp ):
         W : TensorFemSpace | ProductFemSpace
             Tensor product spline space from psydac.fem.tensor (codomain, output space).
             
-        V_extraction_op : PolarExtractionOperator | NoneType
+        V_extraction_op : PolarExtractionOperator | IdentityOperator
             Extraction operator to polar sub-space of V.
             
-        W_extraction_op : PolarExtractionOperator | NoneType
+        W_extraction_op : PolarExtractionOperator | IdentityOperator
             Extraction operator to polar sub-space of W.
             
-        V_boundary_op : BoundaryOperator | NoneType
+        V_boundary_op : BoundaryOperator | IdentityOperator
             Boundary operator that sets essential boundary conditions.
             
-        W_boundary_op : BoundaryOperator | NoneType
+        W_boundary_op : BoundaryOperator | IdentityOperator
             Boundary operator that sets essential boundary conditions.
             
-        weight : list | NoneType
+        weight : list
             Weight function(s) (callables) in a 2d list of shape corresponding to number of components of domain/codomain.
             
         transposed : bool
@@ -311,24 +312,33 @@ class WeightedMassOperator( LinOpWithTransp ):
         self._V = V
         self._W = W
         
-        # set basis extraction operators and boundary operators
+        # set basis extraction operators
         if V_extraction_op is not None:
+            assert isinstance(V_extraction_op, (PolarExtractionOperator, IdentityOperator))
             assert V_extraction_op.domain == V.vector_space
+            self._V_extraction_op = V_extraction_op
+        else:
+            self._V_extraction_op = IdentityOperator(V.vector_space)
             
         if W_extraction_op is not None:
+            assert isinstance(W_extraction_op, (PolarExtractionOperator, IdentityOperator))
             assert W_extraction_op.domain == W.vector_space
-        
-        self._V_extraction_op = V_extraction_op
-        self._W_extraction_op = W_extraction_op
-            
-        # set boundary operators
-        if V_boundary_op is None:
-            self._bc = [[None, None], [None, None], [None, None]]
+            self._W_extraction_op = W_extraction_op
         else:
-            self._bc = V_boundary_op.bc
+            self._W_extraction_op = IdentityOperator(W.vector_space)
         
-        self._V_boundary_op = V_boundary_op
-        self._W_boundary_op = W_boundary_op
+        # set boundary operators
+        if V_boundary_op is not None:
+            assert isinstance(V_boundary_op, (BoundaryOperator, IdentityOperator))
+            self._V_boundary_op = V_boundary_op
+        else:
+            self._V_boundary_op = IdentityOperator(self._V_extraction_op.codomain)
+            
+        if W_boundary_op is not None:
+            assert isinstance(W_boundary_op, (BoundaryOperator, IdentityOperator))
+            self._W_boundary_op = W_boundary_op
+        else:
+            self._W_boundary_op = IdentityOperator(self._W_extraction_op.codomain)
         
         self._weight = weight
         self._transposed = transposed
@@ -366,35 +376,24 @@ class WeightedMassOperator( LinOpWithTransp ):
             self._mat = WeightedMassOperator.assemble_mat(V, W, weight)
         # ===============================================
         
-        # build composite linear operator BW * EW * M * EV^T * BV^T, resp. BV * EV * M^T * EW^T * BW^T if transpsed=True
-        if V_extraction_op is None:
-            V_extraction_opT = None
-        else:
-            V_extraction_opT = V_extraction_op.transpose()
-            
-        if W_extraction_op is None:
-            W_extraction_opT = None
-        else:
-            W_extraction_opT = W_extraction_op.transpose()
-            
-        if V_boundary_op is None:
-            V_boundary_opT = None
-        else:
-            V_boundary_opT = V_boundary_op.transpose()
-            
-        if W_boundary_op is None:
-            W_boundary_opT = None
-        else:
-            W_boundary_opT = W_boundary_op.transpose()
+        # some shortcuts
+        BW = self._W_boundary_op
+        BV = self._V_boundary_op
         
-        if transposed:
-            self._operator = CompositeLinearOperator(V_boundary_op, V_extraction_op, self._mat, W_extraction_opT, W_boundary_opT)
-        else:
-            self._operator = CompositeLinearOperator(W_boundary_op, W_extraction_op, self._mat, V_extraction_opT, V_boundary_opT)
+        EW = self._W_extraction_op
+        EV = self._V_extraction_op
 
+        # build composite linear operators BW * EW * M * EV^T * BV^T, resp. IDV * EV * M^T * EW^T * IDW^T
+        if transposed:
+            self._M  = CompositeLinearOperator(IdentityOperator(EV.codomain), EV, self._mat, EW.transpose(), IdentityOperator(EW.codomain).transpose())
+            self._M0 = CompositeLinearOperator(BV, EV, self._mat, EW.transpose(), BW.transpose())
+        else:
+            self._M  = CompositeLinearOperator(IdentityOperator(EW.codomain), EW, self._mat, EV.transpose(), IdentityOperator(EV.codomain).transpose())
+            self._M0 = CompositeLinearOperator(BW, EW, self._mat, EV.transpose(), BV.transpose())
+        
         # set domain and codomain
-        self._domain = self.operator.domain
-        self._codomain = self.operator.codomain
+        self._domain = self._M.domain
+        self._codomain = self._M.codomain
     
     @property
     def domain(self):
@@ -421,14 +420,14 @@ class WeightedMassOperator( LinOpWithTransp ):
         return self._transposed
     
     @property
-    def operator(self):
-        return self._operator
+    def M(self):
+        return self._M
     
     @property
-    def bc(self):
-        return self._bc
+    def M0(self):
+        return self._M0
     
-    def dot(self, v, out=None):
+    def dot(self, v, out=None, apply_bc=True):
         """
         Applies the weighted mass operator to the FE coefficients v.
 
@@ -436,6 +435,9 @@ class WeightedMassOperator( LinOpWithTransp ):
         ----------
             v : StencilVector | BlockVector | PolarVector
                 Input FE coefficients the mass operator is applied to.
+                
+            apply_bc : bool
+                Whether to apply boundary operators to input/output.
 
         Returns
         -------
@@ -447,16 +449,23 @@ class WeightedMassOperator( LinOpWithTransp ):
         
         # newly created output vector
         if out is None:
-            out = self.operator.dot(v)
+            if apply_bc:
+                out = self._M0.dot(v)
+            else:
+                out = self._M.dot(v)
         
         # in-place dot-product (result is written to out)
         else:
             
-            tmp = self.operator.dot(v)
+            assert isinstance(out, (StencilVector, BlockVector, PolarVector))
+            
+            if apply_bc:
+                tmp = self._M0.dot(v)
+            else:
+                tmp = self._M.dot(v)
             
             if isinstance(tmp, PolarVector):
-                out.pol = tmp.pol
-                out.tp  = tmp.tp
+                out.set_vector(tmp)
             elif isinstance(tmp, StencilVector):
                 out[:] = tmp[:]
             elif isinstance(tmp, BlockVector):

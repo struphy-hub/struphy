@@ -7,7 +7,7 @@ from psydac.api.discretization import discretize
 from psydac.fem.vector import ProductFemSpace
 from psydac.feec.global_projectors import Projector_H1vec
 
-from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator
+from struphy.psydac_api.linear_operators import BoundaryOperator, CompositeLinearOperator, IdentityOperator
 
 from struphy.psydac_api.projectors import Projector
 
@@ -196,22 +196,24 @@ class Derham:
             self._B3 = BoundaryOperator(self._V3.vector_space, 'L2', self._bc)
             self._B0vec = BoundaryOperator(self._V0vec.vector_space, 'H1vec', self._bc)
             
-            self._E0 = None
-            self._E1 = None
-            self._E2 = None
-            self._E3 = None
-            self._E0vec = None
+            self._E0 = IdentityOperator(self._V0.vector_space)
+            self._E1 = IdentityOperator(self._V1.vector_space)
+            self._E2 = IdentityOperator(self._V2.vector_space)
+            self._E3 = IdentityOperator(self._V3.vector_space)
+            self._E0vec = IdentityOperator(self._V0vec.vector_space)
             
-            self._grad = CompositeLinearOperator(self._B1, self._grad, self._B0.transpose())
-            self._curl = CompositeLinearOperator(self._B2, self._curl, self._B1.transpose())
-            self._div  = CompositeLinearOperator(self._B3, self._div , self._B2.transpose())
+            P0_ex = IdentityOperator(self._V0.vector_space)
+            P1_ex = IdentityOperator(self._V1.vector_space)
+            P2_ex = IdentityOperator(self._V2.vector_space)
+            P3_ex = IdentityOperator(self._V3.vector_space)
+            P0vec_ex = IdentityOperator(self._V0vec.vector_space)
             
             if with_projectors:
-                self._P0 = Projector(self._P0, boundary_op=self._B0)
-                self._P1 = Projector(self._P1, boundary_op=self._B1)
-                self._P2 = Projector(self._P2, boundary_op=self._B2)
-                self._P3 = Projector(self._P3, boundary_op=self._B3)
-                self._P0vec = Projector(self._P0vec, boundary_op=self._B0vec)
+                self._P0 = Projector(self._P0, P0_ex, self._E0, self._B0)
+                self._P1 = Projector(self._P1, P1_ex, self._E1, self._B1)
+                self._P2 = Projector(self._P2, P2_ex, self._E2, self._B2)
+                self._P3 = Projector(self._P3, P3_ex, self._E3, self._B3)
+                self._P0vec = Projector(self._P0vec, P0vec_ex, self._E0vec, self._B0vec)
             
         else:
             c1_blocks = PolarExtractionBlocksC1(domain, self)
@@ -228,24 +230,20 @@ class Derham:
             self._B3 = BoundaryOperator(self._V3_pol, 'L2', self._bc)
             self._B0vec = BoundaryOperator(self._V0vec_pol, 'H1vec', self._bc)
             
-            self._E0 = PolarExtractionOperator(self.V0.vector_space, self.V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
-            self._E1 = PolarExtractionOperator(self.V1.vector_space, self.V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
-            self._E2 = PolarExtractionOperator(self.V2.vector_space, self.V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
-            self._E3 = PolarExtractionOperator(self.V3.vector_space, self.V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
+            self._E0 = PolarExtractionOperator(self._V0.vector_space, self._V0_pol, c1_blocks.e0_blocks_ten_to_pol, c1_blocks.e0_blocks_ten_to_ten)
+            self._E1 = PolarExtractionOperator(self._V1.vector_space, self._V1_pol, c1_blocks.e1_blocks_ten_to_pol, c1_blocks.e1_blocks_ten_to_ten)
+            self._E2 = PolarExtractionOperator(self._V2.vector_space, self._V2_pol, c1_blocks.e2_blocks_ten_to_pol, c1_blocks.e2_blocks_ten_to_ten)
+            self._E3 = PolarExtractionOperator(self._V3.vector_space, self._V3_pol, c1_blocks.e3_blocks_ten_to_pol, c1_blocks.e3_blocks_ten_to_ten)
             self._E0vec = None # TODO: extraction operator E0vec
             
             self._grad = PolarLinearOperator(self._V0_pol, self._V1_pol, self._grad, c1_blocks.grad_blocks_pol_to_ten, c1_blocks.grad_blocks_pol_to_pol, c1_blocks.grad_blocks_e3)
             self._curl = PolarLinearOperator(self._V1_pol, self._V2_pol, self._curl, c1_blocks.curl_blocks_pol_to_ten, c1_blocks.curl_blocks_pol_to_pol, c1_blocks.curl_blocks_e3)
             self._div  = PolarLinearOperator(self._V2_pol, self._V3_pol, self._div , c1_blocks.div_blocks_pol_to_ten , c1_blocks.div_blocks_pol_to_pol , c1_blocks.div_blocks_e3 )
             
-            self._grad = CompositeLinearOperator(self._B1, self._grad, self._B0.transpose())
-            self._curl = CompositeLinearOperator(self._B2, self._curl, self._B1.transpose())
-            self._div  = CompositeLinearOperator(self._B3, self._div , self._B2.transpose())
-            
-            P0_ex = PolarExtractionOperator(self.V0.vector_space, self.V0_pol, c1_blocks.p0_blocks_ten_to_pol, c1_blocks.p0_blocks_ten_to_ten)
-            P1_ex = PolarExtractionOperator(self.V1.vector_space, self.V1_pol, c1_blocks.p1_blocks_ten_to_pol, c1_blocks.p1_blocks_ten_to_ten)
-            P2_ex = PolarExtractionOperator(self.V2.vector_space, self.V2_pol, c1_blocks.p2_blocks_ten_to_pol, c1_blocks.p2_blocks_ten_to_ten)
-            P3_ex = PolarExtractionOperator(self.V3.vector_space, self.V3_pol, c1_blocks.p3_blocks_ten_to_pol, c1_blocks.p3_blocks_ten_to_ten)
+            P0_ex = PolarExtractionOperator(self._V0.vector_space, self._V0_pol, c1_blocks.p0_blocks_ten_to_pol, c1_blocks.p0_blocks_ten_to_ten)
+            P1_ex = PolarExtractionOperator(self._V1.vector_space, self._V1_pol, c1_blocks.p1_blocks_ten_to_pol, c1_blocks.p1_blocks_ten_to_ten)
+            P2_ex = PolarExtractionOperator(self._V2.vector_space, self._V2_pol, c1_blocks.p2_blocks_ten_to_pol, c1_blocks.p2_blocks_ten_to_ten)
+            P3_ex = PolarExtractionOperator(self._V3.vector_space, self._V3_pol, c1_blocks.p3_blocks_ten_to_pol, c1_blocks.p3_blocks_ten_to_ten)
             P0vec_ex = None # TODO: extraction operator P0vec_ex
             
             if with_projectors:
@@ -254,6 +252,10 @@ class Derham:
                 self._P2 = Projector(self._P2, P2_ex, self._E2, self._B2)
                 self._P3 = Projector(self._P3, P3_ex, self._E3, self._B3)
                 self._P0vec = None # TODO: projector P0vec
+                
+        self._grad = CompositeLinearOperator(self._B1, self._grad, self._B0.transpose())
+        self._curl = CompositeLinearOperator(self._B2, self._curl, self._B1.transpose())
+        self._div  = CompositeLinearOperator(self._B3, self._div , self._B2.transpose())
             
    
     @property
